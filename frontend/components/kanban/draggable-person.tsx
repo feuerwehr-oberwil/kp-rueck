@@ -8,7 +8,8 @@ import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
 import { RESOURCE_STATE_ICON_CLASSES, isPersonOccupied } from "@/lib/resource-status"
-import { Car, Binoculars, Package2, Check, Minus, AlertTriangle } from 'lucide-react'
+import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
+import { Car, Binoculars, Package2, Phone, MonitorCog, Check, Minus, AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface DraggablePersonProps {
@@ -17,9 +18,13 @@ interface DraggablePersonProps {
   disabled?: boolean
   /** When > 1, this person is currently on multiple incidents — surface a conflict badge. */
   assignmentCount?: number
+  /** Where this person actually is (incident label / Auftrag name), resolved by
+   *  the parent via `usePersonEngagements` — a prop, not a hook, so this
+   *  memoized card does not subscribe to the whole operations context (§P3.5). */
+  engagement?: PersonEngagement
 }
 
-function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: DraggablePersonProps) {
+function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engagement }: DraggablePersonProps) {
   const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -89,6 +94,29 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
       )
     }
 
+    // Telefondienst badge — the phone desk is a role like the three above it
+    // (plan 26, decision 6), so it wears a chip rather than becoming a "rank".
+    if (person.isTelefondienst) {
+      badges.push(
+        <Badge key="telefondienst" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
+          <Phone className="h-3 w-3" />
+          {t('common.telefondienst')}
+        </Badge>
+      )
+    }
+
+    // Kommandoposten — the one role that unlocks nothing. It exists to say the
+    // person is working on THIS, so the board stops offering its own operators
+    // as crew for a Schadenplatz.
+    if (person.isKommandoposten) {
+      badges.push(
+        <Badge key="kommandoposten" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
+          <MonitorCog className="h-3 w-3" />
+          {t('common.kommandoposten')}
+        </Badge>
+      )
+    }
+
     return badges
   }
 
@@ -98,6 +126,26 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
   // stay draggable, so without this they read as free. Shared with the sidebar's
   // "nur verfügbare" filter so the filter and this icon can never disagree.
   const isOccupied = isPersonOccupied(person)
+
+  // WHY occupied, for the hover tooltip (§P3.5) — same rule as the assignment
+  // dialog's labels: a real engagement names the incident (short address) or
+  // the Auftrag; a mere function holder gets the function's name; the generic
+  // «Im Einsatz» is the last resort for an engagement nothing can resolve —
+  // never the answer for somebody who only carries a role.
+  const functionLabel = [
+    person.isDriver && person.driverVehicleName
+      ? t('person.driverFunction', { vehicle: person.driverVehicleName })
+      : null,
+    person.isReko ? t('common.reko') : null,
+    person.isMagazin ? t('common.magazin') : null,
+    person.isTelefondienst ? t('common.telefondienst') : null,
+    person.isKommandoposten ? t('common.kommandoposten') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const occupiedTooltip = engagement
+    ? t('person.engagedTooltip', { label: engagement.full })
+    : functionLabel || t('common.inUse')
 
   return (
     <PersonContextMenu
@@ -116,13 +164,19 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",
-          // Every card keeps the SAME surface — same border, same fill. State is
-          // carried by the status icon (amber minus = in use, emerald check =
-          // available) and the badges, never by fading or tinting the card.
-          // Earlier variants used `opacity-60`, `bg-muted/30` and `border-border/30`
-          // for the assigned/reko cases; side by side in one column that read as
-          // "some cards have a border and some don't", which is worse than the
-          // small amount of information the tint carried.
+          // Every card keeps the same BORDER and the same FILL — that part of
+          // the earlier note stands. What was tried and reverted was
+          // `opacity-60` together with `bg-muted/30` and `border-border/30`, and
+          // it was the border going soft that made one column read as "some
+          // cards have a border and some don't".
+          //
+          // The opacity is back on its own. Scanning a roster of forty for
+          // somebody free was a hunt for a 12px minus against a 12px check, in
+          // colours a quarter of a second apart; who is available has to be
+          // answerable at a glance down the column, and that is what a second
+          // channel buys. Hover brings the card back to full strength, so
+          // nothing dimmed is ever hard to read while it is being read.
+          isOccupied && !isDoubleBooked && "opacity-60 hover:opacity-100",
           !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked is the one exception: a genuine conflict the operator
@@ -139,8 +193,8 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount }: Dra
                   "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
                   RESOURCE_STATE_ICON_CLASSES[isOccupied ? "assigned" : "available"],
                 )}
-                aria-label={isOccupied ? t('common.inUse') : t('common.available')}
-                title={isOccupied ? t('common.inUse') : t('common.available')}
+                aria-label={isOccupied ? occupiedTooltip : t('common.available')}
+                title={isOccupied ? occupiedTooltip : t('common.available')}
               >
                 {isOccupied ? (
                   <Minus className="h-3 w-3" />
@@ -205,8 +259,13 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.isDriver === nextProps.person.isDriver &&
     prevProps.person.driverVehicleName === nextProps.person.driverVehicleName &&
     prevProps.person.isMagazin === nextProps.person.isMagazin &&
+    prevProps.person.isTelefondienst === nextProps.person.isTelefondienst &&
+    prevProps.person.isKommandoposten === nextProps.person.isKommandoposten &&
     JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
     prevProps.disabled === nextProps.disabled &&
-    prevProps.assignmentCount === nextProps.assignmentCount
+    prevProps.assignmentCount === nextProps.assignmentCount &&
+    // The engagement label is derived state — compare by value, not identity,
+    // because the parent's map is rebuilt on every operations change.
+    prevProps.engagement?.full === nextProps.engagement?.full
   )
 })

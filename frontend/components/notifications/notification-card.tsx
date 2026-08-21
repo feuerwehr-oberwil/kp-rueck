@@ -67,6 +67,13 @@ export interface NotificationCardProps {
   onDismiss?: (id: string) => void
   onClickIncident?: (incidentId: string, tab?: OperationDetailTab) => void
   variant?: 'default' | 'compact'
+  /**
+   * Whether clicking the row also dismisses the notification. True where the
+   * click ACTS on it (the sheet navigates away); false where it only points —
+   * the persistent sidebar highlights the board card and stays open, and a
+   * pointer must not clear the alert for every other board.
+   */
+  dismissOnClick?: boolean
 }
 
 export function NotificationCard({
@@ -74,6 +81,7 @@ export function NotificationCard({
   onDismiss,
   onClickIncident,
   variant = 'default',
+  dismissOnClick = true,
 }: NotificationCardProps) {
   const t = useTranslations('notifications.card')
   const tSidebar = useTranslations('notifications.sidebar')
@@ -114,7 +122,7 @@ export function NotificationCard({
       aria-label={`${severityLabel} notification`}
       onClick={() => {
         if (!isClickable) return
-        if (!notification.dismissed && onDismiss) onDismiss(notification.id)
+        if (dismissOnClick && !notification.dismissed && onDismiss) onDismiss(notification.id)
         // The bell is a pointer: open the tab the notification is ABOUT, not
         // the one the operator happens to have remembered (§18.27).
         onClickIncident(notification.incident_id!, detailTabForNotification(notification.type))

@@ -20,6 +20,7 @@ VALID_ALARM = {
     "location_lng": "7.5886",
     "description": "Rauch aus dem 2. OG",
     "contact": "Hans Muster, 079 123 45 67",
+    "internal_notes": "Zufahrt über den Hinterhof gesperrt",
 }
 
 
@@ -102,6 +103,37 @@ class TestCreateAlarm:
         assert incident.status == "incoming"
         assert incident.title == VALID_ALARM["title"]
         assert incident.contact == VALID_ALARM["contact"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_two_texts_land_in_their_own_columns(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        """«Meldung» → `description`, «Weitere Hinweise» → `internal_notes`.
+
+        The board reads those two columns as «Meldung» and «Notizen». The form
+        used to have nowhere to put the second one, so the first was pushed into
+        `title` — which a card only shows when it has no address, i.e. never for
+        an alarm the caller could name a street for.
+        """
+        token = generate_alarm_token(test_event.id)
+        response = await client.post(f"/api/intake/alarm?token={token}", json=VALID_ALARM)
+        assert response.status_code == 201
+
+        incident = (await db_session.execute(select(Incident).where(Incident.id == response.json()["id"]))).scalar_one()
+        assert incident.description == VALID_ALARM["description"]
+        assert incident.internal_notes == VALID_ALARM["internal_notes"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_overlong_notes_rejected(self, client: AsyncClient, test_event: Event):
+        """Free text through a login-less door is capped, like the Meldung."""
+        token = generate_alarm_token(test_event.id)
+        response = await client.post(
+            f"/api/intake/alarm?token={token}",
+            json={**VALID_ALARM, "internal_notes": "x" * 2001},
+        )
+        assert response.status_code == 422
 
     @pytest.mark.asyncio
     @pytest.mark.api

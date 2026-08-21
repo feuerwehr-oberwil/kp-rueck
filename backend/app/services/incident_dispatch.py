@@ -103,12 +103,57 @@ async def is_dispatched(db: AsyncSession, incident: _HasStatus) -> bool:
     return incident.id in await dispatched_incident_ids(db, [incident])
 
 
-def rapport_applies(*, dispatched: bool, has_report: bool) -> bool:
+def rapport_applies(
+    *,
+    dispatched: bool,
+    has_report: bool,
+    reko_not_relevant: bool = False,
+    status: str | None = None,
+) -> bool:
     """Should this incident show a Schadenplatz-Rapport at all?
 
     An existing report always wins over the rule. A rapport that somebody
     already filed — on data that predates this rule, or on a card whose history
     was rewritten — must never become unreachable; hiding written work is a
     worse outcome than an empty form on a card that skipped the board.
+
+    ``reko_not_relevant`` (+ ``status``) is the one thing that beats
+    ``dispatched``: the Reko said «Kein Einsatz nötig», the KP closed the card,
+    and nobody ever started a rapport — then there was nothing to report on,
+    however the status history reads. The history lies exactly here: the GPS
+    automation and the training simulator both walk a card through ``active``
+    when the *Reko's* vehicle reaches the address, which is a recce, not work.
+    Scoped to closed cards — an open card can still be dispatched despite the
+    verdict, and the rapport must be there when it is.
     """
-    return dispatched or has_report
+    if has_report:
+        return True
+    if reko_not_relevant and status == "complete":
+        return False
+    return dispatched
+
+
+async def reko_not_relevant_ids(
+    db: AsyncSession,
+    incident_ids: Sequence[uuid.UUID],
+) -> set[uuid.UUID]:
+    """Of these incidents, the ones whose LATEST submitted Reko says
+    «Kein Einsatz nötig» — batched, for the same reason as above."""
+    if not incident_ids:
+        return set()
+
+    from ..models import RekoReport
+
+    result = await db.execute(
+        select(RekoReport.incident_id, RekoReport.is_relevant)
+        .where(
+            RekoReport.incident_id.in_(list(incident_ids)),
+            RekoReport.is_draft.is_(False),
+        )
+        .order_by(RekoReport.submitted_at)
+    )
+    # Ordered oldest-first, so the newest verdict simply overwrites.
+    latest: dict[uuid.UUID, bool | None] = {}
+    for incident_id, is_relevant in result.all():
+        latest[incident_id] = is_relevant
+    return {incident_id for incident_id, is_relevant in latest.items() if is_relevant is False}

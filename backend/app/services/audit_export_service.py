@@ -199,7 +199,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         .join(Personnel, EventAttendance.personnel_id == Personnel.id)
         .where(EventAttendance.event_id == event_id)
         .where(EventAttendance.checked_in_at.is_not(None))
-        .order_by(Personnel.role_sort_order.asc(), Personnel.name.asc())
+        .order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
     )
     attendance = list(attendance_result.scalars().all())
     personnel_ids.update(a.personnel_id for a in attendance)

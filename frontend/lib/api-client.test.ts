@@ -5,7 +5,7 @@ vi.mock('@/lib/env', () => ({
 }))
 
 vi.mock('sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }),
 }))
 
 import { apiClient, NetworkError } from './api-client'

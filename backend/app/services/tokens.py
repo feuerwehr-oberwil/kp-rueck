@@ -136,60 +136,6 @@ def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -
 
 
 # ============================================
-# REKO DASHBOARD TOKENS
-# ============================================
-
-
-def generate_reko_dashboard_token(event_id: UUID) -> str:
-    """
-    Generate a JWT token for Reko Dashboard access scoped to an event.
-
-    Args:
-        event_id: UUID of the event this dashboard is for
-
-    Returns:
-        JWT token string containing event_id and expiration
-    """
-    # Token expires in 24 hours
-    expiration = datetime.now(UTC) + timedelta(hours=24)
-
-    payload = {
-        "event_id": str(event_id),
-        "exp": expiration,
-        "type": "reko_dashboard",
-    }
-
-    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-    return token
-
-
-def validate_reko_dashboard_token(token: str) -> UUID | None:
-    """
-    Validate Reko Dashboard token and extract event_id.
-
-    Args:
-        token: The JWT token string to validate
-
-    Returns:
-        UUID of the event if token is valid, None otherwise
-    """
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
-
-        # Check token type
-        if payload.get("type") != "reko_dashboard":
-            return None
-
-        event_id_str = payload.get("event_id")
-        if not event_id_str:
-            return None
-
-        return UUID(event_id_str)
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
-        return None
-
-
-# ============================================
 # VIEWER TOKENS
 # ============================================
 
@@ -310,43 +256,58 @@ def validate_alarm_token(token: str) -> UUID | None:
 class FeldTokenClaims:
     """What a valid `/feld` token says about its holder.
 
-    ``personnel_id`` is the optional person binding: when it is set, the token
-    speaks for that one person and every `/feld` endpoint refuses to act as
-    anybody else (`api/feld.py`). When it is ``None`` the token names only the
-    event — which is what the shared poster QR and the Einsatzzettel slip carry,
-    because neither knows yet who will drive.
+    A field token comes in three strengths, and which one you hold decides what
+    you may do (plan 26, decisions 13 and 18):
+
+    **link** — ``unlocked=False``, no person. What the poster QR and the printed
+    Einsatzzettel carry. On its own it opens *nothing*: it is the right to be
+    asked for the Feld-Code, and that is all. This is what makes a forwarded
+    link or a three-week-old slip in a vehicle harmless.
+
+    **unlocked** — ``unlocked=True``, no person yet. Minted by the code exchange.
+    It may read the person picker so somebody can find their own name, and
+    nothing else.
+
+    **bound** — ``unlocked=True`` plus ``personnel_id`` and ``claim_id``. Minted
+    when the person picks themselves. Every endpoint refuses to act as anybody
+    else, so from here on the device provably cannot speak for another crew.
+    ``claim_id`` points at the ``feld_device_claims`` row, which is what makes
+    "alle Geräte abmelden" possible at all — a JWT cannot otherwise be recalled.
     """
 
     event_id: UUID
     personnel_id: UUID | None = None
+    unlocked: bool = False
+    claim_id: UUID | None = None
 
 
-def generate_feld_token(event_id: UUID, personnel_id: UUID | None = None, expires_hours: int = 720) -> str:
+def generate_feld_token(
+    event_id: UUID,
+    personnel_id: UUID | None = None,
+    expires_hours: int = 720,
+    *,
+    unlocked: bool = False,
+    claim_id: UUID | None = None,
+) -> str:
     """
     Generate a JWT token for the `/feld` field surface.
 
     Long-lived by default (30 days), mirroring the alarm token: a storm Ereignis
     runs for days and this QR lives on a printed poster in the vehicle hall.
 
-    **Scope, honestly.** Without ``personnel_id`` the token names the event and
-    nothing else. The endpoints still run a second check — the personnel row the
-    caller names must have an assignment in that event — but the caller names it
-    themselves, and `GET /feld/personnel` hands any holder of the link the whole
-    picker. So an event-scoped link is a credential for the *event*: whoever
-    holds it can read, and write as, any crew in it. That is the price of one
-    global QR on a wall, and it is the current behaviour of both mint sites
-    (`api/feld.generate_feld_link`, `crud/print_jobs` for the Einsatzzettel).
-
-    With ``personnel_id`` the token is bound to one person: the same endpoints
-    additionally refuse any `personnel_id` that is not the one in the token, so
-    such a link genuinely cannot reach another crew's Schadenplatz. Nothing
-    mints one yet — issuing personal links means giving up the shared poster —
-    but the binding is enforced the moment something does.
+    **What each strength is worth** — see ``FeldTokenClaims``. The default, with
+    no arguments beyond the event, is the weakest one on purpose: that is what
+    the poster QR and the Einsatzzettel carry, and it opens nothing until
+    somebody types the Feld-Code. Handing out the stronger forms is the job of
+    the exchange in `api/feld.py`, which is the only place that has seen the
+    code.
 
     Args:
         event_id: UUID of the event this field surface is for
-        personnel_id: bind the token to one person (default: unbound, event-wide)
+        personnel_id: bind the token to one person (default: unbound)
         expires_hours: Token expiration time in hours (default: 720 = 30 days)
+        unlocked: the Feld-Code has been entered on this device
+        claim_id: the ``feld_device_claims`` row this token lives or dies with
 
     Returns:
         JWT token string containing the claims above and an expiration
@@ -360,6 +321,10 @@ def generate_feld_token(event_id: UUID, personnel_id: UUID | None = None, expire
     }
     if personnel_id is not None:
         payload["personnel_id"] = str(personnel_id)
+    if unlocked:
+        payload["unlocked"] = True
+    if claim_id is not None:
+        payload["claim_id"] = str(claim_id)
 
     token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
     return token
@@ -374,14 +339,15 @@ def validate_feld_token(token: str) -> FeldTokenClaims | None:
 
     Returns:
         The token's claims if it is valid, None otherwise. A token whose
-        `personnel_id` claim is present but unreadable is rejected outright
-        rather than degraded to an event-wide one — a broken binding must never
-        widen access.
+        `personnel_id` or `claim_id` is present but unreadable is rejected
+        outright rather than degraded to a weaker one — a broken binding must
+        never widen access, and a bound token that quietly fell back to
+        "unlocked, no person" would be exactly that.
     """
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
 
-        # Check token type — a checkin/viewer/reko_dashboard/alarm token must
+        # Check token type — a checkin/viewer/alarm token must
         # never open this door, and vice versa.
         if payload.get("type") != "feld":
             return None
@@ -391,9 +357,12 @@ def validate_feld_token(token: str) -> FeldTokenClaims | None:
             return None
 
         personnel_id_str = payload.get("personnel_id")
+        claim_id_str = payload.get("claim_id")
         return FeldTokenClaims(
             event_id=UUID(event_id_str),
             personnel_id=UUID(personnel_id_str) if personnel_id_str else None,
+            unlocked=bool(payload.get("unlocked", False)),
+            claim_id=UUID(claim_id_str) if claim_id_str else None,
         )
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
         return None

@@ -16,7 +16,7 @@ import { useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { toast } from "sonner"
-import { Car, Binoculars, Package2, Check } from 'lucide-react'
+import { Car, Binoculars, Package2, Phone, MonitorCog, Check } from 'lucide-react'
 
 interface PersonContextMenuProps {
   children: React.ReactNode
@@ -107,8 +107,12 @@ export function PersonContextMenu({
   const assignFunction = async (functionType: FunctionType, vehicleId?: string) => {
     if (!selectedEvent || loading) return
 
-    // Check for incident assignment conflicts (driver and magazin make person unavailable)
-    if (functionType === 'driver' || functionType === 'magazin') {
+    // Every role but Reko takes the person off the board's available list
+    // (`operations-context.tsx` counts them as assigned), so putting somebody on
+    // the phone desk while they are dispatched to a Schadenplatz is the same
+    // conflict as making them a driver — and the KP should be asked, not
+    // surprised. Reko stays out: a Reko trupp IS out on a Schadenplatz.
+    if (functionType !== 'reko') {
       const conflicts = getConflictingOperations()
       if (conflicts.length > 0) {
         setConflictDialog({
@@ -201,6 +205,10 @@ export function PersonContextMenu({
         return t('common.reko')
       case 'magazin':
         return t('common.magazin')
+      case 'telefondienst':
+        return t('common.telefondienst')
+      case 'kommandoposten':
+        return t('common.kommandoposten')
       default:
         return functionType
     }
@@ -283,6 +291,42 @@ export function PersonContextMenu({
             {hasFunction('magazin') && <Check className="mr-2 h-4 w-4" />}
             <Package2 className={`mr-2 h-4 w-4 ${!hasFunction('magazin') ? 'ml-6' : ''}`} />
             {t('common.magazin')}
+          </ContextMenuItem>
+
+          {/* Telefondienst is a role like the three above it, not a page: the
+              person holding it gets the call form on their own `/feld`. It
+              belongs here for the same reason Magazin does — the KP hands it
+              out by right-clicking a name, and it lasts for the Ereignis. */}
+          <ContextMenuItem
+            onClick={() => {
+              if (hasFunction('telefondienst')) {
+                setUnassignDialog({ open: true, functionType: 'telefondienst' })
+              } else {
+                assignFunction('telefondienst')
+              }
+            }}
+          >
+            {hasFunction('telefondienst') && <Check className="mr-2 h-4 w-4" />}
+            <Phone className={`mr-2 h-4 w-4 ${!hasFunction('telefondienst') ? 'ml-6' : ''}`} />
+            {t('common.telefondienst')}
+          </ContextMenuItem>
+
+          {/* The one role that unlocks nothing: it says this person is running
+              the board. Without it the KP kept being offered its own operators
+              as crew, because «verfügbar» counted anybody not on an incident —
+              and working on this app is work. */}
+          <ContextMenuItem
+            onClick={() => {
+              if (hasFunction('kommandoposten')) {
+                setUnassignDialog({ open: true, functionType: 'kommandoposten' })
+              } else {
+                assignFunction('kommandoposten')
+              }
+            }}
+          >
+            {hasFunction('kommandoposten') && <Check className="mr-2 h-4 w-4" />}
+            <MonitorCog className={`mr-2 h-4 w-4 ${!hasFunction('kommandoposten') ? 'ml-6' : ''}`} />
+            {t('common.kommandoposten')}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>

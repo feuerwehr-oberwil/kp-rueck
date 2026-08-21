@@ -28,7 +28,7 @@
  * longer says whether Reko is on site.
  */
 
-import { useState, useEffect, useCallback, useMemo, Fragment, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -62,6 +62,14 @@ interface RekoReportSectionProps {
    * them, where it read as a heading for the entry surface as well.
    */
   dataSlot?: ReactNode
+  /**
+   * Open the entry form on arrival. A NONCE rather than a boolean: the caller
+   * that wants this is a deep link («Reko-Details öffnen» in the completion
+   * gate), the same incident can be deep-linked twice in a session, and a
+   * boolean that is already `true` cannot say "again". Ignored while the
+   * mount cannot write.
+   */
+  openEditorNonce?: number
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
@@ -72,6 +80,7 @@ export default function RekoReportSection({
   canEdit = false,
   layout = 'stacked',
   dataSlot,
+  openEditorNonce,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
@@ -145,6 +154,22 @@ export default function RekoReportSection({
     setFormData(toRekoFormData(latestReport))
     setIsEditing(true)
   }
+
+  // Deep-linked straight into the entry form. Waits for `isLoading`, because
+  // `startEditing` prefills from `latestReport` and opening before the fetch
+  // lands would give an amend an empty form. Keyed on the nonce so a second
+  // deep link to the same incident opens it again — and so a later re-render
+  // cannot re-open a form the operator has closed.
+  const openedForNonce = useRef<number | null>(null)
+  useEffect(() => {
+    if (openEditorNonce === undefined || !canEdit || isLoading) return
+    if (openedForNonce.current === openEditorNonce) return
+    openedForNonce.current = openEditorNonce
+    startEditing()
+    // `startEditing` is a plain function redeclared every render; the nonce guard
+    // above is what makes this run once per deep link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEditorNonce, canEdit, isLoading])
 
   async function handleSave() {
     setIsSaving(true)
@@ -293,18 +318,22 @@ interface RekoReportCardProps {
 }
 
 /**
- * A report timestamp, to the minute. Nobody reads a Reko-Bericht to the second,
- * and `toLocaleString()`'s default seconds were what pushed the provenance
- * footer onto a second line as soon as the submitter's name stood next to it.
+ * A report timestamp, to the minute — and only the clock while it is today's.
+ * The provenance sits inline next to the verdict now, and «18.08.2026, 19:34»
+ * says nothing that «19:34» does not during the incident it belongs to. The
+ * date comes back the moment it stops being today, which is when it starts
+ * carrying information (a report being reread days later).
  */
 function formatStamp(iso: string): string {
-  return new Date(iso).toLocaleString('de-CH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  const now = new Date()
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  if (isToday) return time
+  return `${date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
 }
 
 function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
@@ -325,7 +354,40 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
    * paragraph — it is a label and a value like the rest, and one emphasis rule
    * for all of them beats a bold label here and a plain one there.
    */
-  const facts: { label: string; value: string }[] = []
+  const dangers = report.dangers_json
+  const dangerLabels: string[] = []
+  if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
+  if (dangers?.fire_danger) dangerLabels.push(t('dangerBadges.fire_danger'))
+  if (dangers?.explosion) dangerLabels.push(t('dangerBadges.explosion'))
+  if (dangers?.collapse) dangerLabels.push(t('dangerBadges.collapse'))
+  if (dangers?.chemical) dangerLabels.push(t('dangerBadges.chemical'))
+  if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
+  const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
+
+  const facts: { label: string; value: ReactNode }[] = []
+  // Gefahren lead the grid as a labelled row like Mannschaft and Dauer — the
+  // hazard itself stays highlighted (warning chips), the row around it does
+  // not shout. It used to be a block of its own above the grid, which made one
+  // fact of the report richer chrome than all the others.
+  if (hasDangers) {
+    facts.push({
+      label: t('dangers'),
+      value: (
+        <span className="flex flex-wrap items-center gap-1">
+          {dangerLabels.map(label => (
+            <Badge
+              key={label}
+              variant="outline"
+              className="border-warning/40 bg-warning/10 text-warning-foreground"
+            >
+              {label}
+            </Badge>
+          ))}
+          {dangers?.other_notes && <span className="leading-tight">{dangers.other_notes}</span>}
+        </span>
+      ),
+    })
+  }
   if (report.effort_json?.personnel_count) {
     facts.push({
       label: t('personnelLabel'),
@@ -357,15 +419,18 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
     facts.push({ label: t('additionalNotes'), value: report.additional_notes })
   }
 
-  const dangers = report.dangers_json
-  const dangerLabels: string[] = []
-  if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
-  if (dangers?.fire_danger) dangerLabels.push(t('dangerBadges.fire_danger'))
-  if (dangers?.explosion) dangerLabels.push(t('dangerBadges.explosion'))
-  if (dangers?.collapse) dangerLabels.push(t('dangerBadges.collapse'))
-  if (dangers?.chemical) dangerLabels.push(t('dangerBadges.chemical'))
-  if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
-  const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
+  // «aktualisiert» compares the RENDERED stamps, not the raw ISO strings: a
+  // submit and its own commit differ by milliseconds, and «Übermittelt 17:57 ·
+  // aktualisiert 17:57» is a sentence that says nothing twice.
+  const submittedStamp = formatStamp(report.submitted_at)
+  const updatedStamp = formatStamp(report.updated_at)
+
+  // «Kein Einsatz nötig» often IS the whole report — no verdict rule and no
+  // body then, instead of a divider with nothing on the far side (image #20).
+  const hasBody =
+    Boolean(report.summary_text) ||
+    facts.length > 0 ||
+    Boolean(report.photos_json && report.photos_json.length > 0)
 
   return (
     <div className="rounded-lg border">
@@ -377,7 +442,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             prose and has to read well, `tight` for everything that is a label,
             a chip or a value. The verdict used to reserve a 24px line box for a
             16px word and pushed its own rule down with it. */}
-        <div className="flex items-center gap-2 border-b pb-2 mb-3">
+        <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'border-b pb-2 mb-3')}>
           {report.is_relevant ? (
             <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
           ) : (
@@ -385,6 +450,14 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           )}
           <span className="font-medium leading-tight">
             {report.is_relevant ? t('relevant') : t('notNeeded')}
+          </span>
+          {/* Provenance rides on the verdict line, small and muted — the heavy
+              three-part footer it replaces was a full row of chrome saying one
+              line's worth of facts. «aktualisiert» only appears once it differs
+              from the submit, because "unchanged" is not information. */}
+          <span className="text-xs leading-tight text-muted-foreground">
+            {t('submittedShort', { time: submittedStamp })}
+            {updatedStamp !== submittedStamp && ` · ${t('updatedShort', { time: updatedStamp })}`}
           </span>
           <div className="ml-auto flex items-center gap-2">
             {report.submitted_by_personnel_name && (
@@ -417,45 +490,12 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             <p className="text-base leading-snug">{report.summary_text}</p>
           )}
 
-          {/* Dangers — label and chips share the row; the word stays, so nothing
-              here is a bare icon.
-
-              Warning-toned outline chips, not solid `destructive` pills: a
-              saturated red block was the brightest object on the card and it
-              outshouted the finding above it, which is the sentence somebody
-              reads to decide what to send. The board card and the wall card
-              already render this same danger list as outline badges, and the
-              display's own Reko block already tints it warning — this is those
-              two put together, so one danger looks like one danger wherever it
-              is read. The note below is a fact, not an aside, and reads in the
-              foreground like every other value on the card. */}
-          {hasDangers && (
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4 text-warning-foreground" />
-                  {t('dangers')}
-                </span>
-                {dangerLabels.map((label) => (
-                  <Badge
-                    key={label}
-                    variant="outline"
-                    className="border-warning/40 bg-warning/10 text-warning-foreground"
-                  >
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-              {dangers?.other_notes && (
-                <p className="text-sm leading-tight">{dangers.other_notes}</p>
-              )}
-            </div>
-          )}
-
-          {/* Effort, power and notes — one definition grid, muted label column,
-              foreground value column. */}
+          {/* Dangers, effort, power and notes — ONE definition grid, muted
+              label column, foreground value column. Gefahren sit in it like
+              Mannschaft and Dauer (image #14); only the hazard chips carry the
+              warning tint, so the highlight marks the fact, not the row. */}
           {facts.length > 0 && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm leading-tight">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm leading-tight">
               {facts.map(({ label, value }) => (
                 <Fragment key={label}>
                   <dt className="text-muted-foreground">{label}</dt>
@@ -499,17 +539,6 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
             </div>
           )}
 
-          {/* Provenance, one wrapping row: two timestamps are one line's worth
-              of information. */}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground border-t pt-2">
-            {report.submitted_by_personnel_name && (
-              <span>{t('rekoBy', { name: report.submitted_by_personnel_name })}</span>
-            )}
-            <span>{t('submittedAt', { date: formatStamp(report.submitted_at) })}</span>
-            {report.updated_at !== report.submitted_at && (
-              <span>{t('updatedAt', { date: formatStamp(report.updated_at) })}</span>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -542,8 +571,10 @@ function RekoReportCardCompact({ report }: RekoReportCardProps) {
             <span className="font-medium text-xs">
               {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
             </span>
+            {/* Same rule as the current card's provenance: today's reports say
+                only the clock, older ones bring the date back. */}
             <span className="text-xs text-muted-foreground">
-              {new Date(report.submitted_at).toLocaleDateString('de-CH')}
+              {formatStamp(report.submitted_at)}
             </span>
           </div>
 

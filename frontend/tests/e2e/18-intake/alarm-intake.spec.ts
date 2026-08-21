@@ -34,14 +34,20 @@ test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
     await expect(authenticatedPage.getByRole('heading', { name: 'Alarm erfassen' })).toBeVisible();
     await expect(authenticatedPage.getByText(event.name)).toBeVisible();
 
-    // 3. Fill the essentials and submit.
+    // 3. Fill the essentials, then walk the two steps.
     // The field is labelled "Meldung" (intake.alarm.messageLabel) but its id is `title` and it
     // populates the incident's title — which is what the assertions below check. The label this
     // used to look for, "Titel / Einsatzbezeichnung", belongs to the Divera send dialog, so this
-    // never matched the intake form at all. Priority and type default, and the submit button
-    // only requires a non-empty message, so nothing else has to be filled.
+    // never matched the intake form at all. Priority and type default, so nothing else has to
+    // be filled.
+    //
+    // The form no longer sends: it hands over to a review step ("Stimmt das so?"), and only the
+    // button THERE is «Alarm absenden». A single button that both reviewed and sent is the
+    // fat-finger the step exists to catch — see `app/alarm/page.tsx`.
     const alarmTitle = `Wohnungsbrand ${Date.now()}`;
     await authenticatedPage.getByLabel('Meldung *').fill(alarmTitle);
+    await authenticatedPage.getByRole('button', { name: 'Weiter' }).click();
+    await expect(authenticatedPage.getByRole('heading', { name: 'Stimmt das so?' })).toBeVisible();
     await authenticatedPage.getByRole('button', { name: 'Alarm absenden' }).click();
 
     // 4. Confirmation screen with the "create another" affordance.

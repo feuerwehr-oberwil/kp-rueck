@@ -9,6 +9,37 @@
 /** 'none' – no rapport row yet · 'draft' – started · 'submitted' – filed. */
 export type ApiFeldRapportState = 'none' | 'draft' | 'submitted'
 
+/**
+ * Why a Schadenplatz is in somebody's list (plan 26 §2.2). The rule itself lives
+ * server-side in `crud/feld/visibility.py`; this is only the shape the phone
+ * receives.
+ *
+ * The page labels the unusual ones and says nothing about `crew` — an own
+ * assignment needs no explanation, and the absence of a label is what reads as
+ * "meins". Only `crew` can owe a Schadenplatz-Rapport.
+ */
+export type ApiFeldSourceKind = 'crew' | 'reko' | 'driver' | 'magazin'
+
+/** The Feld-Code and how many devices redeemed it. Editor only. */
+export interface ApiFeldAccessState {
+  code: string
+  device_count: number
+}
+
+/** What the Feld-Code buys: an unlocked token, and the picker to use it on. */
+export interface ApiFeldUnlockResponse {
+  token: string
+  personnel: ApiFeldPersonnel[]
+  event_id: string
+  event_name: string
+}
+
+/** The bound token. The device stores this and stops using the link token. */
+export interface ApiFeldClaimResponse {
+  token: string
+  personnel_id: string
+}
+
 export interface ApiFeldPersonnel {
   personnel_id: string
   name: string
@@ -19,6 +50,9 @@ export interface ApiFeldPersonnel {
   open_count: number
   /** Of those, the ones without a submitted Schadenplatz-Rapport. */
   missing_rapport_count: number
+  /** Present at this Ereignis. The picker is the roster since decision 10, so
+   *  this is what tells "here, nothing yet" from "not here at all". */
+  checked_in?: boolean
 }
 
 export interface ApiFeldPersonnelListResponse {
@@ -27,10 +61,32 @@ export interface ApiFeldPersonnelListResponse {
   event_name: string
 }
 
-/** One line of the briefing's material list: a name and how many of it. */
+/** One vehicle on the briefing, with whoever drives it in this Ereignis.
+ *  `driver` is null when the KP has not named one — «TLF 1» alone left a crew
+ *  unable to say who is sitting outside in it. */
+export interface ApiFeldVehicleLine {
+  name: string
+  driver: string | null
+  /** The board's driver-stay flag: does it park here, or drive back once the
+   *  crew is dropped off? **null when nobody can answer** — a route-level
+   *  vehicle has no toggle, so the column behind it is a copy no operator can
+   *  correct. Absent means absent, never «fährt zurück». */
+  stays?: boolean | null
+  /** True when the vehicle belongs to the **Auftrag** rather than to this one
+   *  Schadenplatz — an Auftrag's resources are shared across all of its stops,
+   *  so it comes along to the next one. `/feld` used to render both the same,
+   *  which is why a route's TLF read as belonging to the address the crew was
+   *  standing at. */
+  via_auftrag?: boolean
+}
+
+/** One line of the briefing's material list: a name, how many of it, and the
+ *  depot it lives in (`Material.location`) — the squad has to know where to
+ *  fetch it. Grouped per (name, depot); null when the catalogue names none. */
 export interface ApiFeldMaterialLine {
   name: string
   count: number
+  location?: string | null
 }
 
 /**
@@ -43,8 +99,22 @@ export interface ApiFeldReko {
   summary: string | null
   notes: string | null
   dangers: string[]
+  /** The verdict: `false` = «Kein Einsatz nötig». Feeds the rapport gate — an
+   *  incident the Reko declared irrelevant and the KP closed owes no rapport. */
+  is_relevant?: boolean | null
   submitted_at: string | null
   submitted_by_name: string | null
+}
+
+/** One «Meldung an den Trupp» — KP → field (sweep 27 §P3.2). `author_name` is
+ *  the sender's display name, denormalised server-side: the login-less phone
+ *  never resolves users. */
+export interface ApiFeldKpMessage {
+  id: string
+  incident_id: string
+  message: string
+  author_name: string
+  created_at: string
 }
 
 export interface ApiFeldAssignment {
@@ -54,15 +124,16 @@ export interface ApiFeldAssignment {
   incident_status: string
   /**
    * The briefing (§18.22): the Meldung, the Melder, what the board dispatched
-   * and what the Reko found. Released crew/vehicles/material stay in the lists
-   * for the same reason the row itself survives its own release — completing an
-   * incident releases everything while the crew is still at the address filing.
+   * and what the Reko found. Rows the KP released mid-incident (a corrected
+   * pick, a resource moved on) are filtered out server-side; only the
+   * completion cascade's releases stay — completing an incident releases
+   * everything while the crew is still at the address filing.
    */
   description: string | null
   contact: string | null
   contact_phone: string | null
   crew: string[]
-  vehicles: string[]
+  vehicles: ApiFeldVehicleLine[]
   materials: ApiFeldMaterialLine[]
   reko: ApiFeldReko | null
   location_address: string | null
@@ -73,6 +144,10 @@ export interface ApiFeldAssignment {
   location_lng: string | null
   /** False once the board released the person — they may still file. */
   is_active_assignment: boolean
+  /** Why this row is here. `source_vehicle` is set for driver rows only, so the
+   *  label can name the vehicle that brought the row in. */
+  source: ApiFeldSourceKind
+  source_vehicle?: string | null
   rapport_state: ApiFeldRapportState
   /**
    * The Schadenplatz was disponiert at least once (§18.27). False means the
@@ -92,15 +167,68 @@ export interface ApiFeldAssignment {
   pickup_needed: boolean
   pickup_note: string | null
   pickup_requested_at: string | null
+  /** Acks, derived from real KP actions (sweep 27 §P3.1). While the request is
+   *  open: `pickup_seen` = the KP dismissed the warning bell, `pickup_vehicle`
+   *  = a vehicle was dispatched here AFTER the request («Mowa disponiert»).
+   *  Once the KP clears the flag, `pickup_resolved_at` carries the moment —
+   *  the request must not just silently vanish from the crew's phone. */
+  pickup_seen?: boolean
+  pickup_vehicle?: string | null
+  pickup_resolved_at?: string | null
+  /** «Meldungen vom KP» (§P3.2), oldest first — the board's messages to this
+   *  squad, riding the polled payload like everything else the phone reads. */
+  kp_messages?: ApiFeldKpMessage[]
   /** The EL of THIS incident. Both null = "kein EL erfasst", never a blank line. */
   leader_personnel_id: string | null
   leader_name: string | null
+  /** The Auftrag this Schadenplatz is a stop of. A route-assigned crew holds no
+   *  row on any stop, so without this their stops read as unrelated jobs — and
+   *  the order they are driven in is the reason the Auftrag exists at all.
+   *  `group_position` is 0-based; the list numbers the stops from it. */
+  group_id: string | null
+  group_name: string | null
+  group_position: number | null
+}
+
+/** One unit and where it is right now — the Magazin's own view (plan 26).
+ *  `at` names the Schadenplatz it is standing on; null means the Magazin. */
+export interface ApiFeldMaterialItem {
+  material_id: string | null
+  name: string
+  /** The three axes a station files its material by: `type` is what a thing IS
+   *  (Pumpe, Beleuchtung), `home_location` the depot shelf it lives on, `group`
+   *  the module it is packed with. The Magazin reads all three to find a unit. */
+  type: string | null
+  home_location: string | null
+  group: string | null
+  incident_id: string | null
+  at: string | null
+  since: string | null
+  /** `out` = the board has it assigned and it is in use · `left` = a rapport
+   *  says it stayed behind (whether or not there is still an assignment to
+   *  check against) · `in` = in the Magazin. */
+  state: 'out' | 'left' | 'in'
+}
+
+export interface ApiFeldMaterialResponse {
+  materials: ApiFeldMaterialItem[]
 }
 
 export interface ApiFeldAssignmentsResponse {
   personnel_id: string
   personnel_name: string
   personnel_role: string | null
+  /** Present at this Ereignis — drives "Einchecken" vs "Ich rücke ab". */
+  checked_in?: boolean
+  /** The roles this person holds here (plan 26, decision 5). The roles are
+   *  data; which sections they unlock stays code. */
+  functions?: string[]
+  /** The vehicles this person drives here, by name. Empty for everybody else. */
+  driver_vehicles?: string[]
+  /** What this person has REPORTED — a different list from the assignments
+   *  above, and the only place a Meldung the KP has not dispatched is visible
+   *  to the person who sent it. */
+  reports?: ApiFeldOwnReport[]
   event_id: string
   event_name: string
   assignments: ApiFeldAssignment[]
@@ -110,6 +238,10 @@ export interface ApiFeldAssignmentsResponse {
    * same reasoning that already makes the outbound message bodies settings.
    */
   message_chips: string[]
+  /** The same, for a DRIVER row: a driver may not report «Angekommen» or
+   *  «Einsatz beendet», so the crew's chips read wrong for the person sitting
+   *  outside in the vehicle. Picked by the row's source, not by the person. */
+  driver_message_chips?: string[]
 }
 
 /**
@@ -444,4 +576,96 @@ export interface ApiMaterialReturnResponse {
    * weighing a half-finished answer has to know it is half-finished.
    */
   rapport_is_draft: boolean
+}
+
+/**
+ * «Neue Meldung» from the field.
+ *
+ * Narrower than the board's create and slightly wider than the phone desk's:
+ * no Melder fields, because the reporter IS the Melder and their name is on the
+ * audit row already.
+ */
+export interface ApiFeldIncidentCreate {
+  title: string
+  type: string
+  priority: string
+  location_address?: string | null
+  location_lat?: string | null
+  location_lng?: string | null
+  description?: string | null
+  /** «Weitere Hinweise» — the board's Notizen. Kept apart from `description`,
+   *  which IS the Meldung the card prints and the radio reads out. */
+  internal_notes?: string | null
+  /** "Wir übernehmen das gleich" — see `ApiFeldIncidentCreated.takeover`. */
+  take_over?: boolean
+  /** The Telefondienst variant: a call written down, not a thing seen. Only
+   *  honoured for somebody who actually holds the role — the server checks,
+   *  because provenance is never faked from the client. */
+  as_phone_call?: boolean
+  contact?: string | null
+  contact_phone?: string | null
+}
+
+/**
+ * A correction to a Meldung that has not been disponiert yet.
+ *
+ * Every field optional, and an omitted key means "unchanged" rather than
+ * "clear it" — the sheet sends the whole form back, and a Meldung whose
+ * description was fixed must not lose its address on the way.
+ */
+export interface ApiFeldIncidentUpdate {
+  title?: string | null
+  type?: string | null
+  priority?: string | null
+  location_address?: string | null
+  location_lat?: string | null
+  location_lng?: string | null
+  description?: string | null
+  internal_notes?: string | null
+  contact?: string | null
+  contact_phone?: string | null
+}
+
+/**
+ * One Meldung this person sent in — the «Von mir gemeldet» list.
+ *
+ * NOT an assignment: a reported tree the KP gave to somebody else is not a
+ * Schadenplatz of theirs, and this list deliberately answers the other
+ * question, "what did I send in". `editable` is the server's answer to "may I
+ * still correct this", so the phone never has to know the status vocabulary.
+ */
+export interface ApiFeldOwnReport {
+  incident_id: string
+  title: string
+  type: string
+  priority: string
+  description: string | null
+  /** «Weitere Hinweise», so a correction prefills what was actually typed. */
+  internal_notes: string | null
+  location_address: string | null
+  /** Server-formatted address (home city stripped), like every other row. */
+  location_display: string | null
+  location_lat: string | null
+  location_lng: string | null
+  contact: string | null
+  contact_phone: string | null
+  status: string
+  created_at: string
+  /** Still «Eingegangen»: nobody has been sent, so the reporter may fix it. */
+  editable: boolean
+  /** What the KP put on it — «das TLF 2 fährt hin». */
+  vehicles: string[]
+}
+
+/**
+ * What became of it. `takeover` lets the confirmation be specific:
+ *
+ *   none    — reported; the KP disposes
+ *   stop    — appended to the Auftrag the crew is already working
+ *   auftrag — their single job became a route, this is its second stop
+ *   solo    — nobody was on anything, so it is theirs alone
+ */
+export interface ApiFeldIncidentCreated {
+  incident_id: string
+  takeover: 'none' | 'stop' | 'auftrag' | 'solo'
 }

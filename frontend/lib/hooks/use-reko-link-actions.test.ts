@@ -2,14 +2,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 const generateRekoLink = vi.fn();
-const generateRekoDashboardLink = vi.fn();
+const generateFeldLink = vi.fn();
 const copyToClipboardMock = vi.fn();
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
     generateRekoLink: (...args: unknown[]) => generateRekoLink(...args),
-    generateRekoDashboardLink: (...args: unknown[]) =>
-      generateRekoDashboardLink(...args),
+    generateFeldLink: (...args: unknown[]) => generateFeldLink(...args),
   },
 }));
 
@@ -32,7 +31,7 @@ import { useRekoLinkActions } from "./use-reko-link-actions";
 
 beforeEach(() => {
   generateRekoLink.mockReset();
-  generateRekoDashboardLink.mockReset();
+  generateFeldLink.mockReset();
   copyToClipboardMock.mockReset().mockResolvedValue(undefined);
   toastError.mockReset();
   toastSuccess.mockReset();
@@ -87,11 +86,12 @@ describe("useRekoLinkActions", () => {
     });
 
     expect(toastError).toHaveBeenCalledWith("Kein Event ausgewählt");
-    expect(generateRekoDashboardLink).not.toHaveBeenCalled();
+    expect(generateFeldLink).not.toHaveBeenCalled();
   });
 
-  it("copies the dashboard link and flashes copied=dashboard", async () => {
-    generateRekoDashboardLink.mockResolvedValue({ link: "/reko-dashboard/xyz" });
+  it("copies the field link — the Reko trupp's page since plan 26", async () => {
+    // The Reko trupp opens `/feld` like everybody else since plan 26.
+    generateFeldLink.mockResolvedValue({ link: "/feld?token=xyz" });
     const { result } = renderHook(() =>
       useRekoLinkActions({ incidentId, assignedReko, eventId }),
     );
@@ -100,7 +100,7 @@ describe("useRekoLinkActions", () => {
       await result.current.copyDashboardLink();
     });
 
-    expect(generateRekoDashboardLink).toHaveBeenCalledWith(eventId);
+    expect(generateFeldLink).toHaveBeenCalledWith(eventId);
     expect(result.current.copied).toBe("dashboard");
   });
 

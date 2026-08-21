@@ -9,12 +9,14 @@
  *
  * Fährt eine echte Instanz mit Playwright an, meldet sich als Editor an, schaltet
  * auf das dunkle Board-Theme, blendet Demo-Chrome (Willkommensdialog, DEMO-Banderole,
- * Toasts) aus und legt die Bilder in site/shots/ ab. Die Bildnamen sind der Vertrag
+ * Toasts) aus und legt die Bilder in site/shots/ ab – WebP für die Seite, dazu ein JPEG des
+ * Hero-Bildes für die Linkvorschau. Die Bildnamen sind der Vertrag
  * mit `shots.items` in site/content/de.json – wer hier umbenennt, muss dort
  * mitziehen (nur dort: die Übersetzungen erben den Dateinamen und beschriften bloss).
  *
  * Gegen eine nicht-öffentliche Instanz: KP_RUECK_USER / KP_RUECK_PASS setzen.
  */
+import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -33,7 +35,16 @@ const DEFAULT_BASE = 'https://demo.kp-rueck.ch'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform wie bei KP Front
 // Die öffentlichen Formulare sind für das Handy gebaut; enger Ausschnitt, gleiches Verhältnis.
 const FORM_VIEWPORT = { width: 900, height: 562 }
-const QUALITY = 82
+// Die Landingpage liefert WebP: dieselbe Aufnahme wiegt rund halb so viel wie das JPEG von
+// früher. Encodiert wird im Chromium, den Playwright ohnehin mitbringt – keine zweite
+// Abhängigkeit, nichts, was auf dem Rechner installiert sein müsste.
+const WEBP_QUALITY = 0.8
+// Breiter als das wird das Hero-Bild nie gezeigt (.wrap = 1040 px minus 2×24 px Innenabstand).
+// Diese zweite, kleine Fassung ist die, die Telefone und 1x-Bildschirme laden.
+const HERO_W = 992
+// Das einzige verbliebene JPEG: die Linkvorschau (og:image). WhatsApp, Facebook und Co.
+// zeigen kein WebP.
+const OG_QUALITY = 0.82
 
 const argv = process.argv.slice(2)
 const arg = (name) => {
@@ -53,9 +64,11 @@ const docsOnly = argv.includes('--docs-only')
 // docs-Durchgang. Die width/height-Angaben in content/de.json bleiben davon unberührt.
 const scale = Number(arg('scale') || 1)
 
-/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.). */
+/** Ein Shot = eine Route, optional eine Vorbereitung (Dialog öffnen o. ä.).
+ *  `hero` markiert das eine Bild, das die Landingpage zuoberst zeigt – es bekommt zusätzlich
+ *  die kleine Fassung fürs Telefon und das JPEG für die Linkvorschau. */
 const shots = [
-  { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard', docs: 'dashboard' },
+  { name: 'board', path: '/', settle: 2500, note: 'Hero: Einsatzboard', docs: 'dashboard', hero: true },
   {
     name: 'karte',
     path: '/map',
@@ -222,6 +235,27 @@ const login = async (page) => {
   await page.click('button[type=submit]')
 }
 
+/**
+ * Rechnet eine Aufnahme (verlustfreies PNG) auf `width` herunter und encodiert sie – WebP für
+ * die Seite, JPEG für die Linkvorschau. `page` ist ein leerer zweiter Tab: die Instanz selbst
+ * hat damit nichts zu tun.
+ */
+const encode = async (page, png, { width, type, quality }) => {
+  const b64 = await page.evaluate(async ([src, width, type, quality]) => {
+    const img = new Image()
+    img.src = src
+    await img.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = Math.round(img.naturalHeight * (width / img.naturalWidth))
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL(type, quality).split(',')[1]
+  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality])
+  return Buffer.from(b64, 'base64')
+}
+
 const run = async () => {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
@@ -244,6 +278,8 @@ const run = async () => {
   })
 
   const page = await ctx.newPage()
+  // Der leere Tab, auf dem die Bilder encodiert werden (siehe `encode`).
+  const encoder = await ctx.newPage()
   page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
 
   console.log(`→ ${base}`)
@@ -280,9 +316,20 @@ const run = async () => {
     await page.addStyleTag({ content: HIDE_CSS })
     await page.waitForTimeout(250)
     if (!docsOnly) {
-      const path = join(SHOTS, `${shot.name}.jpg`)
-      await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
-      console.log(`  ✓ ${shot.name}.jpg  (${shot.path})`)
+      // Immer aus dem verlustfreien PNG heraus: Verkleinerung und die einzige verlustbehaftete
+      // Stufe passieren so in einem Schritt – und `--scale 2` liefert dadurch ein schärferes
+      // Bild statt eines doppelt so breiten.
+      const png = await page.screenshot({ type: 'png' })
+      const width = (shot.viewport ?? VIEWPORT).width
+      const write = async (file, opts) => {
+        writeFileSync(join(SHOTS, file), await encode(encoder, png, opts))
+        console.log(`  ✓ ${file}  (${shot.path})`)
+      }
+      await write(`${shot.name}.webp`, { width, type: 'image/webp', quality: WEBP_QUALITY })
+      if (shot.hero) {
+        await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY })
+        await write(`${shot.name}.jpg`, { width, type: 'image/jpeg', quality: OG_QUALITY })
+      }
     }
     // Derselbe Seitenzustand, zweite Ausgabe: das README-Bild. PNG, weil README-Bilder
     // auf GitHub oft vergrössert betrachtet werden und Text dort verlustfrei bleiben soll.

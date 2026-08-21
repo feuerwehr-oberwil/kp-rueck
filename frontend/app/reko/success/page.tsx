@@ -14,7 +14,7 @@ export default function RekoSuccessPage() {
   const returnTo = searchParams.get('return_to')
 
   const handleGoBack = () => {
-    // If we have a return URL (from reko-dashboard), use it
+    // If we have a return URL (from `/feld`), use it
     // Note: searchParams.get() already decodes the value, so don't decode again
     if (returnTo) {
       router.push(returnTo)

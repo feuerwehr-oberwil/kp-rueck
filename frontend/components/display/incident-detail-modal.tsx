@@ -21,7 +21,7 @@ import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-t
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { PRIORITY_ICONS, PRIORITY_LABELS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import {
-  Truck, Users, Siren, Package, AlertTriangle, FileText, Phone,
+  Truck, Users, Siren, Package, AlertTriangle, FileText, Phone, Axe,
   MessageSquare, Building2, Timer, Footprints, FileCheck, Waypoints, Binoculars,
   ChevronDown, ChevronRight, ClipboardList, History,
   Infinity as InfinityIcon,
@@ -208,6 +208,11 @@ export function IncidentDetailModal({
             {operation.source === 'intake' && (
               <Badge variant="outline" className="gap-1 border-sky-500/50 text-sky-600 dark:text-sky-400">
                 <Phone className="h-3 w-3" /> {t('board.intakeBadge')}
+              </Badge>
+            )}
+            {operation.source === 'feld' && (
+              <Badge variant="outline" className="gap-1 border-violet-500/50 text-violet-600 dark:text-violet-400">
+                <Axe className="h-3 w-3" /> {t('board.feldBadge')}
               </Badge>
             )}
             {operation.nachbarhilfe && (
@@ -583,6 +588,8 @@ export function IncidentDetailModal({
                     isLoading={timeline.isLoading}
                     failed={timeline.failed}
                     onRetry={timeline.reload}
+                    // The wall reads, it does not dispatch — no send box here.
+                    canEdit={false}
                   />
                 </div>
                 {/* Editor only — `GET /incidents/{id}/rapport` is CurrentEditor
@@ -606,6 +613,8 @@ export function IncidentDetailModal({
                     hasBeenDispatched: operation.hasBeenDispatched,
                     status: operation.status,
                     hasReport: operation.hasSchadenplatzRapport || operation.hasSchadenplatzRapportDraft,
+                    // «Kein Einsatz nötig» + closed = no rapport is due (§P2.7).
+                    rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
                   })}
                 />
                 )}

@@ -6,6 +6,7 @@ import { FileText, FileCheck, ChevronRight, CheckCircle2 } from "lucide-react"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
+import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { rapportApplies } from "@/lib/rapport-visibility"
@@ -54,6 +55,9 @@ export function isOpenRapport(operation: Operation): boolean {
     hasBeenDispatched: operation.hasBeenDispatched,
     status: operation.status,
     hasReport: operation.hasSchadenplatzRapportDraft,
+    // «Kein Einsatz nötig» + closed without a rapport ever starting = there
+    // was nothing to report on, whatever the status history claims (§P2.7).
+    rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
   })
 }
 
@@ -141,10 +145,10 @@ function RapportRow({
         "transition-colors hover:bg-muted/50",
       )}
     >
-      {/* Same paper as the card chip: dimmed while it is missing, and the
-          ticked sheet at full muted brightness once it has been filed. */}
+      {/* Same paper as the card chip: dimmed while it is missing, the ticked
+          sheet in success green once it has been filed. */}
       {filed ? (
-        <FileCheck className="size-4 shrink-0 text-muted-foreground" />
+        <FileCheck className="size-4 shrink-0 text-success" />
       ) : (
         <FileText className="size-4 shrink-0 text-muted-foreground/40" />
       )}
@@ -158,7 +162,20 @@ function RapportRow({
             </Badge>
           )}
         </div>
-        <span className="text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+        {/* The Einsatzleiter leads the line: the reason this row is opened at
+            02:00 is «wen rufe ich dazu an», and that answer must not hide
+            behind the incident type. Backed by the server's leader-of-record,
+            so it survives the released assignments of a closed incident. */}
+        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {operation.leaderName && (
+            <>
+              <LeaderBadge isLeader />
+              <span className="truncate font-medium text-foreground/90">{operation.leaderName}</span>
+              <span aria-hidden="true" className="shrink-0 text-muted-foreground/60">·</span>
+            </>
+          )}
+          <span className="truncate">{getIncidentTypeLabel(operation.incidentType)}</span>
+        </div>
       </div>
 
       <div className="shrink-0 text-right">

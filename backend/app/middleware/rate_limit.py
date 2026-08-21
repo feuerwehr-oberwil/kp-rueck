@@ -130,6 +130,18 @@ class RateLimits:
     # anyone with the event link reaches it. Photo upload keeps PHOTO_UPLOAD.
     FELD = "60/minute"
 
+    # The Feld-Code exchange.
+    #
+    # This is NOT the brute-force control, for the same reason LOGIN above is
+    # not: it keys on client IP and counts every attempt, and a station NATs
+    # every phone behind one address — so a tight value here locks crews out of
+    # the poster on the one night it matters, from the eleventh phone on.
+    #
+    # Guessing is handled by `feld_code_throttle` in `api/feld.py`, which keys
+    # on (IP, Ereignis) and counts only FAILURES. This ceiling just blunts a
+    # flood from a single host and sits well above any real depot.
+    FELD_UNLOCK = "120/minute"
+
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """

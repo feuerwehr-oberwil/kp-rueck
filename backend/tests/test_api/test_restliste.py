@@ -398,6 +398,30 @@ class TestEinsatzzettelFeldQR:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_the_code_travels_with_the_qr(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+    ):
+        """A QR that opens a code prompt is useless on paper without the code.
+
+        The board can show both side by side because somebody is standing in
+        front of it; the slip is read in a vehicle, where nobody is.
+        """
+        incident = await _incident(db_session, test_event, test_user, "Keller")
+        loaded = (
+            await db_session.execute(
+                select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == incident.id)
+            )
+        ).scalar_one()
+
+        payload = await print_job_crud.build_assignment_payload(db_session, loaded)
+        assert payload["feld_code"] == test_event.feld_code
+        assert len(payload["feld_code"]) == 4
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_no_qr_when_the_installation_has_no_public_origin(
         self,
         db_session: AsyncSession,

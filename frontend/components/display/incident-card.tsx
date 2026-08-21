@@ -13,8 +13,8 @@
  * What was removed, and why each one is a control rather than information:
  *  * drag source, drop target, context menu, the card's own status controls;
  *  * the X on every resource chip (`RemovableChip` without `onRemove` keeps the
- *    exact chip, minus the button), the driver-stay toggle (the MapPin/Undo2
- *    glyph stays — it is the state, the click was the control), the «Ansicht»
+ *    exact chip, minus the button), the driver-stay toggle (`DriverStayGlyph`
+ *    stays — it is the state, the click was the control), the «Ansicht»
  *    menu, the time-mode dropdown (`readOnly`);
  *  * the Feldmeldungen nudge, which renders nothing without `canEdit` because it
  *    is a question with two buttons, not a status;
@@ -34,11 +34,12 @@
 
 import { useTranslations } from "next-intl"
 import {
-  AlertTriangle, Binoculars, Building2, ChevronDown, ChevronUp, FileText, Footprints,
-  Layers, MapPin, Minus, Package, Phone, Search, Siren, Timer, Truck, Undo2, Users, Waypoints,
+  AlertTriangle, Axe, Binoculars, Building2, ChevronDown, ChevronUp, FileCheck, FileText, Footprints,
+  Layers, MapPin, Minus, Package, Phone, Search, Siren, Timer, Truck, Users, Waypoints,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { Card } from "@/components/ui/card"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -213,6 +214,11 @@ export function DisplayIncidentCard({
                 <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
               </div>
             )}
+            {operation.source === "feld" && (
+              <div className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30" title={t("card.feldTooltip")}>
+                <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              </div>
+            )}
             {operation.amWarten && (
               <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30" title={t("common.amWarten")}>
                 <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -228,14 +234,19 @@ export function DisplayIncidentCard({
                 <Binoculars className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
+            {/* Filed = the TICKED paper in success green, exactly like the board
+                card and the backlog sheet — the wall must not keep reading a
+                filed rapport as the same grey paper as a missing one. */}
             {operation.hasSchadenplatzRapport ? (
-              <div className="p-1.5 rounded-md bg-muted/60" title={tFeld("cardRapportTooltip")}>
-                <FileText className="h-4 w-4 text-muted-foreground/80" />
+              <div className="p-1.5 rounded-md bg-success/10" title={tFeld("cardRapportTooltip")}>
+                <FileCheck className="h-4 w-4 text-success" />
               </div>
             ) : operation.status === "complete" && rapportApplies({
                 hasBeenDispatched: operation.hasBeenDispatched,
                 status: operation.status,
                 hasReport: operation.hasSchadenplatzRapportDraft,
+                // «Kein Einsatz nötig» + closed = no rapport is due (§P2.7).
+                rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
               }) ? (
               <div className="p-1.5 rounded-md bg-muted/40" title={tFeld("cardNoRapportTooltip")}>
                 <FileText className="h-4 w-4 text-muted-foreground/40" />
@@ -293,11 +304,16 @@ export function DisplayIncidentCard({
               <div className="flex items-start gap-1.5">
                 <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                 <div className="flex flex-wrap items-center gap-1 min-w-0">
+                  {/* `min-w-0 max-w-full shrink` + truncate, same as the kanban
+                      card's chips: a lone over-long chip must shrink and
+                      ellipsise, not shove the row past the card edge. And never
+                      an empty pill — a lost name reads as «Unbekannt». Applies
+                      to every chip row below. */}
                   <RemovableChip
                     variant="secondary"
-                    className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                    className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
                   >
-                    <span>{operation.assignedReko.name}</span>
+                    <span className="truncate">{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
                   </RemovableChip>
                   {operation.rekoArrivedAt && !operation.hasCompletedReko && (
                     <span className="text-xs text-muted-foreground">
@@ -320,14 +336,14 @@ export function DisplayIncidentCard({
                         key={crewName}
                         variant="secondary"
                         className={cn(
-                          "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1",
+                          "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1",
                           isConflict && "border border-warning/60 text-warning-foreground bg-warning/10",
                         )}
                         title={isConflict ? t("card.doubleBookedTooltip", { name: crewName }) : undefined}
                       >
                         {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
                         <LeaderBadge isLeader={operation.leaderName === crewName} />
-                        <span>{crewName}</span>
+                        <span className="truncate">{crewName.trim() || t("common.unknownResource")}</span>
                       </RemovableChip>
                     )
                   })}
@@ -339,9 +355,9 @@ export function DisplayIncidentCard({
                 <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {operation.zuFuss && (
-                    <RemovableChip variant="secondary" className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1">
+                    <RemovableChip variant="secondary" className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1">
                       <Footprints className="h-3 w-3 flex-shrink-0" />
-                      <span>{t("common.zuFuss")}</span>
+                      <span className="truncate">{t("common.zuFuss")}</span>
                     </RemovableChip>
                   )}
                   {operation.vehicles.map((vehicleName) => {
@@ -352,21 +368,19 @@ export function DisplayIncidentCard({
                       <RemovableChip
                         key={vehicleName}
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
                         title={callsign ? t("common.funkrufname", { callsign }) : undefined}
                       >
-                        <span className="flex items-center gap-1">
-                          <span>
+                        <span className="flex min-w-0 items-center gap-1">
+                          <span className="truncate">
                             {vehicleName}{callsign ? ` · ${callsign}` : ""}
                             {driverName && <span className="text-muted-foreground"> ({driverName})</span>}
                           </span>
-                          {/* The glyph is the state — «Fahrer bleibt» vs
-                              «Fahrer fährt zurück». Only the click was removed. */}
-                          {driverStay !== undefined && (driverStay ? (
-                            <MapPin className="h-3 w-3 flex-shrink-0 text-muted-foreground/70" aria-label={t("common.driverStays")} />
-                          ) : (
-                            <Undo2 className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" aria-label={t("common.driverReturns")} />
-                          ))}
+                          {/* The state, in full, on a screen that is only ever
+                              read — and read from across the room. The click was
+                              already gone; the two 12px glyphs that stood for it
+                              have gone too. */}
+                          <DriverStayGlyph stays={driverStay} />
                         </span>
                       </RemovableChip>
                     )
@@ -386,10 +400,10 @@ export function DisplayIncidentCard({
                           <RemovableChip
                             key={`group-${group.id}`}
                             variant="secondary"
-                            className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                            className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
                           >
                             <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                            <span>{group.name}</span>
+                            <span className="truncate">{group.name}</span>
                           </RemovableChip>
                         ))}
                         {ungrouped.map((materialId) => {
@@ -400,12 +414,12 @@ export function DisplayIncidentCard({
                               key={materialId}
                               variant="secondary"
                               className={cn(
-                                "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1",
+                                "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1",
                                 onSite && "bg-warning/15 text-warning-foreground",
                               )}
                             >
                               {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
-                              <span>{material?.name || materialId}</span>
+                              <span className="truncate">{material?.name || materialId}</span>
                             </RemovableChip>
                           )
                         })}
@@ -471,10 +485,10 @@ export function DisplayIncidentCard({
                     <RemovableChip
                       key={p.assignmentId}
                       variant="secondary"
-                      className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                      className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
                     >
                       <LeaderBadge isLeader={Boolean(p.isLeader)} />
-                      <span>{p.name}</span>
+                      <span className="truncate">{p.name.trim() || t("common.unknownResource")}</span>
                     </RemovableChip>
                   ))}
                 </div>

@@ -46,6 +46,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     location_lat: null,
     location_lng: null,
     is_active_assignment: true,
+    // The union's default: this row is here because it is the person's own
+    // assignment, which is also the only source that owes a Rapport.
+    source: 'crew',
     rapport_state: 'none',
     arrived_at: null,
     arrived_by_automation: false,
@@ -55,6 +58,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     pickup_requested_at: null,
     leader_personnel_id: null,
     leader_name: null,
+    group_id: null,
+    group_name: null,
+    group_position: null,
     ...overrides,
   }
 }
@@ -194,6 +200,28 @@ describe('the Abholung follow-up (decision 24)', () => {
       expect(feldReportPickup).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', true, '3 Personen'),
     )
   })
+
+  it('leads with «Wir fahren selbst» while a vehicle stands at the address (§P2.2)', async () => {
+    // stays=true means parked here — the answer is known, the Abholung is
+    // almost certainly a mis-tap, and the hint names the vehicle.
+    const user = userEvent.setup()
+    render({ vehicles: [{ name: 'Pio', driver: null, stays: true, via_auftrag: false }] })
+    await confirmComplete(user)
+    await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
+
+    expect(screen.getByText('Pio steht bei euch vor Ort.')).toBeInTheDocument()
+    const buttons = screen.getAllByRole('button', { name: /Wir/ })
+    expect(buttons[0]).toHaveTextContent('Wir fahren selbst')
+  })
+
+  it('shows no vehicle hint when the vehicle drove back (stays=false)', async () => {
+    const user = userEvent.setup()
+    render({ vehicles: [{ name: 'Mowa', driver: null, stays: false, via_auftrag: false }] })
+    await confirmComplete(user)
+    await waitFor(() => expect(screen.getByText('Kommt ihr selbst zurück?')).toBeInTheDocument())
+
+    expect(screen.queryByText(/steht bei euch vor Ort/)).not.toBeInTheDocument()
+  })
 })
 
 describe('Einsatz beendet', () => {
@@ -234,6 +262,36 @@ describe('an open Abholung', () => {
     await waitFor(() =>
       expect(feldReportPickup).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', true, '5 Personen'),
     )
+  })
+})
+
+describe('pickup acks derived from KP actions (sweep 27 §P3.1)', () => {
+  it('names the dispatched vehicle — «Mowa disponiert» is the answer the crew waits for', () => {
+    render({
+      pickup_needed: true,
+      pickup_requested_at: '2026-08-09T21:14:00Z',
+      pickup_vehicle: 'Mowa',
+      pickup_seen: true,
+    })
+    expect(screen.getByText('KP hat Mowa disponiert')).toBeInTheDocument()
+    // The stronger ack replaces the weaker one, never both.
+    expect(screen.queryByText('Vom KP gesehen')).not.toBeInTheDocument()
+  })
+
+  it('shows «Vom KP gesehen» once the warning bell was dismissed', () => {
+    render({ pickup_needed: true, pickup_requested_at: '2026-08-09T21:14:00Z', pickup_seen: true })
+    expect(screen.getByText('Vom KP gesehen')).toBeInTheDocument()
+  })
+
+  it('says «Abholung disponiert» when the KP cleared the request, instead of it silently vanishing', () => {
+    render({ pickup_needed: false, pickup_resolved_at: '2026-08-09T22:05:00Z' })
+    expect(screen.getByText(/Abholung disponiert/)).toBeInTheDocument()
+  })
+
+  it('claims nothing while the KP has not acted', () => {
+    render({ pickup_needed: true, pickup_requested_at: '2026-08-09T21:14:00Z' })
+    expect(screen.queryByText('Vom KP gesehen')).not.toBeInTheDocument()
+    expect(screen.queryByText(/disponiert/)).not.toBeInTheDocument()
   })
 })
 

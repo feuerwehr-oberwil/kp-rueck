@@ -14,18 +14,17 @@ import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import Link from "next/link"
-import { Card } from "@/components/ui/card"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Package, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, MonitorDown, Siren, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, Axe, Users, FileText, PanelRight, Loader2 } from 'lucide-react'
+import { Plus, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2 } from 'lucide-react'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
-import { QrShareSheet } from "@/components/kanban/qr-share-sheet"
+import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -37,6 +36,7 @@ import { MaterialOnSitePanel, selectMaterialOnSite } from "@/components/kanban/m
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
 import { IncidentPickerDialog } from "@/components/kanban/incident-picker-dialog"
@@ -50,6 +50,8 @@ import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
+import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
+import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
@@ -58,7 +60,8 @@ import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
-import { columns, findAuftragForStop } from "@/lib/kanban-utils"
+import { columns, findAuftragForStop, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
+import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
@@ -73,7 +76,7 @@ import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignmen
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { EventSetupChecklist } from "@/components/event-setup-checklist"
+import { EventSetupChecklist, RekoPickerDialog } from "@/components/event-setup-checklist"
 import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
 import { summarizeEventChecklist } from "@/lib/checklist-tasks"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
@@ -312,6 +315,9 @@ export default function FireStationDashboard() {
     isLoading,
     isLoaded
   } = useOperations()
+  // The board's roster is "everybody checked in", so the Appell writing an
+  // attendance row changes it — see `onAttendanceChange` on the modal below.
+  const { refreshPersonnel } = usePersonnel()
   const {
     groups,
     addStops: addStopsToGroup,
@@ -336,6 +342,9 @@ export default function FireStationDashboard() {
   }, [isLoaded])
 
   const doubleBookedPersons = useDoubleBookedPersons(operations)
+  // Where each person actually is, for the sidebar card's tooltip (§P3.5) —
+  // computed once here, passed down, so the memoized cards stay cheap.
+  const personEngagements = usePersonEngagements()
 
   const { materialGroups } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
@@ -351,7 +360,6 @@ export default function FireStationDashboard() {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
   const tRes = useTranslations('kanban.resources')
-  const tAttendance = useTranslations('kanban.attendance')
   const tPrint = useTranslations('print.toasts')
   const tSidePanel = useTranslations('kanban.sidePanel')
   const trackPrint = usePrintJobToast()
@@ -428,6 +436,10 @@ export default function FireStationDashboard() {
     }, 100)
   }, [])
 
+  // Notification rows in the sidebar point at a card (highlight + scroll) while
+  // the sidebar stays open — decoupled via a window event, see notification-highlight.ts.
+  useIncidentHighlightListener(scrollToCard)
+
   // Update operation REKO summary when new report arrives
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
     setOperations(prev => prev.map(op => {
@@ -499,14 +511,13 @@ export default function FireStationDashboard() {
   }, [openIncidentDetail, operations])
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
-  const [draggingItem, setDraggingItem] = useState<Person | Material | Operation | null>(null)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = usePersistedState(LEFT_SIDEBAR_KEY, true, isBoolean)
   const [showRightSidebar, setShowRightSidebar] = usePersistedState(RIGHT_SIDEBAR_KEY, true, isBoolean)
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'checkin' | 'reko' | 'feld' | 'display' | 'alarm' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
@@ -528,7 +539,9 @@ export default function FireStationDashboard() {
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   /** Body of the Divera-Mitteilung the Checkliste asked to send; null = closed. */
   const [diveraMessageText, setDiveraMessageText] = useState<string | null>(null)
-  const [attendanceCounts, setAttendanceCounts] = useState<{ present: number; total: number } | null>(null)
+  /** The Checkliste's «Reko-Offiziere wählen» picker. Page-owned like the Divera
+   *  dialog — a modal mounted inside the checklist popover dies with it. */
+  const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
   // Auto-generate check-in QR code URL when no personnel are available
   useEffect(() => {
@@ -538,22 +551,6 @@ export default function FireStationDashboard() {
       setCheckInUrl(`${window.location.origin}${response.link}`)
     }).catch(() => {})
   }, [selectedEvent, personnel, checkInUrl, isLoading])
-
-  // The Anwesenheit row's count. Only fetched while the sheet that shows it is open —
-  // it is a label, not live state, and the Appell refreshes it on every write anyway.
-  useEffect(() => {
-    if (activeFooterSheet !== 'checkin' || !selectedEvent) return
-    let cancelled = false
-    apiClient
-      .getEventCheckInStats(selectedEvent.id)
-      .then((stats) => {
-        if (!cancelled) setAttendanceCounts({ present: stats.checked_in, total: stats.total_available })
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [activeFooterSheet, selectedEvent])
 
   const gPrefix = useGPrefixNavigation(router)
   const cmdHint = useCommandPaletteHint()
@@ -565,13 +562,8 @@ export default function FireStationDashboard() {
   // The store keeps one stable object per value, so `cardView` can go straight
   // into the memoised column/card tree without a useMemo wrapper here.
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
-  const [rekoDashboardUrl, setRekoDashboardUrl] = useState<string | null>(null)
-  const [displayToken, setDisplayToken] = useState<string | null>(null)
-  const [displayView, setDisplayView] = useState<'board' | 'map' | 'status'>('board')
-  const [alarmUrl, setAlarmUrl] = useState<string | null>(null)
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
-  const [feldUrl, setFeldUrl] = useState<string | null>(null)
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
   const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
   // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
@@ -670,18 +662,21 @@ export default function FireStationDashboard() {
   }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations, openIncidentDetail])
 
   // «Angekommen» / «Einsatz beendet» answered straight from the bell, without
-  // finding the card first. The move is the SAME one the card's own nudge makes
-  // — including the completion gate — and it records the same answer, so the
-  // question does not come back on the card a second later.
+  // finding the card first. It has to be the SAME move the card's own nudge
+  // makes, and for a while it was not: this one ran `requestCompletion`, i.e.
+  // the whole completion flow down to *Abgeschlossen*, while the nudge on the
+  // card moved to *Beendet / Rückfahrt* and stopped. Two buttons that ask the
+  // same question and answer it differently is worse than either answer — and
+  // the nudge's is the right one (see `field-status-nudge.tsx`): a crew that
+  // has packed up is not a Schadenplatz the KP has closed.
   useEffect(() => {
     if (!isEditor) return
     registerFieldActionHandler((incidentId, kind) => {
       storeFieldNudgeConfirmation(incidentId, kind)
-      if (kind === "complete") requestCompletion(incidentId)
-      else changeStatusToTop(incidentId, "active")
+      changeStatusToTop(incidentId, kind === "complete" ? "returning" : "active")
     })
     return () => registerFieldActionHandler(null)
-  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
+  }, [isEditor, registerFieldActionHandler, changeStatusToTop])
 
   // Resource assignment dialog state
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
@@ -701,7 +696,6 @@ export default function FireStationDashboard() {
   const [printerEnabled, setPrinterEnabled] = useState(false)
   const [diveraEnabled, setDiveraEnabled] = useState(false)
   const [isPrintingBoard, setIsPrintingBoard] = useState(false)
-  const [isPrintingQR, setIsPrintingQR] = useState(false)
   const [funkrufname, setFunkrufname] = useState("Omega")
 
   // Fetch Reko personnel names when the crew assignment dialog opens
@@ -788,24 +782,8 @@ export default function FireStationDashboard() {
     }
   }, [selectedEvent, isPrintingBoard, tCommon, tDash, tPrint, trackPrint])
 
-  // Handle thermal QR-code slip print (Check-In / Reko / Viewer / Walk-In links)
-  const handlePrintQR = useCallback(async (qrContent: string, title: string, subtitle?: string) => {
-    if (!printerEnabled || !qrContent || isPrintingQR) return
-    setIsPrintingQR(true)
-    try {
-      const job = await apiClient.queueQRCodePrint({
-        qr_content: qrContent,
-        title,
-        subtitle,
-        event_id: selectedEvent?.id,
-      })
-      trackPrint(job.id, { sentTitle: tDash('qrPrintSent'), subject: tPrint('subjectQr') })
-    } catch {
-      toast.error(tCommon('printFailed'))
-    } finally {
-      setIsPrintingQR(false)
-    }
-  }, [printerEnabled, isPrintingQR, selectedEvent, tCommon, tDash, tPrint, trackPrint])
+  // QR-slip printing lives in the Links & QR sheet (and the Checkliste), which
+  // queue the job themselves — the page no longer owns a print handler for it.
 
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
@@ -820,6 +798,13 @@ export default function FireStationDashboard() {
     if (toMirrorStatus(operation) === newStatus) return
     requestStatusChange(operationId, newStatus)
   }, [operations, requestStatusChange])
+
+  // Which columns this screen has folded away. Seven columns do not fit on
+  // every command-post monitor, and the two that matter right now must not be
+  // behind a horizontal scrollbar. Per DEVICE, not per operator account: the
+  // fold answers «how wide is this monitor», which nobody wants inherited on
+  // the next machine — same hook, same reasoning as both wall boards.
+  const collapsedColumns = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
 
   // One-shot column sort: persist the chosen column's order without turning off
   // manual drag-and-drop ordering afterwards.
@@ -857,9 +842,10 @@ export default function FireStationDashboard() {
       let nextIndex = 0
       return prev.map((op) => column.status.includes(op.status) ? columnOperations[nextIndex++] : op)
     })
+    // No toast: the column reorders under the operator's eyes, so confirming it
+    // in words is noise on a surface whose job is staying calm.
     reorderColumn(ordered)
-    toast.success(tDash('sort.applied'))
-  }, [operations, groups, setOperations, reorderColumn, tDash])
+  }, [operations, groups, setOperations, reorderColumn])
 
   // Open the "Ressourcen übertragen" dialog from the card context menu. Loads the
   // event's incidents as transfer targets (mirrors side-panel's handleOpenTransfer).
@@ -1031,6 +1017,8 @@ export default function FireStationDashboard() {
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
       onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
       onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
+      onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
+      onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
         setAuftraegeFocusGroupId(null)
@@ -1261,14 +1249,16 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle, Aufträge and Drucken footers are non-modal on desktop: keep
-        // their toggle keys (F / A / D) able to close them again. Every other
-        // shortcut still stops at an open sheet — it is only the key that opened
-        // this one that stays live.
+        // Vehicle, Aufträge, Drucken, Links and Rapporte footers are non-modal
+        // on desktop: keep their toggle keys (F / A / D / T / O) able to close
+        // them again. Every other shortcut still stops at an open sheet — it is
+        // only the key that opened this one that stays live.
         (!!activeFooterSheet &&
           activeFooterSheet !== 'vehicles' &&
           activeFooterSheet !== 'auftraege' &&
-          activeFooterSheet !== 'print') ||
+          activeFooterSheet !== 'print' &&
+          activeFooterSheet !== 'links' &&
+          activeFooterSheet !== 'rapporte') ||
         deleteDialogOpen,
       hoveredOperationId,
       operations,
@@ -1323,6 +1313,8 @@ export default function FireStationDashboard() {
       onSidePanelDetail: () => setSidePanelMode('detail'),
       onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
       onTogglePrint: () => setActiveFooterSheet((prev) => (prev === 'print' ? null : 'print')),
+      onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
+      onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -1351,7 +1343,6 @@ export default function FireStationDashboard() {
     assignRekoPersonToOperation,
     assignMaterialToOperation,
     assignVehicleToOperation: assignVehicleToIncidentWithConflict,
-    setDraggingItem,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
       setSelectedOperationId(operationId)
@@ -1379,6 +1370,9 @@ export default function FireStationDashboard() {
       else void assignGroupResource(groupId, resourceType, resourceId)
     },
     occupiedGroupResourceIds: occupiedResourceIds,
+    // A refused drop has to SAY it was refused. Silence here read as
+    // "drag and drop is broken" — the sidebar let go and nothing moved.
+    notifyRefused: () => toast.error(tCommon('dropRefusedRouteOccupied')),
   })
 
   // Board Auftrag chips signal the page via a window event (no prop threading
@@ -1513,19 +1507,11 @@ export default function FireStationDashboard() {
   }
 
   // Derived state for convenience
-  const qrDialogOpen = activeFooterSheet === 'checkin'
-  const rekoQrDialogOpen = activeFooterSheet === 'reko'
-  const displaySheetOpen = activeFooterSheet === 'display'
-  // One share token, three targets — the sheet toggles which view the QR/URL point at.
-  const displayUrl = displayToken
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/display/${displayView}?token=${displayToken}`
-    : null
-  const alarmQrDialogOpen = activeFooterSheet === 'alarm'
-  const feldQrDialogOpen = activeFooterSheet === 'feld'
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
   const printSheetOpen = activeFooterSheet === 'print'
   const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
   const rapportBacklogSheetOpen = activeFooterSheet === 'rapporte'
+  const linksSheetOpen = activeFooterSheet === 'links'
 
   // The rolling Schadenplatz-Rapport backlog — closed incidents whose rapport is
   // still missing, oldest first. Computed once: the footer pill shows the count,
@@ -1557,34 +1543,6 @@ export default function FireStationDashboard() {
     openIncidentDetail(operationId, 'rapport')
   }, [openIncidentDetail])
 
-  const generateCheckInQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (qrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateCheckInLink(selectedEvent.id)
-      // Build full URL for QR code
-      const fullUrl = `${window.location.origin}${response.link}`
-      setCheckInUrl(fullUrl)
-      setActiveFooterSheet('checkin')
-    } catch (error) {
-      console.error('Failed to generate check-in link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('qrGenerateFailed'),
-      })
-    }
-  }
-
   /** Opening the Appell closes the sheet underneath it — two stacked layers for one job
    *  is one too many. */
   const openAttendance = () => {
@@ -1614,116 +1572,10 @@ export default function FireStationDashboard() {
     }
   }
 
-  const generateRekoDashboardQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (rekoQrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateRekoDashboardLink(selectedEvent.id)
-      // Build full URL for QR code
-      const fullUrl = `${window.location.origin}${response.link}`
-      setRekoDashboardUrl(fullUrl)
-      setActiveFooterSheet('reko')
-    } catch (error) {
-      console.error('Failed to generate Reko Dashboard link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('rekoLinkFailed'),
-      })
-    }
-  }
-
-  const generateDisplayShare = async () => {
-    // Toggle behavior: if already open, just close
-    if (displaySheetOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      // Reuse the read-only share token; point it at the display board so a
-      // recipient sees the shared read-only board without logging in.
-      const response = await apiClient.generateViewerLink(selectedEvent.id)
-      setDisplayToken(response.token)
-      setDisplayView('board')
-      setActiveFooterSheet('display')
-    } catch (error) {
-      console.error('Failed to generate display share link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('displayLinkFailed'),
-      })
-    }
-  }
-
-  const generateAlarmQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (alarmQrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateAlarmLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      setAlarmUrl(fullUrl)
-      setActiveFooterSheet('alarm')
-    } catch (error) {
-      console.error('Failed to generate alarm link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('alarmLinkFailed'),
-      })
-    }
-  }
-
-  const generateFeldQR = async () => {
-    // Toggle behavior: if already open, just close
-    if (feldQrDialogOpen) {
-      setActiveFooterSheet(null)
-      return
-    }
-
-    if (!selectedEvent) {
-      toast.error(tCommon('error'), {
-        description: tDash('selectEventFirst'),
-      })
-      return
-    }
-
-    try {
-      const response = await apiClient.generateFeldLink(selectedEvent.id)
-      const fullUrl = `${window.location.origin}${response.link}`
-      setFeldUrl(fullUrl)
-      setActiveFooterSheet('feld')
-    } catch (error) {
-      console.error('Failed to generate feld link:', error)
-      toast.error(tCommon('error'), {
-        description: tDash('feldLinkFailed'),
-      })
-    }
-  }
+  // The Reko trupp's link is the field link now — `/reko-dashboard` is gone
+  // (plan 26, decision 24) and `/feld` absorbed everything it did.
+  // Check-In and Anzeige links live in the Links & QR sheet too (it mints them
+  // itself), so the page no longer generates either.
 
   // Handle resource assignment dialog. A grouped incident owns no resources of its
   // own — the Auftrag (route) does — so assigning from its card buttons or the
@@ -2093,6 +1945,7 @@ export default function FireStationDashboard() {
                               person={person}
                               onClick={() => handlePersonClick(person)}
                               assignmentCount={doubleBookedPersons.counts.get(person.name)}
+                              engagement={personEngagements.get(person.name)}
                             />
                           ))}
                         </div>
@@ -2127,22 +1980,29 @@ export default function FireStationDashboard() {
               edge instead of flush against it. A half-rounded tab with one
               border side removed reads as a control the window had cut in half,
               and it changed shape, z-layer and background every time a sidebar
-              was collapsed. One shape, one size, going in and coming out. */}
+              was collapsed. One shape, one size, going in and coming out.
+              It lives in its own slim flex gutter rather than absolutely over
+              the board: floated over #kanban-main (px-4) it overlapped the first
+              column's cards, and anything the board scrolled slid under it. The
+              gutter wears the board's background so it reads as board margin. */}
           {!showLeftSidebar && (
-            <button
-              onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-              title={`${tDash('toggleLeftSidebar')} ([)`}
-              aria-label={tDash('toggleLeftSidebar')}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            <div className="relative w-7 flex-shrink-0 bg-muted/30 dark:bg-background">
+              <button
+                onClick={() => setShowLeftSidebar(true)}
+                className="absolute left-1 top-1/2 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                title={`${tDash('toggleLeftSidebar')} ([)`}
+                aria-label={tDash('toggleLeftSidebar')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           )}
 
-          {/* The board and the Material-Leiste's reopen tab share one containing
-              block so the tab can be pinned to the BOARD's right edge rather than
-              held in the flow between the board and the detail panel — where it
-              reserved an empty 28px column the full height of the window. */}
+          {/* The board and the right-edge reopen tabs share one containing block
+              so their gutter lands on the BOARD's right edge — between the board
+              and the detail panel — whether or not that panel is open. The
+              gutter is conditional (see below), so it costs nothing while both
+              right-hand surfaces are open. */}
           <div className="relative flex min-w-0 flex-1">
           {/* Main Kanban Board */}
           <main
@@ -2191,6 +2051,8 @@ export default function FireStationDashboard() {
                       canDrag={isEditor}
                       onDragActiveChange={setBoardDragging}
                       onSort={isEditor ? handleColumnSort : undefined}
+                      isCollapsed={collapsedColumns.isCollapsed(column.id)}
+                      onToggleCollapsed={collapsedColumns.toggle}
                     />
                   )
                 })}
@@ -2198,50 +2060,55 @@ export default function FireStationDashboard() {
             )}
           </main>
 
-          {/* Reopen the Einsatz-Detail panel. Drawn HERE, not by `SidePanel`,
-              and pinned rather than in the flow: a flex item reserves its width
-              down the whole height of the board, so a 48px tab left a 20px
-              column of nothing running beside the Material-Leiste. Inside the
-              board's own box it lands on the board's right edge whether or not
-              that sidebar is open. `2xl:` is SIDE_PANEL_BREAKPOINT (1536px) —
-              below it the panel does not exist, so neither does its tab. */}
-          {sidePanelMode === 'collapsed' && (
-            <button
-              onClick={() => setSidePanelMode('detail')}
-              className="absolute right-1 top-3 z-20 hidden h-12 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
-              title={`${tSidePanel('railLabel')} (\\)`}
-              aria-label={tSidePanel('railLabel')}
-            >
-              <PanelRight className="h-4 w-4" />
-            </button>
-          )}
-
-          {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles).
-              Mirrors the Personen-Leiste's tab on the left: `absolute right-1`,
-              out of flow, so it costs the board no width — and, sitting inside
-              the board's own containing block, it lands on the board's right
-              edge whether or not the detail panel is open beside it. */}
-          {!showRightSidebar && (
-            <button
-              onClick={() => setShowRightSidebar(true)}
-              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-              title={
-                materialOnSiteEntries.length > 0
-                  ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
-                  : `${tDash('toggleRightSidebar')} (])`
-              }
-              aria-label={tDash('toggleRightSidebar')}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              {/* The «vor Ort» roll-up lives inside this panel, so a folded
-                  panel would hide the one thing on the board that says a pump
-                  is still in a stranger's cellar. A dot, not a number: it is a
-                  "there is something behind this" mark, and the count is one
-                  click and a tooltip away. */}
-              {materialOnSiteEntries.length > 0 && (
-                <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
+          {/* The right-edge reopen tabs — Einsatz-Detail panel (top) and
+              Material-Leiste (middle) — share one slim flex gutter, the mirror
+              of the left one: floated over the board they overlapped the last
+              column's cards. The gutter only exists while a tab is visible;
+              when only the detail-panel tab wants it, it is `2xl:`-gated with
+              the tab (`2xl:` is SIDE_PANEL_BREAKPOINT — below it the panel does
+              not exist, so neither does its tab, so neither does the gutter). */}
+          {(sidePanelMode === 'collapsed' || !showRightSidebar) && (
+            <div
+              className={cn(
+                "relative w-7 flex-shrink-0 bg-muted/30 dark:bg-background",
+                showRightSidebar && "hidden 2xl:block"
               )}
-            </button>
+            >
+              {sidePanelMode === 'collapsed' && (
+                <button
+                  onClick={() => setSidePanelMode('detail')}
+                  className="absolute right-1 top-3 hidden h-12 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+                  title={`${tSidePanel('railLabel')} (\\)`}
+                  aria-label={tSidePanel('railLabel')}
+                >
+                  <PanelRight className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles). */}
+              {!showRightSidebar && (
+                <button
+                  onClick={() => setShowRightSidebar(true)}
+                  className="absolute right-1 top-1/2 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+                  title={
+                    materialOnSiteEntries.length > 0
+                      ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
+                      : `${tDash('toggleRightSidebar')} (])`
+                  }
+                  aria-label={tDash('toggleRightSidebar')}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  {/* The «vor Ort» roll-up lives inside this panel, so a folded
+                      panel would hide the one thing on the board that says a pump
+                      is still in a stranger's cellar. A dot, not a number: it is a
+                      "there is something behind this" mark, and the count is one
+                      click and a tooltip away. */}
+                  {materialOnSiteEntries.length > 0 && (
+                    <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
+                  )}
+                </button>
+              )}
+            </div>
           )}
           </div>
 
@@ -2249,10 +2116,8 @@ export default function FireStationDashboard() {
           <SidePanel
             mode={sidePanelMode}
             onModeChange={setSidePanelMode}
-            // Same trick the Personen-Leiste's reopen tab uses on the left: out
-            // of flow, so a folded panel costs the board no width. Only while
-            // the Material-Leiste is folded too — otherwise there IS something
-            // at this edge and the tab belongs beside it, not on top of it.
+            // Collapsed, the panel renders nothing here — its reopen tab lives
+            // in the w-7 gutter above, beside the Material-Leiste's.
             selectedOperation={selectedOperation}
             onOpenOnMap={() =>
               router.push(selectedOperation ? `/map?highlight=${selectedOperation.id}` : '/map')
@@ -2520,6 +2385,7 @@ export default function FireStationDashboard() {
                       onOpenVehicles={() => setActiveFooterSheet('vehicles')}
                       onOpenAttendance={() => setAttendanceOpen(true)}
                       onSendDiveraMessage={(text) => setDiveraMessageText(text)}
+                      onOpenRekoPicker={() => setRekoPickerOpen(true)}
                     />
                   </PopoverContent>
                 </Popover>
@@ -2538,65 +2404,28 @@ export default function FireStationDashboard() {
                 still the cheapest width saving, and every control it does not
                 save is reachable in the panel.
 
-                Order is the contract. Items overflow from the end, so the pills
-                an operator reaches for on a live board (Check-In, Reko, Feld,
-                Display, Alarm) are the last to go. */}
+                Order is the contract. Items overflow from the end, so the pill
+                an operator reaches for on a live board (Links & QR) is the
+                last to go. */}
             <ToolbarOverflow
               moreLabel={tDash('more')}
               moreTitle={(count) => tDash('moreTitle', { count })}
               items={[
                 {
-                  key: 'checkin',
+                  // Every link the board hands out, in ONE sheet (decision 29).
+                  // Was five pills — Check-In, Reko, Feld, Anzeige, Alarm —
+                  // each opening its own sheet that did the same three things.
+                  // Check-In and Anzeige held out for a while as pills of their
+                  // own (the Appell; the display picker), but the Appell is a
+                  // row in this sheet now and the display share is just the
+                  // base /display link, so one pill covers everything.
+                  key: 'links',
                   node: (
                     <ToolbarToggle
                       icon={QrCode}
-                      label={tDash('checkIn')}
-                      active={qrDialogOpen}
-                      onActivate={generateCheckInQR}
-                    />
-                  ),
-                },
-                {
-                  key: 'reko',
-                  node: (
-                    <ToolbarToggle
-                      icon={Search}
-                      label={tCommon('reko')}
-                      active={rekoQrDialogOpen}
-                      onActivate={generateRekoDashboardQR}
-                    />
-                  ),
-                },
-                {
-                  key: 'feld',
-                  node: (
-                    <ToolbarToggle
-                      icon={Axe}
-                      label={tDash('feld')}
-                      active={feldQrDialogOpen}
-                      onActivate={generateFeldQR}
-                    />
-                  ),
-                },
-                {
-                  key: 'display',
-                  node: (
-                    <ToolbarToggle
-                      icon={MonitorDown}
-                      label={tDash('display')}
-                      active={displaySheetOpen}
-                      onActivate={generateDisplayShare}
-                    />
-                  ),
-                },
-                {
-                  key: 'alarm',
-                  node: (
-                    <ToolbarToggle
-                      icon={Siren}
-                      label={tDash('alarm')}
-                      active={alarmQrDialogOpen}
-                      onActivate={generateAlarmQR}
+                      label={tDash('linksAndQr')}
+                      active={linksSheetOpen}
+                      onActivate={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
                     />
                   ),
                 },
@@ -2744,41 +2573,6 @@ export default function FireStationDashboard() {
         )}
       </div>
 
-      {/* Drag Preview Overlay */}
-      {draggingItem && (
-        <div
-          style={{
-            position: 'fixed',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            left: 0,
-            top: 0,
-          }}
-        >
-          {"role" in draggingItem ? (
-            <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl opacity-80">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="font-medium text-sm text-foreground">{draggingItem.name}</span>
-              </div>
-            </Card>
-          ) : "category" in draggingItem ? (
-            <Card className="cursor-move border border-primary bg-card p-3 shadow-2xl opacity-80">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-primary" />
-                <span className="font-medium text-sm text-foreground">{draggingItem.name}</span>
-              </div>
-            </Card>
-          ) : (
-            <Card className="cursor-move border-2 border-primary p-4 shadow-2xl bg-card/90 backdrop-blur opacity-80">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground">{draggingItem.location}</span>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
-
       <OperationDetailModal
         operation={selectedOperation}
         open={detailModalOpen}
@@ -2881,37 +2675,15 @@ export default function FireStationDashboard() {
       />
 
 
-      {/* Check-In QR Code Sheet.
-          The Anwesenheit row rides in through the existing `children` seam — the same one
-          the Anzeige sheet uses for its view selector — rather than QrShareSheet growing a
-          special case for one of its five callers. The count IS the entry: it says why one
-          would click. */}
-      <QrShareSheet
-        open={qrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'checkin' && setActiveFooterSheet(null)}
-        url={checkInUrl}
-        title={tDash('checkInSheetTitle')}
-        description={tDash('checkInSheetDescription')}
-        hint={tDash('checkInSheetHint')}
+      {/* The one link sheet the footer opens: Check-In (with the Appell row),
+          Feld-Code + Feld link, Alarm, and the base /display share. */}
+      <LinksQrSheet
+        open={linksSheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'links' && setActiveFooterSheet(null)}
+        eventId={selectedEvent?.id ?? null}
         printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={checkInUrl ? () => handlePrintQR(checkInUrl, tDash('checkInSheetTitle'), tDash('checkInSheetHint')) : undefined}
-      >
-        {selectedEvent && (
-          <div className="mb-3 flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2">
-            <Users className="size-4 shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium">{tAttendance('rowLabel')}</span>
-            <span className="flex-1 text-sm text-muted-foreground">
-              {attendanceCounts
-                ? tAttendance('rowCount', { present: attendanceCounts.present, total: attendanceCounts.total })
-                : ''}
-            </span>
-            <Button size="sm" variant="outline" onClick={openAttendance}>
-              {tAttendance('open')}
-            </Button>
-          </div>
-        )}
-      </QrShareSheet>
+        onOpenAttendance={openAttendance}
+      />
 
       {/* The Appell itself */}
       {selectedEvent && (
@@ -2921,76 +2693,15 @@ export default function FireStationDashboard() {
           eventId={selectedEvent.id}
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelForPerson}
+          onAttendanceChange={refreshPersonnel}
         />
       )}
 
-      {/* Reko Dashboard QR Code Sheet */}
-      <QrShareSheet
-        open={rekoQrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'reko' && setActiveFooterSheet(null)}
-        url={rekoDashboardUrl}
-        title={tDash('rekoSheetTitle')}
-        description={tDash('rekoSheetDescription')}
-        hint={tDash('rekoSheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={rekoDashboardUrl ? () => handlePrintQR(rekoDashboardUrl, tDash('rekoSheetTitle'), tDash('rekoSheetHint')) : undefined}
-      />
-
-      {/* Feld (Schadenplatz-Rapport) QR Code Sheet — one global link per Ereignis */}
-      <QrShareSheet
-        open={feldQrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'feld' && setActiveFooterSheet(null)}
-        url={feldUrl}
-        title={tDash('feldSheetTitle')}
-        description={tDash('feldSheetDescription')}
-        hint={tDash('feldSheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={feldUrl ? () => handlePrintQR(feldUrl, tDash('feldSheetTitle'), tDash('feldSheetHint')) : undefined}
-      />
-
-      {/* Display share QR Code Sheet */}
-      <QrShareSheet
-        open={displaySheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'display' && setActiveFooterSheet(null)}
-        url={displayUrl}
-        title={tDash('displaySheetTitle')}
-        description={tDash('displaySheetDescription')}
-        hint={tDash('displaySheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={displayUrl ? () => handlePrintQR(displayUrl, tDash('displaySheetTitle'), tDash('displaySheetHint')) : undefined}
-      >
-        {/* View selector — one token, three display targets */}
-        <div className="flex gap-1.5 mb-3">
-          {(['board', 'map', 'status'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setDisplayView(v)}
-              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                displayView === v
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-muted-foreground border-border hover:bg-muted'
-              }`}
-            >
-              {tDash(`displayView.${v}`)}
-            </button>
-          ))}
-        </div>
-      </QrShareSheet>
-
-      {/* Alarm Intake Link Sheet */}
-      <QrShareSheet
-        open={alarmQrDialogOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'alarm' && setActiveFooterSheet(null)}
-        url={alarmUrl}
-        title={tDash('alarmSheetTitle')}
-        description={tDash('alarmSheetDescription')}
-        hint={tDash('alarmSheetHint')}
-        printerEnabled={printerEnabled}
-        isPrinting={isPrintingQR}
-        onPrint={alarmUrl ? () => handlePrintQR(alarmUrl, tDash('alarmSheetTitle'), tDash('alarmSheetHint')) : undefined}
+      {/* The Checkliste's Reko picker — page-owned, see `rekoPickerOpen`. */}
+      <RekoPickerDialog
+        open={rekoPickerOpen}
+        onOpenChange={setRekoPickerOpen}
+        eventId={selectedEvent?.id ?? null}
       />
 
       {/* Vehicle Status Sheet */}
@@ -3126,8 +2837,8 @@ export default function FireStationDashboard() {
         funkrufname={funkrufname}
         diveraEnabled={diveraEnabled}
         onOpenAssignment={handleOpenAssignmentDialog}
-        onOpenDetail={(operationId) => {
-          openIncidentDetail(operationId)
+        onOpenDetail={(operationId, tab, section) => {
+          openIncidentDetail(operationId, tab, section)
         }}
         onSendDivera={setDiveraDialogOp}
         onRefresh={refreshOperations}
@@ -3167,9 +2878,7 @@ export default function FireStationDashboard() {
       <MobileBottomNavigation
         currentPage="kanban"
         hasSelectedEvent={!!selectedEvent}
-        onCheckIn={generateCheckInQR}
-        onReko={generateRekoDashboardQR}
-        onDisplay={generateDisplayShare}
+        onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
         onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}

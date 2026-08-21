@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { planToastBurst, toastPolicyFor, TOAST_BURST_LIMIT } from './notification-policy'
+import {
+  planToastBurst,
+  supersededNewIncidentNotifications,
+  toastPolicyFor,
+  TOAST_BURST_LIMIT,
+  type SupersedeOperation,
+} from './notification-policy'
 import type { Notification, NotificationSeverity, NotificationType } from './types/notification'
 
 let clock = 0
@@ -27,8 +33,10 @@ describe('toastPolicyFor', () => {
     expect(toastPolicyFor(make('field_message', 'info'))).toBe('urgent')
   })
 
-  it('keeps the confirmations quiet or normal', () => {
-    expect(toastPolicyFor(make('field_arrived', 'info'))).toBe('quiet')
+  it('keeps the confirmations normal — they earn a toast while there is room', () => {
+    // 'quiet' until sweep 27 §P3.3: a field «Angekommen» now MOVES the card to
+    // EINSATZ, and the toast is the announcement of that move.
+    expect(toastPolicyFor(make('field_arrived', 'info'))).toBe('normal')
     expect(toastPolicyFor(make('rapport_submitted', 'info'))).toBe('normal')
     expect(toastPolicyFor(make('field_complete', 'info'))).toBe('normal')
   })
@@ -37,6 +45,11 @@ describe('toastPolicyFor', () => {
     expect(toastPolicyFor(make('time_overdue', 'warning'))).toBe('urgent')
     expect(toastPolicyFor(make('no_materials', 'critical'))).toBe('urgent')
     expect(toastPolicyFor(make('vehicle_arrived', 'info'))).toBe('normal')
+  })
+
+  it('gives the reko pair a toast while there is room — «vor Ort» must not be invisible', () => {
+    expect(toastPolicyFor(make('reko_arrived', 'info'))).toBe('normal')
+    expect(toastPolicyFor(make('reko_submitted', 'info'))).toBe('normal')
   })
 })
 
@@ -86,12 +99,12 @@ describe('planToastBurst', () => {
     expect(plan.overflow).toHaveLength(0)
   })
 
-  it('routes quiet types to the bell only — no toast, no summary', () => {
+  it('toasts an arrival — it announces the auto-move since sweep 27 §P3.3', () => {
     const arrived = make('field_arrived', 'info')
     const plan = planToastBurst([arrived], 3)
-    expect(plan.toast).toHaveLength(0)
+    expect(plan.toast.map((n) => n.id)).toEqual([arrived.id])
     expect(plan.overflow).toHaveLength(0)
-    expect(plan.quiet.map((n) => n.id)).toEqual([arrived.id])
+    expect(plan.quiet).toHaveLength(0)
   })
 
   it('accounts for every notification exactly once', () => {
@@ -114,5 +127,53 @@ describe('planToastBurst', () => {
     const order = burst.map((n) => n.id)
     planToastBurst(burst, 3)
     expect(burst.map((n) => n.id)).toEqual(order)
+  })
+})
+
+describe('supersededNewIncidentNotifications', () => {
+  const op = (overrides: Partial<SupersedeOperation> = {}): SupersedeOperation => ({
+    id: 'op-1',
+    status: 'incoming',
+    assignedReko: null,
+    ...overrides,
+  })
+
+  const newEmergency = (overrides: Partial<Notification> = {}) =>
+    make('field_report', 'info', { incident_id: 'op-1', ...overrides })
+
+  it('silences a plain Meldung once its incident left EINGEGANGEN', () => {
+    const n = newEmergency()
+    expect(supersededNewIncidentNotifications([n], [op({ status: 'reko' })])).toEqual([n.id])
+    expect(supersededNewIncidentNotifications([n], [op({ status: 'enroute' })])).toEqual([n.id])
+    expect(supersededNewIncidentNotifications([n], [op({ status: 'complete' })])).toEqual([n.id])
+  })
+
+  it('silences a plain Meldung once a Reko is assigned, even in EINGEGANGEN', () => {
+    const n = newEmergency()
+    const acted = op({ status: 'incoming', assignedReko: { id: 'p1', name: 'Muster' } })
+    expect(supersededNewIncidentNotifications([n], [acted])).toEqual([n.id])
+  })
+
+  it('leaves an unhandled Meldung alone', () => {
+    const n = newEmergency()
+    expect(supersededNewIncidentNotifications([n], [op()])).toEqual([])
+  })
+
+  it('keeps the taken-over warning through DISPONIERT — that is the column it is born in', () => {
+    const n = newEmergency({ severity: 'warning' })
+    expect(supersededNewIncidentNotifications([n], [op({ status: 'enroute' })])).toEqual([])
+    expect(supersededNewIncidentNotifications([n], [op({ status: 'active' })])).toEqual([n.id])
+  })
+
+  it('never silences based on an incident the board has not loaded', () => {
+    const n = newEmergency()
+    expect(supersededNewIncidentNotifications([n], [])).toEqual([])
+  })
+
+  it('ignores dismissed notifications and other types', () => {
+    const dismissed = newEmergency({ dismissed: true })
+    const pickup = make('field_pickup', 'warning', { incident_id: 'op-1' })
+    const advanced = op({ status: 'active' })
+    expect(supersededNewIncidentNotifications([dismissed, pickup], [advanced])).toEqual([])
   })
 })

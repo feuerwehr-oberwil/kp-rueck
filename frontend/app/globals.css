@@ -79,7 +79,12 @@
   --muted-foreground: oklch(0.60 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.60 0.26 28);
+  /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
+     rgb(245,0,0) — harsh, and only 4.05:1 under the 0.98 foreground). This
+     value measures 5.07:1 against the destructive-foreground and 3.47:1
+     against --background, so solid destructive buttons pass WCAG AA without
+     the washed-out `dark:bg-destructive/60` opacity trick. */
+  --destructive: oklch(0.55 0.20 27);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.42 0.012 250);
   --input: oklch(0.29 0.012 250);
@@ -324,8 +329,22 @@
       font-size: max(16px, 1rem);
     }
 
-    /* Ensure minimum touch target sizes (44x44px for iOS guidelines) */
-    button,
+    /* …and give them the same 44px the buttons below get. A field is a tap
+       target too, and without this a text input (h-9) sat 8px shorter than the
+       icon buttons beside it — which is what the address row in every location
+       field looked like on a phone. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      min-height: 44px;
+    }
+
+    /* Ensure minimum touch target sizes (44x44px for iOS guidelines).
+       `[role="switch"]` is excluded: a Radix Switch renders a <button>, so this
+       rule squared it into a 44x44 blob wherever one appeared on a phone. A
+       switch is not a tap-anywhere target — its ROW is, and the rows that carry
+       one are labels wrapping the whole thing. */
+    button:not([role="switch"]),
     a,
     [role="button"],
     .interactive-element {
@@ -497,27 +516,22 @@
     animation: bounce-tap 0.2s ease-out;
   }
 
-  /* Checkmark spring animation for resource assignment */
-  @keyframes checkmark-spring {
-    0% {
-      transform: scale(0) rotate(-180deg);
+  /* Assignment tick: circle → circle with tickmark. Deliberately small and
+     calm — a quick fade + settle, no spin, no bounce (replaced the old
+     half-second spring; the state change itself is the message). */
+  @keyframes check-appear {
+    from {
+      transform: scale(0.85);
       opacity: 0;
     }
-    60% {
-      transform: scale(1.15) rotate(10deg);
-      opacity: 1;
-    }
-    80% {
-      transform: scale(0.95) rotate(-5deg);
-    }
-    100% {
-      transform: scale(1) rotate(0deg);
+    to {
+      transform: scale(1);
       opacity: 1;
     }
   }
 
-  .animate-checkmark-spring {
-    animation: checkmark-spring 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  .animate-check-appear {
+    animation: check-appear 0.18s ease-out;
   }
 
   /* Staggered fade-in for list items */
@@ -609,7 +623,7 @@
     .animate-scale-in,
     .animate-tab-switch,
     .animate-bounce-tap,
-    .animate-checkmark-spring,
+    .animate-check-appear,
     .animate-stagger-fade-in,
     .animate-search-focus,
     .animate-category-fade,
@@ -784,6 +798,22 @@
 
 .dark .leaflet-tile-pane {
   filter: saturate(0) brightness(0.6) contrast(1.1);
+}
+
+/* Leaflet's image markers keep the size Leaflet gave them.
+   `Icon._setIconStyles` writes the size and the anchor together — an inline
+   25x41 with a matching -12px/-41px offset — and Leaflet puts `role="button"`
+   on every keyboard-reachable marker. That made the mobile touch-target floor
+   in @layer base (`[role="button"] { min-width/height: 44px }`) apply to the
+   pin: on a phone it grew to 44x44, lost its aspect ratio and no longer pointed
+   at the spot it marks, because the anchor was still the one for 25x41. A
+   marker is not a tap target that can be enlarged on its own.
+   Unlayered on purpose — that is what beats the @layer base rule.
+   `img` only: the div-based incident markers keep the sizing map-view.tsx
+   gives them (and the scale-down right below). */
+.leaflet-container .leaflet-marker-pane img {
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Incident markers are sized in JS (24/32px) for wall monitors. On small

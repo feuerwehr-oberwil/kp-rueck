@@ -84,6 +84,12 @@ export const STATUS_ACCENT: Record<OperationStatus, {
 // nothing left to translate, and typing it as `OperationStatus` is what keeps
 // `t(`kanban.columns.${column.id}`)` provably inside the message block — that
 // lookup resolves at runtime, so nothing else would notice a typo.
+//
+// `collapsible` does NOT mean "this one may be folded" — every column may be
+// folded, on all three boards. It means "starts folded on a screen that has
+// never been told otherwise": ABGESCHLOSSEN is finished work by definition and
+// its width is better spent on the live columns. Nothing else starts hidden;
+// at 3am a column may only disappear because someone folded it.
 export const columns: Array<{
   id: OperationStatus
   title: string
@@ -99,6 +105,28 @@ export const columns: Array<{
   { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: STATUS_ACCENT.returning.surface },
   { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
 ]
+
+/**
+ * Per-device fold state for the OPERATOR's board (see `useCollapsedSections`).
+ *
+ * Its own key, deliberately not shared with the wall board's
+ * `kp-display-board-collapsed`: the two screens sit at different distances and
+ * carry different amounts of chrome, so how much is folded away is a property
+ * of the screen and not of the Einsatz. A station that runs both on one PC must
+ * not have a fold on the wall re-fold the desk.
+ *
+ * localStorage, not the synced settings: the fold answers «how wide is THIS
+ * monitor», which is nothing the next operator on another machine wants
+ * inherited. It sits with the other per-device board preferences
+ * (COLOR_BY_STORAGE_KEY, the Ansicht preset).
+ */
+export const BOARD_COLUMN_COLLAPSE_KEY = "kp-board-columns-collapsed"
+
+/** Which columns a screen that has never been folded starts with folded away —
+ *  see the `collapsible` note above. */
+export const DEFAULT_COLLAPSED_COLUMN_IDS: OperationStatus[] = columns
+  .filter((column) => column.collapsible)
+  .map((column) => column.id)
 
 /**
  * How a kanban column header is set — the ONE definition, shared by all three

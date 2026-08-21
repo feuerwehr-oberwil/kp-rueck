@@ -54,7 +54,7 @@ import {
 } from '@/lib/schemas/personnel';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { getActiveLocale } from '@/lib/i18n-messages';
+import { compareByName, compareByRankThenName } from '@/lib/roster-order';
 
 export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
@@ -232,32 +232,33 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     }
   };
 
-  // Sort personnel based on current sort settings
+  /**
+   * The admin table's order.
+   *
+   * It used to lowercase both values and compare them with `<` / `>`, which is
+   * UTF-16 code-unit order: «Öhler» sorted after «Zwahlen» and «äsch» after
+   * every z-name. This is the one screen where the whole roster is maintained,
+   * so it was also the screen where a name was hardest to find. Names go
+   * through the app's canonical comparator now; the Grad column sorts by the
+   * station's own `role_sort_order` first, which is what the rank editor below
+   * this table actually sets.
+   */
   const sortedPersonnel = useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
     return [...personnel].sort((a, b) => {
-      let aVal: string;
-      let bVal: string;
-
       switch (sortColumn) {
         case 'name':
-          aVal = a.name.toLowerCase();
-          bVal = b.name.toLowerCase();
-          break;
+          return direction * compareByName(a, b);
         case 'role':
-          aVal = (a.role || '').toLowerCase();
-          bVal = (b.role || '').toLowerCase();
-          break;
+          return direction * compareByRankThenName(
+            { name: a.name, role: a.role, roleSortOrder: a.role_sort_order },
+            { name: b.name, role: b.role, roleSortOrder: b.role_sort_order },
+          );
         case 'status':
-          aVal = a.status;
-          bVal = b.status;
-          break;
+          return direction * (a.status.localeCompare(b.status, 'de-CH') || compareByName(a, b));
         default:
           return 0;
       }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
     });
   }, [personnel, sortColumn, sortDirection]);
 
@@ -293,7 +294,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
         sort_order: data.sort_order,
         count: data.count,
       }))
-      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, getActiveLocale()));
+      // de-CH, not the UI locale: a rank label is roster data, and the editor
+      // must not reorder itself when somebody switches the interface language.
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'de-CH'));
   }, [personnel]);
 
   const handleSaveRoleSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {

@@ -6,9 +6,11 @@ import type { GroupResources } from "@/lib/types/groups"
 
 // The material gate prefills itself from the Schadenplatz-Rapport. Every gate
 // test opens one, so the door has to be mocked for all of them, not just the
-// prefill cases.
+// prefill cases. Resolving the gate writes the confirmed answers back through
+// the second door, so that one is mocked alongside.
 const getRapportMaterialReturn = vi.hoisted(() => vi.fn())
-vi.mock("@/lib/api-client", () => ({ apiClient: { getRapportMaterialReturn } }))
+const applyRapportMaterialDecisions = vi.hoisted(() => vi.fn())
+vi.mock("@/lib/api-client", () => ({ apiClient: { getRapportMaterialReturn, applyRapportMaterialDecisions } }))
 
 const emptyGroupResources: GroupResources = { personnel: [], vehicles: [], materials: [] }
 
@@ -31,6 +33,8 @@ function rapport(overrides: Partial<{
 beforeEach(() => {
   getRapportMaterialReturn.mockReset()
   getRapportMaterialReturn.mockResolvedValue(rapport())
+  applyRapportMaterialDecisions.mockReset()
+  applyRapportMaterialDecisions.mockResolvedValue({ applied: true })
 })
 
 function operation(overrides: Partial<Operation> = {}): Operation {

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { type Person, type Operation, useOperations } from "@/lib/contexts/operations-context"
+import { personMatchesQuery } from "@/lib/resource-status"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 
@@ -136,15 +137,11 @@ export function DriverAssignmentDialog({
     return operations.some(op => op.crew.includes(person.name))
   }
 
-  // Filter by search query (matches name, role, and tags)
+  // Filter by search query — shared matcher (name / rank / tags / special
+  // functions), same behaviour as the sidebar and the assignment dialog.
   const filteredPersonnel = useMemo(() => {
     if (!searchQuery.trim()) return availablePersonnel
-    const query = searchQuery.toLowerCase()
-    return availablePersonnel.filter(p =>
-      p.name.toLowerCase().includes(query) ||
-      (p.role && p.role.toLowerCase().includes(query)) ||
-      (p.tags && p.tags.some(t => t.toLowerCase().includes(query)))
-    )
+    return availablePersonnel.filter(p => personMatchesQuery(p, searchQuery))
   }, [availablePersonnel, searchQuery])
 
   // Split into F-tagged (Fahrer) and others
@@ -530,7 +527,7 @@ export function DriverAssignmentDialog({
                             {isCurrentDriver ? (
                               <CheckCircle className={cn(
                                 "h-5 w-5 text-primary flex-shrink-0",
-                                wasJustAssigned && "animate-checkmark-spring"
+                                wasJustAssigned && "animate-check-appear"
                               )} />
                             ) : (
                               <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -556,7 +553,7 @@ export function DriverAssignmentDialog({
                               </Badge>
                             )}
                             {isCurrentDriver && (
-                              <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
+                              <Badge variant="secondary" className="text-xs">{t('drivesVehicle', { vehicle: vehicleName })}</Badge>
                             )}
                           </div>
                         </button>
@@ -592,7 +589,7 @@ export function DriverAssignmentDialog({
                               {isCurrentDriver ? (
                                 <CheckCircle className={cn(
                                   "h-5 w-5 text-primary flex-shrink-0",
-                                  wasJustAssigned && "animate-checkmark-spring"
+                                  wasJustAssigned && "animate-check-appear"
                                 )} />
                               ) : (
                                 <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -618,7 +615,7 @@ export function DriverAssignmentDialog({
                                 </Badge>
                               )}
                               {isCurrentDriver && (
-                                <Badge variant="secondary" className="text-xs">{t('current')}</Badge>
+                                <Badge variant="secondary" className="text-xs">{t('drivesVehicle', { vehicle: vehicleName })}</Badge>
                               )}
                             </div>
                           </button>

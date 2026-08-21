@@ -6,6 +6,7 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
+import { OVERLAY_CLASS } from '@/components/ui/overlay'
 
 function Dialog({
   ...props
@@ -50,7 +51,8 @@ function DialogOverlay({
         // class does NOT help: the inline style wins. Dropping the exit keyframes
         // makes `animationName` resolve to `none`, so Presence unmounts
         // synchronously and the dead layer never exists.
-        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50',
+        OVERLAY_CLASS,
         className,
       )}
       {...props}

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # integration that a slug accepted by one is rejected by the other. Reserving a name this app
 # doesn't use costs nothing; it was never a valid external sender name anyway.
 # Keep in sync with kp-front's app/schemas.py. See docs/RUNNING-BOTH.md.
-RESERVED_ALARM_SOURCES = {"divera", "intake", "manual", "migrated", "operator", "training"}
+RESERVED_ALARM_SOURCES = {"divera", "feld", "intake", "manual", "migrated", "operator", "training"}
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -30,9 +30,16 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 class AlarmIn(BaseModel):
     """A provider-neutral alarm as delivered by an external dispatch system."""
 
-    # Sender identity: lowercase slug, ≤20 chars so it can flow onto
-    # incidents.source unchanged. One slug per sending system.
-    source: str = Field(default="webhook", max_length=20)
+    # Sender identity: lowercase slug, one per sending system, flowing onto
+    # incidents.source unchanged.
+    #
+    # The ceiling is 16, not the 20 this column holds, because KP Front's
+    # `incidents.source` is a String(16) and a 17–20 char slug therefore passed
+    # here and 422'd there — one relay, two answers, which is the whole thing
+    # `docs/alarm-intake-conformance.json` exists to stop. Widening Front would
+    # have meant a migration on a live station database to buy four characters
+    # nobody uses. Nothing shipped is longer than "training" (8).
+    source: str = Field(default="webhook", max_length=16)
     # Sender-side alarm id. Optional — when present, redelivery of the same
     # (source, source_id) is deduplicated instead of creating a second alarm.
     source_id: str | None = Field(default=None, max_length=255)

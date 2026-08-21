@@ -76,6 +76,10 @@ export function OperationHoverCard({
   const tTime = useTranslations("kanban.incidentTime")
   const tFeld = useTranslations("feld")
   const { mode: timeMode } = useIncidentTimeMode()
+  // Never a blank between two commas: a name the roster lost reads as
+  // «Unbekannt», same as every chip surface. Route resources arrive already
+  // normalised by the groups context, so only the incident's own lists need it.
+  const label = (name: string) => name.trim() || tKanban("common.unknownResource")
   const address =
     (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.location
   // EL first (decision 23), and sorted BEFORE the slice: this card shows three
@@ -122,19 +126,19 @@ export function OperationHoverCard({
       {operation.assignedReko && (
         <p style={ROW}>
           <span style={MUTED}>Reko: </span>
-          {operation.assignedReko.name}
+          {label(operation.assignedReko.name)}
         </p>
       )}
       {operation.vehicles.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.vehicles")}: </span>
-          {operation.vehicles.join(", ")}
+          {operation.vehicles.map(label).join(", ")}
         </p>
       )}
       {operation.crew.length > 0 && (
         <p style={ROW}>
           <span style={MUTED}>{tKanban("resources.crew")}: </span>
-          {crewShown.join(", ")}
+          {crewShown.map(label).join(", ")}
           {operation.crew.length > crewShown.length && ` +${operation.crew.length - crewShown.length}`}
         </p>
       )}

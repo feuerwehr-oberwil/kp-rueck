@@ -2,7 +2,7 @@
 
 import random
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -225,13 +225,13 @@ _SUMMARIES: dict[str, list[str]] = {
         "Sturmschaden: Fassadenteile hängen lose über Gehweg. Bereich bereits abgesperrt.",
         "Kanalrückstau, Wasser drückt in Keller. Abwasser, entsprechende Schutzausrüstung nötig.",
         "Keller trocken bei Ankunft. Bewohner hat selbst gepumpt. Kontrolle genügt.",
-        "5cm Wasser im Keller. Bewohner fragt, ob wir auch gleich den Keller aufräumen können.",
-        "Baum auf Gartenzaun gefallen. Keine Gefahr für Personen. Nachbar filmt für Social Media.",
+        "5cm Wasser in der Waschküche, Zulauf gestoppt. Mit Nasssauger aufnehmen.",
+        "Baum auf Gartenzaun gefallen, keine Personen gefährdet. Mit Motorsäge zerlegen und räumen.",
         "Dachrinne verstopft mit Laub. Wasser läuft über Fassade. Leiter und Eimer reichen.",
         "Keller riecht modrig, aber kein stehendes Wasser. Vermutlich alter Wasserschaden. Entwarnung.",
-        "Trampolin vom Nachbargarten auf Strasse geweht. Keine Verletzten, aber Verkehrsbehinderung.",
-        "Ganze Siedlung meldet Wasser im Keller. Ist der Grundwasserspiegel. Gemeinde bereits informiert.",
-        "Waschmaschine ausgelaufen, Keller 3cm Wasser. Bewohner hat in Meldung etwas übertrieben.",
+        "Trampolin vom Nachbargarten auf Strasse geweht, Verkehr behindert. Wegräumen und sichern.",
+        "Mehrere Keller im Quartier betroffen, Grundwasser drückt nach. Pumpen bringt wenig, Gemeinde ist informiert.",
+        "Waschmaschine ausgelaufen, ca. 3cm Wasser in der Waschküche. Zulauf abgestellt, Nasssauger genügt.",
     ],
     "elementar_water": [
         "Keller ca. 25cm Wasser. Heizung und Elektrik betroffen. Pumpeinsatz nötig.",
@@ -241,29 +241,29 @@ _SUMMARIES: dict[str, list[str]] = {
         "Zufahrt frei. Einsatzstelle gut zugänglich. Standard-Pumpeinsatz genügt.",
         "Kanalrückstau, Wasser drückt in Keller. Abwasser, entsprechende Schutzausrüstung nötig.",
         "Keller trocken bei Ankunft. Bewohner hat selbst gepumpt. Kontrolle genügt.",
-        "5cm Wasser im Keller. Bewohner fragt, ob wir auch gleich den Keller aufräumen können.",
-        "Ganze Siedlung meldet Wasser im Keller. Ist der Grundwasserspiegel. Gemeinde bereits informiert.",
-        "Waschmaschine ausgelaufen, Keller 3cm Wasser. Bewohner hat in Meldung etwas übertrieben.",
+        "5cm Wasser in der Waschküche, Zulauf gestoppt. Mit Nasssauger aufnehmen.",
+        "Mehrere Keller im Quartier betroffen, Grundwasser drückt nach. Pumpen bringt wenig, Gemeinde ist informiert.",
+        "Waschmaschine ausgelaufen, ca. 3cm Wasser in der Waschküche. Zulauf abgestellt, Nasssauger genügt.",
         "Keller riecht modrig, aber kein stehendes Wasser. Vermutlich alter Wasserschaden. Entwarnung.",
         "Dachrinne verstopft mit Laub. Wasser läuft über Fassade. Leiter und Eimer reichen.",
     ],
     "elementar_tree": [
         "Baum auf Strasse, Fahrbahn komplett blockiert. Ca. 40cm Stammdurchmesser.",
-        "Baum auf Gartenzaun gefallen. Keine Gefahr für Personen. Nachbar filmt für Social Media.",
-        "Grosser Ast auf Gehweg. Fussgänger müssen auf Strasse ausweichen. Absperrung nötig.",
+        "Baum auf Gartenzaun gefallen, keine Personen gefährdet. Mit Motorsäge zerlegen und räumen.",
+        "Grosser Ast auf Gehweg, Fussgänger weichen auf die Strasse aus. Absperren, zerkleinern und räumen.",
         "Baum auf Telefonleitung gestürzt. Swisscom ist informiert. Leitung hängt tief.",
         "Entwurzelter Baum blockiert Einfahrt. Bewohner kommt nicht raus. Motorsäge nötig.",
         "Ast hängt lose in Baumkrone über Spielplatz. Muss gesichert werden.",
-        "Baum auf parkiertes Auto gefallen. Keine Personen betroffen. Versicherung wird Freude haben.",
+        "Baum auf parkiertes Auto gefallen, keine Personen betroffen. Anheben und zerlegen, Polizei für den Rapport aufgeboten.",
     ],
     "elementar_storm": [
         "Dachziegel lose, einzelne bereits auf Gehweg gefallen. Absturzgefahr.",
         "Sturmschaden: Fassadenteile hängen lose über Gehweg. Bereich bereits abgesperrt.",
-        "Trampolin vom Nachbargarten auf Strasse geweht. Keine Verletzten, aber Verkehrsbehinderung.",
+        "Trampolin vom Nachbargarten auf Strasse geweht, Verkehr behindert. Wegräumen und sichern.",
         "Sonnenstoren abgerissen, hängt an Kabel über Gehweg. Bereich absperren.",
         "Baugerüst wackelt stark im Wind. Passanten gefährdet. Sofort sichern.",
         "Werbetafel droht herabzufallen. Bereich bereits weiträumig abgesperrt.",
-        "Fensterläden schlagen im Wind. Glas noch ganz, aber Scharniere geben nach.",
+        "Fensterläden schlagen im Wind, Scharniere geben nach. Läden sichern oder aushängen.",
         "Dachrinne abgerissen, hängt lose an Fassade. Tropft auf Passanten.",
         "Mehrere Dachziegel lose, bei jeder Böe fällt einer. Trottoir darunter gefährdet.",
         "Gartentrampolin gegen Hausfassade gedrückt, blockiert Hauseingang. Keine Verletzten.",
@@ -275,7 +275,7 @@ _SUMMARIES: dict[str, list[str]] = {
     "strassenrettung": [
         # Generic fallbacks.
         "Verletzte Person ansprechbar. Sanität bereits vor Ort. Technische Rettung nötig.",
-        "Person mit Hand in Briefkasten stecken geblieben. Peinlich aber harmlos.",
+        "Person mit Hand in Briefkasten eingeklemmt, unverletzt. Wird mit leichtem Werkzeug befreit.",
         "Schlüsseldienst hat aufgegeben, jetzt hat die Polizei uns gerufen. Tür ist massiv.",
         "Ring am Finger klemmt, Schwellung. Person ruhig, Ringtrenner genügt.",
         "Arbeiter mit Arm in Maschine eingeklemmt. Sanität vor Ort, Maschine gesichert.",
@@ -302,7 +302,7 @@ _SUMMARIES: dict[str, list[str]] = {
         "Person in Baumkrone bei Baumschnitt-Arbeiten verletzt. Hängt im Geschirr, ansprechbar.",
     ],
     "personenrettung_tier": [
-        "Katze auf Baum. Besitzerin besteht auf Feuerwehr. Tier sitzt seit gestern oben.",
+        "Katze auf Baum, sitzt seit gestern in ca. 6m Höhe. Rettung über Steckleiter möglich.",
         "Kind mit Fuss in Gitter eingeklemmt. Eltern panisch, Kind erstaunlich ruhig.",
         "Hund auf zugefrorenem Weiher eingebrochen, hält sich an Eiskante. Besitzer ausser sich.",
         "Kuh in Güllegrube gestürzt. Landwirt vor Ort, Kran und Bergegeschirr nötig.",
@@ -311,7 +311,7 @@ _SUMMARIES: dict[str, list[str]] = {
     "oelwehr": [
         # Generic oelwehr fallbacks.
         "Kleiner Ölaustritt, bereits gestoppt. Betroffene Fläche ca. 3m².",
-        "Moped tropft Öl auf Parkplatz. Besitzer bestreitet alles. Spur führt direkt zu seinem Töff.",
+        "Moped verliert Öl auf Parkplatz, kleine Lache. Bindemittel genügt, Halter ist informiert.",
         "Diesel tropft aus abgestelltem Lieferwagen. Kleine Lache unter dem Fahrzeug.",
         "Hydraulikschlauch an Baumaschine geplatzt, ca. 2m² Ölfleck. Maschine steht.",
         "Ölaustritt an Trafostation, Betreiber alarmiert. EW ist unterwegs.",
@@ -397,8 +397,8 @@ _SUMMARIES: dict[str, list[str]] = {
         "Hund in Bachschacht eingeklemmt. Bellt laut, aber unverletzt.",
         "Ente mit Küken in Lichtschacht. Einfacher Einsatz, alle wohlauf.",
         "Pferd in Graben gerutscht. Liegt auf der Seite, ruhig. Besitzer vor Ort.",
-        "Schwan auf Strasse will nicht weg. Verkehr stockt. Tierischer Eigensinn.",
-        "Igel im Kellerschacht. Bewohner hat ihn eine Woche lang gefüttert, jetzt soll er raus.",
+        "Schwan auf Strasse, will nicht weichen. Verkehr stockt. Wird eingefangen und zum Weiher gebracht.",
+        "Igel im Kellerschacht, unverletzt. Wird herausgehoben und im Garten freigelassen.",
     ],
 }
 
@@ -791,22 +791,44 @@ def _extract_qty(description: str | None, unit_pattern: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _linked_summary(reported: int, unit: str, ladder: list[int], verb_small: str, verb_large: str, confirm: str) -> str:
+def _water_action(cm: int) -> str:
+    """The Massnahme a crew reports at this water depth. Standing water always
+    means removing it — "Kontrolle genügt" would be wrong even at 30cm; only a
+    film of water gets away with the Nasssauger."""
+    if cm <= 5:
+        return "Nasssauger genügt."
+    if cm <= 30:
+        return "Eine Tauchpumpe genügt."
+    return "Mehrere Pumpen nötig, Wasser läuft nach."
+
+
+def _oil_action(liters: int) -> str:
+    """The Massnahme for a spill of this size."""
+    if liters <= 20:
+        return "Kleinmenge, Bindemittel genügt."
+    if liters <= 100:
+        return "Bindemittel und fachgerechte Entsorgung nötig."
+    return "Grössere Menge, Fachberater Chemie und Entsorgung nötig."
+
+
+def _linked_summary(reported: int, unit: str, ladder: list[int], action_for: Callable[[int], str]) -> str:
     """A reko that confirms or corrects the figure the dispatch reported — the
     single most realistic reko behaviour (citizens over- and under-report). The
-    corrected figure snaps to a round estimate value, same as the dispatch."""
+    corrected figure snaps to a round estimate value, same as the dispatch, and
+    the Massnahme follows the figure the crew actually finds: 30cm of water in
+    a Keller means pumping even when the caller said 50."""
     outcome = random.choices(["confirm", "less", "more"], weights=[50, 32, 18], k=1)[0]
     if outcome == "confirm":
-        return f"Lage wie gemeldet, rund {reported}{unit}. {confirm}"
+        return f"Lage wie gemeldet, rund {reported}{unit}. {action_for(reported)}"
     if outcome == "less":
         actual = _nice_near(round(reported * 0.35), ladder)
         if actual >= reported:
             actual = next((v for v in reversed(ladder) if v < reported), reported)
-        return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}. {verb_small}"
+        return f"Gemeldet {reported}{unit}, vor Ort nur ~{actual}{unit}. {action_for(actual)}"
     actual = _nice_near(round(reported * 1.7), ladder)
     if actual <= reported:
         actual = next((v for v in ladder if v > reported), reported)
-    return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}. {verb_large}"
+    return f"Gemeldet {reported}{unit}, tatsächlich mehr – ~{actual}{unit}. {action_for(actual)}"
 
 
 def _dispatch_linked_summary(resolved_type: str | None, description: str | None) -> str | None:
@@ -815,25 +837,11 @@ def _dispatch_linked_summary(resolved_type: str | None, description: str | None)
     if resolved_type == "elementar_water":
         cm = _extract_qty(description, "cm")
         if cm:
-            return _linked_summary(
-                cm,
-                "cm",
-                _NICE_CM,
-                "Bewohner hat übertrieben, Kontrolle genügt.",
-                "Mehrere Pumpen nötig, Wasser läuft nach.",
-                "Heizung/Elektrik betroffen, Pumpeinsatz nötig.",
-            )
+            return _linked_summary(cm, "cm", _NICE_CM, _water_action)
     if resolved_type in ("oelwehr", "oel_keller"):
         liters = _extract_qty(description, "Liter")
         if liters:
-            return _linked_summary(
-                liters,
-                " Liter",
-                _NICE_LITER,
-                "Kleinmenge, Bindemittel genügt.",
-                "Grössere Menge, Fachberater Chemie und Entsorgung nötig.",
-                "Öllache bestätigt, Bindemittel und Entsorgung nötig.",
-            )
+            return _linked_summary(liters, " Liter", _NICE_LITER, _oil_action)
     return None
 
 
@@ -1085,8 +1093,12 @@ class RapportSimProfile:
     owner_phone: float = 0.55
     handed_over_to: float = 0.25
     personnel_count_corrected: float = 0.10
-    # Per vehicle: the crew unticking one the board thought was there.
-    vehicle_absent: float = 0.10
+    # Per vehicle: the crew unticking one the board thought was there. Zero on
+    # purpose (testing feedback 2026-08-19): the checklist arrives prefilled
+    # ticked and real crews practically never untick a vehicle — a simulated
+    # rapport that regularly does trains the KP on a correction that does not
+    # happen. Raise it deliberately if an exercise should include that drill.
+    vehicle_absent: float = 0.0
     # Decision 22 briefs the Einsatzleiter without enforcing them, so the EL
     # files most of the rapports but by no means all of them.
     filed_by_leader: float = 0.70
@@ -1419,9 +1431,10 @@ def generate_rapport_data(
     if rng.random() < profile.personnel_count_corrected:
         data["personnel_count"] = max(0, board_personnel_count + rng.choice([-1, 1]))
 
-    # The vehicle checklist arrives prefilled ticked, so the simulated crew only
-    # ever has something to say by UNTICKING one — which is exactly the rare
-    # correction the KP has to notice.
+    # The vehicle checklist arrives prefilled ticked and the simulated crew
+    # confirms it as-is (vehicle_absent defaults to 0 — real crews practically
+    # never untick a vehicle). The profile knob stays so a trainer can opt into
+    # the untick drill deliberately.
     if vehicles:
         data["vehicles"] = [
             {"vehicle_id": unit["vehicle_id"], "present": rng.random() >= profile.vehicle_absent} for unit in vehicles

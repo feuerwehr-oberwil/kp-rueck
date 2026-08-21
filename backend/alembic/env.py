@@ -9,11 +9,16 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+# Import all models so Alembic can detect them. Without this line Base.metadata
+# is EMPTY here (nothing else imports app.models), and `alembic revision
+# --autogenerate` diffs the live database against nothing — a migration that
+# drops every table in the station. `alembic upgrade` never needed it, which is
+# why the gap survived; the drift test imports the models itself.
+from app import models  # noqa: F401
+
 # Import the app config and models
 from app.config import settings
 from app.database import Base
-
-# Import all models so Alembic can detect them
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

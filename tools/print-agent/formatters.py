@@ -265,6 +265,12 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     #
     # Absent on an older backend, or when the installation has no configured
     # origin to point a phone at. Then the slip simply prints as it always did.
+    #
+    # The Feld-Code rides along under the QR: since the code exists, the link on
+    # its own opens nothing, and a slip that carries only half of the pair sends
+    # a crew to a prompt they cannot answer. Printed in Font A so it survives a
+    # wet glove and a torch. Missing on an older backend — then the QR prints
+    # alone, exactly as before.
     feld_qr = payload.get("feld_qr", "")
     if feld_qr:
         _sep(p, "-")
@@ -273,6 +279,10 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
         p.set(font="b", bold=False, align="center")
         _text(p, "Scannen: Angekommen / beendet / Rapport\n")
         p.qr(feld_qr, size=_qr_box_size(feld_qr), center=True)
+        feld_code = payload.get("feld_code", "")
+        if feld_code:
+            p.set(font="a", bold=True, align="center")
+            _text(p, f"Code: {feld_code}\n")
 
     # --- Footer ---
     _sep(p, "-")

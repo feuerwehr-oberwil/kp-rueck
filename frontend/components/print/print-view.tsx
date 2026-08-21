@@ -8,6 +8,7 @@ import type { GroupResources } from "@/lib/types/groups"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { compareByName } from "@/lib/roster-order"
 import { formatClockTime as formatTime } from "@/lib/incident-time"
 import { columns } from "@/lib/kanban-utils"
 import { isLocated } from "@/lib/utils/route-geo"
@@ -55,6 +56,10 @@ interface PrintViewProps {
   /** The event roll-call, which is the only source that knows who has GONE
    *  home; the board's personnel list only knows who is on it right now. */
   attendance?: ApiPersonnelListItem[]
+  /** personnel id → the roles they hold in this Ereignis, already labelled.
+   *  Resolved by the hub, which loads the special functions anyway for the
+   *  vehicle drivers — this view stays presentational. */
+  eventFunctions?: Map<string, string>
   /** incident id → its Auftrag context and the route's resources. */
   auftraege?: Map<string, PrintAuftrag>
   /** material id → the Schadenplatz it is still standing at (`/restliste`). */
@@ -91,6 +96,10 @@ interface RosterRow {
   name: string
   role: string
   state: RosterState
+  /** What this person holds for THIS Ereignis — «Fahrer TLF 1», «Reko», … The
+   *  roster rank next to it is the same at every Ereignis; this is the line an
+   *  operator reads the printout for. Empty for most people. */
+  eventFunction: string
 }
 
 const ROSTER_RANK: Record<RosterState, number> = { assigned: 0, available: 1, left: 2 }
@@ -144,6 +153,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       options,
       vehicleDrivers,
       attendance,
+      eventFunctions,
       auftraege,
       materialOnSite,
     },
@@ -198,6 +208,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               id: String(item.id),
               name: item.name,
               role: person?.role ?? item.role ?? "",
+              eventFunction: eventFunctions?.get(String(item.id)) ?? "",
               state: state === "left" ? "left" : inUse ? "assigned" : "available",
             }
           })
@@ -208,11 +219,13 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             id: p.id,
             name: p.name,
             role: p.role,
+            eventFunction: eventFunctions?.get(p.id) ?? "",
             state: p.status === "assigned" ? "assigned" : "available",
           }))
-    rosterRows.sort(
-      (a, b) => ROSTER_RANK[a.state] - ROSTER_RANK[b.state] || a.name.localeCompare(b.name, "de")
-    )
+    // In-use first, then the roll-call order: flat alphabetical, the same rule
+    // (and the same comparator) the Anwesenheit modal and /check-in use. `"de"`
+    // was close enough to be invisible until an Ö met a French-language device.
+    rosterRows.sort((a, b) => ROSTER_RANK[a.state] - ROSTER_RANK[b.state] || compareByName(a, b))
     const presentCount = rosterRows.filter((row) => row.state !== "left").length
     const attendanceSummary = attendance?.length ? summarizeAttendance(attendance) : null
 
@@ -235,6 +248,24 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
     // What of ours is still standing at a Schadenplatz. Same selector the board
     // panel uses, so the two can never disagree.
     const onSiteEntries = materialOnSite ? selectMaterialOnSite(materialOnSite, materials) : []
+
+    // material id → the Schadenplatz it is on, for the inventory's «Ort» column.
+    // Two sources, strongest first: a unit the rapport says stayed behind
+    // (address included), then an open assignment on an incident.
+    const materialPlaces = new Map<string, string>()
+    for (const op of operations) {
+      for (const id of op.materials) {
+        if (!materialPlaces.has(id)) materialPlaces.set(id, getIncidentLocationLabel(op))
+      }
+    }
+    for (const entry of onSiteEntries) {
+      if (entry.address) materialPlaces.set(entry.materialId, entry.address)
+    }
+    /** Where this unit is *right now*: the Schadenplatz it is standing on, or a
+     *  dash for one that is in the Magazin — the Kategorie column next to it
+     *  already names the shelf, and repeating it would fill the column with the
+     *  one answer nobody has to go looking for. */
+    const materialPlace = (material: Material): string => materialPlaces.get(material.id) ?? "-"
 
     // Get material names by ID, marking the units that never came back.
     const getMaterialNames = (materialIds: string[]) => {
@@ -327,6 +358,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                   flags.push(op.nachbarhilfeNote ? `${t("nachbarhilfe")}: ${op.nachbarhilfeNote}` : t("nachbarhilfe"))
                 }
                 if (op.source === "intake") flags.push(t("phoneReported"))
+                if (op.source === "feld") flags.push(t("feldReported"))
 
                 // «Wer war draussen, was hat er gesehen» on one line: the Reko's
                 // name (with the time it got there), then what it reported.
@@ -478,7 +510,10 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                       {row.state === "assigned" ? t("inUse") : row.state === "left" ? t("gegangen") : t("available")}
                     </td>
                     <td className="p-1">{row.name}</td>
-                    <td className="p-1">{row.role}</td>
+                    {/* The Ereignis role leads: «Fahrer TLF 1» is what the KP
+                        looks this list up for, the roster rank behind it is the
+                        same at every Ereignis. */}
+                    <td className="p-1">{[row.eventFunction, row.role].filter(Boolean).join(" · ")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -498,6 +533,11 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                   <th className="text-left p-1">{t("statusCol")}</th>
                   <th className="text-left p-1">{t("fahrzeugCol")}</th>
                   <th className="text-left p-1">{t("typCol")}</th>
+                  {/* Who drives it. A fleet list that says «TLF 1 · verfügbar»
+                      and nothing else is missing the half that decides whether
+                      it can actually roll — and this sheet is what gets read
+                      when the screens are gone. */}
+                  <th className="text-left p-1">{t("fahrerCol")}</th>
                   <th className="text-left p-1">{t("funkrufnameCol")}</th>
                 </tr>
               </thead>
@@ -507,6 +547,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                     <td className="p-1">{vehicleStatusLabel(vehicle.status)}</td>
                     <td className="p-1">{vehicle.name}</td>
                     <td className="p-1">{vehicle.type}</td>
+                    <td className="p-1">{vehicleDrivers?.get(vehicle.name) || "-"}</td>
                     <td className="p-1">{vehicle.radio_call_sign || "-"}</td>
                   </tr>
                 ))}
@@ -555,6 +596,10 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                 <tr className="border-b border-gray-400">
                   <th className="text-left p-1">{t("statusCol")}</th>
                   <th className="text-left p-1">{t("materialCol")}</th>
+                  {/* Where the unit actually is: the Schadenplatz it is standing
+                      on, otherwise the depot it belongs to. «Im Einsatz» without
+                      a place is the answer that sends somebody looking. */}
+                  <th className="text-left p-1">{t("ortCol")}</th>
                   <th className="text-left p-1">{t("kategorieCol")}</th>
                 </tr>
               </thead>
@@ -569,6 +614,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                           : t("available")}
                     </td>
                     <td className="p-1">{material.name}</td>
+                    <td className="p-1">{materialPlace(material)}</td>
                     <td className="p-1">{material.category}</td>
                   </tr>
                 ))}

@@ -5,6 +5,7 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
+import { OVERLAY_CLASS } from '@/components/ui/overlay'
 
 function AlertDialog({
   ...props
@@ -43,7 +44,8 @@ function AlertDialogOverlay({
         // and computed `pointer-events: auto`, `animationName: exit`. Worse here,
         // because a confirm usually opens on top of a modal, so the closed
         // Content is inline-`auto` too.
-        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50',
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50',
+        OVERLAY_CLASS,
         className,
       )}
       {...props}

@@ -19,6 +19,11 @@ export class FeldPage extends BasePage {
   readonly personSearch: Locator;
   readonly notMeButton: Locator;
 
+  // --- the door: Feld-Code → picker → bound device (plan 26) ---
+  readonly codeInput: Locator;
+  readonly submitCodeButton: Locator;
+  readonly codeError: Locator;
+
   // --- the four field actions (components/feld/feld-actions.tsx) ---
   readonly arrivedButton: Locator;
   readonly completeButton: Locator;
@@ -37,6 +42,7 @@ export class FeldPage extends BasePage {
   // --- the Rapport form (components/feld/feld-rapport-form.tsx) ---
   readonly kurzberichtField: Locator;
   readonly submitRapportButton: Locator;
+  readonly confirmGapsButton: Locator;
   readonly submittedBadge: Locator;
 
   constructor(page: Page) {
@@ -45,6 +51,11 @@ export class FeldPage extends BasePage {
     this.title = page.getByRole('heading', { name: 'Schadenplatz-Rapport' }).first();
     this.personSearch = page.getByPlaceholder('Name suchen...');
     this.notMeButton = page.getByRole('button', { name: 'Nicht ich' });
+
+    // The door (plan 26): four digits before anything at all.
+    this.codeInput = page.getByRole('textbox').first();
+    this.submitCodeButton = page.getByRole('button', { name: 'Weiter' });
+    this.codeError = page.getByText('Falscher Code');
 
     this.arrivedButton = page.getByRole('button', { name: /^Angekommen/ });
     this.completeButton = page.getByRole('button', { name: /^(Einsatz beendet|Beendet gemeldet)$/ });
@@ -64,13 +75,25 @@ export class FeldPage extends BasePage {
     // The `/feld` mount is the ONLY one with this button since §18.17 — the KP
     // has no submit at all and files what it autosaves.
     this.submitRapportButton = page.getByRole('button', { name: 'Rapport abschliessen', exact: true });
+    // The one question filing asks, when blocks are still empty.
+    this.confirmGapsButton = page.getByRole('button', { name: 'Trotzdem abschliessen' });
     this.submittedBadge = page.getByText(/^Abgeschlossen /);
   }
 
-  /** Open the poster link. `link` is the relative `/feld?token=…` the API hands out. */
-  async open(link: string) {
+  /**
+   * Open the poster link and walk the door (plan 26).
+   *
+   * The link alone opens nothing since decision 13: it buys the right to be
+   * asked for the Feld-Code. Every field test therefore starts with four
+   * digits, which is also the honest simulation of a crew scanning the poster.
+   */
+  async open(link: string, code: string) {
     await this.page.goto(link);
-    await expect(this.title).toBeVisible({ timeout: 15_000 });
+    await expect(this.codeInput).toBeVisible({ timeout: 15_000 });
+    await this.codeInput.fill(code);
+    await this.submitCodeButton.click();
+    // The picker is what the code buys.
+    await expect(this.personSearch).toBeVisible({ timeout: 15_000 });
   }
 
   /** One row of the person picker. */
@@ -83,18 +106,26 @@ export class FeldPage extends BasePage {
     // Ereignis, and on a station roster that is a long scroll.
     await this.personSearch.fill(name);
     await this.person(name).click();
-    await expect(this.page.getByRole('heading', { name: 'Meine Schadenplätze' })).toBeVisible({
-      timeout: 15_000,
-    });
+    // The heading "Meine Schadenplätze" was removed as noise; the identity bar
+    // naming the person is what says the claim landed and the list is theirs.
+    await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15_000 });
   }
 
-  /** One row of "meine Schadenplätze". */
-  assignmentRow(incidentTitle: string): Locator {
-    return this.page.locator('button').filter({ hasText: incidentTitle }).first();
+  /**
+   * One row of the field list.
+   *
+   * Identify it by its **address**, not its title: since plan 26 a row leads
+   * with `address || incident_title` (the street is what a crew standing on it
+   * matches), so on any incident that has an address the title is nowhere in
+   * the row's DOM.
+   */
+  assignmentRow(label: string): Locator {
+    return this.page.locator('button').filter({ hasText: label }).first();
   }
 
-  async openAssignment(incidentTitle: string) {
-    await this.assignmentRow(incidentTitle).click();
+  /** `label` is the row's address — see `assignmentRow`. */
+  async openAssignment(label: string) {
+    await this.assignmentRow(label).click();
     await expect(this.page.getByRole('button', { name: 'Zurück' })).toBeVisible({ timeout: 15_000 });
   }
 
@@ -136,11 +167,18 @@ export class FeldPage extends BasePage {
    *
    * "Rapport abschliessen" sits below the blocks rather than inside one, so
    * only the typing needs its block opened first.
+   *
+   * Filing asks once when blocks are still empty — the tap is irreversible in
+   * the operator's eyes, and a rapport with four empty blocks is usually a fat
+   * finger. This helper types the Kurzbericht alone, so the question always
+   * comes, and answering it is part of filing.
    */
   async fileRapport(kurzbericht: string) {
     await this.openRapportSection('Kurzbericht');
     await this.kurzberichtField.fill(kurzbericht);
     await this.submitRapportButton.click();
+    await expect(this.confirmGapsButton).toBeVisible({ timeout: 15_000 });
+    await this.confirmGapsButton.click();
     await expect(this.submittedBadge).toBeVisible({ timeout: 15_000 });
   }
 

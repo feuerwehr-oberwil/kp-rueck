@@ -2,9 +2,9 @@
   "notice": "Questa versione italiana non è ancora stata riletta da una persona italofona dei pompieri, e la demo è in tedesco. Un termine che suona male? <a href=\"#kontakt\">Scrivetecelo</a> e lo correggiamo.",
   "meta": {
     "title": "KP Rück – il tavolo operativo per il posto di comando",
-    "description": "KP Rück porta in digitale la lavagna magnetica del posto di comando arretrato: interventi, personale, veicoli e materiale su un solo tavolo – in tempo reale su ogni dispositivo, open source e ospitato da voi.",
+    "description": "KP Rück è la lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source.",
     "ogTitle": "KP Rück – il tavolo operativo per il posto di comando",
-    "ogDescription": "Porta in digitale la lavagna magnetica del posto di comando arretrato: interventi, personale, veicoli e materiale su un solo tavolo – in tempo reale su ogni dispositivo, open source e ospitato da voi."
+    "ogDescription": "La lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source."
   },
   "nav": {
     "aria": "Navigazione principale",
@@ -45,7 +45,16 @@
       "Situazioni di maltempo",
       "Più eventi in contemporanea"
     ],
-    "note": "Nato dall’attività operativa reale dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – lì collaudato e sviluppato di continuo."
+    "note": "Nato dall’attività operativa reale dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – lì collaudato e sviluppato di continuo.",
+    "own": {
+      "h2": "I vostri dati restano vostri.",
+      "p": "KP Rück è open source e gira su una macchina nella vostra caserma o nel vostro cloud. Interventi, personale, veicoli e materiale restano sotto il vostro controllo.",
+      "items": [
+        "Nessun costo di licenza",
+        "Nessun vincolo con il fornitore",
+        "Da gestire e sviluppare da voi"
+      ]
+    }
   },
   "tenet": {
     "eyebrow": "Il metro",
@@ -189,6 +198,10 @@
         "with": "Segnalazioni strutturate con foto"
       },
       {
+        "today": "Un messaggio radio per ogni cambio di stato",
+        "with": "Stato e segnalazioni direttamente dalla squadra – il canale radio resta libero"
+      },
+      {
         "today": "Rapporto dopo l’intervento",
         "with": "Il rapporto nasce durante l’intervento"
       }
@@ -252,7 +265,34 @@
     "eyebrow": "Progetto affine",
     "h2": "KP Rück tiene la visione d’insieme dietro. KP Front conduce davanti.",
     "p": "<strong>KP Front</strong> porta in digitale la carta della situazione e il tavolo di condotta sul posto: simboli tattici, piani d’oggetto e sorveglianza della protezione respiratoria, anche senza rete. App propria, stessa impronta – i due possono passarsi gli allarmi, ma nessuno dei due ha bisogno dell’altro.",
-    "cta": "Guarda KP Front"
+    "cta": "Guarda KP Front",
+    "setup": {
+      "h3": "Gestirli entrambi – senza configurare tutto due volte",
+      "rows": [
+        {
+          "dt": "Allertamento",
+          "dd": "Lo stesso payload per entrambi. Il collegamento del vostro sistema di allertamento si fa una volta sola; ogni app riceve solo il proprio indirizzo."
+        },
+        {
+          "dt": "Accesso Divera",
+          "dd": "Una sola chiave per entrambi – stessi allarmi, stesso personale. <span class=\"opt\">facoltativo</span>"
+        },
+        {
+          "dt": "Agente di stampa",
+          "dd": "Un solo servizio in rimessa serve entrambe le app e entrambi i tipi di stampante."
+        },
+        {
+          "dt": "Elenco personale",
+          "dd": "La stessa fonte nello stesso formato di file – la stessa persona su entrambi i lati."
+        },
+        {
+          "dt": "Parole chiave",
+          "dd": "La stessa lista di parole chiave d’allarme, quindi la stessa classificazione in entrambe le app."
+        }
+      ],
+      "foot": "<strong>Banca dati, aggiornamenti e login restano separati.</strong> Nessuna delle due ha bisogno dell’altra per funzionare.",
+      "link": "Guida: entrambi su un solo server"
+    }
   },
   "faq": {
     "eyebrow": "Domande &amp; risposte",

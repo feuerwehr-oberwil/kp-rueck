@@ -23,12 +23,23 @@ const fakeSocket = {
 
 vi.mock('socket.io-client', () => ({ io: vi.fn(() => fakeSocket) }))
 vi.mock('@/lib/env', () => ({ getWsUrl: () => 'http://test-ws' }))
+// The split-origin handshake (sweep 27 §P3.4): dial() passes an `auth` function
+// that fetches a short-lived token per connection attempt.
+vi.mock('./auth-client', () => ({ fetchWsToken: vi.fn(async () => 'ws-token-1') }))
 
+import { io } from 'socket.io-client'
+import { fetchWsToken } from './auth-client'
 import { wsClient } from './websocket-client'
 
 function fire(event: string, ...args: unknown[]) {
   // Copy first: socket.io fires all handlers registered at emit time.
   handlers.get(event)?.slice().forEach(cb => cb(...args))
+}
+
+/** Let the mocked fetchWsToken's promise chain settle under fake timers. */
+async function flushMicrotasks() {
+  await Promise.resolve()
+  await Promise.resolve()
 }
 
 describe('wsClient reconnect behaviour', () => {
@@ -39,6 +50,7 @@ describe('wsClient reconnect behaviour', () => {
     fakeSocket.on.mockClear()
     fakeSocket.emit.mockClear()
     fakeSocket.disconnect.mockClear()
+    vi.mocked(fetchWsToken).mockClear()
   })
 
   afterEach(() => {
@@ -120,6 +132,43 @@ describe('wsClient reconnect behaviour', () => {
     // Still exactly one consumer, so a single disconnect must close it.
     wsClient.disconnect()
     expect(wsClient.getStatus()).toBe('disconnected')
+  })
+
+  it('fetches a fresh ws token per connection attempt and passes it in the auth payload', async () => {
+    // §P3.4: `auth` must be a FUNCTION — socket.io calls it before every
+    // (re)connection attempt, so a reconnect after the 60s token expired gets
+    // a fresh credential instead of replaying a dead one.
+    wsClient.connect()
+
+    const options = vi.mocked(io).mock.calls.at(-1)?.[1] as {
+      auth: (cb: (data: object) => void) => void
+    }
+    expect(typeof options.auth).toBe('function')
+
+    const first = vi.fn()
+    options.auth(first)
+    await flushMicrotasks()
+    expect(first).toHaveBeenCalledWith({ token: 'ws-token-1' })
+
+    // Each attempt fetches again — never a cached token.
+    const second = vi.fn()
+    options.auth(second)
+    await flushMicrotasks()
+    expect(second).toHaveBeenCalledWith({ token: 'ws-token-1' })
+    expect(vi.mocked(fetchWsToken)).toHaveBeenCalledTimes(2)
+  })
+
+  it('connects without a token when there is no session (display/viewer)', async () => {
+    vi.mocked(fetchWsToken).mockResolvedValueOnce(null)
+    wsClient.connect()
+
+    const options = vi.mocked(io).mock.calls.at(-1)?.[1] as {
+      auth: (cb: (data: object) => void) => void
+    }
+    const cb = vi.fn()
+    options.auth(cb)
+    await flushMicrotasks()
+    expect(cb).toHaveBeenCalledWith({})
   })
 
   it('rejoins the operations room on every reconnect', () => {

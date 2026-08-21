@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "KP Rück – Einsatzboard für den Kommandoposten",
-    "description": "KP Rück bildet die Magnettafel im rückwärtigen Kommandoposten digital ab: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet.",
+    "description": "KP Rück ist die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen.",
     "ogTitle": "KP Rück – Einsatzboard für den Kommandoposten",
-    "ogDescription": "Bildet die Magnettafel im rückwärtigen Kommandoposten digital ab: Einsätze, Personal, Fahrzeuge und Material auf einem Board – live auf allen Geräten, quelloffen und selbst gehostet."
+    "ogDescription": "Die digitale Magnettafel im rückwärtigen Kommandoposten: Einsätze, Personal, Fahrzeuge und Material – live auf allen Geräten, quelloffen."
   },
   "nav": {
     "aria": "Hauptnavigation",
@@ -29,7 +29,8 @@
     "ctaNote": "Ohne Konto – Rolle wählen und loslegen",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Einsatzboard: Spalten von Eingegangen bis Beendet, dazwischen Einsatzkarten, links das Personal, rechts das Material",
-    "frameFile": "board.jpg",
+    "frameFile": "board.webp",
+    "frameFileSmall": "board-992.webp",
     "frameW": 1500,
     "frameH": 937
   },
@@ -47,7 +48,16 @@
       "Unwetterlagen",
       "Mehrere Ereignisse gleichzeitig"
     ],
-    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt."
+    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt.",
+    "own": {
+      "h2": "Eure Daten bleiben bei euch.",
+      "p": "KP Rück ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material bleiben unter eurer Kontrolle.",
+      "items": [
+        "Keine Lizenzkosten",
+        "Keine Herstellerbindung",
+        "Selbst betreiben, selbst weiterentwickeln"
+      ]
+    }
   },
   "tenet": {
     "eyebrow": "Der Massstab",
@@ -120,7 +130,7 @@
     "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf\n        «Demo öffnen», und du stehst an demselben Board.",
     "items": [
       {
-        "file": "display.jpg",
+        "file": "display.webp",
         "w": 1500,
         "h": 937,
         "alt": "Beamer-Ansicht: alle Einsatzphasen nebeneinander auf einem Bildschirm",
@@ -128,7 +138,7 @@
         "sub": "Für die Wand im abgedunkelten KP: alle Phasen nebeneinander, ohne Bedienelemente"
       },
       {
-        "file": "status.jpg",
+        "file": "status.webp",
         "w": 1500,
         "h": 937,
         "alt": "Status-Ansicht: Fahrzeuge, Einsätze, Personal und Material nebeneinander, je mit Verfügbarkeit und Zuteilung",
@@ -136,7 +146,7 @@
         "sub": "Fahrzeuge, Einsätze, Personal und Material nebeneinander – wer ist frei, wer ist gebunden, wer ist wo"
       },
       {
-        "file": "karte.jpg",
+        "file": "karte.webp",
         "w": 1500,
         "h": 937,
         "alt": "Kartenansicht: Einsätze nach Priorität, Fahrzeugpositionen und Zuweisungen",
@@ -144,7 +154,7 @@
         "sub": "Alle Einsätze nach Priorität, dazu die Fahrzeugpositionen und die Zuweisungen dazwischen"
       },
       {
-        "file": "disposition.jpg",
+        "file": "disposition.webp",
         "w": 1500,
         "h": 937,
         "alt": "Fahrzeugstatus: Fahrzeuge mit Funkrufname, Fahrer, Ziel und Status",
@@ -152,7 +162,7 @@
         "sub": "Funkrufname, Fahrer, Ziel und Status jedes Fahrzeugs auf einen Blick"
       },
       {
-        "file": "meldung.jpg",
+        "file": "meldung.webp",
         "w": 900,
         "h": 562,
         "alt": "Meldeformular: Adresse, Meldung, Priorität, Einsatzart und Angaben zum Melder",
@@ -160,7 +170,7 @@
         "sub": "Telefonmeldungen und Laufkundschaft strukturiert erfassen – per Link oder QR-Code, ohne Konto"
       },
       {
-        "file": "reko.jpg",
+        "file": "reko.webp",
         "w": 900,
         "h": 562,
         "alt": "Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen",
@@ -168,7 +178,7 @@
         "sub": "Auf dem privaten Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen"
       },
       {
-        "file": "feld.jpg",
+        "file": "feld.webp",
         "w": 900,
         "h": 562,
         "alt": "Feld-Ansicht: der eigene Schadenplatz mit den Meldungen an den KP, der Lage und der Mannschaft",
@@ -176,7 +186,7 @@
         "sub": "Jeder Trupp sieht nur seine eigenen Schadenplätze – angekommen, Abholung, Einsatz beendet, ohne Funk"
       },
       {
-        "file": "auftraege.jpg",
+        "file": "auftraege.webp",
         "w": 1500,
         "h": 937,
         "alt": "Aufträge: mehrere Einsätze zu einer Route gebündelt",
@@ -184,7 +194,7 @@
         "sub": "Mehrere Einsätze als eine Route – mit Mannschaft, Mitteln und einer Reihenfolge, die das Board nach Distanz optimiert"
       },
       {
-        "file": "training.jpg",
+        "file": "training.webp",
         "w": 1500,
         "h": 937,
         "alt": "Übungs-Steuerung: einzelne oder gezielte Einsätze generieren, Automatik und Feld-Simulation",
@@ -215,6 +225,10 @@
       {
         "today": "WhatsApp-Gruppe für Rückmeldungen",
         "with": "Strukturierte Meldungen mit Fotos"
+      },
+      {
+        "today": "Funkspruch für jeden Statuswechsel",
+        "with": "Status und Meldungen direkt vom Trupp – der Funkkanal bleibt frei"
       },
       {
         "today": "Bericht nach dem Einsatz",
@@ -280,7 +294,34 @@
     "eyebrow": "Verwandtes Projekt",
     "h2": "KP Rück hält hinten den Überblick. KP Front führt vorne.",
     "p": "<strong>KP Front</strong> bildet am Einsatzort die Lagekarte und den Führungstisch\n          digital ab: taktische Zeichen, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Eigene App,\n          gleiche Handschrift – die beiden können sich Alarme übergeben, brauchen einander aber\n          nicht.",
-    "cta": "KP Front ansehen"
+    "cta": "KP Front ansehen",
+    "setup": {
+      "h3": "Beide betreiben – ohne alles doppelt einzurichten",
+      "rows": [
+        {
+          "dt": "Alarmierung",
+          "dd": "Dieselbe Nutzlast für beide. Die Anbindung eures Dispositionssystems entsteht einmal; jede App bekommt nur ihre eigene Adresse."
+        },
+        {
+          "dt": "Divera-Zugang",
+          "dd": "Ein Schlüssel für beide – dieselben Alarme, dieselbe Mannschaft. <span class=\"opt\">optional</span>"
+        },
+        {
+          "dt": "Druck-Agent",
+          "dd": "Ein Dienst im Magazin bedient beide Apps und beide Druckerarten."
+        },
+        {
+          "dt": "Mannschaftsliste",
+          "dd": "Dieselbe Quelle im selben Dateiformat – dieselbe Person auf beiden Seiten."
+        },
+        {
+          "dt": "Stichwörter",
+          "dd": "Dieselbe Alarm-Stichwortliste, also dieselbe Einstufung in beiden Apps."
+        }
+      ],
+      "foot": "<strong>Getrennt bleiben Datenbank, Updates und Login.</strong> Keine der beiden braucht die andere, um zu laufen.",
+      "link": "Anleitung für beide auf einem Server"
+    }
   },
   "faq": {
     "eyebrow": "Fragen &amp; Antworten",

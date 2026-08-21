@@ -1,15 +1,35 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast, Toaster } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useOperations } from '@/lib/contexts/operations-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
-import { planToastBurst, TOAST_BURST_LIMIT } from '@/lib/notification-policy'
+import {
+  planToastBurst,
+  supersededNewIncidentNotifications,
+  TOAST_BURST_LIMIT,
+} from '@/lib/notification-policy'
+import { detailTabForNotification } from '@/lib/notification-detail-tab'
 
-/** Stable identity — see the note on the `offset` prop below. */
-const TOASTER_OFFSET = { right: '16px', bottom: '80px' }
+/**
+ * Where the stack sits. Stable identities — see the note on the `offset` prop.
+ *
+ * Desktop has nothing at the bottom of the board, so the stack sits close to the
+ * edge: the «Alle schliessen» pill takes the last 16px and the toasts start just
+ * above it. It used to float 80px up with the pill at 48px, leaving a band of
+ * empty screen underneath that made the whole group look detached from the
+ * corner it is anchored to.
+ *
+ * Mobile keeps its distance: the bottom navigation is fixed there (min 60px plus
+ * the safe-area inset), and a toast printed over the tab bar is a toast that
+ * eats a tap.
+ */
+const TOASTER_OFFSET = { right: '16px', bottom: '56px' }
+const TOASTER_OFFSET_MOBILE = { right: '16px', bottom: '116px' }
 
 const TOAST_DATA_KEY = 'shownToastData'
 const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
@@ -75,8 +95,25 @@ function cleanupOldToastIds(): Set<string> {
 }
 
 export function NotificationToasts() {
-  const { notifications, dismissNotification, isSidebarOpen, settings, openSidebar } = useNotifications()
+  const {
+    notifications,
+    dismissNotification,
+    isSidebarOpen,
+    settings,
+    openSidebar,
+    navigateToIncident,
+    canNavigateToIncident,
+  } = useNotifications()
   const isMobile = useIsMobile()
+  // `/feld` is the crew's surface, and it is quiet for the same reason the phone
+  // is — but on ITS OWN account rather than on the viewport's. An officer who
+  // opens `/feld` on a laptop is still logged in to the board, so the board's
+  // notifications followed them in: a crew standing in the rain got «Einsatz
+  // überfällig» about a Schadenplatz that is none of their business, on a page
+  // whose whole design is four buttons and nothing else. The board's traffic is
+  // for the KP.
+  const pathname = usePathname()
+  const isQuietSurface = isMobile || (pathname?.startsWith('/feld') ?? false)
   // Non-critical toast lifetime (ms), configurable in notification settings.
   const toastDurationMs = Math.max(2, settings.toast_duration_seconds || 8) * 1000
   const tCommon = useTranslations('kanban.common')
@@ -90,12 +127,30 @@ export function NotificationToasts() {
   const shownToastIds = useRef<Set<string>>(null!)
   shownToastIds.current ??= cleanupOldToastIds()
 
-  // Mobile is a viewing-first surface (mainly used to spawn training incidents),
-  // so it should stay quiet: suppress non-critical toasts app-wide while small.
-  // Genuine action failures (toast.error) still surface; the notification→toast
-  // mapping below is skipped entirely on mobile.
+  // Silence "new emergency" notifications the board has overtaken: once the
+  // incident has a Reko assigned or moved past the column it was announced in,
+  // the KP has plainly seen it. Dismissed server-side (the bell quiets on every
+  // board, and the row lands in the history) and the on-screen toast goes with
+  // it. The ref keeps one in-flight dismiss from being re-fired on every poll
+  // until the server echoes it back as dismissed.
+  const { operations } = useOperations()
+  const silencedIds = useRef<Set<string>>(new Set())
   useEffect(() => {
-    if (!isMobile) return
+    for (const id of supersededNewIncidentNotifications(notifications, operations)) {
+      if (silencedIds.current.has(id)) continue
+      silencedIds.current.add(id)
+      toast.dismiss(id)
+      void dismissNotification(id)
+    }
+  }, [notifications, operations, dismissNotification])
+
+  // Mobile is a viewing-first surface (mainly used to spawn training incidents)
+  // and `/feld` belongs to a crew, so both stay quiet: suppress non-critical
+  // toasts app-wide there. Genuine action failures (`toast.error`) still
+  // surface — a Meldung that did not go through has to say so — and the
+  // notification→toast mapping below is skipped entirely.
+  useEffect(() => {
+    if (!isQuietSurface) return
     const t = toast as unknown as Record<string, (...args: unknown[]) => unknown>
     const noop = () => ''
     const originals: Record<string, (...args: unknown[]) => unknown> = {}
@@ -106,12 +161,12 @@ export function NotificationToasts() {
     return () => {
       for (const key of Object.keys(originals)) t[key] = originals[key]
     }
-  }, [isMobile])
+  }, [isQuietSurface])
 
   useEffect(() => {
     // Don't show toasts when sidebar is open - notifications are visible there.
-    // On mobile, don't surface incident/notification toasts at all.
-    if (isSidebarOpen || isMobile) {
+    // On mobile and on /feld, don't surface incident/notification toasts at all.
+    if (isSidebarOpen || isQuietSurface) {
       return
     }
 
@@ -145,9 +200,36 @@ export function NotificationToasts() {
       writeJson(TOAST_DATA_KEY, storedData)
 
       toBeToasted.forEach((notification) => {
+        // «Meldung vom Feld – Hauptstrasse 1: …» named a Schadenplatz the
+        // operator then had to find by hand while the toast was still on
+        // screen. The message itself opens it, on the tab the notification is
+        // about — the same path the bell takes (§18.27).
+        //
+        // Only when there is somewhere to go: the notification has to carry an
+        // incident, and a page has to be listening (the board registers the
+        // handler, the map does not).
+        const target = canNavigateToIncident ? notification.incident_id : undefined
+        const description = target ? (
+          <button
+            type="button"
+            title={tToasts('openIncident')}
+            className="cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current rounded-xs"
+            onClick={() => {
+              // Dismissing the toast runs `onDismiss` below, which clears the
+              // notification too — reading it and acting on it is the same act.
+              toast.dismiss(notification.id)
+              navigateToIncident(target, detailTabForNotification(notification.type))
+            }}
+          >
+            {notification.message}
+          </button>
+        ) : (
+          notification.message
+        )
+
         const toastOptions = {
           id: notification.id,
-          description: notification.message,
+          description,
           // Dismiss notification when toast is closed by any means
           onDismiss: () => dismissNotification(notification.id),
           action: notification.severity === 'critical' ? {
@@ -203,19 +285,29 @@ export function NotificationToasts() {
       toast.dismiss(notification.id)
       // Keep in shownToastIds to prevent re-showing
     })
-  }, [notifications, dismissNotification, isSidebarOpen, toastDurationMs, openSidebar])
+  }, [
+    notifications,
+    dismissNotification,
+    isSidebarOpen,
+    isQuietSurface,
+    toastDurationMs,
+    openSidebar,
+    navigateToIncident,
+    canNavigateToIncident,
+  ])
 
   return (
     <Toaster
       position="bottom-right"
-      // Hug the right edge (16px) so the stack stays out of the central board, and
-      // sit just above the footer/nav (bottom floor is the footer + "Alle schliessen"
-      // pill). Cap the visible stack so tall warning bursts don't climb into content.
+      // Hug the bottom-right corner: 16px from the right, and just above the
+      // "Alle schliessen" pill that closes the stack (on mobile, above the tab
+      // bar instead). Cap the visible stack so tall warning bursts don't climb
+      // into content.
       //
       // A module constant, not an inline literal: a fresh object on every render
       // re-runs Sonner's positioning effect, which is what made toasts slide in
       // from somewhere other than where they belong during a burst.
-      offset={TOASTER_OFFSET}
+      offset={isMobile ? TOASTER_OFFSET_MOBILE : TOASTER_OFFSET}
       // Matches the burst budget (the "+N weitere" summary is counted inside it),
       // so a planned burst lands at once instead of trickling in as timers expire.
       visibleToasts={TOAST_BURST_LIMIT}

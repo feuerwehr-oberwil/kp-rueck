@@ -34,6 +34,8 @@ export interface Person {
   driverVehicleId?: string
   driverVehicleName?: string
   isMagazin?: boolean
+  isTelefondienst?: boolean
+  isKommandoposten?: boolean
   roleSortOrder: number
   /** Divera user_cluster_relation id — present only when linked to Divera. */
   diveraUserId?: number | null

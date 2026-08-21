@@ -31,9 +31,10 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Binoculars, CarTaxiFront, Flag, Loader2, MapPin, MessageSquare } from 'lucide-react'
+import { Binoculars, CarTaxiFront, Flag, Loader2, MapPin, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -103,16 +104,20 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   )
 
   /**
-   * "vom Feld, Muster Hans, 23:14" versus "im KP erfasst, 23:14".
+   * "vom Feld, Muster Hans" versus "im KP erfasst".
    *
    * `personnelId === null` with a timestamp present IS the KP case — that is
    * the whole provenance rule, read straight off the absence of the FK.
+   *
+   * Deliberately WITHOUT the clock (image #14): the line only ever renders
+   * while the row is on, and an on row carries the time input right next to
+   * it — «von der Reko, 17:56 … [17:56]» said one fact twice per row. The
+   * Meldungen thread below keeps its timed wording; there is no input there.
    */
   const provenance = (at: Date | null | undefined, personnelId: string | null | undefined): string | null => {
     if (!at) return null
-    const time = at.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
-    if (!personnelId) return t('fromKp', { time })
-    return t('fromField', { name: nameById.get(personnelId) ?? t('unknownPerson'), time })
+    if (!personnelId) return t('fromKpPlain')
+    return t('fromFieldPlain', { name: nameById.get(personnelId) ?? t('unknownPerson') })
   }
 
   type ReportRow = {
@@ -138,14 +143,11 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       at: operation.rekoArrivedAt,
       on: Boolean(operation.rekoArrivedAt),
       by: null,
-      line: operation.rekoArrivedAt
-        ? operation.rekoArrivedByKp
-          ? t('fromKp', { time: formatMessageTime(operation.rekoArrivedAt) })
-          : // No name to show: the arrival is reported by whoever holds the Reko
-            // link, and inventing one would be the guessed attribution the
-            // provenance rule exists to prevent.
-            t('fromReko', { time: formatMessageTime(operation.rekoArrivedAt) })
-        : null,
+      // Time-less on purpose — the input next to it shows the clock. No name
+      // either: the arrival is reported by whoever holds the Reko link, and
+      // inventing one would be the guessed attribution the provenance rule
+      // exists to prevent.
+      line: operation.rekoArrivedAt ? t(operation.rekoArrivedByKp ? 'fromKpPlain' : 'fromRekoPlain') : null,
       onToggle: checked => saveRekoArrived(checked ? undefined : null),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.rekoArrivedAt, time)
@@ -202,7 +204,17 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                   blocks, and «Reko vor Ort» and «Abholung nötig» sit in
                   different tabs of the same panel. */}
               <div className="flex min-h-8 items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
+                {/* The whole labelled half toggles, not just the 36px switch
+                    (§P2.9) — a real <button>, so it is one more tab stop but a
+                    reachable one. tabIndex -1 keeps the Switch the keyboard's
+                    single control; the button is the mouse's bigger target. */}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  disabled={!canEdit || saving === row.key}
+                  onClick={() => row.onToggle(!row.on)}
+                  className="flex min-w-0 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
+                >
                   {row.icon}
                   {/* `text-sm` on the box, not just the label: the icon is
                       centred against this box, and a larger inherited font would
@@ -219,7 +231,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     <span>{row.label}</span>
                     {line && <span className="ml-2 text-xs text-muted-foreground">{line}</span>}
                   </div>
-                </div>
+                </button>
                 <div className="flex items-center gap-2 shrink-0">
                   {row.on && (
                     <Input
@@ -278,15 +290,16 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
 
 /**
  * "Meldungen vom Feld" — everything the crew told the KP about one
- * Schadenplatz, in one thread.
+ * Schadenplatz, in one thread — and, since sweep 27 §P3.2, the KP's own
+ * «Meldung an den Trupp» going the other way, sent from the box at the bottom.
  *
- * Three kinds of entry, chronological: **Angekommen**, **Einsatz beendet** and
- * the Freitext-Meldungen. The first two used to be toggles above (§18.19) —
- * they are information, not a switch an operator flips, because the status
- * itself lives in the columns. Until this thread existed a `field_message`
- * became a notification and an audit-log entry and appeared on the incident
- * nowhere at all: the bell is dismissible, and once dismissed the sentence was
- * gone from every surface an operator looks at.
+ * Four kinds of entry, chronological: **Angekommen**, **Einsatz beendet**, the
+ * crew's Freitext-Meldungen, and the KP's messages to the squad. The first two
+ * used to be toggles above (§18.19) — they are information, not a switch an
+ * operator flips, because the status itself lives in the columns. Until this
+ * thread existed a `field_message` became a notification and an audit-log entry
+ * and appeared on the incident nowhere at all: the bell is dismissible, and
+ * once dismissed the sentence was gone from every surface an operator looks at.
  *
  * The two reports are read straight off the incident rather than out of the
  * timeline feed: the board already carries `fieldArrivedAt` / `fieldArrivedBy`
@@ -303,25 +316,53 @@ export function FieldMessageThread({
   isLoading,
   failed,
   onRetry,
+  canEdit = true,
 }: {
   operation: Operation
   events: ApiIncidentTimelineEvent[] | null
   isLoading: boolean
   failed: boolean
   onRetry: () => void
+  /** False for viewers — the send box's POST would 403, so it is not offered. */
+  canEdit?: boolean
 }) {
   const t = useTranslations('feld.kp')
   const { personnel } = usePersonnel()
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+
+  /** Send one sentence to the squad — then reload the thread it lands in. */
+  const send = useCallback(async () => {
+    const text = draft.trim()
+    if (!text || sending) return
+    setSending(true)
+    try {
+      await apiClient.sendKpFieldMessage(operation.id, text)
+      // The typed text survives a failure — only a delivered message clears it.
+      setDraft('')
+      onRetry()
+    } catch (error) {
+      console.error('Failed to send KP message:', error)
+      toast.error(t('sendFailed'))
+    } finally {
+      setSending(false)
+    }
+  }, [draft, sending, operation.id, onRetry, t])
 
   const entries = useMemo<ThreadEntry[]>(() => {
     const rows: ThreadEntry[] = (events ?? [])
-      .filter(event => event.event_type === 'field_message' && event.message)
+      .filter(
+        event =>
+          (event.event_type === 'field_message' || event.event_type === 'kp_message') && event.message,
+      )
       .map(event => ({
         at: new Date(event.timestamp),
         // `source === 'kp'` is the dictated one; a message with no actor name
         // cannot be attributed either way and reads as the KP's own note.
-        fromField: event.source !== 'kp' && Boolean(event.actor_name),
+        fromField: event.event_type === 'field_message' && event.source !== 'kp' && Boolean(event.actor_name),
+        // The KP's own message TO the squad — the other direction (§P3.2).
+        toField: event.event_type === 'kp_message',
         who: event.actor_name ?? null,
         message: event.message ?? '',
       }))
@@ -402,12 +443,18 @@ export function FieldMessageThread({
               <p className="text-xs text-muted-foreground">
                 {/* Provenance, the same rule for all kinds: a name for a crew
                     report, "im KP erfasst" for a dictated one, "automatisch
-                    (GPS)" for one the automation inferred. */}
-                {entry.fromField && entry.who
-                  ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
-                  : entry.byAutomation
-                    ? t('fromAutomation', { time: formatMessageTime(entry.at) })
-                    : t('fromKp', { time: formatMessageTime(entry.at) })}
+                    (GPS)" for one the automation inferred — and "an den Trupp"
+                    for the KP's own message going the other way (§P3.2). */}
+                {entry.toField
+                  ? t('toField', {
+                      name: entry.who ?? t('unknownPerson'),
+                      time: formatMessageTime(entry.at),
+                    })
+                  : entry.fromField && entry.who
+                    ? t('fromField', { name: entry.who, time: formatMessageTime(entry.at) })
+                    : entry.byAutomation
+                      ? t('fromAutomation', { time: formatMessageTime(entry.at) })
+                      : t('fromKp', { time: formatMessageTime(entry.at) })}
               </p>
               {entry.label ? (
                 <p className="flex items-center gap-1.5 font-medium">
@@ -418,12 +465,47 @@ export function FieldMessageThread({
                   )}
                   {entry.label}
                 </p>
+              ) : entry.toField ? (
+                <p className="flex items-start gap-1.5 break-words">
+                  <Send className="mt-1 h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0">{entry.message}</span>
+                </p>
               ) : (
                 <p className="break-words">{entry.message}</p>
               )}
             </li>
           ))}
         </ol>
+      )}
+
+      {/* «Meldung an Trupp» (§P3.2) — one line, one send. The squad reads it on
+          /feld within one poll; there is deliberately no delivery receipt,
+          because the radio never had one either. */}
+      {canEdit && (
+        <div className="flex items-stretch gap-2 pt-1">
+          <Input
+            placeholder={t('sendPlaceholder')}
+            value={draft}
+            maxLength={500}
+            disabled={sending}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') void send()
+            }}
+            className="h-8 text-sm"
+          />
+          <Button
+            size="icon-xs"
+            variant="outline"
+            className="h-8 w-8 shrink-0"
+            aria-label={t('send')}
+            title={t('send')}
+            disabled={sending || !draft.trim()}
+            onClick={() => void send()}
+          >
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       )}
     </div>
   )
@@ -440,6 +522,8 @@ function formatMessageTime(at: Date): string {
 interface ThreadEntry {
   at: Date
   fromField: boolean
+  /** The KP's own message TO the squad (§P3.2) — the other direction. */
+  toField?: boolean
   /** Neither the crew nor the KP: the GPS automation stamped it (§18.24). */
   byAutomation?: boolean
   who: string | null

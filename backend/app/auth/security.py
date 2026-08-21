@@ -124,6 +124,40 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     return encoded_jwt
 
 
+#: How long a WebSocket handshake token lives. It exists for exactly one
+#: `io(...)` connect that happens milliseconds after it is fetched — a minute
+#: absorbs a slow phone without turning the token into a second session.
+WS_TOKEN_EXPIRE_SECONDS = 60
+
+
+def create_ws_token(user_id: uuid.UUID, role: str) -> str:
+    """A short-lived token for the Socket.IO connect (sweep 27 §P3.4).
+
+    On a split-origin deployment (Railway staging, kp.fwo.li → kp-api.fwo.li)
+    the `access_token` cookie is first-party to the FRONTEND origin — it never
+    reaches the backend socket, so every connect was rejected under
+    `ws_require_auth` and clients silently lived on the 5s polling fallback.
+    The fix: the client fetches this token same-origin (cookie rides along
+    through the proxy) and passes it in the Socket.IO `auth` payload.
+
+    Deliberately its own `type` ("ws"): an access token must not double as a
+    connect credential and this token must not open any HTTP endpoint — 60
+    seconds and a role claim is all it is.
+    """
+    return jwt.encode(
+        {
+            "sub": str(user_id),
+            "role": role,
+            "type": "ws",
+            "exp": datetime.now(UTC) + timedelta(seconds=WS_TOKEN_EXPIRE_SECONDS),
+            "iat": datetime.now(UTC),
+            "jti": str(uuid.uuid4()),
+        },
+        auth_settings.SECRET_KEY,
+        algorithm=auth_settings.ALGORITHM,
+    )
+
+
 def decode_token(token: str) -> dict[str, Any]:
     """
     Decode and validate a JWT token.

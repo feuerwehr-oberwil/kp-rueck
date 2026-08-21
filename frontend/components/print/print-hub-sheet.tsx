@@ -112,6 +112,9 @@ export function PrintHubSheet({
   printerEnabled,
 }: PrintHubSheetProps) {
   const t = useTranslations("print")
+  // The role labels the field surface already uses — one wording for «Fahrer
+  // TLF 1», whether it is read on a phone or off a printout.
+  const tRoles = useTranslations("feld.roles")
   const { operations, personnel, materials, materialOnSite } = useOperations()
   const { groups, getGroupResources } = useGroups()
   const { selectedEvent } = useEvent()
@@ -136,6 +139,8 @@ export function PrintHubSheet({
 
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  /** personnel id → «Fahrer TLF 1 · Reko», for the Personal list on the printout. */
+  const [eventFunctions, setEventFunctions] = useState<Map<string, string>>(new Map())
   const [attendance, setAttendance] = useState<ApiPersonnelListItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [exporting, setExporting] = useState<EventExportKind | null>(null)
@@ -169,6 +174,20 @@ export function PrintHubSheet({
             if (vehicleName) driverMap.set(vehicleName, f.personnel_name)
           })
         setVehicleDrivers(driverMap)
+
+        // The same rows, read the other way round: what each PERSON holds here.
+        // A driver's vehicle is named, because «Fahrer» without it is the one
+        // label on the sheet that raises a question instead of answering one.
+        const functionMap = new Map<string, string>()
+        specialFunctions.forEach((f) => {
+          const label =
+            f.function_type === "driver"
+              ? tRoles("driver", { vehicle: f.vehicle_name ?? vehicleIdToName.get(f.vehicle_id ?? "") ?? "" }).trim()
+              : tRoles(f.function_type)
+          const previous = functionMap.get(f.personnel_id)
+          functionMap.set(f.personnel_id, previous ? `${previous} · ${label}` : label)
+        })
+        setEventFunctions(functionMap)
       } catch (error) {
         console.error("Failed to load print data:", error)
       } finally {
@@ -176,7 +195,7 @@ export function PrintHubSheet({
       }
     }
     loadData()
-  }, [open, selectedEvent])
+  }, [open, selectedEvent, tRoles])
 
   // Auftrag context per stop. Resolved here rather than in the print view so
   // that stays presentational — and via `findAuftragForStop`, which trusts the
@@ -418,6 +437,7 @@ export function PrintHubSheet({
           options={printOptions}
           vehicleDrivers={vehicleDrivers}
           attendance={attendance}
+          eventFunctions={eventFunctions}
           auftraege={auftraege}
           materialOnSite={materialOnSite}
         />

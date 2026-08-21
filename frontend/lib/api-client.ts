@@ -61,6 +61,7 @@ import {
   type ApiGroupAssignmentCreate,
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
+  type ApiKpFieldMessage,
   type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
   type ApiRekoReportUpdate,
@@ -90,11 +91,17 @@ import {
   type ApiDeployment,
   type SendDiveraAlarmOptions,
   type SendDiveraMessageOptions,
-  type ApiRekoDashboardPersonnelListResponse,
-  type ApiRekoDashboardAssignmentsResponse,
   type ApiAvailableRekoPersonnelResponse,
   type ApiFeldPersonnelListResponse,
   type ApiFeldAssignmentsResponse,
+  type ApiFeldAccessState,
+  type ApiFeldUnlockResponse,
+  type ApiFeldClaimResponse,
+  type ApiFeldIncidentCreate,
+  type ApiFeldIncidentCreated,
+  type ApiFeldIncidentUpdate,
+  type ApiFeldOwnReport,
+  type ApiFeldMaterialResponse,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
   type ApiSchadenplatzRapport,
@@ -228,6 +235,59 @@ export interface ApiViewerData {
  */
 const REQUEST_TIMEOUT_MS = 20_000
 
+// ── REST connectivity (module-level, one per tab) ────────────────────────────
+// Mirrors the notification-context outage pattern: ONE persistent toast per
+// outage (fixed id, Infinity duration) instead of a new "Verbindungsfehler"
+// toast per failed poll, dismissed by the first request that gets through
+// again. Consumers (the stale-data banner) subscribe so a REST outage raises
+// the permanent band even while the WebSocket still claims to be connected.
+const CONNECTION_TOAST_ID = 'api-connection-lost'
+let restReachable = true
+let outageToastVisible = false
+const restListeners = new Set<(reachable: boolean) => void>()
+
+/** Last known REST reachability: false after a request exhausted its retries
+ *  on a network-layer failure, true again once any request is answered. */
+export function getRestReachable(): boolean {
+  return restReachable
+}
+
+/** Subscribe to reachability transitions. Returns an unsubscribe function. */
+export function onRestReachableChange(listener: (reachable: boolean) => void): () => void {
+  restListeners.add(listener)
+  return () => {
+    restListeners.delete(listener)
+  }
+}
+
+function setRestReachable(reachable: boolean) {
+  if (restReachable === reachable) return
+  restReachable = reachable
+  restListeners.forEach((listener) => listener(reachable))
+}
+
+/** A request exhausted its retries on a network-layer failure. */
+function markRestUnreachable(skipToast: boolean) {
+  setRestReachable(false)
+  if (!skipToast && !outageToastVisible) {
+    outageToastVisible = true
+    toast.error(translateOutsideReact('errors.api.connectionTitle'), {
+      id: CONNECTION_TOAST_ID,
+      description: translateOutsideReact('errors.api.connectionDescription'),
+      duration: Infinity,
+    })
+  }
+}
+
+/** A request was answered (any status code): the server is reachable again. */
+function markRestReachable() {
+  setRestReachable(true)
+  if (outageToastVisible) {
+    outageToastVisible = false
+    toast.dismiss(CONNECTION_TOAST_ID)
+  }
+}
+
 class ApiClient {
   // No constructor needed - URL is resolved dynamically per request
 
@@ -287,6 +347,10 @@ class ApiClient {
             ...options?.headers,
           },
         })
+
+        // The server answered (any status): the connection works. Clears the
+        // outage toast/state the moment the first request gets through again.
+        markRestReachable()
 
         if (!response.ok) {
           let errorText = ''
@@ -390,12 +454,11 @@ class ApiClient {
             continue // Retry
           }
 
-          // Final network error
-          if (!skipToast) {
-            toast.error(translateOutsideReact('errors.api.connectionTitle'), {
-              description: translateOutsideReact('errors.api.connectionDescription'),
-            })
-          }
+          // Final network error. ONE persistent toast per outage instead of
+          // one per failed request — 50 polls during an outage used to stack
+          // 50 "Verbindungsfehler" toasts. Also flips the reachability flag
+          // the stale-data banner subscribes to.
+          markRestUnreachable(skipToast)
           if (isGetRequest) {
             // Reads degrade softly: polling callers treat undefined as "no
             // fresh data" and keep showing the last known state.
@@ -864,6 +927,18 @@ class ApiClient {
     return this.request<ApiIncidentTimelineResponse>(`/api/incidents/${id}/timeline`)
   }
 
+  /** «Meldung an den Trupp» — the KP's half of the field message loop (§P3.2). */
+  async sendKpFieldMessage(incidentId: string, message: string): Promise<ApiKpFieldMessage> {
+    return this.request<ApiKpFieldMessage>(`/api/incidents/${incidentId}/field-messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+  }
+
+  async getKpFieldMessages(incidentId: string): Promise<ApiKpFieldMessage[]> {
+    return this.request<ApiKpFieldMessage[]>(`/api/incidents/${incidentId}/field-messages`)
+  }
+
   async deleteIncident(id: string): Promise<void> {
     return this.request<void>(`/api/incidents/${id}`, {
       method: 'DELETE',
@@ -1216,15 +1291,14 @@ class ApiClient {
   }
 
   // Reko Forms
-  // `dashboardToken` authorizes the call from the public reko-dashboard page
-  // (field phones without a login); the board UI relies on cookie auth instead.
-  async generateRekoLink(incidentId: string, personnelId?: string, dashboardToken?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
+  //
+  // Editor-only since plan 26: the field phone mints its own form token through
+  // `mintFeldRekoLink`, which runs the /feld two-step first, so neither door had
+  // to learn about the other.
+  async generateRekoLink(incidentId: string, personnelId?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
     let url = `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`
     if (personnelId) {
       url += `&personnel_id=${encodeURIComponent(personnelId)}`
-    }
-    if (dashboardToken) {
-      url += `&dashboard_token=${encodeURIComponent(dashboardToken)}`
     }
     return this.request<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }>(
       url, {
@@ -1746,6 +1820,21 @@ class ApiClient {
     )
   }
 
+  /** Inject «Neue Meldung»: the crew of `incidentId` reports a fresh emergency
+   *  in free text. Goes through the real `/feld` creation path on the backend,
+   *  so a genuine `source='feld'` Schadenplatz lands in Eingegangen — bell,
+   *  audit provenance and all. Needs assigned personnel on the incident. */
+  async simulateFieldReport(
+    eventId: string,
+    incidentId: string,
+    text: string
+  ): Promise<{ incident_id: string; reported_by: string; message: string }> {
+    return this.request<{ incident_id: string; reported_by: string; message: string }>(
+      `/api/training/events/${eventId}/simulate/field-report/${incidentId}`,
+      { method: 'POST', body: JSON.stringify({ text }) }
+    )
+  }
+
   /** Inject "Angekommen": the crew reports it is on the Schadenplatz. Stamps
    *  `arrived_at` on the Schadenplatz-Rapport through the same CRUD the `/feld`
    *  button uses. A second call never moves an arrival that is already
@@ -1757,7 +1846,7 @@ class ApiClient {
     )
   }
 
-  /** Inject "Abholung nötig" / "Abholung erledigt" on its own – the crew that
+  /** Inject "Abholung nötig" / "Abholung disponiert" on its own – the crew that
    *  asks for a lift an hour after "Einsatz beendet", or reports the bus has
    *  been. Omit `note` and the backend derives one from the situation. */
   async simulatePickup(
@@ -1962,35 +2051,125 @@ class ApiClient {
   }
 
   // Reko Dashboard
-  async generateRekoDashboardLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
-    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
-      `/api/reko-dashboard/generate-link?event_id=${encodeURIComponent(eventId)}`,
-      {
-        method: 'POST',
-      }
-    )
-  }
 
-  async getRekoDashboardPersonnel(token: string): Promise<ApiRekoDashboardPersonnelListResponse> {
-    return this.request<ApiRekoDashboardPersonnelListResponse>(
-      `/api/reko-dashboard/personnel?token=${encodeURIComponent(token)}`
-    )
-  }
 
-  async getRekoDashboardAssignments(personnelId: string, token: string): Promise<ApiRekoDashboardAssignmentsResponse> {
-    return this.request<ApiRekoDashboardAssignmentsResponse>(
-      `/api/reko-dashboard/assignments/${personnelId}?token=${encodeURIComponent(token)}`
-    )
-  }
 
-  // Feld (/feld) – the login-less field surface. One global link per Ereignis;
-  // the token names the event, the endpoints check the assignment.
+  // Feld (/feld) – the login-less field surface. One global link per Ereignis.
+  //
+  // Since plan 26 the link alone opens nothing: it is exchanged for an unlocked
+  // token via the Feld-Code (`unlockFeld`), and that for a person-bound one when
+  // somebody names themselves (`claimFeldPerson`). The phone stores the bound
+  // token and stops using the link.
   async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
     return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
       `/api/feld/generate-link?event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
       }
+    )
+  }
+
+  /** The Feld-Code, and how many devices redeemed it. Editor only. */
+  async getFeldAccess(eventId: string): Promise<ApiFeldAccessState> {
+    return this.request<ApiFeldAccessState>(`/api/feld/access?event_id=${encodeURIComponent(eventId)}`)
+  }
+
+  /** A new code. Logs nobody out — see `revokeFeldDevices` for that. */
+  async regenerateFeldCode(eventId: string): Promise<ApiFeldAccessState> {
+    return this.request<ApiFeldAccessState>(
+      `/api/feld/access/regenerate?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** The emergency brake: every bound device for this Ereignis is logged out. */
+  async revokeFeldDevices(eventId: string): Promise<ApiFeldAccessState> {
+    return this.request<ApiFeldAccessState>(
+      `/api/feld/access/revoke-devices?event_id=${encodeURIComponent(eventId)}`,
+      { method: 'POST' }
+    )
+  }
+
+  /** Step 2 of the door: the code buys an unlocked token *and* the picker.
+   *
+   *  `skipToast` because a wrong code is not an error to be announced — it is
+   *  the expected answer to a typo, and the page already turns the field red.
+   *  A toast on top of that shouts "Fehler" across a phone screen for a
+   *  mistyped digit, and does it again on every retry. */
+  async unlockFeld(token: string, code: string): Promise<ApiFeldUnlockResponse> {
+    return this.request<ApiFeldUnlockResponse>(`/api/feld/unlock?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+      skipToast: true,
+    })
+  }
+
+  /** Step 3: this device is that person from now on. */
+  async claimFeldPerson(token: string, personnelId: string): Promise<ApiFeldClaimResponse> {
+    return this.request<ApiFeldClaimResponse>(`/api/feld/claim?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify({ personnel_id: personnelId }),
+    })
+  }
+
+  /**
+   * «Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.
+   *
+   * `take_over` is the crew saying they will do it now; the response says which
+   * of the three shapes that took (a stop on their Auftrag, a new Auftrag, or
+   * just them), so the confirmation can be specific instead of "gespeichert".
+   */
+  async createFeldIncident(
+    personnelId: string,
+    token: string,
+    payload: ApiFeldIncidentCreate,
+  ): Promise<ApiFeldIncidentCreated> {
+    return this.request<ApiFeldIncidentCreated>(
+      `/api/feld/incidents?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    )
+  }
+
+  /**
+   * Correct a Meldung you sent in yourself, while it is still «Eingegangen».
+   *
+   * 409 once the KP has disponiert it — at that point a crew is driving to the
+   * address and it stops being the reporter's to change from a phone.
+   */
+  async updateFeldReport(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    payload: ApiFeldIncidentUpdate,
+  ): Promise<ApiFeldOwnReport> {
+    return this.request<ApiFeldOwnReport>(this.feldQuery(incidentId, 'report', personnelId, token), {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  /**
+   * Check yourself in or out of the Ereignis from the field (decision 10).
+   *
+   * The individual half of `/check-in`, which stays a page for the shared
+   * tablet at the door. Same attendance row either way — one roll call.
+   */
+  async setFeldAttendance(personnelId: string, token: string, present: boolean): Promise<void> {
+    await this.request<unknown>(
+      `/api/feld/attendance/${personnelId}?token=${encodeURIComponent(token)}&present=${present}`,
+      { method: 'POST' },
+    )
+  }
+
+  /** A short-lived form token so the Reko form can mount inside `/feld`. */
+  async mintFeldRekoLink(
+    incidentId: string,
+    personnelId: string,
+    token: string
+  ): Promise<{ incident_id: string; token: string; link: string }> {
+    return this.request<{ incident_id: string; token: string; link: string }>(
+      this.feldQuery(incidentId, 'reko-link', personnelId, token),
+      { method: 'POST' }
     )
   }
 
@@ -2003,6 +2182,20 @@ class ApiClient {
   async getFeldAssignments(personnelId: string, token: string): Promise<ApiFeldAssignmentsResponse> {
     return this.request<ApiFeldAssignmentsResponse>(
       `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  /**
+   * Every material in the station and where it is — the Magazin's own view.
+   *
+   * The one read on this door that is not "only what is yours": a Materialwart
+   * who sees only the units hanging off their own Schadenplätze cannot answer
+   * "wo ist die zweite Tauchpumpe?". Gated on holding `magazin` in the Ereignis,
+   * so it 403s for anybody else and the page never offers them the section.
+   */
+  async getFeldMaterial(personnelId: string, token: string): Promise<ApiFeldMaterialResponse> {
+    return this.request<ApiFeldMaterialResponse>(
+      `/api/feld/material?token=${encodeURIComponent(token)}&personnel_id=${personnelId}`
     )
   }
 
@@ -2167,15 +2360,32 @@ class ApiClient {
     return this.request<ApiMaterialReturnResponse>(`/api/incidents/${incidentId}/rapport/material-return${query}`)
   }
 
+  /**
+   * The completion gate's write-back: where the KP decided each unit stays.
+   * «Vor Ort» sets `left_on_site` on the rapport's checklist row (or a
+   * "Weiteres Material" entry, addressed by `name`), «Magazin» clears it — so
+   * the Restliste reflects the confirmed decision, not only the crew's tick.
+   * `applied` is false when the incident has no rapport row to write to.
+   */
+  async applyRapportMaterialDecisions(
+    incidentId: string,
+    decisions: { material_id?: string | null; name?: string | null; left_on_site: boolean }[],
+  ): Promise<{ applied: boolean }> {
+    return this.request<{ applied: boolean }>(`/api/incidents/${incidentId}/rapport/material-return`, {
+      method: 'PATCH',
+      body: JSON.stringify({ decisions }),
+    })
+  }
+
   async getAvailableRekoPersonnel(incidentId: string): Promise<ApiAvailableRekoPersonnelResponse> {
     return this.request<ApiAvailableRekoPersonnelResponse>(
-      `/api/reko-dashboard/incidents/${incidentId}/available-reko`
+      `/api/reko/incidents/${incidentId}/available-reko`
     )
   }
 
   async assignRekoPersonnel(incidentId: string, personnelId: string): Promise<ApiAssignment> {
     return this.request<ApiAssignment>(
-      `/api/reko-dashboard/incidents/${incidentId}/assign-reko`,
+      `/api/reko/incidents/${incidentId}/assign-reko`,
       {
         method: 'POST',
         body: JSON.stringify({ personnel_id: personnelId }),
@@ -2185,7 +2395,7 @@ class ApiClient {
 
   async unassignRekoPersonnel(incidentId: string, personnelId: string): Promise<void> {
     return this.request<void>(
-      `/api/reko-dashboard/incidents/${incidentId}/unassign-reko/${personnelId}`,
+      `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}`,
       {
         method: 'DELETE',
       }
@@ -2198,7 +2408,7 @@ class ApiClient {
     eventId: string,
   ): Promise<{ transferred_count: number; incident_ids: string[] }> {
     return this.request<{ transferred_count: number; incident_ids: string[] }>(
-      `/api/reko-dashboard/transfer-rekos?from_personnel_id=${encodeURIComponent(fromPersonnelId)}&to_personnel_id=${encodeURIComponent(toPersonnelId)}&event_id=${encodeURIComponent(eventId)}`,
+      `/api/reko/transfer-rekos?from_personnel_id=${encodeURIComponent(fromPersonnelId)}&to_personnel_id=${encodeURIComponent(toPersonnelId)}&event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
       }
@@ -2245,9 +2455,12 @@ class ApiClient {
     location_address?: string | null
     location_lat?: string | null
     location_lng?: string | null
+    /** The board's «Meldung» — what the caller said the thing is. */
     description?: string | null
     contact?: string | null
     contact_phone?: string | null
+    /** The board's «Notizen» — the further hints that came with the call. */
+    internal_notes?: string | null
   }): Promise<{ id: string }> {
     return this.request<{ id: string }>(
       `/api/intake/alarm?token=${encodeURIComponent(token)}`,

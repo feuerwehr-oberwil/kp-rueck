@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>KP Rück – the incident board for the command post</title>
-<meta name="description" content="KP Rück turns the magnetic board in the rear command post into a digital one: incidents, crews, vehicles and equipment on a single board – live on every device, open source and self-hosted.">
+<meta name="description" content="KP Rück is the digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.">
 <link rel="canonical" href="https://kp-rueck.ch/en/">
 <link rel="alternate" hreflang="de-CH" href="https://kp-rueck.ch/">
 <link rel="alternate" hreflang="fr-CH" href="https://kp-rueck.ch/fr/">
@@ -16,13 +16,58 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='3.5' y='10.5' width='7' height='11' rx='2' fill='%23e8392b'/%3E%3Crect x='12.5' y='10.5' width='7' height='11' rx='2' fill='%23ffffff'/%3E%3Crect x='21.5' y='10.5' width='7' height='11' rx='2' fill='%23b8c4d3'/%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KP Rück – the incident board for the command post">
-<meta property="og:description" content="Turns the magnetic board in the rear command post into a digital one: incidents, crews, vehicles and equipment on a single board – live on every device, open source and self-hosted.">
+<meta property="og:description" content="The digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.">
 <meta property="og:url" content="https://kp-rueck.ch/en/">
 <meta property="og:image" content="https://kp-rueck.ch/shots/board.jpg">
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://kp-rueck.ch/#app",
+      "name": "KP Rück",
+      "url": "https://kp-rueck.ch/en/",
+      "description": "KP Rück is the digital magnetic board in the rear command post: incidents, crews, vehicles and equipment – live on every device, open source.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web browser",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "en"
+      ],
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "screenshot": "https://kp-rueck.ch/shots/board.jpg",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CHF"
+      },
+      "publisher": {
+        "@id": "https://kp-rueck.ch/#org"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://kp-rueck.ch/#org",
+      "name": "Feuerwehr Oberwil BL",
+      "url": "https://www.feuerwehr-oberwil.ch",
+      "sameAs": [
+        "https://github.com/feuerwehr-oberwil"
+      ]
+    }
+  ]
+}
+</script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -86,30 +131,44 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">BOARD · STORM · 17 INCIDENTS ACTIVE</span>
       </div>
-      <img src="../shots/board.jpg" alt="Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right" width="1500" height="937">
+      <img src="../shots/board.webp"
+           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Incident board: columns from received through to closed, incident cards in between, crews on the left, equipment on the right" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
   <section class="fit">
-    <div class="wrap">
-      <div class="fit-row">
-        <p class="fit-k">For whom</p>
-        <ul class="fit-v">
-          <li>Militia fire brigades</li>
-          <li>Local fire brigades</li>
-          <li>Regional support fire brigades</li>
-          <li>Professional fire brigades</li>
+    <div class="wrap fit-split">
+      <div>
+        <div class="fit-row">
+          <p class="fit-k">For whom</p>
+          <ul class="fit-v">
+            <li>Militia fire brigades</li>
+            <li>Local fire brigades</li>
+            <li>Regional support fire brigades</li>
+            <li>Professional fire brigades</li>
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">For what</p>
+          <ul class="fit-v">
+            <li>Everyday incidents</li>
+            <li>Storm situations</li>
+            <li>Several events at once</li>
+          </ul>
+        </div>
+        <p class="fit-note">Grown out of the real operational work of <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since.</p>
+      </div>
+      <div class="fit-panel">
+        <h2>Your data stays with you.</h2>
+        <p>KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control.</p>
+        <ul>
+          <li>No licence fees</li>
+          <li>No vendor lock-in</li>
+          <li>Run it yourself, extend it yourself</li>
         </ul>
       </div>
-      <div class="fit-row">
-        <p class="fit-k">For what</p>
-        <ul class="fit-v">
-          <li>Everyday incidents</li>
-          <li>Storm situations</li>
-          <li>Several events at once</li>
-        </ul>
-      </div>
-      <p class="fit-note">Grown out of the real operational work of <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since.</p>
     </div>
   </section>
 
@@ -205,63 +264,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/display.jpg" alt="Projector view: every incident phase side by side on one screen" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/display.webp" alt="Projector view: every incident phase side by side on one screen" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Projector view</div>
           <div class="cap-s">For the wall in the darkened command post: all phases side by side, without controls</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/status.jpg" alt="Status view: vehicles, incidents, crews and equipment side by side, each with availability and assignment" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/status.webp" alt="Status view: vehicles, incidents, crews and equipment side by side, each with availability and assignment" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Status</div>
           <div class="cap-s">Vehicles, incidents, crews and equipment side by side – who is free, who is committed, who is where</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/karte.jpg" alt="Map view: incidents by priority, vehicle positions and assignments" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/karte.webp" alt="Map view: incidents by priority, vehicle positions and assignments" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Map</div>
           <div class="cap-s">Every incident by priority, plus the vehicle positions and the assignments between them</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/disposition.jpg" alt="Vehicle status: vehicles with call sign, driver, destination and status" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/disposition.webp" alt="Vehicle status: vehicles with call sign, driver, destination and status" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Vehicles</div>
           <div class="cap-s">Call sign, driver, destination and status of every vehicle at a glance</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/meldung.jpg" alt="Reporting form: address, report, priority, incident type and caller details" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/meldung.webp" alt="Reporting form: address, report, priority, incident type and caller details" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Reporting form</div>
           <div class="cap-s">Capture telephone reports and walk-ins in a structured way – by link or QR code, without an account</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/reko.jpg" alt="Recon form: incident, «I am on scene» and hazards to tick" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/reko.webp" alt="Recon form: incident, «I am on scene» and hazards to tick" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Recon form</div>
           <div class="cap-s">On the recon team's own phone: report on scene, tick the hazards, attach photos</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/feld.jpg" alt="Field view: the crew's own site with its reports to the command post, the situation and the crew" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/feld.webp" alt="Field view: the crew's own site with its reports to the command post, the situation and the crew" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Field</div>
           <div class="cap-s">Each crew sees only its own sites – arrived, pick-up needed, incident finished, without the radio</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/auftraege.jpg" alt="Assignments: several incidents bundled into one route" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/auftraege.webp" alt="Assignments: several incidents bundled into one route" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Assignments</div>
           <div class="cap-s">Several incidents as one route – with crew, resources and an order the board optimises by distance</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/training.jpg" alt="Exercise controls: generate single or targeted incidents, automation and field simulation" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/training.webp" alt="Exercise controls: generate single or targeted incidents, automation and field simulation" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Exercise</div>
           <div class="cap-s">Feed in exercise situations instead of inventing them – cleanly separated from the real thing</div>
@@ -286,6 +345,7 @@
           <tr><td>Telephone notes on slips of paper</td><td>A reporting form that hangs on the incident</td></tr>
           <tr><td>Excel list for crews and vehicles</td><td>A live overview that keeps itself up to date</td></tr>
           <tr><td>WhatsApp group for reports back</td><td>Structured reports with photos</td></tr>
+          <tr><td>A radio message for every status change</td><td>Status and reports straight from the crew – the radio channel stays clear</td></tr>
           <tr><td>Report after the incident</td><td>The report builds up during it</td></tr>
         </tbody>
       </table>
@@ -351,11 +411,41 @@
 
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">Related project</p>
-        <h2>KP Rück keeps the overview at the rear. KP Front commands at the front.</h2>
-        <p><strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – the two can hand alarms to each other, but neither needs the other.</p>
-        <a class="btn btn-ghost" href="https://kp-front.ch">Take a look at KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Related project</p>
+          <h2>KP Rück keeps the overview at the rear. KP Front commands at the front.</h2>
+          <p><strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – the two can hand alarms to each other, but neither needs the other.</p>
+          <a class="btn btn-ghost" href="https://kp-front.ch">Take a look at KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Running both – without setting everything up twice</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Dispatch</dt>
+              <dd>The same payload for both. Your dispatch integration is built once; each app only gets its own address.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Divera access</dt>
+              <dd>One key for both – the same alarms, the same roster. <span class="opt">optional</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Print agent</dt>
+              <dd>One service in the station serves both apps and both kinds of printer.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Roster</dt>
+              <dd>The same source in the same file format – the same person on both sides.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Keywords</dt>
+              <dd>The same alarm keyword list, so the same classification in both apps.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Database, updates and login stay separate.</strong> Neither one needs the other to run.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guide: both on one server →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -468,7 +558,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

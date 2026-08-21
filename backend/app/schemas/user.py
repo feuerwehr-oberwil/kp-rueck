@@ -21,6 +21,20 @@ class MicrosoftAuthConfig(BaseModel):
     redirect_uri: str = ""
 
 
+class WsTokenResponse(BaseModel):
+    """A short-lived Socket.IO connect token (sweep 27 §P3.4).
+
+    Fetched same-origin (the session cookie authenticates the request) right
+    before `io(...)` and passed in the Socket.IO `auth` payload — the cookie
+    itself never reaches the backend on a split-origin deployment.
+    """
+
+    token: str
+    #: Seconds until the token expires. Informational — the client fetches a
+    #: fresh one per connection attempt anyway.
+    expires_in: int
+
+
 class UserBase(BaseModel):
     """Base user schema."""
 

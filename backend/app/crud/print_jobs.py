@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from ..config import settings
 from ..database import execute_dml
 from ..models import (
+    Event,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
@@ -246,11 +247,11 @@ async def build_feld_slip_link(db: AsyncSession, incident: Incident) -> str | No
     It can only preselect the *incident*, never the person: the slip is printed
     before it is known who drives.
 
-    Accepted exposure, and it belongs in the operator docs (`docs/SETUP.md`): a
-    slip left in a vehicle is a working credential until the event token
-    expires. That is the same exposure as the poster on the wall, but it is now
-    on paper that travels — so slips join the "collect at the end of the
-    Ereignis" habit the posters already have.
+    Since the Feld-Code, the link alone opens nothing — it buys the right to be
+    asked for four digits, which is why the slip prints them next to it
+    (:func:`build_feld_slip_code`). A slip left in a vehicle is still a working
+    credential for whoever also has the code, so slips keep the "collect at the
+    end of the Ereignis" habit the posters have (`docs/SETUP.md`).
     """
     if incident.event_id is None:
         return None
@@ -260,6 +261,24 @@ async def build_feld_slip_link(db: AsyncSession, incident: Incident) -> str | No
         return None
     token = generate_feld_token(incident.event_id)
     return f"{base}/feld?token={token}&incident_id={incident.id}"
+
+
+async def build_feld_slip_code(db: AsyncSession, incident: Incident) -> str | None:
+    """The four digits that go on the paper next to the QR.
+
+    A QR that opens a code prompt, handed over without the code, strands the
+    crew that scans it in the rain — the same rule the board's enlarged QR
+    follows (plan 26, decision 22). The slip is the one place the two must
+    travel together, because nobody is standing next to the board when it is
+    read.
+
+    ``None`` when the incident belongs to no Ereignis or the event predates the
+    code, in which case the agent prints the QR block without a code line.
+    """
+    if incident.event_id is None:
+        return None
+    event = await db.get(Event, incident.event_id)
+    return event.feld_code if event is not None else None
 
 
 async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict[str, Any]:
@@ -329,7 +348,14 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
     leader_ids = {a.resource_id for a in active_assignments if a.resource_type == "personnel" and a.is_leader}
     crew = []
     if personnel_ids:
-        personnel_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
+        # Ordered, because the EL-first sort below is STABLE: without this the
+        # rest of the crew printed in whatever order Postgres returned rows,
+        # which differs between two prints of the same slip.
+        personnel_result = await db.execute(
+            select(Personnel)
+            .where(Personnel.id.in_(personnel_ids))
+            .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
+        )
         for p in personnel_result.scalars().all():
             if p.id not in reko_personnel_ids:
                 crew.append({"name": p.name, "role": p.role, "is_leader": p.id in leader_ids})
@@ -415,6 +441,9 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
         # installation has no configured origin — the agent then simply prints no
         # QR block, which is what an older agent does anyway.
         "feld_qr": await build_feld_slip_link(db, incident),
+        # And the code the QR asks for. Printed only where the QR is printed;
+        # on its own it opens nothing.
+        "feld_code": await build_feld_slip_code(db, incident),
         "crew": crew,
         "vehicles": vehicles,
         "materials": materials,

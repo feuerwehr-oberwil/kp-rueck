@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Bell, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,11 +8,12 @@ import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { NotificationCard } from '@/components/notifications/notification-card'
+import { requestIncidentHighlight } from '@/lib/notification-highlight'
 import { cn } from '@/lib/utils'
 
 export function PersistentNotificationSidebar() {
   const t = useTranslations('notifications.sidebar')
-  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
+  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, canNavigateToIncident } = useNotifications()
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
 
@@ -19,12 +21,39 @@ export function PersistentNotificationSidebar() {
   // Never render when logged out — isSidebarOpen is persisted in localStorage,
   // so a session that opened it and then logged out would otherwise show an
   // empty sidebar shell over the login screen.
-  if (isMobile || !isSidebarOpen || !isAuthenticated) return null
+  const visible = !isMobile && isSidebarOpen && isAuthenticated
+
+  // Publish the sidebar's width as a root CSS var while open. Fixed-position
+  // layers (the footer sheets) live outside the flex row that makes room for
+  // this panel, so they read the var to inset their right edge instead of
+  // sliding underneath it. Must match the `w-80` below.
+  useEffect(() => {
+    if (!visible) return
+    document.documentElement.style.setProperty('--notification-sidebar-width', '20rem')
+    return () => {
+      document.documentElement.style.removeProperty('--notification-sidebar-width')
+    }
+  }, [visible])
+
+  if (!visible) return null
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
   const historicalNotifications = notifications
     .filter((n) => n.dismissed)
     .slice(0, 20) // Show last 20 dismissed notifications
+
+  // Only the board registers a navigate handler. On every other page the rows
+  // used to look clickable and do nothing — hand the card `undefined` there so
+  // it renders as plain text instead.
+  //
+  // Clicking a row POINTS at the card — scroll into view plus the brief accent
+  // ring — while this sidebar stays open (§19.1). It used to open the detail
+  // modal over the board, which hid exactly the card the operator was asking
+  // about. Pointing is not resolving, so the row is not dismissed by the click;
+  // the ✕ still does that.
+  const handleClickIncident = canNavigateToIncident
+    ? (incidentId: string) => requestIncidentHighlight(incidentId)
+    : undefined
 
   return (
     <aside
@@ -79,8 +108,9 @@ export function PersistentNotificationSidebar() {
                   key={notification.id}
                   notification={notification}
                   onDismiss={dismissNotification}
-                  onClickIncident={navigateToIncident}
+                  onClickIncident={handleClickIncident}
                   variant="compact"
+                  dismissOnClick={false}
                 />
               ))}
             </div>
@@ -107,7 +137,7 @@ export function PersistentNotificationSidebar() {
                 <NotificationCard
                   key={notification.id}
                   notification={notification}
-                  onClickIncident={navigateToIncident}
+                  onClickIncident={handleClickIncident}
                   variant="compact"
                 />
               ))}

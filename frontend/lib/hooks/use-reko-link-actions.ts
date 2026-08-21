@@ -75,6 +75,13 @@ export function useRekoLinkActions({
     }
   }, [incidentId, assignedReko, flashCopied])
 
+  /**
+   * The link the Reko trupp opens — `/feld` since plan 26.
+   *
+   * It used to be `/reko-dashboard`, a second page that did what the field
+   * surface does: pick your name, see your rows, open a form. That page is
+   * gone, so this hands out the one link everybody in the field uses.
+   */
   const copyDashboardLink = useCallback(async () => {
     if (!eventId) {
       toast.error(translateOutsideReact('notifications.rekoLinks.noEventSelected'))
@@ -82,7 +89,7 @@ export function useRekoLinkActions({
     }
     setIsCopying(true)
     try {
-      const response = await apiClient.generateRekoDashboardLink(eventId)
+      const response = await apiClient.generateFeldLink(eventId)
       const fullUrl = `${window.location.origin}${response.link}`
       await copyToClipboard(fullUrl)
       flashCopied("dashboard")

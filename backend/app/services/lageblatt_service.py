@@ -14,6 +14,7 @@ through an outage.
 """
 
 import uuid
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -25,6 +26,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
+    KeepTogether,
     LongTable,
     PageBreak,
     Paragraph,
@@ -45,12 +47,14 @@ from .pdf_report_service import (
     extra_material_left_on_site_names,
     format_location_for_display,
     material_left_on_site_names,
+    photo_grid,
     rapport_by_incident,
     rapport_work_windows,
     reko_arrival_line,
     reko_filing_lines,
     vehicle_present_names,
 )
+from .photo_storage import ExportPhoto
 
 # The handwriting continuation area: empty grid rows appended after the data.
 EMPTY_ROWS = 10
@@ -58,6 +62,12 @@ EMPTY_ROWS = 10
 # One uniform height for every data/empty row: fits three 6pt lines plus
 # padding, and doubles as handwriting space.
 ROW_HEIGHT = 9 * mm
+
+# Photos on the detail pages: smaller than the Einsatzbericht's — this is the
+# dense operational sheet, so four to a row at postcard-thumb height, after the
+# textual details of each incident.
+_PHOTO_PER_ROW = 4
+_PHOTO_MAX_H = 35 * mm
 
 _BORDER = colors.HexColor("#a1a1aa")
 _HEADER_BG = colors.HexColor("#f4f4f5")
@@ -346,8 +356,19 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
     return rows
 
 
-def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: str) -> list[Any]:
-    """One bordered card per incident: shaded header row, generous row spacing."""
+def _detail_block(
+    data: EventReportData,
+    inc: Incident,
+    index: int,
+    home_city: str,
+    photos: Sequence[ExportPhoto] = (),
+) -> list[Any]:
+    """One bordered card per incident: shaded header row, generous row spacing.
+
+    Photos (Reko + Rapport) follow AFTER the card rather than inside it: a LongTable
+    row cannot split, so a cell holding five rows of thumbnails would overflow the
+    frame — as free flowables the grid breaks between rows like everything else.
+    """
     head = (
         f"{index} – {inc.title}"
         f"  ·  {STATUS_LABELS.get(inc.status, inc.status)}"
@@ -377,11 +398,27 @@ def _detail_block(data: EventReportData, inc: Incident, index: int, home_city: s
             ]
         )
     )
-    return [Spacer(1, 4 * mm), card]
+    flow: list[Any] = [Spacer(1, 4 * mm), card]
+
+    grid = photo_grid(photos, _PHOTO_PER_ROW, usable / _PHOTO_PER_ROW, _PHOTO_MAX_H, _CELL)
+    if grid:
+        first, *rest = grid
+        # Label + first row stay together so "Fotos" never announces images overleaf.
+        flow.append(KeepTogether([Spacer(1, 1.5 * mm), Paragraph("Fotos", _DETAIL_LABEL), first]))
+        flow.extend(rest)
+    return flow
 
 
-def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
-    """Render the Lageblatt PDF and return it as bytes."""
+def build_lageblatt_pdf(
+    data: EventReportData,
+    home_city: str = "",
+    photos: Mapping[uuid.UUID, Sequence[ExportPhoto]] | None = None,
+) -> bytes:
+    """Render the Lageblatt PDF and return it as bytes.
+
+    ``photos``: pre-loaded Reko/Rapport photos per incident id (the caller reads
+    the files — this builder stays free of I/O). ``None`` renders no photos.
+    """
     now_local = datetime.now(LOCAL_TZ)
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -491,7 +528,7 @@ def build_lageblatt_pdf(data: EventReportData, home_city: str = "") -> bytes:
         story.append(PageBreak())
         story.append(Paragraph(f"Einsatzdetails – Stand {now_local.strftime('%H:%M')} Uhr", title_style))
         for index, inc in enumerate(data.incidents, start=1):
-            story.extend(_detail_block(data, inc, index, home_city))
+            story.extend(_detail_block(data, inc, index, home_city, (photos or {}).get(inc.id, ())))
 
     doc.build(story)
     return buffer.getvalue()

@@ -547,6 +547,53 @@ async def test_return_emits_prompt_not_release(
 
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+async def test_simulated_drive_prompts_without_station_opt_in(
+    bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """A vehicle on a simulated Übungs drive gets the release prompt even when the
+    station never opted into GPS automation (gps.automation_enabled=false) — the
+    fix for «Rückfahrt Magazin does nothing» (testing sweep 2026-08-19 P1.7)."""
+    from app.services.gps_simulation import SimulatedDrive, gps_simulation
+
+    vehicle, assignment = assigned_vehicle
+    # Only the geofence itself is configured; every automation opt-in stays OFF.
+    await _set(db_session, "gps.station_lat", str(STATION_LAT))
+    await _set(db_session, "gps.station_lng", str(STATION_LNG))
+    await _set(db_session, "gps.station_radius_meters", "120")
+    await _set(db_session, "gps.debounce_count", "3")
+    await _set(db_session, "gps.freshness_seconds", "60")
+    await _set(db_session, "gps.min_dwell_seconds", "60")
+    await _set(db_session, "gps.speed_gate_kmh", "5")
+
+    gps_simulation._drives["tlf-1"] = SimulatedDrive(
+        vehicle_id=vehicle.id,
+        vehicle_name="TLF-1",
+        start_lat=INC_LAT,
+        start_lng=INC_LNG,
+        target_lat=STATION_LAT,
+        target_lng=STATION_LNG,
+        target_label="Magazin",
+        kind="magazin",
+        cruise_kmh=40.0,
+        started_at=datetime.now(UTC),
+    )
+    try:
+        clock = _Clock(datetime.now(UTC))
+        for advance in (30, 35, 40):
+            await _tick(db_session, clock, _fresh_at_station(clock.now()), advance=advance)
+    finally:
+        gps_simulation._drives.clear()
+
+    prompts = [call.args[0] for call in bc_msg.await_args_list if call.args[0].get("type") == "gps_release_prompt"]
+    assert len(prompts) == 1
+    assert prompts[0]["assignment_id"] == str(assignment.id)
+
+    fresh = await db_session.execute(select(IncidentAssignment).where(IncidentAssignment.id == assignment.id))
+    assert fresh.scalar_one().unassigned_at is None  # prompt only, never silent-released
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 async def test_route_vehicle_return_emits_group_release_prompt(
     bc_msg, db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event
 ):

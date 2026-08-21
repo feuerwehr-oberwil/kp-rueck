@@ -34,7 +34,11 @@ const op = (id: string, status: string, location: string, extra: Record<string, 
 // --- Mocks ------------------------------------------------------------------
 
 // Mutable state the mocked hooks read from, re-seeded per test.
-const state = vi.hoisted(() => ({ groups: [] as unknown[], operations: [] as unknown[] }))
+const state = vi.hoisted(() => ({
+  groups: [] as unknown[],
+  operations: [] as unknown[],
+  vehicleDrivers: new Map<string, string>(),
+}))
 
 const createGroup = vi.hoisted(() => vi.fn())
 const updateGroup = vi.hoisted(() => vi.fn())
@@ -88,6 +92,15 @@ vi.mock("@/lib/api-client", () => ({
 }))
 vi.mock("@/lib/geocoding", () => ({ reverseGeocode: vi.fn(async () => "Adresse") }))
 
+// The sheet resolves the event to look up who drives which Fahrzeug; the driver
+// map itself is seeded per test through `state.vehicleDrivers`.
+vi.mock("@/lib/contexts/event-context", () => ({
+  useEvent: () => ({ selectedEvent: { id: "e1" } }),
+}))
+vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({
+  useVehicleDrivers: () => state.vehicleDrivers,
+}))
+
 // Force desktop layout (matchMedia is unimplemented in jsdom).
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))
 
@@ -133,6 +146,7 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof AuftraegeShe
 beforeEach(() => {
   state.groups = []
   state.operations = []
+  state.vehicleDrivers = new Map()
   createGroup.mockReset().mockResolvedValue(grp({ id: "new" }))
   updateGroup.mockReset().mockResolvedValue(true)
   deleteGroup.mockReset()
@@ -225,6 +239,44 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
 
     await user.click(screen.getByTitle("TLF 1 entfernen"))
     expect(unassignResource).toHaveBeenCalledWith("g1", "va")
+  })
+
+  it("names the driver on a route's Fahrzeug chip", async () => {
+    state.groups = [grp({ stopIds: [] })]
+    state.vehicleDrivers = new Map([["TLF 1", "Muster Hans"]])
+    getGroupResources.mockReturnValue({
+      vehicles: [{ assignmentId: "va", resourceId: "v1", name: "TLF 1", driverStay: false }],
+      personnel: [],
+      materials: [],
+    })
+    const user = userEvent.setup()
+    renderSheet()
+
+    await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
+
+    expect(await screen.findByText("TLF 1 (Muster Hans)")).toBeInTheDocument()
+  })
+
+  it("brings the whole card into view when it is opened, not just its header", async () => {
+    // The card expands downwards inside a scroll container, so a route near the
+    // bottom used to unfold below the fold: the chevron turned and nothing else
+    // appeared to happen.
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      state.groups = [grp({ stopIds: [] })]
+      const user = userEvent.setup()
+      renderSheet()
+
+      await user.click(screen.getByRole("button", { name: "Auftrag auf-/zuklappen" }))
+
+      // One frame late: the expanded content has to be laid out first.
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+      expect(scrollIntoView.mock.calls[0][0]).toMatchObject({ block: "nearest" })
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
   })
 
   it("assigns to the ROUTE even with zero stops", async () => {

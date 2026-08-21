@@ -17,8 +17,8 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import { getOperationStatusLabel } from '@/lib/status-labels';
+import Link from 'next/link';
 import {
-  Users,
   ClipboardCheck,
   Bot,
   Bus,
@@ -65,23 +65,26 @@ const ACTION_ICONS: Record<string, typeof MapPin> = {
   vehicle_on_scene: Truck,
   field_complete: Flag,
   drive_to_magazin: Home,
+  rapport: ClipboardCheck,
 };
 
 
 export function TrainingSimulationControls() {
   const t = useTranslations('training.simulation');
   const tCommon = useTranslations('training.common');
+  // Reuses the GPS card's warning copy for the same missing-Magazin case.
+  const tGps = useTranslations('training.gpsSim');
   const { selectedEvent } = useEvent();
-  const { operations, changeStatusToTop, formatLocation } = useOperations();
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const { operations, changeStatusToTop, formatLocation, refreshOperations } = useOperations();
   // Track per-incident advance state so each row's button spins independently.
   const [advancingIds, setAdvancingIds] = useState<Set<string>>(new Set());
-  const [checkinCount, setCheckinCount] = useState(10);
-  // 0 = sofort; >0 = check-ins trickle in over this many minutes.
-  const [checkinMinutes, setCheckinMinutes] = useState(0);
   // The incident whose "Kommt ihr selbst zurück?" question is open (decision 24).
   const [pickupPrompt, setPickupPrompt] = useState<Operation | null>(null);
   const [isFilingRapports, setIsFilingRapports] = useState(false);
+  // Simulated «Neue Meldung»: which incident's Trupp reports, and what they say.
+  const [fieldReportIncidentId, setFieldReportIncidentId] = useState('');
+  const [fieldReportText, setFieldReportText] = useState('');
+  const [isSendingFieldReport, setIsSendingFieldReport] = useState(false);
 
   // GPS drive simulation: vehicles for name→id lookup, active drives for the
   // per-row progress state. The backend refuses simulations in demo mode, so
@@ -90,6 +93,11 @@ export function TrainingSimulationControls() {
   const [drives, setDrives] = useState<ApiGpsSimDrive[]>([]);
   const [drivesFetchedAt, setDrivesFetchedAt] = useState(() => Date.now());
   const [gpsSimAvailable, setGpsSimAvailable] = useState(true);
+  // Same preflight as the GPS card (training-gps-simulation.tsx): a «Rückfahrt
+  // Magazin» drive 400s when gps.station_lat/lng are unset, so warn on the
+  // button instead of after the click. Defaults to true — no false warning
+  // while settings are still loading; the backend error stays the backstop.
+  const [magazinConfigured, setMagazinConfigured] = useState(true);
   const [speedKmh] = useGpsSimSpeed();
 
   const refreshDrives = useCallback(async () => {
@@ -104,6 +112,15 @@ export function TrainingSimulationControls() {
   useEffect(() => {
     apiClient.getVehicles().then(setVehicles).catch(() => setVehicles([]));
     apiClient.getDemoStatus().then((status) => setGpsSimAvailable(!status?.demo)).catch(() => {});
+    apiClient
+      .getAllSettings()
+      .then((settings) => {
+        // Exactly the pair the backend parses for the Magazin target.
+        const lat = parseFloat(settings['gps.station_lat'] ?? '');
+        const lng = parseFloat(settings['gps.station_lng'] ?? '');
+        setMagazinConfigured(Number.isFinite(lat) && Number.isFinite(lng));
+      })
+      .catch(() => {}); // unknown → don't block; the backend error still catches it
     refreshDrives();
     const unsubscribe = wsClient.on('gps_sim_status', () => refreshDrives());
     const interval = setInterval(refreshDrives, 3000);
@@ -159,6 +176,13 @@ export function TrainingSimulationControls() {
     });
   }, [operations, now, drives, gpsSimAvailable]);
 
+  // Incidents whose crew can report something new — a Meldung needs a Trupp
+  // standing somewhere (the backend refuses one without assigned personnel).
+  const crewedOps = useMemo(
+    () => operations.filter((op) => op.status !== 'complete' && op.crew.length > 0),
+    [operations]
+  );
+
   if (!selectedEvent?.training_flag) {
     return null;
   }
@@ -174,6 +198,13 @@ export function TrainingSimulationControls() {
   const handleAdvance = async (op: Operation, action: NextAction) => {
     if (!selectedEvent) return;
 
+    // The rapport step IS the existing per-incident inject — same endpoint,
+    // same toast, just surfaced as a lifecycle step instead of a menu item.
+    if (action.kind === 'rapport') {
+      await handleInject(op, 'rapport');
+      return;
+    }
+
     // Plain status transitions reuse the optimistic one-click board move.
     if (action.kind === 'status' && action.targetStatus) {
       // …but «Fahrzeug vor Ort» IS the crew arriving, so it also files the
@@ -185,6 +216,7 @@ export function TrainingSimulationControls() {
         setAdvancing(op.id, true);
         try {
           await apiClient.simulateFieldArrived(selectedEvent.id, op.id);
+          void refreshOperations();
         } catch (error: unknown) {
           const detail = error instanceof Error ? error.message : t('actionFailed');
           toast.error(tCommon('error'), { description: detail });
@@ -223,8 +255,13 @@ export function TrainingSimulationControls() {
         await refreshDrives();
       } else if (action.kind === 'reko_arrived') {
         await apiClient.simulateRekoArrived(selectedEvent.id, op.id);
+        // Reko sub-state lives in its own table — refresh directly so the
+        // console advances even when the WebSocket is down (the poll's
+        // sync-version only covers it since the same fix backend-side).
+        void refreshOperations();
       } else if (action.kind === 'reko_report') {
         await apiClient.simulateReko(selectedEvent.id, op.id);
+        void refreshOperations();
       } else if (action.kind === 'field_complete') {
         // "Einsatz beendet" asks the same follow-up the field gets — see
         // handleFieldComplete; the button only opens the question.
@@ -240,30 +277,6 @@ export function TrainingSimulationControls() {
     }
   };
 
-  const handleSimulateCheckin = async () => {
-    if (!selectedEvent) return;
-    setIsCheckingIn(true);
-    try {
-      const result = await apiClient.simulateCheckin(selectedEvent.id, checkinCount, checkinMinutes);
-
-      if ((result.scheduled?.length ?? 0) > 0) {
-        toast.success(t('checkinsScheduled', { count: result.scheduled!.length }), {
-          description: t('checkinsScheduledDescription', { minutes: result.trickle_minutes ?? checkinMinutes }),
-        });
-      } else if (result.checked_in.length === 0) {
-        toast.info(t('noMorePersons'), {
-          description: t('noMorePersonsDescription'),
-        });
-      }
-    } catch (error: unknown) {
-      console.error('Failed to simulate check-in:', error);
-      const detail = error instanceof Error ? error.message : undefined;
-      toast.error(t('checkinFailed'), { description: detail });
-    } finally {
-      setIsCheckingIn(false);
-    }
-  };
-
   const handleSimulateRapports = async () => {
     if (!selectedEvent) return;
     setIsFilingRapports(true);
@@ -275,12 +288,36 @@ export function TrainingSimulationControls() {
         toast.success(t('rapportBulkDone', { covered: result.covered, candidates: result.candidates }), {
           description: t('rapportBulkDoneDescription', { skipped: result.skipped }),
         });
+        void refreshOperations();
       }
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : t('injectFailed');
       toast.error(tCommon('error'), { description: detail });
     } finally {
       setIsFilingRapports(false);
+    }
+  };
+
+  // Simulated «Neue Meldung» (plan 26 §3): the chosen incident's Trupp reports
+  // a fresh emergency in free text. The backend routes it through the REAL
+  // field creation path, so it arrives exactly like a crew's Meldung — bell,
+  // Eingegangen column, provenance and all.
+  const handleSendFieldReport = async () => {
+    if (!selectedEvent || !fieldReportIncidentId || !fieldReportText.trim()) return;
+    setIsSendingFieldReport(true);
+    try {
+      const result = await apiClient.simulateFieldReport(
+        selectedEvent.id,
+        fieldReportIncidentId,
+        fieldReportText.trim()
+      );
+      toast.success(t('fieldReportSent'), { description: result.message });
+      setFieldReportText('');
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : t('injectFailed');
+      toast.error(tCommon('error'), { description: detail });
+    } finally {
+      setIsSendingFieldReport(false);
     }
   };
 
@@ -297,6 +334,7 @@ export function TrainingSimulationControls() {
       if (result.pickup_needed) {
         toast.warning(t('pickupNeeded'), { description: t('pickupNeededDescription') });
       }
+      void refreshOperations();
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : t('actionFailed');
       toast.error(tCommon('error'), { description: detail });
@@ -357,6 +395,9 @@ export function TrainingSimulationControls() {
           description: t('vehicleBrokenDownDescription'),
         });
       }
+      // Reflect the inject immediately, WebSocket or not — several of these
+      // write tables the polling fallback watches only coarsely.
+      void refreshOperations();
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : t('injectFailed');
       toast.error(tCommon('error'), { description: detail });
@@ -366,7 +407,7 @@ export function TrainingSimulationControls() {
   };
 
   return (
-    <Card className="mt-4">
+    <Card>
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2">
@@ -382,10 +423,41 @@ export function TrainingSimulationControls() {
         {/* Conductor console — one recommended next step per open incident,
             most-overdue first. Due rows are highlighted; a tap advances. */}
         <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <ChevronRight className="h-4 w-4" />
-            {t('nextActions')}
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="flex items-center gap-2">
+              <ChevronRight className="h-4 w-4" />
+              {t('nextActions')}
+            </Label>
+            {/* Bulk rapports stay one click for storm drills (plan 25 §16):
+                twenty-three per-incident rapport steps would be twenty-three
+                clicks — and the missing fifth is deliberate (the Restliste). */}
+            <Button
+              onClick={handleSimulateRapports}
+              disabled={isFilingRapports}
+              variant="ghost"
+              size="xs"
+              className="text-muted-foreground"
+              title={t('rapportHint')}
+            >
+              <ClipboardCheck className="size-3.5" />
+              {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
+            </Button>
+          </div>
+          {/* Same preflight banner as the GPS card: without the Magazin
+              coordinates every «Rückfahrt Magazin» button below is disabled,
+              and a disabled button with only a hover tooltip reads as "does
+              nothing" — especially on touch (testing sweep 2026-08-19 #7). */}
+          {!magazinConfigured && (
+            <p className="flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs text-warning-foreground">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>
+                {tGps('magazinMissing')}{' '}
+                <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
+                  {tGps('magazinMissingLink')}
+                </Link>
+              </span>
+            </p>
+          )}
           {rows.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               {t('noOpenActions')}
@@ -398,9 +470,12 @@ export function TrainingSimulationControls() {
                   const started = stepStartedAt(op);
                   const anyRolling = actions.some((a) => a.actionDrives.length > 0);
                   return (
+                    // flex-wrap + the text block claiming the full width below `sm`:
+                    // on a phone the buttons drop onto their own line instead of
+                    // squeezing the text to one word per line (testing image #12).
                     <div
                       key={op.id}
-                      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
+                      className={`flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border px-2 py-1.5 text-sm ${
                         due
                           ? 'border-warning/70 bg-warning/10'
                           : anyRolling
@@ -408,7 +483,7 @@ export function TrainingSimulationControls() {
                             : 'border-border'
                       }`}
                     >
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 basis-full sm:basis-48">
                         <div className="truncate font-medium" title={formatLocation(op.location) || op.incidentType}>
                           {formatLocation(op.location) || op.incidentType}
                         </div>
@@ -422,6 +497,7 @@ export function TrainingSimulationControls() {
                           )}
                         </div>
                       </div>
+                      <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                       {actions.map(({ action, actionDrives }, idx) => {
                         const Icon = ACTION_ICONS[action.key] ?? ChevronRight;
                         // A rolling drive replaces its action's button with live
@@ -441,15 +517,24 @@ export function TrainingSimulationControls() {
                           );
                         }
                         const isPrimary = idx === 0;
+                        // The return drive needs the Magazin coordinates — warn
+                        // on the button, same preflight as the GPS card.
+                        const needsMagazin = action.kind === 'gps_return' && !magazinConfigured;
                         return (
                           <Button
                             key={action.key}
                             onClick={() => handleAdvance(op, action)}
-                            disabled={busy}
+                            disabled={busy || needsMagazin}
                             variant={due && isPrimary ? 'default' : 'outline'}
                             size="sm"
                             className="flex-shrink-0"
-                            title={due && isPrimary ? t('recommendedAction') : undefined}
+                            title={
+                              needsMagazin
+                                ? tGps('magazinMissing')
+                                : due && isPrimary
+                                  ? t('recommendedAction')
+                                  : undefined
+                            }
                           >
                             <Icon className="size-3.5" />
                             {action.label}
@@ -470,23 +555,34 @@ export function TrainingSimulationControls() {
                             <AlertTriangle className="size-3.5 text-amber-600" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        {/* Every item carries a one-line description (testing
+                            image #11: several labels were unclear on their own). */}
+                        <DropdownMenuContent align="end" className="max-w-72">
                           <DropdownMenuLabel>{t('inject')}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleInject(op, 'escalate')}>
-                            <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
-                            {t('injectEscalate')}
+                            <AlertTriangle className="mr-2 h-4 w-4 flex-shrink-0 text-red-600" />
+                            <span className="min-w-0">
+                              <span className="block">{t('injectEscalate')}</span>
+                              <span className="block text-xs text-muted-foreground">{t('injectEscalateDesc')}</span>
+                            </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'reinforcement')}>
-                            <Megaphone className="mr-2 h-4 w-4 text-amber-600" />
-                            {t('injectReinforcement')}
+                            <Megaphone className="mr-2 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <span className="min-w-0">
+                              <span className="block">{t('injectReinforcement')}</span>
+                              <span className="block text-xs text-muted-foreground">{t('injectReinforcementDesc')}</span>
+                            </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleInject(op, 'breakdown')}
                             disabled={op.vehicles.length === 0}
                           >
-                            <Wrench className="mr-2 h-4 w-4 text-muted-foreground" />
-                            {t('injectBreakdown')}
+                            <Wrench className="mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            <span className="min-w-0">
+                              <span className="block">{t('injectBreakdown')}</span>
+                              <span className="block text-xs text-muted-foreground">{t('injectBreakdownDesc')}</span>
+                            </span>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {/* Plan 25: the field side of the exercise — every
@@ -498,26 +594,43 @@ export function TrainingSimulationControls() {
                             onClick={() => handleInject(op, 'arrived')}
                             disabled={op.fieldArrivedAt != null}
                           >
-                            <MapPinCheck className="mr-2 h-4 w-4 text-emerald-600" />
-                            {t('injectArrived')}
+                            <MapPinCheck className="mr-2 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <span className="min-w-0">
+                              <span className="block">{t('injectArrived')}</span>
+                              <span className="block text-xs text-muted-foreground">{t('injectArrivedDesc')}</span>
+                            </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'rapport')}>
-                            <ClipboardCheck className="mr-2 h-4 w-4 text-emerald-600" />
-                            {t('injectRapport')}
+                            <ClipboardCheck className="mr-2 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <span className="min-w-0">
+                              <span className="block">{t('injectRapport')}</span>
+                              <span className="block text-xs text-muted-foreground">{t('injectRapportDesc')}</span>
+                            </span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleInject(op, 'fieldMessage')}>
-                            <MessageSquare className="mr-2 h-4 w-4 text-blue-600" />
-                            {t('injectFieldMessage')}
+                            <MessageSquare className="mr-2 h-4 w-4 flex-shrink-0 text-blue-600" />
+                            <span className="min-w-0">
+                              <span className="block">{t('injectFieldMessage')}</span>
+                              <span className="block text-xs text-muted-foreground">{t('injectFieldMessageDesc')}</span>
+                            </span>
                           </DropdownMenuItem>
                           {/* Decision 24: a Schadenplatz can be finished and
                               still have three people standing in the rain — and
                               the lift arriving is a report of its own. */}
                           <DropdownMenuItem onClick={() => handleInject(op, 'pickup')}>
-                            <Bus className="mr-2 h-4 w-4 text-amber-600" />
-                            {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}
+                            <Bus className="mr-2 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <span className="min-w-0">
+                              <span className="block">
+                                {op.pickupNeeded ? t('injectPickupDone') : t('injectPickupNeeded')}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {op.pickupNeeded ? t('injectPickupDoneDesc') : t('injectPickupNeededDesc')}
+                              </span>
+                            </span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </div>
                   );
                 })}
@@ -531,74 +644,70 @@ export function TrainingSimulationControls() {
 
         <Separator />
 
-        {/* Personnel Check-In Simulation */}
+        {/* Simulated «Neue Meldung»: a Trupp mentions a fresh emergency. Goes
+            through the real field intake, so the KP trains the real path —
+            triage in Eingegangen, disposition — instead of a trainer shortcut
+            that plants a finished card. */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            {t('checkinLabel')}
+            <MessageSquare className="h-4 w-4" />
+            {t('fieldReportLabel')}
           </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              max={50}
-              value={checkinCount}
-              onChange={(e) => setCheckinCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-              className="w-20"
-            />
-            <Select
-              value={String(checkinMinutes)}
-              onValueChange={(v) => setCheckinMinutes(parseInt(v))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">{t('immediately')}</SelectItem>
-                <SelectItem value="5">{t('overMinutes', { count: 5 })}</SelectItem>
-                <SelectItem value="10">{t('overMinutes', { count: 10 })}</SelectItem>
-                <SelectItem value="15">{t('overMinutes', { count: 15 })}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={handleSimulateCheckin}
-              disabled={isCheckingIn}
-              variant="outline"
-              size="sm"
-              className="flex-1"
-            >
-              <Users className="size-3.5" />
-              {isCheckingIn ? t('checkingIn') : t('checkin')}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {t('checkinHint')}
-          </p>
-        </div>
-
-        <Separator />
-
-        {/* Schadenplatz-Rapporte in bulk (plan 25 §16). Twenty-three
-            Schadenplätze would otherwise be twenty-three clicks — and the fifth
-            that stays missing is deliberate: that is the Restliste. */}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <ClipboardCheck className="h-4 w-4" />
-            {t('rapportLabel')}
-          </Label>
-          <Button
-            onClick={handleSimulateRapports}
-            disabled={isFilingRapports}
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            <ClipboardCheck className="size-3.5" />
-            {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            {t('rapportHint')}
-          </p>
+          {crewedOps.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t('fieldReportNoIncidents')}</p>
+          ) : (
+            <>
+              <Select value={fieldReportIncidentId} onValueChange={setFieldReportIncidentId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t('fieldReportIncidentPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {crewedOps.map((op) => (
+                    <SelectItem key={op.id} value={op.id}>
+                      {formatLocation(op.location) || op.incidentType}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={fieldReportText}
+                  onChange={(e) => setFieldReportText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSendFieldReport();
+                  }}
+                  placeholder={t('fieldReportPlaceholder')}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSendFieldReport}
+                  disabled={isSendingFieldReport || !fieldReportIncidentId || !fieldReportText.trim()}
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                >
+                  <MessageSquare className="size-3.5" />
+                  {isSendingFieldReport ? t('fieldReportSending') : t('fieldReportSend')}
+                </Button>
+              </div>
+              {/* Canned examples — quick-fills, not sends: the trainer can
+                  still edit before the Meldung goes out. */}
+              <div className="flex flex-wrap gap-1.5">
+                {[t('fieldReportExample1'), t('fieldReportExample2'), t('fieldReportExample3')].map((example) => (
+                  <Button
+                    key={example}
+                    variant="outline"
+                    size="xs"
+                    className="text-muted-foreground"
+                    onClick={() => setFieldReportText(example)}
+                  >
+                    {example}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{t('fieldReportHint')}</p>
+            </>
+          )}
         </div>
       </CardContent>
 

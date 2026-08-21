@@ -12,13 +12,14 @@
  * Ensure backward compatibility when modifying props or behavior.
  */
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
+import { SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
@@ -43,6 +44,11 @@ interface LocationInputProps {
   geocodeInitialAddress?: boolean
   /** Show error styling for validation feedback */
   error?: boolean
+  /** An extra icon button in the same row as the map and coordinate buttons.
+   *  `/feld` puts "Standort übernehmen" there — a GPS action belongs with the
+   *  other two ways of setting the location, not on a line of its own
+   *  underneath, which is where it read as a leftover. */
+  extraAction?: ReactNode
   /** Row layout for the 420px side panel: the label sits left of the field
    *  instead of above it, and the map/coordinate buttons shrink to match. Same
    *  control either way — see components/kanban/detail-field.tsx. */
@@ -59,6 +65,7 @@ export function LocationInput({
   autoFocus = false,
   geocodeInitialAddress = true,
   error = false,
+  extraAction,
   dense = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
@@ -314,7 +321,12 @@ export function LocationInput({
     longitude <= 180
 
   return (
-    <div className={cn(dense ? "space-y-1" : "space-y-4")}>
+    // No blanket vertical spacing here: the coordinate drawer below is collapsed
+    // to zero height most of the time, and a `space-y-*` on this wrapper still
+    // gave the collapsed drawer its margin — phantom air between the address row
+    // and whatever field the host form puts next. The drawer brings its own
+    // margin only while it is open.
+    <div>
       {/* Address Input with Autocomplete */}
       <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "min-h-[40px]")}>
         <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
@@ -345,10 +357,13 @@ export function LocationInput({
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverAnchor asChild>
               <div ref={anchorRef} className="relative flex-1">
-                <MapPin className={cn(
-                  "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
-                  dense ? "left-1.5 size-3.5" : "left-3",
-                )} />
+                {/* Dense only: the side panel's borderless row needs the pin to
+                    read as a field at all. In a normal form the icon made this
+                    the one input styled unlike its siblings, so there it is a
+                    plain Input like every other field. */}
+                {dense && (
+                  <MapPin className="pointer-events-none absolute top-1/2 left-1.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                )}
                 <Input
                   id="location_address"
                   ref={searchInputRef}
@@ -384,7 +399,6 @@ export function LocationInput({
                   }}
                   onKeyDown={handleAddressKeyDown}
                   className={cn(
-                    "pl-9",
                     // Transparent border + constant padding: focusing must not
                     // move the text the operator just clicked on.
                     dense &&
@@ -395,6 +409,12 @@ export function LocationInput({
               </div>
             </PopoverAnchor>
             <PopoverContent
+              // The list is portalled to the end of <body>, so to anything that
+              // asks "did that click land outside?" it is outside — which is how
+              // picking an address inside the /feld «Neue Meldung» slide-up used
+              // to dismiss the whole sheet and throw the form away. This says the
+              // list belongs to whatever panel the field sits in.
+              {...{ [SHEET_LAYER_ATTR]: '' }}
               // Trigger width as the FLOOR, not the size: in the side panel the
               // field is ~250px wide, and an address list that narrow truncates
               // exactly the part that distinguishes two streets of the same name.
@@ -433,6 +453,9 @@ export function LocationInput({
                       </div>
                       <button
                         type="button"
+                        // Picking must not blur the input first — see the note on
+                        // the result rows below.
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => commitFreetext(addressSearchQuery)}
                         className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-muted transition-colors cursor-pointer border-t"
                       >
@@ -457,6 +480,19 @@ export function LocationInput({
                         <button
                           key={result.id}
                           type="button"
+                          /**
+                           * Keep the focus in the input while the row is clicked.
+                           *
+                           * Without this the address was never applied: mousedown
+                           * blurred the field → `editing` went false → the sync
+                           * effect put the committed address (empty) back into the
+                           * query → the search effect saw fewer than 3 characters
+                           * and cleared `addressResults` → this very button
+                           * unmounted before mouseup, so `onClick` never fired.
+                           * The operator watched the list vanish and the field
+                           * keep their half-typed text.
+                           */
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => handleAddressSelect(result)}
                           onMouseEnter={() => setActiveIndex(index)}
                           aria-selected={index === activeIndex}
@@ -508,15 +544,18 @@ export function LocationInput({
           >
             <Navigation className={dense ? "size-3.5" : "size-4"} />
           </Button>
+
+          {extraAction}
         </div>
       </div>
 
-      {/* Coordinates Input - Hidden by default, shown when button clicked */}
+      {/* Coordinates Input - Hidden by default, shown when button clicked.
+          The margin exists only while open — see the wrapper note above. */}
       <div
         className={cn(
           "grid transition-all duration-200 ease-in-out",
           showCoordinates
-            ? "grid-rows-[1fr] opacity-100"
+            ? cn("grid-rows-[1fr] opacity-100", dense ? "mt-1" : "mt-3")
             : "grid-rows-[0fr] opacity-0"
         )}
       >

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Sparkles } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
@@ -54,6 +55,9 @@ export function MobileIncidentListView({
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
   const { selectedEvent } = useEvent()
+  // Fetched ONCE for the list and passed into every card — the rich card rows
+  // (image #21) name each vehicle's driver.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
   const [searchQuery, setSearchQuery] = useState("")
   // The id, not the object: the sheet used to hold a snapshot taken at tap
   // time, so anything that changed underneath it while it was open (a status
@@ -209,6 +213,7 @@ export function MobileIncidentListView({
                 operation={operation}
                 onClick={() => handleCardClick(operation)}
                 formatLocation={formatLocation}
+                vehicleDrivers={vehicleDrivers}
               />
             ))}
           </div>

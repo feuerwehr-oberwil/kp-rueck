@@ -36,9 +36,12 @@ from ..models import (
 from ..schemas import (
     DiveraEmergencyResponse,
     EmergencyTemplateResponse,
+    FeldIncidentCreate,
     FieldReportUpdate,
     GenerateEmergencyRequest,
+    IncidentPriority,
     IncidentResponse,
+    IncidentType,
     ManualDispatchRequest,
     RapportUpdate,
     RekoReportResponse,
@@ -974,6 +977,91 @@ async def simulate_field_message(
 
     notification = await feld_crud.record_field_message(db, incident, actor=actor, message=text, request=request)
     return SimulateInjectResponse(message=notification.message if notification else text)
+
+
+class SimulateFieldReportRequest(BaseModel):
+    """The free text of a simulated «Neue Meldung» — what the Trupp says."""
+
+    text: str
+
+
+class SimulateFieldReportResponse(BaseModel):
+    incident_id: UUID
+    reported_by: str
+    message: str
+
+
+@router.post(
+    "/events/{event_id}/simulate/field-report/{incident_id}",
+    response_model=SimulateFieldReportResponse,
+)
+async def simulate_field_report(
+    event_id: UUID,
+    incident_id: UUID,
+    payload: SimulateFieldReportRequest,
+    request: Request,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> SimulateFieldReportResponse:
+    """Inject «Neue Meldung»: the incident's Trupp reports a fresh emergency.
+
+    Trains the REAL intake path (plan 26 §3, decision 14) — the same
+    ``create_field_report`` a crew's phone reaches, so the KP gets a genuine
+    ``source='feld'`` Schadenplatz in Eingegangen, the «Meldung vom Feld» bell,
+    the audit row with the reporter's name — not a trainer shortcut that plants
+    a finished card.
+
+    The reporter is drawn from the chosen incident's crew (leader-weighted, the
+    same pick as the rapport inject), because a Meldung's provenance is a known
+    firefighter standing in front of the thing. An incident with nobody
+    assigned is refused: there is no Trupp to speak.
+
+    The new Schadenplatz inherits the parent's type and address — the crew
+    reports what they found where they are standing — and the free text becomes
+    the Meldung (``description``), which is what the card prints and the KP
+    reads out. Priority stays medium: triaging it is the operator's job.
+    """
+    await _require_training_event(db, event_id)
+    incident = await _get_event_incident(db, event_id, incident_id)
+
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Meldungstext fehlt")
+
+    actor = await _simulated_filer(db, incident, current_user, random.Random())
+    if actor.personnel_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dem Einsatz ist kein Trupp zugeteilt – eine Meldung vom Feld braucht eine Person im Feld",
+        )
+    person = await db.get(Personnel, actor.personnel_id)
+    if person is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person nicht gefunden")
+
+    feld_payload = FeldIncidentCreate(
+        # Field Meldungen are titled with where they are (see crud/feld/melden.py);
+        # only a report without an address falls back to the text itself.
+        title=(incident.location_address or text)[:200],
+        # The columns are plain strings; the str-Enums live in the schema, and
+        # pydantic still rejects a value that is not one of them.
+        type=IncidentType(incident.type),
+        priority=IncidentPriority.MEDIUM,
+        location_address=incident.location_address,
+        location_lat=incident.location_lat,
+        location_lng=incident.location_lng,
+        description=text,
+    )
+    new_incident, _mode = await feld_crud.create_field_report(db, event_id, person, feld_payload, request)
+
+    # Same broadcast as the real /feld endpoint — the card must not be a ghost
+    # until somebody polls.
+    await broadcast_incident_update({"id": str(new_incident.id), "status": new_incident.status}, "create")
+
+    return SimulateFieldReportResponse(
+        incident_id=new_incident.id,
+        reported_by=person.name,
+        message=f"Meldung vom Feld: {new_incident.location_address or new_incident.title} ({person.name})",
+    )
 
 
 @router.post("/events/{event_id}/simulate/arrived/{incident_id}", response_model=SimulateInjectResponse)

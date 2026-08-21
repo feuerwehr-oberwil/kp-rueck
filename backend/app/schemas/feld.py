@@ -12,15 +12,23 @@ drift, or a field the KP can set stops round-tripping through the field surface.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from .incidents import IncidentBase, IncidentPriority, IncidentType
 
 # 'none'      – no schadenplatz_reports row for this incident yet
 # 'draft'     – a row exists but is_draft is still True
 # 'submitted' – filed
 RapportState = Literal["none", "draft", "submitted"]
+
+# Why a Schadenplatz is in somebody's list. Mirrors the SOURCE_* constants in
+# `crud/feld/visibility.py`, which is where the rule itself lives — this is only
+# the shape the phone receives. Only "crew" can owe a Schadenplatz-Rapport.
+FeldSourceKind = Literal["crew", "reko", "driver", "magazin"]
 
 
 class FeldPersonnel(BaseModel):
@@ -40,6 +48,9 @@ class FeldPersonnel(BaseModel):
     open_count: int = 0
     # Of those, the ones without a submitted Schadenplatz-Rapport.
     missing_rapport_count: int = 0
+    # Present at this Ereignis. The picker is the roster since decision 10, so
+    # this is what tells "hier, aber noch ohne Auftrag" apart from "gar nicht da".
+    checked_in: bool = False
 
 
 class FeldPersonnelListResponse(BaseModel):
@@ -50,18 +61,99 @@ class FeldPersonnelListResponse(BaseModel):
     event_name: str
 
 
+class FeldUnlockRequest(BaseModel):
+    """The four digits from under the QR poster."""
+
+    code: str = Field(min_length=1, max_length=8)
+
+
+class FeldUnlockResponse(BaseModel):
+    """The unlocked token, plus the picker it exists to let you read.
+
+    Both in one response because the only thing the caller can do next is find
+    their own name, and a second round trip on a phone in the rain buys nothing.
+    """
+
+    token: str
+    personnel: list[FeldPersonnel]
+    event_id: UUID
+    event_name: str
+
+
+class FeldClaimRequest(BaseModel):
+    """ "Ich bin das" — the person this device belongs to from now on."""
+
+    personnel_id: UUID
+
+
+class FeldClaimResponse(BaseModel):
+    """The bound token. The device stores this and stops using the link token."""
+
+    token: str
+    personnel_id: UUID
+
+
+class FeldAccessState(BaseModel):
+    """What the board shows next to the Ereignis: the code, and who is using it.
+
+    ``device_count`` is live claims, not total ever — the number the KP can act
+    on. Editor-only: the code is a credential, however short.
+    """
+
+    code: str
+    device_count: int
+
+
+class FeldVehicleLine(BaseModel):
+    """One vehicle on the briefing: who drives it, whether it stays, whose it is.
+
+    The driver is a property of the Ereignis, not of the Schadenplatz — but
+    «TLF 1» on its own left a crew standing at an address unable to answer who
+    is sitting in it, and the driver is exactly the person they need when the
+    vehicle has to be moved. `driver` is None when the KP has not named one.
+
+    The other two answer the question a crew actually asks about a vehicle on
+    their slip — *kommt das mit?*:
+
+    * ``stays`` is the board's driver-stay flag: False means the driver takes it
+      back to the Magazin once the crew is dropped off, True that it is parked
+      at the address for the duration.
+
+      **None when nobody can answer.** A route-level vehicle has no toggle —
+      ``GroupAssignmentUpdate`` carries ``is_leader`` and nothing else, so its
+      ``driver_stay`` column is whatever ``_mirror`` copied or the DB default,
+      and no operator can change it. Sending `False` there would print «fährt
+      zurück» on a phone as if somebody had decided it. An absent flag is not
+      the same statement as "he is coming back" — the same rule the board's own
+      `DriverStayGlyph` follows, where `undefined` draws nothing.
+    * ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is
+      shared across every stop of the route and comes along to the next one.
+      A vehicle booked on this Schadenplatz alone does not. `/feld` rendered
+      both identically, which is why a route's TLF read as if it belonged to
+      the one address the crew happened to be standing at.
+    """
+
+    name: str
+    driver: str | None = None
+    stays: bool | None = None
+    via_auftrag: bool = False
+
+
 class FeldMaterialLine(BaseModel):
     """One line of the briefing's material list: a name and how many of it.
 
-    Grouped by NAME rather than listed per assignment — "Tauchpumpe ×2" is what
-    a crew reads off a slip, while the per-unit rows (keyed on the assignment,
-    with their two ticks) are the *rapport's* job and live in
-    ``RapportMaterialRow``. Two lists, two questions: this one says what came
-    with you, that one asks what you did with it.
+    Grouped per NAME and DEPOT rather than listed per assignment — two
+    identical pumps from one shelf are one line with a count, while the
+    per-unit rows (keyed on the assignment, with their two ticks) are the
+    *rapport's* job and live in ``RapportMaterialRow``. Two lists, two
+    questions: this one says what comes with you and **where to fetch it**
+    (``location`` is the depot off the material catalogue), that one asks what
+    you did with it.
     """
 
     name: str
     count: int = 1
+    location: str | None = None
 
 
 class FeldReko(BaseModel):
@@ -76,8 +168,34 @@ class FeldReko(BaseModel):
     summary: str | None = None
     notes: str | None = None
     dangers: list[str] = []
+    #: The report's verdict. ``False`` («Kein Einsatz nötig») feeds the rapport
+    #: gate: an incident the Reko declared irrelevant and the KP closed without
+    #: dispatching work owes nobody a Schadenplatz-Rapport.
+    is_relevant: bool | None = None
     submitted_at: datetime | None = None
     submitted_by_name: str | None = None
+
+
+class KpFieldMessage(BaseModel):
+    """One «Meldung an den Trupp» — KP → field, the mirror of the Freitext-Meldung.
+
+    ``author_name`` is the sender's display name, denormalised at write time:
+    `/feld` is a login-less door and must not resolve users to render a name.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    incident_id: UUID
+    message: str
+    author_name: str
+    created_at: datetime
+
+
+class KpFieldMessageCreate(BaseModel):
+    """The KP's payload: one sentence, same length cap as the field's own."""
+
+    message: str = Field(min_length=1, max_length=500)
 
 
 class FeldAssignment(BaseModel):
@@ -110,7 +228,7 @@ class FeldAssignment(BaseModel):
     contact: str | None = None
     contact_phone: str | None = None
     crew: list[str] = []
-    vehicles: list[str] = []
+    vehicles: list[FeldVehicleLine] = []
     materials: list[FeldMaterialLine] = []
     reko: FeldReko | None = None
     location_address: str | None = None
@@ -123,6 +241,16 @@ class FeldAssignment(BaseModel):
     # False once the board released the person — they may still file (and often
     # only file then), so the row stays visible.
     is_active_assignment: bool = True
+    # WHY this row is in the list (plan 26 §2.2): the person's own assignment
+    # ("crew"), a Reko auftrag ("reko"), a vehicle they drive ("driver"), or
+    # material still out and they hold the Magazin function ("magazin").
+    #
+    # The phone labels only the unusual ones — an own assignment needs no
+    # explanation and gets none; the *absence* of a label is what says "meins".
+    # `source_vehicle` is set for driver rows only, so the label can name the
+    # vehicle that brought the row in rather than leaving it a mystery.
+    source: FeldSourceKind = "crew"
+    source_vehicle: str | None = None
     rapport_state: RapportState = "none"
     # The Schadenplatz was disponiert at least once (§18.27). False means the
     # rapport does not exist for this row: no form, no "Kein Rapport" chip, no
@@ -140,11 +268,69 @@ class FeldAssignment(BaseModel):
     pickup_needed: bool = False
     pickup_note: str | None = None
     pickup_requested_at: datetime | None = None
+    # Acks, derived from real KP actions — never a claim the KP has to click
+    # (sweep 27 §P3.1). While the request is open: `pickup_seen` says the KP
+    # dismissed the warning bell, `pickup_vehicle` names a vehicle the board
+    # dispatched to this Schadenplatz AFTER the request — "Mowa disponiert" is
+    # the answer a waiting crew is actually after. Once the KP clears the flag
+    # (its own UI words that as «Abholung disponiert»), `pickup_resolved_at`
+    # carries the moment, so the request does not just silently vanish from the
+    # crew's phone.
+    pickup_seen: bool = False
+    pickup_vehicle: str | None = None
+    pickup_resolved_at: datetime | None = None
+    # «Meldungen vom KP» — what the board sent this squad (sweep 27 §P3.2).
+    # Rides on the polled assignments payload like everything else the phone
+    # reads; a second endpoint would be a second public surface to guard.
+    kp_messages: list[KpFieldMessage] = []
     # The Einsatzleiter of THIS incident (decision 22): briefed, never enforced.
     # Both stay None when nobody carries the role, which the UI must render as
     # "kein EL erfasst" rather than a blank line.
     leader_personnel_id: UUID | None = None
     leader_name: str | None = None
+    # The Auftrag this Schadenplatz is a stop of, if any (plan 26 + plan 12).
+    # A route-assigned crew holds no row on any stop, so without this their two
+    # Schadenplätze read as two unrelated jobs — which is the opposite of what
+    # an Auftrag is for. `group_position` is 0-based; the phone numbers the
+    # stops from it so the crew drives them in the order the KP set.
+    group_id: UUID | None = None
+    group_name: str | None = None
+    group_position: int | None = None
+
+
+class FeldMaterialItem(BaseModel):
+    """One piece of material and where it is right now — the Magazin's own view.
+
+    The Magazin person used to get a list of *Schadenplätze* their material was
+    attached to, which answers the wrong question: they are looking after the
+    material, not the incidents. One row per unit, and `at` is either the
+    Schadenplatz it is standing on or nothing at all, which means the Magazin.
+    """
+
+    material_id: UUID | None = None
+    name: str
+    #: The three axes a station files its material by, and they are genuinely
+    #: three (see the material settings): `type` is what a thing IS
+    #: (Pumpe, Beleuchtung), `home_location` is the depot shelf it lives on, and
+    #: `group` is the module it is packed with (Modul 1, Ölwehr). The Magazin
+    #: reads all three to find one unit, so all three are columns.
+    type: str | None = None
+    home_location: str | None = None
+    group: str | None = None
+    #: The Schadenplatz it is on right now. None = it is in the Magazin.
+    incident_id: UUID | None = None
+    at: str | None = None
+    #: Since when it has been out, so an Abholliste can be read in time order.
+    since: datetime | None = None
+    #: 'out' (assigned and open), 'left' (the crew's rapport says it stayed
+    #: behind, with no assignment to cross-check) or 'in' (in the Magazin).
+    state: Literal["out", "left", "in"] = "in"
+
+
+class FeldMaterialResponse(BaseModel):
+    """Every material in the station, with where it currently is."""
+
+    materials: list[FeldMaterialItem] = []
 
 
 class FeldAssignmentsResponse(BaseModel):
@@ -153,6 +339,20 @@ class FeldAssignmentsResponse(BaseModel):
     personnel_id: UUID
     personnel_name: str
     personnel_role: str | None = None
+    # Present at this Ereignis (decision 10). The field surface carries the
+    # individual half of the roll call; `/check-in` stays the door tablet.
+    checked_in: bool = False
+    # The roles this person holds in this Ereignis (plan 26, decision 5). The
+    # page shows a section per role; the roles themselves are data, the sections
+    # are code. Names only — this grants nothing, every permission still goes
+    # through the visibility union.
+    functions: list[str] = []
+    # The vehicles this person drives here, by name. `functions` says "driver",
+    # which is not enough to tell somebody what they were given: a driver whose
+    # vehicle has not been disponiert has an empty list of Schadenplätze, and the
+    # page must be able to say "du fährst das TLF 1" instead of "melde dich beim
+    # KP" to the one person who already has a job.
+    driver_vehicles: list[str] = []
     event_id: UUID
     event_name: str
     assignments: list[FeldAssignment]
@@ -161,6 +361,17 @@ class FeldAssignmentsResponse(BaseModel):
     # tap away from this call, and a separate GET would be a second public
     # surface to guard for four strings.
     message_chips: list[str] = []
+    # The same chips for a DRIVER row. A driver cannot report «Angekommen» or
+    # «Einsatz beendet» (those are the crew's statements and the server refuses
+    # them), so the crew's chips read wrong for the person sitting outside in the
+    # vehicle. The page picks by the row's source, not by the person.
+    driver_message_chips: list[str] = []
+    # What this person has REPORTED, which is not the same list as what they were
+    # given to work on — see `own_reports`. Carried here rather than on its own
+    # endpoint for the same reason as the chips: this response is already polled
+    # every ten seconds, and a second public surface for three rows is a second
+    # public surface to guard.
+    reports: list["FeldOwnReport"] = []
 
 
 # ============================================
@@ -664,3 +875,140 @@ class MaterialReturnResponse(BaseModel):
     # caller has to say so — "Aus dem Rapport-Entwurf von X" — because an
     # operator weighing a half-finished answer must know it is half-finished.
     rapport_is_draft: bool = False
+
+
+class RapportMaterialDecision(BaseModel):
+    """One unit's confirmed whereabouts, decided by the KP in the completion gate.
+
+    ``material_id`` addresses the roster units on the rapport's checklist;
+    ``name`` (without an id) addresses a "Weiteres gebrauchtes Material" entry,
+    which never had one. ``left_on_site`` True is «Vor Ort», False is «Magazin».
+    """
+
+    material_id: UUID | None = None
+    name: str | None = None
+    left_on_site: bool
+
+
+class RapportMaterialDecisionsRequest(BaseModel):
+    """The completion gate's write-back: the KP confirmed where each unit stays."""
+
+    decisions: list[RapportMaterialDecision] = []
+
+
+class RapportMaterialDecisionsResponse(BaseModel):
+    """``applied`` is False when the incident has no rapport row to write to —
+    a Schadenplatz that was never dispatched has nothing to record, and the
+    gate's decision is complete without it (the board release already happened)."""
+
+    applied: bool = False
+
+
+class FeldIncidentCreate(BaseModel):
+    """«Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.
+
+    Deliberately narrower than the board's create and slightly wider than the
+    phone-desk one: no Melder fields, because the reporter *is* the Melder and
+    the audit row already carries their name.
+
+    ``take_over`` is decision 3 and 14 together — "wir übernehmen das gleich".
+    What it does depends on what the crew is already working; the endpoint
+    answers with which of the three it was.
+    """
+
+    title: str
+    type: IncidentType
+    priority: IncidentPriority
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
+    description: str | None = None
+    # What the caller added beyond the Meldung itself. Lands in the incident's
+    # `internal_notes`, i.e. the board's «Notizen» — the same split `/alarm`
+    # makes. Putting it in `description` would overwrite the Meldung, which is
+    # what the board prints on the card and reads out on the radio.
+    internal_notes: str | None = None
+    take_over: bool = False
+    # The Telefondienst variant (plan 26, decision 6): the phone desk is a ROLE,
+    # not a page. Somebody holding it is writing down a call, so the report gets
+    # the Melder it was taken from and `source='intake'` — the board draws that
+    # differently from a firefighter standing in front of the thing. Ignored,
+    # and the source stays 'feld', for anybody without the role.
+    as_phone_call: bool = False
+    contact: str | None = None
+    contact_phone: str | None = None
+
+    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
+    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
+    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
+    # One line, like its three siblings above: the ignore has to sit on the line
+    # mypy reports, and that is the `__func__` unwrap, not the decorator call.
+    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
+
+
+class FeldIncidentUpdate(BaseModel):
+    """A correction to a Meldung that has not been disponiert yet.
+
+    Every field optional and `None` means "unchanged", not "clear it": the phone
+    sends the form back and a Meldung whose description was fixed must not lose
+    its address to an omitted key. Clearing a text field is done with `""`.
+
+    No ``take_over`` — taking a Schadenplatz on happens once, at the moment of
+    reporting, and re-running that logic on an edit would silently rebuild an
+    Auftrag around a crew that has moved on since.
+    """
+
+    title: str | None = None
+    type: IncidentType | None = None
+    priority: IncidentPriority | None = None
+    location_address: str | None = None
+    location_lat: str | Decimal | None = None
+    location_lng: str | Decimal | None = None
+    description: str | None = None
+    internal_notes: str | None = None
+    contact: str | None = None
+    contact_phone: str | None = None
+
+    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
+    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
+
+
+class FeldOwnReport(BaseModel):
+    """One Meldung this person sent in, for their own «Von mir gemeldet» list.
+
+    Carries what the reporter needs to recognise it (address, time, what they
+    wrote), what the board did with it (`status`, the vehicles on it), and
+    whether they may still correct it — `editable` is decided server-side by
+    `report_is_editable`, so the phone never has to know the status vocabulary.
+    """
+
+    incident_id: UUID
+    title: str
+    type: str
+    priority: str
+    description: str | None = None
+    # Carried so a correction prefills what the reporter actually typed.
+    internal_notes: str | None = None
+    location_address: str | None = None
+    location_display: str | None = None
+    location_lat: Decimal | None = None
+    location_lng: Decimal | None = None
+    contact: str | None = None
+    contact_phone: str | None = None
+    status: str
+    created_at: datetime
+    editable: bool
+    #: The vehicles the KP put on it — "das TLF 2 fährt hin", the one thing a
+    #: reporter wants back from the board.
+    vehicles: list[str] = []
+
+
+class FeldIncidentCreated(BaseModel):
+    """What the phone gets back: the new Schadenplatz, and what became of it.
+
+    ``takeover`` says which of the three shapes happened, so the confirmation can
+    be specific — "als Stop 3 im Auftrag" reads very differently from "gemeldet".
+    """
+
+    incident_id: UUID
+    takeover: Literal["none", "stop", "auftrag", "solo"]

@@ -39,6 +39,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
 import { getActiveLocale } from '@/lib/i18n-messages'
+import { sortByName } from '@/lib/roster-order'
 import { cn } from '@/lib/utils'
 
 /** What a row shows. Derived, never stored — the two timestamps already say it. */
@@ -76,9 +77,13 @@ export function summarizeAttendance(people: ApiPersonnelListItem[]): {
  * Alphabetical by the name as written ("Nachname Vorname" here), stable across every
  * refresh and every tick. Sorting by state would be the natural instinct and is exactly
  * wrong: the list must not move while it is being read out.
+ *
+ * The comparator itself is shared with `/check-in` and the `/feld` picker
+ * (`lib/roster-order.ts`) — the same people, the same order, whichever surface
+ * somebody is looking for their name on.
  */
 export function sortAttendance(people: ApiPersonnelListItem[]): ApiPersonnelListItem[] {
-  return [...people].sort((a, b) => a.name.localeCompare(b.name, 'de-CH'))
+  return sortByName(people)
 }
 
 function formatTime(value: string | null | undefined): string | null {
@@ -96,6 +101,11 @@ interface AttendanceModalProps {
   /** Where this person is still assigned, for the check-out warning. Injected rather than
    *  read from the operations context so the modal stays a pure view of attendance. */
   assignmentLabelFor?: (person: ApiPersonnelListItem) => string | null
+  /** Fired after every successful attendance write. The board's roster is
+   *  "everybody checked in", so ticking somebody here adds them to the sidebar —
+   *  and waiting for the socket round-trip to say so made the Appell look like
+   *  it had not worked. The modal keeps its own optimistic state either way. */
+  onAttendanceChange?: () => void
 }
 
 export function AttendanceModal({
@@ -104,6 +114,7 @@ export function AttendanceModal({
   eventId,
   eventName,
   assignmentLabelFor,
+  onAttendanceChange,
 }: AttendanceModalProps) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
@@ -156,6 +167,7 @@ export function AttendanceModal({
     try {
       await apiClient.checkInPersonnelForEvent(person.id, eventId)
       applyLocally(person.id, { checked_in: true, checked_in_at: new Date().toISOString(), checked_out_at: null })
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Check-in failed:', error)
       toast.error(t('writeFailed'))
@@ -167,6 +179,7 @@ export function AttendanceModal({
     try {
       await apiClient.checkOutPersonnelForEvent(person.id, eventId)
       applyLocally(person.id, { checked_in: false, checked_out_at: new Date().toISOString() })
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Check-out failed:', error)
       toast.error(t('writeFailed'))
@@ -178,6 +191,7 @@ export function AttendanceModal({
     try {
       await apiClient.clearPersonnelAttendance(person.id, eventId)
       applyLocally(person.id, { checked_in: false, checked_in_at: null, checked_out_at: null })
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Clearing attendance failed:', error)
       toast.error(t('writeFailed'))
@@ -222,6 +236,7 @@ export function AttendanceModal({
     try {
       await apiClient.checkOutAllPersonnel(eventId)
       await load()
+      onAttendanceChange?.()
     } catch (error) {
       console.error('Check-out-all failed:', error)
       toast.error(t('writeFailed'))
@@ -343,6 +358,7 @@ function AttendanceRow({
   onClick: () => void
 }) {
   const t = useTranslations('kanban.attendance')
+  const tCommon = useTranslations('kanban.common')
   const state = attendanceState(person)
   const unavailable = person.status === 'unavailable'
   const since = formatTime(person.checked_in_at)
@@ -371,7 +387,7 @@ function AttendanceRow({
         <Circle className="size-4 shrink-0 text-muted-foreground" />
       )}
 
-      <span className="min-w-0 flex-1 truncate">{person.name}</span>
+      <span className="min-w-0 flex-1 truncate">{person.name.trim() || tCommon('unknownResource')}</span>
 
       {assignedAt && (
         <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">

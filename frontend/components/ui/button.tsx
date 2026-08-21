@@ -10,8 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        // Solid token in BOTH themes. The shadcn default `dark:bg-destructive/60`
+        // blended the red 40% into the page background — washed-out fill, yet the
+        // full-chroma token still screamed through. The dark `--destructive` token
+        // itself is tuned instead (globals.css): deeper, lower-chroma, ≥4.5:1
+        // with the near-white destructive-foreground on top.
         destructive:
-          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+          'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
         outline:
           'border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary:

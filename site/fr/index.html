@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>KP Rück – le tableau d’intervention du poste de commandement</title>
-<meta name="description" content="KP Rück reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.">
+<meta name="description" content="KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.">
 <link rel="canonical" href="https://kp-rueck.ch/fr/">
 <link rel="alternate" hreflang="de-CH" href="https://kp-rueck.ch/">
 <link rel="alternate" hreflang="fr-CH" href="https://kp-rueck.ch/fr/">
@@ -16,13 +16,58 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='3.5' y='10.5' width='7' height='11' rx='2' fill='%23e8392b'/%3E%3Crect x='12.5' y='10.5' width='7' height='11' rx='2' fill='%23ffffff'/%3E%3Crect x='21.5' y='10.5' width='7' height='11' rx='2' fill='%23b8c4d3'/%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KP Rück – le tableau d’intervention du poste de commandement">
-<meta property="og:description" content="Reproduit sous forme numérique le tableau magnétique du poste de commandement arrière : interventions, personnel, véhicules et matériel sur un seul tableau – en direct sur tous les appareils, open source et auto-hébergé.">
+<meta property="og:description" content="Le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.">
 <meta property="og:url" content="https://kp-rueck.ch/fr/">
 <meta property="og:image" content="https://kp-rueck.ch/shots/board.jpg">
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="fr_CH">
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://kp-rueck.ch/#app",
+      "name": "KP Rück",
+      "url": "https://kp-rueck.ch/fr/",
+      "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web browser",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "en"
+      ],
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "screenshot": "https://kp-rueck.ch/shots/board.jpg",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CHF"
+      },
+      "publisher": {
+        "@id": "https://kp-rueck.ch/#org"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://kp-rueck.ch/#org",
+      "name": "Feuerwehr Oberwil BL",
+      "url": "https://www.feuerwehr-oberwil.ch",
+      "sameAs": [
+        "https://github.com/feuerwehr-oberwil"
+      ]
+    }
+  ]
+}
+</script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -91,32 +136,46 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
       </div>
-      <img src="../shots/board.jpg" alt="Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite" width="1500" height="937">
+      <img src="../shots/board.webp"
+           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
   <section class="fit">
-    <div class="wrap">
-      <div class="fit-row">
-        <p class="fit-k">Pour qui</p>
-        <ul class="fit-v">
-          <li>Sapeurs-pompiers de milice</li>
-          <li>Corps locaux</li>
-          <li>Centres de renfort</li>
-          <li>Sapeurs-pompiers professionnels</li>
-        </ul>
-      </div>
-      <div class="fit-row">
-        <p class="fit-k">Pour quoi</p>
-        <ul class="fit-v">
-          <li>Interventions courantes</li>
-          <li>Intempéries</li>
-          <li>Plusieurs événements à la fois</li>
-        </ul>
-      </div>
-      <p class="fit-note">Né du service opérationnel réel des
+    <div class="wrap fit-split">
+      <div>
+        <div class="fit-row">
+          <p class="fit-k">Pour qui</p>
+          <ul class="fit-v">
+            <li>Sapeurs-pompiers de milice</li>
+            <li>Corps locaux</li>
+            <li>Centres de renfort</li>
+            <li>Sapeurs-pompiers professionnels</li>
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">Pour quoi</p>
+          <ul class="fit-v">
+            <li>Interventions courantes</li>
+            <li>Intempéries</li>
+            <li>Plusieurs événements à la fois</li>
+          </ul>
+        </div>
+        <p class="fit-note">Né du service opérationnel réel des
         <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">sapeurs-pompiers d’Oberwil BL</a>
         – éprouvé sur le terrain et développé en continu.</p>
+      </div>
+      <div class="fit-panel">
+        <h2>Vos données restent chez vous.</h2>
+        <p>KP Rück est open source et tourne sur votre propre machine à la caserne ou dans votre propre cloud. Interventions, personnel, véhicules et matériel restent sous votre contrôle.</p>
+        <ul>
+          <li>Aucun frais de licence</li>
+          <li>Aucune dépendance à un fournisseur</li>
+          <li>À exploiter et à faire évoluer vous-mêmes</li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -234,63 +293,63 @@
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="../shots/display.jpg" alt="Vue projecteur : toutes les phases d’intervention côte à côte sur un écran" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/display.webp" alt="Vue projecteur : toutes les phases d’intervention côte à côte sur un écran" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Vue projecteur</div>
           <div class="cap-s">Pour le mur du PC dans la pénombre : toutes les phases côte à côte, sans éléments de commande</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/status.jpg" alt="Vue Statut : véhicules, interventions, personnel et matériel côte à côte, chacun avec sa disponibilité et son affectation" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/status.webp" alt="Vue Statut : véhicules, interventions, personnel et matériel côte à côte, chacun avec sa disponibilité et son affectation" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Statut</div>
           <div class="cap-s">Véhicules, interventions, personnel et matériel côte à côte – qui est libre, qui est engagé, qui est où</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/karte.jpg" alt="Vue carte : interventions par priorité, positions des véhicules et affectations" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/karte.webp" alt="Vue carte : interventions par priorité, positions des véhicules et affectations" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Carte</div>
           <div class="cap-s">Toutes les interventions par priorité, avec les positions des véhicules et les affectations entre les deux</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/disposition.jpg" alt="Statut des véhicules : véhicules avec indicatif radio, conducteur, destination et statut" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/disposition.webp" alt="Statut des véhicules : véhicules avec indicatif radio, conducteur, destination et statut" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Véhicules</div>
           <div class="cap-s">Indicatif radio, conducteur, destination et statut de chaque véhicule d’un coup d’œil</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/meldung.jpg" alt="Formulaire d’annonce : adresse, annonce, priorité, type d’intervention et indications sur l’annonceur" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/meldung.webp" alt="Formulaire d’annonce : adresse, annonce, priorité, type d’intervention et indications sur l’annonceur" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Formulaire d’annonce</div>
           <div class="cap-s">Saisir de façon structurée les annonces téléphoniques et les personnes qui se présentent – par lien ou code QR, sans compte</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/reko.jpg" alt="Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/reko.webp" alt="Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Formulaire de reconnaissance</div>
           <div class="cap-s">Sur le téléphone privé de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/feld.jpg" alt="Vue terrain : sa propre place sinistrée avec les annonces au PC, la situation et l’effectif" width="900" height="562" loading="lazy" decoding="async">
+        <img src="../shots/feld.webp" alt="Vue terrain : sa propre place sinistrée avec les annonces au PC, la situation et l’effectif" width="900" height="562" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Terrain</div>
           <div class="cap-s">Chaque groupe ne voit que ses propres places sinistrées – arrivé, récupération, intervention terminée, sans radio</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/auftraege.jpg" alt="Missions : plusieurs interventions regroupées en une tournée" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/auftraege.webp" alt="Missions : plusieurs interventions regroupées en une tournée" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Missions</div>
           <div class="cap-s">Plusieurs interventions comme une seule tournée – avec l’effectif, les moyens et un ordre que le tableau optimise selon la distance</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="../shots/training.jpg" alt="Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain" width="1500" height="937" loading="lazy" decoding="async">
+        <img src="../shots/training.webp" alt="Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Exercice</div>
           <div class="cap-s">Injecter des situations d’exercice au lieu de les inventer – proprement séparées du cas réel</div>
@@ -316,6 +375,7 @@
           <tr><td>Notes téléphoniques sur des bouts de papier</td><td>Un formulaire d’annonce rattaché à l’intervention</td></tr>
           <tr><td>Liste Excel pour l’effectif et les véhicules</td><td>Une vue en direct qui se tient à jour toute seule</td></tr>
           <tr><td>Groupe WhatsApp pour les retours</td><td>Des annonces structurées avec photos</td></tr>
+          <tr><td>Un message radio pour chaque changement de statut</td><td>Statut et annonces directement du groupe – le canal radio reste libre</td></tr>
           <tr><td>Rapport après l’intervention</td><td>Le rapport naît pendant l’intervention</td></tr>
         </tbody>
       </table>
@@ -383,14 +443,44 @@
 
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">Projet apparenté</p>
-        <h2>KP Rück garde la vue d’ensemble à l’arrière. KP Front conduit à l’avant.</h2>
-        <p><strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Projet apparenté</p>
+          <h2>KP Rück garde la vue d’ensemble à l’arrière. KP Front conduit à l’avant.</h2>
+          <p><strong>KP Front</strong> reproduit sous forme numérique la carte de situation et la table
           de conduite sur les lieux : signes conventionnels, plans d’objet et surveillance PR, même
           sans réseau. Application distincte, même écriture – les deux peuvent se transmettre des
           alarmes, mais n’ont pas besoin l’une de l’autre.</p>
-        <a class="btn btn-ghost" href="https://kp-front.ch">Découvrir KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+          <a class="btn btn-ghost" href="https://kp-front.ch">Découvrir KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Exploiter les deux – sans tout configurer deux fois</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Alarme</dt>
+              <dd>La même charge utile pour les deux. Le raccordement de votre système d’alarme se fait une fois ; chaque application ne reçoit que sa propre adresse.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Accès Divera</dt>
+              <dd>Une seule clé pour les deux – mêmes alarmes, même personnel. <span class="opt">facultatif</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Agent d’impression</dt>
+              <dd>Un seul service au local dessert les deux applications et les deux types d’imprimante.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Liste du personnel</dt>
+              <dd>La même source dans le même format de fichier – la même personne des deux côtés.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Mots-clés</dt>
+              <dd>La même liste de mots-clés d’alarme, donc le même classement dans les deux applications.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Base de données, mises à jour et connexion restent séparées.</strong> Aucune des deux n’a besoin de l’autre pour fonctionner.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guide : les deux sur un même serveur →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -526,7 +616,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

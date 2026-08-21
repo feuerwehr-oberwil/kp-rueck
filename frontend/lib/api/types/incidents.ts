@@ -21,10 +21,12 @@ export type IncidentType =
 
 export type IncidentPriority = 'low' | 'medium' | 'high'
 
-/** The two provenances an editor may claim from the board: "operator" = typed in
- *  at the KP, "intake" = the operator took the call and says so. `ApiIncident.source`
+/** The provenances an editor may claim from the board: "operator" = typed in at
+ *  the KP, "intake" = the operator took the call and says so, "feld" = a Trupp
+ *  standing in front of the thing reported it (usually written by `/feld` itself;
+ *  the KP claims it for a radio message they typed in). `ApiIncident.source`
  *  stays a plain string, because a card can also carry a delivering system's slug. */
-export type EditorIncidentSource = 'operator' | 'intake'
+export type EditorIncidentSource = 'operator' | 'intake' | 'feld'
 
 export type IncidentStatus =
   | 'incoming'
@@ -115,6 +117,10 @@ export interface ApiIncident {
   pickup_note?: string | null
   pickup_requested_at?: string | null
   pickup_requested_by?: string | null
+  /** The effective Einsatzleiter's name: the active is_leader assignment when
+   *  one exists, the leader of record otherwise — so a CLOSED incident (whose
+   *  assignments were released) still names who led it. */
+  leader_name?: string | null
   /** Server-computed short label for location_address (home city stripped).
    *  "" when the address is only the home city; null/absent when no address. */
   location_display?: string | null
@@ -138,9 +144,10 @@ export interface ApiIncidentCreate {
   nachbarhilfe_note?: string | null
   /** Attach the new incident to an Auftrag (incident group) on creation. */
   group_id?: string | null
-  /** "Telefonisch gemeldet": the operator took the call and says so. Only these
-   *  two are accepted here — "divera" and webhook slugs write `source` on their
-   *  own path and a board request naming one is a 422. */
+  /** "Telefonisch gemeldet" / "Vom Feld gemeldet": provenance the operator
+   *  claims. Only the editor values are accepted here — "divera" and webhook
+   *  slugs write `source` on their own path and a board request naming one is
+   *  a 422. */
   source?: EditorIncidentSource
 }
 
@@ -177,7 +184,9 @@ export interface ApiStatusTransition {
 }
 
 export interface ApiIncidentTimelineEvent {
-  event_type: 'status_change' | 'assignment' | 'field_message'
+  /** `kp_message` is the KP's own «Meldung an den Trupp» (sweep 27 §P3.2) —
+   *  the other direction of `field_message`, with `actor_name` = the sender. */
+  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message'
   timestamp: string
   actor_name: string | null
   // status_change fields
@@ -192,6 +201,15 @@ export interface ApiIncidentTimelineEvent {
   // through ('feld' = the field surface, 'kp' = typed from a radio message).
   message?: string | null
   source?: string | null
+}
+
+/** One KP → Trupp message as `/api/incidents/{id}/field-messages` returns it. */
+export interface ApiKpFieldMessage {
+  id: string
+  incident_id: string
+  message: string
+  author_name: string
+  created_at: string
 }
 
 export interface ApiIncidentTimelineResponse {

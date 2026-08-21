@@ -17,20 +17,15 @@
         "description": "Au moins 3 personnes pour être opérationnel",
         "note": "Pour l’effectif · 1 exemplaire à la caserne"
       },
-      "share-reko-link": {
-        "title": "Partager le lien de reconnaissance",
-        "description": "Donner au personnel de reconnaissance l’accès à son tableau",
-        "note": "Pour les officiers de reconnaissance · 1 exemplaire par équipe"
-      },
       "share-alarm-link": {
-        "title": "Partager le lien d’alarme",
-        "description": "Permettre les annonces par téléphone ou au guichet",
-        "note": "Pour le téléphone et l’accueil au PC · 1 exemplaire"
+        "title": "Partager le lien d'alarme",
+        "description": "Annonces de l'extérieur : accueil au guichet, appels sans accès au PC",
+        "note": "Pour le service téléphonique · 1 impression"
       },
       "share-feld-link": {
-        "title": "Partager le lien terrain",
-        "description": "Les équipes annoncent depuis leur site et remplissent le rapport",
-        "note": "Pour chaque équipe qui part · 1 exemplaire par véhicule"
+        "title": "Partager le lien Terrain",
+        "description": "Les équipes signalent depuis le lieu, remplissent le rapport et voient leurs missions",
+        "note": "Pour chaque équipe qui part · 1 impression par véhicule · le code Terrain va sur la même affiche"
       },
       "assign-reko": {
         "title": "Désigner les officiers de reconnaissance",
@@ -62,22 +57,14 @@
         "detailsInactive": "Aucun instantané automatique du tableau configuré",
         "setup": "Configurer",
         "description": "Impression automatique (thermique) ou téléchargement automatique de la feuille de situation en cas de panne"
-      },
-      "configure-map-mode": {
-        "title": "Mettre en place les cartes hors ligne",
-        "detailsAvailable": "Cartes hors ligne disponibles",
-        "detailsNotSetup": "Non configuré",
-        "mapSetup": "Configuration des cartes",
-        "description": "Facultatif : utiliser les cartes sans Internet"
       }
     },
     "actions": {
       "printQr": "Imprimer le QR",
       "copyLink": "Copier le lien",
       "openVehicles": "Ouvrir les véhicules",
-      "assignDrivers": "Attribuer les conducteurs",
-      "openRekoMode": "Ouvrir le mode reconnaissance",
-      "openAttendance": "Ouvrir l’appel"
+      "openAttendance": "Ouvrir l’appel",
+      "chooseReko": "Choisir les officiers de reconnaissance"
     },
     "setup": {
       "title": "Liste de contrôle de mise en place",
@@ -90,15 +77,11 @@
       "copyFailed": "Le lien n’a pas pu être copié",
       "printFailed": "Échec de l’impression",
       "checkInCopyLabel": "Lien d’arrivée",
-      "rekoCopyLabel": "Lien de reconnaissance",
       "alarmCopyLabel": "Lien d’alarme",
       "feldCopyLabel": "Lien terrain",
       "testPrintQueued": "Impression de test en file – en attente de l’imprimante…",
       "testPrintQueuedDescription": "L’état de l’imprimante est actualisé automatiquement.",
       "testPrintFailed": "L’impression de test n’a pas pu être lancée",
-      "tileSetupTitle": "Configuration des tuiles",
-      "tileSetupDescription": "Ouvre la page d’aide pour les instructions de mise en place des cartes hors ligne.",
-      "tileSetupAction": "Vers l’aide",
       "whatsappCopied": "Message WhatsApp {number} copié",
       "whatsappCopiedDescription": "Colle-le dans WhatsApp et envoie-le, puis coche manuellement.",
       "copyError": "Erreur lors de la copie",
@@ -106,8 +89,6 @@
       "diveraSend": "Message Divera",
       "checkInTitle": "Arrivée du personnel",
       "checkInSubtitle": "Scanner le QR pour s’annoncer – fonctionne sans connexion.",
-      "rekoTitle": "Tableau de reconnaissance",
-      "rekoSubtitle": "Le personnel de reconnaissance voit ses attributions et remplit les formulaires – sans connexion.",
       "alarmTitle": "Lien d’alarme",
       "alarmSubtitle": "Saisir de nouvelles alarmes (téléphone/guichet) – sans connexion.",
       "feldTitle": "Vue terrain",
@@ -118,6 +99,13 @@
       "critical": "Requis",
       "recommended": "Recommandé",
       "optional": "Facultatif"
+    },
+    "rekoPicker": {
+      "title": "Choisir les officiers de reconnaissance",
+      "description": "Touche une personne annoncée pour la marquer comme reconnaissance. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "marked": "{name} marqué comme reconnaissance",
+      "failed": "Échec. Réessaie.",
+      "done": "Terminé"
     }
   },
   "common": {
@@ -221,7 +209,10 @@
       "priorityHigh": "Priorité : haute",
       "toggleZuFuss": "Basculer « à pied »",
       "assignVehicle": "Attribuer/retirer le véhicule {number}",
-      "deleteIncident": "Supprimer l’intervention"
+      "deleteIncident": "Supprimer l’intervention",
+      "linksAndQr": "Liens & QR",
+      "rapporte": "Ouvrir les rapports",
+      "mapColorBy": "Colorer par : {mode}"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -257,8 +248,8 @@
       "noCrew": "Aucun effectif attribué",
       "vehiclesHeading": "Véhicules ({count})",
       "driver": "· conducteur : {name}",
-      "driverStays": "(reste)",
-      "driverReturns": "(rentre)",
+      "driverStays": "reste sur place",
+      "driverReturns": "rentre à la caserne",
       "noVehicles": "Aucun véhicule attribué",
       "materialsHeading": "Matériel ({count})",
       "noMaterials": "Aucun matériel attribué",
@@ -270,6 +261,7 @@
       "durationHours": "{hours} h",
       "contactPhone": "Téléphone",
       "intakeBadge": "Téléphone / guichet",
+      "feldBadge": "Du terrain",
       "rekoHeading": "Reconnaissance",
       "rekoOnSite": "sur place depuis {time}",
       "rekoPhotoAlt": "Photo de reconnaissance {index}",
@@ -309,6 +301,7 @@
       "noMaterial": "Aucun matériel saisi",
       "available": "disponibles",
       "freeOfTotal": "{free}/{total} libres",
+      "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}"
     },
     "tokenBoard": {
@@ -551,7 +544,7 @@
     }
   },
   "feld": {
-    "title": "Rapport de place sinistrée",
+    "title": "Terrain",
     "accessRequired": "Accès requis",
     "missingCode": "Code d’accès manquant. Scanne le code QR.",
     "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
@@ -567,7 +560,17 @@
       "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
       "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
-      "released": "Plus affecté"
+      "released": "Plus affecté",
+      "past": "Précédemment",
+      "notMeTitle": "Se déconnecter ?",
+      "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
+      "auftrag": "{name} · {count} arrêts",
+      "navigate": "Lancer la navigation",
+      "journey": {
+        "approach": "Trajet aller",
+        "onSite": "Sur place",
+        "returning": "Trajet retour"
+      }
     },
     "briefing": {
       "title": "Situation et ressources",
@@ -579,7 +582,11 @@
       "reko": "Reconnaissance",
       "rekoBy": "Reconnaissance par {name}, {time}",
       "rekoByName": "Reconnaissance par {name}",
-      "summaryFallback": "Annonce, effectif et matériel"
+      "summaryFallback": "Annonce, effectif et matériel",
+      "driver": "Conducteur : {name}",
+      "vehicleViaAuftrag": "Mission – vient avec",
+      "vehicleStays": "reste sur place",
+      "vehicleReturns": "rentre à la caserne"
     },
     "rapportState": {
       "none": "pas de rapport",
@@ -595,7 +602,8 @@
       "arrivedAt": "Arrivé : {time}",
       "arrivedAtAuto": "Arrivé (GPS) : {time}",
       "completeAt": "Intervention terminée : {time}",
-      "rapportTitle": "Rapport de place sinistrée"
+      "rapportTitle": "Rapport de place sinistrée",
+      "kpStatus": "PC : {status}"
     },
     "actions": {
       "title": "Annonces au PC",
@@ -625,26 +633,30 @@
       "waiting": "attend depuis {duration}",
       "waitingTooltip": "Attend depuis {duration}",
       "request": "Récupération",
-      "clear": "Récupération faite",
-      "clearConfirmTitle": "Récupération faite ?",
-      "clearConfirmBody": "La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes. Ne confirme que si les gens sont vraiment partis.",
-      "clearConfirmBodyWaiting": "L’effectif attend depuis {duration}. La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes – ne confirme que si les gens sont vraiment partis.",
-      "clearedToast": "Récupération faite.",
-      "clearFailed": "La récupération n’a pas pu être clôturée.",
+      "clear": "Récupération organisée",
+      "clearConfirmTitle": "Récupération organisée ?",
+      "clearConfirmBody": "La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes. Ne confirme que si le transport est organisé.",
+      "clearConfirmBodyWaiting": "L’effectif attend depuis {duration}. La récupération disparaîtra ensuite de la carte, de la fiche et de la liste des restes – ne confirme que si le transport est organisé.",
+      "clearedToast": "Récupération organisée.",
+      "clearFailed": "La récupération n’a pas pu être organisée.",
       "followupQuestion": "Rentrez-vous par vos propres moyens ?",
       "selfReturn": "Nous rentrons seuls",
       "needPickup": "Nous devons être récupérés",
       "requestQuestion": "Vous ne rentrez pas par vos propres moyens ?",
       "alreadyRequested": "La récupération est annoncée au PC. Adapter la note ?",
       "updateNote": "Actualiser la note",
-      "notePlaceholder": "Note (facultatif) : combien, où exactement"
+      "notePlaceholder": "Note (facultatif) : combien, où exactement",
+      "hasVehicleHint": "{vehicle} est sur place avec vous.",
+      "ackSeen": "Vu par le PC",
+      "ackVehicle": "Le PC a engagé {vehicle}",
+      "ackResolved": "Récupération organisée · {time}"
     },
     "pickupPrompt": {
-      "title": "Récupération faite ?",
+      "title": "Récupération organisée ?",
       "assigned": "{vehicle} vient d’être affecté à {label} – une récupération y attend.",
       "returned": "{vehicle} est de retour à la caserne. Une récupération attend encore à {label}.",
       "waiting": "Attend depuis {duration}.",
-      "neverAutomatic": "Ne se fait jamais automatiquement – seule cette confirmation supprime la récupération.",
+      "neverAutomatic": "Ne s’organise jamais automatiquement – seule cette confirmation supprime la récupération.",
       "stillOpen": "Toujours en attente",
       "fallbackVehicle": "Un véhicule"
     },
@@ -665,8 +677,10 @@
       "pickup": "Récupération nécessaire",
       "fromField": "du terrain, {name}, {time}",
       "fromKp": "saisi au PC, {time}",
-      "fromReko": "de la reconnaissance, {time}",
       "fromAutomation": "automatique (GPS), {time}",
+      "fromFieldPlain": "du terrain, {name}",
+      "fromKpPlain": "saisi au PC",
+      "fromRekoPlain": "de la reconnaissance",
       "unknownPerson": "inconnue",
       "timeLabel": "Heure de « {what} »",
       "pickupNotePlaceholder": "Note : combien, où exactement",
@@ -675,7 +689,11 @@
       "messagesTitle": "Annonces du terrain",
       "messagesEmpty": "Aucune annonce pour l’instant.",
       "messagesLoadFailed": "Les annonces n’ont pas pu être chargées.",
-      "messagesRetry": "Réessayer"
+      "messagesRetry": "Réessayer",
+      "toField": "à l’effectif, {name}, {time}",
+      "send": "Envoyer à l’effectif",
+      "sendPlaceholder": "Message à l’effectif…",
+      "sendFailed": "Le message n’a pas pu être envoyé"
     },
     "rapport": {
       "sectionTitle": "Rapport de place sinistrée",
@@ -737,6 +755,9 @@
       "lastSaved": "Enregistré provisoirement à {at}",
       "localRestored": "Brouillon local restauré.",
       "submit": "Clôturer le rapport",
+      "incompleteTitle": "Clôturer le rapport ?",
+      "incompleteBody": "{count, plural, one {Une section est encore vide} other {# sections sont encore vides}} – le rapport sera clôturé tel quel. Un complément reste possible, mais le PC travaille désormais avec ceci.",
+      "incompleteConfirm": "Clôturer quand même",
       "autosaveHint": "Enregistré en continu – pas besoin de clôturer.",
       "submitted": "Rapport saisi.",
       "submittedBadge": "Clôturé {at}",
@@ -781,6 +802,135 @@
       "stillOnSiteHint": "Reste affecté jusqu’à sa récupération – apparaît dans la liste des restes.",
       "namedTitle": "Autre matériel sur place",
       "namedHint": "Nommé par le groupe, pas attribué depuis le tableau – il n’y a rien à libérer. Figure sur la liste des restes et sur la liste de récupération."
+    },
+    "code": {
+      "title": "Saisir le code",
+      "submit": "Continuer",
+      "wrong": "Code incorrect"
+    },
+    "source": {
+      "reko": "Mandat de reco",
+      "driver": "Comme chauffeur · {vehicle}",
+      "magazin": "Magasin",
+      "rekoReason": "Assigné en reconnaissance par le PC",
+      "magazinReason": "Du matériel d'ici n'est pas encore rentré",
+      "rekoAction": "Saisir la reco",
+      "rekoClosed": "Engagé sans reco – plus d'annonce nécessaire"
+    },
+    "access": {
+      "label": "Code terrain",
+      "devices": "{count, plural, =0 {aucun appareil} one {# appareil} other {# appareils}}",
+      "regenerate": "Nouveau",
+      "revoke": "Déconnecter",
+      "regenerated": "Nouveau code terrain créé",
+      "revoked": "Tous les appareils déconnectés",
+      "failed": "Échec. Réessaie.",
+      "regenerateTitle": "Créer un nouveau code terrain ?",
+      "regenerateDescription": "Les nouveaux appareils auront besoin du nouveau code. Les appareils déjà connectés continuent sans interruption – personne n'est déconnecté.",
+      "revokeTitle": "Déconnecter tous les appareils ?",
+      "revokeDescription": "{count, plural, one {# appareil est connecté} other {# appareils sont connectés}}. Tous devront ressaisir le code – y compris les équipes en intervention. Un nouveau code seul ne déconnecte personne.",
+      "copyCode": "Copier le code",
+      "codeCopied": "Code terrain copié"
+    },
+    "melden": {
+      "fab": "Annoncer",
+      "title": "Nouvelle annonce",
+      "what": "Quoi",
+      "useLocation": "Utiliser ma position",
+      "locateFailed": "Position indisponible",
+      "description": "Description",
+      "descriptionPlaceholder": "Que voit-on ?",
+      "takeOver": "On s'en occupe tout de suite",
+      "submit": "Envoyer l'annonce",
+      "failed": "L'annonce n'a pas pu être envoyée.",
+      "confirm": {
+        "none": "Annonce transmise au PC",
+        "stop": "Ajouté comme étape à votre mandat",
+        "auftrag": "Mandat ouvert – vous avez deux étapes",
+        "solo": "Annonce transmise – vous êtes assignés"
+      },
+      "titlePhone": "Annonce téléphonique",
+      "fabPhone": "Saisir un appel",
+      "caller": "Annonceur",
+      "callerPhone": "Téléphone",
+      "message": "Message",
+      "messagePlaceholder": "Qu'est-ce qui a été signalé ?",
+      "priority": "Priorité",
+      "review": {
+        "stepForm": "Saisir",
+        "stepCheck": "C’est juste ?",
+        "title": "C’est bien ça ?",
+        "next": "Continuer",
+        "back": "Retour au formulaire",
+        "where": "Lieu",
+        "hasPin": "Position enregistrée",
+        "takeOverLabel": "Prise en charge",
+        "takeOverYes": "Oui – on y va directement",
+        "takeOverNo": "Non – le PC engage",
+        "editTitle": "C’est juste maintenant ?"
+      },
+      "editTitle": "Corriger l’annonce",
+      "editHint": "Tant que le PC n’a engagé personne, tu peux encore modifier l’annonce.",
+      "editSubmit": "Envoyer la correction",
+      "editSaved": "Correction transmise au PC",
+      "editTooLate": "Le PC a déjà repris l’annonce – annonce la correction par radio.",
+      "notes": "Autres indications",
+      "notesPlaceholder": "Accès, clé, contact sur place …"
+    },
+    "attendance": {
+      "notHereTitle": "Tu n'es pas enregistré",
+      "checkIn": "S'enregistrer",
+      "checkOut": "Je rentre",
+      "here": "Enregistré",
+      "hereNoJob": "Pas encore de mandat"
+    },
+    "material": {
+      "title": "Matériel",
+      "empty": "Aucun matériel enregistré.",
+      "summary": "{out} sur {total} en intervention",
+      "state": {
+        "in": "Magasin / inutilisé",
+        "out": "En intervention",
+        "left": "Encore sur place"
+      }
+    },
+    "roleEmpty": {
+      "telefondienstTitle": "Tu es au téléphone",
+      "telefondienstBody": "Saisis les appels ici – ils arrivent au PC comme annonce.",
+      "kommandopostenTitle": "Tu es au poste de commandement",
+      "kommandopostenBody": "Tu gères la situation sur le tableau. Ici, seul le terrain apparaît.",
+      "driverTitle": "Tu conduis {vehicle}",
+      "driverBody": "Dès que {vehicle} est engagé, l’intervention apparaît ici.",
+      "rekoTitle": "Tu es affecté à la reconnaissance",
+      "rekoBody": "Dès que le PC te donne un mandat de reconnaissance, il apparaît ici."
+    },
+    "roles": {
+      "driver": "Conducteur {vehicle}",
+      "reko": "Reco",
+      "telefondienst": "Service téléphonique",
+      "magazin": "Magasin",
+      "kommandoposten": "Poste de commandement"
+    },
+    "reports": {
+      "title": "Annoncé par moi",
+      "stateOpen": "Au PC",
+      "stateDispatched": "Engagé",
+      "stateDispatchedWith": "Engagé · {vehicles}",
+      "stateDone": "Terminé",
+      "edit": "Modifier"
+    },
+    "kpStatus": {
+      "incoming": "Reçu",
+      "reko": "Reconnaissance",
+      "reko_done": "Reconnaissance terminée",
+      "enroute": "Engagé / en route",
+      "active": "En intervention",
+      "returning": "Terminé / retour",
+      "complete": "Clôturé"
+    },
+    "kpMessages": {
+      "title": "Messages du PC",
+      "from": "PC · {name} · {time}"
     }
   },
   "help": {
@@ -885,7 +1035,6 @@
       "driversSection": "Conducteurs",
       "othersSection": "Autres",
       "inOperation": "En intervention",
-      "current": "Actuel",
       "noPersonsFound": "Aucune personne trouvée",
       "noAvailablePersons": "Aucune personne disponible",
       "tryDifferentSearch": "Essaie un autre terme de recherche",
@@ -977,6 +1126,15 @@
       "adding": "Ajout en cours...",
       "add": "Ajouter"
     },
+    "mobileCard": {
+      "leader": "CI : {name}",
+      "noRapport": "pas de rapport",
+      "meldung": "Annonce",
+      "crew": "Effectif",
+      "vehicles": "Véhicules",
+      "reko": "Reconnaissance",
+      "driver": "Conducteur : {name}"
+    },
     "mobileDetail": {
       "copied": "Copié dans le presse-papiers",
       "copyError": "Erreur lors de la copie",
@@ -1047,7 +1205,16 @@
       "contactPhoneLabel": "Numéro de téléphone",
       "contactPhonePlaceholder": "p. ex. 079 123 45 67",
       "submitting": "Transmission...",
-      "submit": "Envoyer l’alarme"
+      "submit": "Envoyer l’alarme",
+      "review": {
+        "stepForm": "Saisir",
+        "stepCheck": "C’est juste ?",
+        "title": "C’est bien ça ?",
+        "next": "Continuer",
+        "back": "Retour au formulaire",
+        "where": "Lieu",
+        "hasPin": "Position enregistrée"
+      }
     },
     "checkin": {
       "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
@@ -1198,8 +1365,10 @@
       "funkrufname": "Indicatif radio : {callsign}",
       "driverStayTooltip": "Le conducteur reste sur place – cliquer pour le faire rentrer",
       "driverReturnTooltip": "Le conducteur rentre – cliquer pour le laisser sur place",
-      "driverStays": "reste",
+      "driverStays": "sur place",
       "driverReturns": "rentre",
+      "driverStaysFull": "reste sur place",
+      "driverReturnsFull": "rentre à la caserne",
       "meldung": "Annonce",
       "meldungPlaceholder": "Notes, particularités, dangers...",
       "einsatzart": "Genre d’intervention",
@@ -1207,6 +1376,8 @@
       "priority": "Priorité",
       "phoneReported": "Annoncé par téléphone",
       "phoneReportedDescription": "L’annonce est arrivée au PC par téléphone ou au guichet",
+      "feldReported": "Annoncé depuis le terrain",
+      "feldReportedDescription": "L’annonce vient d’une équipe qui était sur place",
       "contact": "Contact / annonceur",
       "contactPlaceholder": "Nom de la personne qui annonce",
       "contactPhone": "Numéro de téléphone",
@@ -1232,9 +1403,13 @@
       "assignVehicle": "Attribuer un véhicule",
       "assignMaterial": "Attribuer du matériel",
       "onlyAssignedVehicles": "Attribués uniquement",
+      "dropRefusedRouteOccupied": "Déjà pris par une autre mission – libérer là-bas d’abord.",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
-      "newIncident": "Nouvelle intervention"
+      "newIncident": "Nouvelle intervention",
+      "telefondienst": "Service téléphonique",
+      "kommandoposten": "Poste de commandement",
+      "unknownResource": "Inconnu"
     },
     "dashboard": {
       "loading": "Chargement...",
@@ -1259,8 +1434,7 @@
         "priority": "Par priorité",
         "age": "Par ancienneté (les plus anciennes d’abord)",
         "auftrag": "Par mission",
-        "type": "Par genre",
-        "applied": "Colonne triée"
+        "type": "Par genre"
       },
       "noPersonnelCheckedIn": "Personne n’est annoncé",
       "personnelLoading": "Chargement du personnel",
@@ -1272,36 +1446,19 @@
       "createMaterialInSettings": "Créer dans les réglages",
       "scanCheckInQr": "Scanner le code QR d’arrivée",
       "boardPrintSent": "Travail d’impression du tableau envoyé",
-      "qrPrintSent": "Travail d’impression du QR envoyé",
-      "selectEventFirst": "Choisis d’abord un événement.",
-      "qrGenerateFailed": "Le code QR n’a pas pu être généré. Réessaie.",
       "rekoLinkFailed": "Le lien de reconnaissance n’a pas pu être généré. Réessaie.",
-      "displayLinkFailed": "Le lien d’affichage n’a pas pu être généré. Réessaie.",
       "alarmLinkFailed": "Le lien d’alarme n’a pas pu être généré. Réessaie.",
       "materialReturned": "Matériel rendu",
       "readiness": "Checklist",
-      "checkIn": "Arrivée",
-      "display": "Affichage",
       "alarm": "Alarme",
       "vehicles": "Véhicules",
       "print": "Imprimer",
       "printTitle": "Imprimer et exporter – ticket, A4, fichier",
       "trainingControl": "Commande d’exercice",
       "commands": "Commandes",
-      "checkInSheetTitle": "Arrivée du personnel",
-      "checkInSheetDescription": "Scanner le code QR ou partager le lien pour un accès mobile",
-      "checkInSheetHint": "Le personnel peut scanner ce code QR pour s’annoncer. Fonctionne sans connexion.",
       "rekoSheetTitle": "Tableau de reconnaissance",
       "rekoSheetDescription": "Scanner le code QR ou partager le lien pour le personnel de reconnaissance",
       "rekoSheetHint": "Le personnel de reconnaissance voit ses attributions et remplit les formulaires. Fonctionne sans connexion.",
-      "displaySheetTitle": "Partager l’affichage",
-      "displaySheetDescription": "Scanner le code QR ou partager le lien pour la vue d’ensemble des affichages (lecture seule)",
-      "displaySheetHint": "Toute personne disposant de ce lien voit la vue d’ensemble actuelle des interventions sur un écran. Fonctionne sans connexion, en lecture seule.",
-      "displayView": {
-        "board": "Tableau",
-        "map": "Carte",
-        "status": "État"
-      },
       "alarmSheetTitle": "Lien d’alarme",
       "alarmSheetDescription": "Scanner le code QR ou partager le lien pour saisir des alarmes sans connexion (p. ex. téléphone / guichet)",
       "alarmSheetHint": "Toute personne disposant de ce lien peut saisir de nouvelles alarmes. Fonctionne sans connexion. Les alarmes saisies apparaissent comme téléphone/guichet pour vérification.",
@@ -1334,7 +1491,8 @@
         "rowTitle": "{name} se trouve encore à {address}",
         "since": "depuis {duration}",
         "unknownAddress": "Sans adresse"
-      }
+      },
+      "linksAndQr": "Liens & QR"
     },
     "missingResources": {
       "title": "Il manque des ressources",
@@ -1355,6 +1513,11 @@
       "description": "<hl>{location}</hl> se termine – mais aucun véhicule n’est attribué. L’effectif devrait rentrer à pied.",
       "assignVehicle": "Attribuer un véhicule",
       "endAnyway": "Terminer quand même"
+    },
+    "nextStop": {
+      "title": "Démarrer le prochain arrêt ?",
+      "description": "<hl>{finished}</hl> est terminé et plus personne ne travaille sur la mission «{auftrag}». Prochain arrêt ouvert : <hl>{next}</hl>.",
+      "confirm": "Prochain arrêt en intervention"
     },
     "rekoMissing": {
       "description": "<hl>{location}</hl> a été déplacée dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
@@ -1408,13 +1571,17 @@
       "radioAuftragContinue": "À tous les {funkrufname}, mission « {name} », suite à l’étape {pos} :",
       "auftragContext": "Mission « {name} » · étape {pos}/{total}",
       "copyWhatsapp": "Copier le message WhatsApp",
-      "sendDivera": "Envoyer la convocation"
+      "sendDivera": "Envoyer la convocation",
+      "auftragBatchQuestion": "Le mandat « {name} » compte {count} autres étapes que personne n’a encore prises.",
+      "auftragBatchAction": "{count, plural, one {Engager aussi l’autre étape} other {Engager aussi les # autres étapes}}",
+      "auftragBatchDone": "{count, plural, one {# étape supplémentaire engagée} other {# étapes supplémentaires engagées}}"
     },
     "card": {
       "priorityHighAria": "Priorité haute",
       "priorityMediumAria": "Priorité moyenne",
       "priorityLowAria": "Priorité basse",
       "intakeTooltip": "Saisie par téléphone / au guichet – à vérifier",
+      "feldTooltip": "Annoncé par une équipe sur le terrain – à vérifier",
       "rekoDoneTooltip": "Rapport de reconnaissance rempli",
       "showOnMap": "Afficher sur la carte",
       "onSiteSince": "sur place {time}",
@@ -1422,7 +1589,6 @@
       "persCount": "{count} pers.",
       "changeReko": "Changer la reconnaissance",
       "assignReko": "Attribuer la reconnaissance",
-      "markZuFuss": "Marquer « à pied »",
       "removeNachbarhilfe": "Retirer l’entraide",
       "markNachbarhilfe": "Marquer comme entraide",
       "removeAmWarten": "Retirer « en attente »",
@@ -1442,7 +1608,10 @@
       "ariaLabel": "colonne {title}",
       "collapse": "Replier la colonne",
       "dropHere": "Déposer l’intervention ici",
-      "empty": "Aucune intervention"
+      "empty": "Aucune intervention",
+      "collapsedHint": "{title} – {count} – cliquer pour déplier",
+      "overdueTitle": "{count} en retard : {titles}",
+      "overdueMore": "… et {count} de plus"
     },
     "timeline": {
       "loadFailed": "L’historique n’a pas pu être chargé.",
@@ -1452,7 +1621,8 @@
       "empty": "Aucune entrée pour l’instant.",
       "removed": "retiré",
       "assigned": "attribué",
-      "unknown": "(inconnu)"
+      "unknown": "(inconnu)",
+      "kpMessageVerb": "à l’effectif"
     },
     "newEmergency": {
       "validationTitle": "Remplis tous les champs obligatoires",
@@ -1467,8 +1637,8 @@
       "tabs": {
         "overview": "Vue d’ensemble",
         "reko": "Reconnaissance",
-        "rapport": "Rapport",
-        "rapportFiled": "saisi",
+        "rapport": "Terrain",
+        "rapportFiled": "Rapport",
         "rapportDraft": "Brouillon",
         "history": "Historique",
         "switchHint": "Changer d’onglet"
@@ -1481,8 +1651,6 @@
       "meldungPlaceholder": "Annonce reçue, nature des dégâts...",
       "nachbarhilfeDescription": "Intervention avec participation d’un corps voisin",
       "noCrew": "Aucun effectif attribué",
-      "ohneFahrzeug": "Sans véhicule",
-      "loadingVehicles": "Chargement des véhicules...",
       "noVehicles": "Aucun véhicule attribué",
       "removeVehicle": "Retirer le véhicule",
       "leaderFailed": "Le chef d’intervention n’a pas pu être défini.",
@@ -1540,13 +1708,14 @@
       "vehiclesAssigned": "{count, plural, one {# véhicule attribué} other {# véhicules attribués}}",
       "zuFussSuffix": ", à pied",
       "quickSelectByType": "Par genre :",
-      "showAllPersonnel": "Tout afficher",
       "vehicleOnSceneHint": "{name} est déjà attribué à cette intervention",
       "driverBadge": "Conducteur",
       "specialFnConfirmTitle": "Double affectation ?",
       "specialFnConfirmBody": "{name} est déjà en intervention ({func}). L’attribuer quand même à l’effectif ?",
       "specialFnConfirmAction": "Attribuer quand même",
       "occupiedElsewhere": "En intervention",
+      "sectionFree": "Disponibles · {count}",
+      "sectionBusy": "Déjà en intervention · {count}",
       "occupiedConfirmTitle": "Double affectation ?",
       "occupiedConfirmBody": "{name} est déjà attribué : {label}. L’attribuer quand même ?",
       "occupiedConfirmAction": "Attribuer quand même",
@@ -1564,7 +1733,9 @@
       "noMaterialsFound": "Aucun matériel trouvé",
       "noSelectableMaterials": "Aucun matériel",
       "allMaterialsAssigned": "Aucun matériel n’est saisi",
-      "changes": "Modifications"
+      "changes": "Modifications",
+      "vehicleDriver": "Conducteur : {name}",
+      "vehicleNoDriver": "Pas de conducteur"
     },
     "transferReko": {
       "failed": "Échec du transfert",
@@ -1574,7 +1745,9 @@
       "noOthers": "Aucune autre personne de reconnaissance disponible"
     },
     "person": {
-      "doubleBookedTooltip": "Sur {count} interventions – double affectation"
+      "doubleBookedTooltip": "Sur {count} interventions – double affectation",
+      "driverFunction": "Chauffeur {vehicle}",
+      "engagedTooltip": "En intervention : {label}"
     },
     "material": {
       "consumable": "Consommable",
@@ -1699,7 +1872,10 @@
       "mapEmpty": "Aucune intervention localisée sur la carte.",
       "legendSelected": "rouge = sélectionnée",
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
-      "legendUnassigned": "gris = dans aucune mission"
+      "legendUnassigned": "gris = dans aucune mission",
+      "hiddenCount": "{count} masqué(s)",
+      "showGrouped": "Dans un autre mandat",
+      "showCompleted": "Terminées"
     },
     "auftragPicker": {
       "title": "Répartir sur une mission",
@@ -1732,6 +1908,30 @@
       "checkOutAllDescription": "{count, plural, one {# personne présente sera passée} other {# personnes présentes seront passées}} sur « partie ». Les affectations sont conservées.",
       "quickAddHint": "Sera annoncé directement",
       "writeFailed": "La présence n’a pas pu être enregistrée"
+    },
+    "links": {
+      "title": "Liens & QR",
+      "description": "Ce qu'ouvrent les équipes, la tablette à la porte et l'écran mural.",
+      "enlarge": "Agrandir le QR",
+      "groupCheckin": "Check-in & présence",
+      "groupFeld": "Terrain",
+      "groupOther": "Autres liens",
+      "feld": {
+        "title": "Terrain – équipes",
+        "subtitle": "Pour toutes les équipes"
+      },
+      "checkin": {
+        "title": "Arrivée",
+        "subtitle": "Check-in à l'entrée"
+      },
+      "display": {
+        "title": "Écran mural",
+        "subtitle": "Lecture seule"
+      },
+      "alarm": {
+        "title": "Saisir une alarme",
+        "subtitle": "Téléphone et passage"
+      }
     }
   },
   "login": {
@@ -1783,7 +1983,6 @@
     "page": {
       "loading": "Chargement de la carte…",
       "title": "Carte de situation",
-      "backToBoard": "Retour au tableau",
       "activeBadge": "{count} en cours",
       "incidentsHeading": "Interventions ({count})",
       "labels": "Étiquettes",
@@ -1978,9 +2177,6 @@
       "newEvent": "Nouvel événement",
       "allEvents": "Tous les événements",
       "quickActions": "Accès rapide",
-      "checkInQr": "Code QR d’arrivée",
-      "reko": "Reconnaissance",
-      "display": "Affichage",
       "personnel": "Personnel",
       "vehicles": "Véhicules",
       "print": "Imprimer",
@@ -1992,7 +2188,8 @@
       "management": "Administration",
       "support": "Support",
       "account": "Compte",
-      "logout": "Se déconnecter"
+      "logout": "Se déconnecter",
+      "linksAndQr": "Liens & QR"
     },
     "pageNav": {
       "main": "Navigation principale",
@@ -2117,7 +2314,8 @@
       "driveToIncident": "Course vers l’intervention",
       "vehicleOnScene": "Véhicule sur place",
       "fieldComplete": "Intervention terminée",
-      "driveToMagazin": "Retour à la caserne"
+      "driveToMagazin": "Retour à la caserne",
+      "rapport": "Rapport arrivé"
     },
     "settings": {
       "saveFailed": "Erreur lors de l’enregistrement du réglage",
@@ -2160,7 +2358,8 @@
       "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
-      "overflowAction": "Ouvrir"
+      "overflowAction": "Ouvrir",
+      "openIncident": "Ouvrir l’intervention"
     },
     "sidebar": {
       "title": "Notifications",
@@ -2183,7 +2382,7 @@
       "timeMinutes": "il y a {minutes} min",
       "justNow": "à l’instant",
       "moveToActive": "Déplacer vers Intervention",
-      "moveToComplete": "Clôturer l’intervention"
+      "moveToComplete": "Vers Terminé / Retour"
     }
   },
   "print": {
@@ -2292,6 +2491,7 @@
       "zuFuss": "À pied",
       "nachbarhilfe": "Entraide",
       "phoneReported": "Annoncé par téléphone",
+      "feldReported": "Annoncé depuis le terrain",
       "since": "depuis {time}",
       "meldung": "Annonce",
       "interneNotizen": "Notes internes",
@@ -2316,7 +2516,9 @@
       "seitCol": "Depuis",
       "vorOrt": "sur place",
       "unknownAddress": "Sans adresse",
-      "footer": "KP Rück - impression de secours"
+      "footer": "KP Rück - impression de secours",
+      "fahrerCol": "Conducteur",
+      "ortCol": "Lieu"
     },
     "map": {
       "noCoordinates": "Aucune intervention avec des coordonnées",
@@ -2328,7 +2530,8 @@
   },
   "reko": {
     "common": {
-      "back": "Retour"
+      "back": "Retour",
+      "title": "Saisir la reco"
     },
     "success": {
       "title": "Rapport de reconnaissance transmis",
@@ -2468,9 +2671,6 @@
       "photoAlt": "Photo de reconnaissance {number}",
       "photoAltBy": "Photo de reconnaissance {number} de {name}",
       "additionalNotes": "Notes complémentaires",
-      "rekoBy": "Reconnaissance par : {name}",
-      "submittedAt": "Transmise : {date}",
-      "updatedAt": "Actualisée : {date}",
       "relevantShort": "Pertinente",
       "notRelevantShort": "Non pertinente",
       "photoCount": "{count, plural, one {# photo} other {# photos}}",
@@ -2481,7 +2681,9 @@
       "cancel": "Annuler",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
       "saved": "Rapport de reconnaissance enregistré",
-      "saveFailed": "Échec de l’enregistrement"
+      "saveFailed": "Échec de l’enregistrement",
+      "submittedShort": "Transmis {time}",
+      "updatedShort": "mis à jour {time}"
     },
     "dummyGenerator": {
       "title": "Mode exercice",
@@ -2761,7 +2963,8 @@
           "sourceEnv": "Source : .env",
           "sourceDatabase": "Source : base de données",
           "notConfigured": "Aucune clé définie – les alarmes via POST /api/alarms sont acceptées sans vérification de signature."
-        }
+        },
+        "feldDriverChipsLabel": "Chips pour conducteurs"
       },
       "demo": {
         "sync": "La synchronisation n’est pas disponible en mode démo.",
@@ -3277,12 +3480,25 @@
       "intervalLabel": "Intervalle (min)",
       "maxLabel": "Interventions max.",
       "hint": "Agit sur l’exercice actif le plus récent. Pendant les 30 premières minutes, la génération tourne à double vitesse (phase chaude).",
-      "stop": "Arrêter l’automatisme",
       "saveFailed": "Le réglage n’a pas pu être enregistré",
       "started": "Automatisme démarré",
       "stopped": "Automatisme arrêté",
       "startedDescription": "Nouvelles alarmes toutes les ~{interval} min (double vitesse les 30 premières minutes).",
       "stoppedDescription": "Plus aucune intervention n’est générée automatiquement."
+    },
+    "checkin": {
+      "title": "Enregistrer l’arrivée du personnel",
+      "description": "Annonce des personnes disponibles au hasard – tout de suite ou échelonné, comme les SP arrivent réellement",
+      "countAria": "Nombre de personnes",
+      "immediately": "tout de suite",
+      "overMinutes": "sur {count} min",
+      "checkingIn": "Enregistrement...",
+      "checkin": "Enregistrer l’arrivée",
+      "scheduled": "{count, plural, one {# arrivée planifiée} other {# arrivées planifiées}}",
+      "scheduledDescription": "Les personnes s’annonceront au cours des {minutes} prochaines minutes.",
+      "noMorePersons": "Plus aucune personne disponible",
+      "noMorePersonsDescription": "Toutes les personnes disponibles sont déjà annoncées.",
+      "failed": "Erreur lors de la simulation des arrivées"
     },
     "gpsSim": {
       "title": "Simulation GPS",
@@ -3304,7 +3520,9 @@
       "arrivalHintDescription": "L’intervention n’est actuellement pas sur Engagé – la course se déroule, mais sans demande d’arrivée.",
       "startFailed": "La simulation n’a pas pu être démarrée",
       "returnFailed": "Le retour n’a pas pu être démarré",
-      "stopFailed": "La simulation n’a pas pu être arrêtée"
+      "stopFailed": "La simulation n’a pas pu être arrêtée",
+      "magazinMissing": "Les coordonnées de la caserne manquent – à saisir dans Réglages → GPS.",
+      "magazinMissingLink": "Ouvrir les réglages"
     },
     "banner": {
       "linkTitle": "Vers la commande d’exercice",
@@ -3321,23 +3539,15 @@
       "injectTitle": "Inject : aggravation, renfort, panne de véhicule, annonces du terrain",
       "inject": "Inject",
       "injectEscalate": "La situation s’aggrave",
+      "injectEscalateDesc": "Annonce de situation du terrain : ça empire – la priorité passe à haute.",
       "injectReinforcement": "Demander du renfort",
+      "injectReinforcementDesc": "Le groupe demande du personnel ou du matériel – ce qui part, c’est le PC qui décide.",
       "injectBreakdown": "Un véhicule tombe en panne",
+      "injectBreakdownDesc": "Un véhicule attribué tombe en panne – le PC doit engager un remplacement.",
       "footer": "Uniquement des actions de terrain. En évidence = échu (temps d’attente atteint). « Course vers l’intervention » et « Retour à la caserne » démarrent des courses GPS – l’arrivée et le retour s’annoncent via la demande GPS. « Intervention terminée » n’apparaît qu’ici – c’est toi qui informes le tableau (p. ex. par radio).",
-      "checkinLabel": "Enregistrer l’arrivée du personnel",
-      "immediately": "tout de suite",
-      "overMinutes": "sur {count} min",
-      "checkingIn": "Enregistrement...",
-      "checkin": "Enregistrer l’arrivée",
-      "checkinHint": "Annonce des personnes disponibles au hasard – tout de suite ou échelonné, comme les SP arrivent réellement",
       "noVehicleFound": "Aucun véhicule trouvé pour la course",
       "noVehicleFoundDescription": "Les véhicules attribués sont inconnus ou déjà en route.",
       "actionFailed": "Échec de l’action",
-      "checkinsScheduled": "{count, plural, one {# arrivée planifiée} other {# arrivées planifiées}}",
-      "checkinsScheduledDescription": "Les personnes s’annonceront au cours des {minutes} prochaines minutes.",
-      "noMorePersons": "Plus aucune personne disponible",
-      "noMorePersonsDescription": "Toutes les personnes disponibles sont déjà annoncées.",
-      "checkinFailed": "Erreur lors de la simulation des arrivées",
       "escalated": "Situation aggravée",
       "escalatedDescription": "Priorité haute – l’annonce de situation est sur la carte et dans les annonces.",
       "reinforcementRequested": "Renfort demandé",
@@ -3345,17 +3555,21 @@
       "vehicleBrokenDownDescription": "L’opérateur doit engager un remplacement.",
       "injectFailed": "Échec de l’inject",
       "injectArrived": "Annoncer l’arrivée",
+      "injectArrivedDesc": "Le groupe s’annonce sur la place sinistrée – fixe l’heure d’arrivée.",
       "injectRapport": "Rapport arrivé",
+      "injectRapportDesc": "Un rapport de place sinistrée rempli arrive.",
       "injectFieldMessage": "Annonce du terrain",
+      "injectFieldMessageDesc": "Brève annonce du groupe au PC – cloche et journal.",
       "injectPickupNeeded": "Annoncer une récupération nécessaire",
-      "injectPickupDone": "Annoncer la récupération faite",
+      "injectPickupNeededDesc": "Le groupe est sans véhicule et doit être récupéré.",
+      "injectPickupDone": "Annoncer la récupération organisée",
+      "injectPickupDoneDesc": "La récupération a eu lieu – l’avertissement est levé.",
       "arrivedReported": "Arrivée annoncée",
-      "pickupCleared": "Récupération faite",
+      "pickupCleared": "Récupération organisée",
       "rapportFiled": "Rapport saisi",
       "rapportFiledBy": "Saisi par {name} (terrain)",
       "rapportFiledByPhotos": "Saisi par {name} (terrain) · {count, plural, one {# photo} other {# photos}}",
       "fieldMessageSent": "Annonce du terrain arrivée",
-      "rapportLabel": "Rapports de place sinistrée",
       "rapportBulk": "Faire arriver les rapports",
       "rapportFiling": "Les rapports arrivent...",
       "rapportHint": "Saisit 80 % des rapports des places sinistrées terminées. Le reste manque volontairement – c’est précisément ce que montre la liste des restes.",
@@ -3369,7 +3583,18 @@
       "pickupRequired": "Récupération nécessaire",
       "pickupAuto": "La situation décide",
       "pickupNeeded": "Récupération nécessaire",
-      "pickupNeededDescription": "Le groupe attend sur place – la récupération est sur la carte et dans la liste des restes."
+      "pickupNeededDescription": "Le groupe attend sur place – la récupération est sur la carte et dans la liste des restes.",
+      "fieldReportLabel": "Injecter une annonce du terrain",
+      "fieldReportIncidentPlaceholder": "Choisir une intervention avec équipe…",
+      "fieldReportPlaceholder": "Qu’annonce l’équipe ?",
+      "fieldReportSend": "Annoncer",
+      "fieldReportSending": "Annonce en cours…",
+      "fieldReportSent": "Annonce du terrain reçue",
+      "fieldReportExample1": "Personne présumée dans l’appartement",
+      "fieldReportExample2": "Odeur de gaz au sous-sol",
+      "fieldReportExample3": "Encore un arbre sur la route",
+      "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
+      "fieldReportHint": "L’équipe de l’intervention choisie annonce une nouvelle place sinistrée – l’annonce arrive comme une vraie (cloche, Reçu)."
     }
   }
 }

@@ -28,24 +28,29 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentUser, get_current_user
+from ..auth.dependencies import CurrentEditor, CurrentUser, get_current_user
 from ..config import settings
+from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
+from ..crud import reko_assignment as reko_assign_crud
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
-from ..models import Incident, RekoReport, User
+from ..models import Incident, IncidentAssignment, RekoReport, User
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_incident_update, broadcast_reko_update
+from ..websocket_manager import (
+    broadcast_assignment_update,
+    broadcast_incident_update,
+    broadcast_reko_update,
+)
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
-from ..services.notification_service import create_reko_arrived_notification
 from ..services.photo_storage import photo_storage
 from ..services.tokens import (
+    generate_feld_token,
     generate_form_token,
     validate_form_token,
-    validate_reko_dashboard_token,
     validate_viewer_token,
 )
 
@@ -363,26 +368,13 @@ async def mark_reko_arrived(
     try:
         report = await crud.mark_reko_arrived(db, incident_id, token)
 
-        # Fetch incident for notification
+        # The «Reko vor Ort» notification is raised inside `crud.mark_reko_arrived`
+        # (first arrival only), so the Übungssteuerung's simulate path — which
+        # calls the CRUD function directly — rings the same bell as this route.
+
+        # Fetch incident for the response details
         incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
         incident = incident_result.scalar_one_or_none()
-
-        if incident and incident.event_id:
-            # Get personnel name if available
-            arrived_by_name = None
-            if report.submitted_by_personnel_id:
-                await db.refresh(report, ["submitted_by_personnel"])
-                if report.submitted_by_personnel:
-                    arrived_by_name = report.submitted_by_personnel.name
-
-            await create_reko_arrived_notification(
-                db=db,
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                incident_title=incident.title or incident.location_address or "Unbekannt",
-                arrived_by_name=arrived_by_name,
-                incident_address=incident.location_address,
-            )
 
         # Convert to response schema with incident details
         response_data = schemas.RekoReportResponse.model_validate(report)
@@ -418,42 +410,64 @@ async def generate_reko_link(
     incident_id: uuid.UUID = Query(...),
     form_type: str = Query("reko"),
     personnel_id: uuid.UUID | None = Query(None),
-    dashboard_token: str | None = Query(None),
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
-    Generate Reko form link for an incident.
+    Generate the direct Reko link for an incident (editor/admin only).
 
-    Requires either an editor/admin login or a valid reko-dashboard link
-    token whose event contains the incident (the dashboard runs on field
-    phones without an account). A leaked form link must NOT allow minting
-    fresh tokens for arbitrary incidents.
+    **With a `personnel_id` this is a `/feld` link, not a bare form link.** The
+    link the KP sends the Reko person carries a *bound* feld token — the same
+    strength the code exchange mints (plan 26, decision 18) — plus the incident
+    as a deep link. Opening it lands the person on the field surface already
+    authenticated as themselves, and `/feld` routes a Reko auftrag straight
+    into the form. No code entry, no picker, and the Rapport/Meldung machinery
+    is one tap away instead of on "a separate page".
 
-    Args:
-        incident_id: The incident this reko is for
-        form_type: Type of form (default: reko)
-        personnel_id: Optional personnel who will do the reko
-        dashboard_token: Event-scoped reko-dashboard token (alternative to login)
+    The bound token is shorter-lived than the poster's (72 h vs 30 days): it is
+    a personal credential travelling through a messenger, and the person can
+    always re-enter through the poster QR once it expires. It is backed by a
+    device claim, so "alle Geräte abmelden" recalls it like any other device.
 
-    Returns shareable link with token.
+    Without a `personnel_id` (no Reko assigned) the old per-incident `/reko`
+    form link is returned unchanged.
     """
-    authorized = False
-    if dashboard_token:
-        event_id = validate_reko_dashboard_token(dashboard_token)
-        if event_id is not None:
-            incident = await db.get(Incident, incident_id)
-            authorized = incident is not None and incident.event_id == event_id
-    if not authorized:
-        user = await get_current_user(request, access_token, authorization, db)
-        if user.role not in ("editor", "admin"):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
+    # The `/reko-dashboard` door is gone with the page (plan 26, decision 24).
+    # The field surface mints its own form token through `/feld` after running
+    # its two-step, so this route is the board's alone again.
+    user = await get_current_user(request, access_token, authorization, db)
+    if user.role not in ("editor", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Editor-Berechtigung erforderlich")
+
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if incident is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INVALID_REQUEST)
+
+    if personnel_id is not None and incident.event_id is not None:
+        # Imported here to keep the reko router free of a module-level feld
+        # dependency — the two doors stay strangers except for this mint.
+        from ..crud import feld as feld_crud
+
+        claim = await feld_crud.create_claim(db, incident.event_id, personnel_id)
+        token = generate_feld_token(
+            incident.event_id,
+            personnel_id=personnel_id,
+            unlocked=True,
+            claim_id=claim.id,
+            expires_hours=72,
+        )
+        link = f"/feld?token={token}&incident_id={incident_id}"
+        return {
+            "incident_id": incident_id,
+            "token": token,
+            "link": link,
+            "personnel_id": personnel_id,
+            "qr_code_url": f"/api/qr?data={link}",
+        }
 
     token = generate_form_token(str(incident_id), form_type)
     link = f"/reko?incident_id={incident_id}&token={token}"
-    if personnel_id:
-        link += f"&personnel_id={personnel_id}"
 
     return {
         "incident_id": incident_id,
@@ -792,3 +806,232 @@ async def serve_photo(
             "Cache-Control": "private, max-age=3600",  # 1 hour cache for authenticated users
         },
     )
+
+
+# ============================================
+# Reko assignment — the BOARD's own endpoints
+# ============================================
+#
+# These four moved here from `api/reko_dashboard.py` when the login-less
+# dashboard page was removed (plan 26, decision 24). They were never part of
+# that page: every one is editor-authed, and the field-surface registry said so
+# in its own comment for as long as they lived there. Deleting the router would
+# have taken the board's Reko assignment UI with it, which is the whole reason
+# this is a move rather than a deletion.
+
+
+@router.get(
+    "/incidents/{incident_id}/available-reko",
+    response_model=schemas.AvailableRekoPersonnelResponse,
+)
+async def get_available_reko_personnel(
+    incident_id: uuid.UUID,
+    current_user: CurrentEditor,  # Editor only
+    db: AsyncSession = Depends(get_db),
+) -> schemas.AvailableRekoPersonnelResponse:
+    """
+    Get available Reko personnel for assignment to an incident.
+
+    Editor only - used when assigning Reko personnel from incident card.
+    Returns all Reko personnel with their assignment counts.
+    """
+    available, currently_assigned_id = await reko_assign_crud.get_available_reko_personnel_for_incident(db, incident_id)
+
+    return schemas.AvailableRekoPersonnelResponse(
+        personnel=[schemas.AvailableRekoPersonnel(**p) for p in available],
+        currently_assigned_id=currently_assigned_id,
+    )
+
+
+@router.post(
+    "/incidents/{incident_id}/assign-reko",
+    response_model=schemas.AssignmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def assign_reko_personnel(
+    incident_id: uuid.UUID,
+    assignment: schemas.AssignRekoPersonnelRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,  # Editor only
+    db: AsyncSession = Depends(get_db),
+) -> schemas.AssignmentResponse:
+    """
+    Assign Reko personnel to an incident.
+
+    Editor only - creates a personnel assignment for the Reko person.
+    If another Reko person is already assigned, they will be unassigned first.
+    """
+    # Get available Reko personnel to check for existing assignment
+    _, currently_assigned_id = await reko_assign_crud.get_available_reko_personnel_for_incident(db, incident_id)
+
+    # If the same person is already assigned, do nothing
+    if currently_assigned_id == assignment.personnel_id:
+        raise HTTPException(status_code=400, detail="Personnel already assigned to this incident")
+
+    # If a different Reko person is assigned, unassign them first
+    if currently_assigned_id is not None:
+        await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, currently_assigned_id)
+        logger.info(
+            "Unassigned previous Reko personnel %s from incident %s for replacement",
+            currently_assigned_id,
+            incident_id,
+        )
+
+    # Create the new assignment.
+    #
+    # `purpose="reko"` is the whole point of the column (plan 26 §27): this row
+    # and a crew row are otherwise identical, and `/feld` would then ask a trupp
+    # that only drove out to look for a Schadenplatz-Rapport. Set here, at the
+    # path the assignment came in through — never inferred afterwards.
+    db_assignment = IncidentAssignment(
+        incident_id=incident_id,
+        resource_type="personnel",
+        resource_id=assignment.personnel_id,
+        assigned_by=current_user.id,
+        purpose="reko",
+    )
+    db.add(db_assignment)
+    await db.commit()
+    await db.refresh(db_assignment)
+
+    # Auto-move incident from "incoming" to "reko" when reko personnel is assigned
+    incident = await incidents_crud.get_incident(db, incident_id)
+    if incident and incident.status == "incoming":
+        await incidents_crud.update_incident_status(
+            db=db,
+            incident_id=incident_id,
+            new_status="reko",
+            current_user=current_user,
+            request=request,
+            notes="Automatisch verschoben: Reko-Person zugewiesen",
+        )
+        await db.commit()
+        logger.info(
+            "Auto-moved incident %s from incoming to reko after reko assignment",
+            incident_id,
+        )
+        # Broadcast incident update for the status change
+        background_tasks.add_task(
+            broadcast_incident_update,
+            {"id": str(incident_id), "status": "reko"},
+            "update",
+        )
+
+    # Broadcast WebSocket update
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {
+            "id": str(db_assignment.id),
+            "incident_id": str(incident_id),
+            "resource_type": "personnel",
+            "resource_id": str(assignment.personnel_id),
+            "assigned_at": db_assignment.assigned_at.isoformat(),
+        },
+        "create",
+    )
+
+    return schemas.AssignmentResponse.model_validate(db_assignment)
+
+
+@router.delete(
+    "/incidents/{incident_id}/unassign-reko/{personnel_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unassign_reko_personnel(
+    incident_id: uuid.UUID,
+    personnel_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,  # Editor only
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Unassign Reko personnel from an incident.
+
+    Editor only - removes the personnel assignment for the Reko person.
+    """
+    success = await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    # Broadcast WebSocket update
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {
+            "incident_id": str(incident_id),
+            "resource_type": "personnel",
+            "resource_id": str(personnel_id),
+        },
+        "delete",
+    )
+
+    return None
+
+
+@router.post(
+    "/transfer-rekos",
+    status_code=status.HTTP_200_OK,
+    response_model=None,
+)
+async def transfer_reko_assignments(
+    from_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer from"),
+    to_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer to"),
+    event_id: uuid.UUID = Query(..., description="Event ID"),
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    request: Request = None,  # type: ignore[assignment]
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
+    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
+    # `| None` turns it into a Pydantic body field and the app fails at import.
+    current_user: CurrentEditor = None,  # type: ignore[assignment]
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Transfer all open reko assignments from one person to another.
+
+    Only transfers incidents that are in reko status (not yet completed).
+    """
+    # Get all reko assignments for the source person in this event
+    assignments = await reko_assign_crud.get_reko_assignments_for_personnel(db, event_id, from_personnel_id)
+
+    # Filter to only open assignments (incidents in reko status, not reko_done or later)
+    transferred: list[str] = []
+    for assignment in assignments:
+        incident = await incidents_crud.get_incident(db, assignment["incident_id"])
+        if incident and incident.status in ("incoming", "reko"):
+            # Unassign old person
+            await reko_assign_crud.unassign_reko_personnel_from_incident(
+                db, assignment["incident_id"], from_personnel_id
+            )
+            # Assign new person — still a Reko auftrag, so it keeps the purpose
+            # (a handover that quietly turned into a crew row would land the new
+            # person with a Rapport the old one never owed).
+            db_assignment = IncidentAssignment(
+                incident_id=assignment["incident_id"],
+                resource_type="personnel",
+                resource_id=to_personnel_id,
+                assigned_by=current_user.id if current_user else None,
+                purpose="reko",
+            )
+            db.add(db_assignment)
+            transferred.append(str(assignment["incident_id"]))
+
+    await db.commit()
+
+    # Broadcast updates
+    if background_tasks:
+        for inc_id in transferred:
+            background_tasks.add_task(
+                broadcast_assignment_update,
+                {
+                    "incident_id": inc_id,
+                    "resource_type": "personnel",
+                    "resource_id": str(to_personnel_id),
+                },
+                "create",
+            )
+
+    return {"transferred_count": len(transferred), "incident_ids": transferred}

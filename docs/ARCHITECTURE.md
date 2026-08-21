@@ -476,19 +476,30 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 | Master Token | Environment variable | Never | Editor-level API access |
 | Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
 | Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis |
-| Reko Dashboard Token | Generated in UI (QR code) | **24 hours** | The Reko person's list of forms for one Ereignis |
 | Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |
 | Alarm Token | Generated in UI (QR code) | **30 days** (720 h) | Public alarm intake – **write**: creates incidents in one Ereignis, rate-limited and flagged `source='intake'` |
-| Feld Token | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | The `/feld` field surface for one Ereignis |
+| Feld Token (link) | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | Nothing on its own – the right to be asked for the Feld-Code |
+| Feld Token (unlocked) | `POST /feld/unlock` with the four-digit code | **30 days** (720 h) | The crew picker for one Ereignis, and nothing else |
+| Feld Token (bound) | `POST /feld/claim` with your own name | **30 days** (720 h) | The `/feld` field surface, **as exactly one person** |
 
-> **The Feld token is a credential for the whole Ereignis, not for a person.** The unbound
-> token that both mint sites issue names only the event, and `GET /feld/personnel` hands any
-> holder of the link the full crew picker – so whoever has it can read, and write as, any crew
-> in that event. That is the price of one shared QR on a wall. The token format *does* support
-> binding to a single `personnel_id`, and every person-scoped `/feld` endpoint enforces it, but
-> nothing mints a bound token yet: neither the poster nor the printed slip knows who will drive.
-> Practical consequence: **a printed Einsatzzettel is a working credential for 30 days** –
-> collect them at the end of an Ereignis ([`SETUP.md`](SETUP.md) §7).
+> **The Feld door is three steps, and each hands out a strictly stronger token than the last**
+> (`backend/app/crud/feld/access.py`). The link alone opens nothing; the **Feld-Code** – four
+> digits shown on the board, next to the enlarged QR and on the printed Einsatzzettel – buys the
+> picker; naming yourself binds the device to one `personnel_id`, which every person-scoped
+> `/feld` endpoint enforces from then on. So a forwarded link is not a credential, and a device
+> cannot act as a colleague.
+>
+> What the code proves is **presence at this Ereignis, not identity**: somebody may still pick
+> the wrong name deliberately. That is the stated trust assumption of a brigade. Unlock attempts
+> are rate limited and throttled per IP and event, and a redeemed device is a row in
+> `feld_device_claims`, which is what makes **Alle Geräte abmelden** possible for a lost phone –
+> deliberately separate from **Neuer Code**, which only changes what *new* devices unlock with.
+>
+> Practical consequence: **a printed Einsatzzettel is a working credential for 30 days for
+> whoever also has the code** – it prints both, because a QR handed over without its code
+> strands the crew that scans it. Collect them at the end of an Ereignis
+> ([`SETUP.md`](SETUP.md) §7), and use **Neuer Code** when an Ereignis ends or a slip goes
+> missing.
 
 ---
 

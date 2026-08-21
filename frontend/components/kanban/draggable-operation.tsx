@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, CheckCircle2, ArrowRightLeft, Waypoints, FileText } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -167,6 +167,9 @@ function DraggableOperationBase({
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
   const tFeld = useTranslations('feld.board')
+  // The board's own wording for the Reko verdict — one label per fact, so the
+  // card and the detail never disagree about what «Kein Einsatz nötig» is called.
+  const tRekoSection = useTranslations('reko.reportSection')
   const trackPrint = usePrintJobToast()
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -327,6 +330,14 @@ function DraggableOperationBase({
     const element = ref.current
     if (!element) return
 
+    /** One place decides both hints, so they can never disagree: a card being
+     *  reordered gets the edge line and no ring, anything else gets the ring
+     *  and no line. */
+    const setDropHint = (reorder: boolean, selfData: Record<string | symbol, unknown>) => {
+      setIsOver(!reorder)
+      setClosestEdge(reorder ? extractClosestEdge(selfData) : null)
+    }
+
     return combine(
       ...(canDrag
         ? [
@@ -363,15 +374,25 @@ function DraggableOperationBase({
             { element, input, allowedEdges: ['top', 'bottom'] }
           )
         },
-        onDragEnter: ({ self }) => {
-          setIsOver(true)
-          const edge = extractClosestEdge(self.data)
-          setClosestEdge(edge)
-        },
-        onDrag: ({ self }) => {
-          const edge = extractClosestEdge(self.data)
-          setClosestEdge(edge)
-        },
+        // Two drops, two different questions — and until now one answer.
+        //
+        // Dragging a CARD over a card asks "where in the column?", and the
+        // closest-edge line is the right answer. Dragging a PERSON over a card
+        // asks "does this card take him?", and the same line answered "insert
+        // him between two cards", which is not a thing. It also pulled the aim
+        // to the gap BETWEEN cards, so the drop landed on the column instead of
+        // the card and looked like drag-and-drop was broken.
+        //
+        // So the edge line is now for card moves only, and a resource gets a
+        // ring around the card it would land on.
+        // Enter and move run the SAME body on purpose. An early return in
+        // `onDrag` left whatever `onDragEnter` had put there, so a card that
+        // never got a clean enter (the drag started on top of it, or the
+        // pointer crossed in from a sibling) kept a stale reorder line under a
+        // resource drag. Setting state to the value it already holds is a
+        // no-op in React, so the repetition costs nothing.
+        onDragEnter: ({ self, source }) => setDropHint(source.data.type === "operation", self.data),
+        onDrag: ({ self, source }) => setDropHint(source.data.type === "operation", self.data),
         onDragLeave: () => {
           setIsOver(false)
           setClosestEdge(null)
@@ -409,7 +430,12 @@ function DraggableOperationBase({
               // pulse the moment the pointer crosses it is hiding the one thing
               // the operator is scanning for.
               !isHighlighted && PRIORITY_CARD_CLASSES[priority],
-              isOver && 'bg-muted/20',
+              // The card a dragged person/Gerät would land on. A ring OUTSIDE
+              // the card (`ring-offset`) rather than a fill, so it reads as
+              // "this whole card takes it" and stays visible on every priority
+              // tint — the old `bg-muted/20` was invisible on all of them. Same
+              // treatment the side panel's Ressourcen block uses.
+              isOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5',
               // "Hier steht sie" — the answer to a click in the sidebar. The old
               // treatment was bg-muted/30 plus a border tint, which was quieter
               // than the selected card right next to it and got lost on a board
@@ -502,6 +528,19 @@ function DraggableOperationBase({
                   <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                 </div>
               )}
+              {/* Where the Meldung came from, as its own glyph: the phone desk
+                  took a call, a Trupp stood in front of the thing. Both are
+                  "somebody outside the KP said there is something here", and the
+                  difference decides how much of it the operator re-checks — so
+                  it is drawn, not left to the source field in the detail. */}
+              {operation.source === 'feld' && (
+                <div
+                  className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30"
+                  title={t('card.feldTooltip')}
+                >
+                  <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                </div>
+              )}
               {operation.amWarten && (
                 <div
                   className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30"
@@ -536,28 +575,32 @@ function DraggableOperationBase({
                   <Binoculars className="h-4 w-4 text-muted-foreground/80" />
                 </button>
               )}
-              {/* The Schadenplatz-Rapport — ONE glyph, two brightnesses. Filed =
-                  a quiet chip; missing on a card that already reached `complete`
-                  = the same paper dimmed, so the gap is visible without a dialog
-                  and without a block (decision 10 — a blocking gate is a gate
-                  people defeat with empty forms). */}
-              {/* Both brightnesses open the detail's Rapport tab: on a filed one
+              {/* The Schadenplatz-Rapport, filed or missing. Filed = the TICKED
+                  paper in success green — it lights up the same for a crew's
+                  rapport and one typed in the KP, and it must, because a grey
+                  FileText next to the grey Binoculars was unreadable as
+                  "erledigt". Missing on a card that already reached `complete`
+                  = the plain paper dimmed, so the gap is visible without a
+                  dialog and without a block (decision 10 — a blocking gate is
+                  a gate people defeat with empty forms). */}
+              {/* Both states open the detail's Rapport tab: on a filed one
                   that is where it is read, and on a missing one that is where it
                   gets written — the gap is the reason to click. */}
               {operation.hasSchadenplatzRapport ? (
                 <button
                   type="button"
                   onClick={openDetailFrom('rapport')}
-                  className="p-1.5 rounded-md bg-muted/60 transition-colors hover:bg-muted"
+                  className="p-1.5 rounded-md bg-success/10 transition-colors hover:bg-success/20"
                   title={tFeld('cardRapportTooltip')}
                   aria-label={tFeld('cardRapportTooltip')}
                 >
-                  <FileText className="h-4 w-4 text-muted-foreground/80" />
+                  <FileCheck className="h-4 w-4 text-success" />
                 </button>
               ) : operation.status === 'complete' && rapportApplies({
                   hasBeenDispatched: operation.hasBeenDispatched,
                   status: operation.status,
                   hasReport: operation.hasSchadenplatzRapportDraft,
+                  rekoNotRelevant: operation.rekoSummary?.isRelevant === false,
                 }) ? (
                 <button
                   type="button"
@@ -690,15 +733,22 @@ function DraggableOperationBase({
                 <div className="flex items-start gap-1.5" onClick={openDetailFrom('reko')}>
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
                   <div className="flex flex-wrap items-center gap-1 min-w-0">
+                    {/* `min-w-0 max-w-full shrink` overrides the Badge base's
+                        `shrink-0` (twMerge) so a lone chip SHRINKS and truncates
+                        its text instead of forcing the row onto a second line;
+                        the remove X keeps `shrink-0` so it never disappears.
+                        Same treatment on every chip row of this card. */}
                     <RemovableChip
                       variant="secondary"
-                      className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                      className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
                       onRemove={() => onRemoveReko?.()}
                       removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
-                      removeButtonClassName="hover:text-destructive cursor-pointer"
+                      removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                       removeIconClassName="h-2.5 w-2.5"
                     >
-                      <span>{operation.assignedReko.name}</span>
+                      {/* Never an empty chip: a name the roster lost renders as
+                          «Unbekannt», not as a blank pill. */}
+                      <span className="truncate">{operation.assignedReko.name.trim() || t('common.unknownResource')}</span>
                     </RemovableChip>
                     {/* Show arrival time if on site but report not yet submitted */}
                     {operation.rekoArrivedAt && !operation.hasCompletedReko && (
@@ -722,7 +772,7 @@ function DraggableOperationBase({
                           key={crewName}
                           variant="secondary"
                           className={cn(
-                            "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
+                            "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
                             isConflict && "border border-warning/60 text-warning-foreground bg-warning/10",
                           )}
                           title={
@@ -732,7 +782,7 @@ function DraggableOperationBase({
                           }
                           onRemove={() => onRemoveCrew(crewName)}
                           removeTitle={t('common.removeNamed', { name: crewName })}
-                          removeButtonClassName="hover:text-destructive cursor-pointer"
+                          removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                           removeIconClassName="h-2.5 w-2.5"
                         >
                           {/* Leading chip glyphs are h-3 throughout the card (the
@@ -743,7 +793,7 @@ function DraggableOperationBase({
                               star only renders for whoever actually holds the
                               role, so the chip row stays as dense as it was. */}
                           <LeaderBadge isLeader={operation.leaderName === crewName} />
-                          <span>{crewName}</span>
+                          <span className="truncate">{crewName.trim() || t('common.unknownResource')}</span>
                         </RemovableChip>
                       )
                     })}
@@ -771,14 +821,14 @@ function DraggableOperationBase({
                     {operation.zuFuss && (
                       <RemovableChip
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
                         onRemove={() => onToggleZuFuss?.()}
                         removeTitle={t('common.removeZuFuss')}
-                        removeButtonClassName="hover:text-destructive cursor-pointer"
+                        removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
                       >
                         <Footprints className="h-3 w-3 flex-shrink-0" />
-                        <span>{t('common.zuFuss')}</span>
+                        <span className="truncate">{t('common.zuFuss')}</span>
                       </RemovableChip>
                     )}
                     {operation.vehicles.map((vehicleName) => {
@@ -793,11 +843,11 @@ function DraggableOperationBase({
                       <RemovableChip
                         key={vehicleName}
                         variant="secondary"
-                        className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
+                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
                         title={callsign ? t('common.funkrufname', { callsign }) : undefined}
                         onRemove={() => onRemoveVehicle(vehicleName)}
                         removeTitle={t('common.removeNamed', { name: vehicleName })}
-                        removeButtonClassName="hover:text-destructive cursor-pointer"
+                        removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
                       >
                         <button
@@ -805,20 +855,36 @@ function DraggableOperationBase({
                             e.stopPropagation()
                             onToggleDriverStay?.(vehicleName)
                           }}
-                          className="flex items-center gap-1 cursor-pointer"
+                          // min-w-0 so the NAME truncates while the status pill
+                          // (shrink-0 below) stays whole — a long
+                          // «Name · Funkrufname (Fahrer)» must never wrap the
+                          // chip onto a second line.
+                          className="flex min-w-0 items-center gap-1 cursor-pointer"
                           title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                         >
-                          <span>
+                          <span className="truncate">
                             {vehicleName}{callsign ? ` · ${callsign}` : ''}
                             {driverName && (
                               <span className="text-muted-foreground"> ({driverName})</span>
                             )}
                           </span>
-                          {driverStay ? (
-                            <MapPin className="h-3 w-3 flex-shrink-0 text-muted-foreground/70" />
-                          ) : (
-                            <Undo2 className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" />
-                          )}
+                          {/* Short form on the card — «vor Ort» / «zurück» —
+                              because a Kanban column holds three of these chips
+                              side by side. The full sentence is on the surfaces
+                              that have the room: the assign dialog, the wall and
+                              the phone. What it is NOT any more is two 12px
+                              glyphs at different opacities. */}
+                          <span
+                            className={cn(
+                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4",
+                              driverStay
+                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                                : "bg-muted-foreground/15 text-muted-foreground",
+                            )}
+                          >
+                            {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}
+                            {driverStay ? t('common.driverStays') : t('common.driverReturns')}
+                          </span>
                         </button>
                       </RemovableChip>
                       )
@@ -847,14 +913,14 @@ function DraggableOperationBase({
                             <RemovableChip
                               key={`group-${group.id}`}
                               variant="secondary"
-                              className="text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
+                              className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
                               onRemove={() => matIds.forEach((matId) => onRemoveMaterial(matId))}
                               removeTitle={t('common.removeNamed', { name: group.name })}
-                              removeButtonClassName="hover:text-destructive cursor-pointer"
+                              removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                               removeIconClassName="h-2.5 w-2.5"
                             >
                               <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                              <span>{group.name}</span>
+                              <span className="truncate">{group.name}</span>
                             </RemovableChip>
                           ))}
                           {/* Ungrouped materials shown individually */}
@@ -871,16 +937,16 @@ function DraggableOperationBase({
                                 key={idx}
                                 variant="secondary"
                                 className={cn(
-                                  "text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
+                                  "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
                                   onSite && "bg-warning/15 text-warning-foreground",
                                 )}
                                 onRemove={() => onRemoveMaterial(materialId)}
                                 removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
-                                removeButtonClassName="hover:text-destructive cursor-pointer"
+                                removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                                 removeIconClassName="h-2.5 w-2.5"
                               >
                                 {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
-                                <span>{material?.name || materialId}</span>
+                                <span className="truncate">{material?.name || materialId}</span>
                               </RemovableChip>
                             )
                           })}
@@ -970,10 +1036,27 @@ function DraggableOperationBase({
               somebody went and looked at is a different kind of statement from
               everything above it. Its own switch, not the Meldung's (§18.12), so
               the rule disappears with the block on a card without a Reko. */}
-          {showRekoSummary && operation.rekoSummary && (
+          {/* Rendered only when the block has something to say. A «Kein Einsatz
+              nötig» report used to carry no dangers and no counts, so the block
+              was a section rule over nothing — the stray line under the Meldung
+              (image #19). The verdict itself is now the message (§P2.5). */}
+          {showRekoSummary && operation.rekoSummary && Boolean(
+            operation.rekoSummary.isRelevant === false ||
+            (operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0) ||
+            operation.rekoSummary.personnelCount ||
+            operation.rekoSummary.estimatedDuration
+          ) && (
             // What the Reko found — so the block opens the Reko tab, which is
             // where the whole report is.
             <div className={cn(SECTION_RULE, "space-y-3")} onClick={openDetailFrom('reko')}>
+              {/* The Reko's verdict, where it says «nothing to do here»: the
+                  one sentence that tells an operator this card can close. */}
+              {operation.rekoSummary.isRelevant === false && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{tRekoSection('notNeeded')}</span>
+                </div>
+              )}
               {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
                 <div className="flex items-start gap-1.5">
                   {/* Chips, so the same offset the resource rows use (mt-1), and
@@ -990,14 +1073,16 @@ function DraggableOperationBase({
                 </div>
               )}
 
-              <div className="text-xs text-muted-foreground">
-                {operation.rekoSummary.personnelCount && (
-                  <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
-                )}
-                {operation.rekoSummary.estimatedDuration && (
-                  <span>{operation.rekoSummary.estimatedDuration}h</span>
-                )}
-              </div>
+              {Boolean(operation.rekoSummary.personnelCount || operation.rekoSummary.estimatedDuration) && (
+                <div className="text-xs text-muted-foreground">
+                  {operation.rekoSummary.personnelCount && (
+                    <span className="mr-3">{t('card.persCount', { count: operation.rekoSummary.personnelCount })}</span>
+                  )}
+                  {operation.rekoSummary.estimatedDuration && (
+                    <span>{operation.rekoSummary.estimatedDuration}h</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1056,16 +1141,12 @@ function DraggableOperationBase({
           </>
         )}
 
-        {/* Markieren — quick status flags */}
-        {(onToggleZuFuss || onToggleNachbarhilfe || onToggleAmWarten) && (
+        {/* Markieren — quick status flags. «Zu Fuss» is deliberately NOT here
+            any more: it lives in the vehicle assignment dialog (where the
+            not-a-vehicle choice belongs) and on the card's own zu-Fuss chip. */}
+        {(onToggleNachbarhilfe || onToggleAmWarten) && (
           <>
             <ContextMenuSeparator />
-            {onToggleZuFuss && (
-              <ContextMenuItem onClick={() => onToggleZuFuss()}>
-                <Footprints className="mr-2 h-4 w-4" />
-                {operation.zuFuss ? t('common.removeZuFuss') : t('card.markZuFuss')}
-              </ContextMenuItem>
-            )}
             {onToggleNachbarhilfe && (
               <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
                 <Building2 className="mr-2 h-4 w-4" />
@@ -1136,7 +1217,9 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
       nextProps.operation.rekoSummary?.dangerTypes ?? []
     ) ||
     (prevProps.operation.rekoSummary?.personnelCount !== nextProps.operation.rekoSummary?.personnelCount) ||
-    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration)
+    (prevProps.operation.rekoSummary?.estimatedDuration !== nextProps.operation.rekoSummary?.estimatedDuration) ||
+    // The card renders the verdict now («Kein Einsatz nötig», §P2.5).
+    (prevProps.operation.rekoSummary?.isRelevant !== nextProps.operation.rekoSummary?.isRelevant)
 
   // Check if assigned reko has changed. The card draws the name, so a person
   // renamed under the same id has to get through here too.
@@ -1193,6 +1276,11 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // Drawn next to the vehicle name, and edited in the fleet settings without
     // the incident itself changing at all.
     prevProps.operation.vehicles.every((v) => prevProps.operation.vehicleCallsigns?.get(v) === nextProps.operation.vehicleCallsigns?.get(v)) &&
+    // The driver in «Name · Funkrufname (Fahrer)» lives OUTSIDE the operation —
+    // useVehicleDrivers hands out a new Map identity per load, so identity is
+    // the change signal. Without this a reassigned driver stayed stale on the
+    // card until the incident itself changed.
+    prevProps.vehicleDrivers === nextProps.vehicleDrivers &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&

@@ -1,6 +1,8 @@
 """Database models for KP Rück system."""
 
+import secrets
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
@@ -239,6 +241,16 @@ class Event(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     training_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     auto_attach_divera: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # The four digits under the QR poster (plan 26, decision 22). It does not
+    # prove who somebody is — it proves they are at THIS Ereignis right now,
+    # which is the whole threat model: the brigade is trusted, a link that has
+    # been forwarded or left on a dashboard for three weeks is not.
+    #
+    # Regenerating it closes the door on a leaked code WITHOUT disturbing anyone
+    # already in the field: devices hold their own bound token and keep working
+    # (decision 30). Throwing people out is the separate, deliberate act of
+    # revoking the claims below.
+    feld_code: Mapped[str] = mapped_column(String(4), nullable=False, default=lambda: f"{secrets.randbelow(10000):04d}")
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -302,6 +314,75 @@ class EventAttendance(Base):
     )
 
 
+class FeldDeviceClaim(Base):
+    """One phone that entered the Feld-Code and said who it belongs to.
+
+    A `/feld` token is a JWT and therefore cannot be taken back — so the claim it
+    was minted against is recorded here and checked on every request. That buys
+    the two things a stateless token could not:
+
+    * **"Alle Geräte abmelden"** (decision 30): the emergency brake for a lost
+      phone. Revoking marks the rows, and every bound token pointing at one dies
+      on its next request. Note this is NOT what regenerating the code does —
+      that only changes what *new* devices unlock with, and confusing the two is
+      how the brake gets pulled by accident on a storm night.
+    * **the device count on the board** (decision 28): wide sharing of the code
+      becomes visible to the KP instead of being silently blocked, because
+      blocking real firefighters mid-storm is the worse failure.
+
+    Deliberately holds no user agent, no IP and no device fingerprint: the count
+    is what the KP needs, and this table sits on the one surface of kp-rueck that
+    touches citizen PII (§9).
+    """
+
+    __tablename__ = "feld_device_claims"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    personnel_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False
+    )
+    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_feld_device_claims_event", "event_id"),
+        # Every bound request checks its own claim by id, then whether it is
+        # still live — so the partial index is the one that matters in traffic.
+        Index(
+            "idx_feld_device_claims_live",
+            "event_id",
+            unique=False,
+            postgresql_where=sa_text("revoked_at IS NULL"),
+        ),
+    )
+
+
+class SpecialFunctionType(Base):
+    """The roles a person can hold for an Ereignis — data, not a CHECK constraint.
+
+    Pinned in the schema until plan 26 (decision 5), so a fourth role meant a
+    migration: exactly the sprawl "beyond reko and magazin" was asking to end.
+
+    **Only the values live here.** What a role *does* — which sections `/feld`
+    shows it, whether it owes a Rapport — stays in code, because a visibility
+    rule expressed as configuration is a far harder thing to keep correct than
+    a list of names. This table lets a station name a Verkehrsdienst; it does
+    not let it invent an authorization model.
+    """
+
+    __tablename__ = "special_function_types"
+
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label_de: Mapped[str] = mapped_column(String(64), nullable=False)
+    label_fr: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: UI only — the per-row ``driver_requires_vehicle`` CHECK is what enforces it.
+    requires_vehicle: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class EventSpecialFunction(Base):
     """Event-specific special function assignments for personnel (drivers, Reko, Magazin)."""
 
@@ -312,7 +393,13 @@ class EventSpecialFunction(Base):
     personnel_id: Mapped[UUID] = mapped_column(
         ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    function_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # RESTRICT: deleting a function type with active assignments must fail loudly,
+    # not quietly strip the Ereignis of its Reko (mirrors fk_special_function_type).
+    function_type: Mapped[str] = mapped_column(
+        String(20),
+        ForeignKey("special_function_types.key", ondelete="RESTRICT", name="fk_special_function_type"),
+        nullable=False,
+    )
 
     # For driver assignments: which vehicle they drive
     vehicle_id: Mapped[UUID | None] = mapped_column(
@@ -323,7 +410,6 @@ class EventSpecialFunction(Base):
     assigned_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     __table_args__ = (
-        CheckConstraint("function_type IN ('driver', 'reko', 'magazin')", name="valid_function_type"),
         # Driver assignments require a vehicle
         CheckConstraint(
             "(function_type != 'driver') OR (function_type = 'driver' AND vehicle_id IS NOT NULL)",
@@ -401,6 +487,11 @@ class Incident(Base):
     # provenance, carried as its own flag rather than folded into the NULL: the
     # board must not word a machine's inference as "im KP erfasst".
     field_arrived_by_automation: bool
+    # The effective Einsatzleiter's name (services.incident_leader): the active
+    # `is_leader` assignment when one exists, `leader_personnel_id` otherwise.
+    # Batched on so a completed incident — whose assignments were released —
+    # can still say who to call about it.
+    leader_name: str | None
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
@@ -412,8 +503,8 @@ class Incident(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str] = mapped_column(String(20), nullable=False)
     location_address: Mapped[str | None] = mapped_column(Text, nullable=True)
-    location_lat: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
-    location_lng: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
+    location_lat: Mapped[Decimal | None] = mapped_column(Numeric(10, 8), nullable=True)
+    location_lng: Mapped[Decimal | None] = mapped_column(Numeric(11, 8), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="incoming")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info (Melder/Anrufer)
@@ -432,6 +523,18 @@ class Incident(Base):
     # source_id), set when an incident is created from a pool alarm.
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="operator", server_default="operator")
     source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Who reported it from `/feld` — the firefighter who stood in front of it, or
+    # the Telefondienst who took the call. NULL for everything the KP created.
+    #
+    # `created_by` cannot carry this: it is a FK to `users`, and a field reporter
+    # has no login by design. The name used to live only in the audit row, which
+    # is fine for "who was that" and useless for the thing it is needed for —
+    # showing somebody the Meldungen they made, so a wrong house number can be
+    # corrected by the person who typed it instead of over the radio.
+    # SET NULL: deleting a person off the roster must not delete their Meldung.
+    reported_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # Manual sort order within a status column (lower = higher on the board). Operators
     # reorder cards to prioritize alarms; this is the persisted, shared order.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
@@ -737,6 +840,19 @@ class IncidentAssignment(Base):
     # free. At most one active personnel assignment per incident carries it
     # (enforced by the partial unique index below).
     is_leader: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # WHY this person is on this Schadenplatz — reconnoitring it, or working it.
+    #
+    # Until now the two were the same row: a Reko trupp is assigned exactly like
+    # a crew, and only `event_special_functions` said the person was "a Reko
+    # person" *for the event*. That is a statement about the person, not about
+    # this Schadenplatz, so nothing could tell the two apart per incident — and
+    # `rapport_applies` therefore asked a Reko trupp for a Schadenplatz-Rapport
+    # on a place it had only looked at.
+    #
+    # Set by the path the assignment came in through, never inferred afterwards.
+    # Meaningless for vehicles and material, which are never "reko"; they keep
+    # the default rather than carrying a NULL nobody would know how to read.
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="crew", server_default="crew")
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="assignments")
@@ -752,6 +868,7 @@ class IncidentAssignment(Base):
 
     __table_args__ = (
         CheckConstraint("resource_type IN ('personnel', 'vehicle', 'material')", name="valid_resource_type"),
+        CheckConstraint("purpose IN ('crew', 'reko')", name="valid_assignment_purpose"),
         # One ACTIVE assignment per resource per incident. This used to be a plain
         # UniqueConstraint over (incident_id, resource_type, resource_id, unassigned_at),
         # which enforced nothing where it mattered: active rows carry unassigned_at = NULL,
@@ -775,6 +892,9 @@ class IncidentAssignment(Base):
         Index("idx_assignments_unassigned", "unassigned_at"),
         # Compound index for active assignment queries: finding all active resources for an incident
         Index("idx_assignments_incident_active", "incident_id", "resource_type", "unassigned_at"),
+        # Every /feld visibility query filters personnel rows by purpose, so the
+        # index carries it alongside the columns those queries already use.
+        Index("idx_assignments_personnel_purpose", "resource_id", "resource_type", "purpose"),
         # One Einsatzleiter per incident, enforced in the database rather than by
         # convention: two concurrent editors each promoting someone would
         # otherwise leave the board showing two leaders and no way to tell which
@@ -1082,6 +1202,38 @@ class SchadenplatzReport(Base):
     __table_args__ = (UniqueConstraint("incident_id", name="uq_schadenplatz_report_incident"),)
 
 
+class IncidentFieldMessage(Base):
+    """A short free-text message from the KP to the squad at one Schadenplatz (sweep 27 §P3.2).
+
+    The mirror of the crew's «Meldung vom Feld» — which needs no table because it
+    becomes a notification (how the KP sees it now) plus an audit entry (how it
+    survives). The KP has neither: `/feld` reads no notifications and no audit
+    log, so a message going the other way needs a row the assignments payload can
+    carry. Deliberately not a chat: one direction, no threads, no read receipts —
+    a timestamped sentence with the sender's display name, exactly what a radio
+    message is.
+
+    ``author_name`` is denormalised at write time on purpose: `/feld` is a
+    login-less door and must not join against ``users`` to render a name, and the
+    name as it was when the message was sent is the honest record anyway.
+    """
+
+    __tablename__ = "incident_field_messages"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    author_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("idx_incident_field_messages_incident", "incident_id"),)
+
+
 # ============================================
 # AUDIT LOGGING
 # ============================================
@@ -1242,11 +1394,14 @@ class Notification(Base):
             "'time_overdue', 'no_personnel', 'no_materials', 'personnel_fatigue', "
             "'missing_location', 'event_size_limit', 'reko_submitted', 'reko_arrived', "
             "'training_emergency', 'vehicle_arrived', "
-            # Field reporting (/feld). 'field_pickup' is the only warning of the five —
-            # a crew waiting to be collected is the one field event that is time-critical
-            # for the KP; the rest are info.
+            # Field reporting (/feld). 'field_pickup' is the only one that is
+            # always a warning — a crew waiting to be collected is the field
+            # event that is time-critical for the KP. 'field_report' (a new
+            # Schadenplatz reported from the field) picks its severity per
+            # Meldung: info while it sits in Eingegangen, warning when the crew
+            # took it on and it skipped that column entirely.
             "'rapport_submitted', 'field_arrived', 'field_complete', 'field_message', "
-            "'field_pickup'"
+            "'field_pickup', 'field_report'"
             ")",
             name="valid_notification_type",
         ),

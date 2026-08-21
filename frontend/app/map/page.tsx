@@ -13,7 +13,6 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
-import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
@@ -21,7 +20,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { Card } from "@/components/ui/card"
-import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench, ArrowLeft } from "lucide-react"
+import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -40,6 +39,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
@@ -54,6 +54,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 // The board's shortcut hook owns the canonical "should this keystroke reach the
@@ -82,17 +83,25 @@ const MapView = dynamic(() => import("@/components/map-view"), {
  * so the same TLF looked like two different things depending on which surface
  * you were looking at. `max-w-full` on top of the shared classes because the
  * rail is 320px and a long Gerätename has to ellipsise rather than push the
- * card sideways.
+ * card sideways. `min-w-0 shrink` override the Badge base's `shrink-0`
+ * (twMerge) — without them a lone long chip refuses to shrink and shoves the
+ * row past the card edge instead of truncating; same guard as the board card.
  */
-const RAIL_CHIP = "text-xs px-1.5 py-0.5 font-normal max-w-full"
+const RAIL_CHIP = "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal"
 
-/** «Bastian Eichenberger» → «B.E». Tolerates single-word and empty names, which
- *  the previous inline version indexed into unguarded. */
-function crewInitials(name: string): string {
-  const [first = "", second = ""] = name.trim().split(/\s+/)
-  if (!first) return name
-  return `${first[0]}.${second[0] ?? ""}`
-}
+/**
+ * Plain-letter shortcuts for «Färben nach», German mnemonics: P­riorität,
+ * Re**k**o-Person, F­ahrzeug, Einsatzart (= T­yp), A­uftrag. Ordered — the
+ * Ansicht menu maps over this list, so the menu and the keys can't drift.
+ * The letters s/z/e/r/l/i/g are already taken by other map shortcuts.
+ */
+const COLOR_BY_SHORTCUTS: ReadonlyArray<readonly [key: string, dim: ColorByDimension]> = [
+  ['p', 'priority'],
+  ['k', 'reko'],
+  ['f', 'vehicle'],
+  ['t', 'type'],
+  ['a', 'auftrag'],
+]
 
 export default function MapPage() {
   const t = useTranslations('map')
@@ -117,6 +126,9 @@ export default function MapPage() {
     deleteOperation
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
+  // vehicle name → driver name, live — the rail's vehicle chips carry the same
+  // «Name · Funkrufname (Fahrer)» line the board card shows.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
   const { isAuthenticated, isEditor } = useAuth()
   const {
     groups,
@@ -137,6 +149,13 @@ export default function MapPage() {
   )
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  // Which tab (and block inside it) the modal should land on when something
+  // pointed at more than "this incident" — the completion gate's «Reko-Details
+  // öffnen», for one. The nonce is what makes a second deep link to the SAME
+  // incident move the tab again.
+  const [detailOnTab, setDetailOnTab] = useState<
+    { tab: OperationDetailTab; nonce: number; section?: OperationDetailSection } | null
+  >(null)
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
   const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
@@ -198,10 +217,12 @@ export default function MapPage() {
     const saved = localStorage.getItem(COLOR_BY_STORAGE_KEY)
     if (saved === 'reko' || saved === 'vehicle' || saved === 'type' || saved === 'priority' || saved === 'auftrag') setColorBy(saved)
   }, [])
-  const setColorByPersisted = (value: ColorByDimension) => {
+  // Stable (useCallback) because both the map's keydown handler and the
+  // command-palette registration close over it.
+  const setColorByPersisted = useCallback((value: ColorByDimension) => {
     setColorBy(value)
     if (typeof window !== 'undefined') localStorage.setItem(COLOR_BY_STORAGE_KEY, value)
-  }
+  }, [])
   // Remembers the coloring active before "Aufträge anzeigen" auto-switched to
   // color-by-Auftrag, so turning routes back off restores the prior dimension.
   const preRoutesColorByRef = useRef<ColorByDimension>('priority')
@@ -377,6 +398,7 @@ export default function MapPage() {
         setResetZoomTrigger((prev) => prev + 1)
         setSelectedIncidentId(null)
       },
+      onSetMapColorBy: setColorByPersisted,
       mapVehicleNames: vehicleTypes.map((v) => v.name),
       onFocusIncidentSearch: () => document.getElementById('map-search-input')?.focus(),
     })
@@ -406,24 +428,24 @@ export default function MapPage() {
   })
 
   // The bell's «angekommen» / «beendet» button works here too — the map is a
-  // full operating surface, and the move has to run through this page's own
-  // workflow gates rather than a second copy of them.
+  // full operating surface.
   //
-  // Depends on `requestCompletion`, NOT on the workflow object: that object is
+  // Depends on `changeStatusToTop`, NOT on the workflow object: that object is
   // rebuilt on every render, so depending on it re-registered the handler every
   // render — and registering is a setState in the notification context, which
   // renders again. That loop froze the whole Karte page, back button included.
   const { registerFieldActionHandler } = useNotifications()
-  const { requestCompletion } = statusWorkflow
+  // Same move as the board's handler and as the card's own nudge — see the note
+  // on `registerFieldActionHandler` in app/page.tsx for why «beendet» stops at
+  // Beendet / Rückfahrt instead of running the completion flow.
   useEffect(() => {
     if (!isEditor) return
     registerFieldActionHandler((incidentId, kind) => {
       storeFieldNudgeConfirmation(incidentId, kind)
-      if (kind === "complete") requestCompletion(incidentId)
-      else changeStatusToTop(incidentId, "active")
+      changeStatusToTop(incidentId, kind === "complete" ? "returning" : "active")
     })
     return () => registerFieldActionHandler(null)
-  }, [isEditor, registerFieldActionHandler, requestCompletion, changeStatusToTop])
+  }, [isEditor, registerFieldActionHandler, changeStatusToTop])
 
   const handleAssignRouteResource = (
     resourceType: 'crew' | 'vehicles' | 'materials',
@@ -631,11 +653,21 @@ export default function MapPage() {
     return arr
   }, [operations, colorBy, groups, t])
 
+  // «Auf der Karte öffnen» on an abgeschlossener Einsatz: the deep-linked
+  // incident must show even when its status group (Beendet, hidden by default)
+  // is filtered out. It rides as a one-time exception ON TOP of the filters —
+  // the filter toggles themselves stay untouched (Bastian's decided behavior).
+  // The exception lasts exactly as long as that incident stays selected;
+  // picking anything else lets the normal filters take over again.
+  const deepLinkExceptionId =
+    highlightParam && selectedIncidentId === highlightParam ? highlightParam : null
+
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
     () => {
       // Filter by status group
       const filtered = incidents.filter((inc) => {
+        if (inc.id === deepLinkExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
       })
@@ -651,7 +683,7 @@ export default function MapPage() {
         (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
-    [incidents, searchQuery, statusFilters, tIncidents, tKanban]
+    [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
   )
 
   // Toggle status filter
@@ -883,6 +915,16 @@ export default function MapPage() {
           setFocusVehicleTrigger((prev) => prev + 1)
         }
       }
+      // 'p'/'k'/'f'/'t'/'a' pick the "Färben nach" dimension — exactly a menu
+      // click, so the Reko-Modus and route-overlay colour overrides behave the
+      // same as if the Ansicht menu item had been chosen.
+      else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        const colorDim = COLOR_BY_SHORTCUTS.find(([key]) => key === e.key.toLowerCase())?.[1]
+        if (colorDim) {
+          e.preventDefault()
+          setColorByPersisted(colorDim)
+        }
+      }
       // Arrow keys to pan map (placeholder - would need to integrate with Leaflet map)
       // Note: Actual map panning would require access to the Leaflet map instance
       // For now, this is documented but not fully implemented
@@ -896,7 +938,7 @@ export default function MapPage() {
         clearTimeout(gPrefixTimeoutRef.current)
       }
     }
-  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes, gpsAvailable])
+  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes, gpsAvailable, setColorByPersisted])
 
   return (
     <ProtectedRoute>
@@ -904,19 +946,6 @@ export default function MapPage() {
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
-            {/* Arrived from the board with an incident in hand — say how to go
-                back, in words. The nav icons top right can do it too, but a
-                labelled way back belongs where the eye already is, and the
-                incident travels along so the board lands on the same card. */}
-            {highlightParam && (
-              <Link
-                href={`/?highlight=${highlightParam}`}
-                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
-              >
-                <ArrowLeft className="size-3.5" />
-                {t('page.backToBoard')}
-              </Link>
-            )}
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             <Badge variant="secondary" className="hidden sm:inline-flex">
               {t('page.activeBadge', { count: activeIncidents.length })}
@@ -951,6 +980,7 @@ export default function MapPage() {
               resetZoomTrigger={resetZoomTrigger}
               panTrigger={panTrigger}
               statusFilters={statusFilters}
+              filterExceptionId={deepLinkExceptionId}
               showAssignmentLines={showAssignmentLines}
               showDistances={showDistances}
               showLabels={showLabels}
@@ -1077,7 +1107,15 @@ export default function MapPage() {
                         </DropdownMenuCheckboxItem>
                         <DropdownMenuCheckboxItem
                           checked={showDistances}
-                          onSelect={(e) => { e.preventDefault(); setShowDistances(!showDistances) }}
+                          // A distance measures a line, so switching it on
+                          // switches «Linien» on too — otherwise the menu says
+                          // the lines are off while the map is drawing them.
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            const next = !showDistances
+                            setShowDistances(next)
+                            if (next) setShowAssignmentLines(true)
+                          }}
                         >
                           <span className="flex-1">{t('page.distance')}</span>
                         </DropdownMenuCheckboxItem>
@@ -1106,14 +1144,15 @@ export default function MapPage() {
                         {t('page.colorByRoutesOverride')}
                       </p>
                     )}
-                    {(['priority', 'reko', 'vehicle', 'type', 'auftrag'] as ColorByDimension[]).map((dim) => (
+                    {COLOR_BY_SHORTCUTS.map(([key, dim]) => (
                       <DropdownMenuItem
                         key={dim}
                         onSelect={(e) => { e.preventDefault(); setColorByPersisted(dim) }}
-                        className="cursor-pointer justify-between"
+                        className="cursor-pointer"
                       >
-                        {t(`colorBy.${dim}`)}
+                        <span className="flex-1">{t(`colorBy.${dim}`)}</span>
                         {colorBy === dim && <Check className="h-3.5 w-3.5" />}
+                        {!isMobile && <Kbd className="text-2xs">{key.toUpperCase()}</Kbd>}
                       </DropdownMenuItem>
                     ))}
                     {colorLegend.length > 0 && (
@@ -1224,7 +1263,7 @@ export default function MapPage() {
                                     driving job and whoever assigns it is looking
                                     at where things are, so the rail carries the
                                     same chip the board does — and, like there,
-                                    it IS the «Abholung erledigt» button:
+                                    it IS the «Abholung disponiert» button:
                                     completing the incident already released the
                                     crew, so this chip is the only thing left
                                     saying they are standing at the kerb.
@@ -1284,16 +1323,30 @@ export default function MapPage() {
                           {isExpanded && incident.assigned_vehicles && incident.assigned_vehicles.length > 0 && (
                             <div className="flex items-start gap-2">
                               <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex flex-wrap gap-1.5 flex-1">
-                                {incident.assigned_vehicles.map((vehicle) => (
-                                  <RemovableChip
-                                    key={vehicle.name}
-                                    variant="secondary"
-                                    className={RAIL_CHIP}
-                                  >
-                                    <span>{vehicle.name}</span>
-                                  </RemovableChip>
-                                ))}
+                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
+                                {/* Same «Name · Funkrufname (Fahrer)» line as the
+                                    board card, so the same TLF reads the same on
+                                    both surfaces. Truncates inside the chip — the
+                                    rail is 320px and a chip must not force it. */}
+                                {incident.assigned_vehicles.map((vehicle) => {
+                                  const callsign = operation?.vehicleCallsigns.get(vehicle.name)
+                                  const driverName = vehicleDrivers.get(vehicle.name)
+                                  return (
+                                    <RemovableChip
+                                      key={vehicle.name}
+                                      variant="secondary"
+                                      className={`${RAIL_CHIP} flex items-center gap-1`}
+                                      title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
+                                    >
+                                      <span className="min-w-0 truncate">
+                                        {vehicle.name}{callsign ? ` · ${callsign}` : ''}
+                                        {driverName && (
+                                          <span className="text-muted-foreground"> ({driverName})</span>
+                                        )}
+                                      </span>
+                                    </RemovableChip>
+                                  )
+                                })}
                               </div>
                             </div>
                           )}
@@ -1302,24 +1355,37 @@ export default function MapPage() {
                           {isExpanded && incident.assigned_personnel && incident.assigned_personnel.length > 0 && (
                             <div className="flex items-start gap-2">
                               <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex flex-wrap gap-1.5 flex-1">
-                                {/* Initials, because the rail is 320px wide and
-                                    a full crew of names would push everything
-                                    else below the fold — but the full name is
-                                    on the chip's tooltip, and the «EL» mark
-                                    rides along so the one person you would ring
-                                    is not reduced to two ambiguous letters. */}
-                                {incident.assigned_personnel.map((person) => (
-                                  <RemovableChip
-                                    key={person.name}
-                                    variant="secondary"
-                                    className={RAIL_CHIP}
-                                    title={person.name}
-                                  >
-                                    <LeaderBadge isLeader={operation?.leaderName === person.name} />
-                                    <span>{crewInitials(person.name)}</span>
-                                  </RemovableChip>
-                                ))}
+                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
+                                {/* Full names, same chips as the board card —
+                                    the rail used to shorten to initials, which
+                                    made the same person look different on the
+                                    two surfaces. Chips wrap; a single long name
+                                    ellipsises inside its chip instead of
+                                    stretching the rail. EL first is already the
+                                    adapter's order (decision 23). */}
+                                {incident.assigned_personnel.map((person, index) =>
+                                  person.name.trim() ? (
+                                    <RemovableChip
+                                      key={person.name}
+                                      variant="secondary"
+                                      className={`${RAIL_CHIP} flex items-center gap-1`}
+                                      title={person.name}
+                                    >
+                                      <LeaderBadge isLeader={operation?.leaderName === person.name} />
+                                      <span className="min-w-0 truncate">{person.name}</span>
+                                    </RemovableChip>
+                                  ) : (
+                                    // A nameless assignment must still show as
+                                    // *something*, never as an empty pill.
+                                    <RemovableChip
+                                      key={`unknown-${index}`}
+                                      variant="secondary"
+                                      className={`${RAIL_CHIP} text-muted-foreground italic`}
+                                    >
+                                      <span>{tKanban('common.unknownResource')}</span>
+                                    </RemovableChip>
+                                  )
+                                )}
                               </div>
                             </div>
                           )}
@@ -1328,7 +1394,7 @@ export default function MapPage() {
                           {isExpanded && incident.assigned_materials && incident.assigned_materials.length > 0 && (
                             <div className="flex items-start gap-2">
                               <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex flex-wrap gap-1.5 flex-1">
+                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
                                 {/* Was hard-cut at 15 characters, which turned
                                     «Tauchpumpe gross» into «Tauchpumpe gro»
                                     with nothing to say it had been cut. The
@@ -1365,6 +1431,7 @@ export default function MapPage() {
           operation={selectedOperation}
           open={detailModalOpen}
           onOpenChange={setDetailModalOpen}
+          openOnTab={detailOnTab ?? undefined}
           onUpdate={handleOperationUpdate}
           onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
@@ -1474,8 +1541,9 @@ export default function MapPage() {
           funkrufname={funkrufname}
           diveraEnabled={diveraEnabled}
           onOpenAssignment={handleOpenAssignmentDialog}
-          onOpenDetail={(operationId) => {
+          onOpenDetail={(operationId, tab, section) => {
             setSelectedOperationId(operationId)
+            setDetailOnTab(tab ? { tab, section, nonce: Date.now() } : null)
             setDetailModalOpen(true)
           }}
           onSendDivera={setDiveraDialogOp}

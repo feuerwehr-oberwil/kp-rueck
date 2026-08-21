@@ -5,12 +5,10 @@ import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
 const geocodeAddress = vi.hoisted(() => vi.fn().mockResolvedValue(null))
+const searchAddress = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 const getAllSettings = vi.hoisted(() => vi.fn().mockResolvedValue({}))
 
-vi.mock("@/lib/geocoding", () => ({
-  geocodeAddress,
-  searchAddress: vi.fn().mockResolvedValue([]),
-}))
+vi.mock("@/lib/geocoding", () => ({ geocodeAddress, searchAddress }))
 vi.mock("@/lib/api-client", () => ({ apiClient: { getAllSettings } }))
 vi.mock("next/dynamic", () => ({ default: () => () => null }))
 
@@ -69,5 +67,41 @@ describe("LocationInput", () => {
     await user.type(field, "Hinter dem Schulhaus{Enter}")
 
     expect(onAddressChange).toHaveBeenCalledWith("Hinter dem Schulhaus")
+  })
+
+  /**
+   * The regression: clicking a suggestion did nothing at all.
+   *
+   * mousedown blurred the input → `editing` went false → the committed address
+   * (empty) went back into the query → the search effect saw fewer than three
+   * characters and cleared the results → the row unmounted before mouseup, so
+   * its onClick never ran. The operator watched the list vanish and the field
+   * keep their half-typed text.
+   */
+  it("applies the suggestion that was clicked", async () => {
+    const onAddressChange = vi.fn()
+    const onCoordinatesChange = vi.fn()
+    const user = userEvent.setup()
+    searchAddress.mockResolvedValue([
+      { id: "1", formattedAddress: "Löchlimattstrasse, 4104 Oberwil", lat: 47.516659, lon: 7.56234 },
+    ])
+
+    renderWithIntl(
+      <LocationInput
+        address={null}
+        latitude={null}
+        longitude={null}
+        onAddressChange={onAddressChange}
+        onCoordinatesChange={onCoordinatesChange}
+        geocodeInitialAddress={false}
+      />,
+    )
+
+    await user.type(screen.getByRole("combobox"), "löchlimatt")
+    const option = await screen.findByText("Löchlimattstrasse, 4104 Oberwil")
+    await user.click(option)
+
+    expect(onAddressChange).toHaveBeenCalledWith("Löchlimattstrasse, 4104 Oberwil")
+    expect(onCoordinatesChange).toHaveBeenCalledWith(47.516659, 7.56234)
   })
 })

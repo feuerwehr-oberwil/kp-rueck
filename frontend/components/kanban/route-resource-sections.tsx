@@ -58,6 +58,11 @@ interface RouteResourceSectionsProps {
   onUnassign: (assignmentId: string) => void
   /** Optional badge rendered after each section count (e.g. "über Auftrag «…»"). */
   viaLabel?: ReactNode
+  /** vehicle name → driver name, so a Fahrzeug chip names who is behind the
+   *  wheel. Passed in rather than fetched here: this component stays
+   *  presentational, and every caller already holds the live map from
+   *  `useVehicleDrivers`. */
+  vehicleDrivers?: ReadonlyMap<string, string>
   readOnly?: boolean
   /** Promote a route-owned person to Einsatzleiter. A stop owns no resources,
    *  so for a grouped incident this is where the leader is set — one squad on
@@ -65,7 +70,7 @@ interface RouteResourceSectionsProps {
   onPromoteLeader?: (assignmentId: string) => void
 }
 
-export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabel, readOnly = false, onPromoteLeader }: RouteResourceSectionsProps) {
+export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabel, vehicleDrivers, readOnly = false, onPromoteLeader }: RouteResourceSectionsProps) {
   const t = useTranslations("kanban")
 
   return (
@@ -137,18 +142,23 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, viaLabe
         />
         <div className="flex flex-wrap gap-2">
           {resources.vehicles.length > 0 ? (
-            resources.vehicles.map((v) => (
-              <RemovableChip
-                key={v.assignmentId}
-                variant="default"
-                className="gap-1 pr-1 text-sm"
-                onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
-                removeTitle={t("common.removeNamed", { name: v.name })}
-                removeButtonClassName="ml-0.5 cursor-pointer hover:text-white"
-              >
-                {v.name}
-              </RemovableChip>
-            ))
+            resources.vehicles.map((v) => {
+              // «TLF 1 (M. Muster)» — the same chip wording the incident detail
+              // uses for a standalone Einsatz, so a route reads the same way.
+              const driverName = vehicleDrivers?.get(v.name)
+              return (
+                <RemovableChip
+                  key={v.assignmentId}
+                  variant="default"
+                  className="gap-1 pr-1 text-sm"
+                  onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
+                  removeTitle={t("common.removeNamed", { name: v.name })}
+                  removeButtonClassName="ml-0.5 cursor-pointer hover:text-white"
+                >
+                  {v.name}{driverName ? ` (${driverName})` : ""}
+                </RemovableChip>
+              )
+            })
           ) : (
             <p className="text-sm italic text-muted-foreground/60">{t("detail.noVehicles")}</p>
           )}

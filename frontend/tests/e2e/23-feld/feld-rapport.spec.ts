@@ -12,6 +12,7 @@ import {
   dismissOverlays,
   expectCardCount,
   generateFeldLink,
+  getFeldCode,
   pinLeader,
   selectEvent,
   setIncidentStatus,
@@ -59,6 +60,7 @@ interface FieldFixture {
   eventId: string;
   eventName: string;
   link: string;
+  code: string;
   incidents: TestIncident[];
   personnel: TestPersonnel[];
 }
@@ -121,17 +123,24 @@ async function arrangeField(
     eventId: event.id,
     eventName: event.name,
     link: await generateFeldLink(page.request, cookieHeader, event.id),
+    code: await getFeldCode(page.request, cookieHeader, event.id),
     incidents,
     personnel,
   };
 }
 
 /** A phone: its own context, no session cookie, nothing but the link. */
-async function fieldPhone(browser: Browser, link: string): Promise<{ page: Page; feld: FeldPage }> {
+async function fieldPhone(
+  browser: Browser,
+  link: string,
+  code: string,
+): Promise<{ page: Page; feld: FeldPage }> {
   const context = await browser.newContext();
   const page = await context.newPage();
   const feld = new FeldPage(page);
-  await feld.open(link);
+  // Every phone walks the door now (plan 26): the link is the right to be asked
+  // for the Feld-Code, and nothing more.
+  await feld.open(link, code);
   return { page, feld };
 }
 
@@ -150,8 +159,9 @@ async function openBoard(page: Page, fixture: FieldFixture) {
  *
  * By street, not by title: the card's heading is `formatLocation(operation.location)`
  * (`components/kanban/draggable-operation.tsx`) and the title appears nowhere on it,
- * so a title filter matches nothing at all. `/feld` is the other way round — its
- * rows are the title — which is why the two sides are located differently here.
+ * so a title filter matches nothing at all. Since plan 26 `/feld` leads with the
+ * address too — a crew standing on a street matches the street — so BOTH sides
+ * are now located the same way, by `street()`.
  */
 function card(page: Page, incident: TestIncident) {
   return page.getByTestId('incident-card').filter({ hasText: street(incident) }).first();
@@ -189,7 +199,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       card(authenticatedPage, incident).locator('[title="Schadenplatz-Rapport erfasst"]'),
     ).toHaveCount(0);
 
-    const { page: phone, feld } = await fieldPhone(browser, fixture.link);
+    const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await expect(phone.getByText(fixture.eventName)).toBeVisible();
 
@@ -197,7 +207,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       // The briefing is on the LIST, before the form is ever opened (decision 22).
       await expect(feld.leaderLine(leader.name).first()).toBeVisible();
 
-      await feld.openAssignment(incident.title);
+      await feld.openAssignment(street(incident));
       await expect(feld.rapportStateChip('kein Rapport').first()).toBeVisible();
 
       await feld.fileRapport('Keller ausgepumpt, Wasser stand 20 cm.');
@@ -227,12 +237,12 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     const cookieHeader = await cookieHeaderFor(authenticatedPage);
     await setIncidentStatus(authenticatedPage.request, cookieHeader, finished.id, 'active', 'complete');
 
-    const { page: phone, feld } = await fieldPhone(browser, fixture.link);
+    const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await feld.pickPerson(crew.name);
 
-      const runningRow = feld.assignmentRow(running.title);
-      const finishedRow = feld.assignmentRow(finished.title);
+      const runningRow = feld.assignmentRow(street(running));
+      const finishedRow = feld.assignmentRow(street(finished));
       await expect(runningRow).toBeVisible({ timeout: SMOKE_TIMEOUT });
       await expect(finishedRow).toBeVisible();
 
@@ -245,7 +255,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       await expect(finishedRow.getByText('Nicht mehr zugeteilt')).toBeVisible();
 
       // …and it is still there in the detail header, where the form opens.
-      await feld.openAssignment(finished.title);
+      await feld.openAssignment(street(finished));
       await expect(feld.leaderLine(leader.name).first()).toBeVisible();
       // The field keeps its explicit "I am done" (§18.17) — a crew on a phone
       // needs a definite moment, and this is where draft-vs-filed earns it.
@@ -265,10 +275,10 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
 
     await openBoard(authenticatedPage, fixture);
 
-    const { page: phone, feld } = await fieldPhone(browser, fixture.link);
+    const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
       await feld.pickPerson(crew.name);
-      await feld.openAssignment(incident.title);
+      await feld.openAssignment(street(incident));
 
       // «Einsatz beendet» asks first (§18.18) — from the field the report
       // cannot be taken back — and the Abholung follow-up opens by itself
@@ -324,10 +334,13 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     const detail = authenticatedPage.locator('[data-testid="operation-detail-content"]').first();
     await expect(detail).toBeVisible({ timeout: SMOKE_TIMEOUT });
 
-    // The rapport lives on the Rapport tab now — three tabs since the detail
-    // absorbed Ressourcen into Übersicht — and it is permanently open there,
-    // like the Reko-Berichte beside it. No accordion header to click.
-    await detail.getByRole('tab', { name: /^Rapport/ }).click();
+    // The rapport lives on the «Feld» tab — the panel carries everything that
+    // comes back from the field, not the Schadenplatz-Rapport alone, so a tab
+    // named after one of its sections hid the rest. Its `value` is still
+    // `rapport` (deep links, notification targets); only the label moved. It is
+    // permanently open there, like the Reko-Berichte beside it — no accordion
+    // header to click.
+    await detail.getByRole('tab', { name: /^Feld/ }).click();
     // ONE line says it: the section's own state chip. The dashed «Noch kein
     // Rapport» box under it said the same thing twice and made the normal state
     // of most Schadenplätze read as a fault (§18.16 revisited).

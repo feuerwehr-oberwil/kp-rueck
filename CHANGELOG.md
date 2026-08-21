@@ -28,6 +28,184 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **The field surface is one door for everyone in the field** (plan 26). `/feld` used to show a
+  person only the Schadenplätze they were personally assigned to. That rule could not see the
+  people it most needed to: a **driver** holds no assignment row at all — the *vehicle* is
+  assigned and the Ereignis says who drives it — and a **Magazin** person is assigned to nothing
+  anywhere. Both were invisible to the page and absent from its person picker. "Mine" is now the
+  union of four sources — own assignment, Reko auftrag, a vehicle you drive while it is out, and
+  material still on site — resolved in exactly one place so the picker and the authorization
+  check cannot drift apart.
+
+- **A Feld-Code on the door.** The `/feld` link *was* the credential: whoever held the URL could
+  read the whole person picker and write as any crew in the Ereignis. Defensible for a poster
+  inside a locked vehicle hall, indefensible for an Einsatzzettel that leaves in a vehicle and
+  stays valid for thirty days. The link now buys only the right to be asked for four digits; the
+  code is shown on the board and belongs on the printed poster next to the QR. Entering it and
+  naming yourself binds the device to one person, and from then on the server refuses to let it
+  act as anybody else. For a lost phone there is **Alle Geräte abmelden**, deliberately separate
+  from **Neuer Code** — a new code disturbs nobody already in the field, and conflating the two
+  is how the emergency brake gets pulled at 02:00 by mistake.
+
+- **Reko is filed from the crew's own page.** A Reko auftrag appears in the field list and opens
+  the Reko form directly, the way the old per-incident link did.
+
+- **A crew can report a Schadenplatz and take it on.** «Neue Meldung» puts what somebody is
+  standing in front of onto the board, with their name on it. If they say they will do it, the
+  crew's Auftrag simply gains a stop — resources belong to the route and already cover it, so
+  nothing is transferred and the job they are on keeps its own status. On a single job, that job
+  and the new one become a route.
+
+- **The roll call reaches the field.** Checking in from the crew's own page — the tablet at the
+  door keeps its page, this is the individual half, and it writes the same attendance record.
+  Checking *out* is deliberately not offered: abmelden from a phone in a vehicle edits the list
+  the KP is keeping, and the one person who cannot see that list is the one holding the phone.
+
+- **Roles are data.** A station can add a Verkehrsdienst without a migration. What a role *does*
+  stays in code — the table lets you name a role, not invent a permission model. Ships with
+  **Telefondienst**, which makes the phone desk a role rather than a page: the same «Meldung»
+  sheet writes down a call, with the Melder, landing as a phone report.
+
+- **The KP can answer.** «Meldung an den Trupp» — a short free-text message from the incident's
+  Meldungen thread to the squad's `/feld` page, the mirror of the Meldung vom Feld. One
+  direction, no chat: a timestamped sentence with the sender's name, kept in the incident's
+  Verlauf and the Einsatztagebuch like the crew's own words.
+
+- **The field sees that the KP acted.** An open Abholung on `/feld` now says «Vom KP gesehen»
+  once the warning was dismissed and «KP hat Mowa disponiert» once a vehicle was dispatched
+  after the request — and when the KP clears the request, the crew reads «Abholung disponiert»
+  instead of watching it silently vanish. All derived from what the board already does; no
+  operator ever clicks an acknowledge. The detail header also carries the board's status as one
+  quiet labelled word («KP: Disponiert»), which is the ack for everything else.
+
+- **The Einsatzzettel prints the Feld-Code under its QR.** The slip's second QR opens `/feld`
+  with that Schadenplatz preselected, and since the code exists that link on its own opens
+  nothing — a crew scanning it in the rain met a prompt they could not answer, because the code
+  is on the board and the board is where they are not. Link and code now travel on the same
+  piece of paper, which is also why a lost slip is answered with **Neuer Code** rather than a
+  shrug. An older print agent simply prints the QR as before.
+
+### Changed
+
+- **Die Übungssteuerung is laid out like the evening it runs.** Personal einchecken became its
+  own card instead of an afterthought in the generator, the Automatik moved into the generator
+  card it actually steers, and every Inject says in a sentence what it does to the board — an
+  «Inject» menu of seven bare verbs is a menu nobody dares press during a drill. The incident
+  rows stop overlapping their own buttons on a small screen, generated locations stop repeating
+  themselves, and a simulated Rückfahrt says out loud when the Magazin has no coordinates
+  instead of quietly doing nothing. Generated Reko and Rapport texts derive a plausible
+  Massnahme from the figures they invented, so a drill reads like a drill and not like filler.
+
+- **Notifications point at the thing they are about.** Clicking one keeps the sidebar open and
+  highlights the card it names rather than dropping the operator on the board to find it
+  themselves; the texts use the same short addresses the cards do. «Reko vor Ort» rings for the
+  first time (including for a simulated arrival), a Meldung vom Feld rings the bell, and a
+  new-incident notification stops repeating itself once the incident has visibly moved on.
+  «Auf der Karte öffnen» now works for a closed incident too — it is rendered and focused once,
+  without touching the filters the operator set.
+
+- **Field reports move the card themselves.** «Angekommen» puts the Schadenplatz in EINSATZ,
+  «Einsatz beendet» in BEENDET / RÜCKFAHRT — announced by the toast, recorded field-originated
+  in the Verlauf, strictly forward, and never into `complete` (closing stays the operator's,
+  with the release cascade and the material gate). The old «verschieben?» nudge survives only
+  where it is genuinely ambiguous: an operator logging a radio message may be recording
+  history, not news.
+
+- **The WebSocket works on split-origin deployments.** The Socket.IO connect authenticated via
+  the session cookie, which never reaches the backend when the API lives on its own domain
+  (Railway, kp.fwo.li → kp-api.fwo.li) — every connect was rejected and clients silently lived
+  on the 5-second polling fallback. The client now fetches a 60-second connect token
+  same-origin and passes it in the Socket.IO auth payload; the backend accepts either
+  credential, so same-origin stations are untouched.
+
+- **The sidebar tooltip stopped claiming an Einsatz that does not exist.** Hovering a person's
+  status icon now names the incident (short address) or the Auftrag they are actually on, or
+  their function («Fahrer Mowa», «Telefondienst») — the bare «Im Einsatz» is gone for mere
+  function holders.
+
+- **The board footer's QR buttons became one "Links & QR" sheet**, each row naming who the link
+  is for, on desktop and mobile alike. Clicking a QR enlarges it — for the recurring case of
+  somebody standing in the KP without the poster — and the enlarged Feld QR carries the code,
+  since the QR alone no longer gets anybody in. Check-In and Anzeige keep their own buttons —
+  one carries the Appell, the other picks which display to show — and are therefore *not* in the
+  sheet: the same link in two places with two different sets of controls is how an operator ends
+  up in the wrong one.
+
+- **«Wo» on a field Meldung is the board's own location field.** Search, suggestions and a map to
+  tap, instead of a box to type a street into one-handed in the rain. **Standort übernehmen** is
+  reverse-geocoded into it: a coordinate is not something the KP can read out over the radio.
+
+- **One dispatch payload now really does work against both KP Rück and KP Front.** The two apps
+  had converged the *shape* of `POST /api/alarms` and left the *limits* apart, with nothing
+  comparing them — so a relay built against one met a 422 from the other on its second
+  integration. `source` is now capped at 16 characters here, matching KP Front's column (nothing
+  shipped is longer than `training`), and the reserved-slug sets are a real union rather than a
+  claimed one: `feld` was reserved here and free there. The portable subset is pinned as cases in
+  `docs/alarm-intake-conformance.json`, byte-identical in both repositories, together with the
+  payloads the two legitimately answer differently so that list cannot grow unnoticed. A new
+  `alarm-contract-drift` CI job is the only thing that compares the two copies — the same split
+  the telemetry, alarm-vocabulary and roster-snapshot contracts already use. ⚠️ **If your
+  dispatch system sends a `source` slug longer than 16 characters, shorten it**; it was accepted
+  before this release and is refused now. `docs/RUNNING-BOTH.md` §3 has the five rules that keep
+  a body portable — it previously said the opposite, that the payloads were not interchangeable.
+
+### Removed
+
+- **`/reko-dashboard` is gone.** ⚠️ Its links now 404. It was the same page as the field surface
+  — pick your name, see your rows, open a form — and a Reko trupp uses `/feld` like everybody
+  else now. Nothing else was lost: the four endpoints the board used were never that page's and
+  moved to `/api/reko`.
+
+### Fixed
+
+- **The row says where the crew is in its own evening** — «Anfahrt», «Vor Ort», «Rückfahrt»,
+  read off the crew's own taps. A Schadenplatz somebody had finished sat at the top of the list
+  looking exactly like the one they were driving to. The board's own status stays off the rows,
+  deliberately: «Disponiert» is the KP's word for a decision they made, and a crew standing in
+  the water reads it as a claim about themselves. The journey is the part that *is* about them.
+  On an Auftrag the chip names only the stop actually being driven to or worked; the stops
+  behind it stay on the list, numbered and dimmed, because a route drawn in one weight answers
+  «du hast drei Stopps» when the question was «wo bin ich».
+
+- **A squad on an Auftrag had no line on the map.** Their vehicles belong to the *route* and
+  hold no assignment on any single stop, and the layer only ever read the stops' own vehicles —
+  so the one squad the KP had sent out as a single job was the one squad the map drew as
+  nowhere. Each route vehicle now draws one line, to the stop being worked. And «Distanz» drew
+  labels in open country with nothing to measure: a distance is a property of a line, so it
+  brings the line with it now.
+
+- **Clicking through the sidebar threw away the operator's zoom**, flying to zoom 16 on every
+  card, so working down a list zoomed in, out and in again. The scale is kept and only clamped
+  when it is outside the band where a marker can be read at all.
+
+- **A Materialwart who is also out on a Schadenplatz opened `/feld` to 38 rows of inventory**,
+  with their own two-stop Auftrag buried underneath where nobody scrolls — which reads as "the
+  field view shows no Einsätze". Their own work leads now and the table follows it, folded, with
+  the count it would otherwise state in its first line. For somebody with nothing else on, the
+  inventory still *is* the page.
+
+- **A crew assigned to an Auftrag saw nothing at all.** Resources assigned to a *route* cover
+  every stop on it — which is how a storm night is actually run, the KP puts the squad on the
+  route rather than on each tree — but the field surface only ever read per-incident rows. Those
+  crews got an empty list while standing on the job. It surfaced through «wir übernehmen das
+  gleich», which appended a stop and then showed the reporter nothing, and the same button left
+  the new Schadenplatz in *Eingegangen*, where the board reads it as an unhandled alarm while the
+  crew is already driving to it.
+
+- **Ticking somebody present in the Appell did not add them to the sidebar.** The board's roster
+  is everybody checked in, so the write was correct and simply told nobody until something else
+  happened to reload the board.
+
+- **A Reko trupp was being asked to file a Schadenplatz-Rapport for a place it had only looked
+  at.** A Reko person is assigned with an ordinary assignment row, and only the event-wide
+  function said otherwise — a statement about the person, not about that Schadenplatz. Rows now
+  record *why* somebody is on an incident, and only a working crew owes a Rapport. Ending an
+  Einsatz and requesting an Abholung are limited the same way; arriving and sending a Meldung are
+  not, because a Reko trupp does both.
+
+
 ## [0.6.0] – 2026-08-16
 
 ### Security

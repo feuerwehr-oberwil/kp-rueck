@@ -35,7 +35,7 @@ from app.models import (
     User,
 )
 from app.services.photo_storage import photo_storage
-from app.services.tokens import generate_feld_token
+from tests.conftest import feld_device_token
 
 
 @pytest.fixture(autouse=True)
@@ -349,7 +349,10 @@ class TestProvenance:
         incident = await _make_incident(db_session, test_event, test_user)
         person = await _make_person(db_session, "Muster Hans")
         await _assign(db_session, incident, person)
-        params = {"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)}
+        params = {
+            "token": await feld_device_token(db_session, test_event.id, person.id),
+            "personnel_id": str(person.id),
+        }
 
         await client.post(f"/api/feld/incidents/{incident.id}/arrived", params=params)
         await client.post(f"/api/feld/incidents/{incident.id}/complete", params=params)
@@ -396,7 +399,10 @@ class TestProvenance:
         await _assign(db_session, incident, person)
         await client.post(
             f"/api/feld/incidents/{incident.id}/arrived",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
         )
 
         corrected = datetime(2026, 8, 8, 22, 5, tzinfo=UTC)
@@ -432,7 +438,10 @@ class TestBothDirections:
         await _assign(db_session, incident, person)
         await client.post(
             f"/api/feld/incidents/{incident.id}/pickup",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"needed": True, "note": "zu Fuss"},
         )
 
@@ -462,7 +471,10 @@ class TestBothDirections:
 
         response = await client.post(
             f"/api/feld/incidents/{incident.id}/pickup",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"needed": False},
         )
         assert response.status_code == 200
@@ -887,7 +899,10 @@ class TestRapportParity:
 
         response = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"is_draft": True, "kurzbericht": "Keller ausgepumpt"},
         )
         assert response.status_code == 200
@@ -918,7 +933,10 @@ class TestRapportParity:
 
         await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             json={"is_draft": True, "kurzbericht": "Keller ausgepumpt"},
         )
         amended = await editor_client.put(
@@ -1129,7 +1147,10 @@ class TestPhotoParity:
 
         upload = await client.post(
             f"/api/feld/incidents/{incident.id}/photos",
-            params={"token": generate_feld_token(test_event.id), "personnel_id": str(person.id)},
+            params={
+                "token": await feld_device_token(db_session, test_event.id, person.id),
+                "personnel_id": str(person.id),
+            },
             files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
         )
         assert upload.status_code == 200

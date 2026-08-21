@@ -9,6 +9,7 @@ Tests cover:
 """
 
 import time
+import uuid
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -643,3 +644,89 @@ class TestWsRequireAuth:
             assert ws_manager.user_sessions["strict_sid_3"]["role"] is None
         finally:
             await ws_manager.disconnect("strict_sid_3")
+
+
+# ============================================
+# Auth-payload token (sweep 27 §P3.4)
+# ============================================
+
+
+class TestGetRoleFromWsAuth:
+    """The split-origin credential: a short-lived `ws` token in the Socket.IO
+    auth payload, minted by GET /api/auth/ws-token."""
+
+    def test_valid_ws_token_extracts_role(self):
+        from app.auth.security import create_ws_token
+        from app.websocket_manager import get_role_from_ws_auth
+
+        token = create_ws_token(uuid.uuid4(), "editor")
+        assert get_role_from_ws_auth({"token": token}) == "editor"
+
+    def test_an_access_token_is_not_a_connect_credential(self):
+        """`type` is checked: the session cookie's JWT must not double here."""
+        from app.websocket_manager import get_role_from_ws_auth
+
+        token = create_access_token(data={"sub": "u", "role": "editor"})
+        assert get_role_from_ws_auth({"token": token}) is None
+
+    def test_missing_empty_and_garbage_payloads(self):
+        from app.websocket_manager import get_role_from_ws_auth
+
+        assert get_role_from_ws_auth(None) is None
+        assert get_role_from_ws_auth({}) is None
+        assert get_role_from_ws_auth({"token": "not.a.jwt"}) is None
+        assert get_role_from_ws_auth({"token": 42}) is None
+
+
+class TestConnectWithAuthPayload:
+    """The connect handler accepts EITHER credential under strict mode."""
+
+    @pytest.mark.asyncio
+    async def test_strict_mode_accepts_a_ws_token_without_any_cookie(self, monkeypatch):
+        from app.auth.security import create_ws_token
+        from app.websocket_manager import connect as connect_handler
+        from app.websocket_manager import settings
+
+        monkeypatch.setattr(settings, "ws_require_auth", True)
+        token = create_ws_token(uuid.uuid4(), "viewer")
+
+        with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):
+            # No HTTP_COOKIE at all — the split-origin case.
+            result = await connect_handler("ws_auth_sid_1", {}, {"token": token})
+
+        try:
+            assert result is True
+            assert ws_manager.user_sessions["ws_auth_sid_1"]["role"] == "viewer"
+        finally:
+            await ws_manager.disconnect("ws_auth_sid_1")
+
+    @pytest.mark.asyncio
+    async def test_strict_mode_still_rejects_a_bad_payload(self, monkeypatch):
+        from app.websocket_manager import connect as connect_handler
+        from app.websocket_manager import settings
+
+        monkeypatch.setattr(settings, "ws_require_auth", True)
+
+        result = await connect_handler("ws_auth_sid_2", {}, {"token": "not.a.jwt"})
+
+        assert result is False
+        assert "ws_auth_sid_2" not in ws_manager.user_sessions
+
+    @pytest.mark.asyncio
+    async def test_the_cookie_path_is_unchanged(self, monkeypatch):
+        """Same-origin deployments keep working with the cookie alone."""
+        from app.websocket_manager import connect as connect_handler
+        from app.websocket_manager import settings
+
+        monkeypatch.setattr(settings, "ws_require_auth", True)
+        token = create_access_token(data={"sub": "u", "role": "editor"})
+        environ = {"HTTP_COOKIE": f"access_token={token}"}
+
+        with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):
+            result = await connect_handler("ws_auth_sid_3", environ, None)
+
+        try:
+            assert result is True
+            assert ws_manager.user_sessions["ws_auth_sid_3"]["role"] == "editor"
+        finally:
+            await ws_manager.disconnect("ws_auth_sid_3")

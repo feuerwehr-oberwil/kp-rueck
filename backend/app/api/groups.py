@@ -337,6 +337,14 @@ async def update_group_assignment(
     if not assignment or assignment.incident_group_id != group_id:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
+    # Re-read the Auftrag: `update_group_assignment` commits, which expires every
+    # instance in the session, and building a response from the stale reference
+    # lazy-loads outside the greenlet — a 500 on the one call that pins a route's
+    # Einsatzleiter. Which is why an Auftrag never had one.
+    group = await crud.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auftrag not found")
+
     # Every other write in this file broadcasts; without this the new
     # Einsatzleiter is visible only on the screen that set it, because polling
     # runs only while the socket is DOWN.

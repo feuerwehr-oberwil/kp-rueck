@@ -6,14 +6,16 @@ name: CI
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
 #   frontend-typecheck, frontend-unit-tests, frontend-build, images
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
-#   plus telemetry-drift, alarm-keyword-drift and roster-schema-drift — the ONLY checks that
-#   compare anything against kp-front; the in-repo hash tests cannot see the other repository.
-#   All three are held out of the required list on main until they have run a few times,
-#   because all three depend on a sibling repo being reachable. They are separate jobs on
+#   plus telemetry-drift, alarm-keyword-drift, roster-schema-drift and alarm-contract-drift —
+#   the ONLY checks that compare anything against kp-front; the in-repo hash tests cannot see
+#   the other repository.
+#   All four are held out of the required list on main until they have run a few times,
+#   because all four depend on a sibling repo being reachable. They are separate jobs on
 #   purpose, because they answer different questions: "could one app leak what the other
-#   strips", "could the two classify an alarm differently", and "could a station's roster
-#   snapshot be valid for one product and refused by the other".
-#   Both read `env.SIBLING_REPO` and SKIP (never fail) when it is empty or cannot be checked
+#   strips", "could the two classify an alarm differently", "could a station's roster
+#   snapshot be valid for one product and refused by the other", and "could one dispatch
+#   webhook be accepted by one app and refused by the other".
+#   All read `env.SIBLING_REPO` and SKIP (never fail) when it is empty or cannot be checked
 #   out, so a fork inherits an honest "not checked" rather than a red X against a repository
 #   it has nothing to do with. They still fail on real drift for the upstream pair.
 #
@@ -65,7 +67,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `develop` is here because leaving it out cost a whole cycle: 83 commits accumulated
+    # there with nothing running the gate, and the merge to main was going to be the first
+    # time anything type-checked the backend or ran a test in CI. It found 22 mypy errors
+    # and three stale E2E specs, none of which are expensive to fix on the day they are
+    # written and all of which are a bad surprise on release day.
+    branches: [main, develop]
   pull_request:
     branches: [main]
   # release.yml runs this whole gate against the tag before publishing images.
@@ -446,6 +453,79 @@ jobs:
             exit 1
           fi
 
+  # Fourth shared thing, and the one the other three predicted. Both products expose
+  # POST /api/alarms and the payload SHAPE was converged deliberately so a station wires its
+  # dispatch system once. The LIMITS were never converged and nothing compared them, so the
+  # promise was half true: source ≤20 here and ≤16 there, "feld" reserved here and free there,
+  # and a whitespace-only title refused here and accepted there — three ways for one relay to
+  # get two different answers, none of them visible until the second integration.
+  #
+  # docs/alarm-intake-conformance.json is the contract as cases rather than prose, byte-
+  # identical in both repos: `cases` is the portable subset both must answer the same way,
+  # `divergent` records the payloads they legitimately answer differently so the list cannot
+  # grow in silence. Each repo's test asserts its own column; only this job compares the file.
+  #
+  # Its own job again, same reasoning as the other three: a failure here means "a dispatch
+  # system valid for one product may be refused by the other", which is a different question
+  # from a leaked field, a misclassified alarm or a half-loaded roster.
+  alarm-contract-drift:
+    name: Alarm intake contract matches KP Front
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out the sibling repository
+        id: sibling
+        if: env.SIBLING_REPO != ''
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          path: .kp-front
+          fetch-depth: 1
+
+      - name: Diff the alarm intake conformance corpus
+        env:
+          SIBLING_STATUS: ${{ steps.sibling.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — cross-repo alarm contract check disabled for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable)."
+            echo "::notice::Skipping the alarm contract drift check. Set SIBLING_REPO in"
+            echo "::notice::.github/workflows/ci.yml to a repository this workflow can read, or to ''."
+            exit 0
+          fi
+          f="docs/alarm-intake-conformance.json"
+          theirs=".kp-front/$f"
+          if [ ! -f "$theirs" ]; then
+            echo "::error::$f is missing in ${SIBLING_REPO} — the intake contract has changed shape"
+            exit 1
+          fi
+          if diff -u "$theirs" "$f" > /tmp/alarm-contract.diff; then
+            echo "  ✓ $f"
+            exit 0
+          fi
+          echo "::error::$f has diverged from ${SIBLING_REPO}"
+          cat /tmp/alarm-contract.diff
+          echo ""
+          echo "A station running both points ONE dispatch system at both apps. This corpus is"
+          echo "the guarantee that the same body gets the same answer from each. Edited on one"
+          echo "side only, both suites stay green while the two intakes drift — which is exactly"
+          echo "how source ≤20/≤16 and the missing 'feld' slug survived until 2026-08-19."
+          echo ""
+          echo "Copy the file across, run BOTH suites (each asserts its own column), and land"
+          echo "the change in both repositories together. If a payload genuinely converged, it"
+          echo "moves from 'divergent' into 'cases' on both sides in the same change."
+          echo ""
+          echo "If this is a fork that means to differ, point SIBLING_REPO at your own kp-front"
+          echo "fork in .github/workflows/ci.yml, or set it to ''."
+          exit 1
+
   backend-security:
     name: Backend Security Scan
     runs-on: ubuntu-latest
@@ -604,12 +684,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `pnpm lint` is `eslint . --max-warnings 26`, and the repo sits at exactly 26. That is a
+      # `pnpm lint` is `eslint . --max-warnings 17`, and the repo sits at exactly 17. That is a
       # RATCHET, not slack: it is set to today's count on purpose so the number can only go
-      # down. All 26 are react-hooks/exhaustive-deps, each behaviour-relevant and each its own
+      # down. All 17 are react-hooks/exhaustive-deps, each behaviour-relevant and each its own
       # small decision (plan 18 §3) — which is why they are capped rather than silenced.
       #
-      # So if this step fails with "27 problems", the answer is almost never to raise the cap.
+      # So if this step fails with "18 problems", the answer is almost never to raise the cap.
       # Either fix the dependency array you just added, or — if you deliberately removed one —
       # lower the number in frontend/package.json to the new count in the same commit.
       - name: Run ESLint

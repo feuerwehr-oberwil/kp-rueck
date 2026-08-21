@@ -107,15 +107,27 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
     print("Creating sample incidents...")
     now = datetime.now()
 
+    # The addresses below are REAL Oberwil BL streets with their OpenStreetMap
+    # coordinates — the same verified set the training locations come from
+    # (`seed_training.FALLBACK_TRAINING_LOCATIONS`).
+    #
+    # They used to be «Musterstadt» invented streets pinned around 47.56 / 7.59,
+    # which is not Oberwil but the far side of the Rhein: every sample incident
+    # landed in the wrong village on the map, none of the addresses resolved,
+    # and the home-city stripping had nothing to strip — so a dev or staging
+    # board looked nothing like the one an operator actually reads. Sample data
+    # is what people learn the product on; it has to be somewhere real.
+    #
+    # Production seeds none of this at all (`is_production_environment`).
     incidents_data = [
         # Water-focused incidents (main focus)
         {
             "title": "Wasser im Keller Einfamilienhaus",
             "type": "elementarereignis",
             "priority": "medium",
-            "location_address": "Mühleweg 23, Musterstadt",
-            "location_lat": 47.5596,
-            "location_lng": 7.5886,
+            "location_address": "Mühlemattstrasse 18, 4104 Oberwil",
+            "location_lat": 47.5098844,
+            "location_lng": 7.5546250,
             "status": "active",
             "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
             "created_by": admin_user.id,
@@ -125,9 +137,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Überflutung Tiefgarage",
             "type": "elementarereignis",
             "priority": "high",
-            "location_address": "Hauptstrasse 95, Musterstadt",
-            "location_lat": 47.5610,
-            "location_lng": 7.5900,
+            "location_address": "Hauptstrasse 41, 4104 Oberwil",
+            "location_lat": 47.5139457,
+            "location_lng": 7.5561373,
             "status": "enroute",
             "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
             "created_by": admin_user.id,
@@ -137,9 +149,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Wasserschaden Mehrfamilienhaus",
             "type": "elementarereignis",
             "priority": "medium",
-            "location_address": "Bahnhofstrasse 45, Musterstadt",
-            "location_lat": 47.5580,
-            "location_lng": 7.5870,
+            "location_address": "Bottmingerstrasse 75, 4104 Oberwil",
+            "location_lat": 47.5157039,
+            "location_lng": 7.5588034,
             "status": "incoming",
             "description": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. 3 Stockwerke betroffen.",
             "created_by": admin_user.id,
@@ -149,9 +161,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Keller auspumpen Gewerbebetrieb",
             "type": "elementarereignis",
             "priority": "high",
-            "location_address": "Gewerbestrasse 12, Musterstadt",
-            "location_lat": 47.5620,
-            "location_lng": 7.5920,
+            "location_address": "Hohestrasse 120, 4104 Oberwil",
+            "location_lat": 47.5209493,
+            "location_lng": 7.5539767,
             "status": "reko",
             "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
             "created_by": admin_user.id,
@@ -162,9 +174,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Baum auf Strasse",
             "type": "elementarereignis",
             "priority": "medium",
-            "location_address": "Waldstrasse 78, Musterstadt",
-            "location_lat": 47.5630,
-            "location_lng": 7.5850,
+            "location_address": "Langegasse 97, 4104 Oberwil",
+            "location_lat": 47.5089777,
+            "location_lng": 7.5601529,
             "status": "active",
             "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
             "created_by": admin_user.id,
@@ -174,9 +186,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Ölspur Industriegebiet",
             "type": "oelwehr",
             "priority": "low",
-            "location_address": "Industriestrasse 8, Musterstadt",
-            "location_lat": 47.5570,
-            "location_lng": 7.5910,
+            "location_address": "Sägestrasse 9, 4104 Oberwil",
+            "location_lat": 47.5115481,
+            "location_lng": 7.5570202,
             "status": "complete",
             "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
             "created_by": admin_user.id,
@@ -187,9 +199,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Dachziegel lose nach Sturm",
             "type": "elementarereignis",
             "priority": "medium",
-            "location_address": "Kirchgasse 5, Musterstadt",
-            "location_lat": 47.5600,
-            "location_lng": 7.5895,
+            "location_address": "Binningerstrasse 57, 4104 Oberwil",
+            "location_lat": 47.5163022,
+            "location_lng": 7.5585081,
             "status": "complete",
             "description": "Mehrere Dachziegel durch Sturmböen gelöst. Absturzgefahr auf Gehweg. Bereich abgesperrt.",
             "created_by": admin_user.id,
@@ -201,9 +213,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "title": "Übung: Keller auspumpen",
             "type": "elementarereignis",
             "priority": "medium",
-            "location_address": "Übungsgelände Feuerwehr",
-            "location_lat": 47.5605,
-            "location_lng": 7.5890,
+            "location_address": "Hauptstrasse 36, 4104 Oberwil",
+            "location_lat": 47.5140370,
+            "location_lng": 7.5550833,
             "status": "reko",
             "description": "Übung Wasserschadeneinsatz mit Tauchpumpen und Wassersaugern.",
             "created_by": admin_user.id,
@@ -716,12 +728,32 @@ async def seed_database() -> None:
                 ("incident_time_display", "column"),  # start | column | total (per-device override in the UI)
             ]
 
+            # Station identity. Two different jobs, so two different values.
+            #
+            # A fresh PRODUCTION install belongs to a station we know nothing
+            # about, and the honest value there is one that reads as a
+            # placeholder — «Musterstadt» is meant to be replaced in
+            # Einstellungen, and docs/SETUP.md says so. Naming Oberwil there
+            # would look like a setting somebody had already made.
+            #
+            # Dev, demo and staging are the opposite case: they exist to be
+            # looked at, their sample incidents are real Oberwil addresses, and
+            # a home city that matches is what makes the board strip it off
+            # those addresses the way a real one does. The coordinates are the
+            # village centre, not a claim about anybody's Magazin.
             default_settings_data.extend(
                 [
                     ("firestation_name", "Feuerwehr Musterstadt"),
-                    ("firestation_latitude", "47.5596"),  # Generic Swiss location
+                    ("firestation_latitude", "47.5596"),
                     ("firestation_longitude", "7.5886"),
                     ("home_city", "Musterstadt, BL"),
+                ]
+                if is_production_environment()
+                else [
+                    ("firestation_name", "Feuerwehr Oberwil"),
+                    ("firestation_latitude", "47.5148"),
+                    ("firestation_longitude", "7.5577"),
+                    ("home_city", "Oberwil, BL"),
                 ]
             )
 

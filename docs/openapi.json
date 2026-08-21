@@ -850,6 +850,72 @@
         }
       }
     },
+    "/api/auth/ws-token": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Get Ws Token",
+        "description": "A short-lived token for the Socket.IO connect (sweep 27 §P3.4).\n\nThe socket's own auth reads the `access_token` cookie, which never reaches\nthe backend on split-origin deployments (Railway staging, kp.fwo.li →\nkp-api.fwo.li) — every connect was rejected under `ws_require_auth` and\nclients silently fell back to 5s polling. The frontend fetches this token\nsame-origin through its proxy (the cookie rides along HERE), then passes it\nin the Socket.IO `auth` payload; the connect handler accepts either.\n\nNot rate-limited beyond the client's own behaviour: it is fetched once per\nconnection attempt, requires a valid session, and grants nothing but a\n60-second connect.",
+        "operationId": "get_ws_token_api_auth_ws_token_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WsTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/microsoft-config": {
       "get": {
         "tags": [
@@ -4787,13 +4853,177 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/field-messages": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "List Field Messages",
+        "description": "The KP's messages to this Schadenplatz's squad, oldest first.",
+        "operationId": "list_field_messages_api_incidents__incident_id__field_messages_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KpFieldMessage"
+                  },
+                  "title": "Response List Field Messages Api Incidents  Incident Id  Field Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Send Field Message",
+        "description": "«Meldung an den Trupp» — the KP's half of the field message loop (sweep 27 §P3.2).\n\nSymmetric to the crew's Freitext-Meldung, and deliberately as small: one\nsentence, timestamped, with the sender's display name. The squad reads it on\n`/feld`, where it rides the polled assignments payload; the incident's\nVerlauf and the Meldungen thread read it back via `/timeline`.\n\nNo notification — a bell that tells the KP what the KP just typed would be\nnoise. The broadcast keeps other open boards in step.",
+        "operationId": "send_field_message_api_incidents__incident_id__field_messages_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KpFieldMessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KpFieldMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/reko-arrived": {
       "post": {
         "tags": [
           "incidents"
         ],
         "summary": "Set Reko Arrived",
-        "description": "\"Reko meldet: vor Ort\" over the radio (plan 26 §5.2, decision 15).\n\nThe KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token\nroute and therefore had nowhere to put a message that arrived by radio. It\nreuses `crud.mark_reko_arrived`'s body with the token lookup replaced, fires\nthe same notification and broadcasts the same two WebSocket events — **a\nboard watching for a field message must not be able to tell the difference\nin anything except the provenance line.**\n\nIdempotent, correctable and clearable: absent `arrived_at` means \"now\" and\nleaves an existing arrival alone, an explicit one lands at the time the\nmessage was actually given (five minutes ago, over the radio), and `null`\nclears it, because a mis-heard call is corrected rather than amended.\n\nThe arrival is displayed and written in exactly ONE place, the detail's\nFeldmeldungen row. Do not add a second control for it somewhere else.",
+        "description": "\"Reko meldet: vor Ort\" over the radio (plan 26 §5.2, decision 15).\n\nThe KP twin of `POST /api/reko/{incident_id}/arrived`, which is a form-token\nroute and therefore had nowhere to put a message that arrived by radio. It\nreuses `crud.mark_reko_arrived`'s body with the token lookup replaced and\nbroadcasts the same two WebSocket events — **a board watching for a field\nmessage must not be able to tell the difference in anything except the\nprovenance line.** The one deliberate difference: no `reko_arrived`\nnotification. The message came over the KP's own radio and the operator is\nlogging it — a bell/toast here would notify the KP of its own action (same\nrule as the KP-filed rapport). The field path (`POST /api/reko/…/arrived`)\nkeeps notifying.\n\nIdempotent, correctable and clearable: absent `arrived_at` means \"now\" and\nleaves an existing arrival alone, an explicit one lands at the time the\nmessage was actually given (five minutes ago, over the radio), and `null`\nclears it, because a mis-heard call is corrected rather than amended.\n\nThe arrival is displayed and written in exactly ONE place, the detail's\nFeldmeldungen row. Do not add a second control for it somewhere else.",
         "operationId": "set_reko_arrived_api_incidents__incident_id__reko_arrived_post",
         "parameters": [
           {
@@ -5275,6 +5505,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MaterialReturnResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Apply Rapport Material Decisions",
+        "description": "The completion gate's write-back: where the KP decided each unit stays.\n\nThe GET above is the gate's prefill; this is the confirmed answer going the\nother way. «Vor Ort» sets ``left_on_site`` on the rapport's checklist row\n(or \"Weiteres Material\" entry, addressed by name), «Magazin» clears it — so\nthe Restliste and the Abholliste reflect the KP's decision rather than only\nwhat the crew happened to tick.\n\nDeliberately a no-op (``applied: false``) when the incident has no rapport\nrow at all: a Schadenplatz that was never dispatched has nothing to record,\nand the board's own release — which the gate performs separately — is the\nwhole story there.",
+        "operationId": "apply_rapport_material_decisions_api_incidents__incident_id__rapport_material_return_patch",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RapportMaterialDecisionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportMaterialDecisionsResponse"
                 }
               }
             }
@@ -10974,7 +11288,7 @@
           "reko"
         ],
         "summary": "Generate Reko Link",
-        "description": "Generate Reko form link for an incident.\n\nRequires either an editor/admin login or a valid reko-dashboard link\ntoken whose event contains the incident (the dashboard runs on field\nphones without an account). A leaked form link must NOT allow minting\nfresh tokens for arbitrary incidents.\n\nArgs:\n    incident_id: The incident this reko is for\n    form_type: Type of form (default: reko)\n    personnel_id: Optional personnel who will do the reko\n    dashboard_token: Event-scoped reko-dashboard token (alternative to login)\n\nReturns shareable link with token.",
+        "description": "Generate the direct Reko link for an incident (editor/admin only).\n\n**With a `personnel_id` this is a `/feld` link, not a bare form link.** The\nlink the KP sends the Reko person carries a *bound* feld token — the same\nstrength the code exchange mints (plan 26, decision 18) — plus the incident\nas a deep link. Opening it lands the person on the field surface already\nauthenticated as themselves, and `/feld` routes a Reko auftrag straight\ninto the form. No code entry, no picker, and the Rapport/Meldung machinery\nis one tap away instead of on \"a separate page\".\n\nThe bound token is shorter-lived than the poster's (72 h vs 30 days): it is\na personal credential travelling through a messenger, and the person can\nalways re-enter through the poster QR once it expires. It is backed by a\ndevice claim, so \"alle Geräte abmelden\" recalls it like any other device.\n\nWithout a `personnel_id` (no Reko assigned) the old per-incident `/reko`\nform link is returned unchanged.",
         "operationId": "generate_reko_link_api_reko_generate_link_post",
         "parameters": [
           {
@@ -11012,22 +11326,6 @@
                 }
               ],
               "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "dashboard_token",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Dashboard Token"
             }
           },
           {
@@ -11398,194 +11696,14 @@
         }
       }
     },
-    "/api/reko-dashboard/generate-link": {
-      "post": {
-        "tags": [
-          "reko-dashboard"
-        ],
-        "summary": "Generate Reko Dashboard Link",
-        "description": "Generate Reko Dashboard link (editor only).\n\nReturns shareable link scoped to a specific event.",
-        "operationId": "generate_reko_dashboard_link_api_reko_dashboard_generate_link_post",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "description": "Event ID for Reko Dashboard",
-              "title": "Event Id"
-            },
-            "description": "Event ID for Reko Dashboard"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate Reko Dashboard Link Api Reko Dashboard Generate Link Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/reko-dashboard/personnel": {
+    "/api/reko/incidents/{incident_id}/available-reko": {
       "get": {
         "tags": [
-          "reko-dashboard"
-        ],
-        "summary": "List Reko Personnel",
-        "description": "Get list of Reko personnel for the dashboard.\n\nRequires valid token (no user authentication).\nReturns personnel with Reko function assigned for the event.",
-        "operationId": "list_reko_personnel_api_reko_dashboard_personnel_get",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Access token from generated link",
-              "title": "Token"
-            },
-            "description": "Access token from generated link"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RekoDashboardPersonnelListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/reko-dashboard/assignments/{personnel_id}": {
-      "get": {
-        "tags": [
-          "reko-dashboard"
-        ],
-        "summary": "Get Reko Assignments",
-        "description": "Get active incident assignments for a Reko personnel.\n\nRequires valid token (no user authentication).\nReturns list of incidents the personnel is assigned to.",
-        "operationId": "get_reko_assignments_api_reko_dashboard_assignments__personnel_id__get",
-        "parameters": [
-          {
-            "name": "personnel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Personnel Id"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Access token",
-              "title": "Token"
-            },
-            "description": "Access token"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RekoDashboardAssignmentsResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/reko-dashboard/incidents/{incident_id}/available-reko": {
-      "get": {
-        "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Get Available Reko Personnel",
         "description": "Get available Reko personnel for assignment to an incident.\n\nEditor only - used when assigning Reko personnel from incident card.\nReturns all Reko personnel with their assignment counts.",
-        "operationId": "get_available_reko_personnel_api_reko_dashboard_incidents__incident_id__available_reko_get",
+        "operationId": "get_available_reko_personnel_api_reko_incidents__incident_id__available_reko_get",
         "parameters": [
           {
             "name": "incident_id",
@@ -11654,14 +11772,14 @@
         }
       }
     },
-    "/api/reko-dashboard/incidents/{incident_id}/assign-reko": {
+    "/api/reko/incidents/{incident_id}/assign-reko": {
       "post": {
         "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Assign Reko Personnel",
         "description": "Assign Reko personnel to an incident.\n\nEditor only - creates a personnel assignment for the Reko person.\nIf another Reko person is already assigned, they will be unassigned first.",
-        "operationId": "assign_reko_personnel_api_reko_dashboard_incidents__incident_id__assign_reko_post",
+        "operationId": "assign_reko_personnel_api_reko_incidents__incident_id__assign_reko_post",
         "parameters": [
           {
             "name": "incident_id",
@@ -11740,14 +11858,14 @@
         }
       }
     },
-    "/api/reko-dashboard/incidents/{incident_id}/unassign-reko/{personnel_id}": {
+    "/api/reko/incidents/{incident_id}/unassign-reko/{personnel_id}": {
       "delete": {
         "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Unassign Reko Personnel",
         "description": "Unassign Reko personnel from an incident.\n\nEditor only - removes the personnel assignment for the Reko person.",
-        "operationId": "unassign_reko_personnel_api_reko_dashboard_incidents__incident_id__unassign_reko__personnel_id__delete",
+        "operationId": "unassign_reko_personnel_api_reko_incidents__incident_id__unassign_reko__personnel_id__delete",
         "parameters": [
           {
             "name": "incident_id",
@@ -11819,14 +11937,14 @@
         }
       }
     },
-    "/api/reko-dashboard/transfer-rekos": {
+    "/api/reko/transfer-rekos": {
       "post": {
         "tags": [
-          "reko-dashboard"
+          "reko"
         ],
         "summary": "Transfer Reko Assignments",
         "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).",
-        "operationId": "transfer_reko_assignments_api_reko_dashboard_transfer_rekos_post",
+        "operationId": "transfer_reko_assignments_api_reko_transfer_rekos_post",
         "parameters": [
           {
             "name": "from_personnel_id",
@@ -11999,13 +12117,357 @@
         }
       }
     },
+    "/api/feld/access": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Access",
+        "description": "The Feld-Code and how many devices are using it (editor only).",
+        "operationId": "get_feld_access_api_feld_access_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID",
+              "title": "Event Id"
+            },
+            "description": "Event ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAccessState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/access/regenerate": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Regenerate Feld Code",
+        "description": "A new code, for one that got around.\n\n**Nobody is logged out.** Devices already bound keep their token until the\nEreignis ends; only new unlocks need the new digits. That is what makes this\na cheap action — the expensive one is `/access/revoke-devices` below, and\nthe two are kept apart precisely so the cheap one is not feared and the\nexpensive one is not pressed by mistake (decision 30).",
+        "operationId": "regenerate_feld_code_api_feld_access_regenerate_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID",
+              "title": "Event Id"
+            },
+            "description": "Event ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAccessState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/access/revoke-devices": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Revoke Feld Devices",
+        "description": "The emergency brake: every bound device for this Ereignis is logged out.\n\nFor a lost phone or a code that ended up somewhere public. Everyone in the\nfield types the code again — including the crews currently standing at a\nSchadenplatz — so the UI states the device count before asking.",
+        "operationId": "revoke_feld_devices_api_feld_access_revoke_devices_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Event ID",
+              "title": "Event Id"
+            },
+            "description": "Event ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldAccessState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/unlock": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Unlock Feld",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns the picker in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.",
+        "operationId": "unlock_feld_api_feld_unlock_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldUnlockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldUnlockResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/claim": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Claim Feld Person",
+        "description": "Step 3: the device says who it is, and gets a token bound to that person.\n\nThis is where decision 18 actually happens. From here the token carries a\n``personnel_id`` the server enforces, so the device cannot act as a\ncolleague — no delivery channel, no Divera, no phone numbers needed.\n\nThe person must be someone this event holds something for; claiming an\narbitrary UUID gets the same 403 as claiming a stranger, so the endpoint is\nnot an oracle for which personnel ids exist.",
+        "operationId": "claim_feld_person_api_feld_claim_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldClaimResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/personnel": {
       "get": {
         "tags": [
           "feld"
         ],
         "summary": "List Feld Personnel",
-        "description": "The person picker: everyone with an assignment in this event.\n\nToken only — no login. Deliberately not the roster: a person with no\nassignment has nothing to file, and listing them would produce an empty page\nwith no explanation instead of the \"melde dich beim KP\" sentence.",
+        "description": "The person picker: everyone this event holds something for.\n\nNeeds an **unlocked** token — the picker is the one thing the code buys you\nbefore you have named yourself, and handing it to a bare link token would\ngive the whole roster back to anyone holding a forwarded URL.\n\nDeliberately not the roster of the brigade: a person the event holds nothing\nfor has nothing to do here, and listing them would produce an empty page\nwith no explanation instead of the \"melde dich beim KP\" sentence.\n\nSince plan 26 this includes drivers and Magazin people, who hold no\nassignment of their own and were therefore invisible to the old query.",
         "operationId": "list_feld_personnel_api_feld_personnel_get",
         "parameters": [
           {
@@ -12099,13 +12561,68 @@
         }
       }
     },
+    "/api/feld/material": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Material",
+        "description": "Every material in the station and where it is — the Magazin's own view.\n\n**Gated on the role, not on an assignment.** Every other read on this door\nis \"only what is yours\"; this one is deliberately the whole inventory,\nbecause that is the job — a Materialwart who can only see the units that\nhappen to hang off their own Schadenplätze cannot answer \"wo ist die zweite\nTauchpumpe?\", which is the question they are actually asked. So the check is\nthat the person holds `magazin` in this Ereignis; anyone else gets 403 and\nthe phone never offers them the section.\n\nNothing here names a person or a Melder — it is equipment and addresses the\nsame crew can already read off their own rows.",
+        "operationId": "get_feld_material_api_feld_material_get",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldMaterialResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents/{incident_id}/arrived": {
       "post": {
         "tags": [
           "feld"
         ],
         "summary": "Report Arrived",
-        "description": "\"Angekommen\" — the crew is at the Schadenplatz.\n\nUpserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to\nTrue: a row exists long before any form does) and stamps `arrived_at`.\n\n**Idempotent.** A second tap does nothing — a crew re-opening the page and\nhitting the big button again must not move a timestamp the KP has acted on.",
+        "description": "\"Angekommen\" — the crew is at the Schadenplatz.\n\nUpserts the Schadenplatz-Rapport row (that is why `is_draft` defaults to\nTrue: a row exists long before any form does), stamps `arrived_at`, and\n**moves the card to EINSATZ** (sweep 27 §P3.3 — the board follows the field\ninstead of asking; strictly forward, see `crud/feld/reports._auto_move`).\n\n**Idempotent.** A second tap does nothing — a crew re-opening the page and\nhitting the big button again must not move a timestamp the KP has acted on.",
         "operationId": "report_arrived_api_feld_incidents__incident_id__arrived_post",
         "parameters": [
           {
@@ -12172,7 +12689,7 @@
           "feld"
         ],
         "summary": "Report Field Complete",
-        "description": "\"Einsatz beendet\" — the crew has finished here.\n\nStamps `field_complete_reported_at` + `field_complete_reported_by` and\n**does not change `Incident.status`**: closing a Schadenplatz stays the\noperator's decision, which is the rule the column's own comment states.\n\nThe client asks the Abholung follow-up (\"Kommt ihr selbst zurück?\")\nimmediately afterwards and sends the answer to `/pickup` — deliberately a\nsecond call, so the *beendet* report reaches the KP even if the crew walks\naway from the question.",
+        "description": "\"Einsatz beendet\" — the crew has finished here.\n\nStamps `field_complete_reported_at` + `field_complete_reported_by` and\n**moves the card to BEENDET / RÜCKFAHRT** (sweep 27 §P3.3) — that column IS\nthe state the crew just described. `complete` stays the operator's alone:\nclosing a Schadenplatz runs the release cascade and the material gate.\n\nThe client asks the Abholung follow-up (\"Kommt ihr selbst zurück?\")\nimmediately afterwards and sends the answer to `/pickup` — deliberately a\nsecond call, so the *beendet* report reaches the KP even if the crew walks\naway from the question.",
         "operationId": "report_field_complete_api_feld_incidents__incident_id__complete_post",
         "parameters": [
           {
@@ -12293,6 +12810,285 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FieldReportState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/attendance/{personnel_id}": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Set Own Attendance",
+        "description": "Check yourself in or out of the Ereignis (plan 26, decision 10).\n\nThe individual half of `/check-in`, which stays a page in its own right for\nthe shared tablet at the door — one device for many people is a different\nproduct from a page built around a per-device \"this phone is Marco\" cookie.\n\n`require_access=False`: checking in is what somebody does *before* the KP\nhas given them anything, so requiring an assignment first would refuse\nexactly the people this exists for. The binding still means a device can\nonly check ITSELF in.\n\nReuses the board's own CRUD, so the roll call is one list however it was\nwritten — the field surface is not a second attendance record.",
+        "operationId": "set_own_attendance_api_feld_attendance__personnel_id__post",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Personnel Id"
+            }
+          },
+          {
+            "name": "present",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "description": "true = eingecheckt, false = abgerückt",
+              "title": "Present"
+            },
+            "description": "true = eingecheckt, false = abgerückt"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Report New Incident",
+        "description": "«Neue Meldung» — a Schadenplatz reported from the field (decision 14).\n\nThe reporter is a **known person standing in front of it**, which is the\nwhole difference from `/intake/alarm`: no Melder fields to fill in, the\nboard gets `source='feld'` with their name on the audit row, and the crew\ncan take the job on in the same tap.\n\nRate limited with INTAKE rather than FELD: this creates board state from a\nlogin-less door, and it is the one write here that a bored link-holder\ncould use to make a mess.",
+        "operationId": "report_new_incident_api_feld_incidents_post",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldIncidentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldIncidentCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/report": {
+      "put": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Correct Own Report",
+        "description": "Fix a Meldung you sent in yourself, before the KP disponiert it.\n\n**Not `_authorized_incident`.** That helper asks the visibility union \"is\nthis Schadenplatz yours to work on\", and the answer for a reported tree the\nKP has not dispatched is no — the reporter holds no assignment on it and\nshould not. The authorization here is a different, narrower sentence: *you\nare the person this row says reported it*, which is one column comparison\nand cannot be widened by anything the union later decides.\n\nTwo more walls behind it: the status must still be «Eingegangen» (once a\ncrew is driving to an address, that address is not the reporter's to change\nfrom a phone), and the incident must belong to the token's Ereignis.",
+        "operationId": "correct_own_report_api_feld_incidents__incident_id__report_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who reported it",
+              "title": "Personnel Id"
+            },
+            "description": "Who reported it"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldIncidentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldOwnReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/incidents/{incident_id}/reko-link": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Mint Reko Link",
+        "description": "A short-lived form token so the Reko form can mount inside `/feld`.\n\nThe alternative was to widen ``validate_form_token`` to accept feld tokens,\nand that is exactly how a token type stops meaning anything (see the photo\nhandler below, which makes the same argument). Instead `/feld` runs its own\ntwo-step and then mints the *existing* per-incident form token — the same\none `/reko-dashboard` handed out — so neither token type learns about the\nother and the Reko form component is reused unchanged.\n\nGated on ``SOURCE_REKO``: only somebody the KP actually gave a Reko auftrag\nmay file one. A crew working the Schadenplatz reads the Reko as briefing and\nfiles a Schadenplatz-Rapport instead.",
+        "operationId": "mint_reko_link_api_feld_incidents__incident_id__reko_link_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The person filing",
+              "title": "Personnel Id"
+            },
+            "description": "The person filing"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Mint Reko Link Api Feld Incidents  Incident Id  Reko Link Post"
                 }
               }
             }
@@ -13390,6 +14186,86 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Setting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/special-functions/types": {
+      "get": {
+        "tags": [
+          "special-functions"
+        ],
+        "summary": "List Function Types",
+        "description": "The roles this station has (plan 26, decision 5).\n\nData rather than a CHECK constraint since plan 26, so a station can name a\nVerkehrsdienst without a migration. What each role *does* still lives in\ncode — this is the list of names, not a permission model.",
+        "operationId": "list_function_types_api_events__event_id__special_functions_types_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SpecialFunctionTypeResponse"
+                  },
+                  "title": "Response List Function Types Api Events  Event Id  Special Functions Types Get"
                 }
               }
             }
@@ -16345,6 +17221,102 @@
         }
       }
     },
+    "/api/training/events/{event_id}/simulate/field-report/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Simulate Field Report",
+        "description": "Inject «Neue Meldung»: the incident's Trupp reports a fresh emergency.\n\nTrains the REAL intake path (plan 26 §3, decision 14) — the same\n``create_field_report`` a crew's phone reaches, so the KP gets a genuine\n``source='feld'`` Schadenplatz in Eingegangen, the «Meldung vom Feld» bell,\nthe audit row with the reporter's name — not a trainer shortcut that plants\na finished card.\n\nThe reporter is drawn from the chosen incident's crew (leader-weighted, the\nsame pick as the rapport inject), because a Meldung's provenance is a known\nfirefighter standing in front of the thing. An incident with nobody\nassigned is refused: there is no Trupp to speak.\n\nThe new Schadenplatz inherits the parent's type and address — the crew\nreports what they found where they are standing — and the free text becomes\nthe Meldung (``description``), which is what the card prints and the KP\nreads out. Priority stays medium: triaging it is the operator's job.",
+        "operationId": "simulate_field_report_api_training_events__event_id__simulate_field_report__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateFieldReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateFieldReportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/events/{event_id}/simulate/arrived/{incident_id}": {
       "post": {
         "tags": [
@@ -17772,7 +18744,7 @@
         "properties": {
           "source": {
             "type": "string",
-            "maxLength": 20,
+            "maxLength": 16,
             "title": "Source",
             "default": "webhook"
           },
@@ -20110,7 +21082,8 @@
             "title": "Personnel Id"
           },
           "function_type": {
-            "$ref": "#/components/schemas/FunctionType"
+            "type": "string",
+            "title": "Function Type"
           },
           "vehicle_id": {
             "anyOf": [
@@ -20186,7 +21159,8 @@
             "title": "Personnel Name"
           },
           "function_type": {
-            "$ref": "#/components/schemas/FunctionType"
+            "type": "string",
+            "title": "Function Type"
           },
           "vehicle_id": {
             "anyOf": [
@@ -20494,6 +21468,25 @@
         "title": "ExcelImportResult",
         "description": "Result of Excel import operation."
       },
+      "FeldAccessState": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "device_count": {
+            "type": "integer",
+            "title": "Device Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "device_count"
+        ],
+        "title": "FeldAccessState",
+        "description": "What the board shows next to the Ereignis: the code, and who is using it.\n\n``device_count`` is live claims, not total ever — the number the KP can act\non. Editor-only: the code is a credential, however short."
+      },
       "FeldAssignment": {
         "properties": {
           "incident_id": {
@@ -20556,7 +21549,7 @@
           },
           "vehicles": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/FeldVehicleLine"
             },
             "type": "array",
             "title": "Vehicles",
@@ -20628,6 +21621,28 @@
             "type": "boolean",
             "title": "Is Active Assignment",
             "default": true
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "crew",
+              "reko",
+              "driver",
+              "magazin"
+            ],
+            "title": "Source",
+            "default": "crew"
+          },
+          "source_vehicle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Vehicle"
           },
           "rapport_state": {
             "type": "string",
@@ -20701,6 +21716,42 @@
             ],
             "title": "Pickup Requested At"
           },
+          "pickup_seen": {
+            "type": "boolean",
+            "title": "Pickup Seen",
+            "default": false
+          },
+          "pickup_vehicle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Vehicle"
+          },
+          "pickup_resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Resolved At"
+          },
+          "kp_messages": {
+            "items": {
+              "$ref": "#/components/schemas/KpFieldMessage"
+            },
+            "type": "array",
+            "title": "Kp Messages",
+            "default": []
+          },
           "leader_personnel_id": {
             "anyOf": [
               {
@@ -20723,6 +21774,40 @@
               }
             ],
             "title": "Leader Name"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "group_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Position"
           }
         },
         "type": "object",
@@ -20757,6 +21842,27 @@
             ],
             "title": "Personnel Role"
           },
+          "checked_in": {
+            "type": "boolean",
+            "title": "Checked In",
+            "default": false
+          },
+          "functions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Functions",
+            "default": []
+          },
+          "driver_vehicles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Driver Vehicles",
+            "default": []
+          },
           "event_id": {
             "type": "string",
             "format": "uuid",
@@ -20780,6 +21886,22 @@
             "type": "array",
             "title": "Message Chips",
             "default": []
+          },
+          "driver_message_chips": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Driver Message Chips",
+            "default": []
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/FeldOwnReport"
+            },
+            "type": "array",
+            "title": "Reports",
+            "default": []
           }
         },
         "type": "object",
@@ -20793,6 +21915,423 @@
         "title": "FeldAssignmentsResponse",
         "description": "Response for \"meine Einsatzstellen\"."
       },
+      "FeldClaimRequest": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id"
+        ],
+        "title": "FeldClaimRequest",
+        "description": "\"Ich bin das\" — the person this device belongs to from now on."
+      },
+      "FeldClaimResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "personnel_id"
+        ],
+        "title": "FeldClaimResponse",
+        "description": "The bound token. The device stores this and stops using the link token."
+      },
+      "FeldIncidentCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/IncidentType"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/IncidentPriority"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "take_over": {
+            "type": "boolean",
+            "title": "Take Over",
+            "default": false
+          },
+          "as_phone_call": {
+            "type": "boolean",
+            "title": "As Phone Call",
+            "default": false
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "type",
+          "priority"
+        ],
+        "title": "FeldIncidentCreate",
+        "description": "«Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.\n\nDeliberately narrower than the board's create and slightly wider than the\nphone-desk one: no Melder fields, because the reporter *is* the Melder and\nthe audit row already carries their name.\n\n``take_over`` is decision 3 and 14 together — \"wir übernehmen das gleich\".\nWhat it does depends on what the crew is already working; the endpoint\nanswers with which of the three it was."
+      },
+      "FeldIncidentCreated": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "takeover": {
+            "type": "string",
+            "enum": [
+              "none",
+              "stop",
+              "auftrag",
+              "solo"
+            ],
+            "title": "Takeover"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "takeover"
+        ],
+        "title": "FeldIncidentCreated",
+        "description": "What the phone gets back: the new Schadenplatz, and what became of it.\n\n``takeover`` says which of the three shapes happened, so the confirmation can\nbe specific — \"als Stop 3 im Auftrag\" reads very differently from \"gemeldet\"."
+      },
+      "FeldIncidentUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentPriority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "type": "object",
+        "title": "FeldIncidentUpdate",
+        "description": "A correction to a Meldung that has not been disponiert yet.\n\nEvery field optional and `None` means \"unchanged\", not \"clear it\": the phone\nsends the form back and a Meldung whose description was fixed must not lose\nits address to an omitted key. Clearing a text field is done with `\"\"`.\n\nNo ``take_over`` — taking a Schadenplatz on happens once, at the moment of\nreporting, and re-running that logic on an edit would silently rebuild an\nAuftrag around a crew that has moved on since."
+      },
+      "FeldMaterialItem": {
+        "properties": {
+          "material_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "home_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Location"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "out",
+              "left",
+              "in"
+            ],
+            "title": "State",
+            "default": "in"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FeldMaterialItem",
+        "description": "One piece of material and where it is right now — the Magazin's own view.\n\nThe Magazin person used to get a list of *Schadenplätze* their material was\nattached to, which answers the wrong question: they are looking after the\nmaterial, not the incidents. One row per unit, and `at` is either the\nSchadenplatz it is standing on or nothing at all, which means the Magazin."
+      },
       "FeldMaterialLine": {
         "properties": {
           "name": {
@@ -20803,6 +22342,17 @@
             "type": "integer",
             "title": "Count",
             "default": 1
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
           }
         },
         "type": "object",
@@ -20810,7 +22360,22 @@
           "name"
         ],
         "title": "FeldMaterialLine",
-        "description": "One line of the briefing's material list: a name and how many of it.\n\nGrouped by NAME rather than listed per assignment — \"Tauchpumpe ×2\" is what\na crew reads off a slip, while the per-unit rows (keyed on the assignment,\nwith their two ticks) are the *rapport's* job and live in\n``RapportMaterialRow``. Two lists, two questions: this one says what came\nwith you, that one asks what you did with it."
+        "description": "One line of the briefing's material list: a name and how many of it.\n\nGrouped per NAME and DEPOT rather than listed per assignment — two\nidentical pumps from one shelf are one line with a count, while the\nper-unit rows (keyed on the assignment, with their two ticks) are the\n*rapport's* job and live in ``RapportMaterialRow``. Two lists, two\nquestions: this one says what comes with you and **where to fetch it**\n(``location`` is the depot off the material catalogue), that one asks what\nyou did with it."
+      },
+      "FeldMaterialResponse": {
+        "properties": {
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/FeldMaterialItem"
+            },
+            "type": "array",
+            "title": "Materials",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "FeldMaterialResponse",
+        "description": "Every material in the station, with where it currently is."
       },
       "FeldMessageRequest": {
         "properties": {
@@ -20827,6 +22392,150 @@
         ],
         "title": "FeldMessageRequest",
         "description": "Freitext-Meldung an den KP — a chip or a typed sentence."
+      },
+      "FeldOwnReport": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          },
+          "vehicles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Vehicles",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "type",
+          "priority",
+          "status",
+          "created_at",
+          "editable"
+        ],
+        "title": "FeldOwnReport",
+        "description": "One Meldung this person sent in, for their own «Von mir gemeldet» list.\n\nCarries what the reporter needs to recognise it (address, time, what they\nwrote), what the board did with it (`status`, the vehicles on it), and\nwhether they may still correct it — `editable` is decided server-side by\n`report_is_editable`, so the phone never has to know the status vocabulary."
       },
       "FeldPersonnel": {
         "properties": {
@@ -20864,6 +22573,11 @@
             "type": "integer",
             "title": "Missing Rapport Count",
             "default": 0
+          },
+          "checked_in": {
+            "type": "boolean",
+            "title": "Checked In",
+            "default": false
           }
         },
         "type": "object",
@@ -20960,6 +22674,17 @@
             "title": "Dangers",
             "default": []
           },
+          "is_relevant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Relevant"
+          },
           "submitted_at": {
             "anyOf": [
               {
@@ -20987,6 +22712,96 @@
         "type": "object",
         "title": "FeldReko",
         "description": "What the Reko found here — the only *submitted* report, flattened.\n\nA draft Reko is somebody still typing and is deliberately absent: the field\nbriefing must not quote half a sentence back at the next crew as fact.\n``dangers`` carries the keys of ``DangersAssessment`` that are true, so the\nphone renders the same badges the board does instead of a second wording."
+      },
+      "FeldUnlockRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 1,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "FeldUnlockRequest",
+        "description": "The four digits from under the QR poster."
+      },
+      "FeldUnlockResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/FeldPersonnel"
+            },
+            "type": "array",
+            "title": "Personnel"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "personnel",
+          "event_id",
+          "event_name"
+        ],
+        "title": "FeldUnlockResponse",
+        "description": "The unlocked token, plus the picker it exists to let you read.\n\nBoth in one response because the only thing the caller can do next is find\ntheir own name, and a second round trip on a phone in the rain buys nothing."
+      },
+      "FeldVehicleLine": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver"
+          },
+          "stays": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stays"
+          },
+          "via_auftrag": {
+            "type": "boolean",
+            "title": "Via Auftrag",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FeldVehicleLine",
+        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle has no toggle —\n  ``GroupAssignmentUpdate`` carries ``is_leader`` and nothing else, so its\n  ``driver_stay`` column is whatever ``_mirror`` copied or the DB default,\n  and no operator can change it. Sending `False` there would print «fährt\n  zurück» on a phone as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
       },
       "FieldReportState": {
         "properties": {
@@ -21172,10 +22987,12 @@
         "enum": [
           "driver",
           "reko",
-          "magazin"
+          "magazin",
+          "telefondienst",
+          "kommandoposten"
         ],
         "title": "FunctionType",
-        "description": "Special function type enumeration."
+        "description": "The roles this release knows by name — documentation, not validation.\n\nKept as an enum for the ones the code actually *behaves* differently for and\nfor a readable OpenAPI. It is not the authority: since plan 26 (decision 5)\nthe values live in ``special_function_types`` so a station can add its own\nwithout a migration, and ``crud.special_functions`` validates against that\ntable.\n\nWhich is why nothing **types a field with it any more.** It used to sit on\nthe response schema, so a role the enum had never heard of was accepted on\nthe way in and then 500'd on the way out — the create schema said ``str``\nand the response said enum, and the docstring promised the behaviour the\nresponse denied. `kommandoposten` is the role that found it."
       },
       "GenerateEmergencyRequest": {
         "properties": {
@@ -21696,7 +23513,8 @@
             "type": "string",
             "enum": [
               "operator",
-              "intake"
+              "intake",
+              "feld"
             ],
             "title": "Source",
             "default": "operator"
@@ -22432,6 +24250,17 @@
             ],
             "title": "Pickup Requested By"
           },
+          "leader_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Name"
+          },
           "location_display": {
             "anyOf": [
               {
@@ -22588,7 +24417,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp')"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
       },
       "IncidentTimelineResponse": {
         "properties": {
@@ -22832,7 +24661,8 @@
             "type": "string",
             "enum": [
               "operator",
-              "intake"
+              "intake",
+              "feld"
             ],
             "title": "Source",
             "default": "operator"
@@ -22946,6 +24776,59 @@
         ],
         "title": "KnownProvider",
         "description": "One provider this build knows about, whether or not this station uses it.\n\nThe four domain fields above answer *who is active here*. This list answers *what could I\npoint at* — which is what makes a domain a choice rather than a vendor, and it is the only\nplace a provider that nobody has configured can be discovered at all.\n\n``implemented`` is false for a provider whose contract is published but whose ingestion is\nnot built. An entry that is discoverable and honest about being inert is worth having; a\nregistry that quietly implies everything listed works is not."
+      },
+      "KpFieldMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "author_name": {
+            "type": "string",
+            "title": "Author Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "incident_id",
+          "message",
+          "author_name",
+          "created_at"
+        ],
+        "title": "KpFieldMessage",
+        "description": "One «Meldung an den Trupp» — KP → field, the mirror of the Freitext-Meldung.\n\n``author_name`` is the sender's display name, denormalised at write time:\n`/feld` is a login-less door and must not resolve users to render a name."
+      },
+      "KpFieldMessageCreate": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "KpFieldMessageCreate",
+        "description": "The KP's payload: one sentence, same length cap as the field's own."
       },
       "ManualDispatchRequest": {
         "properties": {
@@ -24078,7 +25961,8 @@
           "field_arrived",
           "field_complete",
           "field_message",
-          "field_pickup"
+          "field_pickup",
+          "field_report"
         ],
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
@@ -25086,6 +26970,17 @@
               }
             ],
             "title": "Contact Phone"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
           }
         },
         "type": "object",
@@ -25095,7 +26990,7 @@
           "priority"
         ],
         "title": "PublicIncidentCreate",
-        "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and\noperator-only fields (internal_notes, nachbarhilfe, am_warten, …) are set later\nby an editor on the board. Validators mirror ``IncidentBase``."
+        "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and the\noperator-only flags (nachbarhilfe, am_warten, zu_fuss, the Auftrag, …) are set\nlater by an editor on the board. Validators mirror ``IncidentBase``.\n\nThe two free-text columns are NOT interchangeable, and the form's two text\nfields land in them the way the board reads them: ``description`` is what the\nboard labels «Meldung» — what the caller said the thing IS — and\n``internal_notes`` is «Notizen», the extra hints that came with the call.\nBefore this, the form's Meldung went into ``title``, which the board only ever\nshows as a fallback for a missing address, so the one sentence the caller\nactually gave was invisible on a card that had an address."
       },
       "RapportExtraMaterialRow": {
         "properties": {
@@ -25175,6 +27070,70 @@
           "name"
         ],
         "title": "RapportExtraPersonnelUpdate"
+      },
+      "RapportMaterialDecision": {
+        "properties": {
+          "material_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "left_on_site": {
+            "type": "boolean",
+            "title": "Left On Site"
+          }
+        },
+        "type": "object",
+        "required": [
+          "left_on_site"
+        ],
+        "title": "RapportMaterialDecision",
+        "description": "One unit's confirmed whereabouts, decided by the KP in the completion gate.\n\n``material_id`` addresses the roster units on the rapport's checklist;\n``name`` (without an id) addresses a \"Weiteres gebrauchtes Material\" entry,\nwhich never had one. ``left_on_site`` True is «Vor Ort», False is «Magazin»."
+      },
+      "RapportMaterialDecisionsRequest": {
+        "properties": {
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/RapportMaterialDecision"
+            },
+            "type": "array",
+            "title": "Decisions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "RapportMaterialDecisionsRequest",
+        "description": "The completion gate's write-back: the KP confirmed where each unit stays."
+      },
+      "RapportMaterialDecisionsResponse": {
+        "properties": {
+          "applied": {
+            "type": "boolean",
+            "title": "Applied",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RapportMaterialDecisionsResponse",
+        "description": "``applied`` is False when the incident has no rapport row to write to —\na Schadenplatz that was never dispatched has nothing to record, and the\ngate's decision is complete without it (the board release already happened)."
       },
       "RapportMaterialRow": {
         "properties": {
@@ -25689,216 +27648,6 @@
         "type": "object",
         "title": "RekoArrivedUpdate",
         "description": "\"Reko meldet: vor Ort\" as the KP hears it (plan 26 §5.2).\n\nThree shapes, and the difference between the last two is the point:\n\n* field **absent** — \"now\", and idempotent: an arrival already on the row is\n  left where it is, exactly as a crew's second tap is.\n* field **set** — that time. A radio message logged five minutes late has to\n  land at the right time or the board's waiting clocks lie.\n* field **null** — clear it. A mis-heard call is corrected, not amended, and\n  clearing takes the provenance with it: \"nobody has reported it\" is not a\n  KP report."
-      },
-      "RekoDashboardAssignment": {
-        "properties": {
-          "incident_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Incident Id"
-          },
-          "incident_title": {
-            "type": "string",
-            "title": "Incident Title"
-          },
-          "incident_type": {
-            "type": "string",
-            "title": "Incident Type"
-          },
-          "incident_status": {
-            "type": "string",
-            "title": "Incident Status"
-          },
-          "location_address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Address"
-          },
-          "location_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Display"
-          },
-          "location_lat": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Lat"
-          },
-          "location_lng": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Location Lng"
-          },
-          "assignment_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assignment Id"
-          },
-          "assigned_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assigned At"
-          },
-          "has_completed_reko": {
-            "type": "boolean",
-            "title": "Has Completed Reko",
-            "default": false
-          },
-          "is_active_assignment": {
-            "type": "boolean",
-            "title": "Is Active Assignment",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "incident_id",
-          "incident_title",
-          "incident_type",
-          "incident_status"
-        ],
-        "title": "RekoDashboardAssignment",
-        "description": "Incident assignment for Reko personnel (active or historical)."
-      },
-      "RekoDashboardAssignmentsResponse": {
-        "properties": {
-          "personnel_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Personnel Id"
-          },
-          "personnel_name": {
-            "type": "string",
-            "title": "Personnel Name"
-          },
-          "assignments": {
-            "items": {
-              "$ref": "#/components/schemas/RekoDashboardAssignment"
-            },
-            "type": "array",
-            "title": "Assignments"
-          }
-        },
-        "type": "object",
-        "required": [
-          "personnel_id",
-          "personnel_name",
-          "assignments"
-        ],
-        "title": "RekoDashboardAssignmentsResponse",
-        "description": "Response for Reko personnel assignments."
-      },
-      "RekoDashboardPersonnel": {
-        "properties": {
-          "personnel_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Personnel Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          },
-          "assignment_count": {
-            "type": "integer",
-            "title": "Assignment Count",
-            "default": 0
-          },
-          "open_count": {
-            "type": "integer",
-            "title": "Open Count",
-            "default": 0
-          },
-          "done_count": {
-            "type": "integer",
-            "title": "Done Count",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "personnel_id",
-          "name"
-        ],
-        "title": "RekoDashboardPersonnel",
-        "description": "Reko personnel with assignment status for dashboard list."
-      },
-      "RekoDashboardPersonnelListResponse": {
-        "properties": {
-          "personnel": {
-            "items": {
-              "$ref": "#/components/schemas/RekoDashboardPersonnel"
-            },
-            "type": "array",
-            "title": "Personnel"
-          },
-          "event_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Event Id"
-          },
-          "event_name": {
-            "type": "string",
-            "title": "Event Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "personnel",
-          "event_id",
-          "event_name"
-        ],
-        "title": "RekoDashboardPersonnelListResponse",
-        "description": "Response for Reko dashboard personnel list."
       },
       "RekoOpenAssignmentInfo": {
         "properties": {
@@ -27027,6 +28776,44 @@
         "title": "SimulateFieldCompleteRequest",
         "description": "The follow-up \"Einsatz beendet\" asks in the field (decision 24).\n\n``pickup_needed=None`` is the default and means *die Lage entscheidet*: the\nsimulator rolls it from the situation — a crew that walked there or whose\nvehicle drove on is usually stranded. The Übungsleiter can always override\nby sending the answer explicitly, which is the same choice the crew has on\n`/feld`."
       },
+      "SimulateFieldReportRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "SimulateFieldReportRequest",
+        "description": "The free text of a simulated «Neue Meldung» — what the Trupp says."
+      },
+      "SimulateFieldReportResponse": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "reported_by": {
+            "type": "string",
+            "title": "Reported By"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "reported_by",
+          "message"
+        ],
+        "title": "SimulateFieldReportResponse"
+      },
       "SimulateInjectResponse": {
         "properties": {
           "message": {
@@ -27133,6 +28920,46 @@
         ],
         "title": "SimulateVehicleBreakdownResponse",
         "description": "Result of a simulated vehicle breakdown."
+      },
+      "SpecialFunctionTypeResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_de": {
+            "type": "string",
+            "title": "Label De"
+          },
+          "label_fr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Fr"
+          },
+          "requires_vehicle": {
+            "type": "boolean",
+            "title": "Requires Vehicle",
+            "default": false
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label_de"
+        ],
+        "title": "SpecialFunctionTypeResponse",
+        "description": "One role a station can give somebody for an Ereignis.\n\nThe labels are columns rather than i18n keys on purpose: a station that adds\n\"Verkehrsdienst\" is naming its own role, and a name a brigade chose has no\nbusiness going through a translation round to appear on its own board. The\nroles that SHIP still read naturally in both languages because the seed\nfills both columns."
       },
       "StatusTransitionCreate": {
         "properties": {
@@ -28129,6 +29956,25 @@
         "type": "object",
         "title": "VehicleUpdate",
         "description": "Schema for updating vehicle."
+      },
+      "WsTokenResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "expires_in"
+        ],
+        "title": "WsTokenResponse",
+        "description": "A short-lived Socket.IO connect token (sweep 27 §P3.4).\n\nFetched same-origin (the session cookie authenticates the request) right\nbefore `io(...)` and passed in the Socket.IO `auth` payload — the cookie\nitself never reaches the backend on a split-origin deployment."
       }
     }
   }

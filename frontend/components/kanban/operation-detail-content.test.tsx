@@ -321,7 +321,7 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Reko-Meldungen")).toBeVisible()
     expect(screen.getByText("Reko vor Ort")).toBeVisible()
 
-    await user.click(tab(/^Rapport/))
+    await user.click(tab(/^Feld/))
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).toBeVisible()
     // Two settable rows since plan 26 §5.2 — but they answer different
     // questions and now sit on different tabs: «Abholung nötig» is what this
@@ -359,7 +359,7 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    expect(tab(/^Rapport/)).toHaveAccessibleName("Rapport · erfasst")
+    expect(tab(/^Feld/)).toHaveAccessibleName("Feld · Rapport")
   })
 
   it("says «Entwurf» for a rapport somebody started and walked away from", () => {
@@ -374,7 +374,7 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    expect(tab(/^Rapport/)).toHaveAccessibleName("Rapport · Entwurf")
+    expect(tab(/^Feld/)).toHaveAccessibleName("Feld · Entwurf")
   })
 
   it("states the Abholung as a banner — in the Übersicht column, but under the tabs in the panel", () => {
@@ -393,7 +393,7 @@ describe("OperationDetailContent", () => {
     // The modal has a second column for it: it sits inside Übersicht, above
     // «Status ändern».
     expect(
-      screen.getByRole("button", { name: "Abholung erledigt" }).closest('[role="tabpanel"]'),
+      screen.getByRole("button", { name: "Abholung disponiert" }).closest('[role="tabpanel"]'),
     ).not.toBeNull()
     unmount()
 
@@ -404,7 +404,7 @@ describe("OperationDetailContent", () => {
     // 420px has no second column, so the banner is a strip under the tab bar —
     // outside every tab panel, and therefore visible from all four tabs.
     expect(
-      screen.getByRole("button", { name: "Abholung erledigt" }).closest('[role="tabpanel"]'),
+      screen.getByRole("button", { name: "Abholung disponiert" }).closest('[role="tabpanel"]'),
     ).toBeNull()
   })
 
@@ -413,7 +413,7 @@ describe("OperationDetailContent", () => {
       <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
     )
 
-    expect(tab(/^Rapport/)).toHaveAccessibleName("Rapport")
+    expect(tab(/^Feld/)).toHaveAccessibleName("Feld")
   })
 
   // Generously timed: every tab switch re-mounts a panel that now holds the
@@ -475,7 +475,7 @@ describe("OperationDetailContent", () => {
     await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
 
     fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
-    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
 
     fireEvent.keyDown(whatsapp, { key: "ArrowRight" })
     await waitFor(() => expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true"))
@@ -485,7 +485,7 @@ describe("OperationDetailContent", () => {
     expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
 
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
-    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
     await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(whatsapp, { key: "ArrowLeft" })
@@ -524,14 +524,14 @@ describe("OperationDetailContent", () => {
     fireEvent.keyDown(root, { key: "ArrowRight" })
     await waitFor(() => expect(tab("Reko")).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(root, { key: "ArrowRight" })
-    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
     fireEvent.keyDown(root, { key: "ArrowRight" })
     await waitFor(() => expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true"))
     // Same no-wrap rule as the modal.
     fireEvent.keyDown(root, { key: "ArrowRight" })
     expect(tab("Verlauf")).toHaveAttribute("aria-selected", "true")
     fireEvent.keyDown(root, { key: "ArrowLeft" })
-    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
 
     // …and from a control inside the panel, not just from the root.
     const whatsapp = screen.getByRole("button", { name: "WhatsApp kopieren" })
@@ -557,7 +557,7 @@ describe("OperationDetailContent", () => {
     const { rerender } = renderWithIntl(
       <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
     )
-    await user.click(tab(/^Rapport/))
+    await user.click(tab(/^Feld/))
     // `incoming`, never dispatched: nothing to report on.
     expect(section()).toHaveAttribute("data-applies", "false")
 
@@ -635,7 +635,7 @@ describe("OperationDetailContent", () => {
       />,
     )
     expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
-    await user.click(tab(/^Rapport/))
+    await user.click(tab(/^Feld/))
     other.unmount()
 
     // ...and neither has forgotten the other.
@@ -659,7 +659,7 @@ describe("OperationDetailContent", () => {
         openOnTab={{ tab: "rapport", nonce: 1 }}
       />,
     )
-    expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true")
+    expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true")
     fromBell.unmount()
 
     // Opened by hand afterwards: still Verlauf. The notification pointed at one
@@ -690,7 +690,7 @@ describe("OperationDetailContent", () => {
         openOnTab={{ tab: "rapport", nonce: 1 }}
       />,
     )
-    expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true")
+    expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true")
 
     // The operator wanders off to Verlauf; the panel stays mounted because the
     // incident has not changed.
@@ -706,7 +706,7 @@ describe("OperationDetailContent", () => {
         openOnTab={{ tab: "rapport", nonce: 2 }}
       />,
     )
-    await waitFor(() => expect(tab(/^Rapport/)).toHaveAttribute("aria-selected", "true"))
+    await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
   }, 20_000)
 
   it("falls back to Übersicht when a notification names a tab this detail has not got", () => {
@@ -768,7 +768,7 @@ describe("OperationDetailContent", () => {
       <OperationDetailContent operation={operation} layout="modal" materials={[]} onUpdate={vi.fn()} />,
     )
 
-    await user.click(tab(/^Rapport/))
+    await user.click(tab(/^Feld/))
     // Newest last, the way a thread reads.
     await waitFor(() =>
       expect(

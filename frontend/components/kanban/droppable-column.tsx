@@ -7,10 +7,11 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { DraggableOperation } from "./draggable-operation"
 import { type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
+import { ageLevel, COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
+import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import {
   DropdownMenu,
@@ -86,6 +87,12 @@ interface DroppableColumnProps {
   onDragActiveChange?: (dragging: boolean) => void
   /** Editor-only: apply a one-shot persisted sort to this column. */
   onSort?: (columnId: string, key: 'priority' | 'age' | 'auftrag' | 'type') => void
+  /** Folded away by the operator. The board owns this (one per-device set for
+   *  all seven columns, see BOARD_COLUMN_COLLAPSE_KEY) rather than each column
+   *  keeping its own key — a fold is a statement about the whole board's width. */
+  isCollapsed?: boolean
+  /** Fold / unfold. Absent = this board does not offer folding at all. */
+  onToggleCollapsed?: (columnId: string) => void
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -104,7 +111,9 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.materials !== next.materials ||
     prev.doubleBookedCrewNames !== next.doubleBookedCrewNames ||
     prev.canDrag !== next.canDrag ||
-    prev.onSort !== next.onSort
+    prev.onSort !== next.onSort ||
+    prev.isCollapsed !== next.isCollapsed ||
+    prev.onToggleCollapsed !== next.onToggleCollapsed
   ) {
     return false
   }
@@ -183,43 +192,72 @@ export const DroppableColumn = memo(function DroppableColumn({
   canDrag,
   onDragActiveChange,
   onSort,
+  isCollapsed: isFoldedByOperator = false,
+  onToggleCollapsed,
 }: DroppableColumnProps) {
   const t = useTranslations('kanban')
   const tDash = useTranslations('kanban.dashboard')
   const columnTitle = t(`columns.${column.id}`)
-  const ref = useRef<HTMLDivElement>(null)
-  /** The column's outer box — what gets scrolled into view when it expands. */
-  const rootRef = useRef<HTMLDivElement>(null)
+  /** What accepts a dropped card: the column body when the column is open, the
+   *  folded strip when it is not. One ref for both — they are two different
+   *  elements and only ever one of them is mounted, so a callback ref keeps the
+   *  drop-target effect honest without branching on element type. */
+  const dropRef = useRef<HTMLElement | null>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
   const isLargeScreen = useIsLargeScreen()
 
-  // Collapsible columns (like Abgeschlossen) start collapsed and persist via localStorage
-  const isCollapsibleColumn = column.collapsible === true
-  const [isCollapsibleOpen, setIsCollapsibleOpen] = useState(() => {
-    if (!isCollapsibleColumn) return true
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem(`column-collapsed-${column.id}`) === 'open'
-  })
-
-  // Only a *click* scrolls; a column that was already open at load must not
+  // Only a *click* scrolls; a column that was already folded at load must not
   // yank the board sideways on every mount.
   const keepInViewRef = useRef(false)
   const requestKeepInView = () => {
     keepInViewRef.current = true
   }
 
-  const toggleCollapsible = () => {
-    const next = !isCollapsibleOpen
+  const isEmpty = operations.length === 0
+  // Two ways a column ends up narrow, and the operator's wins:
+  //  1. they folded it (persisted, whole-board set — `isFoldedByOperator`);
+  //  2. it is empty and the board is too narrow to spend a column on nothing.
+  //
+  // `isOver` is deliberately NOT in here any more. It used to expand an
+  // auto-folded column the moment a card was dragged over it, which swapped the
+  // strip for a full column mid-drag — the drop target unmounted under the
+  // pointer and re-registered somewhere else. The strip is a real drop target
+  // instead (it lights up), so a drag can land on a folded column
+  // without the board re-laying itself out under the cursor.
+  const isCollapsed = isFoldedByOperator || (isEmpty && !isManuallyExpanded && !isLargeScreen)
+
+  /** Fold from the open header. */
+  const collapse = () => {
     requestKeepInView()
-    setIsCollapsibleOpen(next)
-    localStorage.setItem(`column-collapsed-${column.id}`, next ? 'open' : 'collapsed')
+    onToggleCollapsed?.(column.id)
   }
 
-  const isEmpty = operations.length === 0
-  const isCollapsed = isCollapsibleColumn
-    ? !isCollapsibleOpen
-    : (isEmpty && !isOver && !isManuallyExpanded && !isLargeScreen)
+  /** Unfold from the strip. Clears BOTH reasons a column can be narrow — an
+   *  empty column that the operator had also folded would otherwise stay a
+   *  strip and the click would read as «nothing happened». */
+  const expand = () => {
+    requestKeepInView()
+    if (isFoldedByOperator) onToggleCollapsed?.(column.id)
+    setIsManuallyExpanded(true)
+  }
+
+  // Something in here has sat past the board's own warning threshold. It stays
+  // visible on the folded strip: a column that hides its overdue incident
+  // behind a title is exactly what folding must not do. The dot alone only says
+  // "something", which is the one thing nobody can act on — so it carries the
+  // names of the incidents that tripped it, up to three, on hover. Same
+  // treatment as the wall board.
+  const overdueOps = isCollapsed
+    ? operations.filter((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
+    : []
+  const overdueTitle = overdueOps.length > 0
+    ? t('column.overdueTitle', {
+        count: overdueOps.length,
+        titles: overdueOps.slice(0, 3).map((op) => getIncidentLocationLabel(op)).join(', ')
+          + (overdueOps.length > 3 ? ` ${t('column.overdueMore', { count: overdueOps.length - 3 })}` : ''),
+      })
+    : undefined
 
   // Folding a column changes its width by hundreds of pixels, which shoves every
   // column after it sideways — so the one you just clicked can end up outside the
@@ -241,13 +279,15 @@ export const DroppableColumn = memo(function DroppableColumn({
       ?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
   }, [isCollapsed, column.id])
 
-  // Reset manual expand when column gets operations (non-collapsible only)
+  // The manual expand only ever answers the auto-fold, so it is spent the
+  // moment the column has cards of its own. An operator fold is untouched by
+  // this — it lives in the board's persisted set, not here.
   useEffect(() => {
-    if (!isEmpty && !isCollapsibleColumn) setIsManuallyExpanded(false)
-  }, [isEmpty, isCollapsibleColumn])
+    if (!isEmpty) setIsManuallyExpanded(false)
+  }, [isEmpty])
 
   useEffect(() => {
-    const element = ref.current
+    const element = dropRef.current
     if (!element) return
 
     return dropTargetForElements({
@@ -262,51 +302,87 @@ export const DroppableColumn = memo(function DroppableColumn({
     })
   }, [column.id, isCollapsed])
 
-  // Collapsed view — narrow strip with vertical title
+  // Folded view — a narrow strip, and still a full drop target: an incident can
+  // be dragged straight onto it (the strip lights up on drag-over)
+  // without the column having to unfold first.
+  //
+  // A real <button>, so the fold is reachable and reversible from the keyboard
+  // — the strip is the ONLY way back for a column the operator has folded.
   if (isCollapsed) {
     return (
-      <div
-        ref={ref}
+      <button
+        type="button"
+        ref={(el) => { dropRef.current = el }}
         data-column={column.id}
         className={cn(
-          "flex w-12 flex-shrink-0 flex-col items-center rounded-lg border border-border cursor-pointer transition-all hover:w-16 hover:bg-muted/30",
+          // Width is CONSTANT: hover and drag-over speak through colour only.
+          // The strip used to grow to w-16 on both, which shifted every column
+          // to its right whenever the pointer crossed it — nothing on the board
+          // may move because the pointer moved.
+          "flex w-12 flex-shrink-0 cursor-pointer flex-col items-center gap-2 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/10",
           column.color,
-          isOver && "drop-zone-active w-16"
+          isOver && "drop-zone-active"
         )}
-        onClick={() => {
-          if (isCollapsibleColumn) return toggleCollapsible()
-          requestKeepInView()
-          setIsManuallyExpanded(true)
-        }}
-        role="region"
+        onClick={expand}
+        aria-expanded={false}
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
+        title={t('column.collapsedHint', { title: columnTitle, count: operations.length })}
       >
-        <div className="flex flex-col items-center gap-2 py-3">
-          {/* Same title as the expanded header, so the same treatment. */}
-          <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-lr] [text-orientation:mixed]")}>
-            {columnTitle}
-          </span>
-          <span className="text-xs text-muted-foreground/60 font-mono">{operations.length}</span>
-        </div>
-      </div>
+        <ChevronRight className="size-4 text-muted-foreground" />
+        {/* The count is the whole safety case for folding: the strip must never
+            let the board hide that something is sitting in here. Same badge as
+            the open header, not a quieter one. */}
+        <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+          {operations.length}
+          {overdueTitle && (
+            <span
+              title={overdueTitle}
+              aria-label={overdueTitle}
+              className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500"
+            />
+          )}
+        </span>
+        {/* Same title as the expanded header, so the same treatment. */}
+        <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]")}>
+          {columnTitle}
+        </span>
+      </button>
     )
   }
 
   return (
-    <div ref={rootRef} data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
+    <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
       <div className={cn(
         // py-2, not py-3: the header carries one line of text and three small
         // controls, and every pixel it takes is a pixel off the column body.
         "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
         column.color
       )}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-1">
+          {/* The fold handle sits left of the title, where the wall board puts
+              it — same disclosure chevron, same place, so the two screens teach
+              one gesture. Its own <button> rather than the whole header, which
+              the wall board can afford but this one cannot: the header also
+              carries the sort menu, and a button inside a button is not a
+              control. */}
+          {onToggleCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={collapse}
+              aria-expanded
+              title={t('column.collapse')}
+              aria-label={`${columnTitle}: ${t('column.collapse')}`}
+            >
+              <ChevronLeft className="size-3.5" />
+            </Button>
+          )}
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
           {/* Treatment from COLUMN_HEADER_CLASS — see there for why caps but quiet.
               Shared with both display boards so one column cannot look like two
               different things on two screens. */}
-          <h2 className={cn("min-w-0 truncate", COLUMN_HEADER_CLASS)} title={columnTitle}>{columnTitle}</h2>
+          <h2 className={cn("min-w-0 flex-1 truncate", COLUMN_HEADER_CLASS)} title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>
@@ -330,24 +406,18 @@ export const DroppableColumn = memo(function DroppableColumn({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            {/* No overdue dot here, unlike the folded strip and the wall board:
+                every card in an open column already carries its own age chip,
+                and a second signal for the same fact is noise. */}
             <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
               {operations.length}
             </span>
-            {isCollapsibleColumn && (
-              <button
-                onClick={toggleCollapsible}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
-                title={t('column.collapse')}
-              >
-                ←
-              </button>
-            )}
           </div>
         </div>
       </div>
 
       <div
-        ref={ref}
+        ref={(el) => { dropRef.current = el }}
         data-board-scroll
         className={cn(
           // `overscroll-y-contain`, NOT `overscroll-contain`: a column body with
@@ -356,7 +426,13 @@ export const DroppableColumn = memo(function DroppableColumn({
           // scroll. Containing BOTH axes made it swallow every horizontal
           // trackpad delta instead of chaining it to `#kanban-main`, which left
           // the board's own scrollbar as the only way to pan sideways.
-          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain p-2 rounded-lg transition-all min-h-[200px] relative",
+          // Horizontal inset is px-1 (4px), not the old p-2: cards span the
+          // column, and 4px is exactly what the card's drag-over cue needs —
+          // ring-2 + ring-offset-2 sit outside the card's border box and this
+          // container clips (overflow-y:auto computes overflow-x to auto, and a
+          // box-shadow never scrolls). The right 4px doubles as the scrollbar
+          // gutter so the bar does not sit on the cards.
+          "flex-1 space-y-3 overflow-y-auto overscroll-y-contain py-2 px-1 rounded-lg transition-all min-h-[200px] relative",
           isOver && operations.length === 0 && "drop-zone-active"
         )}
         role="region"
@@ -369,18 +445,13 @@ export const DroppableColumn = memo(function DroppableColumn({
           </div>
         )}
 
-        {/* Empty state with collapse hint */}
+        {/* Empty state. Plain text, no hover/cursor affordance: it used to be a
+            button that folded the column, but nothing about it said so — it read
+            as something clickable that "doesn't work". Folding lives on the
+            header's own control, where it is labelled. */}
         {isEmpty && !isOver && (
           <div className="flex items-center justify-center h-32">
-            <button
-              onClick={() => {
-                requestKeepInView()
-                setIsManuallyExpanded(false)
-              }}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {t('column.empty')}
-            </button>
+            <p className="text-sm text-muted-foreground/70 select-none">{t('column.empty')}</p>
           </div>
         )}
 

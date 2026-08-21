@@ -6,6 +6,7 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
+import { OVERLAY_CLASS } from '@/components/ui/overlay'
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -32,11 +33,15 @@ function SheetPortal({
 function SheetOverlay({
   className,
   overlayOffset,
+  rightInset,
   elevated,
   nonModal,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay> & {
   overlayOffset?: string
+  /** CSS length keeping the overlay (and, via SheetContent, a bottom sheet)
+   *  clear of a right-side panel — e.g. the open notification sidebar. */
+  rightInset?: string
   elevated?: boolean
   nonModal?: boolean
 }) {
@@ -52,11 +57,19 @@ function SheetOverlay({
       <div
         data-slot="sheet-overlay"
         className={cn(
-          'fixed inset-0 bg-black/50',
+          'fixed inset-0',
+          OVERLAY_CLASS,
           elevated ? 'z-[70]' : 'z-50',
           className,
         )}
-        style={overlayOffset ? { bottom: overlayOffset } : undefined}
+        style={
+          overlayOffset || rightInset
+            ? {
+                ...(overlayOffset ? { bottom: overlayOffset } : undefined),
+                ...(rightInset ? { right: rightInset } : undefined),
+              }
+            : undefined
+        }
       />
     )
   }
@@ -68,11 +81,19 @@ function SheetOverlay({
         // NO exit animation — see the note in dialog.tsx. Measured on a closed
         // mobile sheet: overlay `closed`, the full 375x667 viewport, inline and
         // computed `pointer-events: auto`, still mounted 300ms after dismissal.
-        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 bg-black/50',
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0',
+        OVERLAY_CLASS,
         elevated ? 'z-[70]' : 'z-50',
         className,
       )}
-      style={overlayOffset ? { bottom: overlayOffset } : undefined}
+      style={
+        overlayOffset || rightInset
+          ? {
+              ...(overlayOffset ? { bottom: overlayOffset } : undefined),
+              ...(rightInset ? { right: rightInset } : undefined),
+            }
+          : undefined
+      }
       {...props}
     />
   )
@@ -84,6 +105,7 @@ function SheetContent({
   side = 'right',
   hideCloseButton = false,
   overlayOffset,
+  rightInset,
   elevated = false,
   nonModal = false,
   onInteractOutside,
@@ -93,12 +115,16 @@ function SheetContent({
   side?: 'top' | 'right' | 'bottom' | 'left'
   hideCloseButton?: boolean
   overlayOffset?: string
+  /** Keeps a bottom sheet AND its backdrop clear of a right-side panel (the
+   *  open notification sidebar) so the two sit side by side instead of the
+   *  sheet sliding underneath. CSS length; only applied to `side="bottom"`. */
+  rightInset?: string
   elevated?: boolean
   nonModal?: boolean
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay overlayOffset={overlayOffset} elevated={elevated} nonModal={nonModal} />
+      <SheetOverlay overlayOffset={overlayOffset} rightInset={rightInset} elevated={elevated} nonModal={nonModal} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         // Dismissing a toast must never dismiss the slide-up behind it; any
@@ -127,6 +153,7 @@ function SheetContent({
         // behind the footer toolbar.
         style={{
           ...(side === 'bottom' && overlayOffset ? { bottom: overlayOffset } : undefined),
+          ...(side === 'bottom' && rightInset ? { right: rightInset } : undefined),
           ...style,
         }}
         {...props}

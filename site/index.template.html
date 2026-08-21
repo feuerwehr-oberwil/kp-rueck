@@ -24,6 +24,21 @@
 <meta property="og:image:height" content="937">
 <meta property="og:locale" content="{{ogLocale}}">
 <meta name="twitter:card" content="summary_large_image">
+<!--@template
+  The structured data is assembled in build.mjs, not written out here – JSON.stringify
+  keeps it valid JSON, which this template's substitution could not guarantee.
+-->
+<script type="application/ld+json">
+{{jsonLd}}
+</script>
+<!--@template
+  Beide Schriften stehen in landing.css – der Browser entdeckt sie also erst, wenn das
+  Stylesheet geladen UND geparst ist (PageSpeed mass 770 ms für diese Kette). Der Preload
+  holt sie parallel zum Stylesheet. `crossorigin` ist bei Schriften Pflicht, auch bei
+  eigenen: ohne das Attribut lädt der Browser die Datei ein zweites Mal.
+-->
+<link rel="preload" href="{{base}}fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{base}}fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base}}landing.css">
 
 <svg style="display:none" aria-hidden="true">
@@ -92,29 +107,49 @@
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
         <span class="addr">{{hero.frameAddr}}</span>
       </div>
-      <img src="{{base}}shots/{{hero.frameFile}}" alt="{{hero.frameAlt}}" width="{{hero.frameW}}" height="{{hero.frameH}}">
+      <!--@template
+        Das Hero-Bild ist das LCP-Element: `fetchpriority="high"` zieht es vor Schriften und
+        Stylesheet in der Warteschlange nach vorn. Breiter als 992 px wird es nie gezeigt
+        (.wrap = 1040 px minus 2×24 px Innenabstand) – die kleine Fassung reicht damit für
+        jedes 1x-Display und jedes Telefon, die grosse bleibt für 2x-Bildschirme.
+      -->
+      <img src="{{base}}shots/{{hero.frameFile}}"
+           srcset="{{base}}shots/{{hero.frameFileSmall}} 992w, {{base}}shots/{{hero.frameFile}} {{hero.frameW}}w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="{{hero.frameAlt}}" width="{{hero.frameW}}" height="{{hero.frameH}}" fetchpriority="high">
     </figure>
   </section>
 
   <section class="fit">
-    <div class="wrap">
-      <div class="fit-row">
-        <p class="fit-k">{{fit.whoLabel}}</p>
-        <ul class="fit-v">
-          {{#fit.who}}
+    <div class="wrap fit-split">
+      <div>
+        <div class="fit-row">
+          <p class="fit-k">{{fit.whoLabel}}</p>
+          <ul class="fit-v">
+            {{#fit.who}}
+            <li>{{.}}</li>
+            {{/fit.who}}
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">{{fit.whatLabel}}</p>
+          <ul class="fit-v">
+            {{#fit.what}}
+            <li>{{.}}</li>
+            {{/fit.what}}
+          </ul>
+        </div>
+        <p class="fit-note">{{fit.note}}</p>
+      </div>
+      <div class="fit-panel">
+        <h2>{{fit.own.h2}}</h2>
+        <p>{{fit.own.p}}</p>
+        <ul>
+          {{#fit.own.items}}
           <li>{{.}}</li>
-          {{/fit.who}}
+          {{/fit.own.items}}
         </ul>
       </div>
-      <div class="fit-row">
-        <p class="fit-k">{{fit.whatLabel}}</p>
-        <ul class="fit-v">
-          {{#fit.what}}
-          <li>{{.}}</li>
-          {{/fit.what}}
-        </ul>
-      </div>
-      <p class="fit-note">{{fit.note}}</p>
     </div>
   </section>
 
@@ -217,13 +252,33 @@
     </div>
   </section>
 
+  <!--@template Die Karte rechts ist für die Feuerwehr, die BEIDE betreibt: sie beantwortet
+       «was müssen wir doppelt einrichten?» mit «das hier nicht». Die Adresse der Anleitung
+       steht wie die kp-front.ch-Adresse hier im Markup und nicht im Text – Adressen sind
+       nichts, was eine Übersetzung mitschleppen muss. -->
   <section class="sibling">
     <div class="wrap">
-      <div class="sibling-txt">
-        <p class="eyebrow">{{sibling.eyebrow}}</p>
-        <h2>{{sibling.h2}}</h2>
-        <p>{{sibling.p}}</p>
-        <a class="btn btn-ghost" href="https://kp-front.ch">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">{{sibling.eyebrow}}</p>
+          <h2>{{sibling.h2}}</h2>
+          <p>{{sibling.p}}</p>
+          <a class="btn btn-ghost" href="https://kp-front.ch">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>{{sibling.setup.h3}}</h3>
+          <dl>
+            {{#sibling.setup.rows}}
+            <div class="setup-row">
+              <dt>{{dt}}</dt>
+              <dd>{{dd}}</dd>
+            </div>
+            {{/sibling.setup.rows}}
+          </dl>
+          <p class="setup-foot">{{sibling.setup.foot}}
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">{{sibling.setup.link}} →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -318,7 +373,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

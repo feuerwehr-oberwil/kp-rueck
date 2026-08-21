@@ -15,6 +15,13 @@
  * is remembered per incident and per kind in localStorage, so a reload does not
  * re-ask a question that was already answered.
  *
+ * **Since sweep 27 §P3.3 a genuine `/feld` tap moves the card itself** (server
+ * side, `crud/feld/reports._auto_move`), so for those two cases this nudge
+ * self-retires before it is ever seen — the status has already caught up. What
+ * keeps asking here is the ambiguous rest: an operator recording «angekommen»
+ * or «beendet» off a radio message (they may be logging history, not news), and
+ * a GPS arrival in prompt mode. That is the manual path, kept on purpose.
+ *
  * The same prompt is rendered in TWO places at once: on the kanban card and in
  * the detail modal's Übersicht, directly above «Status wechseln» — which is the
  * control the question is asking about. Two mounted copies of one question have

@@ -460,3 +460,96 @@ export async function generateFeldLink(
   expect(link).toContain('/feld?token=');
   return link;
 }
+
+/**
+ * The Ereignis' Feld-Code (plan 26, decision 22).
+ *
+ * Every field test needs it now: the poster link opens nothing without it, so
+ * this is the arrange-step equivalent of reading the four digits off the board.
+ */
+export async function getFeldCode(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+): Promise<string> {
+  const response = await request.get(`${API_BASE}/api/feld/access?event_id=${eventId}`, {
+    headers: jsonHeaders(cookieHeader),
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { code } = await response.json();
+  return code;
+}
+
+/**
+ * Give somebody a role for this Ereignis: `driver` (needs a vehicle), `reko`
+ * or `magazin`.
+ *
+ * These are what the `/feld` visibility union reads beyond a plain assignment —
+ * a driver holds no personnel row at all, and a Magazin person none anywhere.
+ */
+export async function setSpecialFunction(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+  personnelId: string,
+  functionType: 'driver' | 'reko' | 'magazin',
+  vehicleId?: string,
+): Promise<void> {
+  const response = await request.post(`${API_BASE}/api/events/${eventId}/special-functions/`, {
+    headers: jsonHeaders(cookieHeader),
+    data: { personnel_id: personnelId, function_type: functionType, vehicle_id: vehicleId ?? null },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+/** Assign a vehicle or material to an incident — the non-personnel resources. */
+export async function assignResource(
+  request: APIRequestContext,
+  cookieHeader: string,
+  incidentId: string,
+  resourceType: 'vehicle' | 'material',
+  resourceId: string,
+): Promise<{ id: string }> {
+  const response = await request.post(`${API_BASE}/api/incidents/${incidentId}/assign`, {
+    headers: jsonHeaders(cookieHeader),
+    data: { resource_type: resourceType, resource_id: resourceId },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
+/** The first vehicle on the station's fleet — enough to make somebody a driver. */
+export async function firstVehicleId(request: APIRequestContext, cookieHeader: string): Promise<string> {
+  const response = await request.get(`${API_BASE}/api/vehicles/`, { headers: jsonHeaders(cookieHeader) });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const vehicles = await response.json();
+  expect(vehicles.length, 'the dev fleet is empty — seed it first').toBeGreaterThan(0);
+  return vehicles[0].id;
+}
+
+/** The first material — enough to put something "out" for the Magazin. */
+export async function firstMaterialId(request: APIRequestContext, cookieHeader: string): Promise<string> {
+  const response = await request.get(`${API_BASE}/api/materials/`, { headers: jsonHeaders(cookieHeader) });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const materials = await response.json();
+  expect(materials.length, 'the dev material list is empty — seed it first').toBeGreaterThan(0);
+  return materials[0].id;
+}
+
+/** Assign somebody as the Reko through the board's own path (sets purpose='reko').
+ *
+ *  Under `/api/reko` since plan 26 removed `/reko-dashboard`: the endpoint was
+ *  never that page's — it is editor-authed and always was — so it moved rather
+ *  than went. */
+export async function assignReko(
+  request: APIRequestContext,
+  cookieHeader: string,
+  incidentId: string,
+  personnelId: string,
+): Promise<void> {
+  const response = await request.post(
+    `${API_BASE}/api/reko/incidents/${incidentId}/assign-reko`,
+    { headers: jsonHeaders(cookieHeader), data: { personnel_id: personnelId } },
+  );
+  expect(response.ok(), await response.text()).toBeTruthy();
+}

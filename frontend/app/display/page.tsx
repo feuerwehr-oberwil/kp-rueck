@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { ArrowLeft, Check, LogOut, Map, LayoutGrid, BarChart3, type LucideIcon } from "lucide-react"
 
@@ -27,6 +28,11 @@ import { cn } from "@/lib/utils"
  * Logout lives here for the same reason: a wall screen needs a way to hand the
  * machine back, and the header of a screen nobody stands at is not the place
  * for it.
+ *
+ * Reached through a share link (`/display?token=…`), this page is the landing
+ * spot the board's Links & QR sheet hands out: the token is forwarded to each
+ * wall page, and the editor-only controls (event picker, back link, logout)
+ * stay hidden — a token pins its own Ereignis and grants nothing else.
  */
 export default function DisplayIndexPage() {
   const t = useTranslations('display.layout')
@@ -34,6 +40,7 @@ export default function DisplayIndexPage() {
   const tn = useTranslations('nav.userMenu')
   const { selectedEvent, setSelectedEvent, events, refreshEvents } = useEvent()
   const { isAuthenticated, logout } = useAuth()
+  const token = useSearchParams().get("token")
 
   // The provider loads the list once on mount; a kiosk that has been up for
   // days is the case this page exists for, so re-read it on arrival.
@@ -52,12 +59,14 @@ export default function DisplayIndexPage() {
     <div className="flex h-full overflow-y-auto p-6">
       <div className="m-auto flex w-full flex-col items-center gap-8">
         <nav className="flex gap-3">
-          <DisplayLink href="/display/map" label={t('pageMap')} icon={Map} />
-          <DisplayLink href="/display/board" label={t('pageBoard')} icon={LayoutGrid} />
-          <DisplayLink href="/display/status" label={t('pageStatus')} icon={BarChart3} />
+          {/* The token rides along, or a shared /display link would open wall
+              pages that demand a login they cannot have. */}
+          <DisplayLink href={token ? `/display/map?token=${token}` : "/display/map"} label={t('pageMap')} icon={Map} />
+          <DisplayLink href={token ? `/display/board?token=${token}` : "/display/board"} label={t('pageBoard')} icon={LayoutGrid} />
+          <DisplayLink href={token ? `/display/status?token=${token}` : "/display/status"} label={t('pageStatus')} icon={BarChart3} />
         </nav>
 
-        {isAuthenticated && (
+        {!token && isAuthenticated && (
           <section className="w-full max-w-md space-y-2">
             <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {te('title')}
@@ -105,6 +114,7 @@ export default function DisplayIndexPage() {
           </section>
         )}
 
+        {!token && (
         <div className="flex items-center gap-4">
           <Link
             href="/"
@@ -124,6 +134,7 @@ export default function DisplayIndexPage() {
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   )

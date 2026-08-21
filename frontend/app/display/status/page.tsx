@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { Loader2, Binoculars, Package2, Infinity as InfinityIcon } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
+import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
 import { ageLevel, columns, STATUS_ACCENT } from "@/lib/kanban-utils"
@@ -188,6 +189,27 @@ function SituationBoard({
       || (v.driverName ?? "").toLowerCase().includes(needle))),
     [allVehicles, needle],
   )
+  // vehicle → the Auftrag it is out on, so the wall tells the same story as the
+  // operator's Fahrzeugstatus-Sheet. The route OWNS its vehicles, so the group
+  // assignments are the truth; the share-token payload carries no assignments,
+  // so fall back to the route the vehicle's Einsatz is a stop on.
+  const auftragByVehicleId = useMemo(() => {
+    const all = detailGroups ?? groups
+    const byId = new Map(all.map((g) => [g.id, g]))
+    const map = new Map<string, IncidentGroup>()
+    for (const g of all) {
+      for (const a of g.assignments) {
+        if (a.resourceType === "vehicle") map.set(a.resourceId, g)
+      }
+    }
+    for (const v of vehicleStatus) {
+      if (map.has(v.id)) continue
+      const fallback = v.assignedOperation?.groupId ? byId.get(v.assignedOperation.groupId) : undefined
+      if (fallback) map.set(v.id, fallback)
+    }
+    return map
+  }, [detailGroups, groups, vehicleStatus])
+
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   // Every section folds; all of them start open. A big station scrolls forever
   // otherwise — but nothing folds itself away without someone deciding so.
@@ -199,6 +221,31 @@ function SituationBoard({
     () => operations.find((op) => op.id === selectedOperationId) ?? null,
     [operations, selectedOperationId],
   )
+
+  /**
+   * The Aufträge, each with its stops in route order.
+   *
+   * A route was visible on this page only sideways — as the chip on a vehicle
+   * row — while the Einsätze column listed its stops scattered across four
+   * status sections with nothing saying they belong together. On a wall that is
+   * the one grouping an officer talks in («was macht Sturmtour Nord?»), so it
+   * leads the Einsätze column and the status sections keep the rest.
+   *
+   * Filtered stops only: typing in the search must narrow this list like every
+   * other, and `filterIncidents` already resolves an Auftrag NAME to its stops.
+   * A route whose stops all filtered out drops away with them.
+   */
+  const auftraege = useMemo(() => {
+    const byId = new Map(operations.map((op) => [op.id, op]))
+    return (detailGroups ?? groups)
+      .map((group) => ({
+        group,
+        stops: group.stopIds
+          .map((stopId) => byId.get(stopId))
+          .filter((op): op is Operation => Boolean(op)),
+      }))
+      .filter((row) => row.stops.length > 0)
+  }, [detailGroups, groups, operations])
 
   const incidentsByStatus = useMemo(() => {
     const groups: { colDef: typeof columns[number]; ops: Operation[] }[] = []
@@ -240,13 +287,14 @@ function SituationBoard({
   }, [operations])
 
   const groupedPersonnel = useMemo(() => {
+    // Rank first, in-use before free inside a rank, then the name. The two name
+    // legs used to collate with the UI locale — so a wall in a French-language
+    // station showed a different sequence than the board beside it. Names and
+    // rank labels are roster data (`lib/roster-order.ts`), not interface copy.
     const sorted = [...personnel].sort((a, b) => {
-      if (a.role !== b.role) {
-        if (a.roleSortOrder !== b.roleSortOrder) return (a.roleSortOrder ?? 0) - (b.roleSortOrder ?? 0)
-        return (a.role ?? "").localeCompare(b.role ?? "", getActiveLocale())
-      }
+      if (a.role !== b.role) return compareByRankThenName(a, b)
       if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
+      return compareByName(a, b)
     })
     const groups: { role: string; people: Person[] }[] = []
     const roleMap = new Map<string, Person[]>()
@@ -284,7 +332,9 @@ function SituationBoard({
     return groups
   }, [materials])
 
-  const deployed = vehicleStatus.filter((v) => v.assignedOperation).length
+  // A vehicle out on an Auftrag is deployed too — it carries no incident of its
+  // own, because the route owns it and the stops carry no resources.
+  const deployed = vehicleStatus.filter((v) => v.assignedOperation || auftragByVehicleId.has(v.id)).length
   // «im Einsatz» must agree with the dots beside the names: a Reko is an Auftrag.
   const assignedPersonnelCount = personnel.filter((p) => personResourceState(p) === "assigned").length
   // Verbrauchsmaterial never counts as gone — see materialResourceState.
@@ -305,6 +355,7 @@ function SituationBoard({
             <VehicleRow
               key={v.id}
               vehicle={v}
+              auftrag={auftragByVehicleId.get(v.id)}
               onClick={v.assignedOperation ? () => setSelectedOperationId(v.assignedOperation!.id) : undefined}
             />
           ))}
@@ -320,6 +371,37 @@ function SituationBoard({
           subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
         <div className="flex-1 overflow-y-auto">
+          {/* Aufträge first — the grouping the radio talks in. Each route names
+              its stops in the order they are driven, so «Stopp 2 von 3» is
+              readable from across the room without opening anything. */}
+          {auftraege.map(({ group, stops }) => (
+            <CollapsibleSection
+              key={group.id}
+              label={group.name}
+              count={stops.length}
+              badge={
+                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                  {t('auftragStops', { count: stops.length })}
+                </span>
+              }
+              collapsed={sections.isCollapsed(`auftrag:${group.id}`)}
+              onToggle={() => sections.toggle(`auftrag:${group.id}`)}
+              headerClassName="bg-info/10"
+            >
+              <div className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
+                {stops.map((op, index) => (
+                  <div key={op.id} className="flex items-start gap-2">
+                    <span className="mt-2.5 w-5 shrink-0 text-right text-[11px] xl:text-xs font-semibold tabular-nums text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <IncidentRow operation={op} onClick={() => setSelectedOperationId(op.id)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          ))}
           {incidentsByStatus.length === 0 ? (
             <div className="text-center text-muted-foreground py-12 text-sm xl:text-base">{t('noActiveIncidents')}</div>
           ) : (
@@ -464,8 +546,10 @@ function PanelHeader({ title, count, subtitle }: {
   )
 }
 
-function VehicleRow({ vehicle: v, onClick }: { vehicle: VehicleWithStatus; onClick?: () => void }) {
-  const isDeployed = !!v.assignedOperation
+function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStatus; auftrag?: IncidentGroup; onClick?: () => void }) {
+  const tv = useTranslations('incidents.vehicleStatus')
+  // Out on an Auftrag counts as deployed even without an incident of its own.
+  const isDeployed = !!v.assignedOperation || !!auftrag
   return (
     <div
       className={cn(
@@ -481,14 +565,32 @@ function VehicleRow({ vehicle: v, onClick }: { vehicle: VehicleWithStatus; onCli
           <span className="font-bold text-sm xl:text-base">{v.name}</span>
           {v.driverName && <span className="text-[11px] xl:text-xs text-muted-foreground truncate">{v.driverName}</span>}
         </div>
-        {isDeployed && (
+        {/* Where it is. An Auftrag wins over the single stop's address — the same
+            answer the Fahrzeugstatus-Sheet gives — and it carries the route's own
+            colour, so «welches Fahrzeug fährt welche Tour» reads from the wall. */}
+        {auftrag ? (
+          <p className="mt-0.5 flex items-center gap-1.5 min-w-0">
+            <span
+              className="h-2 w-2 xl:h-2.5 xl:w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+            />
+            <span
+              className={cn("truncate text-xs xl:text-sm font-medium", !auftrag.color && "text-muted-foreground")}
+              style={auftrag.color ? { color: auftrag.color } : undefined}
+            >
+              {tv('auftragLabel', { name: auftrag.name })}
+            </span>
+          </p>
+        ) : isDeployed ? (
           <p className="text-xs xl:text-sm text-muted-foreground truncate mt-0.5">→ {incidentLocationLabel(v.assignedOperation!)}</p>
-        )}
+        ) : null}
       </div>
-      {isDeployed && (
+      {/* Only a real Einsatz has a clock — a route-owned vehicle has no incident
+          of its own to time. */}
+      {v.assignedOperation && (
         <span className="shrink-0">
           <IncidentTime
-            operation={v.assignedOperation!}
+            operation={v.assignedOperation}
             readOnly
             className="text-[11px] xl:text-xs"
             iconClassName="h-3 w-3"

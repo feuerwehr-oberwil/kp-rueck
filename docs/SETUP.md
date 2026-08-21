@@ -617,10 +617,14 @@ material indexed by what you can see.
    for your area (§4) – on the `just tiles-download` command line, not in `.env`; that script
    reads the shell it is started from. Not something to start the evening of an event.
 8. **Your board starts empty.** Not a broken install – production seeds no resources (§3).
-9. **A printed Einsatzzettel is a working credential.** Its second QR opens `/feld` for that
-   Schadenplatz, using the Ereignis token – so a slip left in a vehicle stays valid until that
-   token expires (30 days), the same exposure as the poster on the wall. Collect the slips at the
-   end of an Ereignis, the way the check-in and `/feld` posters already come down.
+9. **A printed Einsatzzettel is a working credential – link and code on one piece of paper.**
+   Its second QR opens `/feld` for that Schadenplatz using the Ereignis token, and the four-digit
+   Feld-Code is printed under it, because a QR that asks for a code nobody wrote down is a QR the
+   crew cannot use. So a slip left in a vehicle stays usable until the token expires (30 days),
+   the same exposure as the poster on the wall. Collect the slips at the end of an Ereignis, the
+   way the check-in and `/feld` posters already come down – and use **Neuer Code** (Links & QR)
+   when one goes missing: it invalidates every slip and poster in circulation for anybody who has
+   not already unlocked, and disturbs nobody who has.
 
 ## 8. Before you rely on it in the field
 

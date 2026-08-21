@@ -21,6 +21,9 @@
  * second kind is the hand-out variant: fonts and screenshots as data: URIs,
  * readable offline, no server needed.
  *
+ * Alongside them the build writes site/404.html, site/sitemap.xml and site/robots.txt,
+ * all three from the same config – so a new language never needs a second list.
+ *
  * A third language is one entry in config.json and one file in content/ – the
  * template does not change. A language ships only once it is listed in
  * config.json: an empty `it/` is worse than none.
@@ -62,7 +65,7 @@ const merge = (base, over) => {
 // purpose: the images stay German on every language's page (they come from a
 // real instance – restaged ones would be a claim), and the page says so instead
 // of pretending otherwise. Counting those as gaps would bury the real ones.
-const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(File|W|H)$/]
+const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(FileSmall|File|W|H)$/]
 const translatable = (path) => !STRUCTURAL.some((re) => re.test(path))
 
 const allLeafPaths = (v, path = '', out = []) => {
@@ -146,6 +149,7 @@ const MIME = {
   woff2: 'font/woff2',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
+  webp: 'image/webp',
   png: 'image/png',
   svg: 'image/svg+xml',
 }
@@ -171,6 +175,13 @@ const bundle = (html) => {
   html = html.replace(/<span class="langs"[\s\S]*?<\/span>/, (span) =>
     span.replace(/href="((?:\.\.\/|\.\/)*(?:[\w-]+\/)*)"/g, 'href="$1index.html"'),
   )
+  // Zwei Verweise, die in der Einzeldatei nichts mehr zu suchen haben: der Preload zeigt auf
+  // eine Schriftdatei, die hier im Stylesheet mitreist, und srcset/sizes auf eine zweite
+  // Fassung desselben Bildes. Die Einzeldatei bettet je ein Bild ein und zeigt es in jeder
+  // Breite – beides bliebe sonst als Pfad auf eine Datei stehen, die es hier nicht gibt.
+  html = html
+    .replace(/^[ \t]*<link rel="preload"[^>]*>\r?\n/gm, '')
+    .replace(/\s+(?:srcset|sizes)="[^"]*"/g, '')
   // Stylesheet first, so the font URLs inside it come along in the same pass.
   let out = html.replace(/<link rel="stylesheet" href="((?:\.\.\/)*[^"]+)">/g, (_, rel) => {
     const flat = flatten(rel)
@@ -180,7 +191,7 @@ const bundle = (html) => {
   out = out.replace(/url\(((?:\.\.\/)*fonts\/[^)'"]+)\)/g, (_, rel) => `url(${inline(rel, seen)})`)
   out = out.replace(/src="((?:\.\.\/)*(?:shots|fonts)\/[^"]+)"/g, (_, rel) => `src="${inline(rel, seen)}"`)
 
-  if (out.match(/(?:src=|url\()["']?(?:\.\.\/|\.\/)*(?:fonts|shots)\//))
+  if (out.match(/(?:src=|srcset=|href=|url\()["']?(?:\.\.\/|\.\/)*(?:fonts|shots)\//))
     throw new Error('Local references survived the bundle – adjust build.mjs')
   return out
 }
@@ -235,6 +246,49 @@ for (const locale of config.locales) {
   // together wherever the folder goes.
   const relTo = (l) => `${up}${dirOf(l)}` || './'
 
+  // ─── Structured data ────────────────────────────────────────────────────────
+  //
+  // Two nodes, both true and both checkable: what this is (SoftwareApplication) and who is
+  // behind it (Organization). Deliberately NOT a FAQPage – Google has shown FAQ rich results
+  // only for government and health sites since 2023, so that markup would be pure weight.
+  //
+  // Built here rather than written into the template because JSON.stringify guarantees valid
+  // JSON: the template does not escape, and one apostrophe in a description would silently
+  // turn the whole block into something no crawler reads.
+  const p = config.product
+  const jsonLd = JSON.stringify(
+    {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'SoftwareApplication',
+          '@id': `${config.origin}/#app`,
+          name: p.name,
+          url: urlOf(locale),
+          description: content.meta.description,
+          applicationCategory: 'BusinessApplication',
+          operatingSystem: 'Web browser',
+          inLanguage: config.locales.map((l) => l.hreflang),
+          license: p.license,
+          codeRepository: p.repo,
+          screenshot: `${config.origin}/${p.screenshot}`,
+          isAccessibleForFree: true,
+          offers: { '@type': 'Offer', price: '0', priceCurrency: 'CHF' },
+          publisher: { '@id': `${config.origin}/#org` },
+        },
+        {
+          '@type': 'Organization',
+          '@id': `${config.origin}/#org`,
+          name: p.org.name,
+          url: p.org.url,
+          sameAs: [p.org.github],
+        },
+      ],
+    },
+    null,
+    2,
+  )
+
   // Everything that is not text but follows from where the page sits: language,
   // path depth, canonical address, and the links to its sister languages.
   const page = {
@@ -243,6 +297,7 @@ for (const locale of config.locales) {
     ogLocale: locale.ogLocale,
     base: up,
     canonical: urlOf(locale),
+    jsonLd,
     alternates: config.locales
       .map((l) => ({ hreflang: l.hreflang, href: urlOf(l) }))
       .concat([{ hreflang: 'x-default', href: urlOf(baseLocale) }]),
@@ -310,6 +365,38 @@ for (const locale of config.locales) {
   if (missing.size) problems.push(`404: ${[...missing].join(', ')}`)
   put('404.html', html)
   // No dist/ variant: the single-file hand-out has no server to 404 with.
+}
+
+// ─── robots.txt and sitemap.xml ───────────────────────────────────────────────
+//
+// Both are built from the same config as the pages, so a fifth language shows up in the
+// sitemap by adding it to config.json – nobody has to remember a second list.
+//
+// The sitemap names every language version once and repeats the full hreflang set inside each
+// entry, which is what the format asks for: the <link> tags in the pages and these xhtml:link
+// tags say the same thing twice, on purpose, because crawlers read one or the other.
+//
+// No <lastmod>: it would have to come from git, and a date that is wrong is worse for a
+// crawler than no date at all. No <priority>/<changefreq> either – Google ignores both.
+{
+  const xml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  const links = config.locales
+    .map((l) => `    <xhtml:link rel="alternate" hreflang="${l.hreflang}" href="${xml(urlOf(l))}"/>`)
+    .concat([`    <xhtml:link rel="alternate" hreflang="x-default" href="${xml(urlOf(baseLocale))}"/>`])
+    .join('\n')
+
+  put(
+    'sitemap.xml',
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n' +
+      '        xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' +
+      config.locales
+        .map((l) => `  <url>\n    <loc>${xml(urlOf(l))}</loc>\n${links}\n  </url>\n`)
+        .join('') +
+      '</urlset>\n',
+  )
+
+  put('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${config.origin}/sitemap.xml\n`)
 }
 
 if (problems.length) {

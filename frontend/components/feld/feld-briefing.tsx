@@ -27,10 +27,10 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Binoculars, Package, Phone, TriangleAlert, Truck, Users } from 'lucide-react'
+import { Binoculars, MapPin, Package, Phone, TriangleAlert, Truck, Undo2, Users, Waypoints } from 'lucide-react'
 
 import { FeldSection } from '@/components/feld/feld-section'
-import type { ApiFeldAssignment, ApiFeldMaterialLine } from '@/lib/api-client'
+import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
 import { getActiveLocale } from '@/lib/i18n-messages'
 
 /** The `DangersAssessment` keys the board renders badges for. */
@@ -72,8 +72,15 @@ export function FeldDangerBadges({ dangers, className }: { dangers: string[]; cl
   )
 }
 
+/** «2 × Motorsäge» — the count spelled out in front, never a trailing «×2». */
 function materialLabel(line: ApiFeldMaterialLine): string {
-  return line.count > 1 ? `${line.name} ×${line.count}` : line.name
+  return line.count > 1 ? `${line.count} × ${line.name}` : line.name
+}
+
+/** Vehicle names alone — for the list row, which has one clamped line and no
+ *  room for who is driving. */
+function vehicleNames(lines: ApiFeldVehicleLine[]): string {
+  return lines.map(line => line.name).join(', ')
 }
 
 /**
@@ -117,7 +124,16 @@ function BriefingRow({
  * closed can be closed by accident with a wet thumb. The board-side rendering
  * (and the tests) keep the plain section.
  */
-export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssignment; folded?: boolean }) {
+export function FeldBriefing({
+  assignment,
+  folded,
+  bare,
+}: {
+  assignment: ApiFeldAssignment
+  folded?: boolean
+  /** Render only the rows — no card, no heading. Used by the detail header. */
+  bare?: boolean
+}) {
   const t = useTranslations('feld.briefing')
   const { description, contact, contact_phone: phone, crew, vehicles, materials, reko } = assignment
 
@@ -129,7 +145,7 @@ export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssign
   // (the sentence that says what happened), falling back to what was sent.
   const summary =
     description?.replace(/\s+/g, ' ').trim() ||
-    [vehicles.join(', '), crew.length ? `${crew.length}` : ''].filter(Boolean).join(' · ') ||
+    [vehicleNames(vehicles), crew.length ? `${crew.length}` : ''].filter(Boolean).join(' · ') ||
     t('summaryFallback')
 
   const body = (
@@ -164,15 +180,69 @@ export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssign
         </BriefingRow>
       )}
 
+      {/* One line per vehicle, and three facts on it, because those are the
+          three a crew standing at an address actually asks about a vehicle:
+          WHO is sitting in it (it is the person you need when it has to move),
+          whether it BELONGS to the Auftrag (an Auftrag's vehicles are shared
+          across every stop, so it comes to the next one — a Schadenplatz's do
+          not), and whether it STAYS here or drives back once you are dropped
+          off. «TLF 1» on its own answered none of them. */}
       {vehicles.length > 0 && (
         <BriefingRow icon={Truck} label={t('vehicles')}>
-          {vehicles.join(', ')}
+          <div className="space-y-1">
+            {vehicles.map(vehicle => (
+              <p key={vehicle.name} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span>
+                  {vehicle.name}
+                  {vehicle.driver && (
+                    <span className="text-muted-foreground"> · {t('driver', { name: vehicle.driver })}</span>
+                  )}
+                </span>
+                {vehicle.via_auftrag && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-info/15 px-1.5 py-0.5 text-[11px] font-medium text-info">
+                    <Waypoints className="h-3 w-3 shrink-0" />
+                    {t('vehicleViaAuftrag')}
+                  </span>
+                )}
+                {/* Amber for the one that costs something — the same colour the
+                    board gives it. A vehicle parked at the address is blocked
+                    in; one that drives back is the normal state of the world.
+                    Nothing at all when the answer is null: an Auftrag has no
+                    driver-stay toggle, so «fährt zurück» there would be the
+                    board answering for a decision nobody made. */}
+                {vehicle.stays !== null && vehicle.stays !== undefined && (
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+                      vehicle.stays ? 'bg-warning/15 text-warning-foreground' : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {vehicle.stays ? <MapPin className="h-3 w-3 shrink-0" /> : <Undo2 className="h-3 w-3 shrink-0" />}
+                    {t(vehicle.stays ? 'vehicleStays' : 'vehicleReturns')}
+                  </span>
+                )}
+              </p>
+            ))}
+          </div>
         </BriefingRow>
       )}
 
+      {/* One line per material entry, with WHERE it lives (§P2 add-on): the
+          squad reads this to pack the vehicle, and «Motorsäge ×2, Tauchpumpe»
+          in one run-on line answered neither how many lines to fetch nor from
+          which shelf. The depot rides muted after the name — same shape the
+          vehicle lines above give their driver. */}
       {materials.length > 0 && (
         <BriefingRow icon={Package} label={t('material')}>
-          {materials.map(materialLabel).join(', ')}
+          <div className="space-y-1">
+            {materials.map(line => (
+              <p key={`${line.name}·${line.location ?? ''}`}>
+                <span>{materialLabel(line)}</span>
+                {line.location && (
+                  <span className="text-muted-foreground"> · {line.location}</span>
+                )}
+              </p>
+            ))}
+          </div>
         </BriefingRow>
       )}
 
@@ -187,6 +257,12 @@ export function FeldBriefing({ assignment, folded }: { assignment: ApiFeldAssign
       )}
     </>
   )
+
+  // `bare` drops the wrapper AND the heading: the briefing then sits inside the
+  // detail's header card, under the address it belongs to. "Lage und
+  // Ressourcen" was a title over the only content on screen — a label for a
+  // section nobody had to be told apart from anything else.
+  if (bare) return <div className="space-y-3">{body}</div>
 
   if (folded) {
     return (
@@ -225,7 +301,7 @@ export function FeldBriefingLine({ assignment }: { assignment: ApiFeldAssignment
       {vehicles.length > 0 && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Truck className="h-3 w-3 shrink-0" />
-          <span className="truncate">{vehicles.join(', ')}</span>
+          <span className="truncate">{vehicleNames(vehicles)}</span>
         </p>
       )}
       <FeldDangerBadges dangers={dangers} />

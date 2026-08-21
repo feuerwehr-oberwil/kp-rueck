@@ -16,6 +16,8 @@ import { MapPin, AlertCircle, Loader2 } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { useTranslations } from "next-intl"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { STATUS_ACCENT } from "@/lib/kanban-utils"
+import { getOperationStatusLabel } from "@/lib/status-labels"
 
 interface TransferIncidentDialogProps {
   open: boolean
@@ -66,12 +68,81 @@ export function TransferIncidentDialog({
       )
     })
 
+  // Abgeschlossene at the bottom, under their own heading: transferring
+  // resources onto a closed incident is possible (reopening happens), but it is
+  // never the case the operator is scanning for.
+  const activeTargets = targetIncidents.filter(inc => inc.status !== "complete")
+  const completedTargets = targetIncidents.filter(inc => inc.status === "complete")
+
+  // One selectable row. The status dot + label say where the target currently
+  // stands — the same colours the board columns carry (STATUS_ACCENT).
+  const renderIncident = (incident: Incident) => {
+    const address = incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())
+    const accent = STATUS_ACCENT[incident.status]
+    return (
+      <button
+        key={incident.id}
+        onClick={() => setSelectedIncidentId(incident.id)}
+        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+          selectedIncidentId === incident.id
+            ? "border-foreground/30 bg-muted"
+            : "border-border hover:border-foreground/20 hover:bg-muted/50"
+        } ${incident.status === "complete" ? "opacity-70" : ""}`}
+      >
+        <div className="space-y-2">
+          {/* Address first (then title) to match the board/incident cards */}
+          <div className="flex items-start gap-2">
+            <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-semibold text-sm truncate" title={address || incident.title}>
+                {address || incident.title}
+              </h4>
+              {/* title is usually a copy of the raw address — only show it when it adds information */}
+              {address && incident.title !== incident.location_address && (
+                <p className="text-xs text-muted-foreground truncate mt-0.5" title={incident.title}>
+                  {incident.title}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Current state, incident type and priority */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${accent?.text ?? "text-muted-foreground"}`}>
+              <span className={`h-2 w-2 rounded-full ${accent?.dot ?? "bg-muted-foreground"}`} aria-hidden />
+              {getOperationStatusLabel(incident.status)}
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {t(`types.${incident.type}`)}
+            </Badge>
+            <Badge
+              variant={
+                incident.priority === "high"
+                  ? "destructive"
+                  : incident.priority === "medium"
+                  ? "default"
+                  : "secondary"
+              }
+              className="text-xs"
+            >
+              {t(`priority.${incident.priority}`)}
+            </Badge>
+            {incident.assigned_vehicles.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {t('transfer.vehicleCount', { count: incident.assigned_vehicles.length })}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className="max-w-2xl modal-h-tall flex flex-col"
-        overlayClassName="backdrop-blur-none"
-      >
+      {/* No overlay override: every modal shares the one restrained-blur
+          treatment (components/ui/overlay.ts). */}
+      <DialogContent className="max-w-2xl modal-h-tall flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('transfer.title')}</DialogTitle>
           <DialogDescription>
@@ -103,62 +174,17 @@ export function TransferIncidentDialog({
               )}
             </div>
           ) : (
-            targetIncidents.map((incident) => {
-              const address = incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())
-              return (
-              <button
-                key={incident.id}
-                onClick={() => setSelectedIncidentId(incident.id)}
-                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                  selectedIncidentId === incident.id
-                    ? "border-foreground/30 bg-muted"
-                    : "border-border hover:border-foreground/20 hover:bg-muted/50"
-                }`}
-              >
-                <div className="space-y-2">
-                  {/* Address first (then title) to match the board/incident cards */}
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-sm truncate" title={address || incident.title}>
-                        {address || incident.title}
-                      </h4>
-                      {/* title is usually a copy of the raw address — only show it when it adds information */}
-                      {address && incident.title !== incident.location_address && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5" title={incident.title}>
-                          {incident.title}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Incident type and priority */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs">
-                      {t(`types.${incident.type}`)}
-                    </Badge>
-                    <Badge
-                      variant={
-                        incident.priority === "high"
-                          ? "destructive"
-                          : incident.priority === "medium"
-                          ? "default"
-                          : "secondary"
-                      }
-                      className="text-xs"
-                    >
-                      {t(`priority.${incident.priority}`)}
-                    </Badge>
-                    {incident.assigned_vehicles.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {t('transfer.vehicleCount', { count: incident.assigned_vehicles.length })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-              )
-            })
+            <>
+              {activeTargets.map(renderIncident)}
+              {completedTargets.length > 0 && (
+                <>
+                  <p className="pt-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {getOperationStatusLabel("complete")}
+                  </p>
+                  {completedTargets.map(renderIncident)}
+                </>
+              )}
+            </>
           )}
         </div>
 

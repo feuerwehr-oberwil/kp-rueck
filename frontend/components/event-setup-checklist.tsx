@@ -1,14 +1,24 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { Fragment, useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { X, ClipboardCheck, Check, MessageCircle, Send } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { X, ClipboardCheck, Check, MessageCircle, Send, Binoculars } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
+import { FeldAccessCard } from '@/components/feld/feld-access-card'
+import { MarkExistingRekoPersonnel } from '@/components/incidents/assign-reko-dialog'
+import { useOperations } from '@/lib/contexts/operations-context'
+import type { Person } from '@/lib/contexts/personnel-context'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
-import { getTileBaseUrl } from '@/lib/env'
 import {
   generateChecklistTasks,
   applyChecklistSettings,
@@ -23,7 +33,6 @@ import {
   DEFAULT_WHATSAPP_MESSAGE_1,
   DEFAULT_WHATSAPP_MESSAGE_2,
 } from '@/lib/checklist-tasks'
-import { useOperations } from '@/lib/contexts/operations-context'
 import { cn, copyToClipboard } from '@/lib/utils'
 import { isBooleanRecord, readJson, writeJson } from '@/lib/utils/safe-storage'
 
@@ -41,6 +50,9 @@ interface EventSetupChecklistProps {
    *  a dialog rendered in here would be unmounted the moment its own opening
    *  closed the popover it lives in (same reason as the driver prompt). */
   onSendDiveraMessage?: (text: string) => void
+  /** Opens the Reko picker (`RekoPickerDialog`). Owned by the page for the same
+   *  unmount reason as the Divera dialog above. */
+  onOpenRekoPicker?: () => void
 }
 
 export function EventSetupChecklist({
@@ -51,10 +63,8 @@ export function EventSetupChecklist({
   onOpenVehicles,
   onOpenAttendance,
   onSendDiveraMessage,
+  onOpenRekoPicker,
 }: EventSetupChecklistProps) {
-  // The driver prompt is queued through the context, not opened here — it is mounted in
-  // the root layout, so it survives this popover being dismissed.
-  const { promptDriversForVehicles } = useOperations()
   const t = useTranslations('checklist.setup')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
@@ -130,11 +140,6 @@ export function EventSetupChecklist({
     subtitle: t('checkInSubtitle'),
     copyLabel: t('checkInCopyLabel'),
   }
-  const rekoMeta = {
-    title: t('rekoTitle'),
-    subtitle: t('rekoSubtitle'),
-    copyLabel: t('rekoCopyLabel'),
-  }
   const alarmMeta = {
     title: t('alarmTitle'),
     subtitle: t('alarmSubtitle'),
@@ -148,8 +153,6 @@ export function EventSetupChecklist({
 
   const handleCopyCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
   const handlePrintCheckInLink = () => shareLink(() => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
-  const handleCopyRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'copy', rekoMeta)
-  const handlePrintRekoLink = () => shareLink(() => apiClient.generateRekoDashboardLink(eventId), 'print', rekoMeta)
   const handleCopyAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
   const handlePrintAlarmLink = () => shareLink(() => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
   const handleCopyFeldLink = () => shareLink(() => apiClient.generateFeldLink(eventId), 'copy', feldMeta)
@@ -171,16 +174,6 @@ export function EventSetupChecklist({
     }
   }
 
-  const handleShowTileSetup = () => {
-    toast.info(t('tileSetupTitle'), {
-      description: t('tileSetupDescription'),
-      action: {
-        label: t('tileSetupAction'),
-        onClick: () => window.open('/help#offline-maps', '_blank'),
-      },
-    })
-  }
-
   const handleSendWhatsApp = (which: 1 | 2) => {
     // Copy only — never auto-tick, so the operator can re-copy and checks it off
     // manually once it's actually sent.
@@ -199,32 +192,13 @@ export function EventSetupChecklist({
     try {
       setIsLoading(true)
 
-      // Tile-server health probe. On a deployment this is /tiles on our own origin; in
-      // local dev it is the tileserver container on :8080, which most dev machines don't
-      // run — and a bare fetch there has no timeout and stalls the whole checklist open.
-      // Bound it and run it alongside the API calls instead of sequentially after them.
-      const checkMapTiles = async () => {
-        try {
-          const controller = new AbortController()
-          const timer = setTimeout(() => controller.abort(), 1500)
-          try {
-            return (await fetch(`${getTileBaseUrl()}/health`, { signal: controller.signal })).ok
-          } finally {
-            clearTimeout(timer)
-          }
-        } catch {
-          return false
-        }
-      }
-
-      const [attendance, specialFunctions, vehicles, settings, printerStatus, mapTilesAvailable] =
+      const [attendance, specialFunctions, vehicles, settings, printerStatus] =
         await Promise.all([
           apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
           apiClient.getEventSpecialFunctions(eventId).catch(() => []),
           apiClient.getVehicles().catch(() => []),
           apiClient.getAllSettings().catch(() => ({}) as Record<string, string>),
           apiClient.getPrinterStatus().catch(() => null),
-          checkMapTiles(),
         ])
 
       setWhatsappMessages({
@@ -244,19 +218,15 @@ export function EventSetupChecklist({
         vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
         rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
         magazinStaff: specialFunctions.filter((f) => f.function_type === 'magazin').length,
-        mapTilesAvailable,
         printerEnabled: printerStatus?.enabled ?? false,
         printerAgentOnline: printerStatus?.agent_online ?? false,
         fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
         onCopyCheckInLink: handleCopyCheckInLink,
         onPrintCheckInLink: handlePrintCheckInLink,
-        onCopyRekoLink: handleCopyRekoLink,
-        onPrintRekoLink: handlePrintRekoLink,
         onCopyAlarmLink: handleCopyAlarmLink,
         onPrintAlarmLink: handlePrintAlarmLink,
         onCopyFeldLink: handleCopyFeldLink,
         onPrintFeldLink: handlePrintFeldLink,
-        onShowTileSetup: handleShowTileSetup,
         onTestPrint: handleTestPrint,
         onOpenFallbackSettings: () => {
           window.location.href = '/settings?section=fallback'
@@ -267,15 +237,15 @@ export function EventSetupChecklist({
           onDismiss()
           onOpenVehicles?.()
         },
-        // Hand the whole run over at once: the prompt lives in the root layout, so it
-        // outlives this popover closing underneath it.
-        onAssignDrivers: () => {
-          onDismiss()
-          promptDriversForVehicles(findVehiclesWithoutDriver(vehicles, specialFunctions))
-        },
         onOpenAttendance: () => {
           onDismiss()
           onOpenAttendance?.()
+        },
+        // Same closing dance as the Divera dialog: the picker is a page-owned
+        // modal, and a dialog mounted in this popover dies with it.
+        onOpenRekoPicker: () => {
+          onDismiss()
+          onOpenRekoPicker?.()
         },
       })
 
@@ -366,8 +336,8 @@ export function EventSetupChecklist({
             const whatsappMessage = task.whatsappMessage
 
             return (
+              <Fragment key={task.id}>
               <div
-                key={task.id}
                 role="button"
                 tabIndex={0}
                 onClick={() => toggleTask(task)}
@@ -489,9 +459,82 @@ export function EventSetupChecklist({
                   ) : null}
                 </div>
               </div>
+              {/* The Feld-Code, directly under the row that produces the poster.
+                  Not a step to tick off — a fact the KP reads out, and since
+                  plan 26 the QR alone gets nobody in, so code and link have to
+                  live (and print) together. Indented to read as the row's own
+                  appendix, not another task. */}
+              {task.id === 'share-feld-link' && (
+                <div className="ml-8 mb-1">
+                  <FeldAccessCard eventId={eventId} />
+                </div>
+              )}
+              </Fragment>
             )
           })}
         </div>
     </div>
+  )
+}
+
+/**
+ * The «Reko-Offiziere wählen» picker behind the checklist row of the same name.
+ *
+ * Mounted by the page, not by the checklist: the checklist lives in a popover,
+ * and a modal opened from inside one is unmounted the moment the popover closes
+ * under it (same reason the Divera confirmation is page-owned).
+ *
+ * Marks people via the SAME call every other surface uses
+ * (`assignSpecialFunction(…, 'reko')` — the context menu, the map's Reko-Modus,
+ * the assign dialog), so the checklist's auto-tick sees it on the next poll.
+ * Stays open after each pick: a station usually names two or three Reko at
+ * once, and a marked person drops out of the candidate list by itself.
+ */
+export function RekoPickerDialog({
+  open,
+  onOpenChange,
+  eventId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  eventId: string | null
+}) {
+  const t = useTranslations('checklist.rekoPicker')
+  const { personnel, refreshOperations } = useOperations()
+
+  const handleSelect = async (person: Person) => {
+    if (!eventId) return
+    try {
+      await apiClient.assignSpecialFunction(eventId, {
+        personnel_id: person.id,
+        function_type: 'reko',
+        vehicle_id: null,
+      })
+      toast.success(t('marked', { name: person.name }))
+      await refreshOperations()
+    } catch (error) {
+      console.error('Failed to mark Reko personnel:', error)
+      toast.error(t('failed'))
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Binoculars className="h-5 w-5" />
+            {t('title')}
+          </DialogTitle>
+          <DialogDescription>{t('description')}</DialogDescription>
+        </DialogHeader>
+        <MarkExistingRekoPersonnel personnel={personnel} onSelect={handleSelect} />
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('done')}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

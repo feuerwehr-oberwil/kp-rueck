@@ -151,6 +151,13 @@ DEFAULT_SETTINGS = {
     # the Einstellungen page edits it in the same Textarea shape as the templates
     # next to it. Blank lines are dropped on read (`parse_message_chips`).
     "feld.message_chips": "Verstärkung nötig\nMaterial nötig\nfertig in ~30 Min\nEinsatzstelle übergeben",
+    # The same, for a FAHRER. A driver may not report «Angekommen» or «Einsatz
+    # beendet» — those are the working crew's statements about a Schadenplatz and
+    # the server refuses them (`WORK_SOURCES`) — so the crew's chips read wrong
+    # for the one person sitting outside in the vehicle. These are the things a
+    # driver actually radios in, sent as an ordinary Meldung with their name and
+    # the time on it. Same one-chip-per-line storage, same Textarea.
+    "feld.driver_message_chips": "Bin vor Ort\nFahrzeug parkiert\nFahre zurück ins Magazin\nWarte auf Auftrag",
     # Two ways to tidy the text an alarm provider puts into every alarm, both applied to
     # the INCIDENT's description only and both EMPTY BY DEFAULT – a fresh install passes
     # every alarm description through untouched. What a dispatch system prepends is that
@@ -172,6 +179,7 @@ DEFAULT_SETTINGS = {
 }
 
 FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
+FELD_DRIVER_MESSAGE_CHIPS_KEY = "feld.driver_message_chips"
 
 ALARM_DESCRIPTION_FILTER_PREFIXES_KEY = "alarm.description_filter_prefixes"
 ALARM_DESCRIPTION_LABEL_PREFIXES_KEY = "alarm.description_label_prefixes"

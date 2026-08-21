@@ -12,7 +12,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import special_functions as crud
 from ..database import get_db
-from ..models import EventSpecialFunction, Personnel, Vehicle
+from ..models import EventSpecialFunction, Personnel, SpecialFunctionType, Vehicle
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_special_function_update
 
@@ -48,8 +48,9 @@ async def _enrich_assignments(
             event_id=a.event_id,
             personnel_id=a.personnel_id,
             personnel_name=personnel_names.get(a.personnel_id, "Unknown"),
-            # The column is a plain str; the str-Enum FunctionType is applied by pydantic.
-            function_type=a.function_type,  # type: ignore[arg-type]
+            # A plain str on both sides since the function types became a lookup
+            # table — a station can add a Verkehrsdienst without a migration.
+            function_type=a.function_type,
             vehicle_id=a.vehicle_id,
             vehicle_name=vehicle_names.get(a.vehicle_id) if a.vehicle_id else None,
             assigned_at=a.assigned_at,
@@ -57,6 +58,22 @@ async def _enrich_assignments(
         )
         for a in assignments
     ]
+
+
+@router.get("/types", response_model=list[schemas.SpecialFunctionTypeResponse])
+async def list_function_types(
+    event_id: uuid.UUID,
+    _current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> list[schemas.SpecialFunctionTypeResponse]:
+    """The roles this station has (plan 26, decision 5).
+
+    Data rather than a CHECK constraint since plan 26, so a station can name a
+    Verkehrsdienst without a migration. What each role *does* still lives in
+    code — this is the list of names, not a permission model.
+    """
+    result = await db.execute(select(SpecialFunctionType).order_by(SpecialFunctionType.sort_order))
+    return [schemas.SpecialFunctionTypeResponse.model_validate(row) for row in result.scalars().all()]
 
 
 @router.get("/", response_model=list[schemas.EventSpecialFunctionResponse])
@@ -113,8 +130,8 @@ async def assign_special_function(
         event_id=db_assignment.event_id,
         personnel_id=db_assignment.personnel_id,
         personnel_name=personnel.name if personnel else "Unknown",
-        # The column is a plain str; the str-Enum FunctionType is applied by pydantic.
-        function_type=db_assignment.function_type,  # type: ignore[arg-type]
+        # A plain str on both sides since the function types became a lookup table.
+        function_type=db_assignment.function_type,
         vehicle_id=db_assignment.vehicle_id,
         vehicle_name=vehicle_name,
         assigned_at=db_assignment.assigned_at,

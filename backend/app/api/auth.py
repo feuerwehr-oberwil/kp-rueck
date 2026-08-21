@@ -16,8 +16,10 @@ from ..auth.config import auth_settings
 from ..auth.dependencies import CurrentUser, get_current_user
 from ..auth.login_throttle import login_throttle
 from ..auth.security import (
+    WS_TOKEN_EXPIRE_SECONDS,
     create_access_token,
     create_refresh_token,
+    create_ws_token,
     decode_token,
     verify_password,
 )
@@ -308,6 +310,27 @@ async def get_current_user_info(current_user: CurrentUser) -> User:
     Used by frontend to verify authentication status.
     """
     return current_user
+
+
+@router.get("/ws-token", response_model=schemas.WsTokenResponse)
+async def get_ws_token(current_user: CurrentUser) -> schemas.WsTokenResponse:
+    """A short-lived token for the Socket.IO connect (sweep 27 §P3.4).
+
+    The socket's own auth reads the `access_token` cookie, which never reaches
+    the backend on split-origin deployments (Railway staging, kp.fwo.li →
+    kp-api.fwo.li) — every connect was rejected under `ws_require_auth` and
+    clients silently fell back to 5s polling. The frontend fetches this token
+    same-origin through its proxy (the cookie rides along HERE), then passes it
+    in the Socket.IO `auth` payload; the connect handler accepts either.
+
+    Not rate-limited beyond the client's own behaviour: it is fetched once per
+    connection attempt, requires a valid session, and grants nothing but a
+    60-second connect.
+    """
+    return schemas.WsTokenResponse(
+        token=create_ws_token(current_user.id, current_user.role),
+        expires_in=WS_TOKEN_EXPIRE_SECONDS,
+    )
 
 
 @router.get("/microsoft-config", response_model=schemas.MicrosoftAuthConfig)

@@ -25,6 +25,52 @@ export function useFooterOffset(active: boolean): string {
   return offset
 }
 
+/**
+ * Marks portalled content that belongs to an open footer sheet.
+ *
+ * Same problem `lib/toast-layer.ts` solves for toasts: a suggestion list or a
+ * picker rendered by something *inside* the sheet lands at the end of `<body>`,
+ * so every "did that click land outside?" test says yes and the sheet dismisses
+ * itself — taking the half-filled form with it. Put this on the portalled
+ * content and the sheet counts it as its own.
+ *
+ * Only needed for NON-modal layers. A modal one (a Radix dialog) locks the
+ * body's pointer events, which the sheet already reads as "not mine" — see
+ * `isAboveModalLayer`.
+ */
+export const SHEET_LAYER_ATTR = "data-sheet-layer"
+
+/**
+ * Is a modal layer stacked above us right now?
+ *
+ * Radix sets `pointer-events: none` on `<body>` for the duration of a modal
+ * layer and uses that same flag internally to stop the layers underneath
+ * reacting to outside interactions. The footer sheet's own document listener
+ * (below) is hand-rolled, so it has to make the same check itself — otherwise
+ * dropping a pin on the map picker, or clicking its backdrop, closes the sheet
+ * the picker was opened from.
+ */
+function isAboveModalLayer(): boolean {
+  return document.body.style.pointerEvents === "none"
+}
+
+/**
+ * Everything a click can land on without meaning "dismiss the sheet": the
+ * panel itself, the footer toolbar it docks above (which stays live — that is
+ * the whole point of the non-modal shape), and any portalled layer tagged as
+ * belonging to it.
+ *
+ * `Element`, not `HTMLElement`: the icons inside a suggestion row are `<svg>`
+ * nodes. Both support `closest`, so this still walks up to the container.
+ */
+function isOwnLayer(target: Element): boolean {
+  return Boolean(
+    target.closest('[data-slot="sheet-content"]') ||
+      target.closest(`[${SHEET_LAYER_ATTR}]`) ||
+      target.closest("footer"),
+  )
+}
+
 interface FooterSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -80,10 +126,8 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
     const isOutside = (target: HTMLElement | null) => {
       const { open: isOpen, isMobile: onPhone, shouldPreventClose: prevent } = guard.current
       if (!isOpen || onPhone || !target) return false
-      if (target.closest('[data-slot="sheet-content"]')) return false
-      // The footer toolbar keeps working while a sheet is docked above it —
-      // that is the whole point of the non-modal shape.
-      if (target.closest("footer") || prevent?.(target)) return false
+      if (isOwnLayer(target) || isAboveModalLayer()) return false
+      if (prevent?.(target)) return false
       return true
     }
 
@@ -113,6 +157,12 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
         side="bottom"
         hideCloseButton={!isMobile}
         overlayOffset={isMobile ? undefined : footerOffset}
+        // Desktop: stop at the notification sidebar's edge instead of sliding
+        // underneath it. The sidebar publishes its width as a root CSS var
+        // while open (persistent-notification-sidebar.tsx); 0px otherwise, so
+        // this is a no-op when the sidebar is closed. Backdrop follows too, so
+        // the sidebar is neither dimmed nor covered — side by side, sane z.
+        rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
         nonModal={!isMobile}
         className={className}
         style={style}
@@ -121,7 +171,7 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
             ? undefined
             : (e) => {
                 const target = e.target as HTMLElement
-                if (target.closest("footer") || shouldPreventClose?.(target)) {
+                if (isOwnLayer(target) || isAboveModalLayer() || shouldPreventClose?.(target)) {
                   e.preventDefault()
                 }
               }

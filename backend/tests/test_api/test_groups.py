@@ -18,7 +18,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog, Event, Incident, User, Vehicle
+from app.models import AuditLog, Event, Incident, Personnel, User, Vehicle
 from app.services.tokens import generate_viewer_token
 
 # ============================================
@@ -393,6 +393,39 @@ async def test_assign_list_unassign_group_resource(
     assert unassign.status_code == 204
     listing2 = await editor_client.get(f"/api/incident-groups/{group['id']}/assignments")
     assert listing2.json() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_pinning_the_routes_einsatzleiter_returns_the_group(
+    editor_client: AsyncClient, test_event: Event, test_personnel: Personnel
+):
+    """Pinning an Auftrag's EL answered 500, so an Auftrag never had one.
+
+    `update_group_assignment` commits, which expires every instance in the
+    session — and the endpoint then built its broadcast payload from the group
+    reference it had loaded *before* that, lazy-loading outside the greenlet.
+    A stop takes its leader from the route (the stops own no resources), so the
+    failure reached all the way to the crew's own page: every stop of every
+    Auftrag read "kein EL erfasst".
+    """
+    group = await _create_group(editor_client, test_event)
+    assign = await editor_client.post(
+        f"/api/incident-groups/{group['id']}/assign",
+        json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
+    )
+    assert assign.status_code == 200, assign.text
+
+    pin = await editor_client.patch(
+        f"/api/incident-groups/{group['id']}/assignments/{assign.json()['id']}",
+        json={"is_leader": True},
+    )
+
+    assert pin.status_code == 200, pin.text
+    assert pin.json()["is_leader"] is True
+
+    listing = await editor_client.get(f"/api/incident-groups/{group['id']}/assignments")
+    assert [a["is_leader"] for a in listing.json()] == [True]
 
 
 @pytest.mark.asyncio

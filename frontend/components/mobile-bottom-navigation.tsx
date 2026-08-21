@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Search, MonitorDown, Plus, ChevronRight } from 'lucide-react'
+import { Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -23,9 +23,8 @@ import { RoleBadge } from '@/components/auth/role-badge'
 interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
   hasSelectedEvent?: boolean
-  onCheckIn?: () => void
-  onReko?: () => void
-  onDisplay?: () => void
+  /** Opens the one «Links & QR» sheet (plan 26, decision 29). */
+  onLinks?: () => void
   onPersonnel?: () => void
   onVehicleStatus?: () => void
   onPrint?: () => void
@@ -36,9 +35,7 @@ interface MobileBottomNavigationProps {
 export function MobileBottomNavigation({
   currentPage,
   hasSelectedEvent = true,
-  onCheckIn,
-  onReko,
-  onDisplay,
+  onLinks,
   onPersonnel,
   onVehicleStatus,
   onPrint,
@@ -232,48 +229,22 @@ export function MobileBottomNavigation({
                   {t('quickActions')}
                 </h3>
                 <div className="space-y-1">
-                  {/* Check-In Button */}
-                  {isEditor && onCheckIn && (
+                  {/* One entry for every link the board hands out — the same
+                      consolidation the desktop footer got (plan 26, decision
+                      29). It was three: Check-In, Reko and Anzeige, each
+                      opening its own sheet that did the same three things, and
+                      Reko pointing at a page that no longer exists. */}
+                  {isEditor && onLinks && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
                       onClick={() => {
                         setSheetOpen(false)
-                        setTimeout(() => onCheckIn(), 350)
+                        setTimeout(() => onLinks(), 350)
                       }}
                     >
                       <QrCode className="size-4" />
-                      <span>{t('checkInQr')}</span>
-                    </Button>
-                  )}
-
-                  {/* Reko Dashboard QR/Link */}
-                  {isEditor && onReko && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onReko(), 350)
-                      }}
-                    >
-                      <Search className="size-4" />
-                      <span>{t('reko')}</span>
-                    </Button>
-                  )}
-
-                  {/* Display share QR/Link */}
-                  {isEditor && onDisplay && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-3"
-                      onClick={() => {
-                        setSheetOpen(false)
-                        setTimeout(() => onDisplay(), 350)
-                      }}
-                    >
-                      <MonitorDown className="size-4" />
-                      <span>{t('display')}</span>
+                      <span>{t('linksAndQr')}</span>
                     </Button>
                   )}
 

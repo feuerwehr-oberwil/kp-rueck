@@ -8,6 +8,7 @@ import { translateOutsideReact } from "./i18n-messages"
 // the board. So the console exposes exactly the field-originated milestones:
 //
 //   Reko vor Ort → Reko-Meldung → Fahrt zu Einsatz → Einsatz beendet + Rückfahrt
+//   → Rapport (once the operator closed the incident, until it is filed)
 //
 // The last step offers BOTH actions side by side: once the vehicles arrived,
 // the trainer decides whether the crew stays until "beendet" or a vehicle
@@ -37,6 +38,7 @@ export type NextActionKind =
   | "gps_drive" // starts a simulated GPS drive to the incident; arrival prompt follows
   | "gps_return" // starts a simulated GPS drive back to the magazin; release prompt follows
   | "field_complete" // field reports "Einsatz beendet" — console note, NO status change
+  | "rapport" // Schadenplatz-Rapport arrives for a completed incident (plan 25)
 
 export interface NextAction {
   key: string
@@ -58,6 +60,7 @@ const DUE = {
   vehicleOnScene: 150, // travel time before the vehicles reach the scene (fallback)
   incidentDone: 420, // time working the incident (~7 min) before the crew reports done
   returnStart: 120, // packing-up time after "beendet" before the crew drives home
+  rapportFiled: 180, // paperwork time after completion before the rapport comes in
 } as const
 
 /**
@@ -106,11 +109,18 @@ export function nextActions(op: Operation, opts?: { gpsSim?: boolean }): NextAct
         return [{ key: "drive_to_magazin", label: translateOutsideReact('notifications.trainingActions.driveToMagazin'), kind: "gps_return", dueAfterSec: DUE.driveStart }]
       }
       return []
+    case "complete":
+      // Closed on the board, but the field still owes its Schadenplatz-Rapport
+      // (plan 25). Same candidate rule as the bulk endpoint: completed and no
+      // *submitted* rapport — a draft is somebody who walked away, not a filing.
+      if (!op.hasSchadenplatzRapport) {
+        return [{ key: "rapport", label: translateOutsideReact('notifications.trainingActions.rapport'), kind: "rapport", dueAfterSec: DUE.rapportFiled }]
+      }
+      return []
     // "incoming" (operator tasks Reko) and "reko_done" (operator disponiert) are
-    // command-post decisions — no field action. "complete" is done.
+    // command-post decisions — no field action.
     case "incoming":
     case "reko_done":
-    case "complete":
     default:
       return []
   }

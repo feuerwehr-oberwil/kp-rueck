@@ -1,7 +1,9 @@
 """Tests for photo storage service."""
 
 import io
+import struct
 import uuid
+import zlib
 
 import pytest
 from fastapi import HTTPException
@@ -9,6 +11,21 @@ from PIL import Image
 
 from app.config import Settings, get_settings
 from app.services.photo_storage import PhotoStorageService
+
+
+def _png_header_declaring(width: int, height: int) -> bytes:
+    """A valid PNG that *claims* width×height without containing the pixels.
+
+    `Image.open` reads chunks up to the first IDAT, so this is enough for the size guard to
+    see the declared dimensions — which is exactly the shape of the attack: the cost is in
+    what the header promises, not in what the file carries.
+    """
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit truecolour
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"\x00")) + chunk(b"IEND", b"")
 
 
 @pytest.fixture
@@ -299,16 +316,24 @@ class TestPhotoStorageService:
         """
         A legal, small file that declares enormous dimensions must be refused.
 
-        The byte-size limit does not cover this: PNG compresses uniform data so well that a
-        few hundred kilobytes can declare 20000x20000 pixels, which is ~1.6 GB once decoded.
-        Against the container's 1 GB that is an OOM, and an OOM takes the board down for
-        every operator, not just the one uploading.
+        The byte-size limit does not cover this: what costs memory is the *declared* size, and
+        a PNG header stating 20000x20000 fits in a hundred bytes while promising ~1.2 GB of
+        decoded pixels. Against the container's memory limit that is an OOM, and an OOM takes
+        the board down for every operator, not just the one uploading.
+
+        The header is hand-built rather than produced by `Image.new(...).save(...)`: making a
+        real 400-megapixel image allocates that 1.2 GB *in the test process*, which OOM-killed
+        the 512 MB dev container and made `just test` unfinishable locally. The bomb this
+        defends against does not allocate either — that is the whole point of it.
         """
-        bomb = io.BytesIO()
-        Image.new("RGB", (20000, 20000), "white").save(bomb, format="PNG")
-        payload = bomb.getvalue()
-        # It really is an innocuous-looking file: well under the 10 MB size limit.
-        assert len(payload) < 10 * 1024 * 1024
+        payload = _png_header_declaring(20000, 20000)
+        # It really is an innocuous-looking file: a hundred-odd bytes, nowhere near the 10 MB
+        # size limit, and the guard still has to catch it on the declared dimensions alone.
+        assert len(payload) < 1024
+        # The declared size is in the IHDR, which is where the guard reads it from — and where
+        # Pillow's own bomb check reads it too, so opening it here to "prove" it would raise
+        # before the service ever saw the file.
+        assert struct.unpack(">II", payload[16:24]) == (20000, 20000)
 
         class MockUploadFile:
             filename = "bomb.png"

@@ -12,6 +12,7 @@ import {
   Plus,
   Truck,
   Users,
+  Waypoints,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,7 @@ import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
+import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 
 // Home-town-free label for dialog texts; falls back to the incident type when
 // the address was only the home town (formatted location is then empty).
@@ -92,6 +94,11 @@ export function useIncidentStatusWorkflow({
   const [rekoFormMissingReturnStatus, setRekoFormMissingReturnStatus] = useState<OperationStatus | null>(null)
   const [materialDecisionOperationId, setMaterialDecisionOperationId] = useState<string | null>(null)
   const [materialDecisionReturnStatus, setMaterialDecisionReturnStatus] = useState<OperationStatus | null>(null)
+  // The stop that just reached «Beendet», while the board asks whether the
+  // squad should start the next one. Holds the FINISHED stop rather than the
+  // candidate: the candidate is derived, so it cannot go stale against a route
+  // that changed while the dialog was open.
+  const [nextStopAfterId, setNextStopAfterId] = useState<string | null>(null)
   const [rekoAssignmentOperationId, setRekoAssignmentOperationId] = useState<string | null>(null)
   // Carried over from the Reko gate so Abbrechen in the picker still undoes the
   // move, exactly like Abbrechen one dialog earlier would have.
@@ -246,9 +253,53 @@ export function useIncidentStatusWorkflow({
     if (targetStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     if (targetStatus === "reko") triggerRekoCheck(operationId, previousStatus)
     if (targetStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
-    if (targetStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
+    if (targetStatus === "returning") {
+      triggerReturningVehicleCheck(operationId, previousStatus)
+      // A squad that finished a stop is a squad with nothing to do — and the
+      // route already says what is next. Only ASKED, never done: which stop a
+      // crew drives to next is a decision somebody makes over the radio, and a
+      // card that moved by itself is a card nobody trusts. Whether there is
+      // anything to ask about is derived below.
+      setNextStopAfterId(operationId)
+    }
     if (targetStatus === "complete") promptMaterialDecision(operationId, previousStatus)
   }, [changeStatusToTop, operationById, promptMaterialDecision, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck])
+
+  /**
+   * The stop the board is about to offer, or null when there is nothing to ask.
+   *
+   * Three conditions, all of them reasons NOT to ask:
+   *  * the finished stop belongs to no Auftrag — there is no "next";
+   *  * another stop of that Auftrag is already in Einsatz, so the squad is not
+   *    free and the question would be about work they are already doing;
+   *  * every remaining stop is finished, or the route is down to this one.
+   *
+   * Derived rather than stored, so a route edited while the dialog is open
+   * cannot leave the board offering a stop that has since been dispatched.
+   */
+  const nextStopPrompt = useMemo(() => {
+    const finished = operationById(nextStopAfterId)
+    if (!finished) return null
+    const auftrag = findAuftragForStop(groups, finished)
+    if (!auftrag) return null
+
+    const stops = auftrag.stopIds
+      .map((stopId) => operations.find((candidate) => candidate.id === stopId))
+      .filter((candidate): candidate is Operation => Boolean(candidate))
+    const othersRunning = stops.some(
+      (stop) => stop.id !== finished.id && stop.status === "active",
+    )
+    if (othersRunning) return null
+
+    // "Not started yet": everything before Einsatz on the board's own order.
+    // Reko and Reko-abgeschlossen count — they are stops nobody has driven to.
+    const next = stops.find(
+      (stop) =>
+        stop.id !== finished.id &&
+        !["active", "returning", "complete"].includes(stop.status),
+    )
+    return next ? { finished, auftrag, next } : null
+  }, [groups, nextStopAfterId, operationById, operations])
 
   const requestCompletion = useCallback(
     (operationId: string) => requestStatusChange(operationId, "complete"),
@@ -283,6 +334,9 @@ export function useIncidentStatusWorkflow({
     }
     setReturningVehicleOperationId(null)
     setReturningVehicleReturnStatus(null)
+    // The move was undone, so the stop is not finished after all and there is
+    // nothing to ask about the next one.
+    setNextStopAfterId(null)
   }, [returningVehicleOperationId, returningVehicleReturnStatus, revertTo])
 
   const cancelRekoMissing = useCallback(() => {
@@ -403,6 +457,22 @@ export function useIncidentStatusWorkflow({
       .filter((item) => materialChoice(item) === "vorort")
       .map((item) => item.id)
 
+    // Write the confirmed answers back into the rapport: «Vor Ort» persists as
+    // `left_on_site` (so the Restliste / Abholliste show the unit), «Magazin»
+    // clears a crew's earlier tick. Fire-and-forget on purpose — an incident
+    // that never had a rapport has nothing to record (the server answers
+    // `applied: false`), and the board release below is independent of it.
+    // Consumables are excluded the same way the dialog excludes them: a used
+    // consumable is gone and can never be "vor Ort".
+    const rapportDecisions = materialDecisionItems
+      .filter((item) => !item.consumable)
+      .map((item) => ({ material_id: item.id, left_on_site: materialChoice(item) === "vorort" }))
+    if (rapportDecisions.length > 0) {
+      void apiClient
+        .applyRapportMaterialDecisions(materialDecisionOperation.id, rapportDecisions)
+        .catch((error) => console.error("Failed to write material decisions back to the rapport:", error))
+    }
+
     for (const item of returnedItems) {
       if (item.assignmentId && materialDecisionOperation.groupId) {
         void unassignGroupResource(materialDecisionOperation.groupId, item.assignmentId)
@@ -443,10 +513,10 @@ export function useIncidentStatusWorkflow({
       setDisponiertOperationId(operationId)
     },
     missingResourcesOperation: operationById(missingResourcesOperationId),
-    closeMissingResources: () => {
-      setMissingResourcesOperationId(null)
-      setMissingResourcesReturnStatus(null)
-    },
+    // No `closeMissingResources`: every way out of this gate is either
+    // «Trotzdem disponieren» (which is `openDisponiert`, and clears the state
+    // itself) or Abbrechen. A third "just close it" verb was what Escape ended
+    // up bound to.
     cancelMissingResources,
     returningVehicleOperation: effectiveReturningVehicleOperation,
     closeReturningVehicle: () => {
@@ -454,6 +524,13 @@ export function useIncidentStatusWorkflow({
       setReturningVehicleReturnStatus(null)
     },
     cancelReturningVehicle,
+    nextStopPrompt,
+    closeNextStopPrompt: () => setNextStopAfterId(null),
+    startNextStop: () => {
+      const next = nextStopPrompt?.next
+      setNextStopAfterId(null)
+      if (next) requestStatusChange(next.id, "active")
+    },
     rekoMissingOperation: operationById(rekoMissingOperationId),
     closeRekoMissing: () => {
       setRekoMissingOperationId(null)
@@ -467,10 +544,8 @@ export function useIncidentStatusWorkflow({
     },
     cancelRekoFormMissing,
     materialDecisionOperation,
-    closeMaterialDecision: () => {
-      setMaterialDecisionOperationId(null)
-      setMaterialDecisionReturnStatus(null)
-    },
+    // Same here: confirming goes through `resolveMaterialDecision`, which
+    // clears the gate itself. Dismissing is a cancel.
     cancelMaterialDecision,
     materialDecisionItems,
     materialDecisions,
@@ -521,7 +596,7 @@ interface IncidentStatusWorkflowDialogsProps {
   funkrufname: string
   diveraEnabled: boolean
   onOpenAssignment: (resourceType: ResourceType, operationId: string) => void
-  onOpenDetail: (operationId: string) => void
+  onOpenDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onSendDivera: (operation: Operation) => void
   onRefresh: () => void | Promise<void>
 }
@@ -544,6 +619,7 @@ export function IncidentStatusWorkflowDialogs({
   const tReko = useTranslations("kanban.rekoMissing")
   const tRekoForm = useTranslations("kanban.rekoFormMissing")
   const tMat = useTranslations("kanban.materialDecision")
+  const tNext = useTranslations("kanban.nextStop")
 
   const openAssignment = (resourceType: ResourceType, operationId: string, kind: AssignmentReturn["kind"]) => {
     controller.suspendGateForAssignment(kind, operationId)
@@ -567,7 +643,15 @@ export function IncidentStatusWorkflowDialogs({
 
   return (
     <>
-      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.closeMissingResources()}>
+      {/* Escape and the overlay are Abbrechen, never the override next to it.
+          These gates open because a card was ALREADY moved, so `close*` (which
+          drops the revert status and leaves the move standing) is the same
+          action as «Trotzdem disponieren» — bound to the one key an operator
+          hits to get out of a dialog they did not mean to open. `cancel*` puts
+          the card back, which is what the Abbrechen button does and what
+          dismissing a modal has to mean. `AssignRekoDialog` below already got
+          this right; the four gates did not. */}
+      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelMissingResources()}>
         <AlertDialogContent>
           {missingOperation && (() => {
             const coverage = controller.getResourceCoverage(missingOperation)
@@ -659,7 +743,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.closeReturningVehicle()}>
+      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.cancelReturningVehicle()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -690,7 +774,39 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.closeRekoMissing()}>
+      {/* «Nächsten Stopp starten?» — queued BEHIND the missing-vehicle gate
+          (`&& !returningVehicleOperation`) rather than racing it: both are
+          answers to the same move, and two modals over one card is a question
+          about which of them counts. */}
+      <AlertDialog
+        open={!!controller.nextStopPrompt && !controller.returningVehicleOperation}
+        onOpenChange={(open) => !open && controller.closeNextStopPrompt()}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Waypoints className="h-5 w-5 text-primary" />
+              {tNext("title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {controller.nextStopPrompt && tNext.rich("description", {
+                finished: operationLabel(controller.nextStopPrompt.finished),
+                auftrag: controller.nextStopPrompt.auftrag.name,
+                next: operationLabel(controller.nextStopPrompt.next),
+                hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={controller.closeNextStopPrompt}>
+              {tCommon("cancel")}
+            </Button>
+            <Button onClick={controller.startNextStop}>{tNext("confirm")}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoMissing()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -721,7 +837,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.closeRekoFormMissing()}>
+      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoFormMissing()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -746,7 +862,12 @@ export function IncidentStatusWorkflowDialogs({
                 // closeRekoFormMissing also drops the revert status — opening
                 // the Reko details is a "proceed", not a cancel.
                 controller.closeRekoFormMissing()
-                if (operation) onOpenDetail(operation.id)
+                // …on the REKO tab, with the entry form already open. The
+                // dialog's whole subject is that no Reko report was filled in,
+                // and it used to land the operator on Übersicht — the one tab
+                // that says nothing about it — with the «erstellen» button two
+                // clicks away.
+                if (operation) onOpenDetail(operation.id, 'reko', 'newReport')
               }}>
                 {tRekoForm("openReko")}
               </Button>
@@ -755,7 +876,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.closeMaterialDecision()}>
+      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.cancelMaterialDecision()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

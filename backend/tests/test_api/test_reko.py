@@ -473,14 +473,28 @@ async def test_generate_reko_link(editor_client: AsyncClient, test_incident: Inc
 async def test_generate_reko_link_with_personnel(
     editor_client: AsyncClient, test_incident: Incident, test_personnel: Personnel
 ):
-    """Test generating reko form link with personnel."""
+    """With a person the direct link is a `/feld` deep link on a BOUND token
+    (§P2.1): the person lands on the field surface already authenticated, and
+    the incident rides along as the deep link. The person never appears in the
+    URL as plain text — they are inside the token, where the server checks them.
+    """
+    from app.services.tokens import validate_feld_token
+
     response = await editor_client.post(
         f"/api/reko/generate-link?incident_id={test_incident.id}&personnel_id={test_personnel.id}"
     )
     assert response.status_code == 200
     data = response.json()
     assert data["personnel_id"] == str(test_personnel.id)
-    assert str(test_personnel.id) in data["link"]
+    assert data["link"].startswith("/feld?token=")
+    assert f"incident_id={test_incident.id}" in data["link"]
+
+    claims = validate_feld_token(data["token"])
+    assert claims is not None
+    assert claims.personnel_id == test_personnel.id
+    assert claims.unlocked is True
+    assert claims.claim_id is not None
+    assert claims.event_id == test_incident.event_id
 
 
 @pytest.mark.asyncio
@@ -522,80 +536,18 @@ async def test_generate_reko_link_viewer_forbidden(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_reko_link_with_dashboard_token(client: AsyncClient, test_event: Event, test_incident: Incident):
-    """The event-scoped reko-dashboard token authorizes link generation —
-    the dashboard runs on field phones without a login."""
-    from app.services.tokens import generate_reko_dashboard_token
+async def test_generate_reko_link_is_editor_only(client: AsyncClient, test_incident: Incident):
+    """No second door here any more (plan 26, decision 24).
 
-    dashboard_token = generate_reko_dashboard_token(test_event.id)
-    response = await client.post(
-        f"/api/reko/generate-link?incident_id={test_incident.id}&dashboard_token={dashboard_token}"
-    )
-    assert response.status_code == 200
-    assert response.json()["incident_id"] == str(test_incident.id)
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_generate_reko_link_dashboard_token_wrong_event(client: AsyncClient, test_incident: Incident):
-    """A dashboard token for a DIFFERENT event must not mint tokens here."""
-    from app.services.tokens import generate_reko_dashboard_token
-
-    foreign_token = generate_reko_dashboard_token(uuid4())
-    response = await client.post(
-        f"/api/reko/generate-link?incident_id={test_incident.id}&dashboard_token={foreign_token}"
-    )
-    assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_reko_dashboard_assignment_carries_location_display(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    test_event: Event,
-    test_incident: Incident,
-    test_personnel: Personnel,
-):
-    """The dashboard row ships the home-city-stripped label.
-
-    Without it the Reko phone paints the raw address and swaps it once the
-    home_city setting arrives — the flicker the server label exists to prevent.
+    This route used to accept an event-scoped `/reko-dashboard` token so field
+    phones without a login could mint a form link. That page is gone, and the
+    field surface mints its own through `POST /api/feld/incidents/{id}/reko-link`
+    — which runs the `/feld` two-step first, so neither token type had to learn
+    about the other. What is left is the board's own route, and it wants a
+    session.
     """
-    from app.models import EventSpecialFunction, IncidentAssignment, Setting
-    from app.services.tokens import generate_reko_dashboard_token
-
-    db_session.add(Setting(key="home_city", value="Oberwil, BL"))
-    test_incident.location_address = "Teststrasse 1, 4104 Oberwil"
-    db_session.add(
-        EventSpecialFunction(
-            id=uuid4(),
-            event_id=test_event.id,
-            personnel_id=test_personnel.id,
-            function_type="reko",
-        )
-    )
-    db_session.add(
-        IncidentAssignment(
-            id=uuid4(),
-            incident_id=test_incident.id,
-            resource_type="personnel",
-            resource_id=test_personnel.id,
-        )
-    )
-    await db_session.commit()
-
-    token = generate_reko_dashboard_token(test_event.id)
-    response = await client.get(f"/api/reko-dashboard/assignments/{test_personnel.id}?token={token}")
-    assert response.status_code == 200
-    row = response.json()["assignments"][0]
-    assert row["location_address"] == "Teststrasse 1, 4104 Oberwil"
-    assert row["location_display"] == "Teststrasse 1"
-
-
-# ============================================
-# Photo Upload Tests
-# ============================================
+    response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
+    assert response.status_code in (401, 403)
 
 
 @pytest.mark.asyncio

@@ -43,9 +43,9 @@ describe('the Abholung chip', () => {
     // The waiting time is the only record of how long they stood there, so the
     // chip asks before it erases it.
     expect(setIncidentFieldReport).not.toHaveBeenCalled()
-    expect(screen.getByText('Abholung erledigt?')).toBeInTheDocument()
+    expect(screen.getByText('Abholung disponiert?')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Abholung erledigt' }))
+    await user.click(screen.getByRole('button', { name: 'Abholung disponiert' }))
 
     await waitFor(() =>
       expect(setIncidentFieldReport).toHaveBeenCalledWith('inc-1', { pickup_needed: false }),
@@ -71,7 +71,7 @@ describe('the Abholung chip', () => {
     await user.click(screen.getByRole('button'))
     expect(cardClicked).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Abholung erledigt' }))
+    await user.click(screen.getByRole('button', { name: 'Abholung disponiert' }))
     await waitFor(() => expect(setIncidentFieldReport).toHaveBeenCalled())
     expect(cardClicked).not.toHaveBeenCalled()
   })

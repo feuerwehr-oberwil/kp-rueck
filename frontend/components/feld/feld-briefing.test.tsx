@@ -22,6 +22,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     location_lat: null,
     location_lng: null,
     is_active_assignment: true,
+    // The union's default: this row is here because it is the person's own
+    // assignment, which is also the only source that owes a Rapport.
+    source: 'crew',
     rapport_state: 'none',
     arrived_at: null,
     arrived_by_automation: false,
@@ -31,6 +34,9 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     pickup_requested_at: null,
     leader_personnel_id: null,
     leader_name: null,
+    group_id: null,
+    group_name: null,
+    group_position: null,
     ...overrides,
   }
 }
@@ -44,10 +50,10 @@ describe('the field briefing (§18.22)', () => {
           contact: 'A. Bürgin',
           contact_phone: '079 000 00 00',
           crew: ['Muster Hans', 'Frey Marc'],
-          vehicles: ['TLF 1', 'MTW'],
+          vehicles: [{ name: 'TLF 1', driver: 'MÜLLER Beat' }, { name: 'MTW', driver: null }],
           materials: [
-            { name: 'Tauchpumpe', count: 2 },
-            { name: 'Nassauger', count: 1 },
+            { name: 'Tauchpumpe', count: 2, location: 'Magazin 1' },
+            { name: 'Nassauger', count: 1, location: null },
           ],
           reko: {
             summary: 'Keller 20 cm unter Wasser.',
@@ -62,9 +68,17 @@ describe('the field briefing (§18.22)', () => {
 
     expect(screen.getByText('Wasser im Keller, Steigleitung defekt')).toBeInTheDocument()
     expect(screen.getByText('Muster Hans, Frey Marc')).toBeInTheDocument()
-    expect(screen.getByText('TLF 1, MTW')).toBeInTheDocument()
-    // Grouped by name: two of one pump is a count, not two lines.
-    expect(screen.getByText('Tauchpumpe ×2, Nassauger')).toBeInTheDocument()
+    // One line per vehicle, each naming its driver: a crew at the address has to
+    // be able to say who is sitting in the TLF. A vehicle without a named driver
+    // stays a bare name rather than "Fahrer: –".
+    expect(screen.getByText(/TLF 1/)).toBeInTheDocument()
+    expect(screen.getByText(/Fahrer: MÜLLER Beat/)).toBeInTheDocument()
+    expect(screen.getByText('MTW')).toBeInTheDocument()
+    // One line per material entry, count spelled out in front, with the depot
+    // it is fetched from (§P2 add-on) — never an abbreviated «Tauchpumpe ×2».
+    expect(screen.getByText('2 × Tauchpumpe')).toBeInTheDocument()
+    expect(screen.getByText(/Magazin 1/)).toBeInTheDocument()
+    expect(screen.getByText('Nassauger')).toBeInTheDocument()
     expect(screen.getByText('Keller 20 cm unter Wasser.')).toBeInTheDocument()
     expect(screen.getByText('Zugang über Hinterhof.')).toBeInTheDocument()
     // The board's own hazard wording, not a second one.
@@ -111,7 +125,7 @@ describe('the condensed row', () => {
         assignment={assignment({
           description: 'Wasser im Keller',
           crew: ['Muster Hans'],
-          vehicles: ['TLF 1'],
+          vehicles: [{ name: 'TLF 1', driver: null }],
           materials: [{ name: 'Tauchpumpe', count: 1 }],
           reko: {
             summary: 'Keller 20 cm unter Wasser.',

@@ -137,7 +137,7 @@ Set each to **its own** stack's public URL. They are never the same value.
 
 ---
 
-## 3. Alarm intake: two secrets, two contracts
+## 3. Alarm intake: two secrets, one payload
 
 Both systems accept `POST /api/alarms` from a dispatch system. They are **not** the same
 endpoint and must be configured separately.
@@ -155,18 +155,50 @@ is auto-generated on first boot and has to be read back out with
 `SELECT value FROM settings WHERE key = 'alarm_webhook_secret';`. KP Front has always taken it
 from the environment.
 
-**The payloads differ.** The two contracts overlap but are not interchangeable – a body one
-accepts, the other may reject:
+**One payload, two webhooks.** ⚠️ **This section used to say the opposite** – that the two
+contracts "overlap but are not interchangeable", with a table of differences and the
+instruction *"do not point one webhook at both and expect parity"*. That advice outlived its
+truth. The payloads were deliberately converged, and since 2026-08-19 the portable subset is
+pinned rather than asserted. Written the way it stands below, **one body is accepted by both**:
 
-| | KP Rück | KP Front |
-| --- | --- | --- |
-| `source_id` | optional | **required** |
-| `source` | ≤ 20 chars | ≤ 16 chars |
-| Extra fields | `number` | `type`, `priority` (`HIGH`/`LOW`), `started_at` |
+```json
+{
+  "source": "leitstelle",
+  "source_id": "A-2026-0142",
+  "title": "Brand Gebäude klein",
+  "text": "Rauch aus dem Dachstock, Personen gemeldet.",
+  "address": "Hauptstrasse 12, 4104 Oberwil BL",
+  "lat": 47.5148, "lng": 7.5556,
+  "number": "E-142",
+  "type": "Brand",
+  "priority": "HIGH",
+  "started_at": "2026-08-19T14:02:11+02:00"
+}
+```
 
-Configure your dispatch system with **one webhook per system**, each against its own URL, secret
-and payload. Do not point one webhook at both and expect parity. Each system's intake is
-documented in its own `docs/ALARM-INTEGRATIONS.md` (in each repository).
+So your dispatch integration is **built once**. What still has to exist twice is the
+*delivery*: **one webhook per system**, each against its own URL and its own secret. That is
+not a payload difference, it is two independent deployments – see the separate secrets above.
+
+**Five rules keep a body portable.** They are the tighter of each product's two limits, and
+they are the whole list:
+
+| Rule | Why it is the ceiling |
+| --- | --- |
+| `source` ≤ 16 chars, lowercase slug | KP Front's `incidents.source` column. KP Rück allowed 20 until 2026-08-19. |
+| `source_id` ≤ 128 chars | KP Front's cap; KP Rück allows 255. Optional in both – omit it and redeliveries stop deduplicating. |
+| `title` ≤ 255 chars, not blank | KP Rück's cap. Whitespace-only is refused by both since 2026-08-19. |
+| `priority` is `HIGH`, `LOW` or absent | KP Front pins the two values; KP Rück treats anything else as a hint. |
+| `lat`/`lng` both present and in range, or both absent | KP Rück validates the pair and the range; KP Front does not. |
+
+**None of this is prose you have to trust.** `docs/alarm-intake-conformance.json` carries the
+contract as cases – a portable set both products must answer identically, and the payloads they
+legitimately answer differently, recorded per product so the list cannot grow unnoticed. It is
+byte-identical in both repositories, each suite asserts its own column, and the
+`alarm-contract-drift` CI job is what compares the two copies. If you want to know whether a
+body works against both, look there rather than here: this page can go stale, and did.
+
+Each system's intake is also documented in its own `docs/ALARM-INTEGRATIONS.md`.
 
 ---
 
@@ -246,7 +278,7 @@ Before you start the second stack:
 - [ ] `AUTH_COOKIE_SECURE` is **blank** in the KP Rück `.env`; if KP Front is on plain HTTP, its
       `COOKIE_SECURE=false` is set.
 - [ ] `ALARM_WEBHOOK_SECRET` is a **different** value in each `.env`.
-- [ ] The dispatch system has a separate webhook per stack, each with its own payload shape.
+- [ ] The dispatch system has a separate webhook per stack — same payload, own URL, own secret.
 - [ ] `docker compose up -d` on the second stack, then confirm the **first** one is still
       answering. A port collision shows up as a container that won't start; a CORS mistake only
       shows up in the browser.

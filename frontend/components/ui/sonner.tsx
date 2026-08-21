@@ -34,17 +34,17 @@ const DismissAllToasts = () => {
   if (toasts.length <= 1) return null
 
   return (
-    // Anchored to the toast stack so its right edge lines up with the toast
-    // column: sonner now insets toasts by 16px on the right on all viewports,
-    // so match with right-4. bottom-16 tucks the pill just below the stack,
-    // clear of the footer/nav.
+    // Anchored to the toast stack: 16px from the right, matching the inset the
+    // Toaster gives the toasts themselves, and 16px from the bottom so the whole
+    // group sits in the corner instead of floating above a band of empty screen.
+    // On mobile it clears the fixed tab bar (min 60px + safe area) instead.
     <button
       type="button"
       // Part of the toast layer, but no sonner node – tag it so an open dialog
       // or slide-up does not read this click as "outside" and close itself.
       {...{ [TOAST_LAYER_ATTR]: '' }}
       onClick={() => toast.dismiss()}
-      className="fixed bottom-12 right-4 z-[9999] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
+      className="fixed bottom-20 right-4 z-[9999] md:bottom-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur-sm transition-colors hover:text-foreground hover:bg-card"
     >
       <X className="h-3.5 w-3.5" />
       {t('dismissAllToasts')}

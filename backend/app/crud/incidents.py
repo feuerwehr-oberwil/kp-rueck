@@ -15,6 +15,7 @@ from ..models import (
     Incident,
     IncidentAssignment,
     IncidentGroup,
+    Personnel,
     RekoReport,
     SchadenplatzReport,
     StatusTransition,
@@ -23,6 +24,7 @@ from ..models import (
 )
 from ..services.audit import calculate_changes, log_action
 from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
+from ..services.incident_leader import effective_leader_id
 from . import events as events_crud
 from . import feld as feld_crud
 
@@ -221,6 +223,33 @@ async def get_incidents(
     # card and a query per card is what a storm night cannot afford.
     dispatched = await dispatched_incident_ids(db, incidents)
 
+    # The effective Einsatzleiter per incident (services.incident_leader):
+    # active `is_leader` assignments first, `leader_personnel_id` as the record
+    # behind them — a completed incident's assignments are released, so the
+    # record is the only way a closed card can still say who led it. Batched:
+    # one query for the flags, one for the names, never one per card.
+    leader_rows = await db.execute(
+        select(IncidentAssignment.incident_id, IncidentAssignment.resource_id).where(
+            and_(
+                IncidentAssignment.incident_id.in_(incident_ids),
+                IncidentAssignment.resource_type == "personnel",
+                IncidentAssignment.is_leader.is_(True),
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+    )
+    active_leaders: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for leader_row in leader_rows:
+        active_leaders.setdefault(leader_row.incident_id, set()).add(leader_row.resource_id)
+    leader_by_incident = {
+        incident.id: effective_leader_id(incident, active_leaders.get(incident.id, set())) for incident in incidents
+    }
+    leader_ids = {pid for pid in leader_by_incident.values() if pid is not None}
+    leader_names: dict[uuid.UUID, str] = {}
+    if leader_ids:
+        name_rows = await db.execute(select(Personnel.id, Personnel.name).where(Personnel.id.in_(leader_ids)))
+        leader_names = {row.id: row.name for row in name_rows}
+
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
         arrival = field_arrived_map.get(incident.id)
@@ -242,6 +271,9 @@ async def get_incidents(
         # Set reko_arrived_at timestamp
         incident.reko_arrived_at = reko_arrived_at_map.get(incident.id)
         incident.reko_arrived_by_kp = incident.id in reko_arrived_by_kp
+
+        leader_id = leader_by_incident.get(incident.id)
+        incident.leader_name = leader_names.get(leader_id) if leader_id else None
 
     return incidents
 
@@ -313,6 +345,22 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
         incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
         incident.has_been_dispatched = await is_dispatched(db, incident)
+
+        # Effective Einsatzleiter, same rule as the batched list above.
+        active_leader_rows = await db.execute(
+            select(IncidentAssignment.resource_id).where(
+                and_(
+                    IncidentAssignment.incident_id == incident.id,
+                    IncidentAssignment.resource_type == "personnel",
+                    IncidentAssignment.is_leader.is_(True),
+                    IncidentAssignment.unassigned_at.is_(None),
+                )
+            )
+        )
+        leader_id = effective_leader_id(incident, {row[0] for row in active_leader_rows})
+        incident.leader_name = (
+            await db.scalar(select(Personnel.name).where(Personnel.id == leader_id)) if leader_id else None
+        )
 
     return incident
 
@@ -663,7 +711,7 @@ async def update_incident_status(
     db: AsyncSession,
     incident_id: uuid.UUID,
     new_status: str,
-    current_user: User,
+    current_user: User | None,
     request: Request | None,
     notes: str | None = None,
 ) -> Incident | None:
@@ -676,6 +724,15 @@ async def update_incident_status(
     HTTP request to attribute, and ``log_action`` already handles a missing one by
     recording no IP/user-agent. The chain below (auto-release, unassign) accepts the
     same None for the same reason.
+
+    ``current_user`` is None for a FIELD-originated transition (sweep 27 §P3.3):
+    a crew tapping «Angekommen»/«Einsatz beendet» on `/feld` moves the card
+    itself, and attributing that to any user would fake provenance — the GPS
+    automation has a system user because it IS a system, but a field tap is a
+    named crew member who holds no user row. The transition and audit rows carry
+    no user then; `notes` and the audit's `source: feld` say who and why.
+    Such transitions never enter or leave `complete` — closing a Schadenplatz
+    stays the operator's decision, and the release cascade requires an actor.
 
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
@@ -697,16 +754,20 @@ async def update_incident_status(
         incident_id=incident.id,
         from_status=old_status,
         to_status=new_status,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         notes=notes,
     )
     db.add(transition)
 
     # Entering complete always runs release side effects, even after reopening.
     if new_status == "complete" and old_status != "complete":
+        if current_user is None:
+            raise ValueError("Completing an incident requires an acting user")
         incident.completed_at = datetime.now(UTC)
         await _apply_completion_release(db, incident, transition, current_user, request)
     elif old_status == "complete":
+        if current_user is None:
+            raise ValueError("Reopening a completed incident requires an acting user")
         incident.completed_at = None
         await _undo_completion_release(db, incident, current_user, request)
 
@@ -720,6 +781,9 @@ async def update_incident_status(
         changes={
             "status": {"before": old_status, "after": new_status},
             "notes": notes,
+            # The one caller that passes no user is the field auto-move; the
+            # Einsatztagebuch tells the provenances apart by this.
+            **({"source": "feld"} if current_user is None else {}),
         },
         request=request,
     )

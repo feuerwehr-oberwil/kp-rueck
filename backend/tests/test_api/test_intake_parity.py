@@ -17,9 +17,13 @@ the day it lands.
 The public form's row is the reference: an editor-created intake incident has to
 match it column for column, because the point is that the two are the same fact
 arriving through different doors. Everything the board sets and the lean public
-form cannot (`internal_notes`, the flags, the Auftrag) is left at its default in
-the comparison, and `created_by` is the audit trail — the one column that must
-differ, since a KP-typed card does have an author.
+form cannot (the flags, the Auftrag) is left at its default in the comparison,
+and `created_by` is the audit trail — the one column that must differ, since a
+KP-typed card does have an author.
+
+`internal_notes` is compared rather than skipped since the phone desk's «Weitere
+Hinweise» writes it: the caller's extras are the board's «Notizen» on both sides
+of the door.
 """
 
 from uuid import uuid4
@@ -45,6 +49,7 @@ ALARM = {
     "description": "Baum liegt quer über beide Spuren",
     "contact": "Hans Muster",
     "contact_phone": "079 123 45 67",
+    "internal_notes": "Anwohner wartet vor dem Haus",
 }
 
 # Columns that carry the alarm itself. `created_by` is deliberately absent: it is
@@ -61,14 +66,16 @@ ALARM_COLUMNS = [
     "description",
     "contact",
     "contact_phone",
+    "internal_notes",
     "status",
     "source",
     "source_ref",
 ]
 
-# Everything an editor may NOT claim. "operator"/"intake" are the two doors this
-# phase opens; the rest name a delivering system.
-FOREIGN_SOURCES = sorted(RESERVED_ALARM_SOURCES - {"operator", "intake"})
+# Everything an editor may NOT claim. "operator"/"intake"/"feld" are the doors
+# the board opens (sweep 27 added "feld" for the radio-message case); the rest
+# name a delivering system.
+FOREIGN_SOURCES = sorted(RESERVED_ALARM_SOURCES - {"operator", "intake", "feld"})
 
 
 async def _row(db: AsyncSession, incident_id: str) -> Incident:
@@ -194,8 +201,17 @@ class TestReservedSourcesRejected:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_editor_may_claim_feld(self, editor_client: AsyncClient, test_incident: Incident):
+        """«Vom Feld gemeldet» is an editor's to claim: the KP typing in a radio
+        message from a Trupp marks the card the same way `/feld` itself would."""
+        response = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={"source": "feld"})
+        assert response.status_code == 200
+        assert response.json()["source"] == "feld"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_unknown_source_is_422(self, editor_client: AsyncClient, test_event: Event):
-        """Not only the reserved names: the field is a closed set of two."""
+        """Not only the reserved names: the field is a closed set of three."""
         response = await editor_client.post(
             "/api/incidents/",
             json={**ALARM, "event_id": str(test_event.id), "source": "leitstelle-bl"},

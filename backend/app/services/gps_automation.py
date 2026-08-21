@@ -21,6 +21,10 @@ two rules, both opt-in behind ``gps.automation_enabled`` (default OFF):
   dispatchers know it is home. No modal, no mutation beyond the notification. Shares
   the ``gps.rule_return_enabled`` opt-in with Rule B.
 
+Vehicles on a SIMULATED drive (Übungssteuerung, ``services/gps_simulation``) run the
+prompt rules regardless of the ``gps.*`` opt-ins — the trainer explicitly started the
+drive, and its arrival/release prompt is the product. Silent advance stays opt-in-only.
+
 All automated actions go through ``crud.update_incident_status`` so status-transition
 side effects fire, and are attributed to a clearly-named system actor user
 (``gps-automation``) so the audit / Excel export shows "automatic (GPS)" vs operator
@@ -282,11 +286,25 @@ def _reset_debounce[K](store: dict[K, _Debounce], key: K) -> None:
         db.reset()
 
 
+def _rule_active(rule_enabled: bool, cfg: _AutomationConfig, vehicle_name: str, sim_names: set[str]) -> bool:
+    """Whether a rule applies to this vehicle on this tick.
+
+    Real vehicles follow the station's opt-ins (``gps.automation_enabled`` plus
+    the per-rule flag). A vehicle on a SIMULATED drive (Übungssteuerung) always
+    gets the prompt rules: the trainer explicitly sent it, and the whole point
+    of the simulated drive is the arrival/release prompt at the end — without
+    this, a station that never enabled real GPS automation had "Fahrt zu
+    Einsatz" and "Rückfahrt Magazin" buttons that visibly did nothing.
+    """
+    return (cfg.enabled and rule_enabled) or vehicle_name.lower() in sim_names
+
+
 def _suppressed_arrival_keys(
     targets: list[dict[str, Any]],
     position_by_name: dict[str, VehiclePosition],
     cfg: _AutomationConfig,
     now: datetime,
+    sim_names: set[str],
 ) -> set[tuple[uuid.UUID, uuid.UUID]]:
     """Nearest-single-match guard for Rule A (arrival).
 
@@ -307,7 +325,7 @@ def _suppressed_arrival_keys(
     confirming: dict[uuid.UUID, list[tuple[tuple[uuid.UUID, uuid.UUID], float]]] = {}
     for t in targets:
         if (
-            not cfg.rule_arrival_enabled
+            not _rule_active(cfg.rule_arrival_enabled, cfg, t["vehicle_name"], sim_names)
             or t["incident_status"] != "enroute"
             or t["incident_lat"] is None
             or t["incident_lng"] is None
@@ -434,10 +452,15 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
     debug) so automation can never break the position broadcast.
     """
     try:
-        cfg = await _load_config(db)
-        if not cfg.enabled or not (cfg.rule_arrival_enabled or cfg.rule_return_enabled):
-            return
         if app_settings.demo_mode:
+            return
+        cfg = await _load_config(db)
+        # Vehicles on a simulated drive (Übungssteuerung) run the prompt rules
+        # regardless of the station's gps.* opt-ins — see _rule_active.
+        from .gps_simulation import gps_simulation
+
+        sim_names = {d.vehicle_name.lower() for d in gps_simulation.list_drives()}
+        if not sim_names and (not cfg.enabled or not (cfg.rule_arrival_enabled or cfg.rule_return_enabled)):
             return
 
         # Map vehicle name (lowercase) -> position, same scheme as the geofence alert.
@@ -492,14 +515,14 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
         # Nearest-single-match guard: if a vehicle confirms arrival at several of its
         # clustered route stops on this tick, only its nearest stop may fire (the rest
         # are suppressed and behave as not-confirming). See _suppressed_arrival_keys.
-        suppressed_arrival = _suppressed_arrival_keys(targets, position_by_name, cfg, now)
+        suppressed_arrival = _suppressed_arrival_keys(targets, position_by_name, cfg, now, sim_names)
 
         for t in targets:
             vp = position_by_name.get(t["vehicle_name"].lower())
 
             # ---- Rule A: arrival -> enroute -> active (silent) ----
             if (
-                cfg.rule_arrival_enabled
+                _rule_active(cfg.rule_arrival_enabled, cfg, t["vehicle_name"], sim_names)
                 and t["incident_status"] == "enroute"
                 and t["incident_lat"] is not None
                 and t["incident_lng"] is not None
@@ -512,7 +535,9 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
                     and a_key not in suppressed_arrival
                 ):
                     if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
-                        if cfg.rule_arrival_silent:
+                        # Silent advance only when the station genuinely opted in —
+                        # a sim-enabled rule never silently moves a card.
+                        if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
                             # Dangerous opt-in: silently advance without operator confirm.
                             actor = actor or await _get_system_actor(db)
                             await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
@@ -532,7 +557,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
             # Skip incidents the operator already closed out — the release prompt
             # would only be noise there (the bell notification still covers it).
             if (
-                cfg.rule_return_enabled
+                _rule_active(cfg.rule_return_enabled, cfg, t["vehicle_name"], sim_names)
                 and t.get("return_eligible", True)
                 and cfg.station_lat is not None
                 and cfg.station_lng is not None
@@ -567,9 +592,12 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
         _state.prune(arrival_keys, return_keys)
 
         # ---- Rule C: unassigned vehicle back home -> info notification ----
-        if cfg.rule_return_enabled and cfg.station_lat is not None and cfg.station_lng is not None:
+        rule_c_configured = cfg.enabled and cfg.rule_return_enabled
+        if (rule_c_configured or sim_names) and cfg.station_lat is not None and cfg.station_lng is not None:
             assigned_vehicle_ids = {t["vehicle_id"] for t in targets}
-            await _watch_unassigned_returns(db, cfg, position_by_name, assigned_vehicle_ids, now)
+            await _watch_unassigned_returns(
+                db, cfg, position_by_name, assigned_vehicle_ids, now, sim_names, rule_c_configured
+            )
 
     except Exception as e:  # never break the poll
         logger.debug("GPS automation tick failed: %s", e)
@@ -619,6 +647,8 @@ async def _watch_unassigned_returns(
     position_by_name: dict[str, VehiclePosition],
     assigned_vehicle_ids: set[uuid.UUID],
     now: datetime,
+    sim_names: set[str],
+    rule_configured: bool,
 ) -> None:
     """Rule C: notify (info bell) when an unassigned vehicle comes home.
 
@@ -633,6 +663,10 @@ async def _watch_unassigned_returns(
         return  # no station geofence configured — same gate the caller applies
     vehicles = (await db.execute(select(Vehicle))).scalars().all()
     for vehicle in vehicles:
+        # Same split as the per-target rules: real vehicles need the station's
+        # opt-in; a vehicle on a simulated drive is watched regardless.
+        if not rule_configured and vehicle.name.lower() not in sim_names:
+            continue
         if vehicle.id in assigned_vehicle_ids:
             _state.unassigned_returns.pop(vehicle.id, None)
             _state.unassigned_away.discard(vehicle.id)

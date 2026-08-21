@@ -464,17 +464,27 @@ The lifecycle is deliberately the simplest one that can be explained in a senten
 - The station's existing practice for the paper slips governs. The app does not invent a second
   one.
 
-**The `/feld` QR is an event-scoped credential that reaches this data.** Anyone who scans the
-poster can pick a name from the list and see – and file – the rapports of the Schadenplätze that
-person is assigned to, owner block included. That is the same exposure the paper slips have (a
-filled slip on a table is readable by whoever walks past), but it travels further, so:
+**The `/feld` QR plus the Feld-Code reaches this data.** Scanning the poster gets a code prompt;
+entering the four digits and picking your own name binds the device to that person, and from
+then on it sees – and files – the rapports of the Schadenplätze that *this* person is assigned
+to, owner block included. That is the same exposure the paper slips have (a filled slip on a
+table is readable by whoever walks past), but it travels further, so:
 
 - take the posters down when the Ereignis is closed, the way the check-in posters already come
   down;
-- the Einsatzzettel carries the same token – its second QR opens `/feld` with that Schadenplatz
-  already selected – so **slips get collected at the end of an Ereignis** rather than left in
-  vehicles;
+- the Einsatzzettel carries the same token **and prints the code under its QR** – a QR without
+  its code strands whoever scans it – so **slips get collected at the end of an Ereignis**
+  rather than left in vehicles;
+- **Neuer Code** (Links & QR sheet) makes every link and slip in circulation useless to anybody
+  who has not already unlocked, without disturbing the phones already in the field;
+  **Alle Geräte abmelden** is the separate, harder brake for a lost phone;
 - the token expires by itself after 30 days.
+
+**One thing the code does not gate**, so it is not reported as a bug later: anybody holding a
+valid `/feld` credential can *create* a Schadenplatz and put themselves on it – that is what
+«Neue Meldung» is for, and it is how a crew standing in front of a fallen tree gets it onto the
+board. It reaches the board flagged as coming from the field, with the reporter's name on the
+audit row. The mitigation is the code rotating per Ereignis, not a permission.
 
 Neither the token nor the owner block is written to the application log or to telemetry, and a
 test asserts it – the failure worth preventing is somebody adding a debug line during a storm.

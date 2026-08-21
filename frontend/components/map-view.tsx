@@ -338,6 +338,16 @@ function FitBounds({ incidents }: { incidents: Incident[] }) {
   return null
 }
 
+/**
+ * The band a focused incident is readable in — see `PanToSelected`.
+ *
+ * Below 13 a marker sits somewhere in the Baselbiet with no street to read it
+ * against; above 17 the map is one building and the operator loses the
+ * neighbours. Between the two, whatever scale they chose is the right one.
+ */
+const MIN_FOCUS_ZOOM = 13
+const MAX_FOCUS_ZOOM = 17
+
 // Component to pan/zoom to selected incident
 function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedIncidentId: string | null; incidents: Incident[]; trigger?: number }) {
   const map = useMap()
@@ -354,8 +364,16 @@ function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedInc
     const incident = incidentsRef.current.find((inc) => inc.id === selectedIncidentId)
     if (!incident || !incident.location_lat || !incident.location_lng) return
 
-    // Pan and zoom to the selected marker (always, even if same ID due to trigger)
-    map.flyTo([incident.location_lat, incident.location_lng], 16, {
+    // Pan to the selected marker, KEEPING the operator's zoom.
+    //
+    // This used to fly to 16 every time, so clicking down a list of incidents
+    // zoomed in, out, in again — the operator set a working scale and every
+    // click threw it away. The zoom is only touched when it is outside the band
+    // where a marker is actually readable: too far out to see which street, or
+    // so far in that the next incident is off-screen.
+    const zoom = map.getZoom()
+    const clamped = Math.min(Math.max(zoom, MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
+    map.flyTo([incident.location_lat, incident.location_lng], clamped, {
       duration: 0.8,
     })
   }, [selectedIncidentId, map, trigger]) // Only trigger on selection or trigger change, not incidents
@@ -678,6 +696,9 @@ interface MapViewProps {
   resetZoomTrigger?: number // Counter to trigger zoom reset
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
+  /** One incident rendered regardless of statusFilters — a deep link
+   *  (`?highlight=`) to a closed incident, shown without touching the filters. */
+  filterExceptionId?: string | null
   showAssignmentLines?: boolean // Show animated lines from vehicles to assigned incidents
   showDistances?: boolean // Show vehicle→incident distance labels on assignments
   showLabels?: boolean // Show permanent labels on incident markers
@@ -716,6 +737,7 @@ export default function MapView({
   resetZoomTrigger = 0,
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
+  filterExceptionId = null,
   showAssignmentLines = true,
   showDistances = false,
   showLabels = true,
@@ -982,15 +1004,18 @@ export default function MapView({
     return clusters
   }, [mappedVehiclePositions, vehicles])
 
-  // Filter incidents with valid coordinates and based on status filters
+  // Filter incidents with valid coordinates and based on status filters.
+  // `filterExceptionId` (a deep link to a closed incident) passes the status
+  // gate unconditionally — it is rendered on top of the filters, not by them.
   const mappableIncidents = useMemo(
     () =>
       incidents.filter((inc) => {
         if (inc.location_lat === null || inc.location_lng === null) return false
+        if (inc.id === filterExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
       }),
-    [incidents, statusFilters]
+    [incidents, statusFilters, filterExceptionId]
   )
 
   // Find incidents without valid coordinates (based on same status filters)
@@ -998,10 +1023,11 @@ export default function MapView({
     () =>
       incidents.filter((inc) => {
         if (inc.location_lat !== null && inc.location_lng !== null) return false
+        if (inc.id === filterExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
       }),
-    [incidents, statusFilters]
+    [incidents, statusFilters, filterExceptionId]
   )
 
   const visibleRouteOperations = useMemo(() => {
@@ -1288,6 +1314,12 @@ export default function MapView({
           vehiclePositions={mappedVehiclePositions}
           visible={showAssignmentLines}
           showDistances={showDistances}
+          // Independent of «Routen anzeigen»: that switch draws the route
+          // itself, this one answers where the vehicles are — a route vehicle
+          // should not need a second switch to get the line every other
+          // vehicle has.
+          groups={groups}
+          groupResourcesFor={groupResourcesFor}
         />
 
         {/* Auftrag (incident group) route polylines + numbered stop markers */}

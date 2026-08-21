@@ -70,4 +70,34 @@ describe("shouldShowStaleBanner", () => {
     });
     expect(result).toBe(true);
   });
+
+  it("shows on a REST outage even while the WebSocket claims connected", () => {
+    const result = shouldShowStaleBanner({
+      wsStatus: "connected",
+      lastSyncAt: new Date(now.getTime() - 2_000),
+      now,
+      restReachable: false,
+    });
+    expect(result).toBe(true);
+  });
+
+  it("REST outage still stays hidden when there has never been a sync", () => {
+    const result = shouldShowStaleBanner({
+      wsStatus: "connected",
+      lastSyncAt: null,
+      now,
+      restReachable: false,
+    });
+    expect(result).toBe(false);
+  });
+
+  it("restReachable=true changes nothing about the WS-based rules", () => {
+    const result = shouldShowStaleBanner({
+      wsStatus: "connected",
+      lastSyncAt: new Date(now.getTime() - 5 * 60_000),
+      now,
+      restReachable: true,
+    });
+    expect(result).toBe(false);
+  });
 });

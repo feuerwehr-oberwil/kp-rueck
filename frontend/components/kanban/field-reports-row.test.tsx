@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Operation } from '@/lib/contexts/operations-context'
 import type { Person } from '@/lib/contexts/personnel-context'
@@ -137,5 +137,27 @@ describe('the Meldungen thread', () => {
   it('is empty only when nothing was reported and nothing was said', () => {
     thread(operation(), [])
     expect(screen.getByText('Noch keine Meldungen.')).toBeInTheDocument()
+  })
+})
+
+describe('the whole labelled row toggles (§P2.9)', () => {
+  it('turns the pickup on from a click on its label, not only on the switch', async () => {
+    const { apiClient } = await import('@/lib/api-client')
+    renderWithIntl(<FieldReportsRow operation={operation()} only={['pickup']} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Abholung nötig/ }))
+    expect(apiClient.setIncidentFieldReport).toHaveBeenCalledWith('incident-1', {
+      pickup_needed: true,
+      pickup_note: null,
+    })
+  })
+
+  it('does nothing for a viewer', async () => {
+    const { apiClient } = await import('@/lib/api-client')
+    vi.mocked(apiClient.setIncidentFieldReport).mockClear()
+    renderWithIntl(<FieldReportsRow operation={operation()} canEdit={false} only={['pickup']} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Abholung nötig/ }))
+    expect(apiClient.setIncidentFieldReport).not.toHaveBeenCalled()
   })
 })

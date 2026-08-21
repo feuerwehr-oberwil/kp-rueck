@@ -53,18 +53,34 @@ class EventListResponse(BaseModel):
 
 # Special functions
 class FunctionType(str, Enum):
-    """Special function type enumeration."""
+    """The roles this release knows by name — documentation, not validation.
+
+    Kept as an enum for the ones the code actually *behaves* differently for and
+    for a readable OpenAPI. It is not the authority: since plan 26 (decision 5)
+    the values live in ``special_function_types`` so a station can add its own
+    without a migration, and ``crud.special_functions`` validates against that
+    table.
+
+    Which is why nothing **types a field with it any more.** It used to sit on
+    the response schema, so a role the enum had never heard of was accepted on
+    the way in and then 500'd on the way out — the create schema said ``str``
+    and the response said enum, and the docstring promised the behaviour the
+    response denied. `kommandoposten` is the role that found it.
+    """
 
     DRIVER = "driver"
     REKO = "reko"
     MAGAZIN = "magazin"
+    TELEFONDIENST = "telefondienst"
+    KOMMANDOPOSTEN = "kommandoposten"
 
 
 class EventSpecialFunctionCreate(BaseModel):
     """Schema for assigning a special function to personnel."""
 
     personnel_id: UUID
-    function_type: FunctionType
+    # `str`, not the enum: the lookup table is the authority (decision 5).
+    function_type: str
     vehicle_id: UUID | None = None  # Required for driver assignments
 
 
@@ -85,7 +101,8 @@ class EventSpecialFunctionResponse(BaseModel):
     event_id: UUID
     personnel_id: UUID
     personnel_name: str
-    function_type: FunctionType
+    # `str`, not the enum — the lookup table is the authority. See `FunctionType`.
+    function_type: str
     vehicle_id: UUID | None = None
     vehicle_name: str | None = None
     assigned_at: datetime
@@ -102,3 +119,22 @@ class EventStats(BaseModel):
     avg_duration_minutes: int
     resource_utilization_percent: float
     personnel_activity: list[PersonnelActivity] = []
+
+
+class SpecialFunctionTypeResponse(BaseModel):
+    """One role a station can give somebody for an Ereignis.
+
+    The labels are columns rather than i18n keys on purpose: a station that adds
+    "Verkehrsdienst" is naming its own role, and a name a brigade chose has no
+    business going through a translation round to appear on its own board. The
+    roles that SHIP still read naturally in both languages because the seed
+    fills both columns.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str
+    label_de: str
+    label_fr: str | None = None
+    requires_vehicle: bool = False
+    sort_order: int = 0

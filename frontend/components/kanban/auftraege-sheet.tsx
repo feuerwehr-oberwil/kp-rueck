@@ -65,6 +65,8 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
+import { useEvent } from "@/lib/contexts/event-context"
+import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
@@ -152,6 +154,10 @@ export function AuftraegeSheet({
     refreshGroups,
   } = useGroups()
   const { operations } = useOperations()
+  const { selectedEvent } = useEvent()
+  // Who drives which Fahrzeug — one roster call for the whole sheet, only while
+  // it is open, kept live by the hook's WebSocket + same-tab listeners.
+  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
 
   // The route owns the people, so this is where a route's Einsatzleiter is set.
   // The backend demotes the previous holder in the same transaction — one call,
@@ -300,6 +306,9 @@ export function AuftraegeSheet({
           side="bottom"
           hideCloseButton={!isMobile}
           overlayOffset={isMobile ? undefined : footerOffset}
+          // Same sidebar handshake as FooterSheet: stop at the notification
+          // sidebar's edge instead of centering against the covered viewport.
+          rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
           className="flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall"
           style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
@@ -417,6 +426,7 @@ export function AuftraegeSheet({
                 group={group}
                 operations={operations}
                 resources={getGroupResources(group.id)}
+                vehicleDrivers={vehicleDrivers}
                 expanded={expanded.has(group.id)}
                 onToggle={() => toggleExpanded(group.id)}
                 isRenaming={renamingId === group.id}
@@ -485,6 +495,8 @@ interface AuftragCardProps {
   group: IncidentGroup
   operations: Operation[]
   resources: GroupResources
+  /** vehicle name → driver name, for the Fahrzeuge chips. */
+  vehicleDrivers: ReadonlyMap<string, string>
   expanded: boolean
   onToggle: () => void
   isRenaming: boolean
@@ -512,6 +524,7 @@ function AuftragCard({
   group,
   operations,
   resources,
+  vehicleDrivers,
   expanded,
   onToggle,
   isRenaming,
@@ -536,6 +549,7 @@ function AuftragCard({
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
   const headerRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
 
@@ -596,9 +610,33 @@ function AuftragCard({
     })
   }, [group.id, canEdit])
 
+  /**
+   * Opening an Auftrag shows the Auftrag, not just the header it was opened by.
+   *
+   * The card expands downwards inside a scroll container, so a route near the
+   * bottom of the list unfolded almost entirely below the fold: the operator
+   * clicked to see the Mannschaft and the stops, and got a chevron that had
+   * turned. `block: "nearest"` scrolls the least amount that brings the card
+   * into view — and for a card taller than the sheet it lines the top up, which
+   * is the half you want when the rest cannot fit anyway.
+   *
+   * One frame late on purpose: the expanded content has to be laid out before
+   * there is a height worth measuring.
+   */
+  useEffect(() => {
+    if (!expanded) return
+    const frame = requestAnimationFrame(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [expanded])
+
   return (
     <div
-      ref={registerRowRef}
+      ref={(el) => {
+        cardRef.current = el
+        registerRowRef(el)
+      }}
       // The Auftrag card is the ONE strong boundary: a raised card with a route-
       // coloured left accent. Its inner sub-sections are borderless peers, so the
       // primary visual split is always between Aufträge, not within one.
@@ -763,6 +801,7 @@ function AuftragCard({
               actions target the ROUTE (works with 0 stops). */}
           <RouteResourceSections
             resources={resources}
+            vehicleDrivers={vehicleDrivers}
             onAssign={onAssignRouteResource}
             onUnassign={onUnassignResource}
             onPromoteLeader={onPromoteLeader}

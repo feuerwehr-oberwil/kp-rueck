@@ -55,7 +55,6 @@ DOORS = ("token", "session", "both")
 SURFACE_PREFIXES: dict[str, str] = {
     "personnel_checkin": "/api/personnel/check-in",
     "reko": "/api/reko",
-    "reko_dashboard": "/api/reko-dashboard",
     "feld": "/api/feld",
     "intake": "/api/intake",
     "viewer": "/api/viewer",
@@ -76,26 +75,39 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
     },
     "reko": {
         "POST /": "both",
+        # The four that moved here when `/reko-dashboard` was removed (decision
+        # 24). They were never that page's: every one is editor-authed, and the
+        # comment below its old entry said so. Deleting the router would have
+        # taken the board's Reko assignment UI with it.
+        "POST /incidents/{incident_id}/assign-reko": "session",
+        "DELETE /incidents/{incident_id}/unassign-reko/{personnel_id}": "session",
+        "POST /transfer-rekos": "session",
         "PATCH /{report_id}": "both",
         "POST /generate-link": "both",
         "POST /{incident_id}/arrived": "token",
         "POST /{incident_id}/photos": "token",
         "DELETE /{incident_id}/photos/{filename}": "token",
     },
-    "reko_dashboard": {
-        # §2.4: the page itself writes nothing. These four live next to it but are
-        # editor-cookie-authed — board endpoints that happen to be filed here.
-        "POST /generate-link": "session",
-        "POST /incidents/{incident_id}/assign-reko": "session",
-        "DELETE /incidents/{incident_id}/unassign-reko/{personnel_id}": "session",
-        "POST /transfer-rekos": "session",
-    },
     "feld": {
         "POST /generate-link": "session",
+        # The door itself (plan 26, decisions 13 and 18). Token-gated because
+        # they are what a phone calls *before* it has any other credential —
+        # see KNOWN_GAPS for why neither has a board twin.
+        "POST /unlock": "token",
+        "POST /claim": "token",
+        # The board's two knobs on that door. Editor-only: the code is a
+        # credential, and logging every crew out mid-storm is not a field action.
+        "POST /access/regenerate": "session",
+        "POST /access/revoke-devices": "session",
+        "POST /attendance/{personnel_id}": "token",
+        "POST /incidents": "token",
+        "POST /incidents/{incident_id}/reko-link": "token",
         "POST /incidents/{incident_id}/arrived": "token",
         "POST /incidents/{incident_id}/complete": "token",
         "POST /incidents/{incident_id}/pickup": "token",
         "PUT /incidents/{incident_id}/rapport": "token",
+        # Correcting a Meldung you sent in yourself, before the KP disponiert it.
+        "PUT /incidents/{incident_id}/report": "token",
         "POST /incidents/{incident_id}/photos": "token",
         "DELETE /incidents/{incident_id}/photos/{filename}": "token",
         "POST /incidents/{incident_id}/message": "token",
@@ -116,6 +128,18 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
 # quietly outlive the route it points at; anything after that is prose.
 EXTERNAL_TWINS: dict[str, str] = {
     "POST /api/intake/alarm": "POST /api/incidents/ with source='intake'",
+    "POST /api/feld/attendance/{personnel_id}": (
+        "POST /api/personnel/check-in/{personnel_id}/in — the same attendance row, "
+        "written through the same CRUD. The board twin is the door tablet's own route, "
+        "which is `both` (token or editor session); this one is the individual saying "
+        "it from the vehicle instead of queueing at the tablet."
+    ),
+    "POST /api/feld/incidents": (
+        "POST /api/incidents/ — the board's own create. Same table, same columns; only "
+        "the provenance differs, and `source='feld'` is deliberately NOT in "
+        "EditorIncidentSource so an operator cannot claim a card was reported from the "
+        "field. The takeover half has a board twin too: adding a stop to an Auftrag."
+    ),
     "POST /api/reko/{incident_id}/arrived": (
         "POST /api/incidents/{incident_id}/reko-arrived — the KP writer for "
         "'Reko meldet: vor Ort' over the radio (§5.2). Not a second door on the "
@@ -131,6 +155,12 @@ EXTERNAL_TWINS: dict[str, str] = {
         "POST /api/incidents/{incident_id}/field-report — sets pickup_needed/pickup_note"
     ),
     "PUT /api/feld/incidents/{incident_id}/rapport": "PUT /api/incidents/{incident_id}/rapport",
+    "PUT /api/feld/incidents/{incident_id}/report": (
+        "PATCH /api/incidents/{incident_id} — the board's own edit produces the identical "
+        "state (title, type, priority, address, description). The field door is the "
+        "narrower one: it refuses anybody but the person the row says reported it, and "
+        "only while the Schadenplatz is still «Eingegangen»."
+    ),
     "POST /api/feld/incidents/{incident_id}/photos": "POST /api/incidents/{incident_id}/rapport/photos",
     "DELETE /api/feld/incidents/{incident_id}/photos/{filename}": (
         "DELETE /api/incidents/{incident_id}/rapport/photos/{filename}"
@@ -142,6 +172,29 @@ EXTERNAL_TWINS: dict[str, str] = {
 # a new token-gated write still fails this suite until somebody writes the line,
 # which is the point — the decision gets made once, in review, in writing.
 KNOWN_GAPS: dict[str, str] = {
+    "POST /api/feld/unlock": (
+        "NOT A STATE WRITE — this is authentication, and the rule §1 states does not "
+        "reach it. The endpoint exchanges a link token plus the Feld-Code for an "
+        "unlocked token and writes nothing at all; there is no database state for an "
+        "editor to reproduce from the board. It is a POST because it carries a secret "
+        "in a body rather than a query string. The board's authority over this door is "
+        "the code itself: POST /api/feld/access/regenerate, which is session-only."
+    ),
+    "POST /api/feld/claim": (
+        "Authentication again (decision 18): the device names its person and receives a "
+        "token bound to them. It does write one row — the feld_device_claims record that "
+        "makes revocation possible — but that row is a credential, not board state, and "
+        "an editor minting one on somebody's behalf is precisely the capability the "
+        "binding exists to remove. The board's twin is the other direction: "
+        "POST /api/feld/access/revoke-devices takes claims away, and nothing hands them out."
+    ),
+    "POST /api/feld/incidents/{incident_id}/reko-link": (
+        "Mints a short-lived form token so the Reko form can mount inside /feld; it "
+        "writes no state at all. The board's equivalent is the route it borrows from — "
+        "POST /api/reko/{incident_id}/generate-link, which is editor-authed and hands "
+        "out the identical token. Two doors, one credential, no second handler to keep "
+        "in step."
+    ),
     "POST /api/reko/{incident_id}/photos": (
         "The board offers no photo upload on a Reko report and this stays token-only "
         "on purpose (phase 2's call, re-affirmed in phase 4). A Reko report the KP "

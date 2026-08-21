@@ -86,7 +86,7 @@ export function decideCooldownClearAction({
  * `groups-context` had this check inline and `operations-context` did not, and
  * the asymmetry was invisible from the outside: the Aufträge kept polling, the
  * stale-data banner kept being reset, and only the incidents went cold. That is
- * the "Abholung erledigt kommt nicht durch" report — the backend broadcast, the
+ * the "Abholung disponiert kommt nicht durch" report — the backend broadcast, the
  * socket and the room were all fine; the board simply had nothing listening and
  * nothing polling.
  *
