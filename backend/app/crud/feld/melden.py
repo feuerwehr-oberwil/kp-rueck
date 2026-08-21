@@ -32,6 +32,7 @@ Three cases, in the order they are tried:
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import Request
@@ -530,10 +531,13 @@ async def update_field_report(
         incident.internal_notes = payload.internal_notes or None
     if payload.location_address is not None:
         incident.location_address = payload.location_address or None
+    # The shared validator hands a coordinate over as a string; the column is
+    # Numeric, so the conversion happens here rather than at the driver, and it
+    # goes through str/Decimal rather than float to keep the exact digits.
     if payload.location_lat is not None:
-        incident.location_lat = payload.location_lat
+        incident.location_lat = Decimal(payload.location_lat)
     if payload.location_lng is not None:
-        incident.location_lng = payload.location_lng
+        incident.location_lng = Decimal(payload.location_lng)
     if payload.contact is not None:
         incident.contact = payload.contact or None
     if payload.contact_phone is not None:

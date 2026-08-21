@@ -465,15 +465,12 @@ async def get_incident_leaders(
         active.setdefault(incident_id, set()).add(personnel_id)
 
     # The Auftrag's leader, read in as each stop's own.
-    group_of = dict(
-        (
-            await db.execute(
-                select(Incident.id, Incident.group_id).where(
-                    Incident.id.in_(incident_ids), Incident.group_id.is_not(None)
-                )
-            )
-        ).all()
+    group_rows = await db.execute(
+        select(Incident.id, Incident.group_id).where(Incident.id.in_(incident_ids), Incident.group_id.is_not(None))
     )
+    # The `is not None` mirrors the WHERE above; it is what keeps the values a
+    # plain UUID, which is what the route lookups below index with.
+    group_of = {incident_id: group_id for incident_id, group_id in group_rows.tuples().all() if group_id is not None}
     if group_of:
         route_leaders = await db.execute(
             select(
@@ -639,15 +636,12 @@ async def _briefings(
     # Which of these stops belong to an Auftrag, so its resources can be read
     # in as theirs. Only active route rows: a released one is a resource the
     # board has taken off the whole route.
-    group_of = dict(
-        (
-            await db.execute(
-                select(Incident.id, Incident.group_id).where(
-                    Incident.id.in_(incident_ids), Incident.group_id.is_not(None)
-                )
-            )
-        ).all()
+    group_rows = await db.execute(
+        select(Incident.id, Incident.group_id).where(Incident.id.in_(incident_ids), Incident.group_id.is_not(None))
     )
+    # The `is not None` mirrors the WHERE above; it is what keeps the values a
+    # plain UUID, which is what the route lookups below index with.
+    group_of = {incident_id: group_id for incident_id, group_id in group_rows.tuples().all() if group_id is not None}
     # When each incident completed — the anchor for telling a completion-cascade
     # release apart from a mid-incident correction (see the docstring).
     # `completed_at` is stamped BEFORE the cascade runs (`crud/incidents.py`),
@@ -657,7 +651,7 @@ async def _briefings(
             Incident.id.in_(incident_ids), Incident.completed_at.is_not(None)
         )
     )
-    completed_at_of: dict[uuid.UUID, Any] = dict(completed_rows.all())
+    completed_at_of: dict[uuid.UUID, Any] = dict(completed_rows.tuples().all())
 
     def still_on_briefing(incident_id: uuid.UUID, unassigned_at: Any) -> bool:
         """An active row, or one the completion cascade released — never a
@@ -678,7 +672,11 @@ async def _briefings(
             EventSpecialFunction.vehicle_id.is_not(None),
         )
     )
-    drivers: dict[uuid.UUID, str] = dict(driver_rows.all())
+    # The `is not None` mirrors the WHERE above; it is there so the key type is
+    # a plain UUID rather than an optional one.
+    drivers: dict[uuid.UUID, str] = {
+        vehicle_id: name for vehicle_id, name in driver_rows.tuples().all() if vehicle_id is not None
+    }
 
     route: dict[uuid.UUID, dict[str, list[Any]]] = {}
     if group_of:

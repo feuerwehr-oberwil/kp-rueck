@@ -39,7 +39,9 @@ from ..schemas import (
     FeldIncidentCreate,
     FieldReportUpdate,
     GenerateEmergencyRequest,
+    IncidentPriority,
     IncidentResponse,
+    IncidentType,
     ManualDispatchRequest,
     RapportUpdate,
     RekoReportResponse,
@@ -1040,8 +1042,10 @@ async def simulate_field_report(
         # Field Meldungen are titled with where they are (see crud/feld/melden.py);
         # only a report without an address falls back to the text itself.
         title=(incident.location_address or text)[:200],
-        type=incident.type,
-        priority="medium",
+        # The columns are plain strings; the str-Enums live in the schema, and
+        # pydantic still rejects a value that is not one of them.
+        type=IncidentType(incident.type),
+        priority=IncidentPriority.MEDIUM,
         location_address=incident.location_address,
         location_lat=incident.location_lat,
         location_lng=incident.location_lng,
@@ -1051,7 +1055,7 @@ async def simulate_field_report(
 
     # Same broadcast as the real /feld endpoint — the card must not be a ghost
     # until somebody polls.
-    await broadcast_incident_update(str(new_incident.id), "created")
+    await broadcast_incident_update({"id": str(new_incident.id), "status": new_incident.status}, "create")
 
     return SimulateFieldReportResponse(
         incident_id=new_incident.id,

@@ -48,8 +48,9 @@ async def _enrich_assignments(
             event_id=a.event_id,
             personnel_id=a.personnel_id,
             personnel_name=personnel_names.get(a.personnel_id, "Unknown"),
-            # The column is a plain str; the str-Enum FunctionType is applied by pydantic.
-            function_type=a.function_type,  # type: ignore[arg-type]
+            # A plain str on both sides since the function types became a lookup
+            # table — a station can add a Verkehrsdienst without a migration.
+            function_type=a.function_type,
             vehicle_id=a.vehicle_id,
             vehicle_name=vehicle_names.get(a.vehicle_id) if a.vehicle_id else None,
             assigned_at=a.assigned_at,
@@ -129,8 +130,8 @@ async def assign_special_function(
         event_id=db_assignment.event_id,
         personnel_id=db_assignment.personnel_id,
         personnel_name=personnel.name if personnel else "Unknown",
-        # The column is a plain str; the str-Enum FunctionType is applied by pydantic.
-        function_type=db_assignment.function_type,  # type: ignore[arg-type]
+        # A plain str on both sides since the function types became a lookup table.
+        function_type=db_assignment.function_type,
         vehicle_id=db_assignment.vehicle_id,
         vehicle_name=vehicle_name,
         assigned_at=db_assignment.assigned_at,

@@ -715,8 +715,11 @@ async def report_new_incident(
     incident, mode = await crud.create_field_report(db, event.id, person, payload, request)
 
     # Same broadcast + sync path as every other create, so the board moves
-    # without a refresh and the card is not a ghost until somebody polls.
-    await broadcast_incident_update(str(incident.id), "created")
+    # without a refresh and the card is not a ghost until somebody polls. The
+    # payload is a dict and the action is «create», like every other sender:
+    # this one used to pass the bare id string under «created», which no
+    # listener could have read as an incident.
+    await broadcast_incident_update({"id": str(incident.id), "status": incident.status}, "create")
 
     return schemas.FeldIncidentCreated(incident_id=incident.id, takeover=mode)
 
@@ -765,7 +768,7 @@ async def correct_own_report(
     updated = await crud.update_field_report(db, incident, person, payload, request)
     # The board is looking at this card right now — a correction that only lands
     # on the next poll is a correction the operator reads too late.
-    await broadcast_incident_update(str(updated.id), "updated")
+    await broadcast_incident_update({"id": str(updated.id), "status": updated.status}, "update")
 
     home_city = await incident_display.get_home_city(db)
     return schemas.FeldOwnReport(

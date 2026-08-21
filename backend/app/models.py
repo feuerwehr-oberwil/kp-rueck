@@ -2,6 +2,7 @@
 
 import secrets
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
@@ -502,8 +503,8 @@ class Incident(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str] = mapped_column(String(20), nullable=False)
     location_address: Mapped[str | None] = mapped_column(Text, nullable=True)
-    location_lat: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
-    location_lng: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
+    location_lat: Mapped[Decimal | None] = mapped_column(Numeric(10, 8), nullable=True)
+    location_lng: Mapped[Decimal | None] = mapped_column(Numeric(11, 8), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="incoming")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact: Mapped[str | None] = mapped_column(Text, nullable=True)  # Reporter/contact info (Melder/Anrufer)

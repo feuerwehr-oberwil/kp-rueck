@@ -941,9 +941,9 @@ class FeldIncidentCreate(BaseModel):
     _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
     _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
     _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
-    _validate_description = field_validator("description")(  # type: ignore[attr-defined]
-        IncidentBase.validate_description.__func__
-    )
+    # One line, like its three siblings above: the ignore has to sit on the line
+    # mypy reports, and that is the `__func__` unwrap, not the decorator call.
+    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
 
 
 class FeldIncidentUpdate(BaseModel):

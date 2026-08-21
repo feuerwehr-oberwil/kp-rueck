@@ -23,6 +23,7 @@ from sqlalchemy import func as sa_func
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import execute_dml
 from ...models import Event, FeldDeviceClaim
 
 
@@ -113,13 +114,14 @@ async def revoke_all_claims(db: AsyncSession, event_id: uuid.UUID) -> int:
     explicitly confirmed action and not a side effect of regenerating the code.
     Returns how many devices were affected, so the UI can say so.
     """
-    result = await db.execute(
+    result = await execute_dml(
+        db,
         update(FeldDeviceClaim)
         .where(
             FeldDeviceClaim.event_id == event_id,
             FeldDeviceClaim.revoked_at.is_(None),
         )
-        .values(revoked_at=datetime.now(UTC))
+        .values(revoked_at=datetime.now(UTC)),
     )
     await db.commit()
     return int(result.rowcount or 0)
