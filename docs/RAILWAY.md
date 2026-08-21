@@ -350,6 +350,30 @@ application in two ways that are hard to diagnose:
 KP Rück is single-tenant by design: one station, one deployment, one instance. Scale the
 container's CPU and memory if you need to, never the replica count.
 
+### 7.1 The restart policy is `ALWAYS`, and that is not the obvious choice
+
+Both services carried `ON_FAILURE` with `restartPolicyMaxRetries: 10`. `ON_FAILURE` restarts a
+container that **crashed** – but a graceful shutdown exits 0, which Railway reads as a container
+that finished its work, and nothing starts it again.
+
+KP Front hit exactly that on 2026-08-03: a healthy container took a clean SIGTERM after sixteen
+minutes, the service sat at 0/1 replicas, and prod served 502 for 25 minutes until a human opened
+the app and noticed. The same shape sat here, untriggered.
+
+A station server has no successful exit. Any stop is a fault, including a clean one – so
+production is `ALWAYS`, and `restartPolicyMaxRetries` is gone, because it only means anything
+alongside `ON_FAILURE` and next to `ALWAYS` it invites the reading that recovery gives up after
+ten attempts.
+
+**Staging deliberately keeps `ON_FAILURE`**, because staging also keeps `sleepApplication: true`
+(§8.2) and the two settings make opposite statements about a stopped container. Staging is
+allowed to stay down; production is not.
+
+⚠️ **Neither file does anything until the service redeploys**, and an untested restart policy is
+a belief, not a recovery: stop a container on staging or the demo and confirm it comes back by
+itself. The lesson that makes this worth writing down is fwo-shlink's – a service sat `SLEEPING`
+for a day with the flag already committed as `false`, because nothing had redeployed it.
+
 ---
 
 ## 8. Updating

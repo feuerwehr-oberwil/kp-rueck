@@ -4,7 +4,7 @@ name: CI
 #
 # BLOCKING (a red one of these must stop a merge; these are the checks required on main):
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
-#   frontend-typecheck, frontend-unit-tests, frontend-build, images
+#   frontend-typecheck, frontend-unit-tests, frontend-build, images, e2e-smoke
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
 #   plus telemetry-drift, alarm-keyword-drift, roster-schema-drift and alarm-contract-drift —
 #   the ONLY checks that compare anything against kp-front; the in-repo hash tests cannot see
@@ -56,12 +56,13 @@ name: CI
 #         restored one of these?" — the same reasoning as telemetry-drift. It runs Postgres 17
 #         (production), not the 16 that docker-compose.yml pins.
 #
-# RUNS, BUT NOT YET A REQUIRED CHECK:
-#   e2e-smoke – eight @smoke-tagged Playwright specs on the core path. It used to be `if: false`
-#         and covered nothing. It is deliberately NOT in the required-checks list on main until
-#         it has proved stable across a handful of real runs; see the comment on the job. The
-#         full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`) plus the nightly
-#         schedule in e2e-nightly.yml.
+# REQUIRED SINCE 2026-08-21 (plan 15's last open item):
+#   e2e-smoke – the @smoke-tagged Playwright specs on the core path. It used to be `if: false`
+#         and covered nothing; it was then held out of the required list until it had proved
+#         stable across real runs, and since 2026-08-21 it IS required on main (plan 15's last
+#         open item). The full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`,
+#         with `AUTH_BYPASS_AUTH_DEV=false` or the role assertions mean nothing) plus the
+#         nightly schedule in e2e-nightly.yml.
 #
 # Coverage: min 35% (target: 50% → 70%).
 
@@ -803,12 +804,15 @@ jobs:
   # log in, land on the board, create an event, select it, create an incident, and alarm intake
   # in and out. Tag more with `{ tag: '@smoke' }` as they prove stable.
   #
-  # NOT YET IN THE REQUIRED-CHECKS LIST on main, on purpose. Phase 1 of the plan — run it
-  # repeatedly against an unchanged tree and see which specs flake — has not been done, and
-  # promoting an unmeasured suite to a merge gate is how you get a red job people learn to click
-  # through. Let it run on a few PRs first; when it has been green across runs it did not
-  # deserve to be, add "E2E (@smoke)" to branch protection. Until then a red result here is
-  # information, not a blocker.
+  # REQUIRED ON MAIN since 2026-08-21. It was deliberately held out until it had been green
+  # across runs it did not deserve to be, and it has: repeated PR and push runs plus the 0.7.0
+  # merge, all green, alongside a nightly that has been green for a week. That was the last
+  # open item of plan 15 — and the 0.7.0 cycle is the argument for it, since the merge to main
+  # was the first time any gate had seen 83 commits and three of these specs were describing
+  # flows the app no longer had.
+  #
+  # A red result here now blocks a merge. If it turns flaky rather than wrong, take the spec
+  # out of @smoke — do not take the job out of branch protection.
   #
   # The full suite stays a human step before a release and after touching auth, the board or
   # alarm intake: `cd frontend && pnpm test:e2e` (needs `just dev`). e2e-nightly.yml runs it on
