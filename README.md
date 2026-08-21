@@ -60,6 +60,13 @@ event, one operator at the board**, not scaled down from a dispatch center.
   carrying their colour, note and usual equipment.
 - **Alarm intake:** provider-neutral `POST /api/alarms`, a native Divera adapter, a token-gated
   phone/walk-in form, and a capability registry the UI reads instead of hard-coding providers.
+- **The field surface (`/feld`):** one login-less page for everyone out there – crew, driver,
+  Reko, Magazin, Telefondienst. You see what is yours, report «Angekommen» and «Einsatz
+  beendet», file the Schadenplatz-Rapport with photos, ask for an Abholung, and send a Meldung
+  the KP can answer. Reached by a QR on the poster or on the Einsatzzettel, gated by a
+  four-digit **Feld-Code** that binds the phone to one person. Everything it writes has a
+  writer at the command post too, because the failure mode to design for is the phones failing,
+  not the server.
 - **Reconnaissance:** Reko forms with photo upload from mobile devices.
 - **Training:** isolated scenarios, auto-generated incidents, adjustable sim tempo, and
   simulated GPS drives.

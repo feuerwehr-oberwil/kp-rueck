@@ -80,7 +80,31 @@ will keep holding.
   operator ever clicks an acknowledge. The detail header also carries the board's status as one
   quiet labelled word («KP: Disponiert»), which is the ack for everything else.
 
+- **The Einsatzzettel prints the Feld-Code under its QR.** The slip's second QR opens `/feld`
+  with that Schadenplatz preselected, and since the code exists that link on its own opens
+  nothing — a crew scanning it in the rain met a prompt they could not answer, because the code
+  is on the board and the board is where they are not. Link and code now travel on the same
+  piece of paper, which is also why a lost slip is answered with **Neuer Code** rather than a
+  shrug. An older print agent simply prints the QR as before.
+
 ### Changed
+
+- **Die Übungssteuerung is laid out like the evening it runs.** Personal einchecken became its
+  own card instead of an afterthought in the generator, the Automatik moved into the generator
+  card it actually steers, and every Inject says in a sentence what it does to the board — an
+  «Inject» menu of seven bare verbs is a menu nobody dares press during a drill. The incident
+  rows stop overlapping their own buttons on a small screen, generated locations stop repeating
+  themselves, and a simulated Rückfahrt says out loud when the Magazin has no coordinates
+  instead of quietly doing nothing. Generated Reko and Rapport texts derive a plausible
+  Massnahme from the figures they invented, so a drill reads like a drill and not like filler.
+
+- **Notifications point at the thing they are about.** Clicking one keeps the sidebar open and
+  highlights the card it names rather than dropping the operator on the board to find it
+  themselves; the texts use the same short addresses the cards do. «Reko vor Ort» rings for the
+  first time (including for a simulated arrival), a Meldung vom Feld rings the bell, and a
+  new-incident notification stops repeating itself once the incident has visibly moved on.
+  «Auf der Karte öffnen» now works for a closed incident too — it is rendered and focused once,
+  without touching the filters the operator set.
 
 - **Field reports move the card themselves.** «Angekommen» puts the Schadenplatz in EINSATZ,
   «Einsatz beendet» in BEENDET / RÜCKFAHRT — announced by the toast, recorded field-originated
@@ -135,6 +159,32 @@ will keep holding.
   moved to `/api/reko`.
 
 ### Fixed
+
+- **The row says where the crew is in its own evening** — «Anfahrt», «Vor Ort», «Rückfahrt»,
+  read off the crew's own taps. A Schadenplatz somebody had finished sat at the top of the list
+  looking exactly like the one they were driving to. The board's own status stays off the rows,
+  deliberately: «Disponiert» is the KP's word for a decision they made, and a crew standing in
+  the water reads it as a claim about themselves. The journey is the part that *is* about them.
+  On an Auftrag the chip names only the stop actually being driven to or worked; the stops
+  behind it stay on the list, numbered and dimmed, because a route drawn in one weight answers
+  «du hast drei Stopps» when the question was «wo bin ich».
+
+- **A squad on an Auftrag had no line on the map.** Their vehicles belong to the *route* and
+  hold no assignment on any single stop, and the layer only ever read the stops' own vehicles —
+  so the one squad the KP had sent out as a single job was the one squad the map drew as
+  nowhere. Each route vehicle now draws one line, to the stop being worked. And «Distanz» drew
+  labels in open country with nothing to measure: a distance is a property of a line, so it
+  brings the line with it now.
+
+- **Clicking through the sidebar threw away the operator's zoom**, flying to zoom 16 on every
+  card, so working down a list zoomed in, out and in again. The scale is kept and only clamped
+  when it is outside the band where a marker can be read at all.
+
+- **A Materialwart who is also out on a Schadenplatz opened `/feld` to 38 rows of inventory**,
+  with their own two-stop Auftrag buried underneath where nobody scrolls — which reads as "the
+  field view shows no Einsätze". Their own work leads now and the table follows it, folded, with
+  the count it would otherwise state in its first line. For somebody with nothing else on, the
+  inventory still *is* the page.
 
 - **A crew assigned to an Auftrag saw nothing at all.** Resources assigned to a *route* cover
   every stop on it — which is how a storm night is actually run, the KP puts the squad on the
