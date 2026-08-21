@@ -33,6 +33,15 @@ from pydantic import ValidationError
 from app.schemas.alarms import RESERVED_ALARM_SOURCES, AlarmIn
 
 CORPUS_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "alarm-intake-conformance.json"
+
+# The corpus lives in the repository, not in the backend image: the dev container mounts
+# `backend/` alone, so three levels up is `/` and the file is simply not there. Skipping keeps
+# `docker exec … pytest` usable for the other 2'800 tests instead of aborting collection for the
+# whole run — the same host-only treatment `test_openapi_committed.py` gets. CI runs from a
+# checkout, so the contract is still enforced where it matters.
+if not CORPUS_PATH.is_file():  # pragma: no cover - container-only path
+    pytest.skip(f"Corpus not reachable at {CORPUS_PATH} — run this from a repository checkout", allow_module_level=True)
+
 CORPUS = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
 
 

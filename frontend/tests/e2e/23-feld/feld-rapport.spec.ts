@@ -334,10 +334,13 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     const detail = authenticatedPage.locator('[data-testid="operation-detail-content"]').first();
     await expect(detail).toBeVisible({ timeout: SMOKE_TIMEOUT });
 
-    // The rapport lives on the Rapport tab now — three tabs since the detail
-    // absorbed Ressourcen into Übersicht — and it is permanently open there,
-    // like the Reko-Berichte beside it. No accordion header to click.
-    await detail.getByRole('tab', { name: /^Rapport/ }).click();
+    // The rapport lives on the «Feld» tab — the panel carries everything that
+    // comes back from the field, not the Schadenplatz-Rapport alone, so a tab
+    // named after one of its sections hid the rest. Its `value` is still
+    // `rapport` (deep links, notification targets); only the label moved. It is
+    // permanently open there, like the Reko-Berichte beside it — no accordion
+    // header to click.
+    await detail.getByRole('tab', { name: /^Feld/ }).click();
     // ONE line says it: the section's own state chip. The dashed «Noch kein
     // Rapport» box under it said the same thing twice and made the normal state
     // of most Schadenplätze read as a fault (§18.16 revisited).
