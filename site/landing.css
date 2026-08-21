@@ -394,7 +394,10 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   background: color-mix(in srgb, var(--red) 55%, transparent);
 }
 .flist strong { color: var(--ink); font-weight: 600; }
-.flist .opt {
+/* «optional» ist ein Abzeichen, kein Wort im Satz – und es steht in ZWEI Listen: der
+   Funktionsliste und der Setup-Karte weiter unten. Deshalb unscoped: an .flist gebunden
+   rutschte es in der Karte als gewöhnlicher Fliesstext durch, in allen vier Sprachen. */
+.opt {
   font-family: var(--mono); font-size: 10.5px; font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
   border: 1px solid var(--line); border-radius: 4px;
