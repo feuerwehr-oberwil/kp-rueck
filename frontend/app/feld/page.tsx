@@ -1637,8 +1637,13 @@ function FeldSurface() {
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Hin — dran — zurück, before anything the row owes: it is
                       what tells a finished Schadenplatz apart from the one
-                      being driven to, which the list could not say at all. */}
-                  <JourneyChip assignment={assignment} />
+                      being driven to, which the list could not say at all.
+                      Suppressed on a route's later stops: nobody is driving to
+                      stop 3 yet, it is simply next on the list, and «Anfahrt»
+                      on all of them at once says the squad is in three places.
+                      The dimmed row and its number already say what those
+                      stops are. */}
+                  {!isLaterStop && <JourneyChip assignment={assignment} />}
                   {assignmentRapportApplies(assignment) && (
                     <RapportStateChip state={assignment.rapport_state} />
                   )}

@@ -710,6 +710,76 @@ describe('/feld says where the crew is on each row', () => {
     expect(await screen.findByText('Nicht mehr zugeteilt')).toBeInTheDocument()
     expect(screen.queryByText('Anfahrt')).not.toBeInTheDocument()
   })
+
+  it('says «Anfahrt» once on an Auftrag, not on every stop of it', async () => {
+    // A squad drives a route in order. Reported from the field: both stops read
+    // «Anfahrt», which claims the crew is in two places — the later stop is
+    // simply next on the list, and nobody has set off for it.
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [
+        assignment({
+          incident_id: 'inc-1',
+          location_address: 'Hohestrasse 120',
+          group_id: 'g-1',
+          group_name: 'Graf Sven',
+          group_position: 0,
+        }),
+        assignment({
+          incident_id: 'inc-2',
+          location_address: 'Stallenmattstrasse 11',
+          group_id: 'g-1',
+          group_name: 'Graf Sven',
+          group_position: 1,
+        }),
+      ],
+      message_chips: [],
+    })
+    setParams({ token: 'feld-token' })
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByText('Stallenmattstrasse 11')).toBeInTheDocument()
+    expect(screen.getAllByText('Anfahrt')).toHaveLength(1)
+  })
+
+  it('moves «Anfahrt» to the stop the squad is actually at', async () => {
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1',
+      personnel_name: 'Muster Hans',
+      personnel_role: 'Offizier',
+      event_id: 'e-1',
+      event_name: 'Sturm Oberwil',
+      assignments: [
+        assignment({
+          incident_id: 'inc-1',
+          location_address: 'Hohestrasse 120',
+          group_id: 'g-1',
+          group_name: 'Graf Sven',
+          group_position: 0,
+          arrived_at: '2026-08-20T09:00:00Z',
+        }),
+        assignment({
+          incident_id: 'inc-2',
+          location_address: 'Stallenmattstrasse 11',
+          group_id: 'g-1',
+          group_name: 'Graf Sven',
+          group_position: 1,
+        }),
+      ],
+      message_chips: [],
+    })
+    setParams({ token: 'feld-token' })
+    renderWithIntl(<FeldPage />)
+
+    // Standing at stop 1: that row carries «Vor Ort» and the one behind it
+    // carries nothing at all.
+    expect(await screen.findByText('Vor Ort')).toBeInTheDocument()
+    expect(screen.queryByText('Anfahrt')).not.toBeInTheDocument()
+  })
 })
 
 /**
