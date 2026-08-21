@@ -172,6 +172,13 @@ test.describe('/feld: eine neue Meldung', () => {
     await field.fill(address);
     await field.press('Enter');
     await takeOverSwitch(page).click();
+
+    // The form does not send: «Weiter» hands over to a review step, and only the
+    // button THERE is «Meldung absetzen» — the same two-step shape the phone
+    // desk's `/alarm` form has, for the same reason (a button that claims to
+    // send is the fat-finger the step exists to catch).
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await expect(page.getByRole('heading', { name: 'Stimmt das so?' })).toBeVisible();
     await page.getByRole('button', { name: 'Meldung absetzen' }).click();
 
     // The whole point: it is on the reporter's own list straight away. Before

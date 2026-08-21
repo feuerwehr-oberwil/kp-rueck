@@ -87,14 +87,23 @@ async function arrangeReko(page: Page, prefix: string): Promise<RekoFixture> {
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const event = await createEvent(page.request, cookieHeader, `${prefix} ${stamp}`);
 
+  // `reko`, not `active`: this is the Schadenplatz a Reko trupp was sent to and
+  // has not reported back on, which is the only state where a Reko auftrag is
+  // still worth filing. Once the KP has disponiert (`enroute`/`active`/…), the
+  // window is deliberately closed — the trupp's answer can no longer change the
+  // decision, and the row says so instead of promising a form (§P2.6). That
+  // case has its own suite, «wenn das Reko-Fenster zu ist».
   const boardIncident = await createIncident(page.request, cookieHeader, event.id, {
     title: `${prefix} Schadenplatz 1 ${stamp}`,
-    status: 'active',
+    status: 'reko',
     location_address: `${prefix}weg 1 ${stamp}, 4104 Oberwil`,
   });
+  // Same reasoning as above — this one carries the fallback (function says Reko,
+  // the assignment row does not), and it can only prove that while its window
+  // is open.
   const fallbackIncident = await createIncident(page.request, cookieHeader, event.id, {
     title: `${prefix} Schadenplatz 2 ${stamp}`,
-    status: 'active',
+    status: 'reko',
     location_address: `${prefix}gasse 2 ${stamp}, 4104 Oberwil`,
   });
 
