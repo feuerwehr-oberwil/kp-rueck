@@ -67,7 +67,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `develop` is here because leaving it out cost a whole cycle: 83 commits accumulated
+    # there with nothing running the gate, and the merge to main was going to be the first
+    # time anything type-checked the backend or ran a test in CI. It found 22 mypy errors
+    # and three stale E2E specs, none of which are expensive to fix on the day they are
+    # written and all of which are a bad surprise on release day.
+    branches: [main, develop]
   pull_request:
     branches: [main]
   # release.yml runs this whole gate against the tag before publishing images.
