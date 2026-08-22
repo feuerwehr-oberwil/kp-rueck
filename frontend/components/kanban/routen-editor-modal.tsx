@@ -310,10 +310,19 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
           {/* Ordered list column — fills the remaining width, truncates long rows. */}
           <div className="flex min-w-0 flex-1 flex-col min-h-0">
-            {/* Reihenfolge heading + the optimize wand (a single button whose menu
-                picks the start anchor and runs optimize immediately). */}
+            {/* Reihenfolge heading — with the stop count beside it, so the head
+                states what already gilt (the list head carries a number, like the
+                assignment dialogs') — + the optimize wand (a single button whose
+                menu picks the start anchor and runs optimize immediately). */}
             <div className="mb-2 flex h-8 items-center justify-between gap-2">
-              <span className="text-sm font-semibold">{t("order")}</span>
+              <span className="text-sm font-semibold">
+                {t("order")}
+                {displayOrder.length > 0 && (
+                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted-foreground">
+                    {displayOrder.length}
+                  </span>
+                )}
+              </span>
               {canEdit && <RouteOptimizeMenu
                 options={startOptions}
                 menuLabel={t("optimizeStartHint")}

@@ -255,8 +255,12 @@ export function AttendanceModal({
             dialog came out ~95vh tall — 757px in an 800px window, 21px of air
             top and bottom, and `vh` rather than `dvh` (see modal-h-* in
             globals.css: with `vh` a mobile address bar pushes the quick-add row
-            out of reach). The list scrolls inside the clamp now. */}
-        <DialogContent className="flex modal-h-tall max-w-3xl flex-col">
+            out of reach). The list scrolls inside the clamp now.
+
+            `sm:max-w-3xl` needs its prefix: DialogContent's own `sm:max-w-lg`
+            is variant-scoped, so the bare `max-w-3xl` this used to carry never
+            won at desktop widths and the roll-call ran in a 512px column. */}
+        <DialogContent className="flex modal-h-tall sm:max-w-3xl flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="size-4" />
