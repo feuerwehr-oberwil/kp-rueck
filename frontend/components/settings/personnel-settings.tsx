@@ -44,6 +44,8 @@ import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, Chevr
 import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
+import { SettingUnavailableNote } from './setting-unavailable';
+import { useIntegrationCapability } from '@/lib/hooks/use-integrations';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
@@ -67,7 +69,12 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Divera sync state
+  // Divera sync state. Ohne hinterlegten Personal-Anbieter gibt es nichts abzugleichen:
+  // Der Knopf öffnete bisher einen Dialog, der sofort mit einem Fehler antwortete. Die
+  // Antwort kommt aus der Fähigkeiten-Registratur (`GET /api/integrations`); `null` heisst
+  // «noch nicht beantwortet» und sperrt nichts.
+  const personnelProvider = useIntegrationCapability('personnel');
+  const syncUnavailable = personnelProvider !== null && !personnelProvider.configured;
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
   const [syncPreview, setSyncPreview] = useState<ApiDiveraSyncPreview | null>(null);
   const [isSyncLoading, setIsSyncLoading] = useState(false);
@@ -362,9 +369,17 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
         <TabsContent value="list" className="space-y-4">
           <DemoLock active={demoMode} className="space-y-4">
+          {!demoMode && syncUnavailable && (
+            <SettingUnavailableNote>{t('personnel.syncUnavailable')}</SettingUnavailableNote>
+          )}
           <div className="flex justify-end gap-2">
             {!demoMode && (
-              <Button variant="outline" onClick={handleOpenSyncDialog}>
+              <Button
+                variant="outline"
+                onClick={handleOpenSyncDialog}
+                title={syncUnavailable ? t('personnel.syncUnavailable') : undefined}
+                disabled={syncUnavailable}
+              >
                 <RefreshCw className="size-4" />
                 {t('personnel.syncButton')}
               </Button>
