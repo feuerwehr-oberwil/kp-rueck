@@ -643,6 +643,7 @@
       "removePerson": "Person entfernen",
       "removeMaterial": "Material entfernen",
       "noMaterial": "Kein Material zugewiesen",
+      "resourceEmpty": "keine",
       "changeStatus": "Status ändern",
       "copyWhatsapp": "WhatsApp kopieren",
       "moreActions": "Weitere Aktionen",

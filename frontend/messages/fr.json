@@ -1725,6 +1725,7 @@
       "removePerson": "Retirer la personne",
       "removeMaterial": "Retirer le matériel",
       "noMaterial": "Aucun matériel attribué",
+      "resourceEmpty": "aucun",
       "changeStatus": "Changer de statut",
       "copyWhatsapp": "Copier pour WhatsApp",
       "moreActions": "Autres actions",

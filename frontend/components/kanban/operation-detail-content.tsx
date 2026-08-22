@@ -10,7 +10,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -57,7 +57,6 @@ import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
   RouteResourceSections,
-  ResourceSectionHeader,
   ResourceAddButton,
   ResourceSourceBlock,
 } from "@/components/kanban/route-resource-sections"
@@ -86,6 +85,46 @@ const ROW_ACTION =
  */
 function DetailGroupHeading({ children }: { children: ReactNode }) {
   return <h3 className="mb-1 text-xs font-semibold text-muted-foreground">{children}</h3>
+}
+
+/**
+ * The one pill every resource in the «Kräfte» group wears — person, vehicle,
+ * material and module alike: bordered, rounded-full, quiet. The three chip
+ * families this replaces (filled grey person, filled primary vehicle, outlined
+ * material) told an operator nothing — colour on this board is for status and
+ * priority, not for resource type. What genuinely distinguishes a chip lives
+ * INSIDE the pill: the EL badge, the driver name, the depot. The hover tint is
+ * the remove affordance, arriving together with the X on the same hover.
+ */
+const RESOURCE_CHIP =
+  "group gap-1 rounded-full border-border bg-transparent px-2.5 pr-1 text-sm font-normal hover:bg-destructive/20"
+
+/**
+ * One resource row of the «Kräfte» group: the section label with its live count
+ * in the same 104px gutter every other Übersicht row uses, the chip cluster to
+ * its right (wrapping in the 420px panel), and the section's add control at the
+ * END of the row — not floating at the pane edge. A sibling of `DetailField`,
+ * not a use of it: the value here is a wrapping chip cluster rather than a
+ * control, and the label heads a section instead of naming a focusable field.
+ */
+function ResourceRow({
+  label,
+  action,
+  children,
+}: {
+  label: ReactNode
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-2 py-1">
+      <span className="w-[104px] shrink-0 pt-1 text-xs text-muted-foreground">{label}</span>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
+      {/* The add button is a 32px control on a ~24px chip line; the negative
+          margin keeps it from stretching the row without shrinking its target. */}
+      {action && <span className="-my-1 shrink-0">{action}</span>}
+    </div>
+  )
 }
 
 /** Whether the provenance toggles apply to this card at all.
@@ -696,195 +735,197 @@ export function OperationDetailContent({
     <>
       {/* Mannschaft (Crew) */}
       {(showEmptyOwnSections || operation.crew.length > 0) && (
-        <div className="mt-4">
-          <ResourceSectionHeader
-            icon={Users}
-            label={t('common.crewCount', { count: operation.crew.length })}
-            action={ownAddAction ? (
-              <ResourceAddButton
-                compact
-                label={t('common.assignCrew')}
-                onClick={() => onAssignResource?.('crew', operation.id)}
-              />
-            ) : undefined}
-          />
-          <div className="flex flex-wrap gap-2">
-            {operation.crew.length > 0 ? (
-              // EL first (decision 23) — the star stays, this is ordering on top of it.
-              sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
+        <ResourceRow
+          label={t('common.crewCount', { count: operation.crew.length })}
+          action={ownAddAction ? (
+            <ResourceAddButton
+              compact
+              label={t('common.assignCrew')}
+              onClick={() => onAssignResource?.('crew', operation.id)}
+            />
+          ) : undefined}
+        >
+          {operation.crew.length > 0 ? (
+            // EL first (decision 23) — the badge stays, this is ordering on top of it.
+            sortCrewByLeader(operation.crew, operation.leaderName).map((member) => {
+              const isLeader = operation.leaderName === member
+              return (
                 <RemovableChip
                   key={member}
-                  variant="secondary"
-                  className="group text-sm gap-1 pr-1 hover:bg-destructive/20"
+                  variant="outline"
+                  // The Einsatzleiter keeps a visible accent on the SAME pill:
+                  // an amber edge (the board's "pay attention" colour, like the
+                  // EL badge itself) — never a different chip family.
+                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-amber-400/60")}
                   onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
                   removeTitle={t('detail.removePerson')}
                   removeButtonClassName="ml-1"
                 >
                   {/* A stop inside an Auftrag takes its leader from the route,
-                      so the star is not offered on the stop's own crew — it
+                      so the badge is not offered on the stop's own crew — it
                       would set a second, competing leader. */}
                   {!auftrag && (
                     <LeaderBadge
-                      isLeader={operation.leaderName === member}
+                      isLeader={isLeader}
                       onPromote={canEdit ? () => void promoteToLeader(member) : undefined}
                     />
                   )}
                   {member}
                 </RemovableChip>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground/60 italic">{t('detail.noCrew')}</p>
-            )}
-          </div>
-        </div>
+              )
+            })
+          ) : (
+            // A short muted value, not a sentence: the row label already says
+            // what is missing, and the count already says it is zero.
+            <span className="text-sm text-muted-foreground/60">{t('detail.resourceEmpty')}</span>
+          )}
+        </ResourceRow>
       )}
 
       {/* Fahrzeuge (Vehicles). «Zu Fuss» is a vehicle answer too, so a stop that
-          carries only that still gets this section. */}
+          carries only that still gets this row. */}
       {(showEmptyOwnSections || operation.vehicles.length > 0 || operation.zuFuss) && (
-        <div className="mt-4">
-          <ResourceSectionHeader
-            icon={Truck}
-            label={t('common.vehiclesCount', { count: operation.vehicles.length })}
-            // Opens the full assignment dialog, same as Mannschaft and Material.
-            // This used to be an inline dropdown of the fleet — a second, poorer
-            // vehicle picker without the driver info, «Zu Fuss» and the
-            // free/spoken-for split the dialog carries (and its popover kept
-            // colliding with the modal's close button). One picker, one behaviour.
-            action={ownAddAction ? (
-              <ResourceAddButton
-                compact
-                label={t('common.assignVehicle')}
-                onClick={() => onAssignResource?.('vehicles', operation.id)}
-              />
-            ) : undefined}
-          />
-          <div className="flex flex-wrap gap-2">
-            {operation.zuFuss && (
-              <RemovableChip
-                variant="secondary"
-                className="text-sm gap-1"
-                onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
-                removeTitle={t('common.removeZuFuss')}
-                removeButtonClassName="ml-0.5 hover:text-destructive"
-              >
-                <Footprints className="h-3.5 w-3.5 shrink-0" />
-                {t('common.zuFuss')}
-              </RemovableChip>
-            )}
-            {operation.vehicles.length > 0 ? (
-              operation.vehicles.map((vehicleName) => {
-                const driverName = vehicleDrivers.get(vehicleName)
-                const callsign = operation.vehicleCallsigns.get(vehicleName)
-                const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
-                const assignmentId = operation.vehicleAssignments.get(vehicleName)
-                return (
-                  <RemovableChip
-                    key={vehicleName}
-                    variant="default"
-                    className="text-sm gap-1 pr-1"
-                    title={callsign ? t('common.funkrufname', { callsign }) : undefined}
-                    onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
-                    removeTitle={t('detail.removeVehicle')}
-                    removeButtonClassName="ml-0.5 hover:text-white cursor-pointer"
-                  >
-                    {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
-                    {canEdit && assignmentId && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleDriverStay(operation.id, vehicleName)
-                        }}
-                        className={cn(
-                          "ml-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors",
-                          driverStay
-                            ? "bg-white/20 text-white hover:bg-white/30"
-                            : "bg-white/10 text-white/60 hover:bg-white/20"
-                        )}
-                        title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-                        tabIndex={-1}
-                      >
-                        {driverStay ? (
-                          <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3 shrink-0" /> {t('common.driverStays')}</span>
-                        ) : (
-                          <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3 shrink-0" /> {t('common.driverReturns')}</span>
-                        )}
-                      </button>
-                    )}
-                  </RemovableChip>
-                )
-              })
-            ) : (
-              <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
-            )}
-          </div>
-        </div>
+        <ResourceRow
+          label={t('common.vehiclesCount', { count: operation.vehicles.length })}
+          // Opens the full assignment dialog, same as Mannschaft and Material.
+          // This used to be an inline dropdown of the fleet — a second, poorer
+          // vehicle picker without the driver info, «Zu Fuss» and the
+          // free/spoken-for split the dialog carries (and its popover kept
+          // colliding with the modal's close button). One picker, one behaviour.
+          action={ownAddAction ? (
+            <ResourceAddButton
+              compact
+              label={t('common.assignVehicle')}
+              onClick={() => onAssignResource?.('vehicles', operation.id)}
+            />
+          ) : undefined}
+        >
+          {operation.zuFuss && (
+            <RemovableChip
+              variant="outline"
+              className={RESOURCE_CHIP}
+              onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
+              removeTitle={t('common.removeZuFuss')}
+              removeButtonClassName="ml-1"
+            >
+              <Footprints className="h-3.5 w-3.5 shrink-0" />
+              {t('common.zuFuss')}
+            </RemovableChip>
+          )}
+          {operation.vehicles.length > 0 ? (
+            operation.vehicles.map((vehicleName) => {
+              const driverName = vehicleDrivers.get(vehicleName)
+              const callsign = operation.vehicleCallsigns.get(vehicleName)
+              const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
+              const assignmentId = operation.vehicleAssignments.get(vehicleName)
+              return (
+                <RemovableChip
+                  key={vehicleName}
+                  variant="outline"
+                  className={RESOURCE_CHIP}
+                  title={callsign ? t('common.funkrufname', { callsign }) : undefined}
+                  onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
+                  removeTitle={t('detail.removeVehicle')}
+                  removeButtonClassName="ml-1"
+                >
+                  {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
+                  {canEdit && assignmentId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleDriverStay(operation.id, vehicleName)
+                      }}
+                      // Neutral palette: the chip is no longer a filled primary
+                      // pill, so the toggle reads as a quiet state inside it.
+                      className={cn(
+                        "ml-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        driverStay
+                          ? "bg-muted text-foreground hover:bg-muted/70"
+                          : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                      )}
+                      title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
+                      tabIndex={-1}
+                    >
+                      {driverStay ? (
+                        <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3 shrink-0" /> {t('common.driverStays')}</span>
+                      ) : (
+                        <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3 shrink-0" /> {t('common.driverReturns')}</span>
+                      )}
+                    </button>
+                  )}
+                </RemovableChip>
+              )
+            })
+          ) : (
+            // Only when «Zu Fuss» is not standing in: a chip next to «keine»
+            // would contradict itself.
+            !operation.zuFuss && (
+              <span className="text-sm text-muted-foreground/60">{t('detail.resourceEmpty')}</span>
+            )
+          )}
+        </ResourceRow>
       )}
 
       {/* Material */}
       {(showEmptyOwnSections || operation.materials.length > 0) && (
-        <div className="mt-4">
-          <ResourceSectionHeader
-            icon={Package}
-            label={t('common.materialsCount', { count: operation.materials.length })}
-            action={ownAddAction ? (
-              <ResourceAddButton
-                compact
-                label={t('common.assignMaterial')}
-                onClick={() => onAssignResource?.('materials', operation.id)}
-              />
-            ) : undefined}
-          />
-          <div className="flex flex-wrap gap-2">
-            {operation.materials.length > 0 ? (
-              (() => {
-                const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
-                return (
-                  <>
-                    {completeGroups.map(({ group, materialIds: matIds }) => (
+        <ResourceRow
+          label={t('common.materialsCount', { count: operation.materials.length })}
+          action={ownAddAction ? (
+            <ResourceAddButton
+              compact
+              label={t('common.assignMaterial')}
+              onClick={() => onAssignResource?.('materials', operation.id)}
+            />
+          ) : undefined}
+        >
+          {operation.materials.length > 0 ? (
+            (() => {
+              const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
+              return (
+                <>
+                  {completeGroups.map(({ group, materialIds: matIds }) => (
+                    <RemovableChip
+                      key={`group-${group.id}`}
+                      variant="outline"
+                      className={RESOURCE_CHIP}
+                      onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
+                      removeTitle={t('common.removeNamed', { name: group.name })}
+                      removeButtonClassName="ml-1"
+                    >
+                      {/* h-3.5 like the «Zu Fuss» chip's glyph: both sit in a
+                          `text-sm` chip, and 12px next to 14px text read as
+                          two different chip families. */}
+                      <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      {group.name}
+                    </RemovableChip>
+                  ))}
+                  {ungrouped.map((matId) => {
+                    const mat = materials.find(m => m.id === matId)
+                    return (
                       <RemovableChip
-                        key={`group-${group.id}`}
+                        key={matId}
                         variant="outline"
-                        className="text-sm gap-1 pr-1 hover:bg-destructive/20"
-                        onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
-                        removeTitle={t('common.removeNamed', { name: group.name })}
+                        className={RESOURCE_CHIP}
+                        onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
+                        removeTitle={t('detail.removeMaterial')}
                         removeButtonClassName="ml-1"
                       >
-                        {/* h-3.5 like the «Zu Fuss» chip's glyph: both sit in a
-                            `text-sm` chip, and 12px next to 14px text read as
-                            two different chip families. */}
-                        <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        {group.name}
+                        {mat?.name || matId}
+                        {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but
+                            deliberately omitted on the kanban card to keep it clean. */}
+                        {mat?.category && (
+                          <span className="text-xs text-muted-foreground">({mat.category})</span>
+                        )}
                       </RemovableChip>
-                    ))}
-                    {ungrouped.map((matId) => {
-                      const mat = materials.find(m => m.id === matId)
-                      return (
-                        <RemovableChip
-                          key={matId}
-                          variant="outline"
-                          className="text-sm gap-1 pr-1 hover:bg-destructive/20"
-                          onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
-                          removeTitle={t('detail.removeMaterial')}
-                          removeButtonClassName="ml-1"
-                        >
-                          {mat?.name || matId}
-                          {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but
-                              deliberately omitted on the kanban card to keep it clean. */}
-                          {mat?.category && (
-                            <span className="text-xs text-muted-foreground">({mat.category})</span>
-                          )}
-                        </RemovableChip>
-                      )
-                    })}
-                  </>
-                )
-              })()
-            ) : (
-              <p className="text-sm text-muted-foreground/60 italic">{t('detail.noMaterial')}</p>
-            )}
-          </div>
-        </div>
+                    )
+                  })}
+                </>
+              )
+            })()
+          ) : (
+            <span className="text-sm text-muted-foreground/60">{t('detail.resourceEmpty')}</span>
+          )}
+        </ResourceRow>
       )}
     </>
   )
@@ -1431,8 +1472,9 @@ export function OperationDetailContent({
               <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
             </button>
 
-          {/* The resource sections bring their own `mt-4` rhythm, which is what
-              spaces them from the Reko line above. */}
+          {/* Standalone, the resource rows share the Reko line's py-1 rhythm and
+              follow it directly; grouped, the provenance blocks below bring
+              their own `mt-4` frame. */}
           <div>
           {/* Mannschaft / Fahrzeuge / Material, grouped by WHERE THEY COME FROM.
               An Auftrag owns resources that ride on to the next stop; the stop
