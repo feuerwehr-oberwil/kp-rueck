@@ -8,7 +8,7 @@ one against the other without ever losing a hand-typed row.
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 
 from fastapi import HTTPException, Request, UploadFile
 from sqlalchemy import select
@@ -263,26 +263,53 @@ async def _route_assigned_ids(
     return {row[0] for row in result.all()}
 
 
-async def _fleet_vehicles(
-    db: AsyncSession,
-    incident: Incident,
-) -> tuple[list[dict[str, Any]], set[uuid.UUID]]:
-    """The station's **whole fleet**, plus which of it this incident has (§18.33).
+class _VehicleOffer(NamedTuple):
+    """What the Fahrzeuge section shows, and what it can reach.
 
-    Not only the assigned vehicles. On a storm night the board is routinely
-    behind reality in both directions: a vehicle drives along that nobody
-    assigned, and one that was assigned never leaves the ramp. A list that can
-    only be *unticked* can record the second and not the first, and the crew is
-    the only party that knows either.
+    ``dispatched`` are the **rows**: only what the board put on *this*
+    Schadenplatz. ``candidates`` is the rest of the fleet — reachable through the
+    section's search and one fold away, but never a row of its own.
+    """
 
-    The assigned set includes **released** assignments: a vehicle that drove back
-    early was still at the Schadenplatz, and only the crew can say otherwise.
+    dispatched: list[dict[str, Any]]
+    assigned_ids: set[uuid.UUID]
+    candidates: list[dict[str, Any]]
+
+    @property
+    def names(self) -> dict[uuid.UUID, str]:
+        """Live names for every vehicle the station still owns."""
+        return {row["vehicle_id"]: str(row["name"]) for row in (*self.dispatched, *self.candidates)}
+
+
+async def _fleet_vehicles(db: AsyncSession, incident: Incident) -> _VehicleOffer:
+    """What the board disponiert here, and the fleet behind it.
+
+    **Rows for the disponierten vehicles only.** The fleet used to be the list
+    (§18.33), which made the rapport a fleet inventory with one question stapled
+    to every row: a station with twelve vehicles answered eleven questions it had
+    no reason to be asked, and the one vehicle that actually rolled was as easy
+    to overlook as the eleven that did not. The set the board sent is the only
+    set the system can honestly claim was *at this address*, so that is the
+    confirm list. The correction §18.33 was right about — a vehicle that came
+    along without anybody assigning it — is still possible and is now what the
+    search and the fold are for; it is the exception, not the shape of the list.
+
+    The assigned set includes **released** assignments and the vehicles of a
+    multi-stop Auftrag: both were at the Schadenplatz, and only the crew can say
+    otherwise.
 
     Ordered the way the fleet is ordered everywhere else in the app, so the crew
     reads the vehicles in the order it knows them.
+
+    **Archived** vehicles are in neither list. That is exactly the "left the
+    fleet" case `reconcile_vehicles` already knows: a rapport that had ticked one
+    keeps the tick, because that is a correction of the board; an untouched row
+    for a vehicle the station no longer owns says nothing and drops away.
     """
-    result = await db.execute(select(Vehicle).order_by(Vehicle.display_order, Vehicle.name))
-    ordered = [{"vehicle_id": vehicle.id, "name": vehicle.name} for vehicle in result.scalars().all()]
+    result = await db.execute(
+        select(Vehicle).where(Vehicle.archived_at.is_(None)).order_by(Vehicle.display_order, Vehicle.name)
+    )
+    fleet = [{"vehicle_id": vehicle.id, "name": vehicle.name} for vehicle in result.scalars().all()]
 
     assigned = await db.execute(
         select(IncidentAssignment.resource_id).where(
@@ -291,30 +318,38 @@ async def _fleet_vehicles(
         )
     )
     own = {row[0] for row in assigned.all()}
-    return ordered, own | await _route_assigned_ids(db, incident, "vehicle")
+    assigned_ids = own | await _route_assigned_ids(db, incident, "vehicle")
+    return _VehicleOffer(
+        dispatched=[row for row in fleet if row["vehicle_id"] in assigned_ids],
+        assigned_ids=assigned_ids,
+        candidates=[row for row in fleet if row["vehicle_id"] not in assigned_ids],
+    )
 
 
 def reconcile_vehicles(
     stored: list[Any] | None,
-    fleet: list[dict[str, Any]],
+    dispatched: list[dict[str, Any]],
     assigned_ids: set[uuid.UUID],
+    fleet_names: dict[uuid.UUID, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Re-reconcile the vehicle checklist against the fleet — never replace it.
+    """Re-reconcile the vehicle list against the board — never replace it.
 
-    Keyed on the **vehicle** since §18.33: a vehicle that came along without ever
-    being dispatched has no assignment to key on, so an assignment id cannot be
-    the identity of a row that exists for every vehicle the station owns.
+    Keyed on the **vehicle**, not on an assignment: a vehicle the crew added by
+    hand was never dispatched and has no assignment to key on.
 
     Three rules:
 
-    * every vehicle in the fleet gets a row, ticked when the board has (or had)
-      it on this incident and unticked otherwise — that prefill *is* the board's
-      answer, and the crew's job is to correct it in either direction;
+    * every vehicle the board has (or had) here gets a row, arriving ticked —
+      that prefill *is* the board's answer, and the crew corrects it in either
+      direction;
     * a vehicle the crew already answered keeps that answer, whatever the board
       has done since;
-    * a vehicle that has left the fleet entirely survives only when it was
-      **ticked** — that is a correction of the board; an unticked row for a
-      vehicle nobody owns any more says nothing at all.
+    * a vehicle the board never sent survives only when it is **ticked**. That is
+      the crew adding one — or a correction that outlived its assignment. An
+      unticked row for a vehicle nobody dispatched says nothing at all.
+
+    ``fleet_names`` refreshes the name of an added vehicle from the live fleet,
+    so renaming a vehicle does not leave an old spelling frozen in a draft.
     """
     stored_rows: dict[uuid.UUID, dict[str, Any]] = {}
     for raw in stored or []:
@@ -325,15 +360,16 @@ def reconcile_vehicles(
         except (TypeError, ValueError):
             # Pre-§18.33 rows for a vanished assignment carry no vehicle_id at
             # all. There is nothing left to key them on, and the vehicle they
-            # named is either in the fleet below (and therefore already covered)
+            # named is either dispatched below (and therefore already covered)
             # or gone from the station.
             continue
         row = dict(raw)
         row["vehicle_id"] = vehicle_id
         stored_rows[vehicle_id] = row
 
+    known = fleet_names or {}
     merged: list[dict[str, Any]] = []
-    for unit in fleet:
+    for unit in dispatched:
         previous = stored_rows.pop(unit["vehicle_id"], {})
         merged.append(
             {
@@ -344,14 +380,14 @@ def reconcile_vehicles(
             }
         )
 
-    # Whatever is left was ticked for a vehicle the station no longer has.
+    # Whatever is left the crew ticked for a vehicle the board never sent here.
     for row in stored_rows.values():
         if not row.get("present"):
             continue
         merged.append(
             {
                 "vehicle_id": row["vehicle_id"],
-                "name": row.get("name") or "Unbekannt",
+                "name": known.get(row["vehicle_id"]) or row.get("name") or "Unbekannt",
                 "present": True,
                 "on_board": False,
             }
@@ -385,20 +421,45 @@ def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-async def _event_personnel(
-    db: AsyncSession,
-    incident: Incident,
-) -> tuple[list[dict[str, Any]], set[uuid.UUID]]:
-    """Everyone checked in at this Ereignis, plus who the board has on THIS incident.
+class _PersonnelOffer(NamedTuple):
+    """What the Personal section shows, and what it can reach.
 
-    The roll-call rather than the whole roster: the Appell is the list of people
-    who actually turned out tonight, and offering the other forty names would make
-    the crew scroll past people who are at home. Anybody the board has assigned
-    here is included even when no attendance row exists — the board's own answer
-    must never be missing from the list that corrects it.
+    ``dispatched`` are the **rows**: only who the board put on *this*
+    Schadenplatz. ``candidates`` is everybody else on the roster — the Appell
+    first, the rest of the roster behind it — reachable through the section's
+    search and one fold away, but never a row of its own.
+    """
 
-    The assigned set includes **released** assignments, like the vehicles: a crew
-    member who left an hour ago was still at the Schadenplatz.
+    dispatched: list[dict[str, Any]]
+    assigned_ids: set[uuid.UUID]
+    candidates: list[dict[str, Any]]
+
+    @property
+    def names(self) -> dict[uuid.UUID, str]:
+        """Live names for everybody still on the roster."""
+        return {row["personnel_id"]: str(row["name"]) for row in (*self.dispatched, *self.candidates)}
+
+
+async def _event_personnel(db: AsyncSession, incident: Incident) -> _PersonnelOffer:
+    """Who the board aufgeboten here, and who else the crew can reach.
+
+    **Rows for the aufgebotenen only.** The list used to be the whole Appell —
+    everybody checked in at the Ereignis — plus whoever the board had here, and
+    on a storm night that is half the brigade standing in a rapport about one
+    cellar. Being checked in says somebody turned out tonight; it says nothing
+    about *this address*. The assigned set is the only one the system can honestly
+    claim was here, so it is the confirm list.
+
+    Nobody becomes unreachable: everybody else on the roster is a ``candidate``,
+    with ``checked_in`` marking the Appell so the search can put those first. The
+    roster behind them is offered too, because the Appell is not always kept and
+    a name that cannot be found gets typed as free text — after which it belongs
+    to no person at all.
+
+    The assigned set includes **released** assignments and the crew of a
+    multi-stop Auftrag: a stop carries no assignments of its own, so without that
+    everybody on a four-stop Auftrag had to be entered by hand, four times, for
+    people who were demonstrably there.
 
     Ordered the way the roster is ordered everywhere else, so the crew reads the
     names in the order it knows them.
@@ -410,9 +471,6 @@ async def _event_personnel(
         )
     )
     assigned_ids = {row[0] for row in assigned_result.all()}
-    # A stop in an Auftrag carries no assignments of its own — its crew is the
-    # route's. Without this everybody at a four-stop Auftrag had to be ticked by
-    # hand, four times, for people who were demonstrably there.
     assigned_ids |= await _route_assigned_ids(db, incident, "personnel")
 
     checked_in_result = await db.execute(
@@ -421,31 +479,43 @@ async def _event_personnel(
             EventAttendance.checked_in.is_(True),
         )
     )
-    offered_ids = {row[0] for row in checked_in_result.all()} | assigned_ids
-    if not offered_ids:
-        return [], assigned_ids
+    checked_in_ids = {row[0] for row in checked_in_result.all()}
 
+    # The whole roster, in roster order. It is a station's members, not a
+    # catalogue: there is no five-figure case to cap against, and capping would
+    # mean a name the crew cannot find.
     roster_result = await db.execute(
-        select(Personnel)
-        .where(Personnel.id.in_(offered_ids))
-        .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
+        select(Personnel).order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
     )
     roster = [{"personnel_id": person.id, "name": person.name} for person in roster_result.scalars().all()]
-    return roster, assigned_ids
+
+    dispatched = [row for row in roster if row["personnel_id"] in assigned_ids]
+    # Somebody assigned who is not on the roster at all cannot happen through the
+    # board, but a stale assignment row could outlive a deleted person; the
+    # checklist's stored rows carry the name for that case.
+    candidates = [
+        {**row, "checked_in": row["personnel_id"] in checked_in_ids}
+        for row in roster
+        if row["personnel_id"] not in assigned_ids
+    ]
+    # The Appell first: those are the people who plausibly stood there.
+    candidates.sort(key=lambda row: not row["checked_in"])
+    return _PersonnelOffer(dispatched=dispatched, assigned_ids=assigned_ids, candidates=candidates)
 
 
 def reconcile_personnel(
     stored: list[Any] | None,
-    roster: list[dict[str, Any]],
+    dispatched: list[dict[str, Any]],
     assigned_ids: set[uuid.UUID],
+    roster_names: dict[uuid.UUID, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Re-reconcile the crew checklist against the roll-call — never replace it.
+    """Re-reconcile the crew list against the board — never replace it.
 
     The vehicle rules, applied to people (see :func:`reconcile_vehicles`): every
-    offered name gets a row prefilled from the board, an answer the crew already
-    gave survives whatever the board does next, and somebody who has since left
-    the roll-call keeps their row only when they were **ticked** — that is a
-    correction; an unticked row for a name nobody offered says nothing.
+    aufgebotene name gets a row prefilled from the board, an answer the crew
+    already gave survives whatever the board does next, and somebody the board
+    never sent keeps their row only when they are **ticked** — that is the crew
+    adding them; an unticked row for a name nobody sent says nothing.
     """
     stored_rows: dict[uuid.UUID, dict[str, Any]] = {}
     for raw in stored or []:
@@ -459,8 +529,9 @@ def reconcile_personnel(
         row["personnel_id"] = personnel_id
         stored_rows[personnel_id] = row
 
+    known = roster_names or {}
     merged: list[dict[str, Any]] = []
-    for person in roster:
+    for person in dispatched:
         previous = stored_rows.pop(person["personnel_id"], {})
         merged.append(
             {
@@ -477,7 +548,7 @@ def reconcile_personnel(
         merged.append(
             {
                 "personnel_id": row["personnel_id"],
-                "name": row.get("name") or "Unbekannt",
+                "name": known.get(row["personnel_id"]) or row.get("name") or "Unbekannt",
                 "present": True,
                 "on_board": False,
             }
@@ -542,23 +613,30 @@ def derive_personnel_count(personnel_rows: list[dict[str, Any]], extra_rows: lis
     return sum(1 for row in personnel_rows if row.get("present")) + len(extra_rows)
 
 
-async def _board_personnel_count(db: AsyncSession, incident_id: uuid.UUID) -> int:
+async def _board_personnel_count(db: AsyncSession, incident: Incident) -> int:
     """The board's own head count — the number the crew confirms or corrects.
 
     Distinct people, not assignment rows: somebody assigned, released and
     re-assigned worked one Einsatz, not two. Released rows count — the crew that
-    left an hour ago was still eingesetzt.
+    left an hour ago was still eingesetzt. **An Auftrag's crew counts too**, for
+    the same reason it gets a row: a stop in a multi-stop route carries no
+    assignments of its own, and counting only the stop's own rows made every
+    Auftrag rapport report "korrigiert" against a board count of zero.
 
-    The vehicles have no number of their own any more: the crew confirms the
-    LIST (``_fleet_vehicles``), and the ticked rows are the count.
+    It has to stay the same set ``_event_personnel`` builds rows from, or the
+    «vom Board: n» line contradicts the list printed right above it.
+
+    The vehicles have no number of their own: the crew confirms the LIST
+    (``_fleet_vehicles``), and the ticked rows are the count.
     """
     result = await db.execute(
         select(IncidentAssignment.resource_id).where(
-            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.incident_id == incident.id,
             IncidentAssignment.resource_type == "personnel",
         )
     )
-    return len({row[0] for row in result.all()})
+    assigned = {row[0] for row in result.all()} | await _route_assigned_ids(db, incident, "personnel")
+    return len(assigned)
 
 
 async def _material_name_suggestions(db: AsyncSession) -> list[str]:
@@ -568,8 +646,14 @@ async def _material_name_suggestions(db: AsyncSession) -> list[str]:
     so no client can turn it into a picker: `/feld` never writes an assignment
     (decision 17), and suggesting a name is not picking a unit. Capped so a
     station with a large catalogue does not push a five-figure list to a phone.
+
+    Archived material is left out: the list answers "what is in the depot", and a
+    retired item is not. The field stays free text, so a crew that really did use
+    one can still type it.
     """
-    result = await db.execute(select(Material.name).distinct().order_by(Material.name).limit(200))
+    result = await db.execute(
+        select(Material.name).where(Material.archived_at.is_(None)).distinct().order_by(Material.name).limit(200)
+    )
     return [row[0] for row in result.all() if row[0]]
 
 
@@ -664,14 +748,20 @@ async def get_rapport(
     board_units, board_by_assignment = await _board_material_units(db, incident.id)
     materials = reconcile_materials(report.materials_json if report else None, board_units, board_by_assignment)
 
-    fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident)
-    vehicles = reconcile_vehicles(report.vehicles_json if report else None, fleet, assigned_vehicle_ids)
+    fleet = await _fleet_vehicles(db, incident)
+    vehicles = reconcile_vehicles(
+        report.vehicles_json if report else None, fleet.dispatched, fleet.assigned_ids, fleet.names
+    )
 
-    roster, assigned_personnel_ids = await _event_personnel(db, incident)
-    crew = reconcile_personnel(report.personnel_json if report else None, roster, assigned_personnel_ids)
+    crew_offer = await _event_personnel(db, incident)
+    crew = reconcile_personnel(
+        report.personnel_json if report else None, crew_offer.dispatched, crew_offer.assigned_ids, crew_offer.names
+    )
     extra_personnel = normalize_extra_personnel(report.extra_personnel_json if report else None)
 
-    board_personnel = await _board_personnel_count(db, incident.id)
+    board_personnel = await _board_personnel_count(db, incident)
+    listed_personnel_ids = {row["personnel_id"] for row in crew}
+    listed_vehicle_ids = {row["vehicle_id"] for row in vehicles}
     leaders = await get_incident_leaders(db, [incident.id])
     leader = leaders.get(incident.id)
     names = await _names(db, report)
@@ -691,6 +781,22 @@ async def get_rapport(
         "melder_phone": incident.contact_phone or None,
         "board_personnel_count": board_personnel,
         "material_name_suggestions": await _material_name_suggestions(db),
+        # Everybody and everything the section can ADD, as opposed to confirm.
+        #
+        # Unlike the material suggestions these carry ids, and that is not a
+        # widening of decision 18: the two checklists have always been keyed on
+        # the person and the vehicle, and adding a row here still creates no
+        # assignment and no attendance. What an id buys is the thing free text
+        # cannot — a nachgetragene Person stays the same person the roster,
+        # the export and the Lohnblatt know.
+        #
+        # Anybody who already has a row is not offered again.
+        "personnel_candidates": [
+            candidate for candidate in crew_offer.candidates if candidate["personnel_id"] not in listed_personnel_ids
+        ],
+        "vehicle_candidates": [
+            candidate for candidate in fleet.candidates if candidate["vehicle_id"] not in listed_vehicle_ids
+        ],
     }
 
     concurrent = _concurrent_editor(report, actor, names["updated_by_name"])
@@ -863,28 +969,29 @@ async def save_rapport(
         report.materials_json = _jsonable_materials(merged)
 
     if "vehicles" in provided and payload.vehicles is not None:
-        fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident)
+        fleet = await _fleet_vehicles(db, incident)
         vehicle_ticks = {tick.vehicle_id: tick for tick in payload.vehicles}
         # Reconcile FIRST, then apply the ticks — same reason as the materials: a
-        # vehicle the station bought while the crew was typing has to appear, and
-        # one that left the fleet must not come back through a stale form.
-        merged_vehicles = reconcile_vehicles(report.vehicles_json, fleet, assigned_vehicle_ids)
+        # vehicle the KP disponiert while the crew was typing has to appear, and
+        # one it took away must not come back through a stale form.
+        merged_vehicles = reconcile_vehicles(report.vehicles_json, fleet.dispatched, fleet.assigned_ids, fleet.names)
         for vehicle_row in merged_vehicles:
             vehicle_tick = vehicle_ticks.get(vehicle_row["vehicle_id"])
             if vehicle_tick is None:
                 continue
             vehicle_row["present"] = bool(vehicle_tick.present)
-        # A vehicle that has left the fleet but was TICKED in THIS payload keeps
-        # that answer; an unticked one carries nothing at all, so it is not
-        # resurrected.
+        # A vehicle the board never sent but the crew TICKED in this payload —
+        # the whole point of the search under the list — becomes a row here. An
+        # unticked one carries nothing at all, so it is not written down.
         known_ids = {vehicle_row["vehicle_id"] for vehicle_row in merged_vehicles}
+        fleet_names = fleet.names
         for vehicle_id, vehicle_tick in vehicle_ticks.items():
             if vehicle_id in known_ids or not vehicle_tick.present:
                 continue
             merged_vehicles.append(
                 {
                     "vehicle_id": vehicle_id,
-                    "name": "Unbekannt",
+                    "name": fleet_names.get(vehicle_id) or "Unbekannt",
                     "present": True,
                     "on_board": False,
                 }
@@ -901,27 +1008,31 @@ async def save_rapport(
         )
         report.extra_materials_json = entries or None
 
-    # The crew checklist, reconciled first and then ticked — same shape and same
-    # reasoning as the vehicles above. A person who has since left the roll-call
-    # but is TICKED in this payload keeps that answer; an unticked one carries
-    # nothing and is not resurrected.
+    # The crew list, reconciled first and then ticked — same shape and same
+    # reasoning as the vehicles above. Somebody the board never sent but TICKED
+    # in this payload becomes a row; an unticked one carries nothing at all.
     if "personnel" in provided and payload.personnel is not None:
-        roster, assigned_personnel_ids = await _event_personnel(db, incident)
+        crew_offer = await _event_personnel(db, incident)
         crew_ticks = {tick.personnel_id: tick for tick in payload.personnel}
-        merged_crew = reconcile_personnel(report.personnel_json, roster, assigned_personnel_ids)
+        merged_crew = reconcile_personnel(
+            report.personnel_json, crew_offer.dispatched, crew_offer.assigned_ids, crew_offer.names
+        )
         for crew_row in merged_crew:
             crew_tick = crew_ticks.get(crew_row["personnel_id"])
             if crew_tick is None:
                 continue
             crew_row["present"] = bool(crew_tick.present)
         known_person_ids = {crew_row["personnel_id"] for crew_row in merged_crew}
+        roster_names = crew_offer.names
         for personnel_id, crew_tick in crew_ticks.items():
             if personnel_id in known_person_ids or not crew_tick.present:
                 continue
             merged_crew.append(
                 {
+                    # The roster's own spelling wins over the one the form sent:
+                    # a phone can be a week behind a rename.
+                    "name": roster_names.get(personnel_id) or crew_tick.name or "Unbekannt",
                     "personnel_id": personnel_id,
-                    "name": crew_tick.name or "Unbekannt",
                     "present": True,
                     "on_board": False,
                 }
@@ -943,7 +1054,7 @@ async def save_rapport(
     # A value that differs from the board is stored AS corrected — the divergence
     # is itself information, it says the board was behind reality — and one that
     # matches clears the flag again.
-    board_personnel = await _board_personnel_count(db, incident.id)
+    board_personnel = await _board_personnel_count(db, incident)
     if report.personnel_json is not None or report.extra_personnel_json:
         counted = derive_personnel_count(
             [dict(row) for row in (report.personnel_json or [])],
@@ -970,17 +1081,21 @@ async def save_rapport(
             report.cost_snapshot_json = await _build_cost_snapshot(db, incident.id)
         if report.personnel_count is None:
             report.personnel_count = board_personnel
-        # A rapport filed without the crew touching the vehicle checklist still
-        # has to record which vehicles the board had — the all-ticked prefill IS
-        # the answer, so it gets frozen into the row rather than staying implicit.
+        # A rapport filed without the crew touching the vehicle list still has to
+        # record which vehicles the board had — the all-ticked prefill IS the
+        # answer, so it gets frozen into the row rather than staying implicit.
         if report.vehicles_json is None:
-            fleet, assigned_vehicle_ids = await _fleet_vehicles(db, incident)
-            report.vehicles_json = _jsonable_vehicles(reconcile_vehicles(None, fleet, assigned_vehicle_ids))
+            fleet = await _fleet_vehicles(db, incident)
+            report.vehicles_json = _jsonable_vehicles(
+                reconcile_vehicles(None, fleet.dispatched, fleet.assigned_ids, fleet.names)
+            )
         # …and the same for the crew, for the same reason: the ticked prefill IS
         # the answer of a crew that read the list and found nothing to correct.
         if report.personnel_json is None:
-            roster, assigned_personnel_ids = await _event_personnel(db, incident)
-            report.personnel_json = _jsonable_personnel(reconcile_personnel(None, roster, assigned_personnel_ids))
+            crew_offer = await _event_personnel(db, incident)
+            report.personnel_json = _jsonable_personnel(
+                reconcile_personnel(None, crew_offer.dispatched, crew_offer.assigned_ids, crew_offer.names)
+            )
             report.personnel_count = derive_personnel_count(
                 [dict(row) for row in report.personnel_json],
                 normalize_extra_personnel(report.extra_personnel_json),

@@ -43,6 +43,8 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       melder_phone: null,
       board_personnel_count: 0,
       material_name_suggestions: [],
+      personnel_candidates: [],
+      vehicle_candidates: [],
     },
     ...overrides,
   }
@@ -325,8 +327,19 @@ describe('the rapport is folded into blocks on /feld', () => {
     expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).not.toBeVisible()
     // …but what it contains is still readable without opening anything.
     expect(screen.getByRole('button', { name: /Kurzbericht/ })).toHaveTextContent('Keller ausgepumpt')
-    expect(screen.getByRole('button', { name: /Mannschaft und Fahrzeuge/ })).toHaveTextContent(
-      '1 Person · 1 Fahrzeug',
+    // Three sections now, each with its own count: «Mannschaft und Fahrzeuge»
+    // was one block for a historical reason and made «1 Fahrzeug» something the
+    // reader had to pick out of a compound line.
+    //
+    // The two headings and the two summary lines are NEW message keys. Until
+    // the German catalogue carries them, next-intl renders the key path — the
+    // patterns match either spelling on purpose, so this spec does not have to
+    // be written twice.
+    expect(screen.getByRole('button', { name: /Personal/ })).toHaveTextContent(
+      /1 Person|summary\.personnel/,
+    )
+    expect(screen.getByRole('button', { name: /Fahrzeuge/ })).toHaveTextContent(
+      /1 Fahrzeug|summary\.vehicles/,
     )
     expect(screen.getByRole('button', { name: /Material/ })).toHaveTextContent('kein Material erfasst')
 
@@ -350,6 +363,39 @@ describe('the rapport is folded into blocks on /feld', () => {
     expect(material).toBeInTheDocument()
     await userEvent.click(material)
     expect(await screen.findByText('Kein Material erfasst.')).toBeVisible()
+  })
+})
+
+/**
+ * The shorter list must not quietly lose somebody.
+ *
+ * Personal only lists who the board aufgeboten here now, and this rapport feeds
+ * paid hours: its one failure mode is a name nobody remembered to add back. Two
+ * things stand against it — the section's own count in its header, and the line
+ * that names the board's number as soon as the two disagree.
+ */
+describe('the crew count is reconciled against the board', () => {
+  const withCrew = (present: boolean, boardCount: number) =>
+    rapport({
+      exists: true,
+      personnel: [{ personnel_id: 'p-1', name: 'Meier Andrea', present, on_board: true }],
+      prefill: { ...rapport().prefill, board_personnel_count: boardCount },
+    })
+
+  it('names the board\'s number as soon as the crew corrects it', async () => {
+    const load = vi.fn().mockResolvedValue(withCrew(false, 1))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Personal/ }))
+    expect(screen.getByText('vom Board: 1')).toBeVisible()
+  })
+
+  it('stays quiet while the two agree — a marker that always shows is not a signal', async () => {
+    const load = vi.fn().mockResolvedValue(withCrew(true, 1))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Personal/ }))
+    expect(screen.queryByText(/vom Board/)).toBeNull()
   })
 })
 

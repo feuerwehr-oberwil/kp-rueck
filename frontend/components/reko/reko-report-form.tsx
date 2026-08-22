@@ -25,8 +25,9 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Send } from 'lucide-react'
+import { Check, Loader2, Send } from 'lucide-react'
 
+import { DetailField, DENSE_CONTROL } from '@/components/kanban/detail-field'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type { ApiDangersAssessment, ApiEffortEstimation, ApiRekoReportResponse } from '@/lib/api/types'
+
+/** The five hazards, in the order both mounts ask them. */
+const DANGER_KEYS = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const
+
+/** The four answers to «Stromversorgung», in the order both mounts offer them. */
+const POWER_OPTIONS = ['unknown', 'available', 'unavailable', 'emergency_needed'] as const
 
 export interface RekoFormData {
   is_relevant: boolean | null
@@ -120,12 +127,16 @@ export function RekoReportForm({
   const t = useTranslations('reko.form')
   const isKp = mount === 'kp'
   // The phone gets thumb-sized controls in the rain; the KP gets a column in a
-  // tab and a mouse. Same fields, same order, same component — only the scale
+  // tab and a mouse. Same fields, same order, same component — only the shape
   // differs, so the board's mount stops spending a screen and a half on eight
-  // answers. See components/kanban/detail-field.tsx for the same reasoning.
-  // Dense rows carry NO rules between them (image #15): the fixed label column
-  // is what aligns the form, and a border under every row was four heavy lines
-  // saying nothing the whitespace does not.
+  // answers.
+  //
+  // The dense branch is not "the phone form, smaller": it is literally the
+  // Übersicht's own row primitive (`DetailField` + `DENSE_CONTROL`) — 104px
+  // label gutter, ~30px rows, a hairline under each one and controls that grow
+  // a box only under the cursor. That is the whole point of Variante A: the
+  // Reko surfaces stop being a telephone form standing in the middle of the
+  // board and start reading like the tab next door.
   const dense = isKp
   const [relevantMissing, setRelevantMissing] = useState(false)
 
@@ -147,6 +158,25 @@ export function RekoReportForm({
     onChange(prev => ({ ...prev, [key]: next }))
   }
 
+  /**
+   * The duration field's keystroke handler, shared by both mounts.
+   *
+   * Accepts decimals like "0.5" (and a German "0,5") and keeps the RAW text, so
+   * a leading "0" — or a lone "0." mid-typing — survives instead of being
+   * coerced away by the controlled number value.
+   */
+  function setDuration(input: string) {
+    let raw = input.replace(',', '.').replace(/[^\d.]/g, '')
+    const dot = raw.indexOf('.')
+    if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, '')
+    setDurationText(raw)
+    const parsed = raw === '' || raw === '.' ? null : parseFloat(raw)
+    update('effort_json', {
+      ...value.effort_json,
+      estimated_duration_hours: parsed !== null && !Number.isNaN(parsed) ? parsed : null,
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     // The one required answer, on both mounts: a Reko report that does not say
@@ -159,27 +189,236 @@ export function RekoReportForm({
     await onSubmit()
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // The board's mount: the same questions as `DetailField` rows.
+  //
+  // Reading and writing share one grid now — a value and the control that
+  // edits it stand at the same x, so amending over the radio does not move the
+  // page under the operator. The submit is a normal `xs` action at the bottom
+  // right instead of a full-width 44px bar, which was the last piece of
+  // telephone vocabulary standing in the middle of the tab.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (dense) {
+    return (
+      <form onSubmit={handleSubmit}>
+        <DetailField label={t('relevantQuestion')}>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* One two-way switch, not two actions. The pair used to be two
+                separate buttons, which is what a phone form does when it has
+                the width for it. */}
+            <div className="inline-flex overflow-hidden rounded-md border border-border">
+              {([true, false] as const).map((answer, index) => {
+                const selected = value.is_relevant === answer
+                return (
+                  <button
+                    key={String(answer)}
+                    type="button"
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    onClick={() => update('is_relevant', answer)}
+                    className={cn(
+                      "cursor-pointer px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                      index > 0 && "border-l border-border",
+                      selected
+                        ? "bg-primary font-semibold text-primary-foreground"
+                        : "text-muted-foreground hover:bg-input/50",
+                    )}
+                  >
+                    {answer ? t('yes') : t('no')}
+                  </button>
+                )
+              })}
+            </div>
+            <span className="text-xs text-destructive" aria-hidden="true">*</span>
+            {/* The required error sits ON the row it is about — a row list has
+                no second line under a field to put it on. */}
+            {relevantMissing && <span className="text-xs text-destructive">{t('relevantRequired')}</span>}
+          </div>
+        </DetailField>
+
+        <DetailField label={t('dangers')} htmlFor="danger-other" alignStart>
+          <div className="space-y-1">
+            {/* Five toggle marks, not five 44px tiles: with a mouse the target
+                is the word, and the row keeps the height of one line. */}
+            <div className="flex flex-wrap gap-1">
+              {DANGER_KEYS.map(key => {
+                const on = value.dangers_json[key]
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={disabled}
+                    aria-pressed={on}
+                    onClick={() => update('dangers_json', { ...value.dangers_json, [key]: !on })}
+                    className={cn(
+                      "inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                      on
+                        ? "border-warning/45 bg-warning/15 text-warning-foreground"
+                        : "border-border text-muted-foreground hover:bg-input/50",
+                    )}
+                  >
+                    {on && <Check className="size-3" />}
+                    {t(`dangerLabels.${key}`)}
+                  </button>
+                )
+              })}
+            </div>
+            <Textarea
+              id="danger-other"
+              value={value.dangers_json.other_notes || ''}
+              disabled={disabled}
+              onChange={e => update('dangers_json', { ...value.dangers_json, other_notes: e.target.value })}
+              placeholder={t('otherDangers')}
+              // Same auto-grow rule the Übersicht's Meldung uses: DENSE_CONTROL
+              // sets an explicit `h-7`, and only `h-auto` lets the box follow
+              // what is typed into it.
+              className={cn(DENSE_CONTROL, "h-auto min-h-7 py-1 text-sm")}
+              rows={1}
+            />
+          </div>
+        </DetailField>
+
+        {/* «Aufwand» as a heading is gone here: it grouped two questions that
+            each fit on their own row, and the row labels already say what they
+            ask. The phone keeps the grouping, where the two fields share a
+            line. */}
+        <DetailField label={t('personnelCount')} htmlFor="personnel-count">
+          <Input
+            id="personnel-count"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            disabled={disabled}
+            value={value.effort_json.personnel_count ?? ''}
+            onChange={e =>
+              update('effort_json', {
+                ...value.effort_json,
+                personnel_count: e.target.value ? parseInt(e.target.value) : null,
+              })
+            }
+            placeholder={t('personnelPlaceholder')}
+            // `w-24`, not `w-20`: at 80px the «z. B. 10» placeholder was cut
+            // off mid-character, which reads as a broken field rather than a
+            // hint. The number itself never needs the room — the hint does.
+            className={cn(DENSE_CONTROL, "w-24")}
+          />
+        </DetailField>
+
+        <DetailField label={t('duration')} htmlFor="duration">
+          <Input
+            id="duration"
+            type="text"
+            inputMode="decimal"
+            disabled={disabled}
+            value={durationText}
+            onChange={e => setDuration(e.target.value)}
+            placeholder={t('durationPlaceholder')}
+            // Same width as its neighbour — the two read as one pair.
+            className={cn(DENSE_CONTROL, "w-24")}
+          />
+        </DetailField>
+
+        <DetailField label={t('powerSupply')} htmlFor="power-supply">
+          {/* Four thumb-sized buttons on the phone, one borderless select on
+              the board: a mouse does not need a 44px target for a four-way
+              choice, and the tab is not the place to spend two rows on it. */}
+          <Select
+            value={value.power_supply}
+            disabled={disabled}
+            onValueChange={option => update('power_supply', option)}
+          >
+            <SelectTrigger id="power-supply" className={cn(DENSE_CONTROL, "w-auto min-w-[10rem] text-sm")} tabIndex={0}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {POWER_OPTIONS.map(option => (
+                <SelectItem key={option} value={option}>{t(`powerLabels.${option}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </DetailField>
+
+        <DetailField label={t('summary')} htmlFor="summary" alignStart>
+          <Textarea
+            id="summary"
+            value={value.summary_text}
+            disabled={disabled}
+            onChange={e => update('summary_text', e.target.value)}
+            placeholder={t('summaryPlaceholder')}
+            className={cn(DENSE_CONTROL, "h-auto max-h-[14rem] min-h-[3rem] py-1 text-sm")}
+            rows={2}
+          />
+        </DetailField>
+
+        <DetailField label={t('notesShort')} htmlFor="notes" alignStart>
+          <Textarea
+            id="notes"
+            value={value.additional_notes}
+            disabled={disabled}
+            onChange={e => update('additional_notes', e.target.value)}
+            placeholder={t('notesPlaceholder')}
+            className={cn(DENSE_CONTROL, "h-auto max-h-[14rem] min-h-7 py-1 text-sm")}
+            rows={1}
+          />
+        </DetailField>
+
+        {photos && (
+          // The «was das Feld FÜR ist»-sentence — pictures that came in over
+          // WhatsApp, not the operator taking them — is the label's hover hint
+          // now. A row has no second line for a sentence.
+          <DetailField label={t('photos')} description={t('photosKpHint')} alignStart>
+            <PhotoUpload
+              photos={value.photos_json}
+              incidentId={incidentId}
+              transport={photos}
+              disabled={disabled}
+              dense
+              onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
+            />
+          </DetailField>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-2">
+          {footer}
+          <Button type="submit" size="xs" disabled={disabled || isSubmitting || busy}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                {t('submittingKp')}
+              </>
+            ) : (
+              <>
+                <Send className="size-3.5" />
+                {t('submitKp')}
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    )
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // The field mount: thumb targets, one question per block, in the rain.
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className={cn(dense ? "space-y-3" : "space-y-5")}>
+    <form onSubmit={handleSubmit} className="space-y-5">
       {/* Section 1: Basic Confirmation */}
-      <div className={cn(dense ? "flex items-center gap-2" : "space-y-3")}>
-        <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
-          <Label className={cn(
-            "text-muted-foreground",
-            dense ? "text-xs font-normal" : "text-sm font-medium tracking-wide",
-          )}>
+      <div className="space-y-3">
+        <div className="flex items-center gap-1">
+          <Label className="text-sm font-medium tracking-wide text-muted-foreground">
             {t('relevantQuestion')}
           </Label>
           <span className="text-destructive" aria-hidden="true">*</span>
         </div>
-        <div className={cn(dense ? "flex gap-1.5" : "grid grid-cols-2 gap-3")}>
+        <div className="grid grid-cols-2 gap-3">
           <Button
             type="button"
             variant={value.is_relevant === true ? 'default' : 'outline'}
             onClick={() => update('is_relevant', true)}
             disabled={disabled}
-            size={dense ? "sm" : "lg"}
-            className={cn(!dense && "text-base")}
+            size="lg"
+            className="text-base"
           >
             {t('yes')}
           </Button>
@@ -188,8 +427,8 @@ export function RekoReportForm({
             variant={value.is_relevant === false ? 'default' : 'outline'}
             onClick={() => update('is_relevant', false)}
             disabled={disabled}
-            size={dense ? "sm" : "lg"}
-            className={cn(!dense && "text-base")}
+            size="lg"
+            className="text-base"
           >
             {t('no')}
           </Button>
@@ -197,86 +436,61 @@ export function RekoReportForm({
         {relevantMissing && <p className="text-xs text-destructive">{t('relevantRequired')}</p>}
       </div>
 
-      {!dense && <Separator />}
+      <Separator />
 
       {/* Section 2: Dangers Assessment */}
-      <div className={cn(dense ? "flex items-start gap-2" : "space-y-3")}>
-        <Label className={cn(
-          "text-muted-foreground",
-          dense ? "w-[104px] shrink-0 pt-1 text-xs font-normal" : "text-sm font-medium tracking-wide",
-        )}>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium tracking-wide text-muted-foreground">
           {t('dangers')}
         </Label>
-        <div className={cn(dense && "min-w-0 flex-1 space-y-1")}>
 
-        <div className={cn(dense ? "grid grid-cols-2 gap-x-2 gap-y-0.5" : "space-y-2")}>
-          {(['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const).map(key => (
+        <div className="space-y-2">
+          {DANGER_KEYS.map(key => (
             <label
               key={key}
               htmlFor={`danger-${key}`}
-              className={cn(
-                "flex cursor-pointer items-center transition-colors",
-                dense
-                  ? "gap-2 rounded-md px-1.5 py-1 hover:bg-secondary/60"
-                  : "gap-3 rounded-lg bg-secondary/50 p-3 hover:bg-secondary",
-              )}
+              className="flex cursor-pointer items-center gap-3 rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
             >
               <Checkbox
                 id={`danger-${key}`}
-                checked={value.dangers_json[key as keyof ApiDangersAssessment] as boolean}
+                checked={value.dangers_json[key]}
                 disabled={disabled}
                 onCheckedChange={checked =>
                   update('dangers_json', { ...value.dangers_json, [key]: checked === true })
                 }
-                className={cn(dense ? "h-4 w-4" : "h-5 w-5")}
+                className="h-5 w-5"
               />
               <span className="text-sm">{t(`dangerLabels.${key}`)}</span>
             </label>
           ))}
         </div>
 
-        <div className={cn(!dense && "pt-2")}>
-          {!dense && (
-            <Label htmlFor="danger-other" className="text-sm font-semibold text-muted-foreground mb-1.5 block">
-              {t('otherDangers')}
-            </Label>
-          )}
+        <div className="pt-2">
+          <Label htmlFor="danger-other" className="mb-1.5 block text-sm font-semibold text-muted-foreground">
+            {t('otherDangers')}
+          </Label>
           <Textarea
             id="danger-other"
             value={value.dangers_json.other_notes || ''}
             disabled={disabled}
             onChange={e => update('dangers_json', { ...value.dangers_json, other_notes: e.target.value })}
-            placeholder={dense ? t('otherDangers') : t('otherDangersPlaceholder')}
+            placeholder={t('otherDangersPlaceholder')}
             rows={2}
-            className={cn(dense && "min-h-[2.5rem] py-1 text-sm")}
           />
-        </div>
         </div>
       </div>
 
-      {!dense && <Separator />}
+      <Separator />
 
       {/* Section 3: Effort Assessment */}
-      <div className={cn(dense ? "flex items-center gap-2" : "space-y-3")}>
-        <Label className={cn(
-          "text-muted-foreground",
-          dense ? "w-[104px] shrink-0 text-xs font-normal" : "text-sm font-medium tracking-wide",
-        )}>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium tracking-wide text-muted-foreground">
           {t('effort')}
         </Label>
 
-        {/* Wraps rather than overflows. Both labels are `whitespace-nowrap` and
-            both inputs are a fixed width, so the row is ~380px of unshrinkable
-            content — more than the board's 420px side panel has left after its
-            padding and the «Aufwand» gutter. Without the wrap the second field
-            simply ran off the panel's edge. In the modal, which is wider, it
-            still sits on one line. */}
-        <div className={cn(dense ? "flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5" : "grid grid-cols-2 gap-3")}>
-          <div className={cn(dense && "flex items-center gap-1.5")}>
-            <Label htmlFor="personnel-count" className={cn(
-              "text-muted-foreground",
-              dense ? "text-xs font-normal whitespace-nowrap" : "text-sm font-semibold mb-1.5 block",
-            )}>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="personnel-count" className="mb-1.5 block text-sm font-semibold text-muted-foreground">
               {t('personnelCount')}
             </Label>
             <Input
@@ -293,15 +507,12 @@ export function RekoReportForm({
                 })
               }
               placeholder={t('personnelPlaceholder')}
-              className={cn(dense ? "h-7 w-20" : "h-11")}
+              className="h-11"
             />
           </div>
 
-          <div className={cn(dense && "flex items-center gap-1.5")}>
-            <Label htmlFor="duration" className={cn(
-              "text-muted-foreground",
-              dense ? "text-xs font-normal whitespace-nowrap" : "text-sm font-semibold mb-1.5 block",
-            )}>
+          <div>
+            <Label htmlFor="duration" className="mb-1.5 block text-sm font-semibold text-muted-foreground">
               {t('duration')}
             </Label>
             <Input
@@ -310,57 +521,23 @@ export function RekoReportForm({
               inputMode="decimal"
               disabled={disabled}
               value={durationText}
-              onChange={e => {
-                // Accept decimals like "0.5"; keep the raw text so a leading "0"
-                // (or a lone "0.") survives instead of being coerced away.
-                let raw = e.target.value.replace(',', '.').replace(/[^\d.]/g, '')
-                const dot = raw.indexOf('.')
-                if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, '')
-                setDurationText(raw)
-                const parsed = raw === '' || raw === '.' ? null : parseFloat(raw)
-                update('effort_json', {
-                  ...value.effort_json,
-                  estimated_duration_hours: parsed !== null && !Number.isNaN(parsed) ? parsed : null,
-                })
-              }}
+              onChange={e => setDuration(e.target.value)}
               placeholder={t('durationPlaceholder')}
-              className={cn(dense ? "h-7 w-20" : "h-11")}
+              className="h-11"
             />
           </div>
         </div>
       </div>
 
-      {!dense && <Separator />}
+      <Separator />
 
       {/* Section 4: Power Supply */}
-      <div className={cn(dense ? "flex items-center gap-2" : "space-y-3")}>
-        <Label className={cn(
-          "text-muted-foreground",
-          dense ? "w-[104px] shrink-0 text-xs font-normal" : "text-sm font-medium tracking-wide",
-        )}>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium tracking-wide text-muted-foreground">
           {t('powerSupply')}
         </Label>
-        {/* Four thumb-sized buttons on the phone, one narrow select on the
-            board: a mouse does not need a 44px target for a four-way choice,
-            and the modal is not the place to spend two rows on it. */}
-        {dense ? (
-          <Select
-            value={value.power_supply}
-            disabled={disabled}
-            onValueChange={option => update('power_supply', option)}
-          >
-            <SelectTrigger className="h-7 w-auto min-w-[10rem] border-0 bg-transparent px-1 text-sm shadow-none hover:bg-input/50 focus-visible:bg-input">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(['unknown', 'available', 'unavailable', 'emergency_needed'] as const).map(option => (
-                <SelectItem key={option} value={option}>{t(`powerLabels.${option}`)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
         <div className="grid grid-cols-2 gap-2">
-          {(['unknown', 'available', 'unavailable', 'emergency_needed'] as const).map(option => (
+          {POWER_OPTIONS.map(option => (
             <Button
               key={option}
               type="button"
@@ -373,23 +550,17 @@ export function RekoReportForm({
             </Button>
           ))}
         </div>
-        )}
       </div>
 
-      {!dense && <Separator />}
+      <Separator />
 
       {/* Summary */}
-      <div className={cn(dense ? "space-y-1 pt-1" : "space-y-3")}>
-        {!dense && (
-          <Label className="text-sm font-medium text-muted-foreground tracking-wide">{t('summary')}</Label>
-        )}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium tracking-wide text-muted-foreground">{t('summary')}</Label>
 
         <div>
-          <Label htmlFor="summary" className={cn(
-            "text-muted-foreground block",
-            dense ? "text-xs font-normal mb-0.5" : "text-sm font-semibold mb-1.5",
-          )}>
-            {dense ? t('summary') : t('summaryShort')}
+          <Label htmlFor="summary" className="mb-1.5 block text-sm font-semibold text-muted-foreground">
+            {t('summaryShort')}
           </Label>
           <Textarea
             id="summary"
@@ -397,16 +568,12 @@ export function RekoReportForm({
             disabled={disabled}
             onChange={e => update('summary_text', e.target.value)}
             placeholder={t('summaryPlaceholder')}
-            rows={dense ? 2 : 3}
-            className={cn(dense && "text-sm")}
+            rows={3}
           />
         </div>
 
         <div>
-          <Label htmlFor="notes" className={cn(
-            "text-muted-foreground block",
-            dense ? "text-xs font-normal mb-0.5" : "text-sm font-semibold mb-1.5",
-          )}>
+          <Label htmlFor="notes" className="mb-1.5 block text-sm font-semibold text-muted-foreground">
             {t('notes')}
           </Label>
           <Textarea
@@ -416,25 +583,18 @@ export function RekoReportForm({
             onChange={e => update('additional_notes', e.target.value)}
             placeholder={t('notesPlaceholder')}
             rows={2}
-            className={cn(dense && "text-sm")}
           />
         </div>
       </div>
 
       {photos && (
         <>
-          {!dense && <Separator />}
+          <Separator />
 
-          <div className={cn(dense ? "space-y-1 pt-1" : "space-y-3")}>
-            <Label className={cn(
-              "text-muted-foreground",
-              dense ? "text-xs font-normal" : "text-sm font-medium tracking-wide",
-            )}>
+          <div className="space-y-3">
+            <Label className="text-sm font-medium tracking-wide text-muted-foreground">
               {t('photos')}
             </Label>
-            {/* Says what this box is FOR on the board: not the operator taking
-                pictures, but the ones that arrived over WhatsApp. */}
-            {isKp && <p className="text-xs text-muted-foreground">{t('photosKpHint')}</p>}
             <PhotoUpload
               photos={value.photos_json}
               incidentId={incidentId}
@@ -447,17 +607,17 @@ export function RekoReportForm({
       )}
 
       {/* Action */}
-      <div className={cn("space-y-3", dense ? "pt-2" : "pt-4")}>
-        <Button type="submit" disabled={disabled || isSubmitting || busy} className={isKp ? 'w-full' : 'w-full h-14'} size="lg">
+      <div className="space-y-3 pt-4">
+        <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-14 w-full" size="lg">
           {isSubmitting ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              {isKp ? t('submittingKp') : t('submitting')}
+              {t('submitting')}
             </>
           ) : (
             <>
               <Send className="h-5 w-5" />
-              {isKp ? t('submitKp') : t('submit')}
+              {t('submit')}
             </>
           )}
         </Button>

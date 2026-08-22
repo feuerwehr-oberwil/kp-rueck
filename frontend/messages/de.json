@@ -2119,7 +2119,22 @@
       "noPhotos": "Noch keine Fotos hochgeladen",
       "loadFailed": "Bild konnte nicht geladen werden",
       "canvasUnavailable": "Canvas nicht verfügbar",
-      "conversionFailed": "Konvertierung fehlgeschlagen"
+      "conversionFailed": "Konvertierung fehlgeschlagen",
+      "rowWaiting": "Wartet",
+      "rowUploading": "{percent} % · verkleinert auf 1920 px",
+      "rowRetrying": "{percent} % · Versuch {attempt} von {total}",
+      "rowSent": "Gesendet",
+      "rowFailed": "{count, plural, one {Abgebrochen nach # Versuch} other {Abgebrochen nach # Versuchen}}",
+      "rowRetry": "Nochmals senden",
+      "rowDiscard": "Verwerfen",
+      "queueProgress": "{done} von {total} beim KP · läuft weiter, auch wenn du weiterschreibst",
+      "offlineTitle": "{count, plural, one {# Foto wartet auf Verbindung} other {# Fotos warten auf Verbindung}}",
+      "offlineBody": "Sie bleiben auf dem Gerät und gehen automatisch raus, sobald wieder Netz da ist.",
+      "offlineHint": "Nichts geht verloren – nicht nochmals fotografieren.",
+      "chooseFile": "Datei wählen",
+      "denseHint": "ziehen, einfügen oder Datei wählen",
+      "photoNumber": "Foto {number}",
+      "removePhoto": "Foto {number} entfernen"
     },
     "form": {
       "arrivalError": "Fehler beim Melden der Ankunft",
@@ -2148,9 +2163,9 @@
       "otherDangers": "Weitere Gefahren",
       "otherDangersPlaceholder": "Beschreibung...",
       "effort": "Aufwand",
-      "personnelCount": "Mannschaft (Anz.)",
+      "personnelCount": "Anzahl Personen",
       "personnelPlaceholder": "z. B. 10",
-      "duration": "Dauer (Std.)",
+      "duration": "Dauer in Stunden",
       "durationPlaceholder": "z. B. 2",
       "powerSupply": "Stromversorgung",
       "powerLabels": {
@@ -2168,7 +2183,6 @@
       "notesPlaceholder": "Weitere Bemerkungen...",
       "submitting": "Übermitteln...",
       "submit": "Reko-Bericht übermitteln",
-      "savedAt": "Gespeichert um {time}",
       "autoSave": "Wird automatisch gespeichert",
       "summaries": {
         "notRelevant": [
@@ -2190,7 +2204,18 @@
         ]
       },
       "submitKp": "Reko-Bericht speichern",
-      "submittingKp": "Wird gespeichert …"
+      "submittingKp": "Wird gespeichert …",
+      "syncedAt": "Beim KP angekommen – {time}",
+      "syncedHint": "Alles Neue geht automatisch zum KP.",
+      "unsentTitle": "Der KP sieht das noch nicht",
+      "unsentBody": "Beim KP steht der Stand von {time}. Alles seither steht nur auf diesem Handy.",
+      "unsentBodyNever": "Beim KP ist noch nichts angekommen. Alles steht nur auf diesem Handy.",
+      "unsentReassurance": "Verloren ist nichts – es kommt nur nicht zum KP durch.",
+      "sendNow": "Jetzt zum KP senden",
+      "offlineTitle": "Kein Netz – alles bleibt auf diesem Handy",
+      "offlineBody": "Weiterschreiben ist in Ordnung.",
+      "offlineHint": "Sobald wieder Netz da ist, geht alles von selbst zum KP. Das Formular bis dahin offen lassen.",
+      "notesShort": "Notizen"
     },
     "reportSection": {
       "noReport": "Noch kein Reko-Bericht",
@@ -2234,7 +2259,14 @@
       "saved": "Reko-Bericht gespeichert",
       "saveFailed": "Speichern fehlgeschlagen",
       "submittedShort": "Übermittelt {time}",
-      "updatedShort": "aktualisiert {time}"
+      "updatedShort": "aktualisiert {time}",
+      "findingLabel": "Befund",
+      "notesShort": "Notizen",
+      "reportLabel": "Reko-Bericht",
+      "noReportShort": "noch keiner",
+      "createShort": "erfassen",
+      "expand": "öffnen",
+      "collapse": "schliessen"
     },
     "dummyGenerator": {
       "title": "Übungs-Modus",
@@ -3414,8 +3446,9 @@
       "sections": {
         "kurzbericht": "Kurzbericht",
         "owner": "Eigentümer- / Halterdaten",
-        "confirm": "Mannschaft und Fahrzeuge",
-        "photos": "Fotos"
+        "photos": "Fotos",
+        "personnel": "Personal",
+        "vehicles": "Fahrzeuge"
       },
       "material": {
         "title": "Material",
@@ -3428,7 +3461,6 @@
         "leftOnSiteAria": "Vor Ort verblieben: {name}",
         "extraLabel": "Weiteres gebrauchtes Material",
         "extraPlaceholder": "Nicht im Katalog? Hier eintippen, mit Komma trennen",
-        "extraFreeText": "Alles, was nicht in der Liste steht – z. B. eine geliehene Pumpe.",
         "extraSearchPlaceholder": "Material suchen",
         "extraNoneFound": "Nichts gefunden – einfach unten eintippen.",
         "extraRemove": "{name} entfernen",
@@ -3437,15 +3469,16 @@
         "extraHideAll": "Katalog ausblenden"
       },
       "vehicles": {
-        "label": "Fahrzeuge – alle ankreuzen, die dabei waren",
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
-        "empty": "Keine Fahrzeuge erfasst.",
-        "dispatched": "disponiert",
+        "empty": "Kein Fahrzeug disponiert.",
         "searchPlaceholder": "Fahrzeug suchen",
-        "showRest": "Weitere Fahrzeuge ({count})",
-        "hideRest": "Weitere Fahrzeuge ausblenden",
-        "noMatch": "Kein Fahrzeug gefunden"
+        "showRest": "Ganze Flotte ({count})",
+        "hideRest": "Flotte ausblenden",
+        "noMatch": "Kein Fahrzeug gefunden",
+        "dispatchedLabel": "Disponiert auf diesen Schadenplatz",
+        "addLabel": "Welches Fahrzeug sonst noch dabei war",
+        "removeAria": "{name} entfernen"
       },
       "kurzberichtPlaceholder": "Lage, Tätigkeit, Material",
       "handedOverTo": "Schadenplatz übergeben an",
@@ -3477,28 +3510,32 @@
       "loadError": "Rapport konnte nicht geladen werden.",
       "loadRetry": "Erneut versuchen",
       "personnel": {
-        "label": "Eingesetztes Personal – alle ankreuzen, die dabei waren ({count})",
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
-        "empty": "Niemand angemeldet – Personen unten von Hand erfassen.",
-        "dispatched": "aufgeboten",
+        "empty": "Das Board hat hierher niemanden zugeteilt.",
         "searchPlaceholder": "Person suchen",
-        "showRest": "Weitere Angemeldete ({count})",
-        "hideRest": "Weitere Angemeldete ausblenden",
+        "showRest": "Weitere Personen ({count})",
+        "hideRest": "Weitere Personen ausblenden",
         "noMatch": "Keine Person gefunden",
         "extraNamePlaceholder": "Weitere Person (Name)",
         "extraNotePlaceholder": "Notiz, z. B. FW Allschwil",
         "addExtra": "Hinzufügen",
-        "removeAria": "{name} entfernen"
+        "removeAria": "{name} entfernen",
+        "dispatchedLabel": "Aufgeboten auf diesen Schadenplatz",
+        "addLabel": "Wer sonst noch dabei war",
+        "checkedIn": "angemeldet"
       },
       "summary": {
         "material": "{count, plural, one {# Position} other {# Positionen}}",
         "materialEmpty": "kein Material erfasst",
         "kurzberichtEmpty": "noch nichts erfasst",
         "ownerEmpty": "leer – nur wenn nötig",
-        "confirm": "{people, plural, one {# Person} other {# Personen}} · {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
         "photos": "{count, plural, one {# Foto} other {# Fotos}}",
-        "photosEmpty": "keine hochgeladen"
+        "photosEmpty": "keine hochgeladen",
+        "personnel": "{count, plural, one {# Person} other {# Personen}}",
+        "personnelEmpty": "niemand erfasst",
+        "vehicles": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
+        "vehiclesEmpty": "kein Fahrzeug"
       }
     },
     "materialReturn": {
@@ -3516,7 +3553,20 @@
     "code": {
       "title": "Code eingeben",
       "submit": "Weiter",
-      "wrong": "Falscher Code"
+      "wrong": "Falscher Code",
+      "attemptsLeft": "{count, plural, one {Noch # Versuch.} other {Noch # Versuche.}}",
+      "whereHint": "Der Code steht auf dem Zettel unter dem QR-Code.",
+      "lockedTitle": "Kurz gesperrt – {time}",
+      "lockedBody": "Zu viele Fehlversuche vom gleichen Netz.",
+      "lockedButton": "Wieder frei in {time}",
+      "expiredTitle": "Link abgelaufen",
+      "expiredHeading": "Dieser QR-Code ist nicht mehr gültig",
+      "expiredBody": "Feld-Links laufen nach 30 Tagen ab.",
+      "expiredFoot": "Kein Code nötig – der Link muss neu sein.",
+      "offlineTitle": "Keine Verbindung zum KP",
+      "offlineBody": "Der Code wurde nicht geprüft – er ist wahrscheinlich richtig.",
+      "offlineHint": "Ein paar Schritte ins Freie und nochmals versuchen.",
+      "retry": "Nochmals versuchen"
     },
     "source": {
       "reko": "Reko-Auftrag",
@@ -3585,7 +3635,12 @@
       "editSaved": "Korrektur ist beim KP",
       "editTooLate": "Der KP hat die Meldung bereits übernommen – bitte per Funk melden.",
       "notes": "Weitere Hinweise",
-      "notesPlaceholder": "Zufahrt, Schlüssel, Kontakt vor Ort …"
+      "notesPlaceholder": "Zufahrt, Schlüssel, Kontakt vor Ort …",
+      "needLocation": "Ohne Einsatzort kann der KP niemanden schicken.",
+      "needMessage": "Ohne Meldung weiss der KP nicht, worum es geht.",
+      "nextStepHint": "Nächster Schritt: Meldung prüfen.",
+      "locationHint": "Adresse eintippen, auf der Karte tippen oder «Standort übernehmen».",
+      "locationHintPhone": "Adresse eintippen oder auf der Karte tippen."
     },
     "attendance": {
       "notHereTitle": "Du bist nicht eingecheckt",
@@ -3641,6 +3696,9 @@
     "kpMessages": {
       "title": "Meldungen vom KP",
       "from": "KP · {name} · {time}"
+    },
+    "claim": {
+      "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – nochmals versuchen."
     }
   }
 }

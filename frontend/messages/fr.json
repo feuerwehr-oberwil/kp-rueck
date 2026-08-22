@@ -704,8 +704,9 @@
       "sections": {
         "kurzbericht": "Rapport succinct",
         "owner": "Données du propriétaire / détenteur",
-        "confirm": "Effectif et véhicules",
-        "photos": "Photos"
+        "photos": "Photos",
+        "personnel": "Personnel",
+        "vehicles": "Véhicules"
       },
       "material": {
         "title": "Matériel",
@@ -718,7 +719,6 @@
         "leftOnSiteAria": "Resté sur place : {name}",
         "extraLabel": "Autre matériel utilisé",
         "extraPlaceholder": "Pas au catalogue ? Tape-le ici, sépare par des virgules",
-        "extraFreeText": "Tout ce qui ne figure pas dans la liste – p. ex. une pompe empruntée.",
         "extraSearchPlaceholder": "Rechercher du matériel",
         "extraNoneFound": "Rien trouvé – tape-le simplement ci-dessous.",
         "extraRemove": "Retirer {name}",
@@ -727,15 +727,16 @@
         "extraHideAll": "Masquer le catalogue"
       },
       "vehicles": {
-        "label": "Véhicules – coche tous ceux qui étaient là",
         "present": "était là",
         "presentAria": "Était là : {name}",
-        "empty": "Aucun véhicule saisi.",
-        "dispatched": "engagé",
+        "empty": "Aucun véhicule engagé.",
         "searchPlaceholder": "Rechercher un véhicule",
-        "showRest": "Autres véhicules ({count})",
-        "hideRest": "Masquer les autres véhicules",
-        "noMatch": "Aucun véhicule trouvé"
+        "showRest": "Tout le parc ({count})",
+        "hideRest": "Masquer le parc",
+        "noMatch": "Aucun véhicule trouvé",
+        "dispatchedLabel": "Engagés sur ce lieu d’intervention",
+        "addLabel": "Quel autre véhicule était là",
+        "removeAria": "Retirer {name}"
       },
       "kurzberichtPlaceholder": "Situation, activité, matériel",
       "handedOverTo": "Place sinistrée remise à",
@@ -767,28 +768,32 @@
       "loadError": "Le rapport n’a pas pu être chargé.",
       "loadRetry": "Réessayer",
       "personnel": {
-        "label": "Personnel engagé – coche tous ceux qui étaient là ({count})",
         "present": "était là",
         "presentAria": "Était là : {name}",
-        "empty": "Personne n’est annoncé – saisis les personnes à la main ci-dessous.",
-        "dispatched": "convoqué",
+        "empty": "Le tableau n’a affecté personne ici.",
         "searchPlaceholder": "Rechercher une personne",
-        "showRest": "Autres personnes annoncées ({count})",
-        "hideRest": "Masquer les autres personnes annoncées",
+        "showRest": "Autres personnes ({count})",
+        "hideRest": "Masquer les autres personnes",
         "noMatch": "Aucune personne trouvée",
         "extraNamePlaceholder": "Autre personne (nom)",
         "extraNotePlaceholder": "Note, p. ex. SP Allschwil",
         "addExtra": "Ajouter",
-        "removeAria": "Retirer {name}"
+        "removeAria": "Retirer {name}",
+        "dispatchedLabel": "Convoqués sur ce lieu d’intervention",
+        "addLabel": "Qui d’autre était là",
+        "checkedIn": "annoncé"
       },
       "summary": {
         "material": "{count, plural, one {# position} other {# positions}}",
         "materialEmpty": "aucun matériel saisi",
         "kurzberichtEmpty": "rien de saisi pour l’instant",
         "ownerEmpty": "vide – seulement si nécessaire",
-        "confirm": "{people, plural, one {# personne} other {# personnes}} · {vehicles, plural, one {# véhicule} other {# véhicules}}",
         "photos": "{count, plural, one {# photo} other {# photos}}",
-        "photosEmpty": "aucune envoyée"
+        "photosEmpty": "aucune envoyée",
+        "personnel": "{count, plural, one {# personne} other {# personnes}}",
+        "personnelEmpty": "personne de saisi",
+        "vehicles": "{count, plural, one {# véhicule} other {# véhicules}}",
+        "vehiclesEmpty": "aucun véhicule"
       }
     },
     "materialReturn": {
@@ -806,7 +811,20 @@
     "code": {
       "title": "Saisir le code",
       "submit": "Continuer",
-      "wrong": "Code incorrect"
+      "wrong": "Code incorrect",
+      "attemptsLeft": "{count, plural, one {Encore # essai.} other {Encore # essais.}}",
+      "whereHint": "Le code figure sur le billet, sous le code QR.",
+      "lockedTitle": "Bloqué un instant – {time}",
+      "lockedBody": "Trop d'essais infructueux depuis le même réseau.",
+      "lockedButton": "De nouveau libre dans {time}",
+      "expiredTitle": "Lien expiré",
+      "expiredHeading": "Ce code QR n'est plus valable",
+      "expiredBody": "Les liens Terrain expirent après 30 jours.",
+      "expiredFoot": "Pas besoin de code – il faut un nouveau lien.",
+      "offlineTitle": "Pas de connexion avec le PC",
+      "offlineBody": "Le code n'a pas été vérifié – il est probablement correct.",
+      "offlineHint": "Fais quelques pas à l'air libre et réessaie.",
+      "retry": "Réessayer"
     },
     "source": {
       "reko": "Mandat de reco",
@@ -875,7 +893,12 @@
       "editSaved": "Correction transmise au PC",
       "editTooLate": "Le PC a déjà repris l’annonce – annonce la correction par radio.",
       "notes": "Autres indications",
-      "notesPlaceholder": "Accès, clé, contact sur place …"
+      "notesPlaceholder": "Accès, clé, contact sur place …",
+      "needLocation": "Sans lieu d'intervention, le PC ne peut envoyer personne.",
+      "needMessage": "Sans message, le PC ne sait pas de quoi il s'agit.",
+      "nextStepHint": "Étape suivante : vérifier l'annonce.",
+      "locationHint": "Saisir l'adresse, toucher la carte ou « Utiliser ma position ».",
+      "locationHintPhone": "Saisir l'adresse ou toucher la carte."
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",
@@ -931,6 +954,9 @@
     "kpMessages": {
       "title": "Messages du PC",
       "from": "PC · {name} · {time}"
+    },
+    "claim": {
+      "offline": "Pas de connexion avec le PC. Le nom n'a pas été enregistré – réessaie."
     }
   },
   "help": {
@@ -2581,7 +2607,22 @@
       "noPhotos": "Aucune photo envoyée pour l’instant",
       "loadFailed": "L’image n’a pas pu être chargée",
       "canvasUnavailable": "Canvas non disponible",
-      "conversionFailed": "Échec de la conversion"
+      "conversionFailed": "Échec de la conversion",
+      "rowWaiting": "En attente",
+      "rowUploading": "{percent} % · réduit à 1920 px",
+      "rowRetrying": "{percent} % · essai {attempt} sur {total}",
+      "rowSent": "Envoyée",
+      "rowFailed": "{count, plural, one {Abandonné après # essai} other {Abandonné après # essais}}",
+      "rowRetry": "Renvoyer",
+      "rowDiscard": "Abandonner",
+      "queueProgress": "{done} sur {total} au PC · cela continue même si tu écris",
+      "offlineTitle": "{count, plural, one {# photo attend la connexion} other {# photos attendent la connexion}}",
+      "offlineBody": "Elles restent sur l'appareil et partent automatiquement dès que le réseau revient.",
+      "offlineHint": "Rien n'est perdu – inutile de refaire les photos.",
+      "chooseFile": "Choisir un fichier",
+      "denseHint": "glisser, coller ou choisir un fichier",
+      "photoNumber": "Photo {number}",
+      "removePhoto": "Supprimer la photo {number}"
     },
     "form": {
       "arrivalError": "Erreur lors de l’annonce d’arrivée",
@@ -2610,9 +2651,9 @@
       "otherDangers": "Autres dangers",
       "otherDangersPlaceholder": "Description...",
       "effort": "Moyens nécessaires",
-      "personnelCount": "Effectif (nbre)",
+      "personnelCount": "Nombre de personnes",
       "personnelPlaceholder": "p. ex. 10",
-      "duration": "Durée (h)",
+      "duration": "Durée en heures",
       "durationPlaceholder": "p. ex. 2",
       "powerSupply": "Alimentation électrique",
       "powerLabels": {
@@ -2630,7 +2671,6 @@
       "notesPlaceholder": "Autres remarques...",
       "submitting": "Transmission...",
       "submit": "Transmettre le rapport de reconnaissance",
-      "savedAt": "Enregistré à {time}",
       "autoSave": "Enregistrement automatique",
       "summaries": {
         "notRelevant": [
@@ -2652,7 +2692,18 @@
         ]
       },
       "submitKp": "Enregistrer le rapport de reconnaissance",
-      "submittingKp": "Enregistrement …"
+      "submittingKp": "Enregistrement …",
+      "syncedAt": "Arrivé au PC – {time}",
+      "syncedHint": "Tout ce qui est nouveau part automatiquement au PC.",
+      "unsentTitle": "Le PC ne voit pas encore cela",
+      "unsentBody": "Le PC a l'état de {time}. Tout ce qui suit n'est que sur ce téléphone.",
+      "unsentBodyNever": "Rien n'est encore arrivé au PC. Tout est uniquement sur ce téléphone.",
+      "unsentReassurance": "Rien n'est perdu – cela ne passe simplement pas jusqu'au PC.",
+      "sendNow": "Envoyer maintenant au PC",
+      "offlineTitle": "Pas de réseau – tout reste sur ce téléphone",
+      "offlineBody": "Tu peux continuer à écrire.",
+      "offlineHint": "Dès que le réseau revient, tout part de lui-même au PC. Laisse le formulaire ouvert jusque-là.",
+      "notesShort": "Remarques"
     },
     "reportSection": {
       "noReport": "Aucun rapport de reconnaissance pour l’instant",
@@ -2696,7 +2747,14 @@
       "saved": "Rapport de reconnaissance enregistré",
       "saveFailed": "Échec de l’enregistrement",
       "submittedShort": "Transmis {time}",
-      "updatedShort": "mis à jour {time}"
+      "updatedShort": "mis à jour {time}",
+      "findingLabel": "Constat",
+      "notesShort": "Remarques",
+      "reportLabel": "Rapport de reco",
+      "noReportShort": "aucun pour l’instant",
+      "createShort": "saisir",
+      "expand": "ouvrir",
+      "collapse": "fermer"
     },
     "dummyGenerator": {
       "title": "Mode exercice",

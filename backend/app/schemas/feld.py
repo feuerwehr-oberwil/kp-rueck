@@ -525,17 +525,17 @@ class RapportExtraMaterialUpdate(BaseModel):
 
 
 class RapportVehicleRow(BaseModel):
-    """One vehicle on the checklist — the crew confirms *which*, not how many.
+    """One vehicle on the list — the crew confirms *which*, not how many.
 
-    **The whole fleet, not only the assigned vehicles (§18.33).** The board is
-    routinely behind reality on a storm night: a vehicle drives along without
-    anybody assigning it, and one that was assigned never rolls. So every vehicle
-    the station has gets a row, the assigned ones arrive ticked, and the crew's
-    job is to correct both directions rather than to retype the fleet. Same
-    reasoning as the "Weiteres Material" list next to it.
+    **Only what the board disponiert here.** The whole fleet used to get a row
+    (§18.33), which turned the rapport into a fleet inventory: eleven questions
+    nobody had a reason to ask, and the one vehicle that rolled as easy to
+    overlook as the eleven that did not. The correction §18.33 was right about —
+    a vehicle that came along unannounced — is still possible, through the
+    section's search and its folded fleet, and produces a row with
+    ``on_board=False``. Exactly the shape the material list has always had.
 
-    Keyed on the **vehicle**, therefore, not on an assignment: a vehicle that was
-    never dispatched has no assignment to key on.
+    Keyed on the **vehicle**, not on an assignment: an added vehicle has none.
 
     ``present`` has no third state: the list carries the board's own answer
     already, so "keine Angabe" would only mean "did not correct it".
@@ -545,8 +545,8 @@ class RapportVehicleRow(BaseModel):
     name: str
     present: bool = True
     # True when the board has (or had) this vehicle assigned to the incident.
-    # False for the rest of the fleet — and for a ticked vehicle that has since
-    # left the fleet entirely, whose row survives because the crew ticked it.
+    # False for a vehicle the crew added by hand, and for a ticked one that has
+    # since lost its assignment — the row survives because the crew ticked it.
     on_board: bool = True
 
 
@@ -558,23 +558,23 @@ class RapportVehicleUpdate(BaseModel):
 
 
 class RapportPersonnelRow(BaseModel):
-    """One name on the crew checklist — the crew confirms *who*, not how many.
+    """One name on the crew list — the crew confirms *who*, not how many.
 
-    The people checked in at the Ereignis, with the ones the board has on this
-    incident arriving ticked. A number could answer neither of the two questions
-    the KP has the morning after: was somebody there that nobody aufgeboten, and
-    did somebody leave that nobody tracked. Both directions are corrections the
-    crew is the only party able to make — the same argument the vehicle list
-    settled in §18.33.
+    **Only who the board aufgeboten here**, arriving ticked. The list used to be
+    the whole Appell as well, and on a storm night that is half the brigade in a
+    rapport about one cellar: being checked in says somebody turned out tonight,
+    not that they stood at this address. Everybody else on the roster is reachable
+    through the section's search and its folded Appell and, once added, gets a row
+    with ``on_board=False``.
 
-    Keyed on the **person**, not on an assignment: somebody who came along was
-    never assigned, so there is no assignment to key the row on.
+    Keyed on the **person**, not on an assignment: an added person has none.
     """
 
     personnel_id: UUID
     name: str
     present: bool = True
-    # True when the board has (or had) this person assigned to the incident.
+    # True when the board has (or had) this person assigned to the incident (or
+    # to its Auftrag). False for somebody the crew added by hand.
     on_board: bool = True
 
 
@@ -622,6 +622,32 @@ class ConcurrentEditor(BaseModel):
     in_kp: bool = False
 
 
+class RapportPersonnelCandidate(BaseModel):
+    """Somebody the crew can ADD to the rapport, as opposed to confirm.
+
+    Everybody on the roster the board did not send here. ``checked_in`` marks the
+    Appell so the search can offer those first — they are the people who
+    plausibly stood at the address. The rest of the roster is offered behind
+    them, because the Appell is not always kept and a name that cannot be found
+    gets typed as free text, after which it belongs to no person at all.
+
+    It carries an id, and that is not a widening of decision 18: the crew list
+    has always been keyed on the person, and adding a row still writes no
+    assignment and no attendance.
+    """
+
+    personnel_id: UUID
+    name: str
+    checked_in: bool = False
+
+
+class RapportVehicleCandidate(BaseModel):
+    """A vehicle the crew can add: the rest of the fleet, behind one fold."""
+
+    vehicle_id: UUID
+    name: str
+
+
 class RapportPrefill(BaseModel):
     """What the board knows, computed on every GET and never written (§4).
 
@@ -652,6 +678,12 @@ class RapportPrefill(BaseModel):
     # that is a different authorization and a different conflict problem — and a
     # suggestion that cannot be resolved to a unit cannot become one by accident.
     material_name_suggestions: list[str] = []
+    # What the Personal and Fahrzeuge sections can ADD. The rows above them are
+    # what the board sent here; these are everything else the crew can reach
+    # without falling back to free text. Anybody who already has a row is left
+    # out, so the same name is never offered twice.
+    personnel_candidates: list[RapportPersonnelCandidate] = []
+    vehicle_candidates: list[RapportVehicleCandidate] = []
 
 
 class SchadenplatzRapport(BaseModel):
@@ -670,8 +702,8 @@ class SchadenplatzRapport(BaseModel):
     # already know, so the window is derived at output time instead of typed in
     # the field. See the model.
     materials: list[RapportMaterialRow] = []
-    # The whole fleet (§18.33), with the board's assigned vehicles ticked. The
-    # crew unticks what did not roll and ticks what came along unannounced.
+    # What the board disponiert here, ticked. The crew unticks what did not roll
+    # and adds what came along unannounced through `prefill.vehicle_candidates`.
     vehicles: list[RapportVehicleRow] = []
     personnel: list[RapportPersonnelRow] = []
     extra_personnel: list[RapportExtraPersonnelRow] = []

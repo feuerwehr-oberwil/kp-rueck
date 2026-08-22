@@ -55,9 +55,6 @@ interface FeldMaterialChecklistProps {
   onExtraMaterialsChange: (entries: ApiRapportExtraMaterial[]) => void
 }
 
-/** How many catalogue entries it takes before a search field earns its place. */
-const SEARCH_THRESHOLD = 8
-
 /**
  * "Weiteres gebrauchtes Material" — a multi-select, a free-text line, and one
  * on-site tick per entry (§18.35).
@@ -113,22 +110,20 @@ function ExtraMaterialPicker({
   }, [suggestions, search])
 
   /**
-   * A long catalogue is not rendered unasked — a scroll area INSIDE a scrolling
+   * The catalogue is not rendered unasked — a scroll area INSIDE a scrolling
    * page is the worst of both on a phone. But it used to be *only* reachable by
    * typing, which asks the crew to guess the station's own names before the list
-   * will admit they exist. So it collapses behind one tap instead, exactly like
-   * «Weitere Angemeldete» in the personnel checklist: the list is there, it is
-   * just folded. Search still narrows it, and what is already ticked stays
-   * visible either way — that is the answer to "habe ich das erfasst?".
+   * will admit they exist. So it collapses behind one tap instead. Search still
+   * narrows it, and what is already picked stays visible above as a row either
+   * way — that is the answer to "habe ich das erfasst?".
+   *
+   * There is no size threshold on the fold any more. Personal, Fahrzeuge and
+   * Material are one grammar now — bestätigen, suchen, tippen — and a section
+   * that changes shape at nine catalogue entries is a section the crew has to
+   * re-read.
    */
   const [showAll, setShowAll] = useState(false)
-  const collapsible = suggestions.length > SEARCH_THRESHOLD
-  const listOpen = !collapsible || showAll || searching
-
-  const listed = useMemo(() => {
-    if (listOpen) return filtered
-    return suggestions.filter(name => pickedNames.has(name))
-  }, [listOpen, suggestions, filtered, pickedNames])
+  const listOpen = showAll || searching
 
   return (
     <div className="space-y-2">
@@ -181,15 +176,13 @@ function ExtraMaterialPicker({
 
       {suggestions.length > 0 && (
         <>
-          {collapsible && (
-            <SearchInput
-              value={search}
-              onValueChange={setSearch}
-              placeholder={t('extraSearchPlaceholder')}
-              disabled={disabled}
-            />
-          )}
-          {collapsible && !listOpen && (
+          <SearchInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder={t('extraSearchPlaceholder')}
+            disabled={disabled}
+          />
+          {!listOpen ? (
             <button
               type="button"
               className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
@@ -198,64 +191,65 @@ function ExtraMaterialPicker({
               <ChevronDown className="h-4 w-4 shrink-0" />
               {t('extraShowAll', { count: suggestions.length })}
             </button>
-          )}
-          {collapsible && showAll && !searching && (
-            <button
-              type="button"
-              className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
-              onClick={() => setShowAll(false)}
-            >
-              <ChevronUp className="h-3.5 w-3.5 shrink-0" />
-              {t('extraHideAll')}
-            </button>
-          )}
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {listed.map(name => {
-              const isPicked = pickedNames.has(name)
-              return (
+          ) : (
+            <>
+              {showAll && !searching && (
                 <button
-                  key={name}
                   type="button"
-                  disabled={disabled}
-                  aria-pressed={isPicked}
-                  onClick={() => onChange(toggleExtraMaterial(entries, name))}
-                  className={cn(
-                    'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors',
-                    'hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
-                    isPicked && 'border-primary/30 bg-primary/5',
-                  )}
+                  className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
+                  onClick={() => setShowAll(false)}
                 >
-                  {isPicked ? (
-                    <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500" />
-                  ) : (
-                    <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
-                  )}
-                  <span className="truncate text-sm">{name}</span>
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+                  {t('extraHideAll')}
                 </button>
-              )
-            })}
-            {listed.length === 0 && listOpen && (
-              <p className="col-span-full py-2 text-xs text-muted-foreground">
-                {t('extraNoneFound')}
-              </p>
-            )}
-          </div>
+              )}
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {filtered.map(name => {
+                  const isPicked = pickedNames.has(name)
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      disabled={disabled}
+                      aria-pressed={isPicked}
+                      onClick={() => onChange(toggleExtraMaterial(entries, name))}
+                      className={cn(
+                        'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors',
+                        'hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
+                        isPicked && 'border-primary/30 bg-primary/5',
+                      )}
+                    >
+                      {isPicked ? (
+                        <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500" />
+                      ) : (
+                        <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="truncate text-sm">{name}</span>
+                    </button>
+                  )
+                })}
+                {filtered.length === 0 && (
+                  <p className="col-span-full py-2 text-xs text-muted-foreground">
+                    {t('extraNoneFound')}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
 
-      {/* Anything in no catalogue at all. The panel says so, because a list
-          that looks exhaustive is a list people stop writing next to. */}
-      <div className="space-y-1">
-        <Input
-          id="rapport-extra-material"
-          autoComplete="off"
-          value={freeText}
-          disabled={disabled}
-          placeholder={t('extraPlaceholder')}
-          onChange={e => onChange(setExtraMaterialFreeText(entries, e.target.value, suggestions))}
-        />
-        <p className="text-xs text-muted-foreground">{t('extraFreeText')}</p>
-      </div>
+      {/* Anything in no catalogue at all. No caption under it: the placeholder
+          («Nicht im Katalog? …») already says what the line is for, and the
+          Personal section's free-text row is captionless for the same reason. */}
+      <Input
+        id="rapport-extra-material"
+        autoComplete="off"
+        value={freeText}
+        disabled={disabled}
+        placeholder={t('extraPlaceholder')}
+        onChange={e => onChange(setExtraMaterialFreeText(entries, e.target.value, suggestions))}
+      />
     </div>
   )
 }
@@ -277,11 +271,15 @@ export function FeldMaterialChecklist({
   }
 
   return (
-    <section className="space-y-3">
+    /* One rhythm across the three rapport sections: bestätigen, was zugeteilt
+       war — suchen, was fehlt — tippen, was nirgends steht. Same spacing, same
+       order, so the crew learns the shape once. Material's confirm block needs
+       no origin label: the Lagerort headings sit in that slot and say more. */
+    <section className="space-y-4">
       {!hideHeading && <h3 className="text-sm font-semibold">{t('title')}</h3>}
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
           {/* The checklist is only as good as the material assignments (§12).
               An empty list is not a bug, it is a board that never got the
               material — which is what the free-text line below is for. */}
@@ -349,8 +347,8 @@ export function FeldMaterialChecklist({
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="rapport-extra-material" className="text-xs text-muted-foreground">
+      <div className="space-y-2">
+        <Label htmlFor="rapport-extra-material" className="text-xs font-normal text-muted-foreground">
           {t('extraLabel')}
         </Label>
         {/* Still names in the data model, and it still never creates an

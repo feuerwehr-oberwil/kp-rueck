@@ -18,7 +18,20 @@ import { EMPTY_REKO_FORM, RekoReportForm, toRekoFormData } from '@/components/re
 
 // The asterisk is the separate required marker beside the label, not part of
 // the label — it used to be in both and the form read «Einsatz relevant? * *».
-const FIELDS = ['Einsatz relevant?', 'Gefahren', 'Aufwand', 'Stromversorgung', 'Zusammenfassung']
+//
+// «Aufwand» is NOT in this list: it is a section heading over two questions,
+// and the board's field list has no headings — «Anzahl Personen» and «Dauer in
+// Stunden» are rows of their own there. The questions are what has to match
+// across the mounts, not the furniture around them, so the two questions are
+// listed instead.
+const FIELDS = [
+  'Einsatz relevant?',
+  'Gefahren',
+  'Anzahl Personen',
+  'Dauer in Stunden',
+  'Stromversorgung',
+  'Zusammenfassung',
+]
 
 /**
  * The WRITABLE fields, by the id the form gives them — not the DOM around them.
@@ -32,6 +45,11 @@ const FIELDS = ['Einsatz relevant?', 'Gefahren', 'Aufwand', 'Stromversorgung', '
 function writableFieldsOf(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('textarea, input'))
     .map(el => `${el.tagName}:${(el as HTMLInputElement).id || el.getAttribute('placeholder') || ''}`)
+    // Nameless inputs are not fields: they are the hidden proxies Radix's
+    // Checkbox puts in the form so a native submit carries its value. The
+    // phone has five of them behind its danger tiles, the board none behind
+    // its toggle marks — which says nothing about what either mount asks.
+    .filter(name => !name.endsWith(':'))
     .sort()
 }
 

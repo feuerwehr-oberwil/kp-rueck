@@ -1,45 +1,41 @@
 'use client'
 
 /**
- * The vehicle confirmation list.
+ * The Fahrzeuge section of the Schadenplatz-Rapport.
  *
- * The crew confirms two things and nothing more: how many people were there,
- * and **which vehicles**. A count was the first shape of this and it was the
- * wrong one — "3" tells whoever retypes it nothing, three names do.
+ * **Confirm what the board disponiert, search for everything else.** The whole
+ * fleet used to get a row (§18.33), which made the rapport a fleet inventory
+ * with a question stapled to every vehicle: a station with twelve answered
+ * eleven questions nobody had a reason to ask, and the one vehicle that actually
+ * rolled was as easy to overlook as the eleven that did not. §18.33 was right
+ * that the board is behind reality in both directions — a vehicle drives along
+ * that nobody assigned — but that is the exception this block exists for, not
+ * the shape of the list. It now lives behind the search and the folded fleet.
  *
- * **The whole fleet, not only the assigned ones (§18.33).** One tick per row
- * ("war dabei"), with the vehicles the board dispatched arriving ticked. The
- * earlier list could only be *unticked*, which recorded a vehicle that never
- * rolled and had no way at all to record one that came along without anybody
- * assigning it — and on a storm night the board is behind reality in both
- * directions. Same reasoning as the material catalogue above it, and ticking a
- * vehicle here still creates no assignment: `/feld` never writes one.
+ * Its own section, its own count. "2 Fahrzeuge" used to have to be read out of
+ * "5 Personen · 1 Fahrzeug"; Mensch und Fahrzeug are not one list.
  *
- * **…but a 30-vehicle fleet is not a list you scroll on a phone.** Everything
- * the board dispatched, plus anything already ticked, is what the crew came here
- * to confirm — that is the list. The rest of the fleet sits behind one row and
- * is one tap away, because "a vehicle came along that nobody assigned" is the
- * exception this exists for, not the normal case. The search reaches the whole
- * fleet whether that row is open or not.
+ * Same grammar as Personal and Material beside it: bestätigen – suchen –
+ * (dort: tippen). Ticking or adding a vehicle still creates no assignment.
  */
 
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronUp, Truck } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Truck, X } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
-import type { ApiRapportVehicleRow } from '@/lib/api/types'
+import type { ApiRapportVehicleCandidate, ApiRapportVehicleRow } from '@/lib/api/types'
 
 interface FeldVehicleChecklistProps {
   rows: ApiRapportVehicleRow[]
+  /** The rest of the fleet. The server leaves out anything that already has a row. */
+  candidates?: ApiRapportVehicleCandidate[]
   disabled?: boolean
   onChange: (rows: ApiRapportVehicleRow[]) => void
 }
 
-/** Above this many vehicles a station's fleet stops being scannable on a phone. */
-const SEARCH_THRESHOLD = 10
-
-export function FeldVehicleChecklist({ rows, disabled, onChange }: FeldVehicleChecklistProps) {
+export function FeldVehicleChecklist({ rows, candidates = [], disabled, onChange }: FeldVehicleChecklistProps) {
   const t = useTranslations('feld.rapport.vehicles')
   const [search, setSearch] = useState('')
   const [showAll, setShowAll] = useState(false)
@@ -48,99 +44,172 @@ export function FeldVehicleChecklist({ rows, disabled, onChange }: FeldVehicleCh
     onChange(rows.map(row => (row.vehicle_id === vehicleId ? { ...row, present } : row)))
   }
 
+  /** Adds a vehicle — or re-ticks the row of one removed a moment ago. */
+  const add = (candidate: ApiRapportVehicleCandidate) => {
+    if (rows.some(row => row.vehicle_id === candidate.vehicle_id)) {
+      onChange(rows.map(row => (row.vehicle_id === candidate.vehicle_id ? { ...row, present: true } : row)))
+      return
+    }
+    onChange([...rows, { vehicle_id: candidate.vehicle_id, name: candidate.name, present: true, on_board: false }])
+  }
+
+  /**
+   * Removing an added row **unticks** it rather than dropping it — same reason
+   * as in the Personal section: the save reconciles the payload against what is
+   * stored, so a row the payload never mentions is kept, and an unticked row for
+   * a vehicle nobody disponiert is never written down.
+   */
+  const remove = (vehicleId: string) => {
+    onChange(rows.map(row => (row.vehicle_id === vehicleId ? { ...row, present: false } : row)))
+  }
+
   const needle = search.trim().toLowerCase()
 
-  // What the crew is here to confirm: what rolled, or what it has already said
-  // rolled. A vehicle the crew unticks stays in this group — it was dispatched,
-  // and the answer "nein, das war nicht dabei" must not make the row jump into a
-  // collapsed section the moment it is given.
-  const { expected, rest } = useMemo(() => {
-    const expected: ApiRapportVehicleRow[] = []
-    const rest: ApiRapportVehicleRow[] = []
-    for (const row of rows) (row.on_board || row.present ? expected : rest).push(row)
-    return { expected, rest }
+  // A vehicle the crew unticks stays in the first group — it was disponiert, and
+  // the answer "nein, das war nicht dabei" must not make the row jump away as it
+  // is given.
+  //
+  // An added row that has been unticked is a removal in flight (see `remove`):
+  // it stays in the form so the save carries the "nein", and it shows nowhere.
+  const { dispatched, added } = useMemo(() => {
+    const dispatched: ApiRapportVehicleRow[] = []
+    const added: ApiRapportVehicleRow[] = []
+    for (const row of rows) {
+      if (row.on_board) dispatched.push(row)
+      else if (row.present) added.push(row)
+    }
+    return { dispatched, added }
   }, [rows])
 
-  const matches = (row: ApiRapportVehicleRow) => !needle || row.name.toLowerCase().includes(needle)
+  const listedCandidates = useMemo(() => {
+    // A row that is neither disponiert nor ticked is a removal in flight — the
+    // vehicle is offerable again, or a removal could not be taken back.
+    const listed = candidates.filter(
+      candidate => !rows.some(row => row.vehicle_id === candidate.vehicle_id && (row.on_board || row.present)),
+    )
+    if (!needle) return listed
+    return listed.filter(candidate => candidate.name.toLowerCase().includes(needle))
+  }, [candidates, rows, needle])
 
-  // A ticked vehicle never hides behind a filter: the answer the crew already
-  // gave has to stay visible, or it looks like it was lost.
-  const visibleExpected = expected.filter(row => row.present || matches(row))
-  const visibleRest = rest.filter(matches)
-  // Searching is itself a request to look at the whole fleet — nothing found is
-  // worse than a long list, and the crew typed a name to be shown that name.
-  // A small station's fleet is a list, not a problem — it renders exactly as it
-  // always did. The collapse only earns its complexity above the same threshold
-  // that earns the search box.
-  const collapsible = rows.length > SEARCH_THRESHOLD
-  const restOpen = !collapsible || showAll || needle.length > 0 || expected.length === 0
+  // The fleet stays folded even with nothing disponiert — unlike the Appell in
+  // the Personal section. "Kein Fahrzeug" is a normal and often correct result
+  // for a Schadenplatz; "niemand war da" is not.
+  const listOpen = showAll || needle.length > 0
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">{t('label')}</p>
+    <div className="space-y-4">
+      {/* ---------------------------------------------- bestätigen */}
+      <div className="space-y-1.5">
+        {dispatched.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+            {t('empty')}
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">{t('dispatchedLabel')}</p>
+            {dispatched.map(row => (
+              <VehicleRow key={row.vehicle_id} row={row} disabled={disabled} onToggle={toggle} />
+            ))}
+          </>
+        )}
+      </div>
 
-      {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-          {t('empty')}
-        </div>
-      ) : (
-        <>
-          {rows.length > SEARCH_THRESHOLD && (
+      {/* ------------------------------------- suchen und ergänzen */}
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">{t('addLabel')}</p>
+
+        {added.length > 0 && (
+          <div className="space-y-1.5">
+            {added.map(row => (
+              /* No "war dabei" tick on an added row: naming a vehicle here
+                 already says it was there. Taking the row away is the way back,
+                 exactly as in "Weiteres gebrauchtes Material". */
+              <div
+                key={row.vehicle_id}
+                className="flex items-center justify-between gap-2 rounded-lg bg-secondary/40 px-3 py-2"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-sm">{row.name}</span>
+                </span>
+                {!disabled && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t('removeAria', { name: row.name })}
+                    onClick={() => remove(row.vehicle_id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {candidates.length > 0 && (
+          <>
             <SearchInput
               value={search}
               onValueChange={setSearch}
               placeholder={t('searchPlaceholder')}
               disabled={disabled}
             />
-          )}
-          <div className="space-y-1.5">
-            {visibleExpected.map(row => (
-              <VehicleRow key={row.vehicle_id} row={row} disabled={disabled} onToggle={toggle} />
-            ))}
-          </div>
-
-          {rest.length > 0 && (
-            <div className="space-y-1.5">
-              {!restOpen ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
-                  onClick={() => setShowAll(true)}
-                >
-                  <ChevronDown className="h-4 w-4 shrink-0" />
-                  {t('showRest', { count: rest.length })}
-                </button>
-              ) : (
-                <>
-                  {/* No collapse control while a search is running: the row the
-                      crew searched for is in here, and hiding it again behind a
-                      chevron is the opposite of what they asked for. */}
-                  {showAll && !needle && expected.length > 0 && (
+            {!listOpen ? (
+              <button
+                type="button"
+                className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-left text-sm text-muted-foreground"
+                onClick={() => setShowAll(true)}
+              >
+                <ChevronDown className="h-4 w-4 shrink-0" />
+                {t('showRest', { count: listedCandidates.length })}
+              </button>
+            ) : (
+              <>
+                {showAll && !needle && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
+                    onClick={() => setShowAll(false)}
+                  >
+                    <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+                    {t('hideRest')}
+                  </button>
+                )}
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {listedCandidates.map(candidate => (
                     <button
+                      key={candidate.vehicle_id}
                       type="button"
-                      className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-xs text-muted-foreground"
-                      onClick={() => setShowAll(false)}
+                      disabled={disabled}
+                      // No aria-label — the name is the accessible name, as in
+                      // the material catalogue's pick buttons.
+                      onClick={() => add(candidate)}
+                      className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <ChevronUp className="h-3.5 w-3.5 shrink-0" />
-                      {t('hideRest')}
+                      <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate text-sm">{candidate.name}</span>
                     </button>
-                  )}
-                  {visibleRest.map(row => (
-                    <VehicleRow key={row.vehicle_id} row={row} disabled={disabled} onToggle={toggle} />
                   ))}
-                  {visibleRest.length === 0 && visibleExpected.length === 0 && (
-                    <p className="px-1 py-2 text-sm text-muted-foreground">{t('noMatch')}</p>
+                  {listedCandidates.length === 0 && (
+                    <p className="col-span-full py-2 text-xs text-muted-foreground">{t('noMatch')}</p>
                   )}
-                </>
-              )}
-            </div>
-          )}
-        </>
-      )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
 
+/**
+ * One disponiertes vehicle: the board's answer, with the tick that corrects it.
+ *
+ * No "disponiert" badge any more — every row in this block is disponiert.
+ */
 function VehicleRow({
   row,
   disabled,
@@ -156,14 +225,6 @@ function VehicleRow({
       <span className="flex min-w-0 items-center gap-2">
         <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm">{row.name}</span>
-        {/* Which of these rows the board actually dispatched. Without it the
-            list is a fleet inventory and the crew cannot see what it is
-            correcting. */}
-        {row.on_board && (
-          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {t('dispatched')}
-          </span>
-        )}
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
         <input

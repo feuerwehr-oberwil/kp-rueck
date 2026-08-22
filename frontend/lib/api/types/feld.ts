@@ -318,9 +318,10 @@ export interface ApiRapportMaterialUpdate {
 }
 
 /**
- * One vehicle on the confirmation list — **the whole fleet** since §18.33, with
- * the board's assigned vehicles ticked. A vehicle that came along without ever
- * being dispatched has no assignment, so the row is keyed on the vehicle.
+ * One vehicle on the confirmation list — **only what the board disponiert here**,
+ * arriving ticked. The whole fleet used to get a row, which made the rapport a
+ * fleet inventory; the rest of the fleet now lives in `prefill.vehicle_candidates`
+ * and gets a row (`on_board: false`) only once the crew adds it.
  */
 export interface ApiRapportVehicleRow {
   vehicle_id: string
@@ -337,10 +338,11 @@ export interface ApiRapportVehicleUpdate {
 }
 
 /**
- * One name on the crew confirmation list (§18.36) — the people checked in at the
- * Ereignis, with the ones the board put on this incident ticked. A number could
- * answer neither "war jemand dabei, den niemand aufgeboten hat?" nor "ist jemand
- * gegangen?"; both are corrections only the crew can make.
+ * One name on the crew confirmation list (§18.36) — **only who the board
+ * aufgeboten here**, arriving ticked. The Appell used to be the list too, which
+ * on a storm night is half the brigade in a rapport about one cellar; everybody
+ * else lives in `prefill.personnel_candidates` and gets a row (`on_board: false`)
+ * only once the crew adds them.
  */
 export interface ApiRapportPersonnelRow {
   personnel_id: string
@@ -394,6 +396,28 @@ export interface ApiRapportConcurrentEditor {
   in_kp: boolean
 }
 
+/**
+ * Somebody the crew can ADD to the rapport, as opposed to confirm: everybody on
+ * the roster the board did not send here. `checked_in` marks the Appell so the
+ * search offers those first.
+ *
+ * It carries an id, unlike `material_name_suggestions`, and that widens nothing:
+ * the crew list has always been keyed on the person, and adding a row writes no
+ * assignment and no attendance (decision 18). What the id buys is what free text
+ * cannot — a nachgetragene Person stays the same person the roster knows.
+ */
+export interface ApiRapportPersonnelCandidate {
+  personnel_id: string
+  name: string
+  checked_in: boolean
+}
+
+/** A vehicle the crew can add: the rest of the fleet, behind one fold. */
+export interface ApiRapportVehicleCandidate {
+  vehicle_id: string
+  name: string
+}
+
 /** What the board knows. Computed on every GET, never written (§4). */
 export interface ApiRapportPrefill {
   location_address: string | null
@@ -412,6 +436,12 @@ export interface ApiRapportPrefill {
    * (decision 18).
    */
   material_name_suggestions: string[]
+  /**
+   * What the Personal and Fahrzeuge sections can add. Anybody who already has a
+   * row is left out server-side, so the same name is never offered twice.
+   */
+  personnel_candidates: ApiRapportPersonnelCandidate[]
+  vehicle_candidates: ApiRapportVehicleCandidate[]
 }
 
 export interface ApiSchadenplatzRapport {
