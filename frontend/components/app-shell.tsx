@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { DemoBanner } from '@/components/demo-banner'
 import { DeploymentBanner } from '@/components/deployment-banner'
@@ -26,9 +27,17 @@ const DOCUMENT_FLOW_ROUTES = ['/reko', '/alarm', '/check-in', '/feld']
  * margin hack) and never slides under the demo/stale banners. On mobile the
  * sidebar renders nothing (a Sheet overlay is used instead). Also includes the
  * global CommandPalette for keyboard shortcuts.
+ *
+ * The palette is mounted ONLY for a signed-in user. It used to be mounted for
+ * everybody, so ⌘K opened a list of the board's actions and Auftrag names on the
+ * login screen and on the public phone forms (`/alarm`, `/check-in`) — a keyboard
+ * shortcut is not an access control, and the entries it lists are not public.
+ * Gating the mount rather than the handler also takes the `keydown` listener and
+ * the `kp:open-command-palette` window listener away with it.
  */
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
+  const { isAuthenticated } = useAuth()
 
   const isDocumentFlow = DOCUMENT_FLOW_ROUTES.some(
     route => pathname === route || pathname.startsWith(`${route}/`)
@@ -42,7 +51,7 @@ export function AppShell({ children }: AppShellProps) {
         <StaleDataBanner />
         <IncidentTruncationBanner />
         {children}
-        <CommandPalette />
+        {isAuthenticated && <CommandPalette />}
       </>
     )
   }
@@ -58,7 +67,7 @@ export function AppShell({ children }: AppShellProps) {
         </main>
         <PersistentNotificationSidebar />
       </div>
-      <CommandPalette />
+      {isAuthenticated && <CommandPalette />}
     </div>
   )
 }
