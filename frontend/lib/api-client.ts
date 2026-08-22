@@ -2782,8 +2782,18 @@ class ApiClient {
    * backend cannot be reached — callers fail open (the login page stays a login page).
    */
   async getSetupStatus(): Promise<ApiSetupStatus | null> {
+    // No retries and a short timeout, unlike every other GET: the setup and
+    // login pages block their first paint on this answer, and "fail open into
+    // the form after a few seconds" beats a minute of spinner behind the
+    // default 3×20s retry ladder when the backend is down or still booting.
     try {
-      return (await this.request<ApiSetupStatus>('/api/setup/status', { skipToast: true })) ?? null
+      return (
+        (await this.request<ApiSetupStatus>('/api/setup/status', {
+          skipToast: true,
+          maxRetries: 0,
+          signal: AbortSignal.timeout(4_000),
+        })) ?? null
+      )
     } catch {
       return null
     }
