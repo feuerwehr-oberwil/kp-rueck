@@ -8,17 +8,18 @@
  * Any changes to location input behavior should be made in that component.
  *
  * LAYOUT: the same `DetailField` rows the incident detail is built from —
- * `Beschriftung │ Wert` on one line. Two columns, because the modal is four times
- * as wide as the side panel and the stacked version spent ~880px saying the same
- * thing: a label above every control, a full sentence under every switch, and a
- * scrollbar for the trouble. The fields an operator types while taking the call
- * are on the left, who called on the right.
+ * `Beschriftung │ Wert` on one line, a single column top to bottom. The stacked
+ * original spent ~880px saying the same thing (a label above every control, a
+ * sentence under every switch, a scrollbar for the trouble); a two-column pass
+ * in between made the eye jump mid-form.
  *
  * Unlike the side panel, the controls here are BOXED. The panel's borderless
- * skin (`DENSE_CONTROL`) works because an existing incident fills every row with
- * a value; in a creation dialog every field is empty at open, and a borderless
- * empty input has no affordance at all — the Einsatzort row read as three bare
- * icons. Same grammar, different skin.
+ * skin (`DENSE_CONTROL`) works because an existing incident fills every row
+ * with a value; in a creation dialog every field is empty at open, and a
+ * borderless empty input has no affordance at all — the Einsatzort row read as
+ * three bare icons. Rows carry no hairlines anywhere since the «Nur Abstand»
+ * pick — the boxes and the whitespace do the separating. Same grammar,
+ * different skin.
  */
 
 import { useState, useEffect } from "react"
@@ -266,6 +267,7 @@ export function NewEmergencyModal({
               `DetailToggle`, as the Übersicht tab. The explanatory sentence under
               each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
+
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
               icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
@@ -275,6 +277,7 @@ export function NewEmergencyModal({
               }
             />
             <DetailToggle
+
               label={t('common.feldReported')}
               description={t('common.feldReportedDescription')}
               icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
@@ -310,7 +313,7 @@ export function NewEmergencyModal({
         </div>
 
         {/* Actions — Abbrechen left, primary right, like every other dialog. */}
-        <DialogFooter className="border-t pt-3">
+        <DialogFooter className="pt-1">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>

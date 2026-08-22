@@ -18,6 +18,11 @@
  *
  * One field per line, Einsatzart and Priorität included: two half-width controls
  * sharing a row is how «Mittel» gets read as the Einsatzart.
+ *
+ * No hairline under the row — anywhere. Separation is whitespace, grouping is
+ * the small grey headings the Übersicht puts over its runs of rows: the same
+ * decision the settings made (see setting-row.tsx), where a line between rows
+ * said nothing the row break did not already say.
  */
 
 import { useEffect, useRef, type ReactNode } from "react"
@@ -64,7 +69,7 @@ export function DetailField({
   return (
     <div
       className={cn(
-        "flex gap-2 border-b border-border/50 py-1",
+        "flex gap-2 py-1",
         alignStart ? "items-start" : "items-center",
         className,
       )}
@@ -92,7 +97,8 @@ export function DetailField({
  * One line, both mounts: label, switch, note underneath. The bordered card with
  * its explanatory sentence is gone — three of them in a column said more about
  * the form than about the incident, and the sentence lives on as the label's
- * `title`.
+ * `title`. Like `DetailField`, the row draws no hairline: whitespace separates,
+ * headings group.
  */
 export function DetailToggle({
   label,
@@ -102,6 +108,7 @@ export function DetailToggle({
   onToggle,
   disabled,
   note,
+  className,
 }: {
   label: string
   description: string
@@ -111,6 +118,7 @@ export function DetailToggle({
   disabled?: boolean
   /** Rendered under the row while `checked` — the "warum" input. */
   note?: ReactNode
+  className?: string
 }) {
   // Switching one of these ON asks a question — «für welche Gemeinde?», «worauf
   // wartet er?» — and the field that answers it appears in the same instant.
@@ -128,7 +136,7 @@ export function DetailToggle({
   }, [checked])
 
   return (
-    <div className="border-b border-border/50 py-1">
+    <div className={cn("py-1", className)}>
       <div
         className="flex cursor-pointer items-center gap-2 select-none"
         onClick={() => !disabled && onToggle(!checked)}

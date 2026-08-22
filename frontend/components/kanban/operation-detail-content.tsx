@@ -78,6 +78,16 @@ import type { Incident } from "@/lib/types/incidents"
 const ROW_ACTION =
   "inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
 
+/**
+ * The small grey heading over a run of Übersicht rows — «Lage», «Meldung»,
+ * «Kräfte». Since the rows lost their hairlines (the «Nur Abstand» pick),
+ * whitespace separates and these headings group; the same decision the settings
+ * made, and the same idiom as their `SettingGroup` heading.
+ */
+function DetailGroupHeading({ children }: { children: ReactNode }) {
+  return <h3 className="mb-1 text-xs font-semibold text-muted-foreground">{children}</h3>
+}
+
 /** Whether the provenance toggles apply to this card at all.
  *
  *  Only "operator", "intake" and "feld" are an editor's to claim ("Telefonisch
@@ -1071,8 +1081,13 @@ export function OperationDetailContent({
           {/* ------------------------------------------------------ Übersicht */}
           <TabsContent value="overview" className={tabPanelClass}>
           <div className={tabGridClass}>
-          {/* Left Column — the fields, as rows in both mounts. They space
-              themselves through their own separators. */}
+          {/* Left Column — the fields, as rows in both mounts, gathered under
+              the small grey group headings. No hairlines between rows any more:
+              whitespace separates, the headings group. */}
+          <div className="space-y-5">
+          {/* «Lage» — where, what, how urgent. */}
+          <div>
+          <DetailGroupHeading>{t('detail.groups.lage')}</DetailGroupHeading>
           <div className="space-y-1">
           {/* Location - Smart Input with Geocoding. It carries its own label
               and its own map/coordinate buttons, so it lays itself out as a row
@@ -1097,29 +1112,6 @@ export function OperationDetailContent({
               }
             }}
           />
-
-          {/* Meldung - Moved up from bottom */}
-          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
-            <Textarea
-              id="notes"
-              placeholder={t('detail.meldungPlaceholder')}
-              value={operation.notes}
-              disabled={!canEdit}
-              onChange={(e) => onUpdate({ notes: e.target.value })}
-              // Grows with what is in it. `h-auto` is what makes that work:
-              // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
-              // height beats the base Textarea's `field-sizing-content` — which
-              // is how a dictated Meldung ended up scrolling inside five rems
-              // and clipped mid-word. The min-height stays the floor, the
-              // max-height is the point where it goes back to scrolling rather
-              // than pushing the whole form off the panel.
-              className={cn(
-                DENSE_CONTROL,
-                "h-auto py-1",
-                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[5rem]",
-              )}
-            />
-          </DetailField>
 
           {/* One per line, both mounts: two half-width controls sharing a row is
               how «Mittel» gets read as the Einsatzart. */}
@@ -1160,6 +1152,35 @@ export function OperationDetailContent({
               </Select>
             </DetailField>
           </>
+          </div>
+          </div>
+
+          {/* «Meldung» — what came in: the wording, who reported it and how,
+              plus the KP's own notes and the flags that qualify it. */}
+          <div>
+          <DetailGroupHeading>{t('detail.groups.meldung')}</DetailGroupHeading>
+          <div className="space-y-1">
+          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+            <Textarea
+              id="notes"
+              placeholder={t('detail.meldungPlaceholder')}
+              value={operation.notes}
+              disabled={!canEdit}
+              onChange={(e) => onUpdate({ notes: e.target.value })}
+              // Grows with what is in it. `h-auto` is what makes that work:
+              // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
+              // height beats the base Textarea's `field-sizing-content` — which
+              // is how a dictated Meldung ended up scrolling inside five rems
+              // and clipped mid-word. The min-height stays the floor, the
+              // max-height is the point where it goes back to scrolling rather
+              // than pushing the whole form off the panel.
+              className={cn(
+                DENSE_CONTROL,
+                "h-auto py-1",
+                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[5rem]",
+              )}
+            />
+          </DetailField>
 
           {/* Contact */}
           <DetailField label={t('common.contact')} htmlFor="contact">
@@ -1294,6 +1315,8 @@ export function OperationDetailContent({
           />
 
           </div>
+          </div>
+          </div>
 
           {/* Right column — who is on it. Ressourcen used to be a tab of its
               own; an operator asking "what is this and who is there" was made
@@ -1352,6 +1375,10 @@ export function OperationDetailContent({
               isResourceDropOver && "ring-2 ring-primary ring-offset-4 ring-offset-background bg-primary/5"
             )}
           >
+            {/* «Kräfte» — the third of the mock's group headings: who and what
+                is out there. Covers the Reko line and the Ressourcen below;
+                «Status wechseln» above keeps its own control heading. */}
+            <DetailGroupHeading>{t('detail.groups.kraefte')}</DetailGroupHeading>
             {/* Reko, as ONE line: who is out looking, since when — and a way
                 through to the rest. The five controls that used to live here
                 (zuweisen/wechseln, the two links, the event-wide transfer) are

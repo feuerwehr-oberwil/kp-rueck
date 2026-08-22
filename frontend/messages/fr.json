@@ -1697,6 +1697,11 @@
     },
     "detail": {
       "rekoAuftrag": "Mission de reconnaissance",
+      "groups": {
+        "lage": "Situation",
+        "meldung": "Annonce",
+        "kraefte": "Moyens"
+      },
       "tabs": {
         "overview": "Vue d’ensemble",
         "reko": "Reconnaissance",

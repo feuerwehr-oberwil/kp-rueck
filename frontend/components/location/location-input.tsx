@@ -374,7 +374,9 @@ export function LocationInput({
     // margin only while it is open.
     <div>
       {/* Address Input with Autocomplete */}
-      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "min-h-[40px]")}>
+      {/* No hairline under the dense row — like every DetailField row since the
+          «Nur Abstand» pick: whitespace separates, headings group. */}
+      <div className={cn(dense ? "flex items-center gap-2 py-1" : "min-h-[40px]")}>
         <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
           <Label
             htmlFor="location_address"

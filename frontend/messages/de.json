@@ -615,6 +615,11 @@
     },
     "detail": {
       "rekoAuftrag": "Reko-Auftrag",
+      "groups": {
+        "lage": "Lage",
+        "meldung": "Meldung",
+        "kraefte": "Kräfte"
+      },
       "tabs": {
         "overview": "Übersicht",
         "reko": "Reko",
