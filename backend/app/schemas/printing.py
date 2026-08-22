@@ -88,12 +88,26 @@ class PrintBoardRequest(BaseModel):
 
 
 class PrintQRCodeRequest(BaseModel):
-    """Request to print a QR-code slip (shareable link as QR + text)."""
+    """Request to print a QR-code slip (shareable link as QR + text).
+
+    ``code`` and ``valid_until`` are the Feld slip's two extra fields. The
+    scanned `/feld` page asks for four digits and says nothing about where they
+    are written, because the answer is "on this slip" — so a slip that carries
+    the QR without the code strands whoever scans it at a prompt they cannot
+    answer, and one without an expiry looks exactly like a working slip long
+    after it stopped. Both optional: every other link (Check-In, Reko, Viewer)
+    sends neither and prints exactly as before.
+    """
 
     qr_content: str  # full URL to encode in the QR code
     title: str  # heading, e.g. "Personal Check-In"
     subtitle: str | None = None  # one-line description of what the link is for
     event_id: UUID | None = None
+    #: The Feld-Code, printed under the QR. A plain string, not an int — it is
+    #: four digits that may start with a zero.
+    code: str | None = None
+    #: When the link stops working (ISO 8601). The agent prints the DATE only.
+    valid_until: str | None = None
 
 
 class PrinterConfigResponse(BaseModel):

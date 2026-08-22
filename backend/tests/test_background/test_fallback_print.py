@@ -1,8 +1,12 @@
 """Tests for the paper-fallback auto-print background task.
 
 The task idles unless ``fallback.auto_print_enabled`` AND ``printer.enabled``
-are both on, then queues one board-snapshot print job per live event every
+are both on, then queues one board-snapshot print job per open event every
 interval — and only when the board changed since the last automatic job.
+
+Training events are included: the station drills the paper fallback the way it
+would run it, and the slip carries an ÜBUNG header so it cannot be confused with
+a real one.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -51,7 +55,8 @@ class TestFallbackPrintGates:
         await task._check_and_print(db_session)
         assert await _auto_jobs(db_session, test_event.id) == []
 
-    async def test_training_events_are_ignored(self, db_session, task):
+    async def test_training_events_are_printed_too(self, db_session, task):
+        """A drill prints. The fallback nobody can rehearse is not a fallback."""
         await _set_setting(db_session, "fallback.auto_print_enabled", "true")
         await _set_setting(db_session, "printer.enabled", "true")
         training_event = Event(id=uuid4(), name="Übung", training_flag=True)
@@ -59,7 +64,22 @@ class TestFallbackPrintGates:
         await db_session.commit()
 
         await task._check_and_print(db_session)
-        assert await _auto_jobs(db_session, training_event.id) == []
+
+        jobs = await _auto_jobs(db_session, training_event.id)
+        assert len(jobs) == 1
+        # The header the print agent renders from this is what keeps a drill slip
+        # distinguishable from a real one (tools/print-agent/formatters.py).
+        assert jobs[0].payload["training_flag"] is True
+
+    async def test_archived_events_are_ignored(self, db_session, task):
+        await _set_setting(db_session, "fallback.auto_print_enabled", "true")
+        await _set_setting(db_session, "printer.enabled", "true")
+        archived = Event(id=uuid4(), name="Alt", archived_at=datetime.now(UTC))
+        db_session.add(archived)
+        await db_session.commit()
+
+        await task._check_and_print(db_session)
+        assert await _auto_jobs(db_session, archived.id) == []
 
 
 @pytest.mark.asyncio

@@ -82,6 +82,22 @@ def _qr_box_size(content: str) -> int:
         return QR_MIN_BOX_DOTS
 
 
+def _date_only(raw: object) -> str:
+    """An ISO timestamp as a Swiss date, or "" when it is not one.
+
+    Used for the printed expiry of a link. Returning "" rather than guessing is
+    deliberate: a slip that names the wrong last day is worse than one that
+    names none.
+    """
+    if not isinstance(raw, str) or not raw:
+        return ""
+    try:
+        return datetime.fromisoformat(raw).astimezone().strftime("%d.%m.%Y")
+    except ValueError:
+        logger.warning("valid_until not parseable (%r) — printing the slip without it", raw)
+        return ""
+
+
 def _sep(p: Network, char: str = "=") -> None:
     """Print a full-width separator using Font A."""
     p.set(font="a", bold=False, align="left")
@@ -324,10 +340,18 @@ def format_qr_code_slip(p: Network, payload: dict) -> None:
 
     Used for the Check-In / Reko / Viewer / Walk-In slide-up links so an
     operator can hand someone a paper slip with a scannable link.
+
+    The Feld slip carries two fields more — ``code`` and ``valid_until``. The
+    scanned page asks for four digits and says nothing about where they are
+    written, because the answer is "on this slip"; a slip without them leads to
+    a prompt it cannot answer. Both are optional, so every other link, and an
+    older backend, print exactly as before.
     """
     qr_content = payload.get("qr_content", "")
     title = payload.get("title", "")
     subtitle = payload.get("subtitle", "")
+    code = str(payload.get("code") or "").strip()
+    valid_until = payload.get("valid_until")
 
     _sep(p)
     if title:
@@ -350,9 +374,26 @@ def format_qr_code_slip(p: Network, payload: dict) -> None:
         p.set(font="b", bold=False, align="center")
         _text(p, "\nScannen zum Öffnen\n")
 
+    if code:
+        # Font A, bold, spaced: four digits read once, at arm's length, with a
+        # torch and a wet glove. The spaces are what keep 4712 from being read
+        # as a year.
+        _sep(p, "-")
+        p.set(font="b", bold=False, align="center")
+        _text(p, "CODE EINGEBEN\n")
+        p.set(font="a", bold=True, align="center")
+        _text(p, f"{' '.join(code)}\n")
+        # Only the date: a slip in the Magazin is compared against a calendar,
+        # never against a clock. An unreadable date prints nothing at all — a
+        # wrong expiry is worse than none.
+        expiry = _date_only(valid_until)
+        if expiry:
+            p.set(font="b", bold=False, align="center")
+            _text(p, f"Gültig bis {expiry}\n")
+
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
-    _text(p, f"{_stamp(payload)}\n")
+    _text(p, f"Gedruckt {_stamp(payload)}\n")
     p.cut()
 
 

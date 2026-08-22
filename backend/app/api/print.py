@@ -239,8 +239,12 @@ async def _build_board_payload(
             }
         )
 
-    # Get vehicle status summary
-    all_vehicles_result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
+    # Get vehicle status summary. Archived vehicles are retired inventory — they
+    # are off the board and out of the pickers, so a slip that still lists them
+    # would be the one surface telling the KP the station owns a truck it sold.
+    all_vehicles_result = await db.execute(
+        select(Vehicle).where(Vehicle.archived_at.is_(None)).order_by(Vehicle.display_order)
+    )
     all_vehicles = all_vehicles_result.scalars().all()
 
     # Check which vehicles are assigned to active incidents
@@ -257,7 +261,9 @@ async def _build_board_payload(
             {
                 "name": v.name,
                 "type": v.type,
-                "available": v.id not in assigned_vehicle_ids and v.status == "available",
+                # Readiness reads `out_of_service`, not the legacy `status` mirror
+                # — same precedence the board draws: not ready ▸ assigned ▸ free.
+                "available": v.id not in assigned_vehicle_ids and not v.out_of_service,
             }
         )
 
@@ -577,7 +583,14 @@ async def queue_qr_code_print(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
-    """Queue a QR-code slip (shareable link as QR + text) for printing."""
+    """Queue a QR-code slip (shareable link as QR + text) for printing.
+
+    ``code`` / ``valid_until`` ride along untouched when the caller sends them
+    (the Feld slip does, nothing else). They are the only reason a scanned Feld
+    poster does not strand its reader at a code prompt — see
+    ``PrintQRCodeRequest`` and ``format_qr_code_slip`` in the agent, which prints
+    both under the QR and skips them when absent.
+    """
     # Check if printer is enabled (the agent only polls when enabled)
     enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
     if enabled.lower() != "true":
@@ -587,6 +600,8 @@ async def queue_qr_code_print(
         "qr_content": request.qr_content,
         "title": request.title,
         "subtitle": request.subtitle,
+        "code": request.code,
+        "valid_until": request.valid_until,
         "printed_at": datetime.now(UTC).isoformat(),
     }
 

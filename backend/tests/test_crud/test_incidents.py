@@ -11,7 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas
 from app.crud import assignments as assignment_crud
 from app.crud import incidents as incident_crud
-from app.models import Incident, IncidentAssignment, Personnel, SchadenplatzReport, User, Vehicle
+from app.models import (
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    Material,
+    Personnel,
+    SchadenplatzReport,
+    User,
+    Vehicle,
+)
 
 
 @pytest.fixture
@@ -663,3 +672,84 @@ class TestCompletionIsUndoable:
         )
 
         assert await self._active(db_session, test_incident.id) == []
+
+
+class TestAutoPrintOnFirstDispatch:
+    """The Einsatzzettel prints on the incident's FIRST dispatch, and only then.
+
+    Two failure modes bound the rule from opposite sides: the old `enroute`-and-
+    `active` trigger printed a normally-run incident twice (which at the command
+    post looks like a second incident), and the `enroute`-only fix un-printed the
+    card dragged straight to «Aktiv». Anfahrt is skippable; the slip is not.
+    """
+
+    @staticmethod
+    async def _enable_auto_print(db: AsyncSession) -> None:
+        from app.models import Setting
+
+        for key in ("printer.enabled", "printer.auto_anfahrt"):
+            existing = (await db.execute(select(Setting).where(Setting.key == key))).scalar_one_or_none()
+            if existing:
+                existing.value = "true"
+            else:
+                db.add(Setting(key=key, value="true"))
+        await db.commit()
+
+    @staticmethod
+    async def _slips(db: AsyncSession, incident_id) -> list:
+        from app.models import PrintJob
+
+        result = await db.execute(select(PrintJob).where(PrintJob.incident_id == incident_id))
+        return list(result.scalars().all())
+
+    @pytest.mark.asyncio
+    async def test_straight_to_active_prints_once(
+        self, db_session: AsyncSession, test_incident: Incident, test_user: User, mock_request
+    ):
+        """A card dragged past Anfahrt still gets its slip — exactly one."""
+        await self._enable_auto_print(db_session)
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="active",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert len(await self._slips(db_session, test_incident.id)) == 1
+
+    @pytest.mark.asyncio
+    async def test_enroute_then_active_prints_once_total(
+        self, db_session: AsyncSession, test_incident: Incident, test_user: User, mock_request
+    ):
+        """The double print the old two-status trigger produced stays fixed."""
+        from datetime import UTC, timedelta
+
+        await self._enable_auto_print(db_session)
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="enroute",
+            current_user=test_user,
+            request=mock_request,
+        )
+        slips = await self._slips(db_session, test_incident.id)
+        assert len(slips) == 1
+
+        # Age the slip out of queue_assignment_print's own 30s dedup window, so
+        # only the first-dispatch rule stands between enroute→active and a copy.
+        slips[0].status = "completed"
+        slips[0].completed_at = datetime.now(UTC) - timedelta(minutes=10)
+        await db_session.commit()
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="active",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert len(await self._slips(db_session, test_incident.id)) == 1

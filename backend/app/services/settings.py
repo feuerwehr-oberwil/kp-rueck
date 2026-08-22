@@ -41,7 +41,10 @@ DEFAULT_SETTINGS = {
     "printer.enabled": "false",  # Master toggle for printer functionality
     "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")
     "printer.port": "9100",  # Printer port (default ESC/POS port)
-    "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "active"
+    # Auto-print the assignment slip ONCE, when an incident reaches "enroute"
+    # (Disponiert / Anfahrt). Keeps its historic key name so installations that switched it
+    # on stay switched on — see crud/incidents.py for why the second trigger ("active") went.
+    "printer.auto_anfahrt": "true",
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
     # Station identity + map preferences.
     #
