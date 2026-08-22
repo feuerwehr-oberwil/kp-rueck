@@ -35,6 +35,35 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
 
+/** The three roles in the order the select offers them, with the label key each uses. */
+const ROLE_HINTS = [
+  { role: 'editor', nameKey: 'users.roles.editor' },
+  { role: 'viewer', nameKey: 'users.roles.viewer' },
+  { role: 'admin', nameKey: 'users.roleAdmin' },
+] as const;
+
+/**
+ * One plain sentence per role, right under the role select – no disclosure, no manual.
+ *
+ * The sentence about «Betrachter» names the consequence that surprises people today:
+ * `ProtectedRoute` redirects a viewer to `/display/board` on login and the board itself
+ * is not reachable from there (see components/protected-route.tsx). Better an
+ * uncomfortable truth in the dialog than a surprise during an incident.
+ */
+function RoleHints() {
+  const t = useTranslations('settings');
+  return (
+    <ul className="mt-1 divide-y divide-border/60">
+      {ROLE_HINTS.map(({ role, nameKey }) => (
+        <li key={role} className="flex gap-2 py-1.5 text-xs text-muted-foreground">
+          <span className="w-24 flex-shrink-0 font-semibold text-foreground">{t(nameKey)}</span>
+          <span>{t(`users.roleHints.${role}`)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function UserSettings() {
   const t = useTranslations('settings');
   const { user: currentUser } = useAuth();
@@ -445,9 +474,7 @@ export function UserSettings() {
                   <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                {t('users.adminsHint')}
-              </p>
+              <RoleHints />
             </div>
           </div>
           <DialogFooter>
@@ -510,10 +537,12 @@ export function UserSettings() {
                   <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
                 </SelectContent>
               </Select>
-              {selectedUser?.id === currentUser?.id && (
+              {selectedUser?.id === currentUser?.id ? (
                 <p className="text-xs text-muted-foreground">
                   {t('users.ownRoleHint')}
                 </p>
+              ) : (
+                <RoleHints />
               )}
             </div>
           </div>

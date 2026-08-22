@@ -1384,7 +1384,8 @@
         "materials": "Material",
         "import": "Import/Export",
         "audit": "Audit-Protokoll",
-        "telemetry": "Fehlerberichte"
+        "telemetry": "Fehlerberichte",
+        "integrations": "Integrationen"
       },
       "telemetry": {
         "reportTitle": "Problem melden",
@@ -1522,6 +1523,18 @@
         "validation": {
           "notANumber": "Keine gültige Zahl.",
           "outOfRange": "Muss zwischen {min} und {max} liegen."
+        },
+        "tiles": {
+          "installed": "Offline-Kacheln: installiert",
+          "bootstrap": "Offline-Kacheln: nicht installiert",
+          "missing": "Offline-Kacheln: keine vorhanden",
+          "unreachable": "Kachel-Server antwortet nicht",
+          "zoomRange": "Zoom {min}–{max}",
+          "checkedAt": "geprüft {time}",
+          "recheck": "Neu prüfen",
+          "optionUnavailable": "– keine Kacheln installiert",
+          "hint": "Ohne Kacheln bleibt «Auto» online und fällt bei einem Ausfall auf nichts zurück. Die Kacheln lädt die Person herunter, die den Server betreut – einmalig, für das eigene Gebiet. Anleitung: Hilfe → Offline-Maps.",
+          "unreachableHint": "Der Kachel-Server antwortet gerade nicht – ob Offline-Kacheln installiert sind, lässt sich von hier aus nicht sagen. «Nur Offline» bleibt wählbar, könnte aber eine leere Karte ergeben."
         }
       },
       "checklist": {
@@ -1783,7 +1796,8 @@
           "hint": "Nur unterhalb dieser Geschwindigkeit gilt ein Fahrzeug als stehend (Schritttempo im Hof zählt mit). Empfohlen: 10"
         }
       },
-      "editorsOnly": "Nur Bearbeiter können diese Einstellungen ändern."
+      "editorsOnly": "Nur Bearbeiter können diese Einstellungen ändern.",
+      "returnUnavailable": "Die Magazin-Koordinaten fehlen. Ohne sie erkennt das System die Rückkehr nicht – weiter unten auf dieser Karte unter «Magazin (Heimatbasis)» eintragen."
     },
     "materials": {
       "loadError": "Material konnte nicht geladen werden",
@@ -1867,7 +1881,8 @@
       "syncSectionUnchanged": "Unverändert",
       "syncSectionNotInDivera": "Nicht in Divera",
       "removeStaleLabel": "{count, plural, one {# Person entfernen, die nicht in Divera vorhanden ist} other {# Personen entfernen, die nicht in Divera vorhanden sind}}",
-      "syncExecuteButton": "Synchronisieren"
+      "syncExecuteButton": "Synchronisieren",
+      "syncUnavailable": "Kein Personal-Anbieter hinterlegt – es gibt nichts abzugleichen. Den Zugangsschlüssel trägt die Person ein, die den Server betreut; den Stand zeigt Einstellungen → Integrationen."
     },
     "printer": {
       "toasts": {
@@ -1915,7 +1930,9 @@
       "pollingTitle": "Polling-Verhalten",
       "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge schneller verarbeitet werden.",
       "networkTitle": "Netzwerk",
-      "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen – keine Portfreigaben nötig."
+      "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen – keine Portfreigaben nötig.",
+      "unavailableDisabled": "Der Drucker ist auf dieser Karte noch nicht aktiviert – solange er aus ist, wird nichts gedruckt.",
+      "unavailableNoIp": "Es ist keine Drucker-Adresse hinterlegt. Ohne sie findet der Druckdienst den Drucker nicht – Feld «IP-Adresse» auf dieser Karte ausfüllen."
     },
     "users": {
       "roles": {
@@ -1954,7 +1971,6 @@
       "passwordLabel": "Passwort",
       "roleLabel": "Rolle",
       "roleAdmin": "Administrator",
-      "adminsHint": "Administratoren können Benutzer verwalten.",
       "creating": "Erstelle...",
       "editDialogTitle": "Benutzer bearbeiten",
       "editDialogDescription": "Ändere die Benutzerdaten.",
@@ -1971,7 +1987,12 @@
       "permanentDeleteTitle": "Benutzer endgültig löschen?",
       "permanentDeleteDescription": "Der Benutzer {name} wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
       "deleting": "Lösche...",
-      "permanentDeleteAction": "Endgültig löschen"
+      "permanentDeleteAction": "Endgültig löschen",
+      "roleHints": {
+        "editor": "Führt das Board: Einsätze eröffnen, Ressourcen zuweisen, Einstellungen ändern.",
+        "viewer": "Sieht nur die Wandanzeige. Landet nach dem Anmelden direkt dort und kann das Board weder öffnen noch bedienen.",
+        "admin": "Wie Bearbeiter, und verwaltet zusätzlich die Benutzerkonten."
+      }
     },
     "vehicles": {
       "loadError": "Fahrzeuge konnten nicht geladen werden",
@@ -2025,6 +2046,50 @@
       "archiveInUseDescription": "Steht noch auf einem offenen Einsatz – zuerst dort freigeben, dann archivieren.",
       "restoreError": "Zurückholen fehlgeschlagen",
       "purgeError": "Endgültiges Löschen fehlgeschlagen"
+    },
+    "scope": {
+      "legendLabel": "Reichweite",
+      "station": {
+        "name": "Ganze Station",
+        "legend": "alle Bildschirme, alle Benutzer",
+        "consequence": "Eine Änderung gilt sofort auf jedem Board und auf dem Wanddisplay im Magazin."
+      },
+      "device": {
+        "name": "Nur dieses Gerät",
+        "legend": "gilt nur hier, an diesem Bildschirm",
+        "consequence": "Eine Änderung gilt nur an diesem Bildschirm – alle anderen Geräte bleiben, wie sie sind."
+      }
+    },
+    "integrations": {
+      "title": "Integrationen",
+      "description": "Was diese Anlage mit der Aussenwelt verbindet. Geändert wird das nicht hier, sondern auf dem Server – die Spalte rechts sagt, wo.",
+      "readOnlyBadge": "Nur Ansicht",
+      "loadFailed": "Die Übersicht konnte nicht geladen werden.",
+      "columns": {
+        "domain": "Bereich",
+        "provider": "Anbieter",
+        "status": "Status",
+        "where": "Wo ändern"
+      },
+      "domains": {
+        "alarms": "Alarmeingang",
+        "alerting": "Ausalarmierung",
+        "personnel": "Personal-Abgleich",
+        "vehicles": "Fahrzeug-GPS"
+      },
+      "status": {
+        "configured": "Eingerichtet",
+        "notConfigured": "Nicht eingerichtet",
+        "blocked": "Gesperrt"
+      },
+      "serverConfig": "Server-Konfiguration",
+      "builtinTitle": "Immer verfügbar, ohne Anbieter:",
+      "builtinPaths": {
+        "generic-webhook": "Alarme per Webhook an /api/alarms",
+        "manual-intake": "Alarm-Link fürs Telefon",
+        "operator": "Erfassung von Hand am Board"
+      },
+      "builtinNote": "Ein fehlender Anbieter heisst also nie, dass keine Lage eröffnet werden kann."
     }
   },
   "login": {
@@ -2529,7 +2594,9 @@
       "membersError": "Divera-Mitglieder konnten nicht geladen werden (Zugangsschlüssel prüfen).",
       "selectPerson": "Person wählen…",
       "loadingMembers": "Lade Divera-Mitglieder…",
-      "sendTest": "Testalarm senden"
+      "sendTest": "Testalarm senden",
+      "notConfiguredBadge": "Nicht eingerichtet",
+      "notConfiguredHint": "Kein Alarmierungs-Anbieter hinterlegt. Den Zugangsschlüssel trägt die Person ein, die den Server betreut – danach lässt sich der Schalter umlegen."
     },
     "sendDialog": {
       "noRecipientsError": "Keine verknüpften Empfänger ausgewählt",
@@ -2734,7 +2801,8 @@
       "photoLabel": "Foto-Limit (GB)",
       "materialThresholdsTitle": "Materialbestand-Schwellenwerte",
       "materialThresholdsSubtitle": "Warnung wenn das verfügbare Material einer Kategorie unter den Schwellenwert fällt. Deaktiviere die Checkbox, um Warnungen für eine Kategorie auszublenden.",
-      "materialThresholdsManageLink": "Material verwalten"
+      "materialThresholdsManageLink": "Material verwalten",
+      "disabledForEveryone": "{what} erscheinen jetzt auf keinem Bildschirm mehr – auch nicht auf dem Wanddisplay im Magazin."
     },
     "toasts": {
       "criticalTitle": "Kritische Warnung",

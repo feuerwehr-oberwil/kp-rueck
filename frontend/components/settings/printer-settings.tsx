@@ -22,6 +22,11 @@ import {
 } from 'lucide-react';
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
+import { ScopeMark } from '@/components/settings/scope-mark';
+import {
+  SettingUnavailableBadge,
+  SettingUnavailableNote,
+} from '@/components/settings/setting-unavailable';
 import { toast } from 'sonner';
 
 // The Pi print-agent polls ~5s while "active" (within ACTIVE window of its last
@@ -235,6 +240,18 @@ export function PrinterSettings() {
   const printerPort = settings['printer.port'] || '9100';
   const autoAnfahrt = settings['printer.auto_anfahrt'] === 'true';
 
+  // Was gedruckt werden soll, kann erst etwas bewirken, wenn es überhaupt einen Drucker
+  // gibt: der Schalter oben AN und eine Adresse eingetragen. Beides holt sich der
+  // Druckdienst über `GET /api/print/config/` (backend/app/api/print.py) – ohne Adresse
+  // findet er nichts, und der Auftrag bleibt in der Warteschlange liegen.
+  // Der gespeicherte Wert bleibt unangetastet; er wirkt wieder, sobald der Drucker steht.
+  const printerConfigured = isEnabled && printerIp.trim() !== '';
+  const unavailableReason = !isEnabled
+    ? t('unavailableDisabled')
+    : printerIp.trim() === ''
+      ? t('unavailableNoIp')
+      : null;
+
   if (loading) {
     return (
       <Card className="p-6">
@@ -303,9 +320,14 @@ export function PrinterSettings() {
 
       {/* Configuration Card */}
       <Card className="p-6">
-        <div className="space-y-1 mb-4">
-          <p className="font-medium">{t('configTitle')}</p>
-          <p className="text-xs text-muted-foreground">{t('configSubtitle')}</p>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="space-y-1">
+            <p className="font-medium">{t('configTitle')}</p>
+            <p className="text-xs text-muted-foreground">{t('configSubtitle')}</p>
+          </div>
+          {/* There is one printer per station and one row per key in the database –
+              every control on this card reaches everybody. */}
+          <ScopeMark scope="station" align="end" className="mt-1" />
         </div>
         <div className="space-y-4">
           {/* Enable/Disable Toggle */}
@@ -374,20 +396,36 @@ export function PrinterSettings() {
             </div>
           </div>
 
-          {/* Auto-print on Anfahrt */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="auto-anfahrt" className="font-medium">{t('autoAnfahrtLabel')}</Label>
-              <p className="text-xs text-muted-foreground">{t('autoAnfahrtHint')}</p>
+          {/* Auto-print. ONE trigger: the incident reaching «Disponiert / Anfahrt»
+              (`enroute`). It used to fire on `active` as well, which spat out two
+              identical Einsatzzettel per incident while label, hint and help each
+              named a different moment – see backend/app/crud/incidents.py. The key
+              keeps its old name (`printer.auto_anfahrt`) so existing installations
+              stay switched on; only the second trigger is gone. */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="auto-anfahrt" className="font-medium">{t('autoAnfahrtLabel')}</Label>
+                  {unavailableReason && (
+                    <SettingUnavailableBadge>{tCommon('notConfiguredBadge')}</SettingUnavailableBadge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{t('autoAnfahrtHint')}</p>
+              </div>
+              <Switch
+                id="auto-anfahrt"
+                checked={autoAnfahrt}
+                title={unavailableReason ?? undefined}
+                onCheckedChange={(checked) =>
+                  updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
+                }
+                disabled={!printerConfigured || saving === 'printer.auto_anfahrt'}
+              />
             </div>
-            <Switch
-              id="auto-anfahrt"
-              checked={autoAnfahrt}
-              onCheckedChange={(checked) =>
-                updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
-              }
-              disabled={saving === 'printer.auto_anfahrt'}
-            />
+            {/* Gilt für den Schalter darüber UND für die beiden Testknöpfe darunter –
+                alle drei hängen an derselben Voraussetzung. */}
+            {unavailableReason && <SettingUnavailableNote>{unavailableReason}</SettingUnavailableNote>}
           </div>
 
           {/* Test Buttons */}
@@ -396,7 +434,8 @@ export function PrinterSettings() {
               variant="outline"
               size="sm"
               onClick={handleTestPrint}
-              disabled={testingConnection || testingPrint || !isEnabled}
+              title={unavailableReason ?? undefined}
+              disabled={testingConnection || testingPrint || !printerConfigured}
             >
               {testingConnection ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -409,7 +448,8 @@ export function PrinterSettings() {
               variant="default"
               size="sm"
               onClick={handleTestDruck}
-              disabled={testingPrint || testingConnection || !isEnabled}
+              title={unavailableReason ?? undefined}
+              disabled={testingPrint || testingConnection || !printerConfigured}
             >
               {testingPrint ? (
                 <Loader2 className="size-3.5 animate-spin" />

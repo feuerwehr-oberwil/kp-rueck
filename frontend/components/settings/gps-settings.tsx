@@ -6,6 +6,11 @@ import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { ScopeMark } from "@/components/settings/scope-mark"
+import {
+  SettingUnavailableBadge,
+  SettingUnavailableNote,
+} from "@/components/settings/setting-unavailable"
 
 const MASTER_KEY = "gps.automation_enabled"
 const ARRIVAL_KEY = "gps.rule_arrival_enabled"
@@ -36,7 +41,8 @@ interface Props {
  *   location, the operator is PROMPTED to confirm disponiert -> einsatz (default).
  *   Silent auto-advance is an explicit, risky opt-in (`gps.rule_arrival_silent`).
  * - **Rückkehr (Regel B):** only PROMPTS the operator to release a vehicle when it is
- *   back in the magazin — never silent.
+ *   back in the magazin — never silent. Needs the Magazin coordinates to measure against,
+ *   so the switch is locked (with the reason) until they are set further down this card.
  *
  * Also active in training events; disabled in demo mode. The card warns that auto-advance acts on GPS.
  */
@@ -52,6 +58,15 @@ export function GpsSettingsCard({
   const enabled = settings[MASTER_KEY] === "true"
 
   const arrivalEnabled = settings[ARRIVAL_KEY] === "true"
+
+  // Regel B misst gegen die Magazin-Koordinaten. Fehlen sie, kehrt die Rückkehr-Prüfung
+  // im Backend sofort um (`_check_return` in backend/app/services/gps_automation.py) –
+  // der Schalter stünde auf «an» und es käme nie ein Vorschlag. Darum hier gesperrt, mit
+  // dem Grund und dem Feld, das ihn behebt: «Magazin (Heimatbasis)» weiter unten auf
+  // dieser Karte. Ein bereits gespeichertes «an» bleibt gespeichert.
+  const stationConfigured =
+    Number.isFinite(Number.parseFloat(settings[STATION_LAT_KEY] ?? "")) &&
+    Number.isFinite(Number.parseFloat(settings[STATION_LNG_KEY] ?? ""))
 
   // Default fallbacks for every numeric key (used when the setting is unset).
   const NUMBER_FALLBACKS: Record<string, string> = {
@@ -133,6 +148,9 @@ export function GpsSettingsCard({
           <h3 className="font-medium flex items-center gap-2">
             <Satellite className="h-4 w-4 text-primary" />
             {t("gps.title")}
+            {/* Rules, radii and tuning constants are all rows in the shared settings
+                table – the automation runs in the backend, once, for everybody. */}
+            <ScopeMark scope="station" />
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
             {t.rich("gps.intro", {
@@ -194,18 +212,30 @@ export function GpsSettingsCard({
           )}
 
           {/* Rückkehr (Regel B) — confirm only */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label className="font-medium">{t("gps.returnLabel")}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t("gps.returnHint")}
-              </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="gps-rule-return" className="font-medium">{t("gps.returnLabel")}</Label>
+                  {!stationConfigured && (
+                    <SettingUnavailableBadge>{t("common.notConfiguredBadge")}</SettingUnavailableBadge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("gps.returnHint")}
+                </p>
+              </div>
+              <Switch
+                id="gps-rule-return"
+                checked={settings[RETURN_KEY] === "true"}
+                title={!stationConfigured ? t("gps.returnUnavailable") : undefined}
+                disabled={!isEditor || !stationConfigured || saving === RETURN_KEY}
+                onCheckedChange={(v) => updateSetting(RETURN_KEY, v ? "true" : "false")}
+              />
             </div>
-            <Switch
-              checked={settings[RETURN_KEY] === "true"}
-              disabled={!isEditor || saving === RETURN_KEY}
-              onCheckedChange={(v) => updateSetting(RETURN_KEY, v ? "true" : "false")}
-            />
+            {!stationConfigured && (
+              <SettingUnavailableNote>{t("gps.returnUnavailable")}</SettingUnavailableNote>
+            )}
           </div>
 
           {/* Magazin coordinates + radius */}

@@ -18,6 +18,9 @@ import {
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
+import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
+import { ScopeMark } from "@/components/settings/scope-mark"
+import { SettingUnavailableBadge } from "@/components/settings/setting-unavailable"
 import type { ApiDiveraMemberPreview } from "@/lib/api/types"
 import {
   ALARM_TITLE_KEY,
@@ -78,21 +81,17 @@ export function DiveraAlarmSettingsCard({
   const [membersError, setMembersError] = useState(false)
   const [testId, setTestId] = useState<string>("")
   const [isTesting, setIsTesting] = useState(false)
-  // Configured alerting provider from the capability registry (badge in header)
-  const [providerName, setProviderName] = useState<string | null>(null)
+  // The alerting domain from the capability registry: provider name for the badge, and
+  // `configured` – the flag that decides whether this switch may be flipped at all.
+  // Null while the answer is outstanding.
+  const alertingCapability = useIntegrationCapability("alerting")
 
-  useEffect(() => {
-    let cancelled = false
-    apiClient
-      .getIntegrations()
-      .then((integrations) => {
-        if (!cancelled) setProviderName(integrations.alerting.display_name)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const providerName = alertingCapability?.display_name ?? null
+  // No provider, no switch. The access key lives in the server configuration, not in a
+  // field on this page – so switching this on without one only puts a dead «Aufgebot
+  // senden» button on the board, and the failure shows up days later, mid-incident.
+  // Until the registry has answered we do not claim either way: the switch stays as it is.
+  const notConfigured = alertingCapability !== null && !alertingCapability.configured
 
   useEffect(() => {
     if (!enabled) return
@@ -138,20 +137,29 @@ export function DiveraAlarmSettingsCard({
           <h3 className="font-medium flex items-center gap-2">
             <Siren className="h-4 w-4 text-primary" />
             {t("cardTitle")}
+            <ScopeMark scope="station" />
             {providerName && (
               <Badge variant="outline" className="font-normal">
                 {providerName}
               </Badge>
             )}
+            {notConfigured && (
+              <SettingUnavailableBadge>{t("notConfiguredBadge")}</SettingUnavailableBadge>
+            )}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
             {t("cardDescription")}
           </p>
+          {notConfigured && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("notConfiguredHint")}
+            </p>
+          )}
         </div>
         <Switch
           checked={enabled}
-          title={blockedReason ?? undefined}
-          disabled={Boolean(blockedReason) || !isEditor || saving === ENABLED_KEY}
+          title={blockedReason ?? (notConfigured ? t("notConfiguredHint") : undefined)}
+          disabled={Boolean(blockedReason) || notConfigured || !isEditor || saving === ENABLED_KEY}
           onCheckedChange={(v) => updateSetting(ENABLED_KEY, v ? "true" : "false")}
         />
       </div>

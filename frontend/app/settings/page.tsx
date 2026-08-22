@@ -93,6 +93,7 @@ import {
   Plus,
   Lock,
   ArrowRight,
+  Plug,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
@@ -132,6 +133,10 @@ import { ChecklistSettings } from '@/components/settings/checklist-settings';
 import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
+import { ScopeLegend, ScopeMark, type SettingScope } from '@/components/settings/scope-mark';
+import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
+import { IntegrationsSection } from './integrations-section';
+import { useTileAvailability } from './use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -147,6 +152,9 @@ const SECTIONS = [
   { id: 'checklist', icon: ClipboardCheck, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'auftragTemplates', icon: Route, group: 'config', editorOnly: true, adminOnly: false },
   { id: 'gps', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
+  // Read-only view of the capability registry (`GET /api/integrations`). No controls:
+  // the keys it reports live in the server configuration, not in a form field here.
+  { id: 'integrations', icon: Plug, group: 'config', editorOnly: false, adminOnly: false },
   // Sync can rewrite whole tables and points at a database URL – admin-only (matches /api/sync/*).
   { id: 'sync', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
   { id: 'printer', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
@@ -177,6 +185,12 @@ interface SettingConfig {
   options?: string[];
   /** Inclusive bounds for a `number`. Rejected client-side – the PATCH stores any string. */
   range?: SettingRange;
+  /**
+   * Whom a change reaches – rendered as the mark next to the label (`<ScopeMark>`).
+   * Every row below is a row in the shared `settings` table, so all of them are
+   * `station`: changing one here changes it on the wall display in the Magazin too.
+   */
+  scope: SettingScope;
 }
 
 // Labels/descriptions/option labels come from settings.page.general.configs.*
@@ -184,10 +198,12 @@ const SETTING_CONFIGS: SettingConfig[] = [
   {
     key: 'home_city',
     type: 'text',
+    scope: 'station',
   },
   {
     key: 'funkrufname',
     type: 'text',
+    scope: 'station',
   },
   // Station identity. All three have been PATCHable through the generic settings
   // endpoint since 0.4.0 (they are in the backend's DEFAULT_SETTINGS allowlist) –
@@ -202,31 +218,37 @@ const SETTING_CONFIGS: SettingConfig[] = [
   {
     key: 'firestation_name',
     type: 'text',
+    scope: 'station',
   },
   {
     key: 'firestation_latitude',
     type: 'number',
     range: LATITUDE_RANGE,
+    scope: 'station',
   },
   {
     key: 'firestation_longitude',
     type: 'number',
     range: LONGITUDE_RANGE,
+    scope: 'station',
   },
   {
     key: 'map_mode',
     type: 'select',
     options: ['auto', 'online', 'offline'],
+    scope: 'station',
   },
   {
     key: 'map_style',
     type: 'select',
     options: ['osm', 'topo', 'carto-light', 'carto-dark'],
+    scope: 'station',
   },
   {
     key: 'incident_time_display',
     type: 'select',
     options: ['start', 'column', 'total'],
+    scope: 'station',
   },
 ];
 
@@ -267,6 +289,16 @@ export default function SettingsPage() {
   // Sync status
   const { status: syncStatus, isLoading: isSyncLoading, error: syncError, isStale } = useSyncStatus();
   useRailwayRecovery(syncStatus);
+
+  // Are there real offline map tiles on this server? Answered next to the Karten-Modus
+  // select, because that is where «Nur Offline» gets chosen – and choosing it without
+  // tiles blanks the map for the whole station, silently.
+  const { availability: tiles, recheck: recheckTiles } = useTileAvailability();
+  // Only refuse the option when we positively KNOW there is nothing to fall back to.
+  // A tile server that merely fails to answer right now must not lock an operator out
+  // of a setting – and the option that is already stored stays selectable either way,
+  // otherwise the select would show a disabled item as its own value.
+  const offlineTilesUnavailable = tiles.status === 'bootstrap' || tiles.status === 'missing';
 
   // Import/Export state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -619,11 +651,23 @@ export default function SettingsPage() {
             <SelectValue placeholder={t('page.general.selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            {config.options.map((option) => (
-              <SelectItem key={option} value={option}>
-                {t(`page.general.configs.${config.key}.options.${option}`)}
-              </SelectItem>
-            ))}
+            {config.options.map((option) => {
+              const unavailable =
+                config.key === 'map_mode' &&
+                option === 'offline' &&
+                offlineTilesUnavailable &&
+                value !== option;
+              return (
+                <SelectItem key={option} value={option} disabled={unavailable}>
+                  {t(`page.general.configs.${config.key}.options.${option}`)}
+                  {unavailable && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {t('page.general.tiles.optionUnavailable')}
+                    </span>
+                  )}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       );
@@ -680,6 +724,62 @@ export default function SettingsPage() {
     );
   };
 
+  /**
+   * The line under Karten-Modus that says whether an offline fallback exists at all.
+   *
+   * It checks rather than believes: `scripts/init-tileserver.sh` creates an empty
+   * bootstrap MBTiles on first start, so a tile file that merely exists proves nothing.
+   * `unreachable` says exactly that – we could not ask – instead of inventing a verdict.
+   */
+  const renderTileAvailability = () => {
+    if (tiles.status === 'checking') return null;
+
+    const installed = tiles.status === 'installed';
+    const zoom =
+      tiles.status === 'installed' && tiles.minzoom !== null && tiles.maxzoom !== null
+        ? t('page.general.tiles.zoomRange', { min: tiles.minzoom, max: tiles.maxzoom })
+        : null;
+
+    return (
+      <div className="space-y-2 pl-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={
+              installed
+                ? 'border-success/40 bg-success/10 text-success-foreground'
+                : 'border-warning/40 bg-warning/10 text-warning-foreground'
+            }
+          >
+            {t(`page.general.tiles.${tiles.status}`)}
+          </Badge>
+          {tiles.status === 'installed' && (
+            <span className="text-xs text-muted-foreground">
+              {[tiles.name, zoom, t('page.general.tiles.checkedAt', {
+                time: tiles.checkedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+              })]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
+          <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={recheckTiles}>
+            <RefreshCw className="size-3" />
+            {t('page.general.tiles.recheck')}
+          </Button>
+        </div>
+        {!installed && (
+          <SettingUnavailableNote>
+            {t(
+              tiles.status === 'unreachable'
+                ? 'page.general.tiles.unreachableHint'
+                : 'page.general.tiles.hint',
+            )}
+          </SettingUnavailableNote>
+        )}
+      </div>
+    );
+  };
+
   // Filter sections based on editor role
   const visibleSections = SECTIONS.filter(s =>
     (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin)
@@ -704,7 +804,13 @@ export default function SettingsPage() {
               {/* Theme Selection */}
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.appearance')}</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.appearance')}</Label>
+                    {/* next-themes writes to localStorage – this really is only this screen.
+                        The mark sits NEXT TO the label, never inside it: a button inside a
+                        <label> would trigger the control it belongs to on every click. */}
+                    <ScopeMark scope="device" />
+                  </div>
                   <p className="text-xs text-muted-foreground">{t('page.general.appearanceHint')}</p>
                 </div>
                 {mounted && (
@@ -737,7 +843,11 @@ export default function SettingsPage() {
               {mounted && AVAILABLE_LOCALES.length > 1 && (
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.language')}</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.language')}</Label>
+                      {/* NEXT_LOCALE cookie, per device – like the theme above. */}
+                      <ScopeMark scope="device" />
+                    </div>
                     <p className="text-xs text-muted-foreground">{t('page.general.languageHint')}</p>
                   </div>
                   <div className="w-56 flex-shrink-0">
@@ -780,17 +890,27 @@ export default function SettingsPage() {
                 <DemoLock active={demoMode}>
                   <div className="space-y-4">
                     {SETTING_CONFIGS.map((config) => (
-                      <div key={config.key} className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <Label htmlFor={config.key} className="text-sm font-semibold text-muted-foreground">{t(`page.general.configs.${config.key}.label`)}</Label>
-                          <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
-                        </div>
-                        <div className="flex items-start gap-2 flex-shrink-0">
-                          <div className={config.type === 'text' || config.type === 'number' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
-                            {renderSettingInput(config)}
+                      <div key={config.key} className="space-y-2">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor={config.key} className="text-sm font-semibold text-muted-foreground">
+                                {t(`page.general.configs.${config.key}.label`)}
+                              </Label>
+                              <ScopeMark scope={config.scope} />
+                            </div>
+                            <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
                           </div>
-                          {saving === config.key && <Save className="mt-2.5 h-4 w-4 text-primary animate-pulse" />}
+                          <div className="flex items-start gap-2 flex-shrink-0">
+                            <div className={config.type === 'text' || config.type === 'number' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
+                              {renderSettingInput(config)}
+                            </div>
+                            {saving === config.key && <Save className="mt-2.5 h-4 w-4 text-primary animate-pulse" />}
+                          </div>
                         </div>
+                        {/* What «Nur Offline» would actually get you, right at the control
+                            that offers it – see use-tile-availability.ts. */}
+                        {config.key === 'map_mode' && renderTileAvailability()}
                       </div>
                     ))}
                     <BrandingSettings readOnly={!isEditor} />
@@ -1041,6 +1161,9 @@ export default function SettingsPage() {
           </div>
         );
       }
+
+      case 'integrations':
+        return <IntegrationsSection />;
 
       case 'sync':
         return demoMode ? (
@@ -1823,7 +1946,10 @@ export default function SettingsPage() {
           {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; extra bottom padding so content clears the bottom nav. */}
           <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
-            <div className="max-w-4xl">
+            <div className="max-w-4xl space-y-4">
+              {/* The scope legend, once per page. Every row below carries the 15-pixel
+                  mark; spelling both meanings out twenty times would drown the list. */}
+              <ScopeLegend />
               {renderContent()}
             </div>
           </main>

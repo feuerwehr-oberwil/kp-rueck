@@ -376,7 +376,9 @@
       "membersError": "Les membres Divera n’ont pas pu être chargés (vérifie la clé d’accès).",
       "selectPerson": "Choisir une personne…",
       "loadingMembers": "Chargement des membres Divera…",
-      "sendTest": "Envoyer l’alarme de test"
+      "sendTest": "Envoyer l’alarme de test",
+      "notConfiguredBadge": "Non configuré",
+      "notConfiguredHint": "Aucun fournisseur d’alarme enregistré. La clé d’accès est saisie par la personne qui s’occupe du serveur – ensuite seulement l’interrupteur peut être activé."
     },
     "sendDialog": {
       "noRecipientsError": "Aucun destinataire lié sélectionné",
@@ -2447,7 +2449,8 @@
       "photoLabel": "Limite de photos (Go)",
       "materialThresholdsTitle": "Seuils de stock de matériel",
       "materialThresholdsSubtitle": "Avertit lorsque le matériel disponible d’une catégorie passe sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
-      "materialThresholdsManageLink": "Gérer le matériel"
+      "materialThresholdsManageLink": "Gérer le matériel",
+      "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
     },
     "toasts": {
       "criticalTitle": "Avertissement critique",
@@ -2871,7 +2874,8 @@
         "materials": "Matériel",
         "import": "Import/export",
         "audit": "Journal d’audit",
-        "telemetry": "Rapports d’erreur"
+        "telemetry": "Rapports d’erreur",
+        "integrations": "Intégrations"
       },
       "telemetry": {
         "reportTitle": "Signaler un problème",
@@ -3009,6 +3013,18 @@
         "validation": {
           "notANumber": "Nombre non valide.",
           "outOfRange": "Doit être compris entre {min} et {max}."
+        },
+        "tiles": {
+          "installed": "Tuiles hors ligne : installées",
+          "bootstrap": "Tuiles hors ligne : non installées",
+          "missing": "Tuiles hors ligne : aucune",
+          "unreachable": "Le serveur de tuiles ne répond pas",
+          "zoomRange": "Zoom {min}–{max}",
+          "checkedAt": "vérifié à {time}",
+          "recheck": "Vérifier à nouveau",
+          "optionUnavailable": "– aucune tuile installée",
+          "hint": "Sans tuiles, «Auto» reste en ligne et n’a aucun repli en cas de panne. Les tuiles sont téléchargées une seule fois, pour la propre région, par la personne qui s’occupe du serveur. Marche à suivre : Aide → Cartes hors ligne.",
+          "unreachableHint": "Le serveur de tuiles ne répond pas pour l’instant – impossible de dire d’ici si des tuiles hors ligne sont installées. «Hors ligne uniquement» reste sélectionnable, mais pourrait donner une carte vide."
         }
       },
       "checklist": {
@@ -3270,7 +3286,8 @@
           "hint": "Un véhicule n’est considéré à l’arrêt qu’en dessous de cette vitesse (le pas d’homme dans la cour compte). Recommandé : 10"
         }
       },
-      "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages."
+      "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)»."
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",
@@ -3354,7 +3371,8 @@
       "syncSectionUnchanged": "Inchangées",
       "syncSectionNotInDivera": "Absentes de Divera",
       "removeStaleLabel": "{count, plural, one {Retirer # personne absente de Divera} other {Retirer # personnes absentes de Divera}}",
-      "syncExecuteButton": "Synchroniser"
+      "syncExecuteButton": "Synchroniser",
+      "syncUnavailable": "Aucun fournisseur de personnel enregistré – il n’y a rien à synchroniser. La clé d’accès est saisie par la personne qui s’occupe du serveur ; l’état figure sous Réglages → Intégrations."
     },
     "printer": {
       "toasts": {
@@ -3402,7 +3420,9 @@
       "pollingTitle": "Comportement d’interrogation",
       "pollingText": "Au repos, l’agent interroge toutes les 60 secondes. Après un travail d’impression, il passe à un intervalle de 5 secondes pendant 15 minutes, afin que les travaux suivants soient traités plus vite.",
       "networkTitle": "Réseau",
-      "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire."
+      "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire.",
+      "unavailableDisabled": "L’imprimante n’est pas encore activée sur cette carte – tant qu’elle est désactivée, rien ne s’imprime.",
+      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ «Adresse IP» sur cette carte."
     },
     "users": {
       "roles": {
@@ -3441,7 +3461,6 @@
       "passwordLabel": "Mot de passe",
       "roleLabel": "Rôle",
       "roleAdmin": "Administrateur",
-      "adminsHint": "Les administrateurs peuvent gérer les utilisateurs.",
       "creating": "Création...",
       "editDialogTitle": "Modifier l’utilisateur",
       "editDialogDescription": "Modifie les données de l’utilisateur.",
@@ -3458,7 +3477,12 @@
       "permanentDeleteTitle": "Supprimer définitivement l’utilisateur ?",
       "permanentDeleteDescription": "L’utilisateur {name} sera supprimé de manière irréversible. Cette action ne peut pas être annulée.",
       "deleting": "Suppression...",
-      "permanentDeleteAction": "Supprimer définitivement"
+      "permanentDeleteAction": "Supprimer définitivement",
+      "roleHints": {
+        "editor": "Tient le tableau : ouvrir des interventions, attribuer des ressources, modifier les réglages.",
+        "viewer": "Ne voit que l’affichage mural. Après la connexion, y arrive directement et ne peut ni ouvrir ni utiliser le tableau.",
+        "admin": "Comme l’éditeur, et gère en plus les comptes d’utilisateurs."
+      }
     },
     "vehicles": {
       "loadError": "Les véhicules n’ont pas pu être chargés",
@@ -3512,6 +3536,50 @@
       "archiveInUseDescription": "Encore engagé sur une intervention ouverte – le libérer d'abord, puis archiver.",
       "restoreError": "Échec de la restauration",
       "purgeError": "Échec de la suppression définitive"
+    },
+    "scope": {
+      "legendLabel": "Portée",
+      "station": {
+        "name": "Toute la caserne",
+        "legend": "tous les écrans, tous les utilisateurs",
+        "consequence": "Une modification s’applique aussitôt sur chaque tableau et sur l’écran mural du dépôt."
+      },
+      "device": {
+        "name": "Cet appareil uniquement",
+        "legend": "ne vaut qu’ici, sur cet écran",
+        "consequence": "Une modification ne vaut que sur cet écran – tous les autres appareils restent inchangés."
+      }
+    },
+    "integrations": {
+      "title": "Intégrations",
+      "description": "Ce qui relie cette installation au monde extérieur. Cela ne se change pas ici, mais sur le serveur – la colonne de droite dit où.",
+      "readOnlyBadge": "Lecture seule",
+      "loadFailed": "L’aperçu n’a pas pu être chargé.",
+      "columns": {
+        "domain": "Domaine",
+        "provider": "Fournisseur",
+        "status": "Statut",
+        "where": "Où le changer"
+      },
+      "domains": {
+        "alarms": "Réception d’alarme",
+        "alerting": "Alarmement",
+        "personnel": "Synchronisation du personnel",
+        "vehicles": "GPS des véhicules"
+      },
+      "status": {
+        "configured": "Configuré",
+        "notConfigured": "Non configuré",
+        "blocked": "Bloqué"
+      },
+      "serverConfig": "Configuration du serveur",
+      "builtinTitle": "Toujours disponible, sans fournisseur :",
+      "builtinPaths": {
+        "generic-webhook": "Alarmes par webhook vers /api/alarms",
+        "manual-intake": "Lien d’alarme pour le téléphone",
+        "operator": "Saisie manuelle sur le tableau"
+      },
+      "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte."
     }
   },
   "sync": {

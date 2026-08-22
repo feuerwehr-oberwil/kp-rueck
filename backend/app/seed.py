@@ -724,7 +724,11 @@ async def seed_database() -> None:
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
                 ("alarm_webhook_secret", secrets.token_urlsafe(32)),
-                ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
+                # "auto", matching DEFAULT_SETTINGS in services/settings.py — the seed writes
+                # the row a fresh install actually gets, so leaving "online" here would keep
+                # every new station without the offline fallback the help promises. "auto"
+                # behaves like "online" until the tiles fail; only then does it differ.
+                ("map_mode", "auto"),  # auto=online with offline fallback, online=OSM only, offline=local tiles
                 ("incident_time_display", "column"),  # start | column | total (per-device override in the UI)
             ]
 

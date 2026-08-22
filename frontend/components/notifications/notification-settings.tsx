@@ -14,7 +14,28 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { apiClient } from '@/lib/api-client'
+import { ScopeMark } from '@/components/settings/scope-mark'
 import type { NotificationSettings } from '@/lib/types/notification'
+
+/**
+ * The five warning switches. They read like a personal preference and are not one:
+ * every value on this card is stored once, in the backend, for the whole station –
+ * see `updateSettings` in `lib/contexts/notification-context.tsx`. Switching one off
+ * here switches it off on the wall display in the Magazin as well, which is why each
+ * one that is OFF says so underneath.
+ */
+const WARNING_SWITCHES = [
+  { id: 'time-alerts', key: 'enabled_time_alerts', label: 'timeAlertsLabel', hint: 'timeAlertsHint' },
+  { id: 'resource-alerts', key: 'enabled_resource_alerts', label: 'resourceAlertsLabel', hint: 'resourceAlertsHint' },
+  { id: 'data-quality-alerts', key: 'enabled_data_quality_alerts', label: 'dataQualityAlertsLabel', hint: 'dataQualityAlertsHint' },
+  { id: 'event-alerts', key: 'enabled_event_alerts', label: 'eventAlertsLabel', hint: 'eventAlertsHint' },
+  { id: 'geofence-alerts', key: 'enabled_geofence_alerts', label: 'geofenceAlertsLabel', hint: 'geofenceAlertsHint' },
+] as const satisfies readonly {
+  id: string
+  key: keyof NotificationSettings
+  label: string
+  hint: string
+}[]
 
 export function NotificationSettingsCard() {
   const t = useTranslations('notifications.settings')
@@ -73,85 +94,39 @@ export function NotificationSettingsCard() {
     <div className="space-y-6">
       {/* Warnungen */}
       <Card className="p-6">
-      <div className="space-y-1 mb-4">
-        <p className="font-medium">{t('warningsTitle')}</p>
-        <p className="text-xs text-muted-foreground">{t('warningsSubtitle')}</p>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="space-y-1">
+          <p className="font-medium">{t('warningsTitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('warningsSubtitle')}</p>
+        </div>
+        {/* One mark for the whole block – every row below shares its reach. */}
+        <ScopeMark scope="station" align="end" className="mt-1" />
       </div>
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="time-alerts" className="font-medium">{t('timeAlertsLabel')}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t('timeAlertsHint')}
-            </p>
-          </div>
-          <Switch
-            id="time-alerts"
-            checked={settings.enabled_time_alerts}
-            onCheckedChange={(checked) => updateSetting('enabled_time_alerts', checked)}
-            disabled={savingKey === 'enabled_time_alerts'}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="resource-alerts" className="font-medium">{t('resourceAlertsLabel')}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t('resourceAlertsHint')}
-            </p>
-          </div>
-          <Switch
-            id="resource-alerts"
-            checked={settings.enabled_resource_alerts}
-            onCheckedChange={(checked) => updateSetting('enabled_resource_alerts', checked)}
-            disabled={savingKey === 'enabled_resource_alerts'}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="data-quality-alerts" className="font-medium">{t('dataQualityAlertsLabel')}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t('dataQualityAlertsHint')}
-            </p>
-          </div>
-          <Switch
-            id="data-quality-alerts"
-            checked={settings.enabled_data_quality_alerts}
-            onCheckedChange={(checked) => updateSetting('enabled_data_quality_alerts', checked)}
-            disabled={savingKey === 'enabled_data_quality_alerts'}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="event-alerts" className="font-medium">{t('eventAlertsLabel')}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t('eventAlertsHint')}
-            </p>
-          </div>
-          <Switch
-            id="event-alerts"
-            checked={settings.enabled_event_alerts}
-            onCheckedChange={(checked) => updateSetting('enabled_event_alerts', checked)}
-            disabled={savingKey === 'enabled_event_alerts'}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="geofence-alerts" className="font-medium">{t('geofenceAlertsLabel')}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t('geofenceAlertsHint')}
-            </p>
-          </div>
-          <Switch
-            id="geofence-alerts"
-            checked={settings.enabled_geofence_alerts}
-            onCheckedChange={(checked) => updateSetting('enabled_geofence_alerts', checked)}
-            disabled={savingKey === 'enabled_geofence_alerts'}
-          />
-        </div>
+        {WARNING_SWITCHES.map(({ id, key, label, hint }) => {
+          const checked = settings[key] === true
+          return (
+            <div key={key} className="space-y-2">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <Label htmlFor={id} className="font-medium">{t(label)}</Label>
+                  <p className="text-xs text-muted-foreground">{t(hint)}</p>
+                </div>
+                <Switch
+                  id={id}
+                  checked={checked}
+                  onCheckedChange={(next) => updateSetting(key, next)}
+                  disabled={savingKey === key}
+                />
+              </div>
+              {!checked && (
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-foreground">
+                  {t('disabledForEveryone', { what: t(label) })}
+                </p>
+              )}
+            </div>
+          )
+        })}
 
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -181,11 +156,14 @@ export function NotificationSettingsCard() {
       {/* Zeitlimits */}
       <Card className="p-6">
       <div className="space-y-4">
-        <div>
-          <p className="font-medium">{t('timeLimitsTitle')}</p>
-          <p className="text-xs text-muted-foreground">
-            {t('timeLimitsSubtitle')}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-medium">{t('timeLimitsTitle')}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('timeLimitsSubtitle')}
+            </p>
+          </div>
+          <ScopeMark scope="station" align="end" className="mt-1" />
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'live' | 'training')}>
@@ -400,11 +378,14 @@ export function NotificationSettingsCard() {
       {/* Schwellenwerte */}
       <Card className="p-6">
       <div className="space-y-4">
-        <div>
-          <p className="font-medium">{t('thresholdsTitle')}</p>
-          <p className="text-xs text-muted-foreground">
-            {t('thresholdsSubtitle')}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-medium">{t('thresholdsTitle')}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('thresholdsSubtitle')}
+            </p>
+          </div>
+          <ScopeMark scope="station" align="end" className="mt-1" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

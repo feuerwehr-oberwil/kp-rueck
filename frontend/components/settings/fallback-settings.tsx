@@ -19,6 +19,10 @@ import { apiClient } from '@/lib/api-client';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useTranslations } from 'next-intl';
 import { DemoLock } from '@/components/settings/demo-lock';
+import {
+  SettingUnavailableBadge,
+  SettingUnavailableNote,
+} from '@/components/settings/setting-unavailable';
 
 /** localStorage key for the per-device Lageblatt auto-download. */
 export const LAGEBLATT_AUTODOWNLOAD_KEY = 'kp-lageblatt-autodownload';
@@ -65,7 +69,10 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
   const { selectedEvent } = useEvent();
   const [loaded, setLoaded] = useState(false);
   const [autoPrint, setAutoPrint] = useState(false);
-  const [printerEnabled, setPrinterEnabled] = useState(false);
+  // Ob überhaupt ein Thermodrucker eingerichtet ist – Schalter AN und Adresse gesetzt.
+  // Beides kommt aus derselben Einstellungs-Abfrage; ohne beides druckt der Board-
+  // Schnappschuss nichts, egal was hier steht.
+  const [printerConfigured, setPrinterConfigured] = useState(false);
   const [interval, setIntervalMin] = useState('15');
   const [saving, setSaving] = useState<string | null>(null);
   const [autoDownload, setAutoDownload] = useState(false);
@@ -77,7 +84,9 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
       .getAllSettings()
       .then((settings) => {
         setAutoPrint(settings['fallback.auto_print_enabled'] === 'true');
-        setPrinterEnabled(settings['printer.enabled'] === 'true');
+        setPrinterConfigured(
+          settings['printer.enabled'] === 'true' && (settings['printer.ip'] ?? '').trim() !== '',
+        );
         setIntervalMin(settings['fallback.auto_print_interval_min'] || '15');
       })
       .catch(() => toast.error(t('fallback.loadFailed')))
@@ -158,25 +167,35 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
           </p>
         </div>
 
-        {/* Server-side: automatic thermal snapshots (shared setting → locked in demo) */}
+        {/* Server-side: automatic thermal snapshots (shared setting → locked in demo).
+            Ohne eingerichteten Thermodrucker bewirkt der Schalter nichts – darum ist er
+            dann gesperrt und sagt weshalb, statt sich umlegen zu lassen und zu schweigen.
+            Ein bereits gespeichertes «an» bleibt stehen und wirkt wieder, sobald der
+            Drucker eingerichtet ist. */}
         <DemoLock active={demoMode} className="space-y-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="fallback-auto-print" className="font-medium flex items-center gap-2">
-                <Printer className="h-4 w-4" />
-                {t('fallback.autoPrintLabel')}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t('fallback.autoPrintHint')}
-                {!printerEnabled && loaded ? t('fallback.autoPrintPrinterRequired') : ''}
-              </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <Label htmlFor="fallback-auto-print" className="font-medium flex items-center gap-2">
+                  <Printer className="h-4 w-4" />
+                  {t('fallback.autoPrintLabel')}
+                  {loaded && !printerConfigured && (
+                    <SettingUnavailableBadge>{t('common.notConfiguredBadge')}</SettingUnavailableBadge>
+                  )}
+                </Label>
+                <p className="text-xs text-muted-foreground">{t('fallback.autoPrintHint')}</p>
+              </div>
+              <Switch
+                id="fallback-auto-print"
+                checked={autoPrint}
+                title={loaded && !printerConfigured ? t('fallback.autoPrintPrinterRequired') : undefined}
+                onCheckedChange={handleAutoPrintToggle}
+                disabled={!loaded || !printerConfigured || saving === 'fallback.auto_print_enabled'}
+              />
             </div>
-            <Switch
-              id="fallback-auto-print"
-              checked={autoPrint}
-              onCheckedChange={handleAutoPrintToggle}
-              disabled={!loaded || saving === 'fallback.auto_print_enabled'}
-            />
+            {loaded && !printerConfigured && (
+              <SettingUnavailableNote>{t('fallback.autoPrintPrinterRequired')}</SettingUnavailableNote>
+            )}
           </div>
 
           {autoPrint && (
