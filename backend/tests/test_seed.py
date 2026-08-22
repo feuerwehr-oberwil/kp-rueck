@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app import models
-from app.seed import seed_database
+from app.seed import seed_database, seed_dev_logins
 
 
 class RecordingSession:
@@ -24,13 +24,19 @@ class RecordingSession:
 
     def __init__(self):
         self.added: list[object] = []
+        # Rows that "already exist", keyed by the username a WHERE clause asks for.
+        # seed_database's existence checks carry no such clause and get None – i.e.
+        # "nothing here yet", so the seed actually runs. seed_dev_logins' per-user
+        # lookups find what a synced database would already hold.
+        self.existing: dict[str, object] = {}
 
-    async def execute(self, _statement):
-        # Both queries seed_database makes are existence checks, and both must
-        # answer "nothing here yet" so the seed actually runs.
+    async def execute(self, statement):
         result = MagicMock()
-        result.scalars.return_value.first.return_value = None
-        result.scalar_one_or_none.return_value = None
+        clause = getattr(statement, "whereclause", None)
+        username = getattr(getattr(clause, "right", None), "value", None)
+        found = self.existing.get(username) if username else None
+        result.scalars.return_value.first.return_value = found
+        result.scalar_one_or_none.return_value = found
         return result
 
     def add(self, obj):
@@ -139,3 +145,27 @@ async def test_development_seeds_training_locations(session, development, traini
     await seed_database()
 
     assert training.await_args.kwargs["seed_locations"] is True
+
+
+async def test_dev_logins_refuse_in_production(session, production):
+    """The upsert replaces password hashes – on a station that is sabotage, not setup."""
+    with pytest.raises(RuntimeError):
+        await seed_dev_logins()
+
+    assert session.added == []
+
+
+async def test_dev_logins_overwrite_a_synced_admin_and_add_the_rest(session, development):
+    """After `just dev-sync`, the station's admin row is still there – but its hash
+    must become the LOCAL dev password, and the missing dev accounts must appear."""
+    synced_admin = models.User(
+        username="admin", password_hash="station-hash", role="admin", display_name="Administrator", is_active=False
+    )
+    session.existing["admin"] = synced_admin
+
+    await seed_dev_logins()
+
+    assert synced_admin.password_hash != "station-hash"
+    assert synced_admin.is_active is True
+    added_users = {u.username for u in session.added if isinstance(u, models.User)}
+    assert added_users == {"dev-user", "editor", "viewer"}

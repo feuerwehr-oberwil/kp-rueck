@@ -14,6 +14,13 @@ just dev
 just db seed       # Seed with initial data
 just db migrate    # Run pending migrations
 
+# Mirror a real deployment into the dev stack (zero-config setup; source is any
+# Postgres URL, or 'railway' for the linked project). --config = settings/inventory
+# only, no Einsätze. The replaced dev DB is dumped to ./backups/ first, and the
+# dev logins (admin/kp-dev-password, editor, viewer) are re-seeded afterwards.
+just dev-sync railway
+just dev-sync postgres://user:pass@host:5432/db --config
+
 # Offline map tiles (optional)
 just tiles-download  # Download and install tiles (~12 MB)
 just tiles-status    # Check tile server status

@@ -491,6 +491,14 @@ dev-clean:
     # errors without an .env and must not mask the dev teardown above having succeeded.
     docker compose down -v || true
 
+# Fill the dev stack from a real deployment so a fresh checkout needs zero configuration:
+# `just dev`, then `just dev-sync railway` – or any Postgres URL, any provider. `--config`
+# brings settings/fleet/roster/material but no Einsätze; `--yes` skips the prompt. The
+# replaced dev database is dumped to ./backups/ first, and the dev logins keep working.
+# Pull a deployment's database into the dev stack (SOURCE: Postgres URL or 'railway')
+dev-sync SOURCE *FLAGS:
+    ./scripts/dev-sync.sh {{SOURCE}} {{FLAGS}}
+
 # ============================================
 # Database
 # ============================================

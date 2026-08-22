@@ -6,6 +6,7 @@ Run with: uv run python -m app.seed
 import asyncio
 import os
 import secrets
+import sys
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -619,6 +620,71 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
     return vehicles, personnel, materials
 
 
+async def seed_dev_logins() -> None:
+    """Upsert the development logins into an EXISTING database.
+
+    The counterpart of `scripts/dev-sync.sh`: a synced database arrives with the
+    source deployment's users, and the local stack still wants its own known
+    credentials – the auth-bypass user, admin/$ADMIN_SEED_PASSWORD, editor/editor,
+    viewer/viewer. Upsert, not insert: a synced «admin» is the station's admin row,
+    and replacing its hash locally is exactly the point – the station's password
+    must not work (or need to be known) on a laptop.
+
+    Development only. In production this would overwrite the station's real
+    credentials with dev defaults, so it refuses outright.
+    """
+    if is_production_environment():
+        raise RuntimeError("--dev-logins would overwrite real credentials; it refuses to run in production")
+
+    import uuid
+
+    def hashed(password: str) -> str:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    accounts = [
+        # (username, password_hash, role, display_name, fixed_id) – dev-user keeps the
+        # all-zero UUID the auth bypass looks up; empty hash because bypass never checks it.
+        ("dev-user", "", "admin", "Development User", uuid.UUID("00000000-0000-0000-0000-000000000000")),
+        ("admin", hashed(get_admin_password()), "admin", "Administrator", None),
+        (
+            "editor",
+            hashed(get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")),
+            "editor",
+            "Bearbeiter",
+            None,
+        ),
+        (
+            "viewer",
+            hashed(get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer")),
+            "viewer",
+            "Betrachter",
+            None,
+        ),
+    ]
+
+    async with async_session_maker() as db:
+        for username, password_hash, role, display_name, fixed_id in accounts:
+            result = await db.execute(select(models.User).where(models.User.username == username))
+            user = result.scalars().first()
+            if user:
+                user.password_hash = password_hash
+                user.role = role
+                user.is_active = True
+            else:
+                db.add(
+                    models.User(
+                        id=fixed_id or uuid4(),
+                        username=username,
+                        password_hash=password_hash,
+                        role=role,
+                        display_name=display_name,
+                        is_active=True,
+                    )
+                )
+        await db.commit()
+    print("✓ Dev logins ready: dev-user (bypass), admin, editor, viewer")
+
+
 async def seed_database() -> None:
     """Seed the database with initial data.
 
@@ -840,4 +906,7 @@ async def seed_database() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_database())
+    if "--dev-logins" in sys.argv[1:]:
+        asyncio.run(seed_dev_logins())
+    else:
+        asyncio.run(seed_database())
