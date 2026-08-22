@@ -1444,6 +1444,7 @@
       "dropRefusedRouteOccupied": "Déjà pris par une autre mission – libérer là-bas d’abord.",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
+      "openRoutenEditor": "Ouvrir l’éditeur d’itinéraire",
       "newIncident": "Nouvelle intervention",
       "telefondienst": "Service téléphonique",
       "kommandoposten": "Poste de commandement",

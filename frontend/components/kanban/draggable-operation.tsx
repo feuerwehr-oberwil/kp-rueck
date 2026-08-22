@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText, FileCheck, XCircle, Trash2 } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2 } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -1217,6 +1217,23 @@ function DraggableOperationBase({
               <ContextMenuItem onClick={() => onDistributeToAuftrag()}>
                 <Waypoints className="mr-2 h-4 w-4" />
                 {t('common.distributeToAuftrag')}
+              </ContextMenuItem>
+            )}
+            {/* Only on cards that stand on a route, editor-gated like distribute.
+                Same window-event channel as the Auftrag chip (no prop threading);
+                the stop under the cursor arrives focused. */}
+            {auftrag && onDistributeToAuftrag && (
+              <ContextMenuItem
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('kp:open-routen-editor', {
+                      detail: { groupId: auftrag.id, focusIncidentId: operation.id },
+                    })
+                  )
+                }
+              >
+                <Route className="mr-2 h-4 w-4" />
+                {t('common.openRoutenEditor')}
               </ContextMenuItem>
             )}
           </>

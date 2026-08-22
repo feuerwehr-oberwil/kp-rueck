@@ -1728,6 +1728,19 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('kp:open-auftraege', handler)
   }, [])
 
+  // Same channel for the Routen-Editor: a card's context menu opens its route
+  // directly, with that stop focused, instead of detouring through the sheet.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ groupId: string; focusIncidentId?: string }>).detail
+      if (!detail?.groupId) return
+      setRoutenEditorGroupId(detail.groupId)
+      setRoutenEditorFocusIncidentId(detail.focusIncidentId ?? null)
+    }
+    window.addEventListener('kp:open-routen-editor', handler)
+    return () => window.removeEventListener('kp:open-routen-editor', handler)
+  }, [])
+
   // Lock the board scroll while a non-modal footer slide-up sheet is open. These
   // desktop sheets don't dim/trap the screen, so the board would otherwise scroll
   // behind them (odd UI churn). The board has TWO scroll axes on separate
