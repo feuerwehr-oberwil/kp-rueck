@@ -6,7 +6,7 @@
  *
  * It renders in two shapes, chosen by the `dense` prop. The board (`dense`)
  * gets `DetailField` rows: the Übersicht's own vocabulary, 104px label gutter,
- * a hairline per row, values at 13px — because at the KP the report is read
+ * whitespace between rows, values at 13px — because at the KP the report is read
  * beside the fields it is being compared against, and it has to line up with
  * them. The phone sheet and the wall display get the card below, which keeps
  * its thumb targets and its 16px finding on purpose.
@@ -82,7 +82,7 @@ interface RekoReportSectionProps {
    * The board's mount — the incident detail, modal and 420px panel alike.
    *
    * It renders the report as `DetailField` rows: 104px label gutter, ~30px
-   * lines, a hairline under each one, values at 13px. That is the Übersicht's
+   * lines, whitespace between them (no hairlines), values at 13px. That is the Übersicht's
    * own vocabulary one tab over, and using it is the whole of Variante A — a
    * Reko report is read while deciding what to send, next to the fields it is
    * being compared against, so it has to line up with them.
@@ -249,7 +249,7 @@ export default function RekoReportSection({
     <div className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
       {dense ? (
       // The board: one column of rows. No `space-y` — the rows carry their own
-      // hairline and sit flush against each other, the way the Übersicht's do.
+      // `py-1` and sit flush against each other, the way the Übersicht's do.
       <div>
       {dataSlot && <div className="mb-2">{dataSlot}</div>}
       {latestReport ? (
@@ -384,7 +384,7 @@ export default function RekoReportSection({
           // column IS the frame, and a border inside a border inside the modal
           // is two frames around one form.
           <div className={cn(dense ? "space-y-1" : "space-y-3", !split && !dense && "rounded-lg border border-border p-4")}>
-            <div className={cn("flex items-center gap-2", dense && "border-b border-border/50 pb-1.5")}>
+            <div className={cn("flex items-center gap-2", dense && "pb-1.5")}>
               <Binoculars className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="text-sm font-semibold text-muted-foreground">
                 {latestReport ? t('amendTitle') : t('createTitle')}
@@ -708,8 +708,10 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
         {/* The verdict line — the ONE thing that still marks a report as a
             message from outside rather than a form field. Name and stamps ride
             on it as muted text; the badge around the name was a third layer of
-            chrome on a line that already has an icon and a rule. */}
-        <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'border-b border-border/50 pb-1.5')}>
+            chrome on a line that already has an icon. No hairline under it —
+            whitespace separates it from the rows below, like everywhere else
+            in the detail. */}
+        <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'pb-1.5')}>
           {report.is_relevant ? (
             <CheckCircle2 className="size-4 shrink-0 text-success" />
           ) : (

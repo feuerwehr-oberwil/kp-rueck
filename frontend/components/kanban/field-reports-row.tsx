@@ -181,7 +181,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       {rows.length > 1 && (
         <p
           title={t('reportsDescription')}
-          className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+          className="text-xs font-semibold text-muted-foreground"
         >
           {t('reportsTitle')}
         </p>
@@ -407,8 +407,12 @@ export function FieldMessageThread({
     t,
   ])
 
+  // No card around the thread («Nur Abstand»): the heading names it and
+  // whitespace separates it from the Funkmeldung row above and the release
+  // list below. The display modal already frames it in a DisclosureSection,
+  // where the border made it a box in a box.
   return (
-    <div className="rounded-lg border border-border p-4 space-y-3">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Label className="text-sm font-semibold">{t('messagesTitle')}</Label>

@@ -36,21 +36,25 @@ export interface IncidentTimelineProps {
 export function IncidentTimeline({ events, isLoading, failed, onRetry, className }: IncidentTimelineProps) {
   const t = useTranslations('kanban')
 
+  // No card around the list and no hairlines inside it («Nur Abstand»): the
+  // heading names the block, whitespace separates the entries. The display
+  // modal mounts this inside its own DisclosureSection frame, which used to
+  // make it a box in a box.
   return (
-    <div className={cn("rounded-lg border border-border", className)} data-testid="incident-timeline">
-      <div className="border-b border-border px-3 py-2">
+    <div className={cn("space-y-1.5", className)} data-testid="incident-timeline">
+      <div>
         <h3 className="text-sm font-semibold">{t('timeline.title')}</h3>
         <p className="text-xs text-muted-foreground">{t('timeline.subtitle')}</p>
       </div>
 
       {isLoading && (
-        <p className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+        <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         </p>
       )}
 
       {!isLoading && failed && (
-        <div className="px-3 py-3 text-xs text-destructive">
+        <div className="py-1 text-xs text-destructive">
           {t('timeline.loadFailed')}{' '}
           <button type="button" onClick={onRetry} className="underline">
             {t('timeline.retry')}
@@ -59,11 +63,11 @@ export function IncidentTimeline({ events, isLoading, failed, onRetry, className
       )}
 
       {!isLoading && !failed && events && events.length === 0 && (
-        <p className="px-3 py-3 text-xs italic text-muted-foreground/60">{t('timeline.empty')}</p>
+        <p className="py-1 text-xs italic text-muted-foreground/60">{t('timeline.empty')}</p>
       )}
 
       {!isLoading && !failed && events && events.length > 0 && (
-        <ol className="divide-y divide-border">
+        <ol>
           {events.map((event, idx) => (
             <TimelineRow key={idx} event={event} />
           ))}
@@ -77,7 +81,7 @@ function TimelineRow({ event }: { event: ApiIncidentTimelineEvent }) {
   const time = formatTime(event.timestamp)
   const isMessage = event.event_type === "field_message" || event.event_type === "kp_message"
   return (
-    <li className={cn("flex gap-3 px-3 py-2 text-xs", isMessage ? "items-start" : "items-center")}>
+    <li className={cn("flex gap-3 py-1 text-xs", isMessage ? "items-start" : "items-center")}>
       <span className={cn("shrink-0 font-mono tabular-nums text-muted-foreground", isMessage && "pt-px")}>{time}</span>
       <div className={cn("flex min-w-0 flex-1 gap-2", isMessage ? "items-start" : "items-center")}>
         <EventIcon event={event} />

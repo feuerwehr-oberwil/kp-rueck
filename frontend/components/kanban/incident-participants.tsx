@@ -72,9 +72,12 @@ export function IncidentParticipants({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId])
 
+  // No card and no hairline under the heading («Nur Abstand») — the heading
+  // names the block, whitespace does the separating, same as the timeline
+  // above it in the Verlauf tab.
   return (
-    <div className={cn("rounded-lg border border-border", className)}>
-      <div className="flex w-full items-center gap-2 px-3 py-2">
+    <div className={cn("space-y-1", className)}>
+      <div className="flex w-full items-center gap-2">
         <History className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
         <span className="flex-1 text-sm font-semibold">{t("title")}</span>
         {participants !== null && (
@@ -82,7 +85,7 @@ export function IncidentParticipants({
         )}
       </div>
 
-      <div className="border-t border-border px-3 py-2">
+      <div>
           {loading && (
             <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

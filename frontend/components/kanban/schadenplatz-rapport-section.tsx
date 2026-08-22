@@ -118,7 +118,9 @@ export function SchadenplatzRapportSection({
           this one was never disponiert". The section header stays so the tab
           does not lose the thing the operator came looking for. */}
       {!applies ? (
-        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+        // A plain sentence, no dashed box («Nur Abstand») — the same empty-state
+        // grammar the timeline and the dense Reko row use.
+        <p className="text-sm italic text-muted-foreground/60">
           {t('notDispatched')}
         </p>
       ) : (
