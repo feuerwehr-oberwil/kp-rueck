@@ -2856,9 +2856,11 @@
     "page": {
       "title": "Réglages",
       "groups": {
-        "config": "Configuration",
-        "resources": "Ressources",
-        "data": "Données"
+        "setup": "Installation",
+        "operations": "Exploitation",
+        "resources": "Inventaire",
+        "records": "Journal",
+        "device": "Cet appareil"
       },
       "sections": {
         "general": "Général",
@@ -2877,7 +2879,8 @@
         "import": "Import/export",
         "audit": "Journal d’audit",
         "telemetry": "Rapports d’erreur",
-        "integrations": "Intégrations"
+        "integrations": "Intégrations",
+        "device": "Cet appareil"
       },
       "telemetry": {
         "reportTitle": "Signaler un problème",
@@ -3219,7 +3222,9 @@
         "system": "Système",
         "show": "Afficher",
         "showDetails": "Afficher les détails"
-      }
+      },
+      "searchPlaceholder": "Rechercher un réglage…",
+      "searchNoResults": "Aucun résultat."
     },
     "categorySort": {
       "noCategory": "(Aucun rôle)",
@@ -3248,7 +3253,9 @@
       "manualLabel": "Télécharger la feuille de situation maintenant",
       "manualHint": "Formulaire de conduite A4 (mise en page BL/BS) avec tous les détails d’intervention",
       "manualNoEvent": " – aucun événement sélectionné",
-      "downloadButton": "Télécharger"
+      "downloadButton": "Télécharger",
+      "autoDownloadMovedHint": "Se trouve sous «Cet appareil» – le téléchargement arrive dans le dossier de cet ordinateur, pas dans l’installation.",
+      "autoDownloadMovedAction": "Y aller"
     },
     "gps": {
       "title": "Automatisme de statut par GPS",
@@ -3542,19 +3549,6 @@
       "restoreError": "Échec de la restauration",
       "purgeError": "Échec de la suppression définitive"
     },
-    "scope": {
-      "legendLabel": "Portée",
-      "station": {
-        "name": "Toute la caserne",
-        "legend": "tous les écrans, tous les utilisateurs",
-        "consequence": "Une modification s’applique aussitôt sur chaque tableau et sur l’écran mural du dépôt."
-      },
-      "device": {
-        "name": "Cet appareil uniquement",
-        "legend": "ne vaut qu’ici, sur cet écran",
-        "consequence": "Une modification ne vaut que sur cet écran – tous les autres appareils restent inchangés."
-      }
-    },
     "integrations": {
       "title": "Intégrations",
       "description": "Ce qui relie cette installation au monde extérieur. Cela ne se change pas ici, mais sur le serveur – la colonne de droite dit où.",
@@ -3585,6 +3579,10 @@
         "operator": "Saisie manuelle sur le tableau"
       },
       "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte."
+    },
+    "device": {
+      "title": "Cet appareil",
+      "subtitle": "Ne vaut que sur cet écran. Tout le reste des réglages vaut pour toute la caserne."
     }
   },
   "setup": {

@@ -8,63 +8,26 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ClipboardList, LifeBuoy, Printer, MonitorDown } from 'lucide-react';
+import { ClipboardList, Printer, MonitorDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useTranslations } from 'next-intl';
 import { DemoLock } from '@/components/settings/demo-lock';
-import {
-  SettingUnavailableBadge,
-  SettingUnavailableNote,
-} from '@/components/settings/setting-unavailable';
+import { SettingCard, SettingRow } from '@/components/settings/setting-row';
+import { downloadLageblatt } from '@/lib/lageblatt';
 
-/** localStorage key for the per-device Lageblatt auto-download. */
-export const LAGEBLATT_AUTODOWNLOAD_KEY = 'kp-lageblatt-autodownload';
-/** localStorage key for the per-device download interval, in minutes. */
-export const LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY = 'kp-lageblatt-autodownload-interval';
-/** Default download interval in minutes. */
-export const LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN = 15;
-/** Fired after either key changes so an already-mounted UserMenu picks it up. */
-export const LAGEBLATT_AUTODOWNLOAD_EVENT = 'kp-lageblatt-autodownload-changed';
-
-/** Read + clamp the per-device download interval (minutes) from localStorage. */
-export function readLageblattInterval(): number {
-  const raw = parseInt(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY) || '', 10);
-  if (Number.isNaN(raw)) return LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN;
-  return Math.max(5, Math.min(120, raw));
-}
-
-export function downloadLageblatt(eventId: string, eventName: string) {
-  return apiClient.exportEventLageblatt(eventId).then((blob) => {
-    const slug =
-      eventName
-        .toLowerCase()
-        .replace(/ä/g, 'ae')
-        .replace(/ö/g, 'oe')
-        .replace(/ü/g, 'ue')
-        .replace(/ß/g, 'ss')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'ereignis';
-    const now = new Date();
-    const stamp = `${now.toISOString().slice(0, 10)}-${now.toTimeString().slice(0, 5).replace(':', '')}`;
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lageblatt-${slug}-${stamp}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  });
-}
-
-export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
+export function FallbackSettings({
+  demoMode = false,
+  onOpenDeviceSection,
+}: {
+  demoMode?: boolean;
+  /** Springt zum Abschnitt «Dieses Gerät», wo der Auto-Download jetzt wohnt. */
+  onOpenDeviceSection?: () => void;
+}) {
   const t = useTranslations('settings');
   const { selectedEvent } = useEvent();
   const [loaded, setLoaded] = useState(false);
@@ -75,8 +38,6 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
   const [printerConfigured, setPrinterConfigured] = useState(false);
   const [interval, setIntervalMin] = useState('15');
   const [saving, setSaving] = useState<string | null>(null);
-  const [autoDownload, setAutoDownload] = useState(false);
-  const [downloadInterval, setDownloadInterval] = useState(String(LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN));
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -91,8 +52,6 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
       })
       .catch(() => toast.error(t('fallback.loadFailed')))
       .finally(() => setLoaded(true));
-    setAutoDownload(localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true');
-    setDownloadInterval(String(readLageblattInterval()));
   }, [t]);
 
   const saveSetting = async (key: string, value: string): Promise<boolean> => {
@@ -121,27 +80,6 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
     await saveSetting('fallback.auto_print_interval_min', clamped);
   };
 
-  const handleAutoDownloadToggle = (on: boolean) => {
-    setAutoDownload(on);
-    localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_KEY, on ? 'true' : 'false');
-    window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT));
-    if (on) {
-      // No immediate download — the first one runs at the next interval tick so
-      // enabling this never triggers a surprise download. "Jetzt herunterladen"
-      // covers the on-demand case.
-      toast.success(t('fallback.autoDownloadActive'), {
-        description: t('fallback.autoDownloadActiveDescription', { minutes: readLageblattInterval() }),
-      });
-    }
-  };
-
-  const handleDownloadIntervalBlur = (raw: string) => {
-    const clamped = String(Math.max(5, Math.min(120, parseInt(raw) || LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN)));
-    setDownloadInterval(clamped);
-    localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY, clamped);
-    window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT));
-  };
-
   const handleManualDownload = async () => {
     if (!selectedEvent) return;
     setDownloading(true);
@@ -154,127 +92,79 @@ export function FallbackSettings({ demoMode = false }: { demoMode?: boolean }) {
     }
   };
 
+  // Ohne eingerichteten Thermodrucker bewirkt der Schnappschuss-Schalter nichts – darum ist
+  // er dann gesperrt und sagt weshalb, statt sich umlegen zu lassen und zu schweigen. Ein
+  // bereits gespeichertes «an» bleibt stehen und wirkt wieder, sobald der Drucker steht.
+  const printerMissing = loaded && !printerConfigured ? t('fallback.autoPrintPrinterRequired') : null;
+
   return (
-    <Card className="p-6">
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <LifeBuoy className="h-5 w-5" />
-            {t('fallback.title')}
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('fallback.intro')}
-          </p>
-        </div>
-
-        {/* Server-side: automatic thermal snapshots (shared setting → locked in demo).
-            Ohne eingerichteten Thermodrucker bewirkt der Schalter nichts – darum ist er
-            dann gesperrt und sagt weshalb, statt sich umlegen zu lassen und zu schweigen.
-            Ein bereits gespeichertes «an» bleibt stehen und wirkt wieder, sobald der
-            Drucker eingerichtet ist. */}
-        <DemoLock active={demoMode} className="space-y-6">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <Label htmlFor="fallback-auto-print" className="font-medium flex items-center gap-2">
-                  <Printer className="h-4 w-4" />
-                  {t('fallback.autoPrintLabel')}
-                  {loaded && !printerConfigured && (
-                    <SettingUnavailableBadge>{t('common.notConfiguredBadge')}</SettingUnavailableBadge>
-                  )}
-                </Label>
-                <p className="text-xs text-muted-foreground">{t('fallback.autoPrintHint')}</p>
-              </div>
-              <Switch
-                id="fallback-auto-print"
-                checked={autoPrint}
-                title={loaded && !printerConfigured ? t('fallback.autoPrintPrinterRequired') : undefined}
-                onCheckedChange={handleAutoPrintToggle}
-                disabled={!loaded || !printerConfigured || saving === 'fallback.auto_print_enabled'}
-              />
-            </div>
-            {loaded && !printerConfigured && (
-              <SettingUnavailableNote>{t('fallback.autoPrintPrinterRequired')}</SettingUnavailableNote>
-            )}
-          </div>
-
-          {autoPrint && (
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <Label htmlFor="fallback-interval" className="text-sm font-semibold text-muted-foreground">{t('fallback.intervalLabel')}</Label>
-                <p className="text-xs text-muted-foreground">{t('fallback.intervalHint')}</p>
-              </div>
-              <div className="flex-shrink-0 w-24">
-                <Input
-                  id="fallback-interval"
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={interval}
-                  onChange={(e) => setIntervalMin(e.target.value)}
-                  onBlur={(e) => handleIntervalBlur(e.target.value)}
-                  disabled={saving === 'fallback.auto_print_interval_min'}
-                />
-              </div>
-            </div>
-          )}
-        </DemoLock>
-
-        {/* Device-side: Lageblatt auto-download */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="fallback-auto-download" className="font-medium flex items-center gap-2">
-              <MonitorDown className="h-4 w-4" />
-              {t('fallback.autoDownloadLabel')}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t('fallback.autoDownloadHint')}
-            </p>
-          </div>
+    <SettingCard title={t('fallback.title')} subtitle={t('fallback.intro')}>
+      {/* Server-side: automatic thermal snapshots (shared setting → locked in demo). */}
+      <DemoLock active={demoMode}>
+        <SettingRow
+          label={t('fallback.autoPrintLabel')}
+          htmlFor="fallback-auto-print"
+          hint={t('fallback.autoPrintHint')}
+          icon={<Printer className="size-3.5 text-muted-foreground" />}
+          unavailable={printerMissing}
+          unavailableBadge={t('common.notConfiguredBadge')}
+        >
           <Switch
-            id="fallback-auto-download"
-            checked={autoDownload}
-            onCheckedChange={handleAutoDownloadToggle}
+            id="fallback-auto-print"
+            checked={autoPrint}
+            title={printerMissing ?? undefined}
+            onCheckedChange={handleAutoPrintToggle}
+            disabled={!loaded || !printerConfigured || saving === 'fallback.auto_print_enabled'}
           />
-        </div>
+        </SettingRow>
 
-        {autoDownload && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="fallback-download-interval" className="text-sm font-semibold text-muted-foreground">{t('fallback.autoDownloadIntervalLabel')}</Label>
-              <p className="text-xs text-muted-foreground">{t('fallback.autoDownloadIntervalHint')}</p>
-            </div>
-            <div className="flex-shrink-0 w-24">
-              <Input
-                id="fallback-download-interval"
-                type="number"
-                min={5}
-                max={120}
-                value={downloadInterval}
-                onChange={(e) => setDownloadInterval(e.target.value)}
-                onBlur={(e) => handleDownloadIntervalBlur(e.target.value)}
-              />
-            </div>
-          </div>
+        {autoPrint && (
+          <SettingRow
+            label={t('fallback.intervalLabel')}
+            htmlFor="fallback-interval"
+            hint={t('fallback.intervalHint')}
+          >
+            <Input
+              id="fallback-interval"
+              type="number"
+              className="w-24"
+              min={5}
+              max={120}
+              value={interval}
+              onChange={(e) => setIntervalMin(e.target.value)}
+              onBlur={(e) => handleIntervalBlur(e.target.value)}
+              disabled={saving === 'fallback.auto_print_interval_min'}
+            />
+          </SettingRow>
         )}
+      </DemoLock>
 
-        {/* Manual export */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label className="font-medium flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              {t('fallback.manualLabel')}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t('fallback.manualHint')}
-              {!selectedEvent ? t('fallback.manualNoEvent') : ''}
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleManualDownload} disabled={!selectedEvent || downloading}>
-            {t('fallback.downloadButton')}
-          </Button>
-        </div>
-      </div>
-    </Card>
+      {/* Device-side: Lageblatt auto-download. Liegt im localStorage – die einzige Zeile
+          dieser Karte, die nicht die ganze Station betrifft, und darum die einzige mit
+          einer eigenen Marke. */}
+      {/* Der automatische Lageblatt-Download liegt in «Dieses Gerät»: er schreibt eine
+          Datei in den Download-Ordner DIESES Rechners, nicht in die Anlage. Hier steht
+          nur noch, dass es ihn gibt – sonst sucht ihn jeder erst hier. */}
+      <SettingRow
+        label={t('fallback.autoDownloadLabel')}
+        hint={t('fallback.autoDownloadMovedHint')}
+        icon={<MonitorDown className="size-3.5 text-muted-foreground" />}
+      >
+        <Button variant="outline" size="sm" onClick={() => onOpenDeviceSection?.()}>
+          {t('fallback.autoDownloadMovedAction')}
+        </Button>
+      </SettingRow>
+
+      {/* Manual export */}
+      <SettingRow
+        label={t('fallback.manualLabel')}
+        hint={`${t('fallback.manualHint')}${!selectedEvent ? t('fallback.manualNoEvent') : ''}`}
+        icon={<ClipboardList className="size-3.5 text-muted-foreground" />}
+      >
+        <Button variant="outline" size="sm" onClick={handleManualDownload} disabled={!selectedEvent || downloading}>
+          {t('fallback.downloadButton')}
+        </Button>
+      </SettingRow>
+    </SettingCard>
   );
 }

@@ -1364,9 +1364,11 @@
     "page": {
       "title": "Einstellungen",
       "groups": {
-        "config": "Konfiguration",
-        "resources": "Ressourcen",
-        "data": "Daten"
+        "setup": "Einrichtung",
+        "operations": "Betrieb",
+        "resources": "Bestand",
+        "records": "Protokoll",
+        "device": "Dieses Gerät"
       },
       "sections": {
         "general": "Allgemein",
@@ -1385,7 +1387,8 @@
         "import": "Import/Export",
         "audit": "Audit-Protokoll",
         "telemetry": "Fehlerberichte",
-        "integrations": "Integrationen"
+        "integrations": "Integrationen",
+        "device": "Dieses Gerät"
       },
       "telemetry": {
         "reportTitle": "Problem melden",
@@ -1727,7 +1730,9 @@
         "system": "System",
         "show": "Anzeigen",
         "showDetails": "Details anzeigen"
-      }
+      },
+      "searchPlaceholder": "Einstellung suchen…",
+      "searchNoResults": "Nichts gefunden."
     },
     "categorySort": {
       "noCategory": "(Keine Rolle)",
@@ -1756,7 +1761,9 @@
       "manualLabel": "Lageblatt jetzt herunterladen",
       "manualHint": "A4-Führungsformular (BL/BS-Layout) mit allen Einsatzdetails",
       "manualNoEvent": " – kein Ereignis ausgewählt",
-      "downloadButton": "Herunterladen"
+      "downloadButton": "Herunterladen",
+      "autoDownloadMovedHint": "Liegt bei «Dieses Gerät» – der Download landet im Download-Ordner dieses Rechners, nicht in der Anlage.",
+      "autoDownloadMovedAction": "Dorthin wechseln"
     },
     "gps": {
       "title": "GPS-Statusautomatik",
@@ -2050,19 +2057,6 @@
       "restoreError": "Zurückholen fehlgeschlagen",
       "purgeError": "Endgültiges Löschen fehlgeschlagen"
     },
-    "scope": {
-      "legendLabel": "Reichweite",
-      "station": {
-        "name": "Ganze Station",
-        "legend": "alle Bildschirme, alle Benutzer",
-        "consequence": "Eine Änderung gilt sofort auf jedem Board und auf dem Wanddisplay im Magazin."
-      },
-      "device": {
-        "name": "Nur dieses Gerät",
-        "legend": "gilt nur hier, an diesem Bildschirm",
-        "consequence": "Eine Änderung gilt nur an diesem Bildschirm – alle anderen Geräte bleiben, wie sie sind."
-      }
-    },
     "integrations": {
       "title": "Integrationen",
       "description": "Was diese Anlage mit der Aussenwelt verbindet. Geändert wird das nicht hier, sondern auf dem Server – die Spalte rechts sagt, wo.",
@@ -2093,6 +2087,10 @@
         "operator": "Erfassung von Hand am Board"
       },
       "builtinNote": "Ein fehlender Anbieter heisst also nie, dass keine Lage eröffnet werden kann."
+    },
+    "device": {
+      "title": "Dieses Gerät",
+      "subtitle": "Gilt nur auf diesem Bildschirm. Alles andere in den Einstellungen gilt für die ganze Station."
     }
   },
   "login": {
