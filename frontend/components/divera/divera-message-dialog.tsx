@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { DetailField } from "@/components/kanban/detail-field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { apiClient } from "@/lib/api-client"
 import type { ApiDiveraGroup } from "@/lib/api/types"
@@ -143,20 +143,22 @@ export function DiveraMessageDialog({
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal. */}
+        <div className="space-y-1 py-2">
           {blockedReason && (
             <p
               role="note"
-              className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+              className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
             >
               {blockedReason}
             </p>
           )}
 
-          {/* Recipients — groups first, «alle» as the deliberate exception */}
-          <div className="space-y-1.5">
-            <Label className="text-xs tracking-wide text-muted-foreground">{t("recipients")}</Label>
-            <div className="rounded-lg border border-border divide-y divide-border">
+          {/* Recipients — groups first, «alle» as the deliberate exception. No rules
+              between the two choices: the tinted selection and the indent under
+              «Gruppen» already say which is which. */}
+          <DetailField label={t("recipients")} alignStart>
+            <div className="rounded-lg border border-border">
               <button
                 type="button"
                 onClick={() => setTarget("groups")}
@@ -214,24 +216,18 @@ export function DiveraMessageDialog({
                 </p>
               )}
             </div>
-          </div>
+          </DetailField>
 
-          {/* Message */}
-          <div className="space-y-1.5">
-            <Label htmlFor="divera-message-title" className="text-sm font-semibold text-muted-foreground">
-              {t("titleLabel")}
-            </Label>
+          <DetailField label={t("titleLabel")} htmlFor="divera-message-title">
             <Input
               id="divera-message-title"
               value={title}
               maxLength={50}
               onChange={(e) => setTitle(e.target.value)}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="divera-message-text" className="text-sm font-semibold text-muted-foreground">
-              {t("textLabel")}
-            </Label>
+          </DetailField>
+
+          <DetailField label={t("textLabel")} htmlFor="divera-message-text" alignStart>
             <Textarea
               id="divera-message-text"
               value={text}
@@ -239,9 +235,9 @@ export function DiveraMessageDialog({
               className="text-xs"
               onChange={(e) => setText(e.target.value)}
             />
-          </div>
+          </DetailField>
 
-          <DialogFooter className="pt-1">
+          <DialogFooter className="pt-3">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
               {t("cancel")}
             </Button>

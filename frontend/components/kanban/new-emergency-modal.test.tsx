@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
 /**
- * "Telefonisch gemeldet" (plan 26 §6).
+ * "Telefonisch" (plan 26 §6 — the label lost its «gemeldet» when the toggle
+ * gutter narrowed to match the input column; the full sentence lives on as the
+ * row's hover title).
  *
  * The board's most-used modal takes one toggle, off by default, and what it
  * writes is the whole feature: an operator taking the call on the landline used
@@ -36,12 +38,12 @@ async function submit(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /erfassen|erstellen/i }))
 }
 
-describe('NewEmergencyModal — Telefonisch gemeldet', () => {
+describe('NewEmergencyModal — Telefonisch', () => {
   it('is off by default: typing a card on the board IS the operator case', async () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    expect(screen.getByRole('switch', { name: 'Telefonisch gemeldet' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Telefonisch' })).not.toBeChecked()
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'operator' }))
@@ -51,8 +53,8 @@ describe('NewEmergencyModal — Telefonisch gemeldet', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    await user.click(screen.getByRole('switch', { name: 'Telefonisch gemeldet' }))
-    expect(screen.getByRole('switch', { name: 'Telefonisch gemeldet' })).toBeChecked()
+    await user.click(screen.getByRole('switch', { name: 'Telefonisch' }))
+    expect(screen.getByRole('switch', { name: 'Telefonisch' })).toBeChecked()
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'intake' }))
@@ -62,7 +64,7 @@ describe('NewEmergencyModal — Telefonisch gemeldet', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    const toggle = screen.getByRole('switch', { name: 'Telefonisch gemeldet' })
+    const toggle = screen.getByRole('switch', { name: 'Telefonisch' })
     await user.click(toggle)
     await user.click(toggle)
     expect(toggle).not.toBeChecked()
@@ -74,9 +76,9 @@ describe('NewEmergencyModal — Telefonisch gemeldet', () => {
   it('sits with Kontakt/Melder and Telefon, not at the top of the form', () => {
     renderModal()
 
-    const fields = screen.getAllByText(/Telefonisch gemeldet|Kontakt \/ Melder|Telefonnummer/)
+    const fields = screen.getAllByText(/^Telefonisch$|Kontakt \/ Melder|Telefonnummer/)
     expect(fields.map((node) => node.textContent)).toEqual([
-      'Telefonisch gemeldet',
+      'Telefonisch',
       'Kontakt / Melder',
       'Telefonnummer',
     ])

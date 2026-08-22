@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DetailField, DetailToggle } from "@/components/kanban/detail-field"
+import { DETAIL_CONTROL_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
 import { Axe, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -62,7 +62,7 @@ export function NewEmergencyModal({
     crew: [] as string[],
     materials: [] as string[],
     notes: "",
-    // "Telefonisch gemeldet" / "Vom Feld gemeldet" — off by default, because
+    // "Telefonisch" / "Vom Feld" — off by default, because
     // typing a card on the board IS the operator case (plan 26 §6). One value,
     // two switches: a Meldung came over the phone OR from a Trupp, never both.
     source: "operator" as "operator" | "intake" | "feld",
@@ -191,6 +191,7 @@ export function NewEmergencyModal({
               longitude={formData.coordinates?.[1] ?? null}
               dense
               boxed
+              required
               onAddressChange={(address) => {
                 setFormData(prev => ({ ...prev, location: address || "" }))
                 setTouched(prev => ({ ...prev, location: true }))
@@ -205,7 +206,7 @@ export function NewEmergencyModal({
               error={showLocationError}
             />
             {showLocationError && (
-              <p className="pl-[112px] text-xs text-destructive">
+              <p className={`${DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
                 {t('newEmergency.locationError')}
               </p>
             )}

@@ -275,10 +275,12 @@ function DraggableOperationBase({
   const showMaterialRow = cardView.material && !auftrag && operation.materials.length > 0
   // Nachbarhilfe is a status, not a detail — it stays on every preset, same as
   // the header chips. Kompakt hides what you can look up; it does not hide who
-  // else is on the address.
-  const showNachbarhilfeRow = !!operation.nachbarhilfe
+  // else is on the address. It reads as a LABELLED CHIP next to «Am Warten» now
+  // (the two are the same kind of fact), so it is no longer a row of the
+  // resource block — and no longer a reason to render that block at all, which
+  // it used to be for an incident carrying nothing else.
   const showResourceBlock =
-    showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow || showNachbarhilfeRow
+    showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow
   // How much of each resource row the counter is standing in for. Derived, not
   // props — `crew`/`materials` are already in the memo comparator.
   const hiddenCrewCount = showCrewRow ? Math.max(0, operation.crew.length - MAX_ROW_CHIPS) : 0
@@ -292,6 +294,15 @@ function DraggableOperationBase({
   const amWartenLabel = amWartenNote
     ? `${t('common.amWarten')} · ${amWartenNote}`
     : t('common.amWarten')
+  // Nachbarhilfe reads the same way, and for the same reason: «Nachbarhilfe
+  // Therwil» is the half that answers whose incident this actually is. It used
+  // to be a bare Building2 glyph whose only label was a hover `title` — which on
+  // a board driven at speed is no label at all, and the note the operator had
+  // typed was invisible on the card entirely.
+  const nachbarhilfeNote = operation.nachbarhilfeNote?.trim()
+  const nachbarhilfeLabel = nachbarhilfeNote
+    ? `${t('common.nachbarhilfe')} · ${nachbarhilfeNote}`
+    : t('common.nachbarhilfe')
 
   // Selection is only worth showing while a side panel is on screen to reflect
   // it. Below SIDE_PANEL_BREAKPOINT the detail opens as a modal, so the frame
@@ -594,17 +605,10 @@ function DraggableOperationBase({
                   <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                 </div>
               )}
-              {/* «Am Warten» is NOT in this glyph row any more — it moved to a
-                  chip of its own below, because the reason is the half that
-                  decides whether anyone has to act (see there). */}
-              {operation.nachbarhilfe && (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
-                  title={t('common.nachbarhilfe')}
-                >
-                  <Building2 className="h-4 w-4 text-muted-foreground/80" />
-                </div>
-              )}
+              {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
+                  more — both moved to labelled chips below, because in both
+                  cases the note is the half that decides whether anyone has to
+                  act, and a glyph cannot carry it. */}
               {/* Reko carries the Binoculars everywhere else in the app — a
                   second document glyph next to the Rapport's only invited the
                   operator to tell two near-identical papers apart.
@@ -684,16 +688,33 @@ function DraggableOperationBase({
               somebody has to phone Reinach. The wall display and the printed
               slip have carried the reason all along; this is the surface it was
               typed on. Truncated like every other chip, full text in `title`. */}
-          {operation.amWarten && (
+          {(operation.amWarten || operation.nachbarhilfe) && (
             <div className="flex flex-wrap items-center gap-1 text-xs">
-              <Badge
-                variant="secondary"
-                className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
-                title={amWartenLabel}
-              >
-                <Timer className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{amWartenLabel}</span>
-              </Badge>
+              {operation.amWarten && (
+                <Badge
+                  variant="secondary"
+                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  title={amWartenLabel}
+                >
+                  <Timer className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{amWartenLabel}</span>
+                </Badge>
+              )}
+              {/* Neutral, not amber: «Am Warten» is a card that is STUCK and
+                  wants an eye on it, Nachbarhilfe is simply a fact about whose
+                  incident it is. Same shape, same place, same truncation — the
+                  colour is the only thing that separates a state that costs
+                  something from one that does not. */}
+              {operation.nachbarhilfe && (
+                <Badge
+                  variant="secondary"
+                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  title={nachbarhilfeLabel}
+                >
+                  <Building2 className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{nachbarhilfeLabel}</span>
+                </Badge>
+              )}
             </div>
           )}
 
@@ -1047,19 +1068,6 @@ function DraggableOperationBase({
                   </div>
                 </div>
               )}
-              {showNachbarhilfeRow && (
-                <div className="flex items-start gap-1.5">
-                  {/* Plain text, not chips: mt-1 is the chip offset and left the
-                      glyph sitting off-centre against the word. 1px centres it on
-                      the first line and keeps a wrapped note top-aligned. */}
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
-                  <div className="flex flex-wrap items-center gap-1 min-w-0">
-                    <span className="text-muted-foreground break-words">
-                      {operation.nachbarhilfeNote || t('common.nachbarhilfe')}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1172,7 +1180,7 @@ function DraggableOperationBase({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent
-        className="w-52 max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
+        className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
         collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
       >
         {/* Bearbeiten */}

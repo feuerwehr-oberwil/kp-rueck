@@ -12,10 +12,9 @@ import { nextActions, secondsInStep, isActionDue, stepStartedAt, type NextAction
 import { getTimeSince } from '@/lib/kanban-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { SettingGroup } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
-import { Separator } from '@/components/ui/separator';
 import { getOperationStatusLabel } from '@/lib/status-labels';
 import Link from 'next/link';
 import {
@@ -430,18 +429,24 @@ export function TrainingSimulationControls() {
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      {/* Two blocks under small grey headings, no rule between them — the same
+          «Nur Abstand» pick the board and the settings made. */}
+      <CardContent>
         {/* Conductor console — one recommended next step per open incident,
             most-overdue first. Due rows are highlighted; a tap advances. */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label className="flex items-center gap-2">
+        <SettingGroup
+          className="mt-0"
+          title={
+            <span className="flex items-center gap-2">
               <ChevronRight className="h-4 w-4" />
               {t('nextActions')}
-            </Label>
-            {/* Bulk rapports stay one click for storm drills (plan 25 §16):
-                twenty-three per-incident rapport steps would be twenty-three
-                clicks — and the missing fifth is deliberate (the Restliste). */}
+            </span>
+          }
+          hint={rows.length > 0 ? t('footer') : undefined}
+          action={
+            /* Bulk rapports stay one click for storm drills (plan 25 §16):
+               twenty-three per-incident rapport steps would be twenty-three
+               clicks — and the missing fifth is deliberate (the Restliste). */
             <Button
               onClick={handleSimulateRapports}
               disabled={isFilingRapports}
@@ -453,7 +458,9 @@ export function TrainingSimulationControls() {
               <ClipboardCheck className="size-3.5" />
               {isFilingRapports ? t('rapportFiling') : t('rapportBulk')}
             </Button>
-          </div>
+          }
+        >
+          <div className="space-y-2">
           {/* Same preflight banner as the GPS card: without the Magazin
               coordinates every «Rückfahrt Magazin» button below is disabled,
               and a disabled button with only a hover tooltip reads as "does
@@ -646,80 +653,81 @@ export function TrainingSimulationControls() {
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t('footer')}
-              </p>
             </>
           )}
-        </div>
-
-        <Separator />
+          </div>
+        </SettingGroup>
 
         {/* Simulated «Neue Meldung»: a Trupp mentions a fresh emergency. Goes
             through the real field intake, so the KP trains the real path —
             triage in Eingegangen, disposition — instead of a trainer shortcut
             that plants a finished card. */}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            {t('fieldReportLabel')}
-          </Label>
-          {crewedOps.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t('fieldReportNoIncidents')}</p>
-          ) : (
-            <>
-              <Select value={fieldReportIncidentId} onValueChange={setFieldReportIncidentId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('fieldReportIncidentPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {crewedOps.map((op) => (
-                    <SelectItem key={op.id} value={op.id}>
-                      {formatLocation(op.location) || op.incidentType}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={fieldReportText}
-                  onChange={(e) => setFieldReportText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void handleSendFieldReport();
-                  }}
-                  placeholder={t('fieldReportPlaceholder')}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleSendFieldReport}
-                  disabled={isSendingFieldReport || !fieldReportIncidentId || !fieldReportText.trim()}
-                  variant="outline"
-                  size="sm"
-                  className="flex-shrink-0"
-                >
-                  <MessageSquare className="size-3.5" />
-                  {isSendingFieldReport ? t('fieldReportSending') : t('fieldReportSend')}
-                </Button>
-              </div>
-              {/* Canned examples — quick-fills, not sends: the trainer can
-                  still edit before the Meldung goes out. */}
-              <div className="flex flex-wrap gap-1.5">
-                {[t('fieldReportExample1'), t('fieldReportExample2'), t('fieldReportExample3')].map((example) => (
+        <SettingGroup
+          title={
+            <span className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              {t('fieldReportLabel')}
+            </span>
+          }
+          hint={crewedOps.length > 0 ? t('fieldReportHint') : undefined}
+        >
+          <div className="space-y-2">
+            {crewedOps.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t('fieldReportNoIncidents')}</p>
+            ) : (
+              <>
+                <Select value={fieldReportIncidentId} onValueChange={setFieldReportIncidentId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t('fieldReportIncidentPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {crewedOps.map((op) => (
+                      <SelectItem key={op.id} value={op.id}>
+                        {formatLocation(op.location) || op.incidentType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={fieldReportText}
+                    onChange={(e) => setFieldReportText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleSendFieldReport();
+                    }}
+                    placeholder={t('fieldReportPlaceholder')}
+                    className="flex-1"
+                  />
                   <Button
-                    key={example}
+                    onClick={handleSendFieldReport}
+                    disabled={isSendingFieldReport || !fieldReportIncidentId || !fieldReportText.trim()}
                     variant="outline"
-                    size="xs"
-                    className="text-muted-foreground"
-                    onClick={() => setFieldReportText(example)}
+                    size="sm"
+                    className="flex-shrink-0"
                   >
-                    {example}
+                    <MessageSquare className="size-3.5" />
+                    {isSendingFieldReport ? t('fieldReportSending') : t('fieldReportSend')}
                   </Button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">{t('fieldReportHint')}</p>
-            </>
-          )}
-        </div>
+                </div>
+                {/* Canned examples — quick-fills, not sends: the trainer can
+                    still edit before the Meldung goes out. */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[t('fieldReportExample1'), t('fieldReportExample2'), t('fieldReportExample3')].map((example) => (
+                    <Button
+                      key={example}
+                      variant="outline"
+                      size="xs"
+                      className="text-muted-foreground"
+                      onClick={() => setFieldReportText(example)}
+                    >
+                      {example}
+                    </Button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </SettingGroup>
       </CardContent>
 
       {/* The follow-up "Einsatz beendet" asks in the field: a Schadenplatz can

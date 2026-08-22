@@ -324,7 +324,9 @@ export default function DiveraPoolPage() {
             )}
           </div>
         ) : (
-          <div className="divide-y">
+          /* No rules between the entries: each row already carries its own
+             hover and selection tint, and `py-4` is a wide enough gap. */
+          <div>
             {filteredEmergencies.map((emergency) => {
               const isSelected = selectedEmergencies.has(emergency.id);
               const isAssigned = !!emergency.attached_to_event_id;

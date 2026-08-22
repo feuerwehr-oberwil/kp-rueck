@@ -8,11 +8,10 @@ import { apiClient, type ApiEmergencyTemplate, type ApiTrainingLocation } from '
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { SettingGroup, SettingRow } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 import {
   Zap,
   Flame,
@@ -301,10 +300,16 @@ export function TrainingControls() {
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Manual Generation Buttons */}
-        <div className="space-y-2">
-          <Label>{t('controls.generateSingle')}</Label>
+      {/* Four blocks, no rules between them: the small grey heading groups and the
+          whitespace separates, the way the board and the settings do it since the
+          «Nur Abstand» pick. The hint moves above its buttons — say what the block
+          does, then offer the button that does it. */}
+      <CardContent>
+        <SettingGroup
+          title={t('controls.generateSingle')}
+          hint={t('controls.generateHint')}
+          className="mt-0"
+        >
           {/* Three-up row down to phone width: the Button base is
               `whitespace-nowrap shrink-0`, so each cell needs `min-w-0` + a
               truncating label or the content overflows the grid column. */}
@@ -337,103 +342,93 @@ export function TrainingControls() {
               <span className="truncate">{t('controls.phoneAlarm')}</span>
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {t('controls.generateHint')}
-          </p>
-        </div>
-
-        <Separator />
+        </SettingGroup>
 
         {/* Manual / targeted dispatch */}
-        <div className="space-y-2">
-          <Label>{t('controls.targetedDispatch')}</Label>
-          <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-            <SelectTrigger className="w-full">
-              <SelectValue
-                placeholder={pickerLoaded ? t('controls.scenarioPlaceholder') : t('controls.scenarioLoading')}
-              />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              {sortedTemplates.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="flex items-center gap-2">
-                    {t.category === 'critical' ? (
-                      <Flame className="h-3.5 w-3.5 text-red-600" />
-                    ) : (
-                      <Droplet className="h-3.5 w-3.5 text-blue-600" />
-                    )}
-                    {t.title_pattern}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Location row — either pick from seeded addresses or drop a pin
-              on the map. The pin overrides the dropdown when both are set. */}
-          {pinLocation ? (
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-sm">
-              <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
-              <span className="flex-1 truncate" title={pinLocation.address}>
-                {pinLocation.address}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setPinLocation(null)}
-                // Desktop-only is the rule for the board, but this page is the
-                // one thing that gets driven from a phone (spawning training
-                // incidents), so the target stays generous below `sm`.
-                className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
-                title={t('controls.removePin')}
-              >
-                <X className="size-3.5" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue
-                    placeholder={pickerLoaded ? t('controls.addressPlaceholder') : t('controls.addressLoading')}
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {sortedLocations.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.street} {l.house_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => setPickerOpen(true)}
-                className="min-h-[44px] min-w-[44px] flex-shrink-0 sm:min-h-[36px] sm:min-w-[36px]"
-                title={t('controls.setPin')}
-              >
-                <MapPin className="size-3.5" />
-              </Button>
-            </div>
-          )}
-          <Button
-            onClick={handleManualDispatch}
-            disabled={isDispatching || !canDispatch}
-            className="w-full"
-          >
-            <Target className="size-4" />
-            {t('controls.dispatch')}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            {t('controls.dispatchHint')}
-          </p>
-        </div>
-
-        <Separator />
+        <SettingGroup title={t('controls.targetedDispatch')} hint={t('controls.dispatchHint')}>
+          <div className="space-y-2">
+            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+              <SelectTrigger className="w-full">
+                <SelectValue
+                  placeholder={pickerLoaded ? t('controls.scenarioPlaceholder') : t('controls.scenarioLoading')}
+                />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {sortedTemplates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <span className="flex items-center gap-2">
+                      {t.category === 'critical' ? (
+                        <Flame className="h-3.5 w-3.5 text-red-600" />
+                      ) : (
+                        <Droplet className="h-3.5 w-3.5 text-blue-600" />
+                      )}
+                      {t.title_pattern}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Location row — either pick from seeded addresses or drop a pin
+                on the map. The pin overrides the dropdown when both are set. */}
+            {pinLocation ? (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-sm">
+                <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="flex-1 truncate" title={pinLocation.address}>
+                  {pinLocation.address}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setPinLocation(null)}
+                  // Desktop-only is the rule for the board, but this page is the
+                  // one thing that gets driven from a phone (spawning training
+                  // incidents), so the target stays generous below `sm`.
+                  className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                  title={t('controls.removePin')}
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue
+                      placeholder={pickerLoaded ? t('controls.addressPlaceholder') : t('controls.addressLoading')}
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {sortedLocations.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.street} {l.house_number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setPickerOpen(true)}
+                  className="min-h-[44px] min-w-[44px] flex-shrink-0 sm:min-h-[36px] sm:min-w-[36px]"
+                  title={t('controls.setPin')}
+                >
+                  <MapPin className="size-3.5" />
+                </Button>
+              </div>
+            )}
+            <Button
+              onClick={handleManualDispatch}
+              disabled={isDispatching || !canDispatch}
+              className="w-full"
+            >
+              <Target className="size-4" />
+              {t('controls.dispatch')}
+            </Button>
+          </div>
+        </SettingGroup>
 
         {/* Burst Generation */}
-        <div className="space-y-2">
-          <Label>{t('controls.multipleIncidents')}</Label>
+        <SettingGroup title={t('controls.multipleIncidents')} hint={t('controls.burstHint')}>
           <Button
             onClick={handleGenerateBurst}
             disabled={isGenerating}
@@ -443,65 +438,60 @@ export function TrainingControls() {
             <Zap className="size-4" />
             {t('controls.burst')}
           </Button>
-          <p className="text-xs text-muted-foreground">
-            {t('controls.burstHint')}
-          </p>
-        </div>
-
-        <Separator />
+        </SettingGroup>
 
         {/* Automatik: the background generator, same knobs as before it moved
-            in here — the switch is the section header's control. */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label className="flex items-center gap-2">
+            in here — three `SettingRow`s, so the switch and the two numbers end
+            at one right edge instead of a switch at the card's far corner and a
+            two-column grid of boxes underneath. */}
+        <SettingGroup
+          title={
+            <span className="flex items-center gap-2">
               <Timer className="h-4 w-4 text-emerald-600" />
               {t('autogen.title')}
-            </Label>
+            </span>
+          }
+          hint={t('autogen.description')}
+          action={
             <Switch
               checked={autogenEnabled}
               onCheckedChange={handleAutogenToggle}
               disabled={!autogenLoaded || autogenSaving}
               aria-label={t('autogen.toggleAria')}
             />
-          </div>
-          <p className="text-xs text-muted-foreground">{t('autogen.description')}</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="autogen-interval" className="text-xs text-muted-foreground">
-                {t('autogen.intervalLabel')}
-              </Label>
-              <Input
-                id="autogen-interval"
-                type="number"
-                min={1}
-                max={60}
-                value={autogenIntervalMin}
-                disabled={!autogenLoaded}
-                onChange={(e) => setAutogenIntervalMin(parseFloat(e.target.value) || 1)}
-                onBlur={(e) => handleAutogenIntervalCommit(parseFloat(e.target.value) || 5)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="autogen-max" className="text-xs text-muted-foreground">
-                {t('autogen.maxLabel')}
-              </Label>
-              <Input
-                id="autogen-max"
-                type="number"
-                min={1}
-                max={200}
-                value={autogenMax}
-                disabled={!autogenLoaded}
-                onChange={(e) => setAutogenMax(parseInt(e.target.value) || 1)}
-                onBlur={(e) => handleAutogenMaxCommit(parseInt(e.target.value) || 50)}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {t('autogen.hint')}
-          </p>
-        </div>
+          }
+        >
+          <SettingRow
+            label={t('autogen.intervalLabel')}
+            htmlFor="autogen-interval"
+            hint={t('autogen.hint')}
+          >
+            <Input
+              id="autogen-interval"
+              type="number"
+              min={1}
+              max={60}
+              className="w-24"
+              value={autogenIntervalMin}
+              disabled={!autogenLoaded}
+              onChange={(e) => setAutogenIntervalMin(parseFloat(e.target.value) || 1)}
+              onBlur={(e) => handleAutogenIntervalCommit(parseFloat(e.target.value) || 5)}
+            />
+          </SettingRow>
+          <SettingRow label={t('autogen.maxLabel')} htmlFor="autogen-max">
+            <Input
+              id="autogen-max"
+              type="number"
+              min={1}
+              max={200}
+              className="w-24"
+              value={autogenMax}
+              disabled={!autogenLoaded}
+              onChange={(e) => setAutogenMax(parseInt(e.target.value) || 1)}
+              onBlur={(e) => handleAutogenMaxCommit(parseInt(e.target.value) || 50)}
+            />
+          </SettingRow>
+        </SettingGroup>
       </CardContent>
 
       {/* Map-pin picker for ad-hoc dispatch locations */}
@@ -510,6 +500,7 @@ export function TrainingControls() {
         onOpenChange={setPickerOpen}
         initialLat={pinLocation?.latitude}
         initialLon={pinLocation?.longitude}
+        initialAddress={pinLocation?.address}
         onLocationSelect={handlePinSelect}
       />
     </Card>

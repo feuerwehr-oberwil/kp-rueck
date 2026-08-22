@@ -415,6 +415,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             the geocoder, a map to tap, coordinates to paste. A crew reporting a
             tree on a road it cannot name needs the map more than the KP does. */}
         <LocationInput
+          required
           address={address}
           latitude={lat}
           longitude={lng}

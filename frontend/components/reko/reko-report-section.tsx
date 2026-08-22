@@ -39,7 +39,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type React
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { DetailField } from '@/components/kanban/detail-field'
+import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -300,7 +300,7 @@ export default function RekoReportSection({
                     one, indented onto the label column — there is no second
                     card design for «alt». */}
                 {open && (
-                  <div className="pl-[112px]">
+                  <div className={DETAIL_CONTROL_INDENT}>
                     <RekoReportBody report={report} incidentId={incidentId} dense />
                   </div>
                 )}
@@ -385,10 +385,10 @@ export default function RekoReportSection({
           // is two frames around one form.
           <div className={cn(dense ? "space-y-1" : "space-y-3", !split && !dense && "rounded-lg border border-border p-4")}>
             <div className={cn("flex items-center gap-2", dense && "pb-1.5")}>
-              <Binoculars className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="text-sm font-semibold text-muted-foreground">
+              <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <Binoculars className="h-3.5 w-3.5 shrink-0" />
                 {latestReport ? t('amendTitle') : t('createTitle')}
-              </span>
+              </h3>
               <Button
                 type="button"
                 size="xs"
@@ -588,9 +588,11 @@ function RekoReportBody({ report, incidentId, dense = false }: RekoReportCardPro
           </DetailField>
         ))}
         {photos.length > 0 && (
-          // 40px marks, not third-column squares: on a screen a photo is
-          // opened to be recognised, and three of them used to cost a third of
-          // the column's height. The filename rides along as the `title`.
+          // 96px, not the 40px marks this used to be: at 40 a storm photo was
+          // an unreadable smudge, so EVERY picture had to be opened in a tab to
+          // find out what it showed. Big enough to recognise the subject, small
+          // enough that a row of them still wraps inside the column. Opening one
+          // is still there for the detail. The filename rides along as `title`.
           <DetailField label={t('photosCount', { count: photos.length })}>
             <div className="flex flex-wrap items-center gap-1.5">
               {photos.map((filename, index) => (
@@ -600,7 +602,7 @@ function RekoReportBody({ report, incidentId, dense = false }: RekoReportCardPro
                   target="_blank"
                   rel="noopener noreferrer"
                   title={filename}
-                  className="relative block size-10 shrink-0 overflow-hidden rounded bg-muted transition-opacity hover:opacity-80"
+                  className="relative block size-24 shrink-0 overflow-hidden rounded-md bg-muted transition-opacity hover:opacity-80"
                   tabIndex={-1}
                 >
                   {/* unoptimized: see the grid in the card below. */}
@@ -610,7 +612,7 @@ function RekoReportBody({ report, incidentId, dense = false }: RekoReportCardPro
                       ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
                       : t('photoAlt', { number: index + 1 })}
                     fill
-                    sizes="40px"
+                    sizes="96px"
                     unoptimized
                     className="object-cover"
                   />

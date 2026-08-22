@@ -609,20 +609,21 @@ export default function PhotoUpload({
         </p>
       )}
 
-      {/* The photos themselves. On the board they are 40px marks on one line:
-          a picture on a screen gets opened to be recognised anyway, and three
-          third-column squares used to cost a third of the report's height. */}
+      {/* The photos themselves. On the board they wrap as 96px squares: 40px
+          marks were unreadable, which made opening every one of them the only
+          way to see what a crew had sent. Still a wrapping row rather than the
+          two-column grid below, so a report with three photos costs one row. */}
       {dense ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {photos.map((filename, index) => (
-            <span key={filename} className="group relative block size-10 shrink-0 overflow-hidden rounded bg-muted">
+            <span key={filename} className="group relative block size-24 shrink-0 overflow-hidden rounded-md bg-muted">
               {/* unoptimized: see the grid below. */}
               <Image
                 src={getPhotoUrl(filename)}
                 alt={t('photoNumber', { number: index + 1 })}
                 title={filename}
                 fill
-                sizes="40px"
+                sizes="96px"
                 unoptimized
                 className="object-cover"
               />
@@ -642,7 +643,7 @@ export default function PhotoUpload({
             onClick={() => fileInputRef.current?.click()}
             disabled={preparing || disabled}
             aria-label={t('chooseFile')}
-            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded border border-dashed border-border text-muted-foreground transition-colors hover:bg-input/50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex size-24 shrink-0 cursor-pointer items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-input/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {preparing ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
           </button>

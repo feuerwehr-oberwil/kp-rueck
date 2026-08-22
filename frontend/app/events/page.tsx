@@ -19,7 +19,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { DetailField } from '@/components/kanban/detail-field'
 import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, Download } from 'lucide-react'
 import {
   DropdownMenu,
@@ -569,13 +569,13 @@ export default function EventsPage() {
 
         {/* Create Event Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={handleCreateDialogChange}>
-          <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>{t('createDialog.title')}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="event-name" className="text-sm font-semibold text-muted-foreground">{t('createDialog.nameLabel')}</Label>
+            {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal. */}
+            <div className="space-y-1 py-2">
+              <DetailField label={t('createDialog.nameLabel')} htmlFor="event-name">
                 <Input
                   id="event-name"
                   value={newEventName}
@@ -588,9 +588,8 @@ export default function EventsPage() {
                     }
                   }}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('createDialog.modeLabel')}</Label>
+              </DetailField>
+              <DetailField label={t('createDialog.modeLabel')} alignStart>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -625,7 +624,7 @@ export default function EventsPage() {
                     {t('createDialog.modeTraining')}
                   </button>
                 </div>
-              </div>
+              </DetailField>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>

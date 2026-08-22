@@ -14,9 +14,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { DetailField, DetailToggle } from "@/components/kanban/detail-field"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
@@ -190,34 +189,32 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal:
+            the count rides on the label, the character budget on the row's action, and
+            the priority switch is a `DetailToggle` instead of a label pushed to one edge
+            of the dialog with its switch at the other. */}
+        <div className="space-y-1 py-2">
           {blockedReason && (
             <p
               role="note"
-              className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+              className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
             >
               {blockedReason}
             </p>
           )}
 
-          {/* Recipients */}
-          <div className="space-y-1.5">
-            <Label className="text-xs tracking-wide text-muted-foreground">
-              {t("recipients", { count: selectedLinkedCount })}
-            </Label>
+          <DetailField label={t("recipients", { count: selectedLinkedCount })} alignStart>
             {recipients.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t("noAssigned")}
-              </p>
+              <p className="py-1 text-sm text-muted-foreground">{t("noAssigned")}</p>
             ) : (
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
                 {recipients.map((r) => {
                   const linked = Boolean(r.person.diveraUserId)
                   return (
                     <label
                       key={r.person.id}
                       className={`flex items-center gap-2.5 px-3 py-2 text-sm ${
-                        linked ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+                        linked ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60"
                       }`}
                     >
                       <Checkbox
@@ -246,29 +243,29 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                 })}
               </div>
             )}
-          </div>
+          </DetailField>
 
-          {/* Message */}
-          <div className="space-y-1.5">
-            <Label htmlFor="divera-title" className="text-sm font-semibold text-muted-foreground">
-              {t("titleLabel")}
-            </Label>
+          <DetailField label={t("titleLabel")} htmlFor="divera-title">
             <Input
               id="divera-title"
               value={title}
               maxLength={50}
               onChange={(e) => setTitle(e.target.value)}
             />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="divera-text" className="text-sm font-semibold text-muted-foreground">
-                {t("textLabel")}
-              </Label>
-              <span className={`text-2xs ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
+          </DetailField>
+
+          <DetailField
+            label={t("textLabel")}
+            htmlFor="divera-text"
+            alignStart
+            action={
+              <span
+                className={`pt-1.5 text-2xs ${text.length > 1000 ? "text-destructive" : "text-muted-foreground"}`}
+              >
                 {text.length > 1000 ? t("charCountTruncated", { count: text.length }) : t("charCount", { count: text.length })}
               </span>
-            </div>
+            }
+          >
             <Textarea
               id="divera-text"
               value={text}
@@ -276,18 +273,17 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
               className="text-xs"
               onChange={(e) => setText(e.target.value)}
             />
-          </div>
+          </DetailField>
 
-          {/* Priority */}
-          <div className="flex items-center justify-between">
-            <Label htmlFor="divera-priority" className="text-sm">
-              {t("priorityLabel")}
-            </Label>
-            <Switch id="divera-priority" checked={priority} onCheckedChange={setPriority} />
-          </div>
+          <DetailToggle
+            label={t("priorityLabel")}
+            icon={<Siren className="h-3.5 w-3.5" />}
+            checked={priority}
+            onToggle={setPriority}
+          />
 
           {/* Actions */}
-          <DialogFooter className="pt-1">
+          <DialogFooter className="pt-3">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
               {t("cancel")}
             </Button>

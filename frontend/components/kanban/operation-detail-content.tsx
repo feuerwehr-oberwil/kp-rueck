@@ -10,7 +10,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -42,7 +42,7 @@ import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
-import { DetailField, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { DetailField, DetailGroupHeading, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
@@ -57,7 +57,8 @@ import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
   RouteResourceSections,
-  ResourceAddButton,
+  ResourceRow,
+  RESOURCE_CHIP,
   ResourceSourceBlock,
 } from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
@@ -76,56 +77,6 @@ import type { Incident } from "@/lib/types/incidents"
  */
 const ROW_ACTION =
   "inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
-
-/**
- * The small grey heading over a run of Übersicht rows — «Lage», «Meldung»,
- * «Kräfte». Since the rows lost their hairlines (the «Nur Abstand» pick),
- * whitespace separates and these headings group; the same decision the settings
- * made, and the same idiom as their `SettingGroup` heading.
- */
-function DetailGroupHeading({ children }: { children: ReactNode }) {
-  return <h3 className="mb-1 text-xs font-semibold text-muted-foreground">{children}</h3>
-}
-
-/**
- * The one pill every resource in the «Kräfte» group wears — person, vehicle,
- * material and module alike: bordered, rounded-full, quiet. The three chip
- * families this replaces (filled grey person, filled primary vehicle, outlined
- * material) told an operator nothing — colour on this board is for status and
- * priority, not for resource type. What genuinely distinguishes a chip lives
- * INSIDE the pill: the EL badge, the driver name, the depot. The hover tint is
- * the remove affordance, arriving together with the X on the same hover.
- */
-const RESOURCE_CHIP =
-  "group gap-1 rounded-full border-border bg-transparent px-2.5 pr-1 text-sm font-normal hover:bg-destructive/20"
-
-/**
- * One resource row of the «Kräfte» group: the section label with its live count
- * in the same 104px gutter every other Übersicht row uses, the chip cluster to
- * its right (wrapping in the 420px panel), and the section's add control at the
- * END of the row — not floating at the pane edge. A sibling of `DetailField`,
- * not a use of it: the value here is a wrapping chip cluster rather than a
- * control, and the label heads a section instead of naming a focusable field.
- */
-function ResourceRow({
-  label,
-  action,
-  children,
-}: {
-  label: ReactNode
-  action?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <div className="flex items-start gap-2 py-1">
-      <span className="w-[104px] shrink-0 pt-1 text-xs text-muted-foreground">{label}</span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
-      {/* The add button is a 32px control on a ~24px chip line; the negative
-          margin keeps it from stretching the row without shrinking its target. */}
-      {action && <span className="-my-1 shrink-0">{action}</span>}
-    </div>
-  )
-}
 
 /** Whether the provenance toggles apply to this card at all.
  *
@@ -648,7 +599,12 @@ export function OperationDetailContent({
 
   // The modal is 90vw wide — a tab that only fills one narrow column wastes it.
   // The panel mount stays single-column; it is barely wider than one.
-  // The panel reads `Label │ Wert` rows; the modal keeps the stacked form.
+  //
+  // `dense` is the SKIN, not the grammar: both mounts read `Label │ Wert` rows out
+  // of the same `DetailField` since the creation modal took them too. What the flag
+  // still decides is the control (borderless in the 420px panel, boxed where a
+  // field can be empty), the column count and the tab-trigger sizing. The old note
+  // here said the modal «keeps the stacked form»; it has not since 93300d2a.
   const dense = layout === 'panel'
   // The panel's tab bar shares its row with the ← / → hints, so its triggers
   // take their own label plus a share of whatever is left (`flex-auto`) rather
@@ -662,6 +618,12 @@ export function OperationDetailContent({
     "grid grid-cols-1 gap-8 py-4",
     layout === 'modal' && "lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]",
   )
+  // Die Spalten trennt eine Linie. Waagrecht bleibt es bei Abstand — eine
+  // Haarlinie unter jeder Zeile sagt nichts, was der Zeilenumbruch nicht sagt —,
+  // aber SENKRECHT ist der Fall ein anderer: zwei Spalten, die nur Luft
+  // voneinander trennt, lesen sich bei langen Zeilen als eine, und ein Blick, der
+  // von «Notizen» nach rechts wandert, landet in «Kräfte», ohne die Grenze
+  // bemerkt zu haben.
   const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
@@ -669,7 +631,6 @@ export function OperationDetailContent({
   // block is opened, and a scrollbar that appears at that moment narrows the
   // column under the pointer — the row you were about to click moves.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll"
-
   /**
    * The banners: what came in from the field and is still waiting for the KP to
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
@@ -736,18 +697,18 @@ export function OperationDetailContent({
       {/* Mannschaft (Crew) */}
       {(showEmptyOwnSections || operation.crew.length > 0) && (
         <ResourceRow
+          icon={Users}
           label={t('common.crewCount', { count: operation.crew.length })}
-          action={ownAddAction ? (
-            <ResourceAddButton
-              compact
-              label={t('common.assignCrew')}
-              onClick={() => onAssignResource?.('crew', operation.id)}
-            />
-          ) : undefined}
+          addLabel={ownAddAction ? t('common.assignCrew') : undefined}
+          onAdd={ownAddAction ? () => onAssignResource?.('crew', operation.id) : undefined}
+          isEmpty={operation.crew.length === 0}
+          emptyLabel={t('detail.resourceEmpty')}
         >
-          {operation.crew.length > 0 ? (
-            // EL first (decision 23) — the badge stays, this is ordering on top of it.
-            sortCrewByLeader(operation.crew, operation.leaderName).map((member) => {
+          {/* EL first (decision 23) — the badge stays, this is ordering on top of it.
+              The empty case is the row's own: `isEmpty` above draws «keine», and
+              draws it as a button so the obvious thing to click is the thing
+              that adds. */}
+          {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => {
               const isLeader = operation.leaderName === member
               return (
                 <RemovableChip
@@ -773,12 +734,7 @@ export function OperationDetailContent({
                   {member}
                 </RemovableChip>
               )
-            })
-          ) : (
-            // A short muted value, not a sentence: the row label already says
-            // what is missing, and the count already says it is zero.
-            <span className="text-sm text-muted-foreground/60">{t('detail.resourceEmpty')}</span>
-          )}
+            })}
         </ResourceRow>
       )}
 
@@ -786,19 +742,17 @@ export function OperationDetailContent({
           carries only that still gets this row. */}
       {(showEmptyOwnSections || operation.vehicles.length > 0 || operation.zuFuss) && (
         <ResourceRow
+          icon={Truck}
           label={t('common.vehiclesCount', { count: operation.vehicles.length })}
           // Opens the full assignment dialog, same as Mannschaft and Material.
           // This used to be an inline dropdown of the fleet — a second, poorer
           // vehicle picker without the driver info, «Zu Fuss» and the
           // free/spoken-for split the dialog carries (and its popover kept
           // colliding with the modal's close button). One picker, one behaviour.
-          action={ownAddAction ? (
-            <ResourceAddButton
-              compact
-              label={t('common.assignVehicle')}
-              onClick={() => onAssignResource?.('vehicles', operation.id)}
-            />
-          ) : undefined}
+          addLabel={ownAddAction ? t('common.assignVehicle') : undefined}
+          onAdd={ownAddAction ? () => onAssignResource?.('vehicles', operation.id) : undefined}
+          isEmpty={operation.vehicles.length === 0 && !operation.zuFuss}
+          emptyLabel={t('detail.resourceEmpty')}
         >
           {operation.zuFuss && (
             <RemovableChip
@@ -812,8 +766,7 @@ export function OperationDetailContent({
               {t('common.zuFuss')}
             </RemovableChip>
           )}
-          {operation.vehicles.length > 0 ? (
-            operation.vehicles.map((vehicleName) => {
+          {operation.vehicles.map((vehicleName) => {
               const driverName = vehicleDrivers.get(vehicleName)
               const callsign = operation.vehicleCallsigns.get(vehicleName)
               const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
@@ -855,31 +808,21 @@ export function OperationDetailContent({
                   )}
                 </RemovableChip>
               )
-            })
-          ) : (
-            // Only when «Zu Fuss» is not standing in: a chip next to «keine»
-            // would contradict itself.
-            !operation.zuFuss && (
-              <span className="text-sm text-muted-foreground/60">{t('detail.resourceEmpty')}</span>
-            )
-          )}
+            })}
         </ResourceRow>
       )}
 
       {/* Material */}
       {(showEmptyOwnSections || operation.materials.length > 0) && (
         <ResourceRow
+          icon={Package}
           label={t('common.materialsCount', { count: operation.materials.length })}
-          action={ownAddAction ? (
-            <ResourceAddButton
-              compact
-              label={t('common.assignMaterial')}
-              onClick={() => onAssignResource?.('materials', operation.id)}
-            />
-          ) : undefined}
+          addLabel={ownAddAction ? t('common.assignMaterial') : undefined}
+          onAdd={ownAddAction ? () => onAssignResource?.('materials', operation.id) : undefined}
+          isEmpty={operation.materials.length === 0}
+          emptyLabel={t('detail.resourceEmpty')}
         >
-          {operation.materials.length > 0 ? (
-            (() => {
+          {(() => {
               const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
               return (
                 <>
@@ -921,10 +864,7 @@ export function OperationDetailContent({
                   })}
                 </>
               )
-            })()
-          ) : (
-            <span className="text-sm text-muted-foreground/60">{t('detail.resourceEmpty')}</span>
-          )}
+            })()}
         </ResourceRow>
       )}
     </>
@@ -939,8 +879,16 @@ export function OperationDetailContent({
   /** The one number the radio asks for: everything on this Schadenplatz,
    *  whichever side of the provenance line it sits on. Borrowed from Variante B
    *  of mockup 08 — it exists nowhere else in the app today. «Zu Fuss» is a way
-   *  of getting there, not a resource, so it is not counted. */
+   *  of getting there, not a resource, so it is not counted.
+   *
+   *  The Reko IS counted. The heading covers the Reko line as much as the three
+   *  rows under it, and an incident with a Reko out and nothing else read
+   *  «Kräfte (0)» directly above that person's name — the count called a
+   *  firefighter standing on the Schadenplatz nobody. They are not in
+   *  `operation.crew`: the Reko assignment is its own field, which is exactly
+   *  why the sum missed them. */
   const totalResourceCount =
+    (operation.assignedReko ? 1 : 0) +
     operation.crew.length +
     operation.vehicles.length +
     operation.materials.length +
@@ -993,9 +941,7 @@ export function OperationDetailContent({
           )}
         >
           {/* In the panel this row carries everything: address, time, and the
-              mode/close controls the panel used to spend a bar of its own on.
-              The incident id moves into the title's tooltip — 36 monospace
-              characters nobody reads aloud cost a whole line there. */}
+              mode/close controls the panel used to spend a bar of its own on. */}
           <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="min-w-0 flex-1 space-y-1.5">
             <h2
@@ -1006,10 +952,11 @@ export function OperationDetailContent({
                 // part that may.
                 dense ? "min-w-0 text-lg" : "text-xl",
               )}
-              // Both, because the address is what truncated and the id is what
-              // lost its line: hovering the title has to answer either question.
+              // The address is what truncates in the panel, so hovering the
+              // title spells it out. (The id used to ride along here; it is
+              // gone from both mounts — see the note below the title.)
               title={dense
-                ? `${formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)} · ${operation.id}`
+                ? formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)
                 : undefined}
             >
               <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -1037,21 +984,19 @@ export function OperationDetailContent({
                 ride here as a chip and is now one of the banners below the tabs
                 / in the Übersicht column, where it states the same fact as a
                 sentence with its «erledigt» control attached.
-                In the panel the id lives in the title's tooltip and the clock
-                rides the title row, so there is nothing left to show. */}
-            {!dense && (
+                In the panel the clock rides the title row, so there is nothing
+                left to show.
+                The incident id is gone from both mounts. Thirty-six monospace
+                characters were the most prominent thing under the address, and
+                nobody at a command post reads a UUID — not aloud, not off the
+                screen, not into a report. */}
+            {!dense && showIncidentTime && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               {/* The board-wide time chip (start / in status / since alarm). Its
                   durations are dropped once the incident is closed: a running clock
                   on a finished Einsatz reads «19h 40'» the next morning and answers
                   nothing. The Verlauf tab holds the actual times. */}
-              {showIncidentTime && (
-                <>
-                  <span className="text-muted-foreground/40">·</span>
-                  <IncidentTime operation={operation} size="lg" suppressDurations={operation.status === "complete"} />
-                </>
-              )}
+              <IncidentTime operation={operation} size="lg" suppressDurations={operation.status === "complete"} />
             </div>
             )}
           </div>
@@ -1223,7 +1168,11 @@ export function OperationDetailContent({
               // back to scrolling rather than pushing the form off the panel.
               className={cn(
                 DENSE_CONTROL,
-                "h-auto py-1",
+                // `resize-none`: the field already grows with its content
+                // (`field-sizing-content`), so the corner grabber offered a second,
+                // worse way to do the same thing - and on a borderless control it was
+                // the only thing drawing a visible edge.
+                "h-auto resize-none py-1",
                 dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
               )}
             />
@@ -1281,7 +1230,11 @@ export function OperationDetailContent({
               // Same auto-grow as «Meldung» above — see there for why `h-auto`.
               className={cn(
                 DENSE_CONTROL,
-                "h-auto py-1",
+                // `resize-none`: the field already grows with its content
+                // (`field-sizing-content`), so the corner grabber offered a second,
+                // worse way to do the same thing - and on a borderless control it was
+                // the only thing drawing a visible edge.
+                "h-auto resize-none py-1",
                 dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
               )}
             />
@@ -1291,7 +1244,7 @@ export function OperationDetailContent({
               about the incident (how it came in, who it is for, why it waits),
               and scattering them between the text fields made the form read as
               five unrelated things. */}
-          {/* "Telefonisch gemeldet" / "Vom Feld gemeldet", correctable after
+          {/* "Telefonisch" / "Vom Feld", correctable after
               the fact (plan 26 decision 8): the realistic order is "type it in,
               then realise it was a phone call — or a Trupp's radio message".
               Same rows as in the new-emergency modal, two switches over ONE
@@ -1386,10 +1339,13 @@ export function OperationDetailContent({
               and must not sit below a resource list of unpredictable length. */}
           {canEdit && onChangeStatus && (
           <div className="mb-5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <ArrowRightLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="text-sm font-medium">{t('detail.changeStatus')}</span>
-            </div>
+            {/* Same heading as Lage / Meldung / Kräfte. It used to be a `text-sm
+                font-medium` line with a full-size icon, which made three heading
+                weights visible at once on one tab — and this one was the loudest
+                of them without being the most important thing on the tab. */}
+            <DetailGroupHeading icon={<ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />}>
+              {t('detail.changeStatus')}
+            </DetailGroupHeading>
             <div className="flex flex-wrap gap-1.5">
               {columns.map((col) => {
                 const isCurrent = col.status.includes(operation.status)
@@ -1452,24 +1408,47 @@ export function OperationDetailContent({
                 selectTab('reko')
                 if (canEdit && !assignedRekoPersonnel) setRekoDialogOpen(true)
               }}
-              className="group -mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
+              // The same hover tint and the same rhythm as the empty
+              // `ResourceRow`s below it: one target, one highlight.
+              className="-mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors duration-150 hover:bg-muted/40"
               title={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
+              aria-label={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : undefined}
             >
-              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="shrink-0 text-sm font-medium">{t('common.reko')}</span>
+              {/* The SAME gutter as the three `ResourceRow`s below, so the
+                  four values of the group start on one edge. It used to be an
+                  icon plus a bold «Reko» sized to the word, which put the name
+                  70px to the left of every chip under it — the one row of the
+                  group that did not line up. The magnifier stays, demoted into
+                  the label: it is the mnemonic, not a second heading level. */}
+              <span className="flex w-[120px] shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <Search className="h-3.5 w-3.5 shrink-0" />
+                {t('common.reko')}
+              </span>
               {assignedRekoPersonnel ? (
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                <span className="min-w-0 flex-1 truncate text-sm">
                   {assignedRekoPersonnel.name}
                   {operation.rekoArrivedAt && (
-                    <> · {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}</>
+                    <span className="text-muted-foreground">
+                      {' · '}
+                      {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}
+                    </span>
                   )}
                 </span>
               ) : (
-                <span className="min-w-0 flex-1 truncate text-sm italic text-muted-foreground/60">
-                  {canEdit ? t('card.assignReko') : t('common.noRekoAssigned')}
+                // «keine», exactly like the three rows under it. It used to read
+                // «Reko zuweisen» — the action written into the value slot, which
+                // is the one place in the group where a value belongs. The action
+                // is what the ROW is called now (title + aria-label above), which
+                // is where the other three keep theirs.
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/60">
+                  {t('detail.resourceEmpty')}
                 </span>
               )}
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
+              {/* No `group-hover` of its own — the row is the target, so it gets
+                  exactly one highlight. The chevron stays because it says this
+                  row LEADS somewhere (the Reko tab) rather than opening a picker
+                  in place, which is the one way it differs from its siblings. */}
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
             </button>
 
           {/* Standalone, the resource rows share the Reko line's py-1 rhythm and
@@ -1491,7 +1470,6 @@ export function OperationDetailContent({
             >
               <RouteResourceSections
                 resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
-                compactAdd
                 // Same map the incident's own chips use: an Auftrag's vehicle is
                 // no more self-explanatory than an incident's.
                 vehicleDrivers={vehicleDrivers}
@@ -1528,12 +1506,42 @@ export function OperationDetailContent({
               is a different moment from everything below, which is why it is no
               longer stacked on top of it. */}
           <TabsContent value="reko" className={tabPanelClass}>
-            {/* Same two-column pattern as Übersicht: the Auftrag (who is sent,
-                and the links to send them with) in the LEFT column, everything
-                that comes BACK (the Funkmeldung, the filed Berichte, the entry
-                surface) in the RIGHT. The panel mount stays a single stacked
-                column in this same order — 420px has no second column. */}
+            {/* Two columns, the same grid as Übersicht: what came IN from the
+                field on the LEFT, what the KP sets or administers on the RIGHT.
+                Feld reads the same way, so the two field tabs are siblings.
+                They were briefly one stacked column — which put an unassigned
+                Reko, its Funkmeldung and «noch kein Bericht» in a single narrow
+                run and read as a form with nothing in it. */}
             <div className={tabGridClass}>
+              <div className="space-y-5">
+              <RekoReportSection
+                incidentId={operation.id}
+                canEdit={canEdit}
+                // The board mount: the report reads as `DetailField` rows, the
+                // same ones the Auftrag column beside it and Übersicht next door
+                // use. Modal and 420px panel alike — a row list is the one
+                // layout that does not need a second design at that width.
+                dense
+
+                // «Reko vor Ort» is a Funkmeldung ABOUT the reconnaissance, so
+                // it heads the reading column — the same place and the same
+                // component the Feld tab puts «Abholung nötig» in. The two are
+                // built as twins and now sit as twins.
+                dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
+                // Stacked in both mounts now: this column is half the modal —
+                // the tab's own grid took over the side-by-side reading, with
+                // everything reported on the left and the Auftrag on the right.
+                layout="stacked"
+                // Deep-linked with the entry form open. «Reko-Details öffnen»
+                // in the completion gate answers "no Reko report was filled in",
+                // so it has to land on the form, not on a tab with a button.
+                openEditorNonce={
+                  openOnTab?.tab === 'reko' && openOnTab.section === 'newReport' ? openOnTab.nonce : undefined
+                }
+                onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
+              />
+              </div>
+
               {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
@@ -1542,11 +1550,12 @@ export function OperationDetailContent({
                   It also answers what this tab used to be before a report
                   exists: an empty box. Now the first thing an incident without
                   a Reko offers here is the way to assign one. */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('detail.rekoAuftrag')}</span>
-                </div>
+              <div className={cn(tabColumnBreakClass, "space-y-2")}>
+                {/* One heading style across all four tabs — this was the last
+                    `text-sm font-medium` + full-size icon pair left over. */}
+                <DetailGroupHeading icon={<Search className="h-3.5 w-3.5 shrink-0" />}>
+                  {t('detail.rekoAuftrag')}
+                </DetailGroupHeading>
                 {/* The Auftrag as `DetailField` rows — the same 104px gutter as
                     Übersicht and as the reports in the next column. It used to
                     be a badge plus four `xs` buttons in a wrapping row, which
@@ -1632,34 +1641,6 @@ export function OperationDetailContent({
                   )}
                 </div>
               </div>
-
-              <div className={tabColumnBreakClass}>
-              <RekoReportSection
-                incidentId={operation.id}
-                canEdit={canEdit}
-                // The board mount: the report reads as `DetailField` rows, the
-                // same ones the Auftrag column above and Übersicht next door
-                // use. Modal and 420px panel alike — a row list is the one
-                // layout that does not need a second design at that width.
-                dense
-
-                // «Reko vor Ort» is a Funkmeldung ABOUT the reconnaissance, so
-                // it sits with the reports in the data column — not across both,
-                // where it read as a heading for the entry surface too.
-                dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
-                // Stacked in both mounts now: this column is half the modal —
-                // the tab's own grid took over the side-by-side reading, with
-                // the Auftrag on the left and everything reported on the right.
-                layout="stacked"
-                // Deep-linked with the entry form open. «Reko-Details öffnen»
-                // in the completion gate answers "no Reko report was filled in",
-                // so it has to land on the form, not on a tab with a button.
-                openEditorNonce={
-                  openOnTab?.tab === 'reko' && openOnTab.section === 'newReport' ? openOnTab.nonce : undefined
-                }
-                onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
-              />
-              </div>
             </div>
           </TabsContent>
 
@@ -1677,15 +1658,10 @@ export function OperationDetailContent({
             hidden={tab !== 'rapport'}
             className={tabPanelClass}
           >
-          {/* One flow, split the same way the Reko tab is: what CAME IN on the
-              left — the crew's sentences — and what the KP itself sets or fills
-              in on the right. In the panel that becomes one column, top to
-              bottom, because 420px has no second one to give. */}
-          <div className={cn("py-4", dense ? "space-y-5" : "grid grid-cols-2 gap-6")}>
-            {/* Left: what the Schadenplatz says. The two settable Funkmeldungen
-                belong with the crew's own sentences — both answer «was ist
-                gemeldet worden», and an operator taking a radio call reads and
-                sets them in the same breath. */}
+          {/* Two columns, the same grid as Reko and Übersicht: what came IN
+              from the field on the left — the crew's sentences and what they
+              left standing — and what the KP writes on the right. */}
+          <div className={tabGridClass}>
             <div className="space-y-5">
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
                   on /feld, an operator enters here from a radio message.
@@ -1723,10 +1699,10 @@ export function OperationDetailContent({
                   refreshKey={materialReturnKey}
                 />
               )}
+
             </div>
 
-            {/* Right: the one thing that is written rather than reported. */}
-            <div className={cn("space-y-5", !dense && "border-l border-border pl-6")}>
+            <div className={tabColumnBreakClass}>
             {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
                 must be able to file one for an incident that never had any field
                 contact. Same form component /feld mounts, different transport. */}

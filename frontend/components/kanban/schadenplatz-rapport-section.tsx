@@ -20,6 +20,7 @@ import { FileText } from 'lucide-react'
 
 import { FeldRapportForm, type RapportTransport } from '@/components/feld/feld-rapport-form'
 import { MaterialReturnList } from '@/components/kanban/material-return-list'
+import { DetailGroupHeading } from '@/components/kanban/detail-field'
 import { apiClient } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import type { ApiRapportUpdate, ApiSchadenplatzRapport } from '@/lib/api/types'
@@ -104,13 +105,16 @@ export function SchadenplatzRapportSection({
           during an incident — but the Rapport tab IS that click, and a form
           behind a second one is a form that does not get filled. Nothing about
           the collapse is persisted, so there is no stored flag to clear. */}
-      <div className="flex w-full items-center gap-2">
-        <FileText className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-semibold text-muted-foreground">{t('sectionTitle')}</span>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {!applies ? t('stateNotDispatched') : filed ? t('stateSubmitted') : t('stateMissing')}
-        </span>
-      </div>
+      <DetailGroupHeading
+        icon={<FileText className="h-3.5 w-3.5 shrink-0" />}
+        action={
+          <span className="text-xs text-muted-foreground">
+            {!applies ? t('stateNotDispatched') : filed ? t('stateSubmitted') : t('stateMissing')}
+          </span>
+        }
+      >
+        {t('sectionTitle')}
+      </DetailGroupHeading>
 
       {/* Nothing was ever sent to this Schadenplatz, so there is nothing to
           report on. One sentence rather than a form: the empty rapport was the

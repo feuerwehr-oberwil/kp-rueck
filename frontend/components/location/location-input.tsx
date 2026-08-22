@@ -22,6 +22,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
 import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
@@ -58,6 +59,11 @@ interface LocationInputProps {
    *  borderless empty input has no affordance, and the pin icon alone reads
    *  as a row of buttons, not a field. */
   boxed?: boolean
+  /** Draw the required asterisk. Only a form that can be SUBMITTED empty has
+   *  anything to require — an existing incident already has an Einsatzort, and
+   *  marking it on the detail asked the operator to satisfy a rule they had
+   *  satisfied when the card was created. */
+  required?: boolean
 }
 
 export function LocationInput({
@@ -73,6 +79,7 @@ export function LocationInput({
   extraAction,
   dense = false,
   boxed = false,
+  required = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
@@ -377,7 +384,7 @@ export function LocationInput({
       {/* No hairline under the dense row — like every DetailField row since the
           «Nur Abstand» pick: whitespace separates, headings group. */}
       <div className={cn(dense ? "flex items-center gap-2 py-1" : "min-h-[40px]")}>
-        <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
+        <div className={cn("flex items-center gap-1", dense && "w-[120px] shrink-0")}>
           <Label
             htmlFor="location_address"
             className={cn(
@@ -388,7 +395,9 @@ export function LocationInput({
           >
             {dense ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
           </Label>
-          <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
+          {required && (
+            <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
+          )}
         </div>
         {/* items-CENTER, not items-start: the two icon buttons belong on the
             field's own line. Nothing in this row ever grows taller than the
@@ -448,12 +457,20 @@ export function LocationInput({
                   }}
                   onKeyDown={handleAddressKeyDown}
                   className={cn(
-                    // Transparent border + constant padding: focusing must not
-                    // move the text the operator just clicked on.
-                    dense && !boxed &&
-                      "h-7 rounded-md border border-transparent bg-transparent px-2 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
+                    // `DENSE_CONTROL`, not a copy of it. This row used to
+                    // hand-roll the same classes, which is why it was the ONE
+                    // field of the detail left without a box when the skin grew
+                    // its resting border: every value around it read as
+                    // editable and the Einsatzort read as printed text.
+                    dense && !boxed && DENSE_CONTROL,
                     boxed && "pr-16",
-                    error && "border-destructive focus-visible:ring-destructive"
+                    // The hover/focus variants have to be beaten in kind:
+                    // `DENSE_CONTROL` sets `hover:border-border` and
+                    // `focus-visible:border-border`, and an unprefixed
+                    // `border-destructive` loses to both — the error outline
+                    // disappeared the moment the field was hovered or focused.
+                    error &&
+                      "border-destructive hover:border-destructive focus-visible:border-destructive focus-visible:ring-destructive"
                   )}
                 />
                 {boxed && (
@@ -691,6 +708,10 @@ export function LocationInput({
           onOpenChange={setMapPickerOpen}
           initialLat={latitude}
           initialLon={longitude}
+          // The address this field already holds, so the picker does not report
+          // «Keine Adresse gefunden» about a place whose name is in the input
+          // right behind it — and does not overwrite it with coordinates.
+          initialAddress={address}
           onLocationSelect={handleMapSelect}
         />
       )}

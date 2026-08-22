@@ -772,7 +772,7 @@ function AuftragCard({
           </div>
           </div>
         </ContextMenuTrigger>
-        {canEdit && <ContextMenuContent className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
+        {canEdit && <ContextMenuContent className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap" onCloseAutoFocus={(e) => e.preventDefault()}>
           <ContextMenuItem onClick={onStartRename}>
             <Pencil className="mr-2 h-4 w-4" />
             {t("rename")}

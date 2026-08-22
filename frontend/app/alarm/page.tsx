@@ -707,6 +707,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
 
       {/* Location — first, so the address isn't repeated in the message */}
       <LocationInput
+        required
         address={address}
         latitude={lat}
         longitude={lng}

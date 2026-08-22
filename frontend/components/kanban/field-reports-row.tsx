@@ -36,8 +36,9 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
+import { DETAIL_CONTROL_INDENT, DetailGroupHeading } from '@/components/kanban/detail-field'
 import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
@@ -138,7 +139,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
   const rows: ReportRow[] = ([
     {
       key: 'rekoArrived',
-      icon: <Binoculars className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />,
+      icon: <Binoculars className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />,
       label: t('rekoArrived'),
       at: operation.rekoArrivedAt,
       on: Boolean(operation.rekoArrivedAt),
@@ -156,7 +157,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
     },
     {
       key: 'pickup',
-      icon: <CarTaxiFront className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />,
+      icon: <CarTaxiFront className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />,
       label: t('pickup'),
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),
@@ -204,18 +205,31 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                   blocks, and «Reko vor Ort» and «Abholung nötig» sit in
                   different tabs of the same panel. */}
               <div className="flex min-h-8 items-center justify-between gap-3">
-                {/* The whole labelled half toggles, not just the 36px switch
+                {/* The whole line up to the controls toggles, not just the words
                     (§P2.9) — a real <button>, so it is one more tab stop but a
                     reachable one. tabIndex -1 keeps the Switch the keyboard's
-                    single control; the button is the mouse's bigger target. */}
+                    single control; the button is the mouse's bigger target.
+                    `flex-1` is what makes it the WHOLE line: the button used to
+                    shrink to its text, which left the gap between the label and
+                    the switch — the widest part of a `justify-between` row —
+                    inert. The pointer was over the row, the row looked like one
+                    target, and nothing happened. */}
                 <button
                   type="button"
                   tabIndex={-1}
                   disabled={!canEdit || saving === row.key}
                   onClick={() => row.onToggle(!row.on)}
-                  className="flex min-w-0 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
                 >
-                  {row.icon}
+                  {/* The 120px grey gutter every other row of the detail uses,
+                      so «Reko vor Ort» and «Abholung nötig» line their switches
+                      up with the toggles on Übersicht instead of pinning them to
+                      the far edge of whatever column they land in. Two controls
+                      of the same kind, one column. */}
+                  <span className="flex w-[120px] shrink-0 items-center gap-1.5 text-xs leading-tight text-muted-foreground">
+                    {row.icon}
+                    {row.label}
+                  </span>
                   {/* `text-sm` on the box, not just the label: the icon is
                       centred against this box, and a larger inherited font would
                       stretch it and leave the glyph sitting high.
@@ -224,12 +238,14 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                       («vom Feld, …») would otherwise wrap onto a second line and
                       move the content below all over again. The full sentence
                       stays reachable on hover. */}
+                  {/* Only the provenance left here — the label moved into the
+                      gutter above. Still truncating: a long «vom Feld, …» would
+                      otherwise wrap and move everything below it. */}
                   <div
-                    className="min-w-0 truncate text-sm"
+                    className="min-w-0 truncate text-xs text-muted-foreground"
                     title={line ? `${row.label} – ${line}` : row.label}
                   >
-                    <span>{row.label}</span>
-                    {line && <span className="ml-2 text-xs text-muted-foreground">{line}</span>}
+                    {line}
                   </div>
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
@@ -265,7 +281,10 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                   this was the third copy of one timestamp (banner, provenance,
                   line) and 20px of the jump. */}
               {row.key === 'pickup' && row.on && (
-                <div className="mt-1 pl-6">
+                // Lined up with the switch above it, not with the icon: the
+                // label gutter is 120px + the row's 8px gap. `pl-6` dated from
+                // when the label sat right after a 16px glyph.
+                <div className={cn("mt-1", DETAIL_CONTROL_INDENT)}>
                   <Input
                     placeholder={t('pickupNotePlaceholder')}
                     value={note}
@@ -413,13 +432,16 @@ export function FieldMessageThread({
   // where the border made it a box in a box.
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <Label className="text-sm font-semibold">{t('messagesTitle')}</Label>
-        {entries.length > 0 && (
-          <span className="ml-auto text-xs tabular-nums text-muted-foreground">{entries.length}</span>
-        )}
-      </div>
+      <DetailGroupHeading
+        icon={<MessageSquare className="h-3.5 w-3.5 shrink-0" />}
+        action={
+          entries.length > 0 ? (
+            <span className="text-xs tabular-nums text-muted-foreground">{entries.length}</span>
+          ) : null
+        }
+      >
+        {t('messagesTitle')}
+      </DetailGroupHeading>
 
       {isLoading && entries.length === 0 && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">

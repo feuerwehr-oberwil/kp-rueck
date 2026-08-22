@@ -253,7 +253,8 @@ describe('the card view switches', () => {
       operation({ nachbarhilfe: true, nachbarhilfeNote: 'FW Therwil vor Ort' }),
     )
     // A status is not a detail — it is not in CARD_VIEW_KEYS at all.
-    expect(screen.getByText('FW Therwil vor Ort')).toBeInTheDocument()
+    // One labelled chip, like «Am Warten»: «Nachbarhilfe · <Grund>».
+    expect(screen.getByText(/Nachbarhilfe · FW Therwil vor Ort/)).toBeInTheDocument()
   })
 })
 

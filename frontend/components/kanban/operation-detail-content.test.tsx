@@ -218,12 +218,15 @@ describe("OperationDetailContent", () => {
     )
 
     expect(screen.getByText("Hauptstrasse 1")).toBeInTheDocument()
-    // The panel carries the incident id as the title's tooltip: 36 monospace
-    // characters nobody reads aloud are not worth a line in 420px.
+    // The panel's title tooltip spells out the address, which is what truncates
+    // at 420px — and ONLY the address. The incident id used to ride along here;
+    // it is gone from both mounts, because nobody at a command post reads a
+    // UUID off a screen.
     expect(screen.getByText("Hauptstrasse 1").closest("h2")).toHaveAttribute(
       "title",
-      "Hauptstrasse 1 · incident-1",
+      "Hauptstrasse 1",
     )
+    expect(screen.queryByText("incident-1")).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Koordinaten löschen" }))
     expect(onUpdate).toHaveBeenCalledWith({ coordinates: null })
