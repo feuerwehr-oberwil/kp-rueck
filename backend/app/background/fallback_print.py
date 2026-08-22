@@ -109,8 +109,16 @@ class FallbackPrintTask:
         enabled = await settings_service.get_setting_value(db, "fallback.auto_print_enabled", "false")
         if enabled.lower() != "true":
             return
+        # Beides, nicht nur der Schalter: ohne Adresse hat der Druckdienst nichts, wohin er
+        # senden könnte, und ein Schnappschuss alle 15 Minuten würde die Warteschlange
+        # stillschweigend vollschreiben. Dieselbe Bedingung wie in
+        # `require_printer_configured` (api/print.py) – dort mit Fehlermeldung, hier still,
+        # weil dies eine Hintergrundschleife ohne Gegenüber ist.
         printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
         if printer_enabled.lower() != "true":
+            return
+        printer_ip = await settings_service.get_setting_value(db, "printer.ip", "")
+        if not printer_ip.strip():
             return
 
         raw_interval = await settings_service.get_setting_value(db, "fallback.auto_print_interval_min", "15")

@@ -11,8 +11,9 @@ from app.models import PrintJob, Setting
 
 @pytest_asyncio.fixture
 async def printer_enabled(db_session: AsyncSession):
-    """Enable the thermal printer so the agent-poll guard passes."""
+    """A WORKING printer: switched on and reachable — the queue guard wants both."""
     db_session.add(Setting(key="printer.enabled", value="true"))
+    db_session.add(Setting(key="printer.ip", value="10.10.10.230"))
     await db_session.commit()
 
 
@@ -61,3 +62,23 @@ class TestQRCodePrintEndpoint:
     async def test_rejected_when_printer_disabled(self, editor_client: AsyncClient):
         response = await editor_client.post("/api/print/qr-code/", json=QR_BODY)
         assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_rejected_when_no_printer_address(
+        self, editor_client: AsyncClient, db_session: AsyncSession
+    ):
+        """Switched on, no address: the job used to be accepted with a 201 and then sat in
+        the queue forever — no error on the board, nothing on paper. The operator has to
+        find out at the moment they press print, and the message has to say where to fix it."""
+        db_session.add(Setting(key="printer.enabled", value="true"))
+        db_session.add(Setting(key="printer.ip", value="   "))
+        await db_session.commit()
+
+        response = await editor_client.post("/api/print/qr-code/", json=QR_BODY)
+        assert response.status_code == 400
+        assert "Druckeradresse" in response.json()["detail"]
+
+        # And nothing was stored.
+        jobs = (await db_session.execute(select(PrintJob))).scalars().all()
+        assert jobs == []

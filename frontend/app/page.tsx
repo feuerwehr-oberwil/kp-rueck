@@ -984,7 +984,10 @@ export default function FireStationDashboard() {
     async function fetchPrinterStatus() {
       try {
         const status = await apiClient.getPrinterStatus()
-        setPrinterEnabled(status.enabled)
+        // Both, like the Divera check below: switched on AND an address the agent can
+        // reach. On `enabled` alone the print buttons rendered for a station that had
+        // never entered an IP — the job was accepted, queued, and never came out.
+        setPrinterEnabled(status.enabled && Boolean(status.ip?.trim()))
       } catch {
         // Printer API might not be available (e.g., Railway deployment)
         setPrinterEnabled(false)

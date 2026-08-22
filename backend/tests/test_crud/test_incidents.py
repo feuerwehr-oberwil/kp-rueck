@@ -687,12 +687,17 @@ class TestAutoPrintOnFirstDispatch:
     async def _enable_auto_print(db: AsyncSession) -> None:
         from app.models import Setting
 
-        for key in ("printer.enabled", "printer.auto_anfahrt"):
+        # printer.ip too: without an address the printer counts as not set up.
+        for key, value in (
+            ("printer.enabled", "true"),
+            ("printer.auto_anfahrt", "true"),
+            ("printer.ip", "10.10.10.230"),
+        ):
             existing = (await db.execute(select(Setting).where(Setting.key == key))).scalar_one_or_none()
             if existing:
-                existing.value = "true"
+                existing.value = value
             else:
-                db.add(Setting(key=key, value="true"))
+                db.add(Setting(key=key, value=value))
         await db.commit()
 
     @staticmethod
