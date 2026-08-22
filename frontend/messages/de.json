@@ -3332,7 +3332,8 @@
       "available": "verfügbar",
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
-      "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}"
+      "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
+      "availableDeployedNotReady": "{available} verfügbar · {deployed} im Einsatz · {notReady} nicht einsatzbereit"
     },
     "tokenBoard": {
       "unknown": "Unbekannt",

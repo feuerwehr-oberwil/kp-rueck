@@ -229,6 +229,13 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     category: m.location || "General",
     type: m.type || "Sonstiges",
     status: (assignedMaterialIds.has(m.id) ? "assigned" : "available") as Material["status"],
+    // Readiness comes down the wire now (`ViewerMaterial.out_of_service`) — the
+    // one availability fact a display cannot derive from this event's
+    // assignments, and the reason a defective pump used to draw green here.
+    outOfService: m.out_of_service ?? false,
+    // The «seit» timestamp deliberately stays out of the share payload: the wall
+    // says WHETHER something is einsatzbereit, the Verwaltung says since when.
+    outOfServiceSince: null,
     categorySortOrder: m.location_sort_order,
     consumable: m.consumable ?? false,
     groupId: m.group_id,
@@ -254,6 +261,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
         name: v.name,
         type: v.type,
         status: v.status,
+        // «Nicht einsatzbereit», read from the field that means it rather than
+        // from the legacy `status` mirror — see vehicleResourceState.
+        outOfService: v.out_of_service ?? false,
         displayOrder: v.display_order,
         assignedOperation,
         gps,

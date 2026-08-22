@@ -33,6 +33,9 @@ What is deliberately NOT here, per model:
   scoped to who is checked in here.
 * **Material** — the free-text `description` and the raw `status` column (the
   display derives "assigned vs. available" from this event's assignments).
+  `out_of_service` DOES ride along: readiness is a station-wide fact that no
+  amount of assignment reconciliation can reconstruct, and a wall display that
+  cannot tell «im Einsatz» from «defekt» paints a broken pump green.
 * **Vehicle** — nothing. `schemas.Vehicle` carries no personal data, and its
   `radio_call_sign` is drawn next to the vehicle on a card; a call sign is
   painted on the truck and spoken on an open channel, so hiding it here would
@@ -161,6 +164,13 @@ class ViewerMaterial(BaseModel):
     location_sort_order: int = 0
     consumable: bool = False
     group_id: UUID | None = None
+    # «Nicht einsatzbereit» — readiness, and the one availability fact the display
+    # cannot derive from this event's assignments. Without it a defective pump drew
+    # green on the wall, which is the single worst thing this panel can say. Not the
+    # legacy `status` mirror (still omitted, see the module docstring): that column
+    # is the same fact spelled the old way, and the display overwrites it per
+    # Ereignis with the deployment state.
+    out_of_service: bool = False
 
 
 class ViewerAssignment(BaseModel):

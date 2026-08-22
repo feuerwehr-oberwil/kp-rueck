@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
-import { Loader2, Binoculars, Package2, Infinity as InfinityIcon } from "lucide-react"
+import { Loader2, Binoculars, Package2, Ban, Infinity as InfinityIcon } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -14,7 +14,12 @@ import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { type Priority, PRIORITY_EDGE_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
-import { RESOURCE_STATE_DOT_CLASSES, materialResourceState, personResourceState } from "@/lib/resource-status"
+import {
+  RESOURCE_STATE_DOT_CLASSES,
+  materialResourceState,
+  personResourceState,
+  vehicleResourceState,
+} from "@/lib/resource-status"
 import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { type Person } from "@/lib/contexts/personnel-context"
@@ -54,6 +59,14 @@ const ROW_SURFACE = "bg-muted/30"
 /** Short display label for an incident location (falls back to the type).
  *  Server-computed (locationDisplay) — final on first paint, no reformat flash. */
 const incidentLocationLabel = getIncidentLocationLabel
+
+/** Reading order inside a material category: in use, free, out of service. */
+const MATERIAL_STATE_RANK: Record<ReturnType<typeof materialResourceState>, number> = {
+  assigned: 0,
+  available: 1,
+  maintenance: 2,
+  unavailable: 3,
+}
 
 /** Clickable "→ Einsatz" reference on an assigned resource row. */
 interface AssignmentRef {
@@ -316,7 +329,11 @@ function SituationBoard({
         if (a.categorySortOrder !== b.categorySortOrder) return (a.categorySortOrder ?? 0) - (b.categorySortOrder ?? 0)
         return (a.category ?? "").localeCompare(b.category ?? "", getActiveLocale())
       }
-      if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
+      // In use first, «nicht einsatzbereit» last — the same order the board's
+      // material sidebar puts its groups in. What is out is the thing nobody
+      // needs to scan for.
+      const rank = MATERIAL_STATE_RANK[materialResourceState(a)] - MATERIAL_STATE_RANK[materialResourceState(b)]
+      if (rank !== 0) return rank
       return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
     })
     const groups: { category: string; items: Material[] }[] = []
@@ -332,13 +349,24 @@ function SituationBoard({
     return groups
   }, [materials])
 
-  // A vehicle out on an Auftrag is deployed too — it carries no incident of its
-  // own, because the route owns it and the stops carry no resources.
-  const deployed = vehicleStatus.filter((v) => v.assignedOperation || auftragByVehicleId.has(v.id)).length
+  // Vehicle readiness beats deployment, so both numbers are read off the same
+  // helper the rows draw with — «6 verfügbar» must not include the one on the
+  // ramp with a broken pump. A vehicle out on an Auftrag is deployed too: it
+  // carries no incident of its own, because the route owns it.
+  const vehicleStates = useMemo(
+    () => vehicleStatus.map((v) =>
+      vehicleResourceState({ outOfService: v.outOfService, assigned: !!v.assignedOperation || auftragByVehicleId.has(v.id) })
+    ),
+    [vehicleStatus, auftragByVehicleId],
+  )
+  const deployed = vehicleStates.filter((s) => s === "assigned").length
+  const vehiclesNotReady = vehicleStates.filter((s) => s === "unavailable").length
   // «im Einsatz» must agree with the dots beside the names: a Reko is an Auftrag.
   const assignedPersonnelCount = personnel.filter((p) => personResourceState(p) === "assigned").length
   // Verbrauchsmaterial never counts as gone — see materialResourceState.
-  const assignedMaterialCount = materials.filter((m) => materialResourceState(m) === "assigned").length
+  const materialStates = materials.map((m) => materialResourceState(m))
+  const assignedMaterialCount = materialStates.filter((s) => s === "assigned").length
+  const materialsNotReady = materialStates.filter((s) => s === "unavailable").length
 
   return (
     <div className="h-full flex bg-background overflow-x-auto">
@@ -348,7 +376,13 @@ function SituationBoard({
           title={t('vehicles')}
           count={vehicleStatus.length}
 
-          subtitle={t('availableDeployed', { available: vehicleStatus.length - deployed, deployed })}
+          subtitle={vehiclesNotReady > 0
+            ? t('availableDeployedNotReady', {
+                available: vehicleStatus.length - deployed - vehiclesNotReady,
+                deployed,
+                notReady: vehiclesNotReady,
+              })
+            : t('availableDeployed', { available: vehicleStatus.length - deployed, deployed })}
         />
         <div className="flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2">
           {vehicleStatus.map((v) => (
@@ -476,11 +510,18 @@ function SituationBoard({
           title={t('material')}
           count={materials.length}
 
-          subtitle={t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
+          subtitle={materialsNotReady > 0
+            ? t('availableDeployedNotReady', {
+                available: materials.length - assignedMaterialCount - materialsNotReady,
+                deployed: assignedMaterialCount,
+                notReady: materialsNotReady,
+              })
+            : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
         />
         <div className="flex-1 overflow-y-auto">
           {groupedMaterials.map(({ category, items }) => {
-            const free = items.length - items.filter((m) => materialResourceState(m) === "assigned").length
+            // «frei» means it can be sent out — neither on an Einsatz nor broken.
+            const free = items.filter((m) => materialResourceState(m) === "available").length
             return (
               <CollapsibleSection
                 key={category}
@@ -548,27 +589,42 @@ function PanelHeader({ title, count, subtitle }: {
 
 function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStatus; auftrag?: IncidentGroup; onClick?: () => void }) {
   const tv = useTranslations('incidents.vehicleStatus')
+  const tk = useTranslations('kanban.common')
   // Out on an Auftrag counts as deployed even without an incident of its own.
   const isDeployed = !!v.assignedOperation || !!auftrag
+  // «Nicht einsatzbereit» beats deployment beats free — the same precedence the
+  // board draws, and never colour alone: the square becomes a Ban glyph and the
+  // row says the word, because a wall is read across a room and in a fire hall
+  // that room is not always well lit.
+  const state = vehicleResourceState({ outOfService: v.outOfService, assigned: isDeployed })
+  const isOutOfService = state === "unavailable"
   return (
     <div
       className={cn(
         "flex items-center gap-3 px-3 xl:px-4 py-2 xl:py-2.5 rounded-md",
         isDeployed ? "bg-muted/40" : "bg-muted/20",
+        isOutOfService && "border border-dashed border-border bg-transparent opacity-70",
         onClick && "cursor-pointer transition-colors hover:bg-muted/60"
       )}
       onClick={onClick}
     >
-      <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", RESOURCE_STATE_DOT_CLASSES[isDeployed ? "assigned" : "available"])} />
+      {isOutOfService ? (
+        <Ban className="h-3.5 w-3.5 xl:h-4 xl:w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      ) : (
+        <div className={cn("w-3 h-3 xl:w-3.5 xl:h-3.5 rounded-sm shrink-0", RESOURCE_STATE_DOT_CLASSES[state])} />
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="font-bold text-sm xl:text-base">{v.name}</span>
+          <span className={cn("font-bold text-sm xl:text-base", isOutOfService && "text-muted-foreground")}>{v.name}</span>
           {v.driverName && <span className="text-[11px] xl:text-xs text-muted-foreground truncate">{v.driverName}</span>}
         </div>
         {/* Where it is. An Auftrag wins over the single stop's address — the same
             answer the Fahrzeugstatus-Sheet gives — and it carries the route's own
-            colour, so «welches Fahrzeug fährt welche Tour» reads from the wall. */}
-        {auftrag ? (
+            colour, so «welches Fahrzeug fährt welche Tour» reads from the wall.
+            «Nicht einsatzbereit» wins over both: it is why the vehicle is nowhere. */}
+        {isOutOfService ? (
+          <p className="mt-0.5 truncate text-xs xl:text-sm font-medium text-muted-foreground">{tk('notReady')}</p>
+        ) : auftrag ? (
           <p className="mt-0.5 flex items-center gap-1.5 min-w-0">
             <span
               className="h-2 w-2 xl:h-2.5 xl:w-2.5 shrink-0 rounded-full"
@@ -678,7 +734,13 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
 function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Material; assignedTo: AssignmentRef[]; onOpenIncident: (id: string) => void }) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
+  const tc = useTranslations('kanban.common')
   const isAssigned = m.status === "assigned"
+  // «Nicht einsatzbereit» ▸ «im Einsatz» ▸ «verfügbar», through the board's own
+  // helper. Said in three ways at once, never colour alone: the dot becomes a Ban
+  // glyph, the row dims, and the trailing slot spells the word out.
+  const state = materialResourceState(m)
+  const isOutOfService = state === "unavailable"
   // One incident → name it and jump there on click. Several (the normal case for
   // Verbrauchsmaterial) → the count, and no click: there is no single target.
   const single = assignedTo.length === 1 ? assignedTo[0] : null
@@ -689,15 +751,23 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
     <div
       className={cn(
         "flex items-center gap-2 px-3 xl:px-4 py-1.5 xl:py-2 rounded-sm",
+        isOutOfService && "opacity-70",
         clickable && "cursor-pointer transition-colors hover:bg-muted/60"
       )}
       onClick={clickable ? () => onOpenIncident(single!.operationId) : undefined}
     >
-      {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not lent out */}
-      <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[materialResourceState(m)])} />
-      {m.consumable && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
-      <span className="text-xs xl:text-sm truncate flex-1">{m.name}</span>
-      {single ? (
+      {/* Verbrauchsmaterial stays green even while assigned — it is stocked, not
+          lent out. Broken beats both: a defective Fass is not "unlimited". */}
+      {isOutOfService ? (
+        <Ban className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      ) : (
+        <span className={cn("h-1.5 w-1.5 xl:h-2 xl:w-2 rounded-full shrink-0", RESOURCE_STATE_DOT_CLASSES[state])} />
+      )}
+      {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
+      <span className={cn("text-xs xl:text-sm truncate flex-1", isOutOfService && "text-muted-foreground")}>{m.name}</span>
+      {isOutOfService ? (
+        <span className="text-[10px] xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
+      ) : single ? (
         <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
       ) : assignedTo.length > 1 ? (
         <span

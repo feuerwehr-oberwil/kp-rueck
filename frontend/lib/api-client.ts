@@ -165,10 +165,15 @@ export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'role' | 'ro
   divera_user_id?: null
 }
 
-/** Material panel row on a shared display. */
+/** Material panel row on a shared display.
+ *
+ *  `out_of_service` rides along and the legacy `status` mirror does not: the
+ *  display derives «im Einsatz» from this event's assignments, but readiness is
+ *  a station-wide fact it cannot reconstruct — and a wall that cannot tell
+ *  «im Einsatz» from «defekt» paints a broken pump green. */
 export type ApiViewerMaterial = Pick<
   ApiMaterialResource,
-  'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id'
+  'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id' | 'out_of_service'
 >
 
 /** Which resource sits on which incident – never who put it there, or when.

@@ -13,7 +13,11 @@ export interface VehicleWithStatus {
   id: string
   name: string
   type: string
+  /** LEGACY mirror of `outOfService`, kept in lockstep server-side. Read
+   *  `outOfService` for readiness — see lib/resource-status.ts. */
   status: string
+  /** «Nicht einsatzbereit» — beats deployment, which beats «verfügbar». */
+  outOfService: boolean
   displayOrder: number
   assignedOperation: Operation | undefined
   gps: ApiVehiclePosition | undefined
@@ -36,17 +40,56 @@ export function useStatusData() {
   const { personnel } = usePersonnel()
   const { materials } = useMaterials()
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
-  const [vehicles, setVehicles] = useState<Array<{ id: string; name: string; type: string; status: string; displayOrder: number }>>([])
+  const [vehicles, setVehicles] = useState<Array<Omit<VehicleWithStatus, 'assignedOperation' | 'gps' | 'driverName'>>>([])
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const v = await apiClient.getVehicles()
-        setVehicles(v.map((veh) => ({ id: veh.id, name: veh.name, type: veh.type, status: veh.status, displayOrder: veh.display_order })))
-      } catch { /* silent */ }
-    }
-    load()
+  const fetchVehicles = useCallback(async () => {
+    try {
+      const v = await apiClient.getVehicles()
+      setVehicles(v.map((veh) => ({
+        id: veh.id,
+        name: veh.name,
+        type: veh.type,
+        status: veh.status,
+        outOfService: veh.out_of_service ?? false,
+        displayOrder: veh.display_order,
+      })))
+    } catch { /* silent */ }
   }, [])
+
+  // Load the fleet and KEEP it fresh. This used to be a mount-only fetch, so
+  // «Nicht einsatzbereit» set or cleared mid-shift never reached the wall
+  // display until somebody reloaded it — and a display runs for days.
+  // `vehicle_update` (room "operations", joined on connect) fires on every
+  // fleet change; its payload varies by action (full vehicle on update, bare
+  // id on delete), so refetch the list instead of patching it. While the
+  // socket is down, a slow poll covers the gap — same pattern as the position
+  // effect below, just at a wall-display pace instead of GPS pace.
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | undefined
+
+    fetchVehicles()
+    const unsubscribeUpdate = wsClient.on('vehicle_update', () => {
+      void fetchVehicles()
+    })
+    const unsubscribeStatus = wsClient.onStatusChange((wsStatus: WebSocketStatus) => {
+      if (wsStatus === 'disconnected' || wsStatus === 'error') {
+        if (!pollInterval) {
+          pollInterval = setInterval(() => void fetchVehicles(), 30000)
+        }
+      } else if (wsStatus === 'connected') {
+        if (pollInterval) {
+          clearInterval(pollInterval)
+          pollInterval = undefined
+        }
+      }
+    })
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval)
+      unsubscribeUpdate()
+      unsubscribeStatus()
+    }
+  }, [fetchVehicles])
 
   const fetchPositions = useCallback(async () => {
     try {

@@ -302,7 +302,8 @@
       "available": "disponibles",
       "freeOfTotal": "{free}/{total} libres",
       "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
-      "onIncidents": "{count, plural, one {# intervention} other {# interventions}}"
+      "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
+      "availableDeployedNotReady": "{available} disponible(s) · {deployed} engagé(s) · {notReady} hors service"
     },
     "tokenBoard": {
       "unknown": "Inconnu",
