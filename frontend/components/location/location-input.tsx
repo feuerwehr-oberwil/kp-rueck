@@ -334,6 +334,38 @@ export function LocationInput({
     longitude >= -180 &&
     longitude <= 180
 
+  // The map picker and the coordinate toggle. Beside the field normally; INSIDE
+  // its right edge when `boxed`, so the input ends where every other control of
+  // the form ends instead of stopping two buttons short of the shared edge.
+  const locationActions = (
+    <>
+      <Button
+        type="button"
+        variant={dense || boxed ? "ghost" : "outline"}
+        size={dense || boxed ? "icon-xs" : "icon"}
+        className={cn((dense || boxed) && "size-7")}
+        onClick={() => setMapPickerOpen(true)}
+        disabled={disabled}
+        title={t('locationInput.pickOnMap')}
+        tabIndex={-1}
+      >
+        <Map className={dense || boxed ? "size-3.5" : "size-4"} />
+      </Button>
+      <Button
+        type="button"
+        variant={showCoordinates ? "default" : dense || boxed ? "ghost" : "outline"}
+        size={dense || boxed ? "icon-xs" : "icon"}
+        className={cn((dense || boxed) && "size-7")}
+        onClick={() => setShowCoordinates(!showCoordinates)}
+        disabled={disabled}
+        title={t('locationInput.enterCoordinates')}
+        tabIndex={-1}
+      >
+        <Navigation className={dense || boxed ? "size-3.5" : "size-4"} />
+      </Button>
+    </>
+  )
+
   return (
     // No blanket vertical spacing here: the coordinate drawer below is collapsed
     // to zero height most of the time, and a `space-y-*` on this wrapper still
@@ -421,9 +453,15 @@ export function LocationInput({
                     // move the text the operator just clicked on.
                     dense && !boxed &&
                       "h-7 rounded-md border border-transparent bg-transparent px-2 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
+                    boxed && "pr-16",
                     error && "border-destructive focus-visible:ring-destructive"
                   )}
                 />
+                {boxed && (
+                  <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+                    {locationActions}
+                  </div>
+                )}
               </div>
             </PopoverAnchor>
             <PopoverContent
@@ -535,33 +573,9 @@ export function LocationInput({
             </PopoverContent>
           </Popover>
 
-          {/* Map Picker Button - excluded from tab order for cleaner form navigation */}
-          <Button
-            type="button"
-            variant={dense ? "ghost" : "outline"}
-            size={dense ? "icon-xs" : "icon"}
-            className={cn(dense && "size-7")}
-            onClick={() => setMapPickerOpen(true)}
-            disabled={disabled}
-            title={t('locationInput.pickOnMap')}
-            tabIndex={-1}
-          >
-            <Map className={dense ? "size-3.5" : "size-4"} />
-          </Button>
-
-          {/* Show Coordinates Button - excluded from tab order for cleaner form navigation */}
-          <Button
-            type="button"
-            variant={showCoordinates ? "default" : dense ? "ghost" : "outline"}
-            size={dense ? "icon-xs" : "icon"}
-            className={cn(dense && "size-7")}
-            onClick={() => setShowCoordinates(!showCoordinates)}
-            disabled={disabled}
-            title={t('locationInput.enterCoordinates')}
-            tabIndex={-1}
-          >
-            <Navigation className={dense ? "size-3.5" : "size-4"} />
-          </Button>
+          {/* Excluded from tab order for cleaner form navigation; boxed mounts
+              carry these inside the field instead (see `locationActions`). */}
+          {!boxed && locationActions}
 
           {extraAction}
         </div>

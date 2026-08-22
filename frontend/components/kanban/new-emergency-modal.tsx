@@ -163,9 +163,9 @@ export function NewEmergencyModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
-          so a bare `max-w-4xl` loses to it at desktop widths and the two-column grid
-          gets crushed into ~440px — clipped selects, icon-only Einsatzort. */}
-      <DialogContent className="sm:max-w-4xl">
+          so a bare `max-w-*` loses to it at desktop widths and the form gets
+          crushed into ~440px — clipped selects, icon-only Einsatzort. */}
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Plus className="h-6 w-6 text-primary" />
@@ -176,13 +176,12 @@ export function NewEmergencyModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Two columns only from `sm` up — below that the dialog itself is barely
-            400px wide and the columns must stack (a phone spawning a training
-            incident is a real path, see the mobile viewing-first decision). */}
-        <div className="grid gap-x-8 py-2 sm:grid-cols-2">
-          {/* Left — was ist passiert. Same order as the Übersicht tab, so the
-              modal and the detail read as one form seen twice. */}
-          <div className="space-y-1">
+        {/* ONE column: the eight rows fit a laptop's height with room to spare,
+            and a single reading direction beats filling width for its own sake —
+            a second column made the eye jump mid-form. Was ist passiert first
+            (same order as the Übersicht tab, so the modal and the detail read as
+            one form seen twice), wer hat gemeldet after. */}
+        <div className="space-y-1 py-2">
             {/* Location carries its own label and its own map/coordinate buttons,
                 so it lays itself out as a row rather than being wrapped in one. */}
             <LocationInput
@@ -256,18 +255,16 @@ export function NewEmergencyModal({
                 </SelectContent>
               </Select>
             </DetailField>
-          </div>
 
-          {/* Right — wer hat gemeldet. Provenance, then who, then the number: one
-              sentence, and the order is the point (see the spec next door). It is
-              the SECOND column rather than the top of the form because the operator
-              is already typing in the left one when they take a call; a selector
-              above would add a step to the board's most-used modal just to confirm
-              the normal case. Two switches over ONE source value, so turning one on
-              turns the other off — the same pair, and the same `DetailToggle`, as
-              the Übersicht tab. The explanatory sentence under each switch is gone;
-              it lives on as the label's `title`, like everywhere else. */}
-          <div className="space-y-1">
+            {/* Wer hat gemeldet. Provenance, then who, then the number: one
+              sentence, and the order is the point (see the spec next door). It
+              comes AFTER the incident fields rather than above them because the
+              operator is already typing the Einsatzort when they take a call; a
+              selector on top would add a step to the board's most-used modal just
+              to confirm the normal case. Two switches over ONE source value, so
+              turning one on turns the other off — the same pair, and the same
+              `DetailToggle`, as the Übersicht tab. The explanatory sentence under
+              each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
@@ -310,7 +307,6 @@ export function NewEmergencyModal({
             <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
               {t('newEmergency.infoDragDrop')}
             </p>
-          </div>
         </div>
 
         {/* Actions — Abbrechen left, primary right, like every other dialog. */}
