@@ -141,20 +141,21 @@ export function DetailToggle({
         className="flex cursor-pointer items-center gap-2 select-none"
         onClick={() => !disabled && onToggle(!checked)}
       >
-        {/* No fixed label column: a toggle row has no value beside it, so the
-            label may run past where the fields line up rather than wrap
-            «Telefonisch gemeldet» onto two lines. */}
+        {/* A fixed label gutter, wider than DetailField's 104px because
+            «Telefonisch gemeldet» must not wrap — so the switches of a toggle
+            run stand in ONE column right after the labels instead of hanging
+            at the far edge of however wide the mount happens to be. */}
         <span
           title={description}
-          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
+          className="flex w-[180px] shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
         >
           {icon}
           {label}
         </span>
-        <div className="min-w-0 flex-1" />
         <div onClick={(event) => event.stopPropagation()}>
           <Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onToggle} />
         </div>
+        <div className="min-w-0 flex-1" />
       </div>
       {checked && note && <div ref={noteRef} className="mt-1 pl-[112px]">{note}</div>}
     </div>
