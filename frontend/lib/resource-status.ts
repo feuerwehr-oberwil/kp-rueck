@@ -36,14 +36,19 @@ export function toResourceState(status: string | null | undefined): ResourceStat
  * The header number is the one thing a Kommandant reads off this board, so it has to mean what
  * it says.
  *
+ * A REAL Auftrag is the same case, and had the same bug. A route's crew is held on the group,
+ * not on any incident, so the event-scoped reconciliation in the operations context never saw
+ * it — five people driving a Sturm route read as «verfügbar» in the sidebar and in the counter
+ * above it. `isOnAuftrag` is set by the board from the groups context; see `Person`.
+ *
  * Deliberately NOT folded into `toResourceState`: that one normalizes an API status string and is
  * shared with vehicles and material, which have no Reko.
  */
 export function personResourceState(
-  p: { status?: string | null; isReko?: boolean },
+  p: { status?: string | null; isReko?: boolean; isOnAuftrag?: boolean },
 ): ResourceState {
   const base = toResourceState(p.status)
-  return base === "available" && p.isReko ? "assigned" : base
+  return base === "available" && (p.isReko || p.isOnAuftrag) ? "assigned" : base
 }
 
 /**
@@ -63,6 +68,7 @@ export function isPersonOccupied(
   p: {
     status?: string | null
     isReko?: boolean
+    isOnAuftrag?: boolean
     isDriver?: boolean
     isMagazin?: boolean
     isTelefondienst?: boolean
@@ -72,6 +78,7 @@ export function isPersonOccupied(
   return (
     p.status === "assigned" ||
     !!p.isReko ||
+    !!p.isOnAuftrag ||
     !!p.isDriver ||
     !!p.isMagazin ||
     !!p.isTelefondienst ||

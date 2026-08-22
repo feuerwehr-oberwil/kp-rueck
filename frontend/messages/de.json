@@ -359,7 +359,6 @@
       "assignVehicle": "Fahrzeug zuweisen",
       "assignMaterial": "Material zuweisen",
       "onlyAssignedVehicles": "Nur zugewiesene",
-      "dropRefusedRouteOccupied": "Schon von einem anderen Auftrag belegt – dort zuerst freigeben.",
       "transferResources": "Ressourcen übertragen",
       "distributeToAuftrag": "An Auftrag verteilen",
       "openRoutenEditor": "Routen-Editor öffnen",

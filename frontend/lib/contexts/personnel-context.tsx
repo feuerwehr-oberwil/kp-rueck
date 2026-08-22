@@ -30,6 +30,14 @@ export interface Person {
   status: PersonStatus
   tags?: string[]
   isReko?: boolean
+  /**
+   * On an Auftrag's crew. Set by the board from the groups context, not by the
+   * operations context — a route assignment lives on the group, and
+   * `GroupsProvider` sits INSIDE `OperationsProvider`, so the reconciliation
+   * that produces `status` cannot see it. Same reasoning as `isReko`: the
+   * person is spoken for without being on any incident's `crew`.
+   */
+  isOnAuftrag?: boolean
   isDriver?: boolean
   driverVehicleId?: string
   driverVehicleName?: string

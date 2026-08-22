@@ -327,6 +327,21 @@ const isNavigableBinding = (binding: ResourceBinding): boolean =>
   binding.kind !== 'function' && !!binding.targetId
 
 /**
+ * The one place this resource can be opened, or null when there is a choice to
+ * make (or nothing to open).
+ *
+ * A picker over a list of one is a click spent on confirming what the board
+ * already knew. The person row used to shortcut only when that one binding was
+ * an INCIDENT, so somebody on a single Auftrag — the most ordinary state on a
+ * storm board — got a popover offering exactly one destination. Kind does not
+ * matter: one reachable place means go there.
+ */
+const soleDestination = (bindings: ResourceBinding[]): ResourceBinding | null => {
+  const reachable = bindings.filter(isNavigableBinding)
+  return reachable.length === 1 && bindings.length === 1 ? reachable[0] : null
+}
+
+/**
  * Every binding of one busy resource, with a way to reach each.
  *
  * Deliberately shown only when there is something to choose: exactly one
@@ -500,7 +515,7 @@ const PRIORITY_LABEL_KEYS: Record<Operation["priority"], "priorityLow" | "priori
 
 export default function FireStationDashboard() {
   const {
-    personnel,
+    personnel: rosterPersonnel,
     materials,
     operations,
     setOperations,
@@ -538,6 +553,24 @@ export default function FireStationDashboard() {
     removeStop: removeStopFromGroup,
     occupiedResourceIds,
   } = useGroups()
+
+  /**
+   * The roster the board draws, with «steht auf einem Auftrag» folded in.
+   *
+   * This is the ONE place that can: a route's crew is held on the group, and
+   * `GroupsProvider` sits inside `OperationsProvider`, so the event-scoped
+   * reconciliation that produces `status` never sees a group assignment. Without
+   * this, a Sturm route with five people on it left all five drawn emerald in the
+   * sidebar and counted in «verfügbar» over it — the same bug `isReko` was given
+   * `personResourceState` to fix, one source of assignment later.
+   */
+  const personnel = useMemo(
+    () =>
+      rosterPersonnel.map((person) =>
+        occupiedResourceIds.personnel.has(person.id) ? { ...person, isOnAuftrag: true } : person,
+      ),
+    [rosterPersonnel, occupiedResourceIds],
+  )
 
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)
@@ -1329,6 +1362,122 @@ export default function FireStationDashboard() {
     })
   }, [vehicleTypes, groups, operations, requestResourceConflict, assignGroupResource, unassignGroupResource, removeVehicle])
 
+  /**
+   * The Auftrag half of the Doppelbelegung question, for people and material.
+   *
+   * Vehicles have had this since they got `assignVehicleTo*WithConflict`: a unit
+   * already on a route raises the normal confirm, which names where it comes
+   * from and where it is going, and «Verschieben» does the move. People and
+   * material instead hit a flat refusal — «Schon von einem anderen Auftrag
+   * belegt – dort zuerst freigeben.» — which is the board telling the operator
+   * to go and do by hand the thing the dialog does in one click, in the middle
+   * of a storm. Same question, same dialog; the Auftrag's name is what fills the
+   * «bisher» line.
+   *
+   * Returns true when it handled the case (assigned or asked), false when the
+   * resource is free and the caller should just assign.
+   */
+  const groupsHolding = useCallback(
+    (resourceType: "personnel" | "material", resourceId: string, exceptGroupId?: string) =>
+      groups.filter(
+        (group) =>
+          group.id !== exceptGroupId &&
+          group.assignments.some((a) => a.resourceType === resourceType && a.resourceId === resourceId),
+      ),
+    [groups],
+  )
+
+  /**
+   * One dialog per DROP, not per resource.
+   *
+   * `requestResourceConflict` is a plain `setState`, so two calls in the same
+   * tick leave only the second — and a Modul-Block carries three Geräte. Dropping
+   * «Ölwehr» on an Einsatz while the Auftrag holds it asked about the third
+   * device and silently did nothing with the other two, while showing a dialog
+   * that implied the whole drop had been handled. The loops in
+   * `use-kanban-drag-drop` are synchronous, so a microtask flush collects the
+   * whole drop and asks once, naming everything it is about to move.
+   */
+  const conflictBatch = useRef<
+    {
+      resourceType: "personnel" | "material"
+      resourceId: string
+      resourceName: string
+      targetId: string
+      /** Where it sits now, for the «Bisher:» line. */
+      conflicts: { operationId: string; operationLabel: string }[]
+      /** How to free it from each of those, for «Verschieben». */
+      releases: (() => Promise<unknown> | unknown)[]
+      assign: () => Promise<unknown> | unknown
+    }[]
+  >([])
+  const conflictFlushQueued = useRef(false)
+
+  /** «Verschieben» for a route-held resource: detach it from that route. */
+  const releaseFromGroups = useCallback(
+    (resourceType: "personnel" | "material", resourceId: string, holders: typeof groups) =>
+      holders.map((group) => () => {
+        const assignment = group.assignments.find(
+          (a) => a.resourceType === resourceType && a.resourceId === resourceId,
+        )
+        return assignment ? unassignGroupResource(group.id, assignment.id) : true
+      }),
+    [unassignGroupResource],
+  )
+
+  const askRouteConflict = useCallback(
+    (entry: {
+      resourceType: "personnel" | "material"
+      resourceId: string
+      resourceName: string
+      targetId: string
+      conflicts: { operationId: string; operationLabel: string }[]
+      releases: (() => Promise<unknown> | unknown)[]
+      assign: () => Promise<unknown> | unknown
+    }) => {
+      conflictBatch.current.push(entry)
+      if (conflictFlushQueued.current) return
+      conflictFlushQueued.current = true
+
+      queueMicrotask(() => {
+        conflictFlushQueued.current = false
+        const batch = conflictBatch.current
+        conflictBatch.current = []
+        if (batch.length === 0) return
+
+        // Every holder named once, however many of the dropped resources sit on it.
+        const seen = new Set<string>()
+        const conflicts: { operationId: string; operationLabel: string }[] = []
+        for (const entry of batch) {
+          for (const conflict of entry.conflicts) {
+            if (seen.has(conflict.operationId)) continue
+            seen.add(conflict.operationId)
+            conflicts.push(conflict)
+          }
+        }
+
+        requestResourceConflict({
+          resourceType: batch[0].resourceType === "personnel" ? "personnel" : "material",
+          resourceId: batch[0].resourceId,
+          // The whole drop, so «Motorsäge» does not stand in for three devices.
+          resourceName: batch.map((entry) => entry.resourceName).join(", "),
+          targetOperationId: batch[0].targetId,
+          conflicts,
+          customResolve: async (action) => {
+            if (action === "move") {
+              const results = await Promise.all(batch.flatMap((entry) => entry.releases.map((free) => free())))
+              if (results.some((ok) => ok === false)) return
+            }
+            // Sequential: the assign calls hit the same rows, and firing three
+            // PUTs at one Auftrag in parallel is how the last one wins.
+            for (const entry of batch) await entry.assign()
+          },
+        })
+      })
+    },
+    [requestResourceConflict],
+  )
+
   const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string) => {
     const groupConflicts = groups.filter((group) =>
       group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId),
@@ -1683,9 +1832,43 @@ export default function FireStationDashboard() {
     setOperations,
     updateOperation,
     reorderColumn,
-    assignPersonToOperation,
+    // Person/Material onto an INCIDENT: if a route already holds them, ask the
+    // same Doppelbelegung question vehicles have always asked instead of
+    // refusing the drop outright.
+    assignPersonToOperation: (personId, personName, operationId) => {
+      const holders = groupsHolding("personnel", personId)
+      if (holders.length === 0) {
+        assignPersonToOperation(personId, personName, operationId)
+        return
+      }
+      askRouteConflict({
+        resourceType: "personnel",
+        resourceId: personId,
+        resourceName: personName,
+        targetId: operationId,
+        conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+        releases: releaseFromGroups("personnel", personId, holders),
+        assign: () => assignPersonToOperation(personId, personName, operationId),
+      })
+    },
     assignRekoPersonToOperation,
-    assignMaterialToOperation,
+    assignMaterialToOperation: (materialId, operationId) => {
+      const holders = groupsHolding("material", materialId)
+      if (holders.length === 0) {
+        assignMaterialToOperation(materialId, operationId)
+        return
+      }
+      const name = materials.find((m) => m.id === materialId)?.name ?? materialId
+      askRouteConflict({
+        resourceType: "material",
+        resourceId: materialId,
+        resourceName: name,
+        targetId: operationId,
+        conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+        releases: releaseFromGroups("material", materialId, holders),
+        assign: () => assignMaterialToOperation(materialId, operationId),
+      })
+    },
     assignVehicleToOperation: assignVehicleToIncidentWithConflict,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
@@ -1710,13 +1893,48 @@ export default function FireStationDashboard() {
       closedStopGuard.guard(incidentIds, () => { void addStopsToGroup(groupId, incidentIds) })
     },
     assignGroupResource: (groupId, resourceType, resourceId) => {
-      if (resourceType === "vehicle") assignVehicleToGroupWithConflict(groupId, resourceId)
-      else void assignGroupResource(groupId, resourceType, resourceId)
+      if (resourceType === "vehicle") {
+        assignVehicleToGroupWithConflict(groupId, resourceId)
+        return
+      }
+      // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
+      // holds them now. `exceptGroupId` keeps a drop onto the route a resource is
+      // already on from asking about itself.
+      const holders = groupsHolding(resourceType, resourceId, groupId)
+      const name =
+        resourceType === "personnel"
+          ? personnel.find((p) => p.id === resourceId)?.name ?? resourceId
+          : materials.find((m) => m.id === resourceId)?.name ?? resourceId
+      // ALSO the Einsätze that hold it. A route conflict is not the only kind:
+      // dropping somebody who is crew on «Bahnhofstrasse 12» onto an Auftrag used
+      // to put them on both without a word, while the same drag with a vehicle
+      // asked — `assignVehicleToGroupWithConflict` has always collected both.
+      const incidentHolders =
+        resourceType === "personnel"
+          ? operations.filter((op) => op.crew.includes(name))
+          : operations.filter((op) => op.materials.includes(resourceId))
+      if (holders.length === 0 && incidentHolders.length === 0) {
+        void assignGroupResource(groupId, resourceType, resourceId)
+        return
+      }
+      askRouteConflict({
+        resourceType,
+        resourceId,
+        resourceName: name,
+        targetId: groupId,
+        conflicts: [
+          ...holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+          ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
+        ],
+        releases: [
+          ...releaseFromGroups(resourceType, resourceId, holders),
+          ...incidentHolders.map((op) => () =>
+            resourceType === "personnel" ? removeCrew(op.id, name) : removeMaterial(op.id, resourceId),
+          ),
+        ],
+        assign: () => assignGroupResource(groupId, resourceType, resourceId),
+      })
     },
-    occupiedGroupResourceIds: occupiedResourceIds,
-    // A refused drop has to SAY it was refused. Silence here read as
-    // "drag and drop is broken" — the sidebar let go and nothing moved.
-    notifyRefused: () => toast.error(tCommon('dropRefusedRouteOccupied')),
   })
 
   // Board Auftrag chips signal the page via a window event (no prop threading
@@ -1933,8 +2151,9 @@ export default function FireStationDashboard() {
    */
   const handlePersonClick = (person: Person) => {
     const bindings = collectPersonBindings(person)
-    if (bindings.length === 1 && isNavigableBinding(bindings[0]) && bindings[0].kind === "incident") {
-      followBinding(bindings[0])
+    const only = soleDestination(bindings)
+    if (only) {
+      followBinding(only)
       return
     }
     setBindingsPopover({
@@ -1956,19 +2175,19 @@ export default function FireStationDashboard() {
    *  «nirgends» — a free device used to be a click into the void as well. */
   const handleMaterialClick = (material: Material) => {
     const bindings = collectMaterialBindings(material)
+    const only = soleDestination(bindings)
+    if (only) {
+      followBinding(only)
+      return
+    }
     // A device inside a module block is drawn by MaterialGroupBlock, which has no
     // anchor for the popover — there the click keeps jumping to the first
-    // binding rather than opening a list nothing could position.
-    const firstIncident = bindings.find((b) => b.kind === "incident")
-    if ((bindings.length === 1 || material.groupId) && firstIncident) {
-      followBinding(firstIncident)
+    // reachable binding rather than opening a list nothing could position.
+    if (material.groupId) {
+      const first = bindings.find(isNavigableBinding)
+      if (first) followBinding(first)
       return
     }
-    if (bindings.length === 1 && bindings[0].kind === "route") {
-      followBinding(bindings[0])
-      return
-    }
-    if (material.groupId) return
     setBindingsPopover({
       kind: "material",
       id: material.id,

@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
-import { materialResourceState, personMatchesQuery } from "@/lib/resource-status"
+import { isPersonOccupied, materialResourceState, personMatchesQuery } from "@/lib/resource-status"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -657,8 +657,23 @@ export function ResourceAssignmentDialog({
     const free: Person[] = []
     const busy: Person[] = []
     for (const person of sortedFilteredPersonnel) {
-      const isBusy = !!personElsewhereLabel(person) || specialFunctionsOf(person).length > 0
-      ;(isBusy ? busy : free).push(person)
+      // `isPersonOccupied` — the SAME predicate the sidebar list is filtered
+      // with and the same one its «N frei» footer counts, so the dialog and the
+      // roster two panels away can never disagree about who is available.
+      //
+      // A standing Ereignis function counts as busy: a Magaziner, a
+      // Telefondienst or the TLF's Fahrer is doing a job, and «frei» has to mean
+      // «kann ich losschicken». It is a sorting decision, not a gate — the block
+      // stays clickable and taking somebody out of it still asks first.
+      //
+      // EXCEPT on THIS target, which is never «busy» — it is selected. Somebody
+      // already on this Einsatz is `status: "assigned"` like anyone else, so
+      // without this they sank under «Bereits im Einsatz» and the dialog hid the
+      // crew it was opened to edit. `assignedPersonnel`, not the live checkbox
+      // set: ticking somebody must not make their row jump between blocks under
+      // the pointer.
+      const onThisTarget = assignedPersonnel.includes(person.name)
+      ;(!onThisTarget && isPersonOccupied(person) ? busy : free).push(person)
     }
     return { free, busy, ordered: [...free, ...busy] }
   })()

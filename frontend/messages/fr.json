@@ -1441,7 +1441,6 @@
       "assignVehicle": "Attribuer un véhicule",
       "assignMaterial": "Attribuer du matériel",
       "onlyAssignedVehicles": "Attribués uniquement",
-      "dropRefusedRouteOccupied": "Déjà pris par une autre mission – libérer là-bas d’abord.",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
       "openRoutenEditor": "Ouvrir l’éditeur d’itinéraire",

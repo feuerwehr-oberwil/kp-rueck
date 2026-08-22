@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
@@ -37,8 +38,27 @@ export interface StatusStats {
 
 export function useStatusData() {
   const { operations } = useOperations()
-  const { personnel } = usePersonnel()
+  const { personnel: rosterPersonnel } = usePersonnel()
+  const { occupiedResourceIds } = useGroups()
   const { materials } = useMaterials()
+
+  /**
+   * The roster with «steht auf einem Auftrag» folded in — the same enrichment the
+   * board does, for the same reason.
+   *
+   * A route's crew lives on the group, and `GroupsProvider` sits inside
+   * `OperationsProvider`, so the reconciliation that sets `status` cannot see it.
+   * Without this the Statusanzeige on the wall read «5 verfügbar / 0 im Einsatz»
+   * for five people driving a Sturm route, while the board in the same room had
+   * them greyed out — the one number a Kommandant reads off that wall, wrong.
+   */
+  const personnel = useMemo(
+    () =>
+      rosterPersonnel.map((person) =>
+        occupiedResourceIds.personnel.has(person.id) ? { ...person, isOnAuftrag: true } : person,
+      ),
+    [rosterPersonnel, occupiedResourceIds],
+  )
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [vehicles, setVehicles] = useState<Array<Omit<VehicleWithStatus, 'assignedOperation' | 'gps' | 'driverName'>>>([])
 
@@ -156,7 +176,8 @@ export function useStatusData() {
       if (col) byStatus[col.id].push(op)
     })
 
-    // via personResourceState so somebody out on a Reko is not counted as free
+    // via personResourceState so somebody out on a Reko — or on an Auftrag —
+    // is not counted as free
     const assigned = personnel.filter((p) => personResourceState(p) === "assigned")
     const available = personnel.filter((p) => personResourceState(p) === "available")
     const activeOps = operations.filter((op) => op.status !== "complete")

@@ -146,6 +146,66 @@ describe("special functions in the crew list", () => {
     expect(tile.textContent).not.toContain("Im Einsatz")
   })
 
+  /**
+   * Who lands under «Verfügbar» and who under «Bereits im Einsatz».
+   *
+   * This has been wrong in both directions. Sorting only on «bound to another
+   * incident» put every Magaziner and Fahrer under «Verfügbar», which
+   * contradicted the sidebar's own «N frei» two panels away (both now read
+   * `isPersonOccupied`). Sorting on `isPersonOccupied` alone then swallowed the
+   * crew of the incident being edited, because they are `status: "assigned"`
+   * like anyone else — the dialog hid the very people it was opened to change.
+   */
+  function renderCrewWithAssigned(personnel: Person[], assigned: string[]) {
+    return renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={vi.fn()}
+        resourceType="crew"
+        operationId="incident-1"
+        personnel={personnel}
+        vehicles={[]}
+        materials={[]}
+        assignedPersonnel={assigned}
+        assignedVehicles={[]}
+        assignedMaterials={[]}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={vi.fn()}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+  }
+
+  it("sinks a person holding an Ereignis function under «Bereits im Einsatz»", () => {
+    renderCrewWithAssigned(
+      [
+        person({ name: "Egger Olivier", status: "assigned", isMagazin: true }),
+        person({ name: "Frei Anna" }),
+      ],
+      [],
+    )
+
+    expect(screen.getByText(/Bereits im Einsatz · 1/)).toBeDefined()
+    expect(screen.getByText(/Verfügbar · 1/)).toBeDefined()
+  })
+
+  it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {
+    renderCrewWithAssigned(
+      [
+        person({ name: "Egger Olivier", status: "assigned" }),
+        person({ name: "Frei Anna" }),
+      ],
+      ["Egger Olivier"],
+    )
+
+    // Both free: the one on this incident is selected, not "busy elsewhere".
+    expect(screen.getByText(/Verfügbar · 2/)).toBeDefined()
+    expect(screen.queryByText(/Bereits im Einsatz/)).toBeNull()
+  })
+
   it("finds a person by their special function in the search", async () => {
     const user = userEvent.setup()
     renderCrew([
