@@ -14555,6 +14555,70 @@
         }
       }
     },
+    "/api/setup/status": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Get Setup Status",
+        "description": "Whether this board has been claimed. The frontend polls this on first load.",
+        "operationId": "get_setup_status_api_setup_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup": {
+      "post": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Claim Board",
+        "description": "Claim an unclaimed board: create the production account set, name the station.\n\nCreates exactly what the ADMIN_SEED_PASSWORD seed path creates\n(production_account_set: dev-user bypass row, admin, read-only viewer) —\nexcept the admin gets the submitted password and the viewer a random one\nthe admin resets later in the Einstellungen. The random viewer password is\ndeliberately NOT returned anywhere.\n\nRace-safe without a lock: two simultaneous claims both pass the cheap\ncheck below, but users.username is unique, so the second INSERT fails and\nthat claimer gets the same 409 a late visitor gets.",
+        "operationId": "claim_board_api_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupClaimRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupClaimResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/special-functions/types": {
       "get": {
         "tags": [
@@ -29416,6 +29480,57 @@
         ],
         "title": "SettingUpdate",
         "description": "Schema for updating setting."
+      },
+      "SetupClaimRequest": {
+        "properties": {
+          "station_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Station Name"
+          },
+          "admin_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "title": "Admin Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "station_name",
+          "admin_password"
+        ],
+        "title": "SetupClaimRequest",
+        "description": "The claim: a station name and the admin password the claimer chose.\n\nThe password minimum mirrors the seed's ADMIN_SEED_PASSWORD validation\n(auth.config.MIN_PASSWORD_LENGTH = 12) — the browser path must not accept\na password the env-var path would refuse. The station name cap matches the\norder of magnitude of other identity fields (User.display_name is 100);\nthe value lands in the `firestation_name` setting and on every printout."
+      },
+      "SetupClaimResponse": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username"
+        ],
+        "title": "SetupClaimResponse",
+        "description": "The login the frontend signs in with right after a successful claim."
+      },
+      "SetupStatusResponse": {
+        "properties": {
+          "claimed": {
+            "type": "boolean",
+            "title": "Claimed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claimed"
+        ],
+        "title": "SetupStatusResponse",
+        "description": "Whether this board has been claimed (= at least one user account exists)."
       },
       "SimulateBulkRapportResponse": {
         "properties": {
