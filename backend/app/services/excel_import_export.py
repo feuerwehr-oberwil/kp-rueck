@@ -26,6 +26,7 @@ from sqlalchemy import null as sa_null
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from ..crud.materials import apply_out_of_service
 from ..models import (
     EventAttendance,
     EventSpecialFunction,
@@ -670,7 +671,11 @@ async def import_data(
     Import parsed data into database.
 
     Modes:
-    - replace: Delete the tables the workbook actually contains, insert new
+    - replace: Delete the tables the workbook actually contains, insert new.
+      Archived vehicles/materials are never deleted: the export keeps them off
+      the round-trip sheets (see `export_data_to_excel`), so a replace that
+      wiped the whole table would silently destroy the archive the workbook
+      never carried. Import leaves the archive untouched, in either mode.
     - append: Keep existing, add new
 
     There used to be a third mode, `merge`, documented as "update existing by
@@ -692,10 +697,14 @@ async def import_data(
         # this branch is the second lock on the same door.
         if parsed_data.personnel.present:
             await db.execute(delete(Personnel))
+        # Active rows only: the archive is not on the round-trip sheets, so it is
+        # not in this workbook, and "replace" means "replace what the export
+        # shows" — not "destroy the inventory record the export deliberately
+        # parked on the read-only Archiviert sheet".
         if parsed_data.vehicles.present:
-            await db.execute(delete(Vehicle))
+            await db.execute(delete(Vehicle).where(Vehicle.archived_at.is_(None)))
         if parsed_data.materials.present:
-            await db.execute(delete(Material))
+            await db.execute(delete(Material).where(Material.archived_at.is_(None)))
         await db.commit()
 
     # Insert personnel
@@ -704,15 +713,22 @@ async def import_data(
         db.add(personnel)
         counts["personnel"] += 1
 
-    # Insert vehicles
+    # Insert vehicles. The sheet's `status` column is the legacy readiness
+    # spelling, so it goes through `apply_out_of_service` like every other
+    # write path — a bare `status='unavailable'` without `out_of_service_since`
+    # would break the lockstep that column is only a mirror of.
     for vehicle_data in parsed_data.vehicles.rows:
         vehicle = Vehicle(**vehicle_data)
+        apply_out_of_service(vehicle, vehicle_data.get("status") == "unavailable")
         db.add(vehicle)
         counts["vehicles"] += 1
 
-    # Insert materials (duplicate rows = multiple items)
+    # Insert materials (duplicate rows = multiple items). No status column on
+    # this sheet today; the readiness call keeps the lockstep by construction
+    # if one ever appears.
     for material_data in parsed_data.materials.rows:
         material = Material(**material_data)
+        apply_out_of_service(material, material_data.get("status") == "unavailable")
         db.add(material)
         counts["materials"] += 1
 
@@ -722,27 +738,99 @@ async def import_data(
 
 
 async def export_data_to_excel(db: AsyncSession) -> BytesIO:
-    """Export all personnel, vehicles, and materials to Excel."""
+    """Export personnel, vehicles and materials to Excel.
+
+    **Archived vehicles and material stay out of the three round-trip sheets and
+    are listed on a fourth, read-only `Archiviert` sheet instead.** Neither of the
+    two obvious options is acceptable on its own:
+
+    * putting them in `Vehicles` / `Materials` would resurrect them. The sheets
+      have no column for `archived_at`, and an import in `replace` mode clears
+      the active rows and re-inserts every row it reads — so an export/edit/
+      import round trip would silently put a sold truck and a retired pump back
+      on the board, active and assignable.
+    * dropping them without a word would make the export a backup that quietly
+      loses a chunk of the station's inventory record.
+
+    So the archive travels along, visible and named, on a sheet the parser does
+    not read (`validate_and_parse_excel` looks only for `Personnel`, `Vehicles`
+    and `Materials`; anything else in the workbook is ignored). And the import
+    side holds up its half: `replace` mode deletes only rows with
+    `archived_at IS NULL`, so the archive is untouched by import in either
+    direction — never re-activated, never destroyed. Re-importing an export
+    therefore keeps the active inventory exactly; bringing an archived row back
+    is «Zurückholen» in the Verwaltung, which is one click and keeps the row's
+    history.
+    """
     # Flat alphabetical, deliberately: an export is a data dump that the
     # recipient re-sorts in their spreadsheet, and `test_personnel_sorted_by_name`
     # pins that contract. The RANK order belongs on the surfaces somebody reads
     # top-to-bottom (the board, the printed roster), not here.
     personnel_result = await db.execute(select(Personnel).order_by(Personnel.name))
     personnel = personnel_result.scalars().all()
-    vehicle_result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
+    vehicle_result = await db.execute(
+        select(Vehicle).where(Vehicle.archived_at.is_(None)).order_by(Vehicle.display_order)
+    )
     vehicles = vehicle_result.scalars().all()
-    material_result = await db.execute(select(Material).order_by(Material.location, Material.name))
+    material_result = await db.execute(
+        select(Material).where(Material.archived_at.is_(None)).order_by(Material.location, Material.name)
+    )
     materials = material_result.scalars().all()
+
+    archived_vehicles_result = await db.execute(
+        select(Vehicle).where(Vehicle.archived_at.is_not(None)).order_by(Vehicle.display_order)
+    )
+    archived_materials_result = await db.execute(
+        select(Material).where(Material.archived_at.is_not(None)).order_by(Material.location, Material.name)
+    )
 
     # openpyxl workbook building is pure CPU — keep it off the event loop
     # so a large export doesn't freeze every operator's requests (audit H4).
-    return await asyncio.to_thread(_build_export_workbook, personnel, vehicles, materials)
+    return await asyncio.to_thread(
+        _build_export_workbook,
+        personnel,
+        vehicles,
+        materials,
+        list(archived_vehicles_result.scalars().all()),
+        list(archived_materials_result.scalars().all()),
+    )
+
+
+# The archive sheet's own header row. Not a `*_COLUMNS` constant: those describe
+# what the parser reads back, and this sheet is deliberately write-only.
+ARCHIVE_SHEET = "Archiviert"
+ARCHIVE_COLUMNS = ["Art", "name", "type", "location", "archiviert_am"]
+
+# Printed above the header so the operator knows the sheet is not an input.
+ARCHIVE_NOTE = (
+    "Archivierte Fahrzeuge und Material – nur zur Information. "
+    "Dieses Blatt wird beim Import nicht gelesen. "
+    "Zurückholen geht in der Verwaltung über «Archivierte anzeigen»."
+)
+
+
+def _archived_on(value: datetime | None) -> str:
+    """``DD.MM.YYYY`` in Swiss local time — the date is all this column is asked."""
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(LOCAL_TZ).strftime("%d.%m.%Y")
 
 
 def _build_export_workbook(
-    personnel: Sequence[Personnel], vehicles: Sequence[Vehicle], materials: Sequence[Material]
+    personnel: Sequence[Personnel],
+    vehicles: Sequence[Vehicle],
+    materials: Sequence[Material],
+    archived_vehicles: Sequence[Vehicle],
+    archived_materials: Sequence[Material],
 ) -> BytesIO:
-    """Blocking workbook construction — runs in a worker thread."""
+    """Blocking workbook construction — runs in a worker thread.
+
+    The archive lists are separate arguments rather than a flag on the rows: the
+    three round-trip sheets must contain nothing but active inventory, and that
+    is easiest to keep true when they are handed two different lists.
+    """
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -796,6 +884,24 @@ def _build_export_workbook(
                 material.description or "",
             ]
         )
+
+    # Archive sheet — only when there is an archive. An empty extra sheet in every
+    # export would just be one more thing to explain.
+    if archived_vehicles or archived_materials:
+        ws_archive = wb.create_sheet(ARCHIVE_SHEET)
+        ws_archive.append([ARCHIVE_NOTE])
+        ws_archive[1][0].font = Font(italic=True)
+        ws_archive.append(ARCHIVE_COLUMNS)
+        for cell in ws_archive[2]:
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="7F7F7F", end_color="7F7F7F", fill_type="solid")
+
+        for vehicle in archived_vehicles:
+            ws_archive.append(["Fahrzeug", vehicle.name, vehicle.type, "", _archived_on(vehicle.archived_at)])
+        for material in archived_materials:
+            ws_archive.append(
+                ["Material", material.name, material.type, material.location, _archived_on(material.archived_at)]
+            )
 
     # Save to BytesIO
     output = BytesIO()

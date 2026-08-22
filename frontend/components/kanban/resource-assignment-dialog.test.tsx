@@ -6,8 +6,14 @@ import { renderWithIntl } from "@/test-utils/render-with-intl"
 import type { Material } from "@/lib/contexts/materials-context"
 import type { Person } from "@/lib/contexts/operations-context"
 
+// Mutable so a test can flag a vehicle «Nicht einsatzbereit» — the dialog
+// resolves readiness from this context itself, not from a caller prop.
+const operationsState = vi.hoisted(() => ({
+  operations: [] as unknown[],
+  outOfServiceVehicleIds: new Set<string>(),
+}))
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ operations: [] }),
+  useOperations: () => operationsState,
 }))
 
 vi.mock("@/lib/contexts/materials-context", () => ({
@@ -34,6 +40,8 @@ const material = (overrides: Partial<Material> = {}): Material => ({
   category: "Magazin",
   type: "Tauchpumpen",
   status: "assigned",
+  outOfService: false,
+  outOfServiceSince: null,
   categorySortOrder: 0,
   consumable: false,
   groupId: null,
@@ -149,6 +157,42 @@ describe("special functions in the crew list", () => {
 
     expect(screen.getByRole("button", { name: /Egger Olivier/ })).toBeDefined()
     expect(screen.queryByRole("button", { name: /Frei Anna/ })).toBeNull()
+  })
+})
+
+describe("readiness from the operations context", () => {
+  it("greys an out-of-service vehicle although the caller passed no flag", () => {
+    // The map and the Auftrag path pass bare fleet lists — the dialog must
+    // still know the vehicle is «Nicht einsatzbereit».
+    operationsState.outOfServiceVehicleIds = new Set(["v1"])
+    try {
+      renderWithIntl(
+        <ResourceAssignmentDialog
+          open
+          onOpenChange={vi.fn()}
+          resourceType="vehicles"
+          operationId="incident-1"
+          personnel={[]}
+          vehicles={[{ id: "v1", name: "TLF", type: "Tanklöschfahrzeug" }]}
+          materials={[]}
+          assignedPersonnel={[]}
+          assignedVehicles={[]}
+          assignedMaterials={[]}
+          onAssignPerson={vi.fn()}
+          onAssignVehicle={vi.fn()}
+          onAssignMaterial={vi.fn()}
+          onRemovePerson={vi.fn()}
+          onRemoveVehicle={vi.fn()}
+          onRemoveMaterial={vi.fn()}
+        />,
+      )
+
+      const tile = screen.getByRole("button", { name: /TLF/ })
+      expect(tile).toBeDisabled()
+      expect(tile.textContent).toContain("Nicht einsatzbereit")
+    } finally {
+      operationsState.outOfServiceVehicleIds = new Set()
+    }
   })
 })
 

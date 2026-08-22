@@ -99,17 +99,44 @@ class Vehicle(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Legacy mirror of `out_of_service_since`, kept in lockstep by crud/vehicles.py.
+    # Readers that only need "einsatzbereit ja/nein" (print slips, exports, seed)
+    # keep working; `out_of_service_since` is the source of truth.
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     radio_call_sign: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+
+    # «Nicht einsatzbereit» — defect, service, missing. NULL = einsatzbereit.
+    # A timestamp rather than a bool so the board can say "seit 19.08." without a
+    # second column and without misreading updated_at, which any edit bumps.
+    # Deliberately carries no reason and no cause taxonomy: set or not set.
+    out_of_service_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Lifecycle, NOT readiness. "Delete" used to mean status='unavailable' while the
+    # list endpoints kept serving the row, so a deleted vehicle stayed on the board,
+    # green and assignable. Archived rows leave every list unless asked for
+    # (?include_archived=true) and can be restored or purged from the archive.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    @property
+    def out_of_service(self) -> bool:
+        """True while the vehicle is flagged «Nicht einsatzbereit»."""
+        return self.out_of_service_since is not None
+
+    @property
+    def archived(self) -> bool:
+        """True once archived — hidden from every list unless explicitly requested."""
+        return self.archived_at is not None
+
     __table_args__ = (
         CheckConstraint("status IN ('available', 'unavailable')", name="valid_vehicle_status"),
         Index("idx_vehicles_status", "status"),
         Index("idx_vehicles_display_order", "display_order"),
+        Index("idx_vehicles_archived_at", "archived_at"),
     )
 
 
@@ -207,8 +234,24 @@ class Material(Base):
     location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     location_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Legacy mirror of `out_of_service_since`, kept in lockstep by crud/materials.py.
+    # Readers that only need "einsatzbereit ja/nein" (print slips, exports, seed)
+    # keep working; `out_of_service_since` is the source of truth.
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="available")
     consumable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+
+    # «Nicht einsatzbereit» — defect, service, missing. NULL = einsatzbereit.
+    # A timestamp rather than a bool so the board can say "seit 19.08." without a
+    # second column and without misreading updated_at, which any edit bumps.
+    # Deliberately carries no reason and no cause taxonomy: set or not set.
+    out_of_service_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Lifecycle, NOT readiness. "Delete" used to mean status='unavailable' while the
+    # list endpoints kept serving the row, so a deleted pump stayed on the board,
+    # green and assignable. Archived rows leave every list unless asked for
+    # (?include_archived=true) and can be restored or purged from the archive.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     group_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("material_groups.id", ondelete="SET NULL"), nullable=True
     )
@@ -219,11 +262,22 @@ class Material(Base):
 
     group: Mapped["MaterialGroup | None"] = relationship("MaterialGroup", back_populates="materials")
 
+    @property
+    def out_of_service(self) -> bool:
+        """True while the item is flagged «Nicht einsatzbereit»."""
+        return self.out_of_service_since is not None
+
+    @property
+    def archived(self) -> bool:
+        """True once archived — hidden from every list unless explicitly requested."""
+        return self.archived_at is not None
+
     __table_args__ = (
         CheckConstraint("status IN ('available', 'unavailable')", name="valid_material_status"),
         Index("idx_materials_status", "status"),
         Index("idx_materials_location_sort_order", "location_sort_order"),
         Index("idx_materials_group_id", "group_id"),
+        Index("idx_materials_archived_at", "archived_at"),
     )
 
 

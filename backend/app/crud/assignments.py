@@ -273,25 +273,16 @@ async def unassign_resource(
     return True
 
 
-async def update_resource_status(db: AsyncSession, resource_type: str, resource_id: uuid.UUID, new_status: str) -> None:
-    """Update a resource's duty status field."""
-    if resource_type == "personnel":
-        person = (await db.execute(select(Personnel).where(Personnel.id == resource_id))).scalar_one_or_none()
-        if person:
-            person.status = new_status
-            person.updated_at = datetime.now(UTC)
-
-    elif resource_type == "vehicle":
-        vehicle = (await db.execute(select(Vehicle).where(Vehicle.id == resource_id))).scalar_one_or_none()
-        if vehicle:
-            vehicle.status = new_status
-            vehicle.updated_at = datetime.now(UTC)
-
-    elif resource_type == "material":
-        material = (await db.execute(select(Material).where(Material.id == resource_id))).scalar_one_or_none()
-        if material:
-            material.status = new_status
-            material.updated_at = datetime.now(UTC)
+# `update_resource_status(db, resource_type, resource_id, new_status)` used to sit
+# here and wrote `Vehicle.status` / `Material.status` straight. It is gone rather
+# than fixed. Nothing in `app/` ever called it — assignment is tracked in this
+# table, which is what the two "we no longer update resource base status" notes
+# above mean — and a single setter across all three resource kinds cannot be
+# right any more: `status` on a vehicle or a material is now only a legacy mirror
+# of `out_of_service_since` (see `crud/materials.apply_out_of_service`), so this
+# was a second, unaudited door onto readiness that left the timestamp stale. A
+# caller that means readiness wants `apply_out_of_service`; one that means
+# deployment wants `assign_resource` / `unassign_resource`.
 
 
 async def get_incident_assignments(db: AsyncSession, incident_id: uuid.UUID) -> list[IncidentAssignment]:

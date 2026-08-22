@@ -1735,7 +1735,8 @@
       "allMaterialsAssigned": "Aucun matériel n’est saisi",
       "changes": "Modifications",
       "vehicleDriver": "Conducteur : {name}",
-      "vehicleNoDriver": "Pas de conducteur"
+      "vehicleNoDriver": "Pas de conducteur",
+      "outOfService": "Pas prêt à l'engagement"
     },
     "transferReko": {
       "failed": "Échec du transfert",
@@ -2206,7 +2207,11 @@
     "materials": {
       "loadFailedTitle": "Le matériel n’a pas pu être chargé",
       "loadFailedDescription": "La liste du matériel est peut-être périmée.",
-      "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés"
+      "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés",
+      "readinessFailedTitle": "L'état de disponibilité n'a pas pu être modifié",
+      "readinessFailedDescription": "L'état est revenu comme avant. Réessaie.",
+      "outOfServiceBlockedTitle": "{name} n'est pas prêt à l'engagement",
+      "outOfServiceBlockedDescription": "Marqué comme non prêt dans la gestion – le libérer là d'abord."
     },
     "groups": {
       "loadFailedTitle": "Les missions n’ont pas pu être chargées",
@@ -2715,7 +2720,9 @@
       "checkInputRetry": "Vérifie la saisie et réessaie.",
       "reloadPage": "Recharge la page.",
       "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
-      "sortCategoriesTab": "Trier les catégories"
+      "sortCategoriesTab": "Trier les catégories",
+      "sortLocationsTab": "Trier les emplacements",
+      "notConfiguredBadge": "Non configuré"
     },
     "page": {
       "title": "Réglages",
@@ -3147,7 +3154,6 @@
       "deleteError": "Erreur lors de la suppression du matériel",
       "deleteErrorDescription": "Le matériel n’a pas pu être supprimé. Réessaie.",
       "tabList": "Liste du matériel",
-      "tabGroups": "Groupes",
       "thresholdsLink": "Définir les seuils d’alerte pour le stock de matériel",
       "addButton": "Ajouter du matériel",
       "dialogEditTitle": "Modifier le matériel",
@@ -3157,12 +3163,9 @@
       "locationPlaceholder": "p. ex. TLF, Pio, dépôt",
       "consumableLabel": "Consommable",
       "consumableHint": "Disponible en quantité illimitée, aucune attribution nécessaire",
-      "categoryHead": "Catégorie",
       "empty": "Aucun matériel.",
       "sortTitle": "Tri des emplacements",
       "sortDescription": "Fais glisser les emplacements pour changer leur ordre d’affichage. Le matériel est groupé selon ce tri.",
-      "deleteTitle": "Supprimer le matériel",
-      "deleteDescription": "Es-tu sûr de vouloir supprimer le matériel « {name} » ? Cette action est irréversible.",
       "groups": {
         "intro": "Les groupes de matériel réunissent plusieurs matériels isolés en un bloc (p. ex. « Module 1 »).",
         "createButton": "Créer un groupe",
@@ -3179,7 +3182,16 @@
         "deleteError": "Erreur lors de la suppression du groupe",
         "deleteTitle": "Supprimer le groupe",
         "deleteDescription": "Es-tu sûr de vouloir supprimer le groupe « {name} » ? Les matériels ne sont pas supprimés, seul le regroupement est dissous."
-      }
+      },
+      "deviceHead": "Matériel",
+      "moduleHead": "Module",
+      "tabModules": "Modules",
+      "archiveTitle": "Archiver « {name} »",
+      "archiveDescription": "Le matériel disparaît du tableau, de la barre latérale et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
+      "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour du matériel jamais engagé sur une intervention réelle.",
+      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
+      "purgeHint": "Possible parce que ce matériel n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "personnel": {
       "loadError": "Le personnel n’a pas pu être chargé",
@@ -3337,8 +3349,12 @@
       "orderPlaceholder": "p. ex. 1, 2, 3",
       "radioPlaceholder": "p. ex. Omega 1, Omega 2",
       "empty": "Aucun véhicule.",
-      "deleteTitle": "Supprimer le véhicule",
-      "deleteDescription": "Es-tu sûr de vouloir supprimer le véhicule « {name} » ? Cette action est irréversible."
+      "archiveTitle": "Archiver « {name} »",
+      "archiveDescription": "Le véhicule disparaît du tableau, de la liste des véhicules et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
+      "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour des véhicules jamais engagés sur une intervention réelle.",
+      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
+      "purgeHint": "Possible parce que ce véhicule n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "validation": {
       "nameRequired": "Le nom est obligatoire",
@@ -3350,6 +3366,28 @@
       "orderNumber": "L’ordre doit être un nombre",
       "orderInt": "L’ordre doit être un nombre entier",
       "orderMin1": "Au moins 1"
+    },
+    "lifecycle": {
+      "notReady": "Pas prêt à l'engagement",
+      "notReadySince": "depuis le {date}",
+      "notReadyAria": "Marquer « {name} » comme non prêt à l'engagement",
+      "notReadyError": "L'état de disponibilité n'a pas pu être modifié",
+      "showArchived": "Afficher les archivés",
+      "archivedCount": "{count, plural, one {# archivé} other {# archivés}}",
+      "archivedOn": "Archivé · {date}",
+      "archive": "Archiver",
+      "restore": "Restaurer",
+      "deletePermanently": "Supprimer définitivement",
+      "stoodOnIncidents": "{count, plural, one {Engagé sur # intervention} other {Engagé sur # interventions}}",
+      "neverOnIncident": "Jamais sur une intervention",
+      "archiveConsequenceDrop": "Plus disponible pour l'engagement dès maintenant",
+      "archiveConsequenceRestore": "Récupérable à tout moment via « Afficher les archivés »",
+      "purgeConsequenceLists": "Disparaît des listes, des exports et du journal",
+      "purgeConsequenceNoReturn": "Aucun retour possible – l'archive sera vide pour cet objet",
+      "archiveError": "Échec de l'archivage",
+      "archiveInUseDescription": "Encore engagé sur une intervention ouverte – le libérer d'abord, puis archiver.",
+      "restoreError": "Échec de la restauration",
+      "purgeError": "Échec de la suppression définitive"
     }
   },
   "sync": {

@@ -12,11 +12,21 @@ import { useEvent } from "./event-context"
 export interface Material {
   id: string
   name: string
+  /** The DEPOT the device lies in — «Standort» everywhere in the UI. Carried by
+      the API field `location` (the settings table used to head it «Kategorie»). */
   category: string
   /** Second grouping dimension (functional type, e.g. "Tauchpumpen", "Wasser") —
       distinct from `category` (the depot/location). Used for quick-select. */
   type: string
+  /** DEPLOYMENT only, recomputed per Ereignis from the incident assignments.
+      Readiness lives in `outOfService`; read the two together through
+      `materialResourceState` and never this field alone. */
   status: "available" | "assigned"
+  /** «Nicht einsatzbereit» — a station-wide flag, not a per-Ereignis one. Beats
+      `status`: an out-of-service device is neither free nor assignable. */
+  outOfService: boolean
+  /** Server-stamped moment the flag was set (ISO), for the «seit 19.08.» line. */
+  outOfServiceSince: string | null
   categorySortOrder: number
   consumable: boolean
   groupId: string | null
@@ -37,17 +47,29 @@ interface MaterialsContextType {
   isLoading: boolean
   refreshMaterials: (options?: { skipStateUpdate?: boolean }) => Promise<Material[]>
   refreshMaterialGroups: () => Promise<void>
+  /** Set or clear «Nicht einsatzbereit». The ONE write path for the flag on the
+   *  board side — the sidebar's right-click menu calls it, and the
+   *  Materialverwaltung sends the same `{ out_of_service }` PUT. Optimistic,
+   *  and rolls back on failure. */
+  setMaterialOutOfService: (materialId: string, outOfService: boolean) => Promise<void>
 }
 
 const MaterialsContext = createContext<MaterialsContextType | undefined>(undefined)
 
-// Helper to convert API type to frontend type
+// Helper to convert API type to frontend type.
+//
+// `status` is seeded from the legacy mirror and then OVERWRITTEN per Ereignis by
+// the operations context (deployment). Readiness is carried separately in
+// `outOfService`, which nothing recomputes — that is the whole point: the board
+// used to derive one field from the assignments and thereby erase the defect.
 const apiMaterialToMaterial = (apiMat: ApiMaterialResource): Material => ({
   id: String(apiMat.id),
   name: apiMat.name,
   category: apiMat.location || "General",
   type: apiMat.type || "Sonstiges",
   status: (apiMat.status === "available" ? "available" : "assigned") as "available" | "assigned",
+  outOfService: apiMat.out_of_service ?? false,
+  outOfServiceSince: apiMat.out_of_service_since ?? null,
   categorySortOrder: apiMat.location_sort_order,
   consumable: apiMat.consumable ?? false,
   groupId: apiMat.group_id ? String(apiMat.group_id) : null,
@@ -115,6 +137,41 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const setMaterialOutOfService = useCallback(
+    async (materialId: string, outOfService: boolean) => {
+      const previous = materials.find((m) => m.id === materialId)
+      // Optimistic: the sidebar row has to change shape under the cursor, not
+      // after a round trip. `out_of_service_since` is server-stamped, so the
+      // local guess is only good until the response replaces it.
+      setMaterials((list) =>
+        list.map((m) =>
+          m.id === materialId
+            ? { ...m, outOfService, outOfServiceSince: outOfService ? new Date().toISOString() : null }
+            : m,
+        ),
+      )
+      try {
+        const updated = await apiClient.updateMaterialResource(materialId, { out_of_service: outOfService })
+        setMaterials((list) =>
+          list.map((m) =>
+            m.id === materialId
+              ? { ...m, outOfService: updated.out_of_service, outOfServiceSince: updated.out_of_service_since }
+              : m,
+          ),
+        )
+      } catch (error) {
+        console.error("Failed to change material readiness:", error)
+        if (previous) {
+          setMaterials((list) => list.map((m) => (m.id === materialId ? previous : m)))
+        }
+        toast.error(translateOutsideReact('notifications.materials.readinessFailedTitle'), {
+          description: translateOutsideReact('notifications.materials.readinessFailedDescription'),
+        })
+      }
+    },
+    [materials],
+  )
+
   // Load initial data
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
@@ -142,6 +199,7 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
         isLoading,
         refreshMaterials,
         refreshMaterialGroups,
+        setMaterialOutOfService,
       }}
     >
       {children}

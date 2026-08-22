@@ -122,19 +122,79 @@ export function personMatchesQuery(
 /**
  * A material's availability as the board must READ it.
  *
- * Consumables (Ölbindemittel, Schaummittel, Bindevlies …) are stocked, not lent out: handing some
- * to an incident does not make the depot empty, and nobody waits for them to come back. They are
- * flagged `consumable` in the Materialverwaltung, and the assignment picker has always let them
- * be assigned regardless of status — only the Status-Tafel still painted them amber and counted
- * them as gone, which reads as «wir haben kein Ölbindemittel mehr».
+ * Three axes, one precedence, and it is the same one the API documents:
+ * `outOfService` («Nicht einsatzbereit») beats deployment («Im Einsatz»), which
+ * beats «Verfügbar». Readiness is a station-wide fact and wins even for
+ * consumables — a broken Ölbindemittel-Fass is not "unlimited", it is broken.
+ *
+ * Consumables (Ölbindemittel, Schaummittel, Bindevlies …) are otherwise stocked, not lent out:
+ * handing some to an incident does not make the depot empty, and nobody waits for them to come
+ * back. They are flagged `consumable` in the Materialverwaltung, and the assignment picker has
+ * always let them be assigned regardless of status — only the Status-Tafel still painted them
+ * amber and counted them as gone, which reads as «wir haben kein Ölbindemittel mehr».
  *
  * Non-consumables are unchanged: one Tauchpumpe assigned is one Tauchpumpe away.
+ *
+ * Deliberately NOT reading the API's `status` field for readiness: it is a legacy mirror of
+ * `out_of_service`, and the board overwrites it per Ereignis with the deployment state.
  */
 export function materialResourceState(
-  m: { status?: string | null; consumable?: boolean },
+  m: { status?: string | null; consumable?: boolean; outOfService?: boolean },
 ): ResourceState {
+  if (m.outOfService) return "unavailable"
   if (m.consumable) return "available"
   return toResourceState(m.status)
+}
+
+/**
+ * A vehicle's availability, by the same precedence.
+ *
+ * Vehicles used to consult no state at all: the fleet list carried `status` and
+ * nothing on the board ever read it, so a unit recorded as defective drew green
+ * and could be put on an incident. `assigned` is passed in because deployment is
+ * per-Ereignis and lives in the incident assignments, not on the vehicle row.
+ */
+export function vehicleResourceState(
+  v: { outOfService?: boolean; assigned?: boolean },
+): ResourceState {
+  if (v.outOfService) return "unavailable"
+  return v.assigned ? "assigned" : "available"
+}
+
+/** What a sidebar footer counts: free, spoken for, and the roster behind both. */
+export interface ResourceSummary {
+  free: number
+  bound: number
+  total: number
+}
+
+/**
+ * The crew counter, computed from the SAME predicate the list is filtered with.
+ *
+ * The footer used to count `status === "available"` straight off the API while
+ * the list, its icons and «Nur Verfügbare zeigen» all went through
+ * `isPersonOccupied` — so people on Reko, driving, in the Magazin or on
+ * Telefondienst were hidden from the list and counted as free underneath it.
+ * «14 verfügbar» over nine visible rows is the one number a Kommandant reads in
+ * half a second, and it was wrong by five.
+ *
+ * Deliberately no breakdown by Reko / Fahrer / Magazin / Telefondienst: the foot
+ * of the sidebar carries one number and its counterpart, not a five-part
+ * statistic. Who is bound where is answered by clicking the row.
+ */
+export function summarizeRoster(
+  personnel: readonly Parameters<typeof isPersonOccupied>[0][],
+): ResourceSummary {
+  const bound = personnel.reduce((n, p) => (isPersonOccupied(p) ? n + 1 : n), 0)
+  return { free: personnel.length - bound, bound, total: personnel.length }
+}
+
+/** The material counter, from the same helper the material list is filtered with. */
+export function summarizeMaterials(
+  materials: readonly Parameters<typeof materialResourceState>[0][],
+): ResourceSummary {
+  const free = materials.reduce((n, m) => (materialResourceState(m) === "available" ? n + 1 : n), 0)
+  return { free, bound: materials.length - free, total: materials.length }
 }
 
 /** Dot / swatch fill for a resource's availability. */

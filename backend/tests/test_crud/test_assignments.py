@@ -3,7 +3,6 @@
 Tests cover:
 - assign_resource: Create resource assignments to incidents
 - unassign_resource: Release resources from incidents
-- update_resource_status: Update the duty status field
 - get_incident_assignments: Get all active assignments
 - get_assignments_by_event: Batch load assignments for an event
 - check_resource_conflicts: Check if resource is assigned elsewhere
@@ -458,80 +457,6 @@ class TestUnassignResource:
         )
 
         assert result is False
-
-
-# ============================================
-# Test: update_resource_status
-# ============================================
-
-
-class TestUpdateResourceStatus:
-    """Tests for update_resource_status function."""
-
-    async def test_update_personnel_status(
-        self,
-        db_session: AsyncSession,
-        test_personnel: Personnel,
-    ):
-        """Test updating personnel duty status."""
-        await assignment_crud.update_resource_status(
-            db=db_session,
-            resource_type="personnel",
-            resource_id=test_personnel.id,
-            new_status="unavailable",
-        )
-        # Note: update_resource_status doesn't commit - caller must commit
-        await db_session.commit()
-
-        await db_session.refresh(test_personnel)
-        assert test_personnel.status == "unavailable"
-
-    async def test_update_vehicle_status(
-        self,
-        db_session: AsyncSession,
-        test_vehicle: Vehicle,
-    ):
-        """Test updating vehicle status."""
-        await assignment_crud.update_resource_status(
-            db=db_session,
-            resource_type="vehicle",
-            resource_id=test_vehicle.id,
-            new_status="unavailable",
-        )
-        await db_session.commit()
-
-        await db_session.refresh(test_vehicle)
-        assert test_vehicle.status == "unavailable"
-
-    async def test_update_material_status(
-        self,
-        db_session: AsyncSession,
-        test_material: Material,
-    ):
-        """Test updating material status."""
-        await assignment_crud.update_resource_status(
-            db=db_session,
-            resource_type="material",
-            resource_id=test_material.id,
-            new_status="unavailable",
-        )
-        await db_session.commit()
-
-        await db_session.refresh(test_material)
-        assert test_material.status == "unavailable"
-
-    async def test_update_nonexistent_resource(
-        self,
-        db_session: AsyncSession,
-    ):
-        """Test updating nonexistent resource doesn't crash."""
-        # Should not raise an error
-        await assignment_crud.update_resource_status(
-            db=db_session,
-            resource_type="vehicle",
-            resource_id=uuid4(),
-            new_status="assigned",
-        )
 
 
 # ============================================

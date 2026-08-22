@@ -1047,8 +1047,11 @@ class ApiClient {
   }
 
   // Resource Management - Vehicles
-  async getVehicles(): Promise<ApiVehicle[]> {
-    return this.request<ApiVehicle[]>('/api/vehicles/')
+  /** Archived vehicles are excluded unless `includeArchived` — the board must
+   *  never see a retired unit, the Fahrzeugverwaltung shows it on request. */
+  async getVehicles(options?: { includeArchived?: boolean }): Promise<ApiVehicle[]> {
+    const query = options?.includeArchived ? '?include_archived=true' : ''
+    return this.request<ApiVehicle[]>(`/api/vehicles/${query}`)
   }
 
   async getVehicleById(id: string): Promise<ApiVehicle> {
@@ -1069,8 +1072,30 @@ class ApiClient {
     })
   }
 
-  async deleteVehicle(id: string): Promise<void> {
-    return this.request<void>(`/api/vehicles/${id}`, {
+  /** Take a vehicle out of the fleet, reversibly. Broadcast as a WS `delete`. */
+  async archiveVehicle(id: string): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>(`/api/vehicles/${id}/archive`, {
+      method: 'POST',
+    })
+  }
+
+  /** «Zurückholen» — bring an archived vehicle back. Broadcast as a WS `create`. */
+  async restoreVehicle(id: string): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>(`/api/vehicles/${id}/restore`, {
+      method: 'POST',
+    })
+  }
+
+  /**
+   * Archives by default; `permanent` purges the row.
+   *
+   * The purge is refused with 409 (German `detail` on the ApiError) unless the
+   * vehicle is already archived AND never stood on a live, non-training Einsatz
+   * — otherwise the evaluation of that Einsatz would grow a hole.
+   */
+  async deleteVehicle(id: string, options?: { permanent?: boolean }): Promise<void> {
+    const query = options?.permanent ? '?permanent=true' : ''
+    return this.request<void>(`/api/vehicles/${id}${query}`, {
       method: 'DELETE',
     })
   }
@@ -1098,8 +1123,11 @@ class ApiClient {
   }
 
   // Resource Management - Materials
-  async getAllMaterials(): Promise<ApiMaterialResource[]> {
-    return this.request<ApiMaterialResource[]>('/api/materials/')
+  /** Archived material is excluded unless `includeArchived` — the board must
+   *  never see a retired device, the Materialverwaltung shows it on request. */
+  async getAllMaterials(options?: { includeArchived?: boolean }): Promise<ApiMaterialResource[]> {
+    const query = options?.includeArchived ? '?include_archived=true' : ''
+    return this.request<ApiMaterialResource[]>(`/api/materials/${query}`)
   }
 
   async getMaterialById(id: string): Promise<ApiMaterialResource> {
@@ -1120,8 +1148,30 @@ class ApiClient {
     })
   }
 
-  async deleteMaterialResource(id: string): Promise<void> {
-    return this.request<void>(`/api/materials/${id}`, {
+  /** Take a device out of the inventory, reversibly. Broadcast as a WS `delete`. */
+  async archiveMaterialResource(id: string): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>(`/api/materials/${id}/archive`, {
+      method: 'POST',
+    })
+  }
+
+  /** «Zurückholen» — bring an archived device back. Broadcast as a WS `create`. */
+  async restoreMaterialResource(id: string): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>(`/api/materials/${id}/restore`, {
+      method: 'POST',
+    })
+  }
+
+  /**
+   * Archives by default; `permanent` purges the row.
+   *
+   * The purge is refused with 409 (German `detail` on the ApiError) unless the
+   * device is already archived AND never stood on a live, non-training Einsatz.
+   * A test entry used only on a drill is therefore purgeable.
+   */
+  async deleteMaterialResource(id: string, options?: { permanent?: boolean }): Promise<void> {
+    const query = options?.permanent ? '?permanent=true' : ''
+    return this.request<void>(`/api/materials/${id}${query}`, {
       method: 'DELETE',
     })
   }

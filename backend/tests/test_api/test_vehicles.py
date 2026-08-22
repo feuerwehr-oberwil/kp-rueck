@@ -263,10 +263,95 @@ async def test_delete_vehicle_requires_auth(client: AsyncClient, test_vehicle: V
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_delete_vehicle_success(editor_client: AsyncClient, test_vehicle: Vehicle):
-    """Test deleting a vehicle successfully (soft delete)."""
+async def test_delete_vehicle_archives_and_removes_it_from_the_board(editor_client: AsyncClient, test_vehicle: Vehicle):
+    """Deleting archives — and the row genuinely leaves the default listing."""
     response = await editor_client.delete(f"/api/vehicles/{test_vehicle.id}")
     assert response.status_code == 204
+
+    listed = await editor_client.get("/api/vehicles/")
+    assert listed.json() == []
+
+    with_archive = await editor_client.get("/api/vehicles/?include_archived=true")
+    rows = with_archive.json()
+    assert len(rows) == 1
+    assert rows[0]["archived_at"] is not None
+    assert rows[0]["out_of_service"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_restore_vehicle_brings_it_back(editor_client: AsyncClient, test_vehicle: Vehicle):
+    """«Zurückholen» is a button, not a trick via Bearbeiten → Status."""
+    await editor_client.delete(f"/api/vehicles/{test_vehicle.id}")
+
+    response = await editor_client.post(f"/api/vehicles/{test_vehicle.id}/restore")
+    assert response.status_code == 200
+    assert response.json()["archived_at"] is None
+    assert len((await editor_client.get("/api/vehicles/")).json()) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_archive_refused_while_the_vehicle_stands_on_a_live_einsatz(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_vehicle: Vehicle,
+    test_incident_for_vehicle: "Incident",
+):
+    """Archiving mid-deployment would vanish the vehicle off a card an operator is working — 409.
+
+    Same pattern as the purge's `in_use` refusal; closing the assignment reopens
+    the normal retirement path.
+    """
+    from datetime import UTC, datetime
+
+    from app.models import IncidentAssignment
+
+    assignment = IncidentAssignment(
+        id=uuid4(),
+        incident_id=test_incident_for_vehicle.id,
+        resource_type="vehicle",
+        resource_id=test_vehicle.id,
+    )
+    db_session.add(assignment)
+    await db_session.commit()
+
+    refused = await editor_client.post(f"/api/vehicles/{test_vehicle.id}/archive")
+    assert refused.status_code == 409
+    assert test_vehicle.name in refused.json()["detail"]
+
+    # The default DELETE is the same archive — same refusal.
+    assert (await editor_client.delete(f"/api/vehicles/{test_vehicle.id}")).status_code == 409
+
+    assignment.unassigned_at = datetime.now(UTC)
+    await db_session.commit()
+    assert (await editor_client.post(f"/api/vehicles/{test_vehicle.id}/archive")).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_permanent_delete_requires_archiving_first(editor_client: AsyncClient, test_vehicle: Vehicle):
+    """The irreversible action takes two deliberate steps."""
+    response = await editor_client.delete(f"/api/vehicles/{test_vehicle.id}?permanent=true")
+    assert response.status_code == 409
+
+    await editor_client.post(f"/api/vehicles/{test_vehicle.id}/archive")
+    response = await editor_client.delete(f"/api/vehicles/{test_vehicle.id}?permanent=true")
+    assert response.status_code == 204
+    assert (await editor_client.get(f"/api/vehicles/{test_vehicle.id}")).status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_vehicle_out_of_service_is_its_own_state(editor_client: AsyncClient, test_vehicle: Vehicle):
+    """The board can no longer overwrite a recorded defect — it is a flag with a date."""
+    response = await editor_client.put(f"/api/vehicles/{test_vehicle.id}", json={"out_of_service": True})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["out_of_service"] is True
+    assert data["out_of_service_since"] is not None
+    assert data["archived_at"] is None
+    assert data["status"] == "unavailable"  # legacy mirror stays in lockstep
 
 
 @pytest.mark.asyncio
@@ -298,7 +383,19 @@ async def test_vehicle_response_structure(editor_client: AsyncClient, test_vehic
     assert response.status_code == 200
     data = response.json()
 
-    expected_fields = ["id", "name", "type", "status", "display_order", "radio_call_sign"]
+    expected_fields = [
+        "id",
+        "name",
+        "type",
+        "status",
+        "display_order",
+        "radio_call_sign",
+        "out_of_service",
+        "out_of_service_since",
+        "archived_at",
+        "assignment_count",
+        "can_delete",
+    ]
     for field in expected_fields:
         assert field in data, f"Missing field: {field}"
 

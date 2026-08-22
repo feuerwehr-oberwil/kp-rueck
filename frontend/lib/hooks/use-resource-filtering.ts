@@ -16,7 +16,8 @@ export function useResourceFiltering(
   roleFallbackLabel: string = 'Andere',
   /** Sidebar toggles: drop everything that is currently tied up. Availability is
    *  read exactly as the cards draw it — `isPersonOccupied` counts Fahrer/Reko/
-   *  Magazin as busy, consumables always count as available. */
+   *  Magazin as busy, consumables count as available, and «Nicht einsatzbereit»
+   *  counts as neither (materialResourceState returns "unavailable"). */
   availableOnly: { personnel?: boolean; materials?: boolean } = {},
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
@@ -43,8 +44,13 @@ export function useResourceFiltering(
         : materials
       if (!effectiveMaterialQuery) return base
       const q = effectiveMaterialQuery.toLowerCase()
+      // All three axes, under the names the UI now uses everywhere: the device
+      // itself, its Typ ("alle Sägen") and its Standort ("alles auf dem Pio").
+      // Only the second question could be asked before, and the column asking
+      // it was headed «Kategorie».
       return base.filter((m) =>
         m.name.toLowerCase().includes(q) ||
+        m.type.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q)
       )
     },

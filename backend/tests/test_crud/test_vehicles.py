@@ -5,7 +5,8 @@ Tests cover:
 - get_vehicle: Get vehicle by ID
 - create_vehicle: Create new vehicle
 - update_vehicle: Update existing vehicle
-- delete_vehicle: Soft delete vehicle
+- archive_vehicle / restore_vehicle: retire a vehicle and bring it back
+- purge_vehicle: permanent delete, and the two rules that refuse it
 """
 
 from unittest.mock import MagicMock
@@ -346,64 +347,120 @@ class TestUpdateVehicle:
 
 
 # ============================================
-# Test: delete_vehicle
+# Test: archive / restore / purge
 # ============================================
 
 
-class TestDeleteVehicle:
-    """Tests for delete_vehicle function."""
+class TestArchiveVehicle:
+    """Archiving retires a vehicle without touching its readiness."""
 
-    async def test_soft_deletes_vehicle(
+    async def test_archiving_hides_it_from_the_default_listing(
         self,
         db_session: AsyncSession,
         test_vehicle: Vehicle,
         test_user: User,
         mock_request,
     ):
-        """Test soft deleting a vehicle sets status to unavailable."""
-        result = await vehicle_crud.delete_vehicle(
+        """The whole point: an archived vehicle really does leave the list."""
+        archived = await vehicle_crud.archive_vehicle(
             db=db_session,
             vehicle_id=test_vehicle.id,
             current_user=test_user,
             request=mock_request,
         )
 
-        assert result is True
+        assert archived is not None
+        assert archived.archived_at is not None
+        # Readiness is a separate axis and must be untouched.
+        assert archived.status == "available"
+        assert archived.out_of_service is False
 
-        # Verify status changed to unavailable (soft delete)
-        await db_session.refresh(test_vehicle)
-        assert test_vehicle.status == "unavailable"
+        assert await vehicle_crud.get_all_vehicles(db_session) == []
+        assert len(await vehicle_crud.get_all_vehicles(db_session, include_archived=True)) == 1
 
-    async def test_returns_false_for_nonexistent(
+    async def test_restore_brings_it_back(
+        self,
+        db_session: AsyncSession,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """«Zurückholen» puts the row back on the board."""
+        await vehicle_crud.archive_vehicle(
+            db=db_session, vehicle_id=test_vehicle.id, current_user=test_user, request=mock_request
+        )
+        restored = await vehicle_crud.restore_vehicle(
+            db=db_session, vehicle_id=test_vehicle.id, current_user=test_user, request=mock_request
+        )
+
+        assert restored is not None
+        assert restored.archived_at is None
+        assert len(await vehicle_crud.get_all_vehicles(db_session)) == 1
+
+    async def test_returns_none_for_nonexistent(
         self,
         db_session: AsyncSession,
         test_user: User,
         mock_request,
     ):
-        """Test returns False for nonexistent vehicle."""
-        result = await vehicle_crud.delete_vehicle(
+        """Test returns None for nonexistent vehicle."""
+        result = await vehicle_crud.archive_vehicle(
             db=db_session,
             vehicle_id=uuid4(),
             current_user=test_user,
             request=mock_request,
         )
 
-        assert result is False
+        assert result is None
 
-    async def test_sets_updated_at_timestamp(
+
+class TestPurgeVehicle:
+    """Permanent delete: allowed, but only from the archive."""
+
+    async def test_refuses_unless_archived_first(
         self,
         db_session: AsyncSession,
         test_vehicle: Vehicle,
         test_user: User,
         mock_request,
     ):
-        """Test that updated_at is set on delete."""
-        await vehicle_crud.delete_vehicle(
-            db=db_session,
-            vehicle_id=test_vehicle.id,
-            current_user=test_user,
-            request=mock_request,
+        """Two deliberate steps — a live row cannot be purged by a stray query param."""
+        outcome = await vehicle_crud.purge_vehicle(
+            db=db_session, vehicle_id=test_vehicle.id, current_user=test_user, request=mock_request
         )
 
-        await db_session.refresh(test_vehicle)
-        assert test_vehicle.updated_at is not None
+        assert outcome.purged is False
+        assert outcome.refusal == "not_archived"
+
+    async def test_purges_an_archived_vehicle_with_no_history(
+        self,
+        db_session: AsyncSession,
+        test_vehicle: Vehicle,
+        test_user: User,
+        mock_request,
+    ):
+        """A typo or test entry really leaves the database."""
+        vehicle_id = test_vehicle.id
+        await vehicle_crud.archive_vehicle(
+            db=db_session, vehicle_id=vehicle_id, current_user=test_user, request=mock_request
+        )
+        outcome = await vehicle_crud.purge_vehicle(
+            db=db_session, vehicle_id=vehicle_id, current_user=test_user, request=mock_request
+        )
+
+        assert outcome.purged is True
+        assert await vehicle_crud.get_vehicle(db_session, vehicle_id) is None
+
+    async def test_returns_not_found_for_nonexistent(
+        self,
+        db_session: AsyncSession,
+        test_user: User,
+        mock_request,
+    ):
+        """Test reports not_found for nonexistent vehicle."""
+        outcome = await vehicle_crud.purge_vehicle(
+            db=db_session, vehicle_id=uuid4(), current_user=test_user, request=mock_request
+        )
+
+        assert outcome.purged is False
+        assert outcome.refusal == "not_found"

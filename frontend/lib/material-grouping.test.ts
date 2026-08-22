@@ -9,6 +9,8 @@ function mat(id: string, groupId: string | null = null): Material {
     category: "Depot",
     type: "type",
     status: "assigned",
+    outOfService: false,
+    outOfServiceSince: null,
     categorySortOrder: 0,
     consumable: false,
     groupId,

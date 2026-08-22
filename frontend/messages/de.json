@@ -692,7 +692,8 @@
       "allMaterialsAssigned": "Es sind keine Materialien erfasst",
       "changes": "Änderungen",
       "vehicleDriver": "Fahrer: {name}",
-      "vehicleNoDriver": "Kein Fahrer"
+      "vehicleNoDriver": "Kein Fahrer",
+      "outOfService": "Nicht einsatzbereit"
     },
     "transferReko": {
       "failed": "Übertragung fehlgeschlagen",
@@ -1302,7 +1303,9 @@
       "checkInputRetry": "Überprüfe die Eingabe und versuche es erneut.",
       "reloadPage": "Bitte Seite neu laden.",
       "entriesCount": "{count, plural, one {# Eintrag} other {# Einträge}}",
-      "sortCategoriesTab": "Kategorien sortieren"
+      "sortCategoriesTab": "Kategorien sortieren",
+      "sortLocationsTab": "Standorte sortieren",
+      "notConfiguredBadge": "Nicht eingerichtet"
     },
     "page": {
       "title": "Einstellungen",
@@ -1734,7 +1737,6 @@
       "deleteError": "Fehler beim Löschen des Materials",
       "deleteErrorDescription": "Das Material konnte nicht gelöscht werden. Versuche es erneut.",
       "tabList": "Materialliste",
-      "tabGroups": "Gruppen",
       "thresholdsLink": "Warnschwellen für Materialbestand festlegen",
       "addButton": "Material hinzufügen",
       "dialogEditTitle": "Material bearbeiten",
@@ -1744,12 +1746,9 @@
       "locationPlaceholder": "z. B. TLF, Pio, Depot",
       "consumableLabel": "Verbrauchsmaterial",
       "consumableHint": "Unbegrenzt verfügbar, keine Zuordnung nötig",
-      "categoryHead": "Kategorie",
       "empty": "Kein Material vorhanden.",
       "sortTitle": "Standort-Sortierung",
       "sortDescription": "Ziehe die Standorte, um deren Reihenfolge in der Anzeige zu ändern. Material wird nach dieser Sortierung gruppiert.",
-      "deleteTitle": "Material löschen",
-      "deleteDescription": "Bist du sicher, dass du das Material \"{name}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
       "groups": {
         "intro": "Materialgruppen fassen mehrere Einzelmaterialien zu einem Block zusammen (z. B. \"Modul 1\").",
         "createButton": "Gruppe erstellen",
@@ -1766,7 +1765,16 @@
         "deleteError": "Fehler beim Löschen der Gruppe",
         "deleteTitle": "Gruppe löschen",
         "deleteDescription": "Bist du sicher, dass du die Gruppe \"{name}\" löschen möchtest? Die Materialien werden nicht gelöscht, nur die Gruppierung aufgelöst."
-      }
+      },
+      "deviceHead": "Gerät",
+      "moduleHead": "Modul",
+      "tabModules": "Module",
+      "archiveTitle": "«{name}» archivieren",
+      "archiveDescription": "Das Gerät verschwindet aus dem Board, aus der Seitenleiste und aus dem Zuweisungsdialog. Bestehende Einsätze und das Protokoll behalten es.",
+      "archiveHint": "Endgültig löschen geht danach im Archiv – aber nur für Geräte, die nie auf einem echten Einsatz standen.",
+      "purgeTitle": "«{name}» endgültig löschen",
+      "purgeDescription": "Der Datensatz wird aus der Datenbank entfernt. Das lässt sich nicht rückgängig machen – auch nicht über «Archivierte anzeigen».",
+      "purgeHint": "Möglich, weil dieses Gerät nie auf einem echten Einsatz stand. Stand es auch nur einmal auf einem, bleibt das Archiv der einzige Weg – sonst fehlt es in der Auswertung genau dieses Einsatzes."
     },
     "personnel": {
       "loadError": "Personal konnte nicht geladen werden",
@@ -1924,8 +1932,12 @@
       "orderPlaceholder": "z. B. 1, 2, 3",
       "radioPlaceholder": "z. B. Omega 1, Omega 2",
       "empty": "Keine Fahrzeuge vorhanden.",
-      "deleteTitle": "Fahrzeug löschen",
-      "deleteDescription": "Bist du sicher, dass du das Fahrzeug \"{name}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden."
+      "archiveTitle": "«{name}» archivieren",
+      "archiveDescription": "Das Fahrzeug verschwindet aus dem Board, aus der Fahrzeugliste und aus dem Zuweisungsdialog. Bestehende Einsätze und das Protokoll behalten es.",
+      "archiveHint": "Endgültig löschen geht danach im Archiv – aber nur für Fahrzeuge, die nie auf einem echten Einsatz standen.",
+      "purgeTitle": "«{name}» endgültig löschen",
+      "purgeDescription": "Der Datensatz wird aus der Datenbank entfernt. Das lässt sich nicht rückgängig machen – auch nicht über «Archivierte anzeigen».",
+      "purgeHint": "Möglich, weil dieses Fahrzeug nie auf einem echten Einsatz stand. Stand es auch nur einmal auf einem, bleibt das Archiv der einzige Weg – sonst fehlt es in der Auswertung genau dieses Einsatzes."
     },
     "validation": {
       "nameRequired": "Name ist erforderlich",
@@ -1937,6 +1949,28 @@
       "orderNumber": "Reihenfolge muss eine Zahl sein",
       "orderInt": "Reihenfolge muss eine ganze Zahl sein",
       "orderMin1": "Mindestens 1"
+    },
+    "lifecycle": {
+      "notReady": "Nicht einsatzbereit",
+      "notReadySince": "seit {date}",
+      "notReadyAria": "«{name}» als nicht einsatzbereit führen",
+      "notReadyError": "Einsatzbereitschaft konnte nicht geändert werden",
+      "showArchived": "Archivierte anzeigen",
+      "archivedCount": "{count, plural, one {# archiviert} other {# archiviert}}",
+      "archivedOn": "Archiviert · {date}",
+      "archive": "Archivieren",
+      "restore": "Zurückholen",
+      "deletePermanently": "Endgültig löschen",
+      "stoodOnIncidents": "{count, plural, one {Auf # Einsatz gestanden} other {Auf # Einsätzen gestanden}}",
+      "neverOnIncident": "Nie auf einem Einsatz",
+      "archiveConsequenceDrop": "Ab jetzt nicht mehr disponierbar",
+      "archiveConsequenceRestore": "Jederzeit über «Archivierte anzeigen» zurückholen",
+      "purgeConsequenceLists": "Verschwindet aus Listen, Exporten und dem Protokoll",
+      "purgeConsequenceNoReturn": "Kein Zurückholen – das Archiv ist danach leer dafür",
+      "archiveError": "Archivieren fehlgeschlagen",
+      "archiveInUseDescription": "Steht noch auf einem offenen Einsatz – zuerst dort freigeben, dann archivieren.",
+      "restoreError": "Zurückholen fehlgeschlagen",
+      "purgeError": "Endgültiges Löschen fehlgeschlagen"
     }
   },
   "login": {
@@ -2462,7 +2496,11 @@
     "materials": {
       "loadFailedTitle": "Material konnte nicht geladen werden",
       "loadFailedDescription": "Die Materialliste ist möglicherweise veraltet.",
-      "groupsLoadFailed": "Materialgruppen konnten nicht geladen werden"
+      "groupsLoadFailed": "Materialgruppen konnten nicht geladen werden",
+      "readinessFailedTitle": "Einsatzbereitschaft konnte nicht geändert werden",
+      "readinessFailedDescription": "Der Zustand steht wieder wie vorher. Nochmals versuchen.",
+      "outOfServiceBlockedTitle": "{name} ist nicht einsatzbereit",
+      "outOfServiceBlockedDescription": "In der Verwaltung als nicht einsatzbereit geführt – zuerst dort freigeben."
     },
     "groups": {
       "loadFailedTitle": "Aufträge konnten nicht geladen werden",

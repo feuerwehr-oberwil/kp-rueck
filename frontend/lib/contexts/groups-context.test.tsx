@@ -56,6 +56,10 @@ vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => eventState }))
 // The provider resolves resource names via these sibling contexts.
 vi.mock("@/lib/contexts/personnel-context", () => ({ usePersonnel: () => ({ personnel: [] }) }))
 vi.mock("@/lib/contexts/materials-context", () => ({ useMaterials: () => ({ materials: [] }) }))
+// Readiness («Nicht einsatzbereit») comes from the operations context — the
+// assign guard reads this set. Mutable so a test can flag a vehicle.
+const operationsState = vi.hoisted(() => ({ outOfServiceVehicleIds: new Set<string>() }))
+vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => operationsState }))
 
 // Controllable WebSocket stub mirroring the shape operations-context uses:
 // on(event, cb) / onStatusChange(cb) / getStatus(). `getStatus` reports
@@ -137,6 +141,7 @@ const wrapper = ({ children }: { children: React.ReactNode }) => <GroupsProvider
 
 beforeEach(() => {
   eventState.selectedEvent = { id: EVENT_ID }
+  operationsState.outOfServiceVehicleIds = new Set()
   ws.reset()
   getIncidentGroups.mockReset().mockResolvedValue([])
   getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
@@ -308,6 +313,26 @@ describe("GroupsProvider — assign / unassign route resources", () => {
     expect(assignGroupResource).toHaveBeenCalledWith(GROUP_ID, { resource_type: "vehicle", resource_id: "v1" })
     await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
     expect(result.current.groups[0].assignments[0].resourceId).toBe("v1")
+  })
+
+  it("refuses an out-of-service vehicle before it reaches the route", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
+    operationsState.outOfServiceVehicleIds = new Set(["v1"])
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+
+    let ok = true
+    await act(async () => {
+      ok = await result.current.assignResource(GROUP_ID, "vehicle", "v1")
+    })
+
+    // No API call, no optimistic assignment — the same lock the incident path
+    // enforces, surfaced as the same error toast.
+    expect(ok).toBe(false)
+    expect(assignGroupResource).not.toHaveBeenCalled()
+    expect(result.current.groups[0].assignments).toHaveLength(0)
+    expect(toastError).toHaveBeenCalledTimes(1)
   })
 
   it("rolls back and toasts when the assign fails", async () => {
