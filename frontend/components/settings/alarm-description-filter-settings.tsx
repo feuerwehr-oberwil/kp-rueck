@@ -18,9 +18,8 @@
  */
 
 import { useTranslations } from 'next-intl';
-import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { SettingBlock, SettingCard } from '@/components/settings/setting-row';
 
 /** Settings keys; must match `DEFAULT_SETTINGS` in backend/app/services/settings.py. */
 export const ALARM_DESCRIPTION_FILTER_PREFIXES_KEY = 'alarm.description_filter_prefixes';
@@ -47,9 +46,9 @@ export function AlarmDescriptionFilterSettings({
 
   /** Both fields behave identically — same storage, same empty default, saved on blur. */
   const field = (key: string, label: string, hint: string) => (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-semibold text-muted-foreground">{label}</Label>
+    <SettingBlock label={label} htmlFor={key} hint={hint}>
       <Textarea
+        id={key}
         value={settings[key] ?? ''}
         rows={3}
         className="font-mono text-xs"
@@ -61,23 +60,21 @@ export function AlarmDescriptionFilterSettings({
         }}
         disabled={!isEditor || saving === key}
       />
-      <p className="text-xs text-muted-foreground">{hint}</p>
-    </div>
+    </SettingBlock>
   );
 
   return (
-    <Card className="p-6 space-y-4">
-      <div>
-        <h3 className="font-medium">{t('alarmFilterTitle')}</h3>
-        <p className="text-xs text-muted-foreground mt-1">{t('alarmFilterDescription')}</p>
-      </div>
+    <SettingCard
+      title={t('alarmFilterTitle')}
+      subtitle={t('alarmFilterDescription')}
+    >
       {field(ALARM_DESCRIPTION_FILTER_PREFIXES_KEY, t('alarmFilterLabel'), t('alarmFilterDropHint'))}
       {field(ALARM_DESCRIPTION_LABEL_PREFIXES_KEY, t('alarmFilterLabelsLabel'), t('alarmFilterLabelsHint'))}
-      <div className="rounded-md border border-border bg-muted/40 p-3">
-        <p className="text-xs font-semibold text-muted-foreground">{t('alarmFilterExampleTitle')}</p>
-        <p className="text-xs text-muted-foreground mt-1">{t('alarmFilterExample')}</p>
+      <div className="mt-3 rounded-md border border-border bg-muted/40 p-3">
+        <p className="text-xs font-semibold">{t('alarmFilterExampleTitle')}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t('alarmFilterExample')}</p>
       </div>
-      <p className="text-xs text-muted-foreground">{t('alarmFilterHint')}</p>
-    </Card>
+      <p className="mt-2 text-xs text-muted-foreground">{t('alarmFilterHint')}</p>
+    </SettingCard>
   );
 }

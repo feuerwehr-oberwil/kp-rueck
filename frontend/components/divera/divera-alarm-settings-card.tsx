@@ -4,8 +4,6 @@ import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Siren, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,8 +17,12 @@ import {
 import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
-import { ScopeMark } from "@/components/settings/scope-mark"
 import { SettingUnavailableBadge } from "@/components/settings/setting-unavailable"
+import {
+  SettingBlock,
+  SettingCard,
+  SettingGroup,
+} from "@/components/settings/setting-row"
 import type { ApiDiveraMemberPreview } from "@/lib/api/types"
 import {
   ALARM_TITLE_KEY,
@@ -131,65 +133,64 @@ export function DiveraAlarmSettingsCard({
   }
 
   return (
-    <Card className="p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-medium flex items-center gap-2">
-            <Siren className="h-4 w-4 text-primary" />
-            {t("cardTitle")}
-            <ScopeMark scope="station" />
-            {providerName && (
-              <Badge variant="outline" className="font-normal">
-                {providerName}
-              </Badge>
-            )}
-            {notConfigured && (
-              <SettingUnavailableBadge>{t("notConfiguredBadge")}</SettingUnavailableBadge>
-            )}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("cardDescription")}
-          </p>
-          {notConfigured && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {t("notConfiguredHint")}
-            </p>
+    <SettingCard
+      title={
+        <span className="flex flex-wrap items-center gap-2">
+          <Siren className="size-4 text-primary" />
+          {t("cardTitle")}
+          {providerName && (
+            <Badge variant="outline" className="font-normal">
+              {providerName}
+            </Badge>
           )}
-        </div>
+          {notConfigured && (
+            <SettingUnavailableBadge>{t("notConfiguredBadge")}</SettingUnavailableBadge>
+          )}
+        </span>
+      }
+      subtitle={
+        <>
+          {t("cardDescription")}
+          {notConfigured && <span className="mt-1 block">{t("notConfiguredHint")}</span>}
+        </>
+      }
+      action={
         <Switch
+          aria-label={t("cardTitle")}
           checked={enabled}
           title={blockedReason ?? (notConfigured ? t("notConfiguredHint") : undefined)}
           disabled={Boolean(blockedReason) || notConfigured || !isEditor || saving === ENABLED_KEY}
           onCheckedChange={(v) => updateSetting(ENABLED_KEY, v ? "true" : "false")}
         />
-      </div>
-
+      }
+    >
       {blockedReason && (
         <p
           role="note"
-          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
+          className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed"
         >
           {blockedReason}
         </p>
       )}
 
       {enabled && (
-        <div className="space-y-4">
-          <div>
-            <Label className="font-medium">{t("templatesLabel")}</Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t.rich("templatesHint", {
-                code: (chunks) => <code className="font-mono">{chunks}</code>,
-              })}
-            </p>
-          </div>
+        <SettingGroup
+          className="mt-0 border-t-0 pt-0"
+          title={t("templatesLabel")}
+          hint={t.rich("templatesHint", {
+            code: (chunks) => <code className="font-mono">{chunks}</code>,
+          })}
+        >
           {templateFields.map((field) => {
             const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback
             const isCurrentlySaving = saving === field.key
             return (
-              <div key={field.key} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="font-semibold text-muted-foreground">{field.label}</Label>
+              <SettingBlock
+                key={field.key}
+                label={field.label}
+                htmlFor={field.key}
+                hint={field.hint}
+                action={
                   <Button
                     variant="ghost"
                     size="xs"
@@ -199,9 +200,10 @@ export function DiveraAlarmSettingsCard({
                   >
                     {t("reset")}
                   </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">{field.hint}</p>
+                }
+              >
                 <Textarea
+                  id={field.key}
                   value={value}
                   rows={field.rows}
                   className="font-mono text-xs"
@@ -215,22 +217,16 @@ export function DiveraAlarmSettingsCard({
                   }}
                   disabled={!isEditor || isCurrentlySaving}
                 />
-              </div>
+              </SettingBlock>
             )
           })}
-        </div>
+        </SettingGroup>
       )}
 
       {enabled && (
-        <div className="space-y-1.5">
-          <Label className="font-semibold text-muted-foreground">{t("testTitle")}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t("testDescription")}
-          </p>
+        <SettingBlock label={t("testTitle")} hint={t("testDescription")}>
           {membersError ? (
-            <p className="text-sm text-destructive">
-              {t("membersError")}
-            </p>
+            <p className="text-sm text-destructive">{t("membersError")}</p>
           ) : (
             <div className="flex items-center gap-2">
               <Select value={testId} onValueChange={setTestId} disabled={!isEditor}>
@@ -257,8 +253,8 @@ export function DiveraAlarmSettingsCard({
               </Button>
             </div>
           )}
-        </div>
+        </SettingBlock>
       )}
-    </Card>
+    </SettingCard>
   )
 }

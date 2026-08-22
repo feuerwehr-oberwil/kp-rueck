@@ -2451,6 +2451,7 @@
       "materialThresholdsTitle": "Seuils de stock de matériel",
       "materialThresholdsSubtitle": "Avertit lorsque le matériel disponible d’une catégorie passe sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
       "materialThresholdsManageLink": "Gérer le matériel",
+      "materialThresholdsEmpty": "Aucun matériel n’est encore saisi – il n’y a donc rien à régler ici. Dès que des stocks existent sous Réglages → Matériel, une ligne apparaît par emplacement.",
       "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
     },
     "toasts": {
@@ -3288,6 +3289,7 @@
         }
       },
       "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
+      "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
       "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)»."
     },
     "materials": {
@@ -3395,6 +3397,7 @@
       "pickup": "Récupération {eta}",
       "printerEnabled": "Imprimante activée",
       "printerDisabled": "Imprimante désactivée",
+      "statusNoAddress": "Imprimante activée, mais aucune adresse saisie – rien ne peut être imprimé",
       "serviceOnline": "Service d’impression en ligne",
       "serviceOffline": "Service d’impression hors ligne",
       "serviceOfflineHint": "(le Raspberry Pi ne se manifeste pas)",
@@ -3423,7 +3426,8 @@
       "networkTitle": "Réseau",
       "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire.",
       "unavailableDisabled": "L’imprimante n’est pas encore activée sur cette carte – tant qu’elle est désactivée, rien ne s’imprime.",
-      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ «Adresse IP» sur cette carte."
+      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ «Adresse IP» sur cette carte.",
+      "refreshStatus": "Actualiser l’état"
     },
     "users": {
       "roles": {

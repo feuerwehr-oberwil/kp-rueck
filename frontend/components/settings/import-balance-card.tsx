@@ -47,7 +47,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
+import { SettingCard } from '@/components/settings/setting-row'
 import {
   Table,
   TableBody,
@@ -111,10 +111,10 @@ export function ImportBalanceCard({ balance }: Props) {
   )
 
   return (
-    <Card className={cn('p-5 space-y-4', isReplace && 'border-destructive/40')}>
-      <div className="flex items-center gap-3">
-        <p className="font-medium">{t('title')}</p>
-        {isReplace ? (
+    <SettingCard
+      title={t('title')}
+      action={
+        isReplace ? (
           <Badge variant="destructive">
             <Trash2 aria-hidden="true" />
             {t('modeBadgeReplace')}
@@ -124,99 +124,102 @@ export function ImportBalanceCard({ balance }: Props) {
             <CheckCircle aria-hidden="true" />
             {t('modeBadgeAppend')}
           </Badge>
+        )
+      }
+      className={cn(isReplace && 'border-destructive/40')}
+    >
+      <div className="space-y-4">
+        <Table className="tabular-nums">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[34%]">{t('columnResource')}</TableHead>
+              <TableHead className="text-right">{t('columnBefore')}</TableHead>
+              <TableHead className="text-right">{t('columnFromFile')}</TableHead>
+              {isReplace && (
+                <TableHead className="text-right text-destructive">
+                  {t('columnDeleted')}
+                  <span className="block text-[11px] font-normal text-muted-foreground">
+                    {t('columnDeletedNote')}
+                  </span>
+                </TableHead>
+              )}
+              <TableHead className="text-right">
+                {t('columnAfter')}
+                {balance.afterIsEstimate && (
+                  <span className="block text-[11px] font-normal text-muted-foreground">
+                    {t('columnAfterEstimate')}
+                  </span>
+                )}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {balance.rows.map((row) => {
+              const Icon = RESOURCE_ICONS[row.resource]
+              return (
+                <TableRow key={row.resource}>
+                  <TableCell>
+                    <span className="flex items-center gap-2">
+                      <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+                      {tSections(row.resource)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">{row.before ?? unknown}</TableCell>
+                  <TableCell className={cn('text-right', row.fromFile === 0 && 'text-muted-foreground')}>
+                    {row.fromFile > 0 ? `+${row.fromFile}` : 0}
+                  </TableCell>
+                  {isReplace && (
+                    <TableCell className="text-right font-semibold text-destructive bg-destructive/10">
+                      {row.deleted > 0 ? `−${row.deleted}` : 0}
+                    </TableCell>
+                  )}
+                  <TableCell className={cn('text-right font-semibold', row.after === 0 && 'text-destructive')}>
+                    {row.after ?? unknown}
+                    {row.after === 0 && (
+                      <span className="ml-1 text-[11px] font-medium">{t('afterEmpty')}</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+          <TableFooter className="bg-transparent">
+            <TableRow>
+              <TableCell className="font-medium">{t('totalRow')}</TableCell>
+              <TableCell className="text-right text-muted-foreground">{balance.totals.before ?? unknown}</TableCell>
+              <TableCell className={cn('text-right', balance.totals.fromFile === 0 && 'text-muted-foreground')}>
+                {balance.totals.fromFile > 0 ? `+${balance.totals.fromFile}` : 0}
+              </TableCell>
+              {isReplace && (
+                <TableCell className="text-right font-semibold text-destructive bg-destructive/10">
+                  {balance.totals.deleted > 0 ? `−${balance.totals.deleted}` : 0}
+                </TableCell>
+              )}
+              <TableCell className={cn('text-right font-semibold', balance.totals.after === 0 && 'text-destructive')}>
+                {balance.totals.after ?? unknown}
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+
+        <ProvenanceNote balance={balance} />
+
+        {balance.deletesNothing ? (
+          <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-3">
+            <CheckCircle className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
+            <p className="text-sm">
+              <span className="font-medium">{t('nothingDeletedTitle')}</span>{' '}
+              <span className="text-muted-foreground">{t('nothingDeletedHint')}</span>
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <ConsequencesBlock balance={balance} />
+            {balance.cascadeDeletions.length > 0 && <CascadeBlock balance={balance} />}
+          </div>
         )}
       </div>
-
-      <Table className="tabular-nums">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[34%]">{t('columnResource')}</TableHead>
-            <TableHead className="text-right">{t('columnBefore')}</TableHead>
-            <TableHead className="text-right">{t('columnFromFile')}</TableHead>
-            {isReplace && (
-              <TableHead className="text-right text-destructive">
-                {t('columnDeleted')}
-                <span className="block text-[11px] font-normal text-muted-foreground">
-                  {t('columnDeletedNote')}
-                </span>
-              </TableHead>
-            )}
-            <TableHead className="text-right">
-              {t('columnAfter')}
-              {balance.afterIsEstimate && (
-                <span className="block text-[11px] font-normal text-muted-foreground">
-                  {t('columnAfterEstimate')}
-                </span>
-              )}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {balance.rows.map((row) => {
-            const Icon = RESOURCE_ICONS[row.resource]
-            return (
-              <TableRow key={row.resource}>
-                <TableCell>
-                  <span className="flex items-center gap-2">
-                    <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {tSections(row.resource)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">{row.before ?? unknown}</TableCell>
-                <TableCell className={cn('text-right', row.fromFile === 0 && 'text-muted-foreground')}>
-                  {row.fromFile > 0 ? `+${row.fromFile}` : 0}
-                </TableCell>
-                {isReplace && (
-                  <TableCell className="text-right font-semibold text-destructive bg-destructive/10">
-                    {row.deleted > 0 ? `−${row.deleted}` : 0}
-                  </TableCell>
-                )}
-                <TableCell className={cn('text-right font-semibold', row.after === 0 && 'text-destructive')}>
-                  {row.after ?? unknown}
-                  {row.after === 0 && (
-                    <span className="ml-1 text-[11px] font-medium">{t('afterEmpty')}</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-        <TableFooter className="bg-transparent">
-          <TableRow>
-            <TableCell className="font-medium">{t('totalRow')}</TableCell>
-            <TableCell className="text-right text-muted-foreground">{balance.totals.before ?? unknown}</TableCell>
-            <TableCell className={cn('text-right', balance.totals.fromFile === 0 && 'text-muted-foreground')}>
-              {balance.totals.fromFile > 0 ? `+${balance.totals.fromFile}` : 0}
-            </TableCell>
-            {isReplace && (
-              <TableCell className="text-right font-semibold text-destructive bg-destructive/10">
-                {balance.totals.deleted > 0 ? `−${balance.totals.deleted}` : 0}
-              </TableCell>
-            )}
-            <TableCell className={cn('text-right font-semibold', balance.totals.after === 0 && 'text-destructive')}>
-              {balance.totals.after ?? unknown}
-            </TableCell>
-          </TableRow>
-        </TableFooter>
-      </Table>
-
-      <ProvenanceNote balance={balance} />
-
-      {balance.deletesNothing ? (
-        <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-3">
-          <CheckCircle className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-          <p className="text-sm">
-            <span className="font-medium">{t('nothingDeletedTitle')}</span>{' '}
-            <span className="text-muted-foreground">{t('nothingDeletedHint')}</span>
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <ConsequencesBlock balance={balance} />
-          {balance.cascadeDeletions.length > 0 && <CascadeBlock balance={balance} />}
-        </div>
-      )}
-    </Card>
+    </SettingCard>
   )
 }
 

@@ -268,7 +268,7 @@ export function UserSettings() {
 
   if (loading) {
     return (
-      <Card className="p-6">
+      <Card className="p-5">
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="flex items-center gap-4">
@@ -286,7 +286,7 @@ export function UserSettings() {
 
   if (error) {
     return (
-      <Card className="p-6">
+      <Card className="p-5">
         <p className="text-destructive">{error}</p>
         <Button onClick={fetchUsers} className="mt-4">{t('common.retry')}</Button>
       </Card>

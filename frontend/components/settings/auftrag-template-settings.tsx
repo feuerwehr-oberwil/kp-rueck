@@ -35,6 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RemovableChip } from '@/components/ui/removable-chip';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import { SettingCard } from '@/components/settings/setting-row';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -202,7 +203,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
 
   if (!loaded) {
     return (
-      <Card className="p-6 space-y-3">
+      <Card className="p-5 space-y-3">
         <Skeleton className="h-5 w-48" />
         <Skeleton className="h-24 w-full" />
       </Card>
@@ -212,74 +213,71 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
   const autoCount = templates.filter((template) => template.auto_create).length;
 
   return (
-    <Card className="p-6 space-y-4">
-      <div>
-        <h3 className="font-medium">{t('title')}</h3>
-        <p className="text-xs text-muted-foreground mt-1">{t('description')}</p>
-      </div>
+    <SettingCard title={t('title')} subtitle={t('description')}>
+      <div className="space-y-4">
+        {templates.length === 0 ? (
+          <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border p-6 text-center">
+            {t('empty')}
+          </p>
+        ) : (
+          <div ref={containerRef} className="divide-y divide-border rounded-lg border border-border">
+            {templates.map((template, index) => (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                index={index}
+                expanded={expandedId === template.id}
+                dragging={draggingId === template.id}
+                saving={savingId === template.id}
+                readOnly={readOnly}
+                options={options}
+                optionsByKey={optionsByKey}
+                onToggleExpanded={() =>
+                  setExpandedId((current) => (current === template.id ? null : template.id))
+                }
+                onPatch={(changes) => void patch(template, changes)}
+                onDelete={() => setPendingDelete(template)}
+              />
+            ))}
+          </div>
+        )}
 
-      {templates.length === 0 ? (
-        <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border p-6 text-center">
-          {t('empty')}
-        </p>
-      ) : (
-        <div ref={containerRef} className="divide-y divide-border rounded-lg border border-border">
-          {templates.map((template, index) => (
-            <TemplateRow
-              key={template.id}
-              template={template}
-              index={index}
-              expanded={expandedId === template.id}
-              dragging={draggingId === template.id}
-              saving={savingId === template.id}
-              readOnly={readOnly}
-              options={options}
-              optionsByKey={optionsByKey}
-              onToggleExpanded={() =>
-                setExpandedId((current) => (current === template.id ? null : template.id))
+        <div className="flex items-center gap-2">
+          <Input
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void createTemplate();
               }
-              onPatch={(changes) => void patch(template, changes)}
-              onDelete={() => setPendingDelete(template)}
-            />
-          ))}
+            }}
+            placeholder={t('newPlaceholder')}
+            className="h-9 max-w-xs"
+            disabled={readOnly || creating}
+          />
+          <Button
+            size="sm"
+            onClick={() => void createTemplate()}
+            disabled={readOnly || creating || !newName.trim()}
+          >
+            <Plus className="h-4 w-4" />
+            {t('add')}
+          </Button>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {t('summary', { count: templates.length, auto: autoCount })}
+          </span>
         </div>
-      )}
 
-      <div className="flex items-center gap-2">
-        <Input
-          value={newName}
-          onChange={(event) => setNewName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              void createTemplate();
-            }
-          }}
-          placeholder={t('newPlaceholder')}
-          className="h-9 max-w-xs"
-          disabled={readOnly || creating}
+        <DeleteConfirmDialog
+          open={pendingDelete !== null}
+          onOpenChange={(open) => !open && setPendingDelete(null)}
+          title={t('deleteTitle')}
+          description={t('deleteDescription', { name: pendingDelete?.name ?? '' })}
+          onConfirm={confirmDelete}
         />
-        <Button
-          size="sm"
-          onClick={() => void createTemplate()}
-          disabled={readOnly || creating || !newName.trim()}
-        >
-          <Plus className="h-4 w-4" />
-          {t('add')}
-        </Button>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {t('summary', { count: templates.length, auto: autoCount })}
-        </span>
       </div>
-
-      <DeleteConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-        title={t('deleteTitle')}
-        description={t('deleteDescription', { name: pendingDelete?.name ?? '' })}
-        onConfirm={confirmDelete}
-      />
-    </Card>
+    </SettingCard>
   );
 }
 

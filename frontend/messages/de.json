@@ -1797,6 +1797,7 @@
         }
       },
       "editorsOnly": "Nur Bearbeiter können diese Einstellungen ändern.",
+      "trackerUnavailable": "Für diese Station ist kein Ortungsdienst eingerichtet. Die Automatik läuft im Takt des Traccar-Abrufs – ohne ihn kommt nie ein Vorschlag, egal was hier steht. Einzurichten in der Server-Konfiguration (TRACCAR_URL); den Zustand zeigt Einstellungen → Integrationen.",
       "returnUnavailable": "Die Magazin-Koordinaten fehlen. Ohne sie erkennt das System die Rückkehr nicht – weiter unten auf dieser Karte unter «Magazin (Heimatbasis)» eintragen."
     },
     "materials": {
@@ -1904,6 +1905,7 @@
       "pickup": "Abholung {eta}",
       "printerEnabled": "Drucker aktiviert",
       "printerDisabled": "Drucker deaktiviert",
+      "statusNoAddress": "Drucker aktiviert, aber keine Adresse gesetzt – es kann nichts gedruckt werden",
       "serviceOnline": "Print-Service online",
       "serviceOffline": "Print-Service offline",
       "serviceOfflineHint": "(Raspberry Pi meldet sich nicht)",
@@ -1932,7 +1934,8 @@
       "networkTitle": "Netzwerk",
       "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen – keine Portfreigaben nötig.",
       "unavailableDisabled": "Der Drucker ist auf dieser Karte noch nicht aktiviert – solange er aus ist, wird nichts gedruckt.",
-      "unavailableNoIp": "Es ist keine Drucker-Adresse hinterlegt. Ohne sie findet der Druckdienst den Drucker nicht – Feld «IP-Adresse» auf dieser Karte ausfüllen."
+      "unavailableNoIp": "Es ist keine Drucker-Adresse hinterlegt. Ohne sie findet der Druckdienst den Drucker nicht – Feld «IP-Adresse» auf dieser Karte ausfüllen.",
+      "refreshStatus": "Zustand aktualisieren"
     },
     "users": {
       "roles": {
@@ -2824,6 +2827,7 @@
       "materialThresholdsTitle": "Materialbestand-Schwellenwerte",
       "materialThresholdsSubtitle": "Warnung wenn das verfügbare Material einer Kategorie unter den Schwellenwert fällt. Deaktiviere die Checkbox, um Warnungen für eine Kategorie auszublenden.",
       "materialThresholdsManageLink": "Material verwalten",
+      "materialThresholdsEmpty": "Es ist noch kein Material erfasst – darum gibt es hier nichts einzustellen. Sobald unter Einstellungen → Material Bestände angelegt sind, erscheint pro Standort eine Zeile.",
       "disabledForEveryone": "{what} erscheinen jetzt auf keinem Bildschirm mehr – auch nicht auf dem Wanddisplay im Magazin."
     },
     "toasts": {

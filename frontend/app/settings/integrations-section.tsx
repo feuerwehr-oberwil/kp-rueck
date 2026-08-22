@@ -16,9 +16,9 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SettingCard } from '@/components/settings/setting-row'
 import {
   Table,
   TableBody,
@@ -85,79 +85,79 @@ export function IntegrationsSection() {
 
   return (
     <div className="space-y-4">
-      <Card className="p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="font-medium">{t('title')}</h3>
-            <p className="text-xs text-muted-foreground mt-1">{t('description')}</p>
-          </div>
+      <SettingCard
+        title={t('title')}
+        subtitle={t('description')}
+        action={
           <Badge variant="secondary" className="shrink-0">
             {t('readOnlyBadge')}
           </Badge>
-        </div>
-
-        {failed ? (
-          <p className="text-sm text-destructive">{t('loadFailed')}</p>
-        ) : !integrations ? (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-40" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ) : (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('columns.domain')}</TableHead>
-                  <TableHead>{t('columns.provider')}</TableHead>
-                  <TableHead>{t('columns.status')}</TableHead>
-                  <TableHead>{t('columns.where')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {DOMAINS.map((domain) => {
-                  const capability = integrations[domain]
-                  return (
-                    <TableRow key={domain}>
-                      <TableCell className="font-medium">{t(`domains.${domain}`)}</TableCell>
-                      <TableCell>
-                        {capability.display_name ?? (
-                          <span className="text-muted-foreground">–</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{renderStatus(capability)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {t('serverConfig')}
-                        <br />
-                        <span className="font-mono">{DOMAIN_ENV[domain]}</span>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-
-            {/* Die Sperre eines Nicht-Produktions-Rollout ist etwas anderes als «nicht
-                eingerichtet»: eine Staging-Kopie ist vollständig konfiguriert und sendet
-                trotzdem nichts. Der Grund kommt vom Backend fertig formuliert. */}
-            {integrations.alerting.blocked_reason && (
-              <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-foreground">
-                {integrations.alerting.blocked_reason}
-              </p>
-            )}
-
-            <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-              <b className="font-semibold text-foreground">{t('builtinTitle')}</b>{' '}
-              {integrations.builtin_alarm_paths
-                .map((path) => t(`builtinPaths.${path}`))
-                .join(' · ')}
-              <br />
-              {t('builtinNote')}
+        }
+      >
+        <div className="space-y-4">
+          {failed ? (
+            <p className="text-sm text-destructive">{t('loadFailed')}</p>
+          ) : !integrations ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
             </div>
-          </>
-        )}
-      </Card>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('columns.domain')}</TableHead>
+                    <TableHead>{t('columns.provider')}</TableHead>
+                    <TableHead>{t('columns.status')}</TableHead>
+                    <TableHead>{t('columns.where')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {DOMAINS.map((domain) => {
+                    const capability = integrations[domain]
+                    return (
+                      <TableRow key={domain}>
+                        <TableCell className="font-medium">{t(`domains.${domain}`)}</TableCell>
+                        <TableCell>
+                          {capability.display_name ?? (
+                            <span className="text-muted-foreground">–</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{renderStatus(capability)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {t('serverConfig')}
+                          <br />
+                          <span className="font-mono">{DOMAIN_ENV[domain]}</span>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+
+              {/* Die Sperre eines Nicht-Produktions-Rollout ist etwas anderes als «nicht
+                  eingerichtet»: eine Staging-Kopie ist vollständig konfiguriert und sendet
+                  trotzdem nichts. Der Grund kommt vom Backend fertig formuliert. */}
+              {integrations.alerting.blocked_reason && (
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-foreground">
+                  {integrations.alerting.blocked_reason}
+                </p>
+              )}
+
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                <b className="font-semibold text-foreground">{t('builtinTitle')}</b>{' '}
+                {integrations.builtin_alarm_paths
+                  .map((path) => t(`builtinPaths.${path}`))
+                  .join(' · ')}
+                <br />
+                {t('builtinNote')}
+              </div>
+            </>
+          )}
+        </div>
+      </SettingCard>
     </div>
   )
 }

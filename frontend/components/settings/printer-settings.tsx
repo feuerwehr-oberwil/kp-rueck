@@ -9,7 +9,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,11 +21,7 @@ import {
 } from 'lucide-react';
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
-import { ScopeMark } from '@/components/settings/scope-mark';
-import {
-  SettingUnavailableBadge,
-  SettingUnavailableNote,
-} from '@/components/settings/setting-unavailable';
+import { SettingCard, SettingRow, SettingActions } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
 
 // The Pi print-agent polls ~5s while "active" (within ACTIVE window of its last
@@ -246,6 +241,9 @@ export function PrinterSettings() {
   // findet er nichts, und der Auftrag bleibt in der Warteschlange liegen.
   // Der gespeicherte Wert bleibt unangetastet; er wirkt wieder, sobald der Drucker steht.
   const printerConfigured = isEnabled && printerIp.trim() !== '';
+  // Derselbe Massstab für die Zustandskarte – aber aus der SERVER-Antwort, nicht aus dem
+  // Formular: was hier getippt und noch nicht gespeichert wurde, hat der Druckdienst nicht.
+  const statusOk = Boolean(printerStatus?.enabled && printerStatus.ip?.trim());
   const unavailableReason = !isEnabled
     ? t('unavailableDisabled')
     : printerIp.trim() === ''
@@ -254,7 +252,7 @@ export function PrinterSettings() {
 
   if (loading) {
     return (
-      <Card className="p-6">
+      <Card className="p-5">
         <div className="space-y-4">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-10 w-full" />
@@ -267,223 +265,193 @@ export function PrinterSettings() {
   return (
     <div className="space-y-4">
 
-      {/* Status */}
-      <Card className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              {printerStatus?.enabled ? (
-                <>
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium">{t('printerEnabled')}</span>
-                  {printerStatus.ip && (
-                    <span className="text-sm text-muted-foreground">
-                      ({printerStatus.ip}:{printerStatus.port})
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{t('printerDisabled')}</span>
-                </>
-              )}
-            </div>
-            {/* Print-service (Raspberry Pi agent) liveness */}
-            {printerStatus?.enabled && (
-              <div className="flex items-center gap-2">
-                {printerStatus.agent_online ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-success" />
-                    <span className="text-sm font-medium">{t('serviceOnline')}</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-4 w-4 text-destructive" />
-                    <span className="text-sm text-destructive">{t('serviceOffline')}</span>
-                    <span className="text-xs text-muted-foreground">{t('serviceOfflineHint')}</span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={loadPrinterStatus}
-            disabled={statusLoading}
-          >
-            <RefreshCw className={`size-3.5 ${statusLoading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </Card>
+      {/* Configuration Card. There is one printer per station and one row per key in the
+          database – every control on this card reaches everybody, so the mark sits on the
+          card head and no single row repeats it. */}
+      <SettingCard title={t('configTitle')} subtitle={t('configSubtitle')}>
+        <SettingRow
+          label={t('printerEnabled')}
+          htmlFor="printer-enabled"
+          hint={t('enabledHint')}
+          icon={<Printer className="size-3.5 text-muted-foreground" />}
+        >
+          <Switch
+            id="printer-enabled"
+            checked={isEnabled}
+            onCheckedChange={(checked) =>
+              updateSetting('printer.enabled', checked ? 'true' : 'false')
+            }
+            disabled={saving === 'printer.enabled'}
+          />
+        </SettingRow>
 
-      {/* Configuration Card */}
-      <Card className="p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="space-y-1">
-            <p className="font-medium">{t('configTitle')}</p>
-            <p className="text-xs text-muted-foreground">{t('configSubtitle')}</p>
-          </div>
-          {/* There is one printer per station and one row per key in the database –
-              every control on this card reaches everybody. */}
-          <ScopeMark scope="station" align="end" className="mt-1" />
-        </div>
-        <div className="space-y-4">
-          {/* Enable/Disable Toggle */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="printer-enabled" className="font-medium">{t('printerEnabled')}</Label>
-              <p className="text-xs text-muted-foreground">{t('enabledHint')}</p>
-            </div>
-            <Switch
-              id="printer-enabled"
-              checked={isEnabled}
-              onCheckedChange={(checked) =>
-                updateSetting('printer.enabled', checked ? 'true' : 'false')
+        <SettingRow label={t('ipLabel')} htmlFor="printer-ip" hint={t('ipHint')}>
+          <Input
+            id="printer-ip"
+            type="text"
+            placeholder="192.168.1.100"
+            value={printerIp}
+            onChange={(e) =>
+              setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
+            }
+            onBlur={(e) => {
+              if (e.target.value !== savedSettingsRef.current['printer.ip']) {
+                updateSetting('printer.ip', e.target.value);
               }
-              disabled={saving === 'printer.enabled'}
-            />
-          </div>
+            }}
+            disabled={saving === 'printer.ip'}
+          />
+        </SettingRow>
 
-          {/* IP Address */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="printer-ip" className="text-sm font-semibold text-muted-foreground">{t('ipLabel')}</Label>
-              <p className="text-xs text-muted-foreground">{t('ipHint')}</p>
-            </div>
-            <div className="flex-shrink-0 w-48">
-              <Input
-                id="printer-ip"
-                type="text"
-                placeholder="192.168.1.100"
-                value={printerIp}
-                onChange={(e) =>
-                  setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
-                }
-                onBlur={(e) => {
-                  if (e.target.value !== savedSettingsRef.current['printer.ip']) {
-                    updateSetting('printer.ip', e.target.value);
-                  }
-                }}
-                disabled={saving === 'printer.ip'}
-              />
-            </div>
-          </div>
+        {/* Eine Portnummer in 200 Pixeln liest sich als Fehler – Zahlenfelder bleiben schmal
+            und rücken an die rechte Kante der Spalte. */}
+        <SettingRow label={t('portLabel')} htmlFor="printer-port" hint={t('portHint')}>
+          <Input
+            id="printer-port"
+            type="number"
+            className="w-24"
+            placeholder="9100"
+            value={printerPort}
+            onChange={(e) =>
+              setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
+            }
+            onBlur={(e) => {
+              if (e.target.value !== savedSettingsRef.current['printer.port']) {
+                updateSetting('printer.port', e.target.value);
+              }
+            }}
+            disabled={saving === 'printer.port'}
+          />
+        </SettingRow>
 
-          {/* Port */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="printer-port" className="text-sm font-semibold text-muted-foreground">{t('portLabel')}</Label>
-              <p className="text-xs text-muted-foreground">{t('portHint')}</p>
-            </div>
-            <div className="flex-shrink-0 w-24">
-              <Input
-                id="printer-port"
-                type="number"
-                placeholder="9100"
-                value={printerPort}
-                onChange={(e) =>
-                  setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
-                }
-                onBlur={(e) => {
-                  if (e.target.value !== savedSettingsRef.current['printer.port']) {
-                    updateSetting('printer.port', e.target.value);
-                  }
-                }}
-                disabled={saving === 'printer.port'}
-              />
-            </div>
-          </div>
+        {/* Auto-print. ONE trigger: the incident reaching «Disponiert / Anfahrt»
+            (`enroute`). It used to fire on `active` as well, which spat out two
+            identical Einsatzzettel per incident while label, hint and help each
+            named a different moment – see backend/app/crud/incidents.py. The key
+            keeps its old name (`printer.auto_anfahrt`) so existing installations
+            stay switched on; only the second trigger is gone.
 
-          {/* Auto-print. ONE trigger: the incident reaching «Disponiert / Anfahrt»
-              (`enroute`). It used to fire on `active` as well, which spat out two
-              identical Einsatzzettel per incident while label, hint and help each
-              named a different moment – see backend/app/crud/incidents.py. The key
-              keeps its old name (`printer.auto_anfahrt`) so existing installations
-              stay switched on; only the second trigger is gone. */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="auto-anfahrt" className="font-medium">{t('autoAnfahrtLabel')}</Label>
-                  {unavailableReason && (
-                    <SettingUnavailableBadge>{tCommon('notConfiguredBadge')}</SettingUnavailableBadge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">{t('autoAnfahrtHint')}</p>
-              </div>
-              <Switch
-                id="auto-anfahrt"
-                checked={autoAnfahrt}
-                title={unavailableReason ?? undefined}
-                onCheckedChange={(checked) =>
-                  updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
-                }
-                disabled={!printerConfigured || saving === 'printer.auto_anfahrt'}
-              />
-            </div>
-            {/* Gilt für den Schalter darüber UND für die beiden Testknöpfe darunter –
-                alle drei hängen an derselben Voraussetzung. */}
-            {unavailableReason && <SettingUnavailableNote>{unavailableReason}</SettingUnavailableNote>}
-          </div>
+            Der Sperrgrund gilt für diesen Schalter UND für die beiden Testknöpfe darunter –
+            alle drei hängen an derselben Voraussetzung, und der Satz steht direkt darüber. */}
+        <SettingRow
+          label={t('autoAnfahrtLabel')}
+          htmlFor="auto-anfahrt"
+          hint={t('autoAnfahrtHint')}
+          unavailable={unavailableReason}
+          unavailableBadge={tCommon('notConfiguredBadge')}
+        >
+          <Switch
+            id="auto-anfahrt"
+            checked={autoAnfahrt}
+            title={unavailableReason ?? undefined}
+            onCheckedChange={(checked) =>
+              updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
+            }
+            disabled={!printerConfigured || saving === 'printer.auto_anfahrt'}
+          />
+        </SettingRow>
 
-          {/* Test Buttons */}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTestPrint}
-              title={unavailableReason ?? undefined}
-              disabled={testingConnection || testingPrint || !printerConfigured}
-            >
-              {testingConnection ? (
-                <Loader2 className="size-3.5 animate-spin" />
+        {/* Zustand und Prüfen in einer Reihe. Der Zustand stand als eigene Karte ganz oben,
+            vor allem, was man einstellen kann – ein Satz wie «keine Adresse gesetzt» beschwerte
+            sich damit über ein Feld, das der Leser noch gar nicht gesehen hatte, und im
+            Normalfall trug eine ganze Karte eine Zeile Text.
+            «An» und «bereit» sind ausserdem nicht dasselbe: ohne Adresse gab es hier ein grünes
+            Häkchen für eine Anlage, die keinen Auftrag herausbringt. Darum drei Zustände. */}
+        <SettingActions
+          leading={
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              {statusOk ? (
+                <>
+                  <CheckCircle className="size-4 shrink-0 text-success" />
+                  <span className="font-medium">{t('printerEnabled')}</span>
+                  <span className="text-muted-foreground">
+                    {printerStatus?.ip}:{printerStatus?.port}
+                    {' · '}
+                    {printerStatus?.agent_online ? (
+                      t('serviceOnline')
+                    ) : (
+                      <span className="text-destructive">
+                        {t('serviceOffline')} {t('serviceOfflineHint')}
+                      </span>
+                    )}
+                  </span>
+                </>
+              ) : printerStatus?.enabled ? (
+                <>
+                  <AlertCircle className="size-4 shrink-0 text-warning" />
+                  <span className="font-medium text-warning-foreground">{t('statusNoAddress')}</span>
+                </>
               ) : (
-                <CheckCircle className="size-3.5" />
+                <>
+                  <AlertCircle className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-muted-foreground">{t('printerDisabled')}</span>
+                </>
               )}
-              {t('testConnection')}
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleTestDruck}
-              title={unavailableReason ?? undefined}
-              disabled={testingPrint || testingConnection || !printerConfigured}
-            >
-              {testingPrint ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Printer className="size-3.5" />
-              )}
-              {t('testPrint')}
-            </Button>
-          </div>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={loadPrinterStatus}
+                disabled={statusLoading}
+                aria-label={t('refreshStatus')}
+              >
+                <RefreshCw className={`size-3.5 ${statusLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </span>
+          }
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTestPrint}
+            title={unavailableReason ?? undefined}
+            disabled={testingConnection || testingPrint || !printerConfigured}
+          >
+            {testingConnection ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <CheckCircle className="size-3.5" />
+            )}
+            {t('testConnection')}
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleTestDruck}
+            title={unavailableReason ?? undefined}
+            disabled={testingPrint || testingConnection || !printerConfigured}
+          >
+            {testingPrint ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Printer className="size-3.5" />
+            )}
+            {t('testPrint')}
+          </Button>
+        </SettingActions>
 
-          {/* Testdruck progress — fills over the Pi's expected pickup window */}
-          {testPhase && (
-            <div className="space-y-1.5" aria-live="polite">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  {testPhase === 'done' ? (
-                    <CheckCircle className="h-3.5 w-3.5 text-success" />
-                  ) : (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  )}
-                  {testPhase === 'queued' && t('phaseQueued')}
-                  {testPhase === 'printing' && t('phasePrinting')}
-                  {testPhase === 'done' && t('phaseDone')}
-                </span>
-                {testPhase === 'queued' && testEta && <span>{t('pickup', { eta: testEta })}</span>}
-              </div>
-              <Progress value={testProgress} />
+        {/* Testdruck progress — fills over the Pi's expected pickup window */}
+        {testPhase && (
+          <div className="space-y-1.5 pt-3" aria-live="polite">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                {testPhase === 'done' ? (
+                  <CheckCircle className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                {testPhase === 'queued' && t('phaseQueued')}
+                {testPhase === 'printing' && t('phasePrinting')}
+                {testPhase === 'done' && t('phaseDone')}
+              </span>
+              {testPhase === 'queued' && testEta && <span>{t('pickup', { eta: testEta })}</span>}
             </div>
-          )}
-        </div>
-      </Card>
+            <Progress value={testProgress} />
+          </div>
+        )}
+      </SettingCard>
 
       {/* Print Agent Info */}
-      <Card className="p-4">
+      <Card className="p-5">
         <details className="group">
           <summary className="flex items-center gap-2 cursor-pointer font-medium text-sm">
             <Printer className="h-4 w-4" />

@@ -7,7 +7,7 @@ import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SettingCard } from '@/components/settings/setting-row';
 import { GripVertical, Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -187,61 +187,50 @@ export function CategorySortOrder({ title, description, categories: initialCateg
 
   if (categories.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {t('categorySort.empty')}
-          </p>
-        </CardContent>
-      </Card>
+      <SettingCard title={title} subtitle={description}>
+        <p className="text-sm text-muted-foreground">
+          {t('categorySort.empty')}
+        </p>
+      </SettingCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </div>
-          {!readOnly && (
-            <Button
-              onClick={handleSave}
-              disabled={!hasChanges || isSaving}
-              size="sm"
-              className="gap-2"
-            >
-              <Save className="size-3.5" />
-              {isSaving ? t('categorySort.savingButton') : t('common.save')}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div ref={containerRef} className="space-y-2">
-          {categories.map((category, index) => (
-            <SortableItem
-              key={category.name}
-              category={category}
-              index={index}
-              isDragging={draggingIndex === index}
-            />
-          ))}
-        </div>
+    <SettingCard
+      title={title}
+      subtitle={description}
+      action={
+        !readOnly && (
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            size="sm"
+            className="gap-2"
+          >
+            <Save className="size-3.5" />
+            {isSaving ? t('categorySort.savingButton') : t('common.save')}
+          </Button>
+        )
+      }
+    >
+      <div ref={containerRef} className="space-y-2">
+        {categories.map((category, index) => (
+          <SortableItem
+            key={category.name}
+            category={category}
+            index={index}
+            isDragging={draggingIndex === index}
+          />
+        ))}
+      </div>
 
-        {hasChanges && (
-          <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
-            <p className="text-sm text-warning-foreground">
-              {t('categorySort.unsavedChanges')}
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {hasChanges && (
+        <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+          <p className="text-sm text-warning-foreground">
+            {t('categorySort.unsavedChanges')}
+          </p>
+        </div>
+      )}
+    </SettingCard>
   );
 }

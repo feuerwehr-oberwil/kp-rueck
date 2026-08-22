@@ -24,8 +24,8 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { SettingCard } from '@/components/settings/setting-row'
 import { Textarea } from '@/components/ui/textarea'
 import { getApiUrl } from '@/lib/env'
 
@@ -212,179 +212,177 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="space-y-4">
       {/* ── Manual report: available to everyone, no switch involved ─────────────── */}
-      <Card className="p-4 space-y-3">
-        <div>
-          <h3 className="font-semibold">{t('reportTitle')}</h3>
-          <p className="text-sm text-muted-foreground">{t('reportIntro')}</p>
-        </div>
-
-        {sendState === 'sent' ? (
-          <div className="space-y-2">
-            <p className="flex items-center gap-2 text-sm font-medium">
-              <Check className="h-4 w-4 text-success" />
-              {t('sentTitle')}
-            </p>
-            <p className="text-sm text-muted-foreground">{t('sentBody')}</p>
-            {/* Collapsed, unlike the block before the send: this screen answers «ist es
-                angekommen», and opening with a wall of JSON buries that answer under something
-                the operator has already had their chance to read. */}
-            <details className="rounded-md border bg-muted/40 p-3">
-              <summary className="cursor-pointer text-sm font-medium">{t('sentWhat')}</summary>
-              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre text-xs">{echoed}</pre>
-              <p className="mt-2 text-xs text-muted-foreground">{t('sentEcho')}</p>
-            </details>
-            <Button variant="outline" size="sm" onClick={() => setSendState('idle')}>
-              {t('reportAgain')}
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-1.5">
-              <Label htmlFor="telemetry-message" className="text-sm font-semibold text-muted-foreground">{t('reportLabel')}</Label>
-              <Textarea
-                id="telemetry-message"
-                rows={4}
-                value={message}
-                maxLength={MAX_MESSAGE}
-                placeholder={t('reportPlaceholder')}
-                onChange={(e) => setMessage(e.target.value)}
-              />
-              {/* Only in the last tenth before the cap, digits only — no copy key, correct in
-                  every locale. Without it the ceiling is invisible until the server rejects. */}
-              {message.length > MAX_MESSAGE * 0.9 && (
-                <p className="text-right text-xs tabular-nums text-muted-foreground">
-                  {message.length}/{MAX_MESSAGE}
+      <SettingCard title={t('reportTitle')} subtitle={t('reportIntro')}>
+        <div className="space-y-3">
+          {sendState === 'sent' ? (
+            <div className="space-y-2">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <Check className="h-4 w-4 text-success" />
+                {t('sentTitle')}
+              </p>
+              <p className="text-sm text-muted-foreground">{t('sentBody')}</p>
+              {/* Collapsed, unlike the block before the send: this screen answers «ist es
+                  angekommen», and opening with a wall of JSON buries that answer under something
+                  the operator has already had their chance to read. */}
+              <details className="rounded-md border bg-muted/40 p-3">
+                <summary className="cursor-pointer text-sm font-medium">{t('sentWhat')}</summary>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre text-xs">{echoed}</pre>
+                <p className="mt-2 text-xs text-muted-foreground">{t('sentEcho')}</p>
+              </details>
+              <Button variant="outline" size="sm" onClick={() => setSendState('idle')}>
+                {t('reportAgain')}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="telemetry-message" className="text-sm font-semibold text-muted-foreground">{t('reportLabel')}</Label>
+                <Textarea
+                  id="telemetry-message"
+                  rows={4}
+                  value={message}
+                  maxLength={MAX_MESSAGE}
+                  placeholder={t('reportPlaceholder')}
+                  onChange={(e) => setMessage(e.target.value)}
+                />
+                {/* Only in the last tenth before the cap, digits only — no copy key, correct in
+                    every locale. Without it the ceiling is invisible until the server rejects. */}
+                {message.length > MAX_MESSAGE * 0.9 && (
+                  <p className="text-right text-xs tabular-nums text-muted-foreground">
+                    {message.length}/{MAX_MESSAGE}
+                  </p>
+                )}
+              </div>
+              {/* The payload, verbatim and open, not a sentence describing it. «Das wird
+                  mitgeschickt» is a claim until it can be read at the moment the decision is
+                  made — and reading it is the consent this channel runs on. */}
+              <details className="rounded-md border bg-muted/40 p-3" open>
+                <summary className="cursor-pointer text-sm font-medium">{t('techTitle')}</summary>
+                <pre className="mt-2 max-h-72 overflow-auto text-xs whitespace-pre-wrap break-all">{techBlock}</pre>
+                <p className="mt-2 text-xs text-muted-foreground">{t('reportWhat')}</p>
+              </details>
+              {(sendState === 'failed' || sendState === 'disabled') && (
+                <p className="flex items-start gap-2 text-sm text-warning-foreground" role="status">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {sendState === 'disabled' ? t('sendDisabled') : t('sendFailed')}
                 </p>
               )}
-            </div>
-            {/* The payload, verbatim and open, not a sentence describing it. «Das wird
-                mitgeschickt» is a claim until it can be read at the moment the decision is
-                made — and reading it is the consent this channel runs on. */}
-            <details className="rounded-md border bg-muted/40 p-3" open>
-              <summary className="cursor-pointer text-sm font-medium">{t('techTitle')}</summary>
-              <pre className="mt-2 max-h-72 overflow-auto text-xs whitespace-pre-wrap break-all">{techBlock}</pre>
-              <p className="mt-2 text-xs text-muted-foreground">{t('reportWhat')}</p>
-            </details>
-            {(sendState === 'failed' || sendState === 'disabled') && (
-              <p className="flex items-start gap-2 text-sm text-warning-foreground" role="status">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                {sendState === 'disabled' ? t('sendDisabled') : t('sendFailed')}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                onClick={() => void send()}
-                disabled={sendState === 'sending' || message.trim().length === 0 || !env}
-              >
-                <Send className="size-4" />
-                {sendState === 'sending' ? t('sending') : t('send')}
-              </Button>
-              {/* Quieter, and never disabled: when the direct route has just failed or the
-                  deployer has switched outbound off, this is the only way out — and a form
-                  that can fail with no alternative is a dead end, not a form. */}
-              <Button variant="ghost" size="sm" className="gap-2" onClick={() => void copyReport()}>
-                <Copy className="size-3.5" />
-                {t('copy')}
-              </Button>
-            </div>
-          </>
-        )}
-      </Card>
-
-      {/* ── Background channel + receipts: admin only ────────────────────────────── */}
-      {isAdmin && (
-        <Card className="p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold">{t('backgroundTitle')}</h3>
-              <p className="text-sm text-muted-foreground">{t('backgroundCaption')}</p>
-            </div>
-            {status && (
-              <Badge variant={locked ? 'outline' : on ? 'default' : 'secondary'} className="shrink-0">
-                {locked ? t('lockedState') : on ? t('onState') : t('offState')}
-              </Badge>
-            )}
-          </div>
-
-          {statusFailed && <p className="text-sm text-destructive">{t('loadError')}</p>}
-          {!status && !statusFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>}
-
-          {status && (
-            <>
-              <p className="text-sm text-muted-foreground">{locked ? t('lockedNote') : t('explain')}</p>
-
-              {!locked && (
-                /* Never asked: put the question itself on screen with neither answer
-                   preselected and neither styled as the obvious one. A pre-ticked box is not
-                   consent, and a grey "no" beside a bright "yes" is a pre-ticked box with
-                   extra steps. */
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={status.decided && !on ? 'default' : 'outline'}
-                    size="sm"
-                    disabled={busy || (status.decided && !on)}
-                    onClick={() => void setConsent('off')}
-                  >
-                    {status.decided ? t('turnOff') : t('askNo')}
-                  </Button>
-                  <Button
-                    variant={status.decided && on ? 'default' : 'outline'}
-                    size="sm"
-                    disabled={busy || on}
-                    onClick={() => void setConsent('errors')}
-                  >
-                    {status.decided ? t('turnOn') : t('askYes')}
-                  </Button>
-                </div>
-              )}
-
-              {status.installId ? (
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-sm text-muted-foreground">{t('installId')}</span>
-                  <code className="rounded bg-muted px-2 py-1 text-xs">{status.installId}</code>
-                  <Button variant="ghost" size="sm" disabled={busy} onClick={() => void rotateId()}>
-                    <RefreshCw className="size-3.5" />
-                    {t('rotate')}
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('noInstallId')}</p>
-              )}
-
-              {/* The receipts. Verbatim, newest first — the outbox table, not a summary. */}
-              <div className="border-t pt-3">
-                <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                  <ShieldCheck className="h-4 w-4" />
-                  {t('sentLogTitle')}
-                </h4>
-                {status.recent.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t('nothingSent')}</p>
-                ) : (
-                  <div className="space-y-1">
-                    {status.recent.map((row) => (
-                      <details key={row.id} className="border-b last:border-0">
-                        <summary className="flex cursor-pointer flex-wrap items-baseline gap-2 py-2 text-sm">
-                          <span className="font-medium">
-                            {row.channel === 'report' ? t('chReport') : t('chError')}
-                          </span>
-                          <span className="text-muted-foreground tabular-nums">
-                            {row.createdAt?.slice(0, 16).replace('T', ' ')}
-                          </span>
-                          <span className={`ml-auto text-xs ${row.sentAt ? 'text-success' : 'text-muted-foreground'}`}>
-                            {row.sentAt ? t('stSent') : row.lastError ? `${t('stPending')} (${row.lastError})` : t('stPending')}
-                          </span>
-                        </summary>
-                        <pre className="mb-2 max-h-72 overflow-auto rounded bg-muted/40 p-3 text-xs whitespace-pre">
-                          {JSON.stringify(row.payload, null, 2)}
-                        </pre>
-                      </details>
-                    ))}
-                  </div>
-                )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => void send()}
+                  disabled={sendState === 'sending' || message.trim().length === 0 || !env}
+                >
+                  <Send className="size-4" />
+                  {sendState === 'sending' ? t('sending') : t('send')}
+                </Button>
+                {/* Quieter, and never disabled: when the direct route has just failed or the
+                    deployer has switched outbound off, this is the only way out — and a form
+                    that can fail with no alternative is a dead end, not a form. */}
+                <Button variant="ghost" size="sm" className="gap-2" onClick={() => void copyReport()}>
+                  <Copy className="size-3.5" />
+                  {t('copy')}
+                </Button>
               </div>
             </>
           )}
-        </Card>
+        </div>
+      </SettingCard>
+
+      {/* ── Background channel + receipts: admin only ────────────────────────────── */}
+      {isAdmin && (
+        <SettingCard
+          title={t('backgroundTitle')}
+          subtitle={t('backgroundCaption')}
+          action={
+            status && (
+              <Badge variant={locked ? 'outline' : on ? 'default' : 'secondary'} className="shrink-0">
+                {locked ? t('lockedState') : on ? t('onState') : t('offState')}
+              </Badge>
+            )
+          }
+        >
+          <div className="space-y-3">
+            {statusFailed && <p className="text-sm text-destructive">{t('loadError')}</p>}
+            {!status && !statusFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>}
+
+            {status && (
+              <>
+                <p className="text-sm text-muted-foreground">{locked ? t('lockedNote') : t('explain')}</p>
+
+                {!locked && (
+                  /* Never asked: put the question itself on screen with neither answer
+                     preselected and neither styled as the obvious one. A pre-ticked box is not
+                     consent, and a grey "no" beside a bright "yes" is a pre-ticked box with
+                     extra steps. */
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={status.decided && !on ? 'default' : 'outline'}
+                      size="sm"
+                      disabled={busy || (status.decided && !on)}
+                      onClick={() => void setConsent('off')}
+                    >
+                      {status.decided ? t('turnOff') : t('askNo')}
+                    </Button>
+                    <Button
+                      variant={status.decided && on ? 'default' : 'outline'}
+                      size="sm"
+                      disabled={busy || on}
+                      onClick={() => void setConsent('errors')}
+                    >
+                      {status.decided ? t('turnOn') : t('askYes')}
+                    </Button>
+                  </div>
+                )}
+
+                {status.installId ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-sm text-muted-foreground">{t('installId')}</span>
+                    <code className="rounded bg-muted px-2 py-1 text-xs">{status.installId}</code>
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => void rotateId()}>
+                      <RefreshCw className="size-3.5" />
+                      {t('rotate')}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('noInstallId')}</p>
+                )}
+
+                {/* The receipts. Verbatim, newest first — the outbox table, not a summary.
+                    Separated by whitespace and its heading, not a hairline. */}
+                <div className="pt-3">
+                  <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                    <ShieldCheck className="h-4 w-4" />
+                    {t('sentLogTitle')}
+                  </h4>
+                  {status.recent.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('nothingSent')}</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {status.recent.map((row) => (
+                        <details key={row.id} className="border-b last:border-0">
+                          <summary className="flex cursor-pointer flex-wrap items-baseline gap-2 py-2 text-sm">
+                            <span className="font-medium">
+                              {row.channel === 'report' ? t('chReport') : t('chError')}
+                            </span>
+                            <span className="text-muted-foreground tabular-nums">
+                              {row.createdAt?.slice(0, 16).replace('T', ' ')}
+                            </span>
+                            <span className={`ml-auto text-xs ${row.sentAt ? 'text-success' : 'text-muted-foreground'}`}>
+                              {row.sentAt ? t('stSent') : row.lastError ? `${t('stPending')} (${row.lastError})` : t('stPending')}
+                            </span>
+                          </summary>
+                          <pre className="mb-2 max-h-72 overflow-auto rounded bg-muted/40 p-3 text-xs whitespace-pre">
+                            {JSON.stringify(row.payload, null, 2)}
+                          </pre>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </SettingCard>
       )}
     </div>
   )

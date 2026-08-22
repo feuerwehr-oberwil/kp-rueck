@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,7 +12,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { apiClient } from '@/lib/api-client'
-import { ScopeMark } from '@/components/settings/scope-mark'
+import {
+  SettingCard,
+  SettingGroup,
+  SettingRow,
+} from '@/components/settings/setting-row'
 import type { NotificationSettings } from '@/lib/types/notification'
 
 /**
@@ -35,6 +37,41 @@ const WARNING_SWITCHES = [
   key: keyof NotificationSettings
   label: string
   hint: string
+}[]
+
+/**
+ * Die sechs Zeitlimits. Sie stehen doppelt in der Datenbank – einmal für den Ernstfall,
+ * einmal für die Übung – und die beiden Reiter sind bis auf das Namenspräfix identisch.
+ * Vorher standen sie darum auch zweimal im Code, zwölf gleich gebaute Blöcke hintereinander;
+ * jeder Zusatz musste an zwei Stellen nachgezogen werden. Jetzt ist der Reiter ein Präfix.
+ */
+const TIME_LIMIT_FIELDS = [
+  { suffix: 'eingegangen_min', label: 'eingegangenMin' },
+  { suffix: 'reko_min', label: 'rekoMin' },
+  { suffix: 'disponiert_min', label: 'disponiertMin' },
+  { suffix: 'einsatz_hours', label: 'einsatzHours' },
+  { suffix: 'rueckfahrt_min', label: 'rueckfahrtMin' },
+  { suffix: 'archive_hours', label: 'archiveHours' },
+] as const
+
+type TimeLimitScope = 'live' | 'training'
+/** `live_reko_min`, `training_archive_hours`, … – vom Compiler aus der Tabelle gebildet. */
+type TimeLimitKey = `${TimeLimitScope}_${(typeof TIME_LIMIT_FIELDS)[number]['suffix']}`
+
+/**
+ * Die drei Schwellen, die kein Zeitlimit sind. `emptyIsZero`: ein geleertes Feld heisst
+ * «Alarm aus». `parseInt('')` ergibt NaN, und der NaN-Schutz machte das Leeren damit zum
+ * Nichts-Tun – ein einmal gesetztes Limit liess sich gar nicht mehr abschalten.
+ */
+const THRESHOLD_FIELDS = [
+  { key: 'fatigue_hours', id: 'fatigue-hours', label: 'fatigueLabel', emptyIsZero: false },
+  { key: 'database_size_limit_gb', id: 'database-limit', label: 'databaseLabel', emptyIsZero: true },
+  { key: 'photo_size_limit_gb', id: 'photo-limit', label: 'photoLabel', emptyIsZero: true },
+] as const satisfies readonly {
+  key: keyof NotificationSettings
+  id: string
+  label: string
+  emptyIsZero: boolean
 }[]
 
 export function NotificationSettingsCard() {
@@ -92,401 +129,170 @@ export function NotificationSettingsCard() {
 
   return (
     <div className="space-y-6">
-      {/* Warnungen */}
-      <Card className="p-6">
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="space-y-1">
-          <p className="font-medium">{t('warningsTitle')}</p>
-          <p className="text-xs text-muted-foreground">{t('warningsSubtitle')}</p>
-        </div>
-        {/* One mark for the whole block – every row below shares its reach. */}
-        <ScopeMark scope="station" align="end" className="mt-1" />
-      </div>
-      <div className="space-y-4">
+      {/* Warnungen. One mark on the card head – every row below shares its reach. */}
+      <SettingCard title={t('warningsTitle')} subtitle={t('warningsSubtitle')}>
         {WARNING_SWITCHES.map(({ id, key, label, hint }) => {
           const checked = settings[key] === true
           return (
-            <div key={key} className="space-y-2">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <Label htmlFor={id} className="font-medium">{t(label)}</Label>
-                  <p className="text-xs text-muted-foreground">{t(hint)}</p>
-                </div>
-                <Switch
-                  id={id}
-                  checked={checked}
-                  onCheckedChange={(next) => updateSetting(key, next)}
-                  disabled={savingKey === key}
-                />
-              </div>
-              {!checked && (
-                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-foreground">
-                  {t('disabledForEveryone', { what: t(label) })}
-                </p>
-              )}
-            </div>
+            <SettingRow
+              key={key}
+              label={t(label)}
+              htmlFor={id}
+              hint={t(hint)}
+              // Ausgeschaltet ist hier keine persönliche Vorliebe, sondern eine Ansage für
+              // die ganze Station – darum sagt jede AUS-Zeile das auch.
+              footer={
+                !checked ? (
+                  <p className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-foreground">
+                    {t('disabledForEveryone', { what: t(label) })}
+                  </p>
+                ) : null
+              }
+            >
+              <Switch
+                id={id}
+                checked={checked}
+                onCheckedChange={(next) => updateSetting(key, next)}
+                disabled={savingKey === key}
+              />
+            </SettingRow>
           )
         })}
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <Label htmlFor="toast-duration" className="text-sm font-semibold text-muted-foreground">{t('toastDurationLabel')}</Label>
-            <p className="text-xs text-muted-foreground">{t('toastDurationHint')}</p>
-          </div>
-          <div className="flex-shrink-0 w-24">
-            <Input
-              id="toast-duration"
-              type="number"
-              min={2}
-              max={30}
-              defaultValue={settings.toast_duration_seconds}
-              onBlur={(e) => {
-                const val = parseInt(e.target.value)
-                if (!isNaN(val) && val !== settings.toast_duration_seconds) {
-                  updateSetting('toast_duration_seconds', Math.max(2, Math.min(30, val)))
-                }
-              }}
-              disabled={savingKey === 'toast_duration_seconds'}
-            />
-          </div>
-        </div>
-      </div>
-      </Card>
+        <SettingRow
+          label={t('toastDurationLabel')}
+          htmlFor="toast-duration"
+          hint={t('toastDurationHint')}
+        >
+          <Input
+            id="toast-duration"
+            type="number"
+            className="w-24"
+            min={2}
+            max={30}
+            defaultValue={settings.toast_duration_seconds}
+            onBlur={(e) => {
+              const val = parseInt(e.target.value)
+              if (!isNaN(val) && val !== settings.toast_duration_seconds) {
+                updateSetting('toast_duration_seconds', Math.max(2, Math.min(30, val)))
+              }
+            }}
+            disabled={savingKey === 'toast_duration_seconds'}
+          />
+        </SettingRow>
+      </SettingCard>
 
       {/* Zeitlimits */}
-      <Card className="p-6">
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium">{t('timeLimitsTitle')}</p>
-            <p className="text-xs text-muted-foreground">
-              {t('timeLimitsSubtitle')}
-            </p>
-          </div>
-          <ScopeMark scope="station" align="end" className="mt-1" />
-        </div>
-
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'live' | 'training')}>
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+      <SettingCard title={t('timeLimitsTitle')} subtitle={t('timeLimitsSubtitle')}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TimeLimitScope)}>
+          <TabsList className="grid w-full grid-cols-2 mb-2">
             <TabsTrigger value="live">{t('liveTab')}</TabsTrigger>
             <TabsTrigger value="training">{t('trainingTab')}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="live" className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="live-eingegangen" className="text-sm font-semibold text-muted-foreground">{t('eingegangenMin')}</Label>
-                <Input
-                  id="live-eingegangen"
-                  type="number"
-                  defaultValue={settings.live_eingegangen_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.live_eingegangen_min) {
-                      updateSetting('live_eingegangen_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'live_eingegangen_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="live-reko" className="text-sm font-semibold text-muted-foreground">{t('rekoMin')}</Label>
-                <Input
-                  id="live-reko"
-                  type="number"
-                  defaultValue={settings.live_reko_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.live_reko_min) {
-                      updateSetting('live_reko_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'live_reko_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="live-disponiert" className="text-sm font-semibold text-muted-foreground">{t('disponiertMin')}</Label>
-                <Input
-                  id="live-disponiert"
-                  type="number"
-                  defaultValue={settings.live_disponiert_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.live_disponiert_min) {
-                      updateSetting('live_disponiert_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'live_disponiert_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="live-einsatz" className="text-sm font-semibold text-muted-foreground">{t('einsatzHours')}</Label>
-                <Input
-                  id="live-einsatz"
-                  type="number"
-                  defaultValue={settings.live_einsatz_hours}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.live_einsatz_hours) {
-                      updateSetting('live_einsatz_hours', val)
-                    }
-                  }}
-                  disabled={savingKey === 'live_einsatz_hours'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="live-rueckfahrt" className="text-sm font-semibold text-muted-foreground">{t('rueckfahrtMin')}</Label>
-                <Input
-                  id="live-rueckfahrt"
-                  type="number"
-                  defaultValue={settings.live_rueckfahrt_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.live_rueckfahrt_min) {
-                      updateSetting('live_rueckfahrt_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'live_rueckfahrt_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="live-archive" className="text-sm font-semibold text-muted-foreground">{t('archiveHours')}</Label>
-                <Input
-                  id="live-archive"
-                  type="number"
-                  defaultValue={settings.live_archive_hours}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.live_archive_hours) {
-                      updateSetting('live_archive_hours', val)
-                    }
-                  }}
-                  disabled={savingKey === 'live_archive_hours'}
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="training" className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="training-eingegangen" className="text-sm font-semibold text-muted-foreground">{t('eingegangenMin')}</Label>
-                <Input
-                  id="training-eingegangen"
-                  type="number"
-                  defaultValue={settings.training_eingegangen_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.training_eingegangen_min) {
-                      updateSetting('training_eingegangen_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'training_eingegangen_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="training-reko" className="text-sm font-semibold text-muted-foreground">{t('rekoMin')}</Label>
-                <Input
-                  id="training-reko"
-                  type="number"
-                  defaultValue={settings.training_reko_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.training_reko_min) {
-                      updateSetting('training_reko_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'training_reko_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="training-disponiert" className="text-sm font-semibold text-muted-foreground">{t('disponiertMin')}</Label>
-                <Input
-                  id="training-disponiert"
-                  type="number"
-                  defaultValue={settings.training_disponiert_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.training_disponiert_min) {
-                      updateSetting('training_disponiert_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'training_disponiert_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="training-einsatz" className="text-sm font-semibold text-muted-foreground">{t('einsatzHours')}</Label>
-                <Input
-                  id="training-einsatz"
-                  type="number"
-                  defaultValue={settings.training_einsatz_hours}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.training_einsatz_hours) {
-                      updateSetting('training_einsatz_hours', val)
-                    }
-                  }}
-                  disabled={savingKey === 'training_einsatz_hours'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="training-rueckfahrt" className="text-sm font-semibold text-muted-foreground">{t('rueckfahrtMin')}</Label>
-                <Input
-                  id="training-rueckfahrt"
-                  type="number"
-                  defaultValue={settings.training_rueckfahrt_min}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.training_rueckfahrt_min) {
-                      updateSetting('training_rueckfahrt_min', val)
-                    }
-                  }}
-                  disabled={savingKey === 'training_rueckfahrt_min'}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="training-archive" className="text-sm font-semibold text-muted-foreground">{t('archiveHours')}</Label>
-                <Input
-                  id="training-archive"
-                  type="number"
-                  defaultValue={settings.training_archive_hours}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (!isNaN(val) && val !== settings.training_archive_hours) {
-                      updateSetting('training_archive_hours', val)
-                    }
-                  }}
-                  disabled={savingKey === 'training_archive_hours'}
-                />
-              </div>
-            </div>
-          </TabsContent>
+          {(['live', 'training'] as const).map((scope) => (
+            <TabsContent key={scope} value={scope}>
+              {TIME_LIMIT_FIELDS.map(({ suffix, label }) => {
+                const key = `${scope}_${suffix}` as TimeLimitKey
+                return (
+                  <SettingRow key={key} label={t(label)} htmlFor={key}>
+                    <Input
+                      id={key}
+                      type="number"
+                      className="w-24"
+                      defaultValue={settings[key]}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val) && val !== settings[key]) {
+                          updateSetting(key, val)
+                        }
+                      }}
+                      disabled={savingKey === key}
+                    />
+                  </SettingRow>
+                )
+              })}
+            </TabsContent>
+          ))}
         </Tabs>
-      </div>
-      </Card>
+      </SettingCard>
 
       {/* Schwellenwerte */}
-      <Card className="p-6">
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium">{t('thresholdsTitle')}</p>
-            <p className="text-xs text-muted-foreground">
-              {t('thresholdsSubtitle')}
+      <SettingCard title={t('thresholdsTitle')} subtitle={t('thresholdsSubtitle')}>
+        {THRESHOLD_FIELDS.map(({ key, id, label, emptyIsZero }) => (
+          <SettingRow key={key} label={t(label)} htmlFor={id}>
+            <Input
+              id={id}
+              type="number"
+              className="w-24"
+              min={emptyIsZero ? 0 : undefined}
+              defaultValue={settings[key] as number}
+              onBlur={(e) => {
+                const raw = e.target.value.trim()
+                const val = emptyIsZero && raw === '' ? 0 : parseInt(raw)
+                if (!isNaN(val) && val !== settings[key]) {
+                  updateSetting(key, val)
+                }
+              }}
+              disabled={savingKey === key}
+            />
+          </SettingRow>
+        ))}
+
+        {/* Material thresholds */}
+        <SettingGroup
+          title={t('materialThresholdsTitle')}
+          hint={
+            <>
+              {t('materialThresholdsSubtitle')}
+              <Link
+                href="/settings?section=materials"
+                className="mt-1 flex w-fit items-center gap-1 text-xs text-foreground underline underline-offset-2 hover:no-underline"
+              >
+                {t('materialThresholdsManageLink')}
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </>
+          }
+        >
+          {/* Kein Material erfasst heisst: hier gibt es nichts einzustellen. Vorher stand an
+              dieser Stelle nichts – ein leerer Abschnitt unter einer Überschrift, der wie ein
+              Ladefehler aussieht. Der Verweis oben führt dorthin, wo man es behebt. */}
+          {materialTypes.length === 0 && (
+            <p
+              role="note"
+              className="rounded-md border bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+            >
+              {t('materialThresholdsEmpty')}
             </p>
-          </div>
-          <ScopeMark scope="station" align="end" className="mt-1" />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="fatigue-hours" className="text-sm font-semibold text-muted-foreground">{t('fatigueLabel')}</Label>
-            <Input
-              id="fatigue-hours"
-              type="number"
-              defaultValue={settings.fatigue_hours}
-              onBlur={(e) => {
-                const val = parseInt(e.target.value)
-                if (!isNaN(val) && val !== settings.fatigue_hours) {
-                  updateSetting('fatigue_hours', val)
-                }
-              }}
-              disabled={savingKey === 'fatigue_hours'}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="database-limit" className="text-sm font-semibold text-muted-foreground">{t('databaseLabel')}</Label>
-            <Input
-              id="database-limit"
-              type="number"
-              min={0}
-              defaultValue={settings.database_size_limit_gb}
-              onBlur={(e) => {
-                // Leeres Feld = 0 = Alarm aus. `parseInt('')` ergibt NaN, und der
-                // NaN-Guard machte das Leeren damit zum Nichts-Tun — ein einmal
-                // gesetztes Limit liess sich gar nicht mehr abschalten.
-                const raw = e.target.value.trim()
-                const val = raw === '' ? 0 : parseInt(raw)
-                if (!isNaN(val) && val !== settings.database_size_limit_gb) {
-                  updateSetting('database_size_limit_gb', val)
-                }
-              }}
-              disabled={savingKey === 'database_size_limit_gb'}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="photo-limit" className="text-sm font-semibold text-muted-foreground">{t('photoLabel')}</Label>
-            <Input
-              id="photo-limit"
-              type="number"
-              min={0}
-              defaultValue={settings.photo_size_limit_gb}
-              onBlur={(e) => {
-                // Wie oben: leer = 0 = aus.
-                const raw = e.target.value.trim()
-                const val = raw === '' ? 0 : parseInt(raw)
-                if (!isNaN(val) && val !== settings.photo_size_limit_gb) {
-                  updateSetting('photo_size_limit_gb', val)
-                }
-              }}
-              disabled={savingKey === 'photo_size_limit_gb'}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Material thresholds */}
-      <div className="space-y-3 pt-4 border-t">
-        <div>
-          <p className="text-sm font-medium">{t('materialThresholdsTitle')}</p>
-          <p className="text-xs text-muted-foreground">
-            {t('materialThresholdsSubtitle')}
-          </p>
-          <Link
-            href="/settings?section=materials"
-            className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            {t('materialThresholdsManageLink')}
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-        <div className="space-y-2">
+          )}
           {materialTypes.map((materialType) => {
             const threshold = settings.material_depletion_threshold[materialType] ?? 2
             const isDisabled = threshold === -1
 
             return (
-              <div key={materialType} className="flex items-center gap-3 py-1">
-                <Checkbox
-                  id={`enable-${materialType}`}
-                  checked={!isDisabled}
-                  onCheckedChange={(checked) => {
-                    const newThresholds = { ...settings.material_depletion_threshold }
-                    newThresholds[materialType] = checked ? 2 : -1
-                    updateSetting('material_depletion_threshold', newThresholds)
-                  }}
-                  disabled={savingKey === 'material_depletion_threshold'}
-                />
-                <Label
-                  htmlFor={`enable-${materialType}`}
-                  className="text-sm font-normal cursor-pointer flex-1"
-                >
-                  {materialType}
-                </Label>
+              <SettingRow
+                key={materialType}
+                label={
+                  <span className="flex items-center gap-2">
+                    <Checkbox
+                      id={`enable-${materialType}`}
+                      checked={!isDisabled}
+                      onCheckedChange={(checked) => {
+                        const newThresholds = { ...settings.material_depletion_threshold }
+                        newThresholds[materialType] = checked ? 2 : -1
+                        updateSetting('material_depletion_threshold', newThresholds)
+                      }}
+                      disabled={savingKey === 'material_depletion_threshold'}
+                    />
+                    {materialType}
+                  </span>
+                }
+                htmlFor={`enable-${materialType}`}
+              >
                 <Input
                   id={`material-${materialType}`}
+                  aria-label={materialType}
                   type="number"
                   min="0"
                   value={isDisabled ? '' : threshold}
@@ -500,14 +306,13 @@ export function NotificationSettingsCard() {
                   }}
                   disabled={isDisabled || savingKey === 'material_depletion_threshold'}
                   placeholder={isDisabled ? '-' : ''}
-                  className="h-8 w-20"
+                  className="w-20"
                 />
-              </div>
+              </SettingRow>
             )
           })}
-        </div>
-      </div>
-      </Card>
+        </SettingGroup>
+      </SettingCard>
     </div>
   )
 }
