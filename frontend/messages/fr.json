@@ -1930,7 +1930,11 @@
       "noCoordsBadge": "sans lieu",
       "optimized": "Ordre optimisé.",
       "undo": "Annuler",
-      "removeStop": "Retirer l’étape"
+      "removeStop": "Retirer l’étape",
+      "contextOpen": "Ouvert",
+      "contextInRoute": "Dans la mission « {name} »",
+      "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
+      "contextStopAdded": "Intervention ajoutée comme étape."
     },
     "incidentPicker": {
       "title": "Ajouter des interventions comme étapes",
@@ -1950,7 +1954,6 @@
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",
-      "showGrouped": "Dans un autre mandat",
       "showCompleted": "Terminées"
     },
     "auftragPicker": {

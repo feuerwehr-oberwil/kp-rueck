@@ -848,7 +848,11 @@
       "noCoordsBadge": "kein Ort",
       "optimized": "Reihenfolge optimiert.",
       "undo": "Rückgängig",
-      "removeStop": "Stopp entfernen"
+      "removeStop": "Stopp entfernen",
+      "contextOpen": "Offen",
+      "contextInRoute": "In Auftrag «{name}»",
+      "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
+      "contextStopAdded": "Einsatz als Stopp hinzugefügt."
     },
     "incidentPicker": {
       "title": "Einsätze als Stopps hinzufügen",
@@ -868,7 +872,6 @@
       "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
       "legendUnassigned": "grau = in keinem Auftrag",
       "hiddenCount": "{count} ausgeblendet",
-      "showGrouped": "In anderem Auftrag",
       "showCompleted": "Abgeschlossene"
     },
     "auftragPicker": {

@@ -148,46 +148,40 @@ export function IncidentPickerDialog({
   }, [open, targetGroupId])
 
   /**
-   * What the list hides by default, and why.
+   * What the list shows, hides, and labels.
    *
-   * A storm evening's board is forty cards, and the ones you can actually add
-   * as a stop are the handful nobody has taken and nobody has finished. An
-   * incident that already belongs to another Auftrag can still be picked — that
-   * MOVES it, which is occasionally what you want and never what you want by
-   * accident — and a completed one is history. Both stay one tap away, and the
-   * count of what is hidden is on screen, because a list that silently drops
-   * rows is a list an operator stops trusting.
+   * Every incident of the event is visible from the start — including those that
+   * already belong to another Auftrag. Labelled beats hidden: those rows carry
+   * their route's coloured name badge, so "this one is already taken" is stated
+   * on the row instead of implied by absence. Picking one still MOVES it (the
+   * backend `addStops` reassigns `group_id`), which is occasionally what you
+   * want and, with the badge in view, never what you do by accident.
    *
-   * Members of the TARGET route ignore both filters: they render pre-checked,
-   * and hiding one would turn "uncheck to detach" into an impossible move.
+   * Only COMPLETED incidents are hidden by default — they are history, not
+   * candidates. They stay one tap away, and the count of what is hidden is on
+   * screen, because a list that silently drops rows is a list an operator stops
+   * trusting.
+   *
+   * Members of the TARGET route ignore the filter: they render pre-checked, and
+   * hiding one would turn "uncheck to detach" into an impossible move.
    */
-  const [showGrouped, setShowGrouped] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
 
-  const isElsewhere = useCallback(
-    (op: Operation) => Boolean(op.groupId) && op.groupId !== targetGroupId,
-    [targetGroupId],
-  )
   const isDone = useCallback((op: Operation) => op.status === "complete", [])
 
   const hiddenCount = useMemo(
     () =>
-      operations.filter(
-        (op) =>
-          !memberIds.has(op.id) &&
-          ((!showGrouped && isElsewhere(op)) || (!showCompleted && isDone(op))),
-      ).length,
-    [operations, memberIds, showGrouped, showCompleted, isElsewhere, isDone],
+      showCompleted
+        ? 0
+        : operations.filter((op) => !memberIds.has(op.id) && isDone(op)).length,
+    [operations, memberIds, showCompleted, isDone],
   )
 
   // Candidates: every event incident (members included, so they show pre-checked).
   const candidates = useMemo(() => {
     const q = query.trim().toLowerCase()
     return operations.filter((op) => {
-      if (!memberIds.has(op.id)) {
-        if (!showGrouped && isElsewhere(op)) return false
-        if (!showCompleted && isDone(op)) return false
-      }
+      if (!memberIds.has(op.id) && !showCompleted && isDone(op)) return false
       if (!q) return true
       // Match address/title, incident-type (label + raw key) and the
       // Meldung/description, not just the address.
@@ -198,7 +192,7 @@ export function IncidentPickerDialog({
         op.notes.toLowerCase().includes(q)
       )
     })
-  }, [operations, query, memberIds, showGrouped, showCompleted, isElsewhere, isDone])
+  }, [operations, query, memberIds, showCompleted, isDone])
 
   // Map markers: all located candidates (selectable — members render pre-checked).
   const locatedCandidates = useMemo(() => candidates.filter(isLocated), [candidates])
@@ -396,32 +390,26 @@ export function IncidentPickerDialog({
           </div>
         </div>
 
-        {/* What the list is not showing, and the way to see it. Nothing is
-            dropped silently: the count is the point of the row. */}
-        {(hiddenCount > 0 || showGrouped || showCompleted) && (
+        {/* What the list is not showing (completed only), and the way to see it.
+            Nothing is dropped silently: the count is the point of the row. */}
+        {(hiddenCount > 0 || showCompleted) && (
           <div className="-mt-1 flex flex-wrap items-center gap-2 text-xs">
             {hiddenCount > 0 && (
               <span className="text-muted-foreground">{t("hiddenCount", { count: hiddenCount })}</span>
             )}
-            {([
-              { on: showGrouped, toggle: () => setShowGrouped((v) => !v), label: t("showGrouped") },
-              { on: showCompleted, toggle: () => setShowCompleted((v) => !v), label: t("showCompleted") },
-            ] as const).map(({ on, toggle, label }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={toggle}
-                aria-pressed={on}
-                className={cn(
-                  "rounded-full border px-2.5 py-0.5 font-medium transition-colors",
-                  on
-                    ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {label}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setShowCompleted((v) => !v)}
+              aria-pressed={showCompleted}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 font-medium transition-colors",
+                showCompleted
+                  ? "border-primary/40 bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {t("showCompleted")}
+            </button>
           </div>
         )}
 
