@@ -415,6 +415,19 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         db=db, emergency_id=emergency.id, event_id=event.id, incident_id=incident.id
     )
 
+    # Reality preempts the drill. Simulated drives are global: they mask the real
+    # Traccar position of their vehicle for EVERY consumer (map, GPS automation,
+    # geofences), and they outlive the Übung that started them by design (30 min
+    # lifetime, in-memory). A real alarm just put a real incident on the board —
+    # from here on the map has to show where the vehicles actually are, so every
+    # running simulation stops now rather than expiring under a live Einsatz.
+    # Lazy import mirrors traccar.py's: gps_simulation pulls in websocket_manager.
+    from .gps_simulation import gps_simulation
+
+    stopped = await gps_simulation.stop()
+    if stopped:
+        logger.info("Stopped %d simulated GPS drive(s): real alarm attached to event %s", stopped, event.id)
+
     logger.info(
         "Divera emergency %s auto-attached to event %s (incident %s)",
         emergency.divera_id,
