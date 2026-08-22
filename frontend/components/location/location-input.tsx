@@ -53,6 +53,11 @@ interface LocationInputProps {
    *  instead of above it, and the map/coordinate buttons shrink to match. Same
    *  control either way — see components/kanban/detail-field.tsx. */
   dense?: boolean
+  /** With `dense`: keep the row grammar but draw the input as a normal boxed
+   *  field. For creation dialogs, where every field is empty at open — a
+   *  borderless empty input has no affordance, and the pin icon alone reads
+   *  as a row of buttons, not a field. */
+  boxed?: boolean
 }
 
 export function LocationInput({
@@ -67,6 +72,7 @@ export function LocationInput({
   error = false,
   extraAction,
   dense = false,
+  boxed = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
@@ -369,7 +375,7 @@ export function LocationInput({
                     read as a field at all. In a normal form the icon made this
                     the one input styled unlike its siblings, so there it is a
                     plain Input like every other field. */}
-                {dense && (
+                {dense && !boxed && (
                   <MapPin className="pointer-events-none absolute top-1/2 left-1.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 )}
                 <Input
@@ -391,7 +397,11 @@ export function LocationInput({
                   }}
                   onFocus={(e) => {
                     setEditing(true)
-                    setAddressSearchOpen(true)
+                    // Only reopen the list when there is something to search for.
+                    // With an empty field — the autofocused creation dialog — the
+                    // popover has nothing but its «Mindestens 3 Zeichen»-hint and
+                    // would open OVER the next row before the operator typed a key.
+                    if (addressSearchQuery.trim()) setAddressSearchOpen(true)
                     e.target.select()
                   }}
                   onBlur={() => {
@@ -409,7 +419,7 @@ export function LocationInput({
                   className={cn(
                     // Transparent border + constant padding: focusing must not
                     // move the text the operator just clicked on.
-                    dense &&
+                    dense && !boxed &&
                       "h-7 rounded-md border border-transparent bg-transparent px-2 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
                     error && "border-destructive focus-visible:ring-destructive"
                   )}
