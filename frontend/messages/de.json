@@ -3194,8 +3194,6 @@
     "alarm": {
       "invalidTitle": "Link ungültig oder abgelaufen",
       "invalidDescription": "Dieser Alarm-Link ist nicht mehr gültig. Bitte fordere einen neuen Link an.",
-      "successTitle": "Alarm erfasst",
-      "successDescription": "Der Alarm wurde an die Einsatzleitung übermittelt ({eventName}).",
       "another": "Weiteren Alarm erfassen",
       "submitError": "Der Alarm konnte nicht übermittelt werden. Bitte erneut versuchen.",
       "title": "Alarm erfassen",
@@ -3222,7 +3220,17 @@
         "back": "Zurück zum Formular",
         "where": "Ort",
         "hasPin": "Standort erfasst"
-      }
+      },
+      "statusOpen": "Beim KP – noch nicht disponiert",
+      "statusChecking": "Status wird abgefragt...",
+      "statusExpired": "Nicht mehr korrigierbar – der Link ist abgelaufen.",
+      "correct": "Meldung korrigieren",
+      "correctSubmit": "Korrektur senden",
+      "correctCancel": "Abbrechen",
+      "correctError": "Die Korrektur konnte nicht übermittelt werden. Bitte erneut versuchen.",
+      "receiptTitle": "Alarm ist beim KP",
+      "receiptMeta": "{eventName} · {time}",
+      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen."
     },
     "checkin": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",

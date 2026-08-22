@@ -1186,8 +1186,6 @@
     "alarm": {
       "invalidTitle": "Lien non valable ou échu",
       "invalidDescription": "Ce lien d’alarme n’est plus valable. Demande un nouveau lien.",
-      "successTitle": "Alarme saisie",
-      "successDescription": "L’alarme a été transmise à la conduite de l’intervention ({eventName}).",
       "another": "Saisir une autre alarme",
       "submitError": "L’alarme n’a pas pu être transmise. Réessaie.",
       "title": "Saisir une alarme",
@@ -1214,7 +1212,17 @@
         "back": "Retour au formulaire",
         "where": "Lieu",
         "hasPin": "Position enregistrée"
-      }
+      },
+      "statusOpen": "Au PC – pas encore engagé",
+      "statusChecking": "Vérification du statut...",
+      "statusExpired": "Plus de correction possible – le lien a expiré.",
+      "correct": "Corriger l’annonce",
+      "correctSubmit": "Envoyer la correction",
+      "correctCancel": "Annuler",
+      "correctError": "La correction n’a pas pu être transmise. Réessaie.",
+      "receiptTitle": "L'alarme est au PC",
+      "receiptMeta": "{eventName} · {time}",
+      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel."
     },
     "checkin": {
       "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",

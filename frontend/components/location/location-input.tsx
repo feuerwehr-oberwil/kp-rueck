@@ -223,6 +223,14 @@ export function LocationInput({
   const commitFreetext = (value: string) => {
     const text = value.trim()
     if (!text) return
+    // A CHANGED freetext is a new answer to "where", so a pin that belonged to
+    // the previous address must not survive it: the map — and everything that
+    // trusts the pin over the text, like the /alarm correction — would keep
+    // pointing at the old spot. Cleared only when the text actually changed;
+    // re-committing the same address (a blur, a stray Enter) must not throw
+    // away a pin that was picked on the map. If the geocoder does know the new
+    // text after all, the geocode effect above sets a fresh pin.
+    if (text !== (address ?? "").trim()) onCoordinatesChange(null, null)
     onAddressChange(text)
     setEditing(false)
     setAddressSearchOpen(false)

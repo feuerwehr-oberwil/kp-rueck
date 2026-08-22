@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   AlertTriangle,
+  Pencil,
   ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ import { INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
 import { PRIORITY_LABELS } from '@/lib/priority'
 import { apiClient } from '@/lib/api-client'
+import { getApiUrl } from '@/lib/env'
 import { cn, sanitizePhoneInput } from '@/lib/utils'
 
 export default function AlarmPage() {
@@ -48,6 +50,171 @@ function CenteredSpinner() {
 
 type Status = 'loading' | 'invalid' | 'ready' | 'success'
 
+/** One row of the form, as the review step and the receipt both show it. */
+interface AlarmRow {
+  label: string
+  value: string
+  hint?: string
+}
+
+/** Everything the form collected, in the shape the form's own state holds it.
+ *  Kept after sending so a correction starts from what was actually typed
+ *  rather than from an empty form. */
+interface AlarmDraft {
+  message: string
+  type: IncidentType
+  priority: IncidentPriority
+  address: string | null
+  lat: number | null
+  lng: number | null
+  hints: string
+  contact: string
+  contactPhone: string
+}
+
+const EMPTY_DRAFT: AlarmDraft = {
+  message: '',
+  // Low, like every other incident-creating form: most alarms are ordinary, and
+  // a board where every card claims «Mittel» has no way left to say "this one".
+  type: 'elementarereignis',
+  priority: 'low',
+  address: null,
+  lat: null,
+  lng: null,
+  hints: '',
+  contact: '',
+  contactPhone: '',
+}
+
+/** What the KP has done with it so far — the two questions a paper receipt
+ *  cannot answer. Deliberately carries no content: what was reported is on
+ *  this screen already, and echoing the columns back would echo whatever an
+ *  operator has since typed into them. */
+interface ReceiptState {
+  status: string
+  editable: boolean
+  vehicles: string[]
+}
+
+/**
+ * The body of a correction — `IntakeAlarmUpdate` on the server.
+ *
+ * For the text fields, `''` clears and an omitted key leaves it untouched. The
+ * coordinates follow their own contract: **explicitly `null` clears the pin,
+ * an omitted key leaves it unchanged.** This form always sends its current
+ * pin state, which is exactly right — after a freetext address edit the
+ * `LocationInput` has already nulled the stale pin (see `commitFreetext`), so
+ * the PUT clears it on the server too instead of re-sending coordinates that
+ * belong to the previous address.
+ *
+ * `internal_notes` is optional for a reason of its own: the server *appends*
+ * it to «Notizen» rather than assigning it, because an operator writes into
+ * that column too and the receipt is not allowed to read it back. So it is
+ * sent only when the reporter changed their own Hinweis.
+ */
+interface IntakeCorrection {
+  title: string
+  type: IncidentType
+  priority: IncidentPriority
+  location_address: string
+  location_lat: string | null
+  location_lng: string | null
+  description: string
+  contact: string
+  contact_phone: string
+  internal_notes?: string
+}
+
+/**
+ * What was sent, kept so it can be read back afterwards.
+ *
+ * The screen used to end at a green tick and «Weiteren Alarm erfassen», which
+ * threw away the only copy of what had just been typed: whether it was
+ * Hauptstrasse 12 or 21 could then only be answered by the KP, over the phone.
+ * The rows are the same `reviewRows` the «Stimmt das so?» step showed two
+ * seconds earlier — no second format, just the same list without a send button.
+ *
+ * `receiptToken` is what makes the live status and the correction window
+ * possible at all: the intake link names an event and no incident, so it can
+ * never stand for "this is the alarm I just reported". The token names exactly
+ * one incident, is short-lived, and lives in memory only — closing the tab ends
+ * the correction window, which is the right side to err on for a slip of paper
+ * that anybody at the phone desk can pick up.
+ */
+interface AlarmReceipt {
+  rows: AlarmRow[]
+  at: Date
+  incidentId: string
+  receiptToken: string | null
+  draft: AlarmDraft
+}
+
+/** How often the receipt asks whether the KP has picked the alarm up. Slow on
+ *  purpose: the intake door is rate limited per IP and a station NATs every
+ *  phone behind one address. */
+const RECEIPT_POLL_MS = 20_000
+
+/** The German `detail` a FastAPI error carries, when it carries one. */
+async function readDetail(response: Response): Promise<string | null> {
+  try {
+    const body: unknown = await response.json()
+    if (body && typeof body === 'object' && 'detail' in body) {
+      const detail = (body as { detail: unknown }).detail
+      if (typeof detail === 'string') return detail
+    }
+  } catch {
+    // A body that is not JSON says nothing useful — fall through to the caller's
+    // own wording.
+  }
+  return null
+}
+
+/** A receipt call the server answered with an error — carries the HTTP status
+ *  so the poll can tell a terminal 401/403 (token expired, alarm archived)
+ *  from an ordinary hiccup. A request that never reached the server throws a
+ *  plain `TypeError` from `fetch` and has no status at all. */
+class ReceiptRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ReceiptRequestError'
+  }
+}
+
+/**
+ * The two receipt calls.
+ *
+ * Plain `fetch` rather than the api-client: `/alarm` is a public page with no
+ * session, no auth refresh, and no toast surface — the client's own intake
+ * calls already opt out of its toasts for exactly that reason. Both tokens go
+ * in the query string, and both are required server-side.
+ */
+async function intakeReceiptRequest(
+  path: string,
+  init?: RequestInit,
+): Promise<ReceiptState> {
+  const response = await fetch(`${getApiUrl()}${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+  })
+  if (!response.ok) {
+    throw new ReceiptRequestError(
+      (await readDetail(response)) ?? `HTTP ${response.status}`,
+      response.status,
+    )
+  }
+  return (await response.json()) as ReceiptState
+}
+
+function receiptPath(token: string, incidentId: string, receiptToken: string): string {
+  return (
+    `/api/intake/alarm/${encodeURIComponent(incidentId)}` +
+    `?token=${encodeURIComponent(token)}&receipt=${encodeURIComponent(receiptToken)}`
+  )
+}
+
 function AlarmIntake() {
   const t = useTranslations('intake.alarm')
   const searchParams = useSearchParams()
@@ -56,6 +223,10 @@ function AlarmIntake() {
   const [status, setStatus] = useState<Status>('loading')
   const [eventName, setEventName] = useState('')
   const [trainingFlag, setTrainingFlag] = useState(false)
+  const [receipt, setReceipt] = useState<AlarmReceipt | null>(null)
+  /** The receipt's «Meldung korrigieren» is open. Separate from `status` so
+   *  cancelling drops straight back onto the receipt it came from. */
+  const [correcting, setCorrecting] = useState(false)
 
   // Validate the token / load event context on mount.
   useEffect(() => {
@@ -94,8 +265,41 @@ function AlarmIntake() {
     )
   }
 
-  if (status === 'success') {
-    return <SuccessScreen eventName={eventName} onAnother={() => setStatus('ready')} />
+  // The correction: the same form, prefilled, sending a PUT instead of a POST.
+  // Keyed by incident so a second alarm never inherits the first one's text.
+  if (status === 'success' && receipt && correcting && receipt.receiptToken) {
+    return (
+      <AlarmForm
+        key={`correct-${receipt.incidentId}`}
+        token={token}
+        eventName={eventName}
+        trainingFlag={trainingFlag}
+        initial={receipt.draft}
+        editing={{ incidentId: receipt.incidentId, receiptToken: receipt.receiptToken }}
+        onCancel={() => setCorrecting(false)}
+        onSuccess={corrected => {
+          // The time stays the time it was reported — a correction does not make
+          // the alarm newer, and the KP is working from the original.
+          setReceipt(prev => (prev ? { ...prev, rows: corrected.rows, draft: corrected.draft } : prev))
+          setCorrecting(false)
+        }}
+      />
+    )
+  }
+
+  if (status === 'success' && receipt) {
+    return (
+      <ReceiptScreen
+        token={token}
+        eventName={eventName}
+        receipt={receipt}
+        onCorrect={() => setCorrecting(true)}
+        onAnother={() => {
+          setReceipt(null)
+          setStatus('ready')
+        }}
+      />
+    )
   }
 
   return (
@@ -103,23 +307,153 @@ function AlarmIntake() {
       token={token}
       eventName={eventName}
       trainingFlag={trainingFlag}
-      onSuccess={() => setStatus('success')}
+      onSuccess={sent => {
+        setReceipt({
+          rows: sent.rows,
+          at: new Date(),
+          incidentId: sent.incidentId,
+          receiptToken: sent.receiptToken,
+          draft: sent.draft,
+        })
+        setCorrecting(false)
+        setStatus('success')
+      }}
     />
   )
 }
 
-function SuccessScreen({ eventName, onAnother }: { eventName: string; onAnother: () => void }) {
+/** The quittung: what is now at the KP, in the words it was typed in. */
+function ReceiptScreen({
+  token,
+  eventName,
+  receipt,
+  onCorrect,
+  onAnother,
+}: {
+  token: string
+  eventName: string
+  receipt: AlarmReceipt
+  onCorrect: () => void
+  onAnother: () => void
+}) {
   const t = useTranslations('intake.alarm')
+  // The three "the KP has it" sentences are `/feld`'s own, word for word — the
+  // reporter is being told the same thing whichever door they came through, so
+  // the strings are shared rather than copied.
+  const tReports = useTranslations('feld.reports')
+  /** `null` until the first poll answers. The page used to hard-code
+   *  `{status: 'incoming', editable: true}` here, which read as «noch
+   *  korrigierbar» even when the very first poll could not confirm it — an
+   *  honest «wird geprüft» beats an optimistic claim. */
+  const [state, setState] = useState<ReceiptState | null>(null)
+  /** Terminal: the server answered 401/403 — the receipt token has expired or
+   *  the alarm is archived. Nothing here will ever change again, so the poll
+   *  stops and the correction offer goes away for good. */
+  const [expired, setExpired] = useState(false)
+
+  const { incidentId, receiptToken } = receipt
+  useEffect(() => {
+    if (!receiptToken) return
+    let cancelled = false
+    let timer: ReturnType<typeof setInterval> | undefined
+    const load = async () => {
+      try {
+        const next = await intakeReceiptRequest(receiptPath(token, incidentId, receiptToken))
+        if (!cancelled) setState(next)
+      } catch (error) {
+        // 401/403 is not a hiccup: the token is dead and will stay dead.
+        // Keeping the last known «noch korrigierbar» would send the reporter
+        // typing a correction into a link that can no longer take one.
+        if (
+          !cancelled &&
+          error instanceof ReceiptRequestError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          setExpired(true)
+          if (timer) clearInterval(timer)
+          timer = undefined
+          return
+        }
+        // Anything else: keep the last known answer. A receipt that blanks its
+        // own status because a phone lost the signal for ten seconds is worse
+        // than one that is briefly a poll behind.
+      }
+    }
+    void load()
+    timer = setInterval(() => void load(), RECEIPT_POLL_MS)
+    return () => {
+      cancelled = true
+      if (timer) clearInterval(timer)
+    }
+  }, [token, incidentId, receiptToken])
+
+  // `editable` is the server's own answer rather than the page re-deriving it
+  // from a status vocabulary it should not have to know.
+  const stateLabel = expired
+    ? t('statusExpired')
+    : state === null
+      ? t('statusChecking')
+      : state.editable
+        ? t('statusOpen')
+        : state.status === 'complete'
+          ? tReports('stateDone')
+          : state.vehicles.length > 0
+            ? tReports('stateDispatchedWith', { vehicles: state.vehicles.join(', ') })
+            : tReports('stateDispatched')
+
   return (
-    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
-      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
-        <Check className="h-7 w-7 text-emerald-500" />
+    <div className="space-y-4">
+      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15">
+          <Check className="h-6 w-6 text-emerald-500" />
+        </div>
+        <h1 className="text-lg font-semibold">{t('receiptTitle')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('receiptMeta', {
+            eventName,
+            time: receipt.at.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+          })}
+        </p>
       </div>
-      <h1 className="text-lg font-semibold">{t('successTitle')}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {t('successDescription', { eventName })}
-      </p>
-      <Button className="mt-6 w-full" size="lg" onClick={onAnother}>
+
+      {/* What became of it, and the one thing that can still be done about it.
+          Without an older backend's receipt token there is no correction to
+          offer and no status to poll, so the row stays out of the way. */}
+      {receiptToken && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+          <span className="text-sm">{stateLabel}</span>
+          {/* Only while the server has SAID it is still the reporter's to
+              change — once the KP has sent somebody, the vehicle name stands
+              here instead and the correction goes over the radio; while the
+              status is unknown or the link expired, no promise is made. */}
+          {!expired && state?.editable && (
+            <button
+              type="button"
+              onClick={onCorrect}
+              className="text-xs underline underline-offset-2 hover:text-foreground"
+            >
+              {t('correct')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* The same rows the review step showed, minus the send button. */}
+      <div className="overflow-hidden rounded-xl border border-border">
+        {receipt.rows.map(row => (
+          <div key={row.label} className="flex gap-3 border-b border-border/50 px-3 py-2.5 text-sm last:border-b-0">
+            <span className="w-24 shrink-0 pt-px text-xs text-muted-foreground">{row.label}</span>
+            <span className="min-w-0 flex-1 leading-snug">
+              {row.value}
+              {row.hint && <span className="block text-xs text-muted-foreground">{row.hint}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Below the receipt, not instead of it: a second alarm is the rarer of
+          the two things somebody does here. */}
+      <Button className="w-full" size="lg" onClick={onAnother}>
         <Plus className="h-5 w-5" />
         {t('another')}
       </Button>
@@ -127,45 +461,62 @@ function SuccessScreen({ eventName, onAnother }: { eventName: string; onAnother:
   )
 }
 
+/** What a finished form hands back: the receipt's rows, the values behind them,
+ *  and the identity of the alarm they belong to. */
+interface AlarmSubmitted {
+  rows: AlarmRow[]
+  draft: AlarmDraft
+  incidentId: string
+  receiptToken: string | null
+}
+
 interface AlarmFormProps {
   token: string
   eventName: string
   trainingFlag: boolean
-  onSuccess: () => void
+  /** Prefill, for a correction. Defaults to an empty form. */
+  initial?: AlarmDraft
+  /** Present while an alarm that is already at the KP is being corrected. */
+  editing?: { incidentId: string; receiptToken: string } | null
+  onCancel?: () => void
+  onSuccess: (sent: AlarmSubmitted) => void
 }
 
-function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps) {
+function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel, onSuccess }: AlarmFormProps) {
   const t = useTranslations('intake.alarm')
+  const start = initial ?? EMPTY_DRAFT
   /** What the caller said the thing IS. Lands in the incident's `description`,
    *  which is the column the board labels «Meldung» — see the submit below. */
-  const [message, setMessage] = useState('')
-  const [type, setType] = useState<IncidentType>('elementarereignis')
-  // Low, like every other incident-creating form: most alarms are ordinary, and
-  // a board where every card claims «Mittel» has no way left to say "this one".
-  const [priority, setPriority] = useState<IncidentPriority>('low')
-  const [address, setAddress] = useState<string | null>(null)
-  const [lat, setLat] = useState<number | null>(null)
-  const [lng, setLng] = useState<number | null>(null)
+  const [message, setMessage] = useState(start.message)
+  const [type, setType] = useState<IncidentType>(start.type)
+  const [priority, setPriority] = useState<IncidentPriority>(start.priority)
+  const [address, setAddress] = useState<string | null>(start.address)
+  const [lat, setLat] = useState<number | null>(start.lat)
+  const [lng, setLng] = useState<number | null>(start.lng)
   /** The extras that came with the call. Lands in `internal_notes` — the board's
-   *  «Notizen» — so it sits beside the Meldung instead of overwriting it. */
-  const [hints, setHints] = useState('')
-  const [contact, setContact] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
+   *  «Notizen» — so it sits beside the Meldung instead of overwriting it. On a
+   *  correction that column belongs to the operator too, so what is typed here
+   *  is *added* to it rather than replacing it — see the submit below. */
+  const [hints, setHints] = useState(start.hints)
+  const [contact, setContact] = useState(start.contact)
+  const [contactPhone, setContactPhone] = useState(start.contactPhone)
 
   const [typeOpen, setTypeOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** Erfassen, then read it back. Same two steps as `/feld`'s «Neue Meldung»,
    *  for the same reason: this form puts a Schadenplatz on the board, and a
-   *  wrong house number sends a squad to the wrong street. */
+   *  wrong house number sends a squad to the wrong street. A correction is read
+   *  back too — it is the step that catches the second typo. */
   const [step, setStep] = useState<'form' | 'review'>('form')
 
   const incomplete = !message.trim()
 
   /** What the review step lists, in the order the form asked for it. Empty rows
    *  are dropped rather than shown blank — a dash next to «Melder» is a field
-   *  somebody starts wondering whether they missed. */
-  const reviewRows: { label: string; value: string; hint?: string }[] = [
+   *  somebody starts wondering whether they missed. The receipt after sending
+   *  shows this same list, which is why it is worth building it once. */
+  const reviewRows: AlarmRow[] = [
     {
       label: t('review.where'),
       value: address?.trim() || (lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : ''),
@@ -181,16 +532,55 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
     { label: t('contactPhoneLabel'), value: contactPhone.trim() },
   ].filter(row => row.value)
 
+  const draft: AlarmDraft = { message, type, priority, address, lat, lng, hints, contact, contactPhone }
+
   const handleSubmit = async () => {
     if (incomplete || submitting) return
     setSubmitting(true)
     setError(null)
+    // `title` is the board's address column in all but name: a card reads
+    // `location_address || title`, and the board's own «Neuer Einsatz» puts the
+    // address here too. The Meldung goes where the board reads it.
+    const title = address?.trim() || message.trim()
     try {
-      await apiClient.createIntakeAlarm(token, {
-        // `title` is the board's address column in all but name: a card reads
-        // `location_address || title`, and the board's own «Neuer Einsatz» puts
-        // the address here too. The Meldung goes where the board reads it.
-        title: address?.trim() || message.trim(),
+      if (editing) {
+        // A correction sends `''`, not `null`, for the TEXT fields it left
+        // empty: the server reads `null` as «unverändert» there, so a Melder
+        // typed in by mistake could otherwise never be taken back out again.
+        // The coordinates are the other way round — `null` explicitly CLEARS
+        // the pin (a freetext address edit nulls the local lat/lng, and the
+        // stale pin must not survive on the server either); an omitted key
+        // would leave it unchanged.
+        //
+        // «Notizen» is the exception, in both directions. The server APPENDS
+        // what arrives there instead of assigning it, because that column is
+        // shared with the operator and the receipt is not allowed to read it
+        // back. So the hint only goes along when it actually changed — resending
+        // the unchanged one would be asking for a Nachtrag of itself.
+        const correction: IntakeCorrection = {
+          title,
+          type,
+          priority,
+          location_address: address?.trim() ?? '',
+          location_lat: lat !== null ? String(lat) : null,
+          location_lng: lng !== null ? String(lng) : null,
+          description: message.trim(),
+          contact: contact.trim(),
+          contact_phone: contactPhone.trim(),
+        }
+        if (hints.trim() !== start.hints.trim()) correction.internal_notes = hints.trim()
+        await intakeReceiptRequest(receiptPath(token, editing.incidentId, editing.receiptToken), {
+          method: 'PUT',
+          body: JSON.stringify(correction),
+        })
+        onSuccess({ rows: reviewRows, draft, incidentId: editing.incidentId, receiptToken: editing.receiptToken })
+        return
+      }
+      // The create path answers `{ id, receipt_token }`. `receipt_token` is
+      // optional here so an older backend simply yields a receipt without the
+      // live status and without the correction button.
+      const created: { id: string; receipt_token?: string } = await apiClient.createIntakeAlarm(token, {
+        title,
         type,
         priority,
         location_address: address,
@@ -201,12 +591,19 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         contact_phone: contactPhone.trim() || null,
         internal_notes: hints.trim() || null,
       })
-      onSuccess()
+      // The rows as they stood when the alarm left — the form is about to be
+      // reset for the next one, and the receipt has to outlive it.
+      onSuccess({
+        rows: reviewRows,
+        draft,
+        incidentId: created.id,
+        receiptToken: created.receipt_token ?? null,
+      })
     } catch (err) {
       setError(
         err instanceof Error && err.message
           ? err.message
-          : t('submitError')
+          : editing ? t('correctError') : t('submitError')
       )
     } finally {
       setSubmitting(false)
@@ -263,6 +660,11 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
                 <Loader2 className="h-5 w-5 animate-spin" />
                 {t('submitting')}
               </>
+            ) : editing ? (
+              <>
+                <Pencil className="h-5 w-5" />
+                {t('correctSubmit')}
+              </>
             ) : (
               <>
                 <Plus className="h-5 w-5" />
@@ -291,8 +693,8 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
     >
       <header>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Plus className="h-6 w-6 text-primary" />
-          {t('title')}
+          {editing ? <Pencil className="h-6 w-6 text-primary" /> : <Plus className="h-6 w-6 text-primary" />}
+          {editing ? t('correct') : t('title')}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{eventName}</p>
         {trainingFlag && (
@@ -409,6 +811,11 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
           placeholder={t('hintsPlaceholder')}
           className="mt-2 min-h-[100px] text-base"
         />
+        {/* Only on a correction. By then the column is shared with the operator,
+            so what is typed here is added to «Notizen» rather than swapped in —
+            and a field that quietly behaves differently than it looks is worse
+            than one that says so. */}
+        {editing && <p className="mt-1.5 text-xs text-muted-foreground">{t('hintsCorrectionHelp')}</p>}
       </div>
 
       {/* Contact (Melder / Anrufer) */}
@@ -447,6 +854,13 @@ function AlarmForm({ token, eventName, trainingFlag, onSuccess }: AlarmFormProps
         {t('review.next')}
         <ChevronRight className="size-4" />
       </Button>
+      {/* Only on a correction: the way out of an edit nobody wanted after all.
+          The alarm itself is already at the KP and stays there. */}
+      {editing && onCancel && (
+        <Button type="button" variant="ghost" size="lg" className="w-full" onClick={onCancel}>
+          {t('correctCancel')}
+        </Button>
+      )}
     </form>
   )
 }
