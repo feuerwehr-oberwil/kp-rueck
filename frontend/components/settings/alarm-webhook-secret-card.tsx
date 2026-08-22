@@ -36,7 +36,7 @@ import { apiClient, ApiError, type ApiAlarmWebhookSecret } from '@/lib/api-clien
 import { copyToClipboard } from '@/lib/utils'
 
 export function AlarmWebhookSecretCard() {
-  const t = useTranslations('settings.page.alerting.webhookSecret')
+  const t = useTranslations('settings.page.alarmIntake.webhookSecret')
   const [secret, setSecret] = useState<ApiAlarmWebhookSecret | null>(null)
   const [revealing, setRevealing] = useState(false)
   const [rotateOpen, setRotateOpen] = useState(false)

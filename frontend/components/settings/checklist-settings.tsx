@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SettingCard } from '@/components/settings/setting-row';
+import { SettingCard, SettingRow } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -98,39 +98,41 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
 
   return (
     <SettingCard title={t('title')} subtitle={t('description')}>
-      <div className="space-y-4">
-        <div className="divide-y divide-border rounded-lg border border-border">
-          {tasks.map((task) => {
-            const isShown = !hidden.has(task.id);
-            const noteValue = notes[task.id] ?? task.defaultNote ?? '';
-            return (
-              <div key={task.id} className={cn('space-y-2 p-3', !isShown && 'opacity-60')}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">{task.title}</span>
-                  <Switch
-                    checked={isShown}
-                    disabled={readOnly || saving === CHECKLIST_HIDDEN_TASKS_KEY}
-                    onCheckedChange={(on) => void toggleTask(task.id, on)}
-                    aria-label={t('showRow', { title: task.title })}
-                  />
-                </div>
-                {isShown && (
-                  <Input
-                    defaultValue={noteValue}
-                    key={noteValue}
-                    placeholder={t('notePlaceholder')}
-                    className="h-8 text-xs"
-                    disabled={readOnly || saving === CHECKLIST_NOTES_KEY}
-                    onBlur={(e) => void commitNote(task.id, e.target.value, task.defaultNote)}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+      {/* Zeilen wie überall sonst auf der Seite, ohne Kasten und ohne Haarlinien: die
+          Karte ist der Rahmen, der Zeilenumbruch trennt. Die Notiz hängt als `footer`
+          unter ihrer Zeile — sie braucht die volle Breite, nicht die Bedienspalte. */}
+      {tasks.map((task) => {
+        const isShown = !hidden.has(task.id);
+        const noteValue = notes[task.id] ?? task.defaultNote ?? '';
+        return (
+          <SettingRow
+            key={task.id}
+            label={task.title}
+            className={cn(!isShown && 'opacity-60')}
+            footer={
+              isShown && (
+                <Input
+                  defaultValue={noteValue}
+                  key={noteValue}
+                  placeholder={t('notePlaceholder')}
+                  className="mt-2 h-8 text-xs"
+                  disabled={readOnly || saving === CHECKLIST_NOTES_KEY}
+                  onBlur={(e) => void commitNote(task.id, e.target.value, task.defaultNote)}
+                />
+              )
+            }
+          >
+            <Switch
+              checked={isShown}
+              disabled={readOnly || saving === CHECKLIST_HIDDEN_TASKS_KEY}
+              onCheckedChange={(on) => void toggleTask(task.id, on)}
+              aria-label={t('showRow', { title: task.title })}
+            />
+          </SettingRow>
+        );
+      })}
 
-        <p className="text-xs text-muted-foreground">{t('summary', { count: visibleCount })}</p>
-      </div>
+      <p className="pt-3 text-xs text-muted-foreground">{t('summary', { count: visibleCount })}</p>
     </SettingCard>
   );
 }

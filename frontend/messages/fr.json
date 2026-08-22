@@ -2873,7 +2873,8 @@
       "sections": {
         "general": "Général",
         "notifications": "Notifications",
-        "alerting": "Alarmement",
+        "alerting": "Alarmement sortant",
+        "alarmIntake": "Alarmes entrantes",
         "checklist": "Checklist",
         "auftragTemplates": "Ordres standard",
         "gps": "GPS",
@@ -3091,7 +3092,9 @@
         "message2Hint": "Appel direct : rentrer à la caserne.",
         "incidentTemplateTitle": "Message WhatsApp d’intervention",
         "incidentTemplateDescription": "Modèle de l’annonce WhatsApp copiée depuis une intervention. Changer l’ordre = déplacer les lignes. Une ligne dont tous les champs sont vides disparaît. Champs disponibles :",
-        "templateLabel": "Modèle",
+        "templateLabel": "Modèle"
+      },
+      "alarmIntake": {
         "alarmFilterTitle": "Nettoyer le texte de l’alarme",
         "alarmFilterDescription": "Les systèmes d’alarme étiquettent leurs lignes et ajoutent les mêmes lignes standard à chaque alarme. Les deux listes ci-dessous sont vides : tant que rien n’y figure, rien n’est filtré et la description apparaît sur la carte d’intervention exactement telle qu’elle est arrivée. L’alarme reçue est de toute façon conservée telle quelle.",
         "alarmFilterLabel": "Supprimer des lignes entières (un préfixe par ligne)",
@@ -3104,6 +3107,7 @@
         "feldChipsTitle": "Annonces rapides pour /feld",
         "feldChipsDescription": "Annonces en un geste qu’un groupe sur le terrain peut envoyer au PC. Une annonce par ligne. Volontairement non traduites : chaque corps les formule lui-même.",
         "feldChipsLabel": "Annonces (une par ligne)",
+        "feldDriverChipsLabel": "Chips pour conducteurs",
         "webhookSecret": {
           "title": "Clé webhook pour les alarmes",
           "description": "La clé partagée avec laquelle la centrale d'alarme signe ses messages vers POST /api/alarms. À saisir dans le champ correspondant chez le fournisseur.",
@@ -3123,8 +3127,7 @@
           "sourceEnv": "Source : .env",
           "sourceDatabase": "Source : base de données",
           "notConfigured": "Aucune clé définie – les alarmes via POST /api/alarms sont acceptées sans vérification de signature."
-        },
-        "feldDriverChipsLabel": "Chips pour conducteurs"
+        }
       },
       "demo": {
         "sync": "La synchronisation n’est pas disponible en mode démo.",

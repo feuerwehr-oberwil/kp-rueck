@@ -18,6 +18,7 @@ const ALL = [
   "users",
   "sync",
   "alerting",
+  "alarmIntake",
   "notifications",
   "checklist",
   "auftragTemplates",

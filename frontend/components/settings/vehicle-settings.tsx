@@ -27,14 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Form, FormField } from '@/components/ui/form';
+import { SettingCard } from '@/components/settings/setting-row';
+import { DetailField } from '@/components/kanban/detail-field';
 import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, Ban, Check, CircleSlash } from 'lucide-react';
 import { apiClient, ApiError, ApiVehicle } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -289,12 +284,19 @@ export function VehicleSettings() {
   const isSaving = form.formState.isSubmitting;
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleOpenCreate}>
-          <PlusCircle className="size-4" />
-          {t('vehicles.addButton')}
-        </Button>
+    /* Die Liste sitzt auf einer Karte wie jeder andere Abschnitt der Seite – sie war
+       zuletzt die einzige, die direkt auf dem Seitenhintergrund stand. «Neues Fahrzeug»
+       nimmt den Kopfplatz der Karte ein, denselben, in dem andere Karten ihren
+       «Aktualisieren»-Knopf haben. */
+    <div className="space-y-6">
+      <SettingCard
+        action={
+          <Button onClick={handleOpenCreate}>
+            <PlusCircle className="size-4" />
+            {t('vehicles.addButton')}
+          </Button>
+        }
+      >
         <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
           <DialogContent aria-describedby={undefined}>
             <DialogHeader>
@@ -302,90 +304,97 @@ export function VehicleSettings() {
                 {editingVehicle ? t('vehicles.dialogEditTitle') : t('vehicles.dialogCreateTitle')}
               </DialogTitle>
             </DialogHeader>
+            {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.
+                `fieldState` off the Controller render props carries the validation
+                message, so the row needs neither FormItem nor FormMessage. */}
             <Form {...form}>
-              <form onSubmit={onSubmit} className="space-y-3" noValidate>
+              <form onSubmit={onSubmit} className="space-y-1 py-2" noValidate>
                 <FormField
                   control={form.control}
                   name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-muted-foreground">
-                        {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder={t('vehicles.namePlaceholder')}
-                          autoFocus
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  render={({ field, fieldState }) => (
+                    <DetailField
+                      label={t('common.name')}
+                      htmlFor="vehicle-name"
+                      required
+                      error={fieldState.error?.message}
+                    >
+                      <Input
+                        {...field}
+                        id="vehicle-name"
+                        aria-invalid={!!fieldState.error}
+                        placeholder={t('vehicles.namePlaceholder')}
+                        autoFocus
+                      />
+                    </DetailField>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name="display_order"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-muted-foreground">
-                        {t('vehicles.orderLabel')} <span className="text-destructive" aria-hidden="true">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={Number.isFinite(field.value) ? field.value : ''}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            field.onChange(raw === '' ? Number.NaN : Number(raw));
-                          }}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                          placeholder={t('vehicles.orderPlaceholder')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  render={({ field, fieldState }) => (
+                    <DetailField
+                      label={t('vehicles.orderLabel')}
+                      htmlFor="vehicle-display-order"
+                      required
+                      error={fieldState.error?.message}
+                    >
+                      <Input
+                        id="vehicle-display-order"
+                        type="number"
+                        min={1}
+                        aria-invalid={!!fieldState.error}
+                        value={Number.isFinite(field.value) ? field.value : ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          field.onChange(raw === '' ? Number.NaN : Number(raw));
+                        }}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
+                        placeholder={t('vehicles.orderPlaceholder')}
+                      />
+                    </DetailField>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name="radio_call_sign"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-muted-foreground">
-                        {t('common.radioCallSign')} <span className="text-destructive" aria-hidden="true">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder={t('vehicles.radioPlaceholder')} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  render={({ field, fieldState }) => (
+                    <DetailField
+                      label={t('common.radioCallSign')}
+                      htmlFor="vehicle-radio-call-sign"
+                      required
+                      error={fieldState.error?.message}
+                    >
+                      <Input
+                        {...field}
+                        id="vehicle-radio-call-sign"
+                        aria-invalid={!!fieldState.error}
+                        placeholder={t('vehicles.radioPlaceholder')}
+                      />
+                    </DetailField>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-muted-foreground">
-                        {t('common.status')}
-                      </FormLabel>
+                  render={({ field, fieldState }) => (
+                    <DetailField
+                      label={t('common.status')}
+                      htmlFor="vehicle-status"
+                      error={fieldState.error?.message}
+                    >
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
+                        <SelectTrigger id="vehicle-status" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="available">{t('common.available')}</SelectItem>
                           <SelectItem value="unavailable">{t('common.unavailable')}</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
+                    </DetailField>
                   )}
                 />
                 <DialogFooter>
@@ -406,10 +415,9 @@ export function VehicleSettings() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* The archive is opened, not filtered — see the note in material-settings. */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 pb-3">
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <Checkbox checked={showArchived} onCheckedChange={() => { void toggleShowArchived(); }} />
           {t('lifecycle.showArchived')}
@@ -563,6 +571,7 @@ export function VehicleSettings() {
           })}
         </TableBody>
       </Table>
+      </SettingCard>
 
       {/* Archiving is the normal way out, and the dialog says what it does. The
           old one promised «kann nicht rückgängig gemacht werden» and then only

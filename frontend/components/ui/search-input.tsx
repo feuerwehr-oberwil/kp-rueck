@@ -68,6 +68,13 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           disabled={disabled}
           onChange={(event) => onValueChange(event.target.value)}
           className={cn(o.pad, className)}
+          // A search box is never a credential. Without this, a browser that has
+          // saved a KP login drops the username into the nearest text input the
+          // moment a password field appears elsewhere on the page — opening
+          // Einstellungen → Synchronisation typed «admin» into this field and
+          // filtered the section list down to nothing. Before `...props`, so a
+          // caller can still override it.
+          autoComplete="off"
           {...props}
         />
         {hint && value.length === 0 && (

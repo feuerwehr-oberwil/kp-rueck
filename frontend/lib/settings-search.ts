@@ -28,6 +28,7 @@ const SECTION_NAMESPACES: Record<string, readonly string[]> = {
   // auffindbar bleibt sie über ihren Abschnittsnamen (siehe `searchSettings`).
   sync: [],
   alerting: ['settings.page.alerting'],
+  alarmIntake: ['settings.page.alarmIntake'],
   notifications: ['notifications.settings'],
   checklist: ['settings.page.checklist'],
   auftragTemplates: ['settings.page.auftragTemplates'],

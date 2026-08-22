@@ -1382,7 +1382,8 @@
       "sections": {
         "general": "Allgemein",
         "notifications": "Benachrichtigungen",
-        "alerting": "Alarmierung",
+        "alerting": "Ausalarmierung",
+        "alarmIntake": "Alarm-Eingang",
         "checklist": "Checkliste",
         "auftragTemplates": "Standard-Aufträge",
         "gps": "GPS",
@@ -1600,7 +1601,9 @@
         "message2Hint": "Direkter Aufruf: ins Magazin einrücken.",
         "incidentTemplateTitle": "WhatsApp-Einsatznachricht",
         "incidentTemplateDescription": "Vorlage für die aus einem Einsatz kopierte WhatsApp-Meldung. Reihenfolge ändern = Zeilen verschieben. Eine Zeile, deren Platzhalter alle leer sind, fällt weg. Platzhalter:",
-        "templateLabel": "Vorlage",
+        "templateLabel": "Vorlage"
+      },
+      "alarmIntake": {
         "alarmFilterTitle": "Alarmtext bereinigen",
         "alarmFilterDescription": "Alarmierungssysteme beschriften ihre Zeilen und hängen an jeden Alarm dieselben Standardzeilen. Beide Listen hier sind leer: Solange nichts eingetragen ist, wird nichts gefiltert und die Beschreibung steht genau so auf der Einsatzkarte, wie sie eingegangen ist. Der eingegangene Alarm selbst bleibt in jedem Fall unverändert gespeichert.",
         "alarmFilterLabel": "Ganze Zeilen entfernen (ein Präfix pro Zeile)",
@@ -1613,6 +1616,7 @@
         "feldChipsTitle": "Meldungs-Chips für /feld",
         "feldChipsDescription": "Ein-Tipp-Meldungen, die ein Trupp im Feld an den KP schicken kann. Eine Meldung pro Zeile. Bewusst keine Übersetzung: jede Feuerwehr formuliert das selbst.",
         "feldChipsLabel": "Meldungen (eine pro Zeile)",
+        "feldDriverChipsLabel": "Chips für Fahrer",
         "webhookSecret": {
           "title": "Webhook-Schlüssel für Alarme",
           "description": "Der gemeinsame Schlüssel, mit dem die Alarmzentrale ihre Meldungen an POST /api/alarms signiert. In das entsprechende Feld beim Anbieter einsetzen.",
@@ -1632,8 +1636,7 @@
           "sourceEnv": "Quelle: .env",
           "sourceDatabase": "Quelle: Datenbank",
           "notConfigured": "Noch kein Schlüssel gesetzt – Alarme über POST /api/alarms werden ohne Signaturprüfung angenommen."
-        },
-        "feldDriverChipsLabel": "Chips für Fahrer"
+        }
       },
       "demo": {
         "sync": "Synchronisation ist im Demo-Modus nicht verfügbar.",

@@ -2,7 +2,7 @@
 
 /**
  * Eine Zeile der Einstellungsseite: **Beschriftung + Hinweis links, Bedienelement rechts in
- * einer festen Spalte**, Haarlinie darunter.
+ * einer festen Spalte**, getrennt durch Abstand.
  *
  * Das ist für die Einstellungen, was `<DetailField>` für das Einsatzdetail ist – die eine
  * Stelle, an der eine Zeile gebaut wird. Vorher baute sie jeder Abschnitt selbst, und das
@@ -126,7 +126,11 @@ interface SettingCardProps {
   subtitle?: ReactNode
   /** Rechts im Kopf – «Aktualisieren», ein Zustandsabzeichen. */
   action?: ReactNode
-  children: ReactNode
+  /**
+   * Fehlen die Zeilen, ist die Karte nur ihr Kopf: Titel, Untertitel und die eine
+   * Aktion – der Export der Import/Export-Seite besteht aus nichts anderem.
+   */
+  children?: ReactNode
   className?: string
 }
 
@@ -144,7 +148,7 @@ export function SettingCard({
   return (
     <Card className={cn('p-5', className)}>
       {(title || action) && (
-        <div className="mb-3 flex items-start gap-4">
+        <div className={cn('flex items-start gap-4', children && 'mb-3')}>
           <div className="min-w-0 space-y-0.5">
             {title && <p className="text-sm font-semibold">{title}</p>}
             {subtitle && <p className="text-xs leading-snug text-muted-foreground">{subtitle}</p>}
@@ -154,7 +158,7 @@ export function SettingCard({
           </div>
         </div>
       )}
-      <div>{children}</div>
+      {children && <div>{children}</div>}
     </Card>
   )
 }
@@ -201,22 +205,34 @@ export function SettingBlock({
  * Eine Untergruppe innerhalb einer Karte – «Magazin (Heimatbasis)», «Feinabstimmung».
  * Abstand darüber, kleine graue Überschrift, dann wieder Zeilen. Kein `uppercase`: die
  * Hauptanwendung schreibt in Grossschreibung nur auf dem Wanddisplay.
+ *
+ * `action` ist derselbe Platz wie im Kartenkopf, für den einen Schalter, der die ganze
+ * Gruppe an- und abstellt (die Automatik der Übungssteuerung). Ohne ihn müsste die Gruppe
+ * eine Zeile aufmachen, deren Beschriftung nur die Überschrift wiederholt.
  */
 export function SettingGroup({
   title,
   hint,
+  action,
   children,
   className,
 }: {
   title: ReactNode
   hint?: ReactNode
+  /** Rechts auf der Überschriftenzeile – der Hauptschalter der Gruppe. */
+  action?: ReactNode
   children: ReactNode
   className?: string
 }) {
   return (
     <div className={cn('mt-6', className)}>
-      <p className="text-xs font-semibold text-muted-foreground">{title}</p>
-      {hint && <p className="mt-0.5 mb-1 text-xs leading-snug text-muted-foreground">{hint}</p>}
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-muted-foreground">{title}</p>
+          {hint && <p className="mt-0.5 mb-1 text-xs leading-snug text-muted-foreground">{hint}</p>}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
       <div className="mt-1">{children}</div>
     </div>
   )

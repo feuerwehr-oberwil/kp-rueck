@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -28,17 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Form, FormField } from '@/components/ui/form';
+import { SettingCard } from '@/components/settings/setting-row';
+import { DetailField, DetailToggle } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, Check, CircleSlash } from 'lucide-react';
+import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, Check, CircleSlash, PackageMinus } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient, ApiError, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -377,7 +370,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   const locationValue = form.watch('location');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="list">{t('materials.tabList')}</TabsTrigger>
@@ -385,20 +378,31 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
           <TabsTrigger value="sort">{t('common.sortLocationsTab')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="space-y-4">
-          <Link
-            href="/settings?section=notifications"
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+        {/* Alle drei Reiter tragen eine Karte: Module und Sortierung brachten ihre
+            schon mit, die Liste stand als einzige direkt auf dem Seitenhintergrund.
+            «Neues Material» zieht in den Kartenkopf, der Schwellenwert-Link bleibt
+            als Untertitel darunter — er verweist weg, ist also kein Bedienelement. */}
+        <TabsContent value="list" className="mt-4">
+          <SettingCard
+            subtitle={
+              <Link
+                href="/settings?section=notifications"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                {t('materials.thresholdsLink')}
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            }
+            action={
+              <DemoLock active={demoMode}>
+                <Button onClick={handleOpenCreate}>
+                  <PlusCircle className="size-4" />
+                  {t('materials.addButton')}
+                </Button>
+              </DemoLock>
+            }
           >
-            {t('materials.thresholdsLink')}
-            <ArrowRight className="h-3 w-3" />
-          </Link>
           <DemoLock active={demoMode} className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={handleOpenCreate}>
-              <PlusCircle className="size-4" />
-              {t('materials.addButton')}
-            </Button>
             <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
               <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
@@ -406,41 +410,48 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                     {editingMaterial ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
                   </DialogTitle>
                 </DialogHeader>
+                {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.
+                    `fieldState` off the Controller render props carries the validation
+                    message, so the row needs neither FormItem nor FormMessage. */}
                 <Form {...form}>
-                  <form onSubmit={onSubmit} className="space-y-3" noValidate>
+                  <form onSubmit={onSubmit} className="space-y-1 py-2" noValidate>
                     <FormField
                       control={form.control}
                       name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-semibold text-muted-foreground">
-                            {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder={t('materials.namePlaceholder')}
-                              autoFocus
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                      render={({ field, fieldState }) => (
+                        <DetailField
+                          label={t('common.name')}
+                          htmlFor="material-name"
+                          required
+                          error={fieldState.error?.message}
+                        >
+                          <Input
+                            {...field}
+                            id="material-name"
+                            aria-invalid={!!fieldState.error}
+                            placeholder={t('materials.namePlaceholder')}
+                            autoFocus
+                          />
+                        </DetailField>
                       )}
                     />
                     <FormField
                       control={form.control}
                       name="type"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-semibold text-muted-foreground">{t('common.type')}</FormLabel>
+                      render={({ field, fieldState }) => (
+                        <DetailField
+                          label={t('common.type')}
+                          htmlFor="material-type"
+                          error={fieldState.error?.message}
+                        >
                           <div className="flex gap-2">
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder={t('materials.typePlaceholder')}
-                                className="flex-1"
-                              />
-                            </FormControl>
+                            <Input
+                              {...field}
+                              id="material-type"
+                              aria-invalid={!!fieldState.error}
+                              placeholder={t('materials.typePlaceholder')}
+                              className="flex-1"
+                            />
                             {existingTypes.filter((t) => t !== typeValue).length > 0 && (
                               <Select
                                 value=""
@@ -466,24 +477,26 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                               </Select>
                             )}
                           </div>
-                          <FormMessage />
-                        </FormItem>
+                        </DetailField>
                       )}
                     />
                     <FormField
                       control={form.control}
                       name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-semibold text-muted-foreground">{t('common.location')}</FormLabel>
+                      render={({ field, fieldState }) => (
+                        <DetailField
+                          label={t('common.location')}
+                          htmlFor="material-location"
+                          error={fieldState.error?.message}
+                        >
                           <div className="flex gap-2">
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder={t('materials.locationPlaceholder')}
-                                className="flex-1"
-                              />
-                            </FormControl>
+                            <Input
+                              {...field}
+                              id="material-location"
+                              aria-invalid={!!fieldState.error}
+                              placeholder={t('materials.locationPlaceholder')}
+                              className="flex-1"
+                            />
                             {existingLocations.filter((l) => l !== locationValue).length > 0 && (
                               <Select
                                 value=""
@@ -509,49 +522,44 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                               </Select>
                             )}
                           </div>
-                          <FormMessage />
-                        </FormItem>
+                        </DetailField>
                       )}
                     />
                     <FormField
                       control={form.control}
                       name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-semibold text-muted-foreground">{t('common.status')}</FormLabel>
+                      render={({ field, fieldState }) => (
+                        <DetailField
+                          label={t('common.status')}
+                          htmlFor="material-status"
+                          error={fieldState.error?.message}
+                        >
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger id="material-status" className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="available">{t('common.available')}</SelectItem>
                               <SelectItem value="unavailable">{t('common.unavailable')}</SelectItem>
                             </SelectContent>
                           </Select>
-                          <FormMessage />
-                        </FormItem>
+                        </DetailField>
                       )}
                     />
+                    {/* The bordered card with its sentence underneath is gone the same way
+                        the Einsatz form's three toggles lost theirs: one line, and the
+                        sentence lives on as the label's `title`. */}
                     <FormField
                       control={form.control}
                       name="consumable"
                       render={({ field }) => (
-                        <FormItem className="flex items-center justify-between rounded-lg border p-3 space-y-0">
-                          <div className="space-y-0.5">
-                            <FormLabel>{t('materials.consumableLabel')}</FormLabel>
-                            <p className="text-xs text-muted-foreground">
-                              {t('materials.consumableHint')}
-                            </p>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
+                        <DetailToggle
+                          label={t('materials.consumableLabel')}
+                          description={t('materials.consumableHint')}
+                          icon={<PackageMinus className="h-3.5 w-3.5" />}
+                          checked={field.value}
+                          onToggle={field.onChange}
+                        />
                       )}
                     />
                     <DialogFooter>
@@ -572,7 +580,6 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                 </Form>
               </DialogContent>
             </Dialog>
-          </div>
 
           {/* The archive is opened, not filtered: off, the endpoint returns no
               archived rows at all. The count on the right is the only hint that
@@ -759,9 +766,10 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
             </TableBody>
           </Table>
           </DemoLock>
+          </SettingCard>
         </TabsContent>
 
-        <TabsContent value="groups">
+        <TabsContent value="groups" className="mt-4">
           <DemoLock active={demoMode}>
             <MaterialGroupSettings
               groups={materialGroups}
@@ -771,7 +779,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
           </DemoLock>
         </TabsContent>
 
-        <TabsContent value="sort">
+        <TabsContent value="sort" className="mt-4">
           <CategorySortOrder
             title={t('materials.sortTitle')}
             description={t('materials.sortDescription')}
@@ -928,17 +936,18 @@ function MaterialGroupSettings({
   )
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {t('materials.groups.intro')}
-        </p>
-        <Button onClick={handleOpenCreate} size="sm">
-          <PlusCircle className="size-3.5" />
-          {t('materials.groups.createButton')}
-        </Button>
-      </div>
-
+    /* Der Einleitungssatz ist der Untertitel der Karte und der Knopf ihre Aktion –
+       dieselbe Kopfzeile wie bei jeder anderen Karte der Seite. */
+    <div className="space-y-6">
+      <SettingCard
+        subtitle={t('materials.groups.intro')}
+        action={
+          <Button onClick={handleOpenCreate} size="sm">
+            <PlusCircle className="size-3.5" />
+            {t('materials.groups.createButton')}
+          </Button>
+        }
+      >
       {groups.length === 0 ? (
         <div className="text-center text-muted-foreground py-8 text-sm">
           {t('materials.groups.empty')}
@@ -986,31 +995,28 @@ function MaterialGroupSettings({
           </TableBody>
         </Table>
       )}
+      </SettingCard>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-lg modal-h-tall flex flex-col" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editingGroup ? t('materials.groups.dialogEditTitle') : t('materials.groups.dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 flex-1 overflow-y-auto">
-            <div className="space-y-1.5">
-              <Label htmlFor="group-name" className="text-sm font-semibold text-muted-foreground">
-                {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
-              </Label>
+          <div className="flex-1 space-y-1 overflow-y-auto py-2">
+            <DetailField label={t('common.name')} htmlFor="group-name" required>
               <Input
                 id="group-name"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder={t('materials.groups.namePlaceholder')}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="group-location" className="text-sm font-semibold text-muted-foreground">{t('common.location')}</Label>
+            </DetailField>
+            <DetailField label={t('common.location')} htmlFor="group-location">
               <Select
                 value={groupLocation}
                 onValueChange={(value) => setGroupLocation(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="group-location" className="w-full">
                   <SelectValue placeholder={t('materials.groups.locationPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1019,10 +1025,10 @@ function MaterialGroupSettings({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-muted-foreground">{t('materials.groups.selectMaterials')}</Label>
-              <div className="mt-2 space-y-1 max-h-[250px] overflow-y-auto border rounded-md p-2">
+            </DetailField>
+            {/* The pick list is a scrolling box, so the label sits at the top of the row. */}
+            <DetailField label={t('materials.groups.selectMaterials')} alignStart>
+              <div className="max-h-[250px] space-y-1 overflow-y-auto rounded-md border p-2">
                 {availableMaterials.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">{t('materials.groups.noAvailableMaterials')}</p>
                 ) : (
@@ -1043,7 +1049,7 @@ function MaterialGroupSettings({
                   ))
                 )}
               </div>
-            </div>
+            </DetailField>
           </div>
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>

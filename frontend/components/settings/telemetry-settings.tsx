@@ -24,8 +24,7 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { SettingCard } from '@/components/settings/setting-row'
+import { SettingBlock, SettingCard } from '@/components/settings/setting-row'
 import { Textarea } from '@/components/ui/textarea'
 import { getApiUrl } from '@/lib/env'
 
@@ -235,8 +234,23 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
             </div>
           ) : (
             <>
-              <div className="space-y-1.5">
-                <Label htmlFor="telemetry-message" className="text-sm font-semibold text-muted-foreground">{t('reportLabel')}</Label>
+              {/* A textarea does not fit a 200px control column, so this is a
+                  `SettingBlock` — label over full-width field — and the counter takes the
+                  block's action slot instead of hanging under the field. */}
+              <SettingBlock
+                label={t('reportLabel')}
+                htmlFor="telemetry-message"
+                className="pt-0"
+                action={
+                  /* Only in the last tenth before the cap, digits only — no copy key, correct in
+                     every locale. Without it the ceiling is invisible until the server rejects. */
+                  message.length > MAX_MESSAGE * 0.9 ? (
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {message.length}/{MAX_MESSAGE}
+                    </span>
+                  ) : null
+                }
+              >
                 <Textarea
                   id="telemetry-message"
                   rows={4}
@@ -245,14 +259,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
                   placeholder={t('reportPlaceholder')}
                   onChange={(e) => setMessage(e.target.value)}
                 />
-                {/* Only in the last tenth before the cap, digits only — no copy key, correct in
-                    every locale. Without it the ceiling is invisible until the server rejects. */}
-                {message.length > MAX_MESSAGE * 0.9 && (
-                  <p className="text-right text-xs tabular-nums text-muted-foreground">
-                    {message.length}/{MAX_MESSAGE}
-                  </p>
-                )}
-              </div>
+              </SettingBlock>
               {/* The payload, verbatim and open, not a sentence describing it. «Das wird
                   mitgeschickt» is a claim until it can be read at the moment the decision is
                   made — and reading it is the consent this channel runs on. */}

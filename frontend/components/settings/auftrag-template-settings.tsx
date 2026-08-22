@@ -220,7 +220,10 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
             {t('empty')}
           </p>
         ) : (
-          <div ref={containerRef} className="divide-y divide-border rounded-lg border border-border">
+          /* Jede Vorlage trägt ihren eigenen Rahmen, statt dass ein Kasten sie mit
+             Haarlinien in Streifen schneidet — wie die Sortierliste daneben. Beim
+             Ziehen ist die Kante der Karte auch gleich die Kante des Griffs. */
+          <div ref={containerRef} className="space-y-2">
             {templates.map((template, index) => (
               <TemplateRow
                 key={template.id}
@@ -346,7 +349,11 @@ function TemplateRow({
   return (
     <div
       ref={rowRef}
-      className={cn('relative space-y-2 p-3', !template.auto_create && 'opacity-70', dragging && 'opacity-50')}
+      className={cn(
+        'relative space-y-2 rounded-lg border border-border p-3',
+        !template.auto_create && 'opacity-70',
+        dragging && 'opacity-50',
+      )}
     >
       <div className="flex items-center gap-2">
         <div

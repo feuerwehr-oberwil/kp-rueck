@@ -42,7 +42,7 @@ export function AlarmDescriptionFilterSettings({
   isEditor,
   saving,
 }: Props) {
-  const t = useTranslations('settings.page.alerting');
+  const t = useTranslations('settings.page.alarmIntake');
 
   /** Both fields behave identically — same storage, same empty default, saved on blur. */
   const field = (key: string, label: string, hint: string) => (

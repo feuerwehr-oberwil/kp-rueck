@@ -81,6 +81,7 @@ import {
   Shield,
   Info,
   Megaphone,
+  Inbox,
   Navigation,
   LifeBuoy,
   MessageSquareWarning,
@@ -176,7 +177,15 @@ const SECTIONS = [
   { id: 'sync', icon: RefreshCw, group: 'setup', editorOnly: false, adminOnly: true },
 
   // ---- Betrieb: was das Kommando über die Saison pflegt
+  // Alarmierung ist an der RICHTUNG geteilt, nicht am Anbieter: was die Station
+  // hinausschickt (WhatsApp-Vorlagen, Divera) gegen das, was hereinkommt (der
+  // Alarmtext der Zentrale, der Webhook-Schlüssel, die Meldungs-Chips, mit denen
+  // ein Trupp zurückmeldet). Zusammen war das ein Abschnitt von ~2500 Pixeln, in
+  // dem «Alarmtext bereinigen» unter einer Überschrift «Alarmierung» stand und
+  // darum nicht zu finden war. Die id `alerting` bleibt der ausgehenden Hälfte,
+  // damit bestehende `?section=alerting`-Links nicht ins Leere zeigen.
   { id: 'alerting', icon: Megaphone, group: 'operations', editorOnly: true, adminOnly: false },
+  { id: 'alarmIntake', icon: Inbox, group: 'operations', editorOnly: true, adminOnly: false },
   { id: 'notifications', icon: Bell, group: 'operations', editorOnly: false, adminOnly: false },
   { id: 'checklist', icon: ClipboardCheck, group: 'operations', editorOnly: true, adminOnly: false },
   { id: 'auftragTemplates', icon: Route, group: 'operations', editorOnly: true, adminOnly: false },
@@ -864,9 +873,8 @@ export default function SettingsPage() {
                       </div>
                     </SettingRow>
                   ))}
-                  <div className="pt-3">
-                    <BrandingSettings readOnly={!isEditor} />
-                  </div>
+                  {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
+                  <BrandingSettings readOnly={!isEditor} />
                 </DemoLock>
               )}
             </SettingCard>
@@ -1012,9 +1020,20 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
-            {/* Inbound side of Alarmierung: what the dispatch system puts into every alarm
-                text – standing lines dropped whole, labels stripped off kept lines. Both
-                lists ship empty, so an install that configures nothing filters nothing. */}
+            </DemoLock>
+          </div>
+        );
+      }
+
+      // Die hereinkommende Hälfte: was die Alarmzentrale schickt, womit sie sich
+      // ausweist, und was ein Trupp im Feld zurückmeldet.
+      case 'alarmIntake': {
+        return (
+          <div className="space-y-6">
+            <DemoLock active={demoMode}>
+            {/* What the dispatch system puts into every alarm text – standing lines
+                dropped whole, labels stripped off kept lines. Both lists ship empty,
+                so an install that configures nothing filters nothing. */}
             <AlarmDescriptionFilterSettings
               settings={settings}
               serverSettings={serverSettings}
@@ -1037,12 +1056,12 @@ export default function SettingsPage() {
                 at all, so the crew's chips are the wrong four for the person
                 sitting outside in the vehicle. */}
             <SettingCard
-              title={t('page.alerting.feldChipsTitle')}
-              subtitle={t('page.alerting.feldChipsDescription')}
+              title={t('page.alarmIntake.feldChipsTitle')}
+              subtitle={t('page.alarmIntake.feldChipsDescription')}
             >
               {([
-                { key: FELD_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_MESSAGE_CHIPS, label: t('page.alerting.feldChipsLabel') },
-                { key: FELD_DRIVER_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_DRIVER_MESSAGE_CHIPS, label: t('page.alerting.feldDriverChipsLabel') },
+                { key: FELD_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_MESSAGE_CHIPS, label: t('page.alarmIntake.feldChipsLabel') },
+                { key: FELD_DRIVER_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_DRIVER_MESSAGE_CHIPS, label: t('page.alarmIntake.feldDriverChipsLabel') },
               ] as const).map(({ key, fallback, label }) => {
                 const value = settings[key] !== undefined ? settings[key] : fallback;
                 const isCurrentlySaving = saving === key;
@@ -1144,7 +1163,7 @@ export default function SettingsPage() {
 
       case 'printer':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <DemoLock active={demoMode}>
               <PrinterSettings />
             </DemoLock>
@@ -1153,7 +1172,7 @@ export default function SettingsPage() {
 
       case 'fallback':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <FallbackSettings demoMode={demoMode} onOpenDeviceSection={() => navigateToSection('device')} />
           </div>
         );
@@ -1166,7 +1185,7 @@ export default function SettingsPage() {
 
       case 'users':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <DemoLock active={demoMode}>
               <UserSettings />
             </DemoLock>
@@ -1211,7 +1230,7 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Notifications */}
             {importError && (
-              <Card className="p-5 border-destructive bg-destructive/10">
+              <SettingCard className="border-destructive bg-destructive/10">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                   <div className="flex-1">
@@ -1221,11 +1240,11 @@ export default function SettingsPage() {
                     <X className="size-3.5" />
                   </Button>
                 </div>
-              </Card>
+              </SettingCard>
             )}
 
             {importSuccess && (
-              <Card className="p-5 border-success bg-success/10">
+              <SettingCard className="border-success bg-success/10">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-success mt-0.5" />
                   <div className="flex-1">
@@ -1235,22 +1254,22 @@ export default function SettingsPage() {
                     <X className="size-3.5" />
                   </Button>
                 </div>
-              </Card>
+              </SettingCard>
             )}
 
-            {/* Export - Simple one-click action */}
-            <Card className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{t('page.import.exportTitle')}</p>
-                  <p className="text-sm text-muted-foreground">{t('page.import.exportDescription')}</p>
-                </div>
+            {/* Export - Simple one-click action. Titel, Untertitel und die eine
+                Aktion sind genau der Kartenkopf, den `SettingCard` mitbringt. */}
+            <SettingCard
+              title={t('page.import.exportTitle')}
+              subtitle={t('page.import.exportDescription')}
+              action={
                 <Button onClick={handleExport} disabled={importLoading}>
                   <Download className="size-4" />
                   {t('page.import.exportButton')}
                 </Button>
-              </div>
-            </Card>
+              }
+            />
+
 
             {/* Import – mode first, then the file.
                 The mode, not the file, decides what the import costs: the same
@@ -1258,33 +1277,35 @@ export default function SettingsPage() {
                 then adds two recruits. Choosing it last, tucked below the upload,
                 made the expensive half of that sentence the easy thing to skip. */}
             <DemoLock active={demoMode}>
-            <Card className={`p-5 ${isReplace ? 'border-destructive/40' : ''}`}>
-              <div className="space-y-5">
-                <div className="flex items-start gap-3">
+            {/* Das Symbol wandert in den Titel, das Abzeichen in den Aktionsplatz –
+                derselbe Kartenkopf wie überall, nur dass er hier mit dem Modus die
+                Farbe wechselt. */}
+            <SettingCard
+              className={isReplace ? 'border-destructive/40' : undefined}
+              title={
+                <span className="flex items-center gap-2">
                   {isReplace
-                    ? <Trash2 className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
-                    : <Plus className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">
-                      {isReplace ? t('page.import.importTitleReplace') : t('page.import.importTitleAppend')}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isReplace ? t('page.import.importDescriptionReplace') : t('page.import.importDescriptionAppend')}
-                    </p>
-                  </div>
-                  {isReplace ? (
-                    <Badge variant="destructive">
-                      <Trash2 aria-hidden="true" />
-                      {t('page.import.badgeDataLoss')}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-success/40 text-success">
-                      <CheckCircle aria-hidden="true" />
-                      {t('page.import.badgeNoDeletion')}
-                    </Badge>
-                  )}
-                </div>
-
+                    ? <Trash2 className="size-4 shrink-0 text-destructive" aria-hidden="true" />
+                    : <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                  {isReplace ? t('page.import.importTitleReplace') : t('page.import.importTitleAppend')}
+                </span>
+              }
+              subtitle={isReplace ? t('page.import.importDescriptionReplace') : t('page.import.importDescriptionAppend')}
+              action={
+                isReplace ? (
+                  <Badge variant="destructive">
+                    <Trash2 aria-hidden="true" />
+                    {t('page.import.badgeDataLoss')}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-success/40 text-success">
+                    <CheckCircle aria-hidden="true" />
+                    {t('page.import.badgeNoDeletion')}
+                  </Badge>
+                )
+              }
+            >
+              <div className="space-y-5">
                 {/* Step 1: Mode – with its price in the station's own numbers. */}
                 <div className="p-3 bg-muted/50 rounded-lg space-y-3">
                   <div className="flex items-center gap-4">
@@ -1438,7 +1459,7 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
-            </Card>
+            </SettingCard>
             </DemoLock>
 
             {/* The balance: what the station looks like before and after, and what
@@ -1448,8 +1469,13 @@ export default function SettingsPage() {
 
             {/* Preview */}
             {preview && (
-              <Card ref={balance ? undefined : previewRef} className="p-5 space-y-4">
-                <p className="font-medium">{t('page.import.previewTitle')}</p>
+              <div ref={balance ? undefined : previewRef}>
+              {/* `space-y-4` on the INNER wrapper, not on the card: SettingCard
+                  renders its children into one div, so a card-level space-y only
+                  ever separated the header from the body — and the Mannschaft /
+                  Fahrzeuge / Material tables inside sat flush against each other. */}
+              <SettingCard title={t('page.import.previewTitle')}>
+              <div className="space-y-4">
 
                 {/* A sheet with a header row and nothing under it used to render as
                     absolutely nothing – indistinguishable from a sheet the file does
@@ -1551,7 +1577,9 @@ export default function SettingsPage() {
                     </Table>
                   </div>
                 )}
-              </Card>
+              </div>
+              </SettingCard>
+              </div>
             )}
           </div>
         );
@@ -1559,17 +1587,13 @@ export default function SettingsPage() {
 
       case 'audit':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Audit Export */}
-            <Card className="p-5">
-              <div className="space-y-4">
-                <div>
-                  <p className="font-medium">{t('page.audit.exportTitle')}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t('page.audit.exportDescription')}
-                  </p>
-                </div>
-
+            <SettingCard
+              title={t('page.audit.exportTitle')}
+              subtitle={t('page.audit.exportDescription')}
+            >
+              <div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex-1 w-full sm:w-auto">
                     <Select
@@ -1621,9 +1645,14 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
-            </Card>
+            </SettingCard>
 
-            {/* Search - Full width */}
+            {/* Suche, Filter und Treffer in EINER Karte – wie die Bestandslisten:
+                die Bedienleiste oben, die Tabelle darunter, alles auf derselben
+                Fläche. Vorher stand die Leiste nackt auf dem Seitenhintergrund und
+                jeder Zustand darunter (Laden / Fehler / leer / Tabelle) brachte
+                seine eigene Karte mit. */}
+            <SettingCard>
             <SearchInput
               placeholder={t('page.audit.searchPlaceholder')}
               value={auditSearchQuery}
@@ -1632,7 +1661,7 @@ export default function SettingsPage() {
             />
 
             {/* Filters - Compact row */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Select value={auditResourceFilter} onValueChange={setAuditResourceFilter}>
                 <SelectTrigger className="w-36 h-9">
                   <SelectValue placeholder={t('page.audit.resource')} />
@@ -1667,31 +1696,30 @@ export default function SettingsPage() {
             </div>
 
             {/* Content */}
+            <div className="mt-4">
             {auditLoading ? (
-              <Card className="p-5">
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex gap-3">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex gap-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))}
+              </div>
             ) : auditError ? (
-              <Card className="p-5">
+              <>
                 <p className="text-destructive">{auditError}</p>
                 <Button onClick={fetchAuditLogs} className="mt-4">{t('common.retry')}</Button>
-              </Card>
+              </>
             ) : filteredAuditEntries.length === 0 ? (
-              <Card className="p-5 text-center text-muted-foreground">
+              <p className="py-4 text-center text-muted-foreground">
                 {hasActiveAuditFilters ? t('page.audit.noEntriesFiltered') : t('page.audit.noEntries')}
-              </Card>
+              </p>
             ) : (
               <>
                 {/* Desktop Table - Hidden on mobile */}
-                <Card className="hidden md:block overflow-hidden">
+                <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1735,7 +1763,7 @@ export default function SettingsPage() {
                       ))}
                     </TableBody>
                   </Table>
-                </Card>
+                </div>
 
                 {/* Mobile Cards - Shown only on mobile */}
                 <div className="md:hidden space-y-3">
@@ -1769,6 +1797,8 @@ export default function SettingsPage() {
                 </div>
               </>
             )}
+            </div>
+            </SettingCard>
           </div>
         );
 
@@ -1910,7 +1940,7 @@ export default function SettingsPage() {
           {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; extra bottom padding so content clears the bottom nav. */}
           <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
-            <div className="max-w-4xl space-y-4">
+            <div className="max-w-4xl space-y-6">
               {renderContent()}
             </div>
           </main>
