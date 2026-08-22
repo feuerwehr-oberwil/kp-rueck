@@ -12,6 +12,34 @@ After step 3 the board is usable with hand-entered resources.
 
 ---
 
+## Der schnellste Weg: double-click
+
+For a board on a trusted LAN, run from a Mac or Windows machine in the Gerätehaus, there is a
+path with **no terminal, no `git`, and no `.env` editing**:
+
+1. Download the **source code zip** of the
+   [latest release](https://github.com/feuerwehr-oberwil/kp-rueck/releases) and unzip it.
+2. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it once.
+3. In the unzipped folder, double-click **`deploy/Start KP Rück.command`** (macOS) or
+   **`deploy/Start-KP-Rueck.bat`** (Windows).
+4. It generates the secrets into an `.env`, pulls the published images, starts the stack, and
+   opens the browser. The board boots **unclaimed**: the first visit sets the admin password
+   and the station name at `/setup` – no password ever lives in a file.
+
+Double-clicking the same file again is also the **update path**: it pulls the newest images and
+restarts the board, keeping all data. It never overwrites an existing `.env`.
+
+Two honest warnings about first launch: on macOS, Gatekeeper refuses a downloaded `.command`
+on plain double-click – **right-click → Open** once, and it runs normally from then on. On
+Windows, SmartScreen shows "Der Computer wurde durch Windows geschützt" – click **Weitere
+Informationen → Trotzdem ausführen** once.
+
+What this path does *not* give you: a domain with HTTPS, your own choice of port, or
+pre-chosen passwords in `.env`. For any of those, follow §1 below (`just init`) instead –
+everything from §2 onward is the same either way.
+
+---
+
 ## 0. Before you start
 
 Have these in hand. Every one of them is something people go looking for halfway through.
@@ -80,14 +108,17 @@ fails at everything.
 <details>
 <summary><strong>By hand instead</strong> (no <code>just</code>, or you want to see every line)</summary>
 
-`cp .env.example .env` and fill in the five required values – none has a safe default:
+`cp .env.example .env` and fill in the five values. The first three have no safe default; the
+two account passwords may stay empty – the board then boots *unclaimed* and the first browser
+visit sets the accounts at `/setup`:
 
 ```bash
 POSTGRES_PASSWORD=…          # any strong value
 SECRET_KEY=…                 # openssl rand -hex 32  – KEEP STABLE
 AUTH_SECRET_KEY=…            # openssl rand -hex 32  – KEEP STABLE, signs logins
-ADMIN_SEED_PASSWORD=…        # ≥12 chars – this is your first login
-VIEWER_PASSWORD=…            # ≥12 chars – the read-only account for wall displays and guests
+ADMIN_SEED_PASSWORD=…        # ≥12 chars, or empty = set it in the browser at /setup
+VIEWER_PASSWORD=…            # ≥12 chars, or empty = same – the read-only account for wall
+                             # displays and guests
 ```
 
 Then the three networking lines, which is where first-time setups usually go wrong. With a

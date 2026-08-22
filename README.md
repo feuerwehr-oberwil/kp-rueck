@@ -110,6 +110,16 @@ mini PC, a retired laptop, an ARM VPS or a Raspberry Pi 5 all qualify. Sizing de
 including the one step that does want a bigger machine, are in
 [docs/DEPLOYMENT.md §0](docs/DEPLOYMENT.md).
 
+**The fastest path, no terminal (Mac/Windows on a LAN):** download the source zip of the
+[latest release](https://github.com/feuerwehr-oberwil/kp-rueck/releases), install
+[Docker Desktop](https://www.docker.com/products/docker-desktop/), and double-click
+`deploy/Start KP Rück.command` (macOS) or `deploy/Start-KP-Rueck.bat` (Windows). It generates
+the secrets, starts the stack and opens the browser – the first visit sets the admin password
+and station name at `/setup`, and double-clicking again later is the update. Details, including
+the one-time Gatekeeper/SmartScreen click, are in
+[docs/SETUP.md](docs/SETUP.md#der-schnellste-weg-double-click). Prefer a terminal, a domain
+with HTTPS, or your own port? That is the path below.
+
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git && cd kp-rueck
 git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main
