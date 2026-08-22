@@ -616,7 +616,13 @@ export function OperationDetailContent({
   // than a fixed quarter each (`flex-1`, the default): «Rapport · erfasst» is
   // wider than a quarter of 420px and would spill over «Verlauf».
   const tabTriggerClass = dense ? "flex-auto px-1.5" : undefined
-  const tabGridClass = cn("grid grid-cols-1 gap-8 py-4", layout === 'modal' && "lg:grid-cols-2")
+  // The facts column is capped: rows built for the 420px panel sprawl on a
+  // 1100px modal half — the toggle switches ended up 800px from their labels
+  // and read as unaligned. The resources column takes what remains.
+  const tabGridClass = cn(
+    "grid grid-cols-1 gap-8 py-4",
+    layout === 'modal' && "lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]",
+  )
   const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
@@ -1171,13 +1177,13 @@ export function OperationDetailContent({
               // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
               // height beats the base Textarea's `field-sizing-content` — which
               // is how a dictated Meldung ended up scrolling inside five rems
-              // and clipped mid-word. The min-height stays the floor, the
-              // max-height is the point where it goes back to scrolling rather
-              // than pushing the whole form off the panel.
+              // and clipped mid-word. The floor is ONE line — an empty Meldung
+              // must not reserve a void — and the max-height is where it goes
+              // back to scrolling rather than pushing the form off the panel.
               className={cn(
                 DENSE_CONTROL,
                 "h-auto py-1",
-                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[5rem]",
+                dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
               )}
             />
           </DetailField>
@@ -1235,7 +1241,7 @@ export function OperationDetailContent({
               className={cn(
                 DENSE_CONTROL,
                 "h-auto py-1",
-                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[4rem]",
+                dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
               )}
             />
           </DetailField>
@@ -1378,7 +1384,12 @@ export function OperationDetailContent({
             {/* «Kräfte» — the third of the mock's group headings: who and what
                 is out there. Covers the Reko line and the Ressourcen below;
                 «Status wechseln» above keeps its own control heading. */}
-            <DetailGroupHeading>{t('detail.groups.kraefte')}</DetailGroupHeading>
+            {/* The count rides on the heading — «Kräfte (7)» is what gets asked
+                for over the radio; the standalone «Ressourcen (n)» line it
+                replaces said the same thing one heading level lower. */}
+            <DetailGroupHeading>
+              {t('detail.groups.kraefte')} ({totalResourceCount})
+            </DetailGroupHeading>
             {/* Reko, as ONE line: who is out looking, since when — and a way
                 through to the rest. The five controls that used to live here
                 (zuweisen/wechseln, the two links, the event-wide transfer) are
@@ -1423,17 +1434,6 @@ export function OperationDetailContent({
           {/* The resource sections bring their own `mt-4` rhythm, which is what
               spaces them from the Reko line above. */}
           <div>
-          {/* One number for the whole Schadenplatz, whichever side of the
-              provenance line each resource sits on — «Ressourcen (7)» is what
-              gets asked for over the radio, and until now it stood nowhere.
-              Deliberately without an icon: the three sections below have theirs,
-              and this is the level above them. */}
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-sm font-medium">
-              {t('detail.resourcesCount', { count: totalResourceCount })}
-            </span>
-          </div>
-
           {/* Mannschaft / Fahrzeuge / Material, grouped by WHERE THEY COME FROM.
               An Auftrag owns resources that ride on to the next stop; the stop
               itself can own resources that are released when it is finished.

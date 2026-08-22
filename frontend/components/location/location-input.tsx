@@ -405,13 +405,10 @@ export function LocationInput({
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverAnchor asChild>
               <div ref={anchorRef} className="relative flex-1">
-                {/* Dense only: the side panel's borderless row needs the pin to
-                    read as a field at all. In a normal form the icon made this
-                    the one input styled unlike its siblings, so there it is a
-                    plain Input like every other field. */}
-                {dense && !boxed && (
-                  <MapPin className="pointer-events-none absolute top-1/2 left-1.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                )}
+                {/* No pin inside the dense field any more: its pl-7 shifted the
+                    address right of every sibling row's value — the one visibly
+                    unaligned line in the detail. The row's own label plus the
+                    map buttons beside it say what the field is. */}
                 <Input
                   id="location_address"
                   ref={searchInputRef}
@@ -454,7 +451,7 @@ export function LocationInput({
                     // Transparent border + constant padding: focusing must not
                     // move the text the operator just clicked on.
                     dense && !boxed &&
-                      "h-7 rounded-md border border-transparent bg-transparent px-2 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
+                      "h-7 rounded-md border border-transparent bg-transparent px-2 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
                     boxed && "pr-16",
                     error && "border-destructive focus-visible:ring-destructive"
                   )}
