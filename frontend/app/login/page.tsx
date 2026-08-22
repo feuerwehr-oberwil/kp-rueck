@@ -52,6 +52,17 @@ export default function LoginPage() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    // An unclaimed board has no accounts to log into — the first visit belongs
+    // to the setup wizard. Checked only when this page mounts (not on every app
+    // boot), and failing open: an unreachable backend keeps this a login page.
+    apiClient.getSetupStatus().then((status) => {
+      if (status && !status.claimed) {
+        router.replace('/setup');
+      }
+    });
+  }, [router]);
+
+  useEffect(() => {
     Promise.all([
       apiClient.getDemoStatus().then((status) => {
         setIsDemo(status?.demo ?? false);

@@ -36,7 +36,10 @@ vi.mock('@/lib/contexts/event-context', () => ({
   apiEventToEvent: (e: unknown) => e,
 }))
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getDemoStatus: () => Promise.resolve({ demo: false }) },
+  apiClient: {
+    getDemoStatus: () => Promise.resolve({ demo: false }),
+    getSetupStatus: () => Promise.resolve({ claimed: true }),
+  },
 }))
 vi.mock('@/lib/auth-client', () => ({ getMicrosoftAuthConfig: () => Promise.resolve(null) }))
 

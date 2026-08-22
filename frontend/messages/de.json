@@ -2126,6 +2126,28 @@
       "retry": "Erneut versuchen"
     }
   },
+  "setup": {
+    "page": {
+      "title": "Dieses Board einrichten",
+      "subtitle": "Das Board gehört noch niemandem. Zwei Angaben, dann läuft es für eure Feuerwehr.",
+      "stationNameLabel": "Name der Feuerwehr",
+      "stationNamePlaceholder": "Feuerwehr Oberwil",
+      "passwordLabel": "Admin-Passwort",
+      "passwordHint": "mindestens 12 Zeichen",
+      "passwordRepeatLabel": "Admin-Passwort wiederholen",
+      "showPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen",
+      "submit": "Board einrichten",
+      "submitting": "Wird eingerichtet...",
+      "errorTooShort": "Das Passwort muss mindestens 12 Zeichen lang sein.",
+      "errorMismatch": "Die Passwörter stimmen nicht überein.",
+      "errorGeneric": "Einrichten fehlgeschlagen. Bitte versuche es erneut.",
+      "alreadyClaimedTitle": "Bereits eingerichtet",
+      "alreadyClaimedBody": "Dieses Board wurde bereits eingerichtet. Melde dich mit deinem Konto an.",
+      "goToLogin": "Zur Anmeldung",
+      "footer": "Alles Weitere – Konten, Karten, Backups – wartet in den Einstellungen. Wer per Konfigurationsdatei einrichtet: <code>docs/SETUP.md</code>."
+    }
+  },
   "events": {
     "page": {
       "title": "Ereignisse",

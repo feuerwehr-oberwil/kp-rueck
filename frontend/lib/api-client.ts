@@ -2774,6 +2774,33 @@ class ApiClient {
       skipToast: true,
     })
   }
+
+  // First-run setup (unauthenticated — the wizard at /setup)
+
+  /**
+   * Whether this deployment has been claimed by a station yet. Returns null when the
+   * backend cannot be reached — callers fail open (the login page stays a login page).
+   */
+  async getSetupStatus(): Promise<ApiSetupStatus | null> {
+    try {
+      return (await this.request<ApiSetupStatus>('/api/setup/status', { skipToast: true })) ?? null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Claim the board: names the station and creates the admin account.
+   * Rejects with a 409 `ApiError` when someone else already claimed it,
+   * 422 when the password is too short.
+   */
+  async claimSetup(data: ApiSetupClaim): Promise<ApiSetupResult> {
+    return this.request<ApiSetupResult>('/api/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      skipToast: true,
+    })
+  }
 }
 
 // User Management Types
@@ -2839,6 +2866,20 @@ export interface ApiPrintJob {
   completed_at?: string
   error_message?: string
   retry_count: number
+}
+
+// First-Run Setup Types
+export interface ApiSetupStatus {
+  claimed: boolean
+}
+
+export interface ApiSetupClaim {
+  station_name: string
+  admin_password: string
+}
+
+export interface ApiSetupResult {
+  username: string
 }
 
 // Demo Mode Types

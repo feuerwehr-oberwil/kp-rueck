@@ -4,13 +4,17 @@ import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
 const mockLogin = vi.fn();
 const mockSetSelectedEvent = vi.fn();
 const mockCreateDemoSandbox = vi.fn();
 const mockGetEvent = vi.fn();
+const mockGetSetupStatus = vi.fn();
 
+// Stable like the real Next router — the setup-status effect depends on it.
+const mockRouter = { push: mockPush, replace: mockReplace };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => mockRouter,
 }));
 
 vi.mock("@/lib/contexts/auth-context", () => ({
@@ -40,6 +44,7 @@ vi.mock("@/lib/api-client", () => ({
       }),
     createDemoSandbox: (...args: unknown[]) => mockCreateDemoSandbox(...args),
     getEvent: (...args: unknown[]) => mockGetEvent(...args),
+    getSetupStatus: (...args: unknown[]) => mockGetSetupStatus(...args),
   },
 }));
 
@@ -49,6 +54,7 @@ const SANDBOX_EVENT_ID = "11111111-2222-3333-4444-555555555555";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetSetupStatus.mockResolvedValue({ claimed: true });
   mockLogin.mockResolvedValue(undefined);
   mockCreateDemoSandbox.mockResolvedValue({
     event_id: SANDBOX_EVENT_ID,
@@ -109,5 +115,24 @@ describe("LoginPage demo sandbox flow", () => {
     expect(mockSetSelectedEvent).toHaveBeenCalledWith(
       expect.objectContaining({ id: SANDBOX_EVENT_ID }),
     );
+  });
+});
+
+describe("LoginPage first-run gating", () => {
+  it("redirects to /setup while the board is unclaimed", async () => {
+    mockGetSetupStatus.mockResolvedValue({ claimed: false });
+    renderWithIntl(<LoginPage />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/setup"));
+  });
+
+  it("stays a login page when the setup status cannot be read (fail open)", async () => {
+    // getSetupStatus swallows network errors into null — an unreachable
+    // backend must never lock a working station out of its login.
+    mockGetSetupStatus.mockResolvedValue(null);
+    renderWithIntl(<LoginPage />);
+
+    await screen.findByRole("button", { name: /Als Editor einloggen/i });
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

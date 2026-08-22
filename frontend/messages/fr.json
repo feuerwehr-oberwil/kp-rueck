@@ -3583,6 +3583,28 @@
       "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte."
     }
   },
+  "setup": {
+    "page": {
+      "title": "Configurer ce tableau",
+      "subtitle": "Ce tableau n’appartient encore à personne. Deux indications, et il fonctionne pour votre corps de sapeurs-pompiers.",
+      "stationNameLabel": "Nom du corps de sapeurs-pompiers",
+      "stationNamePlaceholder": "Sapeurs-pompiers d’Oberwil",
+      "passwordLabel": "Mot de passe admin",
+      "passwordHint": "au moins 12 caractères",
+      "passwordRepeatLabel": "Répéter le mot de passe admin",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
+      "submit": "Configurer le tableau",
+      "submitting": "Configuration en cours...",
+      "errorTooShort": "Le mot de passe doit comporter au moins 12 caractères.",
+      "errorMismatch": "Les mots de passe ne correspondent pas.",
+      "errorGeneric": "La configuration a échoué. Veuillez réessayer.",
+      "alreadyClaimedTitle": "Déjà configuré",
+      "alreadyClaimedBody": "Ce tableau a déjà été configuré. Connectez-vous avec votre compte.",
+      "goToLogin": "Vers la connexion",
+      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>."
+    }
+  },
   "sync": {
     "common": {
       "fromRailway": "Depuis Railway",
