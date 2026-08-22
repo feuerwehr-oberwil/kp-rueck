@@ -18,6 +18,7 @@ from ..config import settings
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
 from ..crud import reko as reko_crud
+from ..crud.materials import apply_out_of_service
 from ..database import async_session_maker, get_db
 from ..models import (
     EmergencyTemplate,
@@ -1171,13 +1172,16 @@ async def simulate_vehicle_breakdown(
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
 
+    # Readiness is `out_of_service_since`, not the legacy `status` mirror, and an
+    # archived vehicle is retired inventory that must not be picked as a victim.
     vehicles_result = await db.execute(
         select(Vehicle)
         .join(IncidentAssignment, IncidentAssignment.resource_id == Vehicle.id)
         .where(IncidentAssignment.incident_id == incident_id)
         .where(IncidentAssignment.resource_type == "vehicle")
         .where(IncidentAssignment.unassigned_at.is_(None))
-        .where(Vehicle.status == "available")
+        .where(Vehicle.out_of_service_since.is_(None))
+        .where(Vehicle.archived_at.is_(None))
     )
     candidates = list(vehicles_result.scalars().all())
     if not candidates:
@@ -1187,7 +1191,10 @@ async def simulate_vehicle_breakdown(
         )
 
     vehicle = random.choice(candidates)
-    vehicle.status = "unavailable"
+    # Through the helper, so the exercise leaves the same row a real breakdown
+    # would: `out_of_service_since` stamped and `status` mirrored, never one of
+    # the two on its own — the drift `crud/materials.py` exists to prevent.
+    apply_out_of_service(vehicle, True)
 
     message = f"Fahrzeug {vehicle.name} ausgefallen: {incident.title} – Ersatz disponieren"
     db.add(

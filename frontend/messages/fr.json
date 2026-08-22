@@ -352,11 +352,15 @@
       "cancel": "Annuler",
       "attaching": "Rattachement...",
       "trainingOnlyHint": "Les alarmes d’exercice ne peuvent être rattachées qu’à des exercices.",
-      "newAlarmGeneric": "Nouvelle alarme"
+      "newAlarmGeneric": "Nouvelle alarme",
+      "realAlarmWarningTitle": "{count, plural, one {Cette alarme est réelle, l'événement est un exercice} other {Ces alarmes sont réelles, l'événement est un exercice}}",
+      "realAlarmWarningAlerting": "L'alarme sortante est seulement simulée – <hint>personne n'est mobilisé.</hint>",
+      "realAlarmWarningThresholds": "Les seuils de retard sont 50 % plus longs – <hint>les avertissements arrivent plus tard qu'en cas réel.</hint>",
+      "attachAnyway": "Rattacher quand même à l'exercice"
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",
-      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées, via le fournisseur d’alarme configuré. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Nécessite une clé d’accès du fournisseur ; les personnes sont liées par la synchronisation des membres.",
+      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Les personnes sont liées par la synchronisation des membres.",
       "titleFieldLabel": "Mot-clé (titre)",
       "titleFieldHint": "Titre du push. Reste bref. Champs disponibles : '{type}, {location}, {priority}'.",
       "textFieldLabel": "Texte de l’alarme",

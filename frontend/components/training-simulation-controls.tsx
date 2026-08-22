@@ -332,7 +332,13 @@ export function TrainingSimulationControls() {
     try {
       const result = await apiClient.simulateFieldComplete(selectedEvent.id, op.id, { pickupNeeded });
       if (result.pickup_needed) {
-        toast.warning(t('pickupNeeded'), { description: t('pickupNeededDescription') });
+        // Never a warning: the Übungsleiter is being told about their own click.
+        // It is only NEWS when they let the backend decide («Lage entscheidet»)
+        // — then the Abholung is something they did not choose, and `info` says
+        // so without dressing an exercise step up as an alarm.
+        const description = t('pickupNeededDescription');
+        if (pickupNeeded === undefined) toast.info(t('pickupNeeded'), { description });
+        else toast.success(t('pickupNeeded'), { description });
       }
       void refreshOperations();
     } catch (error: unknown) {
@@ -365,7 +371,12 @@ export function TrainingSimulationControls() {
         if (op.pickupNeeded) {
           toast.success(t('pickupCleared'), { description: result.message });
         } else {
-          toast.warning(t('pickupNeeded'), { description: result.message });
+          // Both halves confirm, neither warns — the trainer picked this item
+          // out of the inject menu a moment ago. The description says what it
+          // changed on the board instead of echoing the server's sentence back:
+          // that one ends in «· im KP erfasst», provenance the Meldungen thread
+          // needs and a toast about your own click does not.
+          toast.success(t('pickupNeeded'), { description: t('pickupNeededDescription') });
         }
       } else if (inject === 'escalate') {
         await apiClient.simulateEscalation(selectedEvent.id, op.id);

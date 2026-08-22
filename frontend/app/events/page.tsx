@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useTranslations } from 'next-intl'
+import { useFormatter, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
@@ -28,6 +28,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 import { EventRestliste } from '@/components/events/event-restliste'
+import { TrainingBadge } from '@/components/training-mode-chrome'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -62,6 +63,12 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export default function EventsPage() {
   const t = useTranslations('events')
+  // Dates were hardcoded to `de-CH`, which is wrong on a board running in
+  // French — and `fr` ships. `useFormatter` follows the active locale, and gives
+  // the three date lines one format instead of two (one had a time, two did not).
+  const format = useFormatter()
+  // The board's own «Übung» wording, so one drill is not called two things.
+  const tTraining = useTranslations('kanban')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
@@ -447,23 +454,21 @@ export default function EventsPage() {
                         <Card
                           key={event.id}
                           data-testid="event-card"
-                          className={`cursor-pointer transition-all hover:border-primary/50 ${
-                            selectedEvent?.id === event.id ? 'border-2 border-red-600' : ''
+                          className={`flex flex-col transition-all ${
+                            selectedEvent?.id === event.id ? 'ring-2 ring-primary' : ''
                           }`}
                         >
                           <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
-                              {event.name}
-                              {event.training_flag && (
-                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                              )}
+                              <span className="min-w-0 truncate">{event.name}</span>
+                              {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
-                            <div className="space-y-2 text-sm text-muted-foreground">
+                          <CardContent className="flex flex-1 flex-col">
+                            <div className="space-y-1 text-sm text-muted-foreground">
                               <div>{t('page.incidentCount', { count: event.incident_count })}</div>
-                              <div>{t('page.createdAt', { date: new Date(event.created_at).toLocaleDateString('de-CH') })}</div>
-                              <div>{t('page.lastActivity', { date: new Date(event.last_activity_at).toLocaleString('de-CH') })}</div>
+                              <div>{t('page.createdAt', { date: format.dateTime(new Date(event.created_at), { dateStyle: 'short' }) })}</div>
+                              <div>{t('page.lastActivity', { date: format.dateTime(new Date(event.last_activity_at), { dateStyle: 'short', timeStyle: 'short' }) })}</div>
                             </div>
 
                             {/* The Restliste (plan 25, §6/V-8): what is still
@@ -477,7 +482,7 @@ export default function EventsPage() {
                               printerEnabled={printerEnabled}
                             />
 
-                            <div className="mt-4 flex gap-2">
+                            <div className="mt-auto flex gap-2 pt-4">
                               <Button
                                 className="flex-1"
                                 onClick={() => handleSelectEvent(event)}
@@ -513,24 +518,22 @@ export default function EventsPage() {
                         <Card
                           key={event.id}
                           data-testid="event-card"
-                          className="opacity-50 border-dashed"
+                          className="flex flex-col border-dashed bg-muted/20"
                         >
                           <CardHeader>
                             <CardTitle className="text-lg text-muted-foreground flex items-center gap-2">
-                              {event.name}
-                              {event.training_flag && (
-                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                              )}
+                              <span className="min-w-0 truncate">{event.name}</span>
+                              {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
-                            <div className="space-y-2 text-sm text-muted-foreground">
+                          <CardContent className="flex flex-1 flex-col">
+                            <div className="space-y-1 text-sm text-muted-foreground">
                               <div>{t('page.incidentCount', { count: event.incident_count })}</div>
-                              <div>{t('page.createdAt', { date: new Date(event.created_at).toLocaleDateString('de-CH') })}</div>
-                              <div>{t('page.archivedAt', { date: new Date(event.archived_at!).toLocaleDateString('de-CH') })}</div>
+                              <div>{t('page.createdAt', { date: format.dateTime(new Date(event.created_at), { dateStyle: 'short' }) })}</div>
+                              <div>{t('page.archivedAt', { date: format.dateTime(new Date(event.archived_at!), { dateStyle: 'short' }) })}</div>
                             </div>
 
-                            <div className="mt-4 flex gap-2">
+                            <div className="mt-auto flex gap-2 pt-4">
                               <Button
                                 variant="outline"
                                 className="flex-1"

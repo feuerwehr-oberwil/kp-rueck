@@ -2451,11 +2451,15 @@
       "cancel": "Abbrechen",
       "attaching": "Wird angehängt...",
       "trainingOnlyHint": "Übungs-Alarme können nur an Übungen angehängt werden.",
-      "newAlarmGeneric": "Neuer Alarm"
+      "newAlarmGeneric": "Neuer Alarm",
+      "realAlarmWarningTitle": "{count, plural, one {Dieser Alarm ist echt, das Ereignis ist eine Übung} other {Diese Alarme sind echt, das Ereignis ist eine Übung}}",
+      "realAlarmWarningAlerting": "Die Ausalarmierung wird nur simuliert – <hint>es wird niemand aufgeboten.</hint>",
+      "realAlarmWarningThresholds": "Die Überfällig-Schwellen sind 50 % länger – <hint>Warnungen kommen später als im Ernstfall.</hint>",
+      "attachAnyway": "Trotzdem an die Übung anhängen"
     },
     "alarmSettings": {
       "cardTitle": "Ausalarmierung",
-      "cardDescription": "Schickt beim Disponieren ein Aufgebot als Push über den konfigurierten Alarmierungs-Anbieter an die zugewiesenen, verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Benötigt einen Zugangsschlüssel des Anbieters; Personen werden über den Member-Sync verknüpft.",
+      "cardDescription": "Schickt beim Disponieren ein Aufgebot als Push an die zugewiesenen, verknüpften Personen. Die Nachricht wird aus dem Einsatz erzeugt (Typ als Stichwort, Details als Text). Personen werden über den Member-Sync verknüpft.",
       "titleFieldLabel": "Stichwort (Titel)",
       "titleFieldHint": "Push-Titel. Kurz halten. Platzhalter: '{type}, {location}, {priority}'.",
       "textFieldLabel": "Alarmtext",

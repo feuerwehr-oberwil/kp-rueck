@@ -36,6 +36,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
+import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
@@ -943,10 +944,20 @@ export default function MapPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
+        {/* Übung: the same warning strip the board and the wall display carry, at
+            the top edge of the window. Chrome, not content — it is fixed and out
+            of flow, so it stays put while the map and the rail scroll, and it
+            never competes with a marker's priority colour. Outside the header on
+            purpose: the header is desktop-only, and the strip has to survive on
+            mobile too. */}
+        {selectedEvent?.training_flag && <TrainingBand />}
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
+            {/* The word next to the page title, in the same warning colour the
+                board's event switcher uses — colour alone never carries it. */}
+            {selectedEvent?.training_flag && <TrainingBadge label={tKanban('dashboard.training')} />}
             <Badge variant="secondary" className="hidden sm:inline-flex">
               {t('page.activeBadge', { count: activeIncidents.length })}
             </Badge>

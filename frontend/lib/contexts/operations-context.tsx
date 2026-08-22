@@ -126,6 +126,11 @@ export interface Operation {
   /** Order of this stop within its Auftrag (lower = earlier). 0 when ungrouped. */
   groupPosition: number
   source?: string // Origin: "operator" (dashboard), "intake" (phone/walk-in), "feld" (a Trupp), or a delivering system's slug. Absent for locally-created ops.
+  /** Server-derived: this incident came from a GENUINE dispatch alarm rather
+   *  than a simulated drill one. Meaningful only inside a training Ereignis,
+   *  where the card says so — the only per-incident marker the training mode
+   *  has, because such an incident deviates from the Ereignis around it. */
+  fromRealAlarm?: boolean
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -548,6 +553,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       groupId: incident.group_id ?? null,
       groupPosition: incident.group_position ?? 0,
       source: incident.source || "operator",
+      fromRealAlarm: incident.from_real_alarm ?? false,
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -1659,6 +1665,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           amWartenNote: apiIncident.am_warten_note || "",
           zuFuss: apiIncident.zu_fuss || false,
           source: apiIncident.source || "operator",
+          fromRealAlarm: apiIncident.from_real_alarm ?? false,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,

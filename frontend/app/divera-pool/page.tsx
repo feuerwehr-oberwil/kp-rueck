@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Link2, RefreshCw, Check, Info, Loader2 } from 'lucide-react';
+import { Link2, RefreshCw, Check, Info, Loader2, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { getDateFnsLocale } from '@/lib/date-locale';
@@ -151,6 +151,16 @@ export default function DiveraPoolPage() {
   const attachableEvents = hasTrainingSelection
     ? activeEvents.filter((e) => e.training_flag)
     : activeEvents;
+
+  // The other direction is deliberately NOT blocked: a genuine alarm during a
+  // running drill may well have to be carried on the same board. It is a
+  // question, not a verdict — but the consequences that stay are named before
+  // the click, because nothing on the board repeats them afterwards.
+  const realAlarmCount = emergencies.filter(
+    (e) => selectedEmergencies.has(e.id) && !e.is_training
+  ).length;
+  const selectedAttachEvent = attachableEvents.find((e) => e.id === selectedEventId);
+  const realAlarmIntoTraining = !!selectedAttachEvent?.training_flag && realAlarmCount > 0;
 
   const handleAttachClick = () => {
     if (selectedEmergencies.size === 0) return;
@@ -445,15 +455,36 @@ export default function DiveraPoolPage() {
                 {t('trainingOnlyHint')}
               </p>
             )}
+            {realAlarmIntoTraining && (
+              <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-warning-foreground">
+                  <AlertTriangle className="size-4 shrink-0" />
+                  {t('realAlarmWarningTitle', { count: realAlarmCount })}
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                  {(['realAlarmWarningAlerting', 'realAlarmWarningThresholds'] as const).map((key) => (
+                    <li key={key}>
+                      {t.rich(key, {
+                        hint: (chunks) => <span className="text-muted-foreground">{chunks}</span>,
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowAttachDialog(false)} disabled={attaching}>
               {t('cancel')}
             </Button>
-            <Button onClick={handleAttach} disabled={!selectedEventId || attaching}>
+            <Button
+              onClick={handleAttach}
+              disabled={!selectedEventId || attaching}
+              variant={realAlarmIntoTraining ? 'destructive' : 'default'}
+            >
               {attaching && <Loader2 className="size-4 animate-spin" />}
-              {t('attach')}
+              {realAlarmIntoTraining ? t('attachAnyway') : t('attach')}
             </Button>
           </DialogFooter>
         </DialogContent>
