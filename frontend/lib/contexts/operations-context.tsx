@@ -273,6 +273,10 @@ interface OperationsContextType {
         /** Display name; also the key crew/vehicle lists are held under. */
         resourceName: string
         targetOperationId: string
+        /** Where it is going, by name — the dialog's «Neu:» line. The question
+         *  «wovon wird abgezogen» has two halves and the prompt used to name
+         *  only one of them, in running text. */
+        targetOperationLabel?: string
         conflicts: { operationId: string; operationLabel: string }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
@@ -1745,6 +1749,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           resourceId: personId,
           resourceName: personName,
           targetOperationId: operationId,
+          targetOperationLabel: getIncidentRefLabel(operation),
           conflicts,
         })
         return
@@ -1908,6 +1913,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           resourceId: materialId,
           resourceName: material.name,
           targetOperationId: operationId,
+          targetOperationLabel: getIncidentRefLabel(operation),
           conflicts,
         })
         return
@@ -1995,6 +2001,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         resourceId: vehicleId,
         resourceName: vehicleName,
         targetOperationId: operationId,
+        targetOperationLabel: getIncidentRefLabel(operation),
         conflicts,
       })
       return

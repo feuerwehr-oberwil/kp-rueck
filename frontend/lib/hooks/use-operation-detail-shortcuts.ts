@@ -122,8 +122,14 @@ export const OPERATION_DETAIL_TABS: readonly OperationDetailTab[] = ["overview",
  *  * `newReport` — the Reko tab with its entry form already OPEN. «Reko-Details
  *    öffnen» in the completion gate is an answer to "there is no Reko report",
  *    so landing on a tab with a «Reko-Bericht erstellen» button still to find
- *    is one click short of what the button promised. */
-export type OperationDetailSection = "resources" | "newReport"
+ *    is one click short of what the button promised.
+ *  * `kurzbericht` — the Rapport tab with the cursor already in the Kurzbericht.
+ *    Only for the paths that mean to WRITE one (taking a correction over the
+ *    radio, a Schadenplatz that has no Rapport yet). Opening the same tab to
+ *    READ — clicking a Feldmeldung in the bell, or the green icon on a card
+ *    that already has a Rapport — must not steal the caret, or the operator
+ *    types their next keyboard shortcut into somebody's Kurzbericht. */
+export type OperationDetailSection = "resources" | "newReport" | "kurzbericht"
 
 function isDetailTab(value: unknown): value is OperationDetailTab {
   return typeof value === "string" && (OPERATION_DETAIL_TABS as readonly string[]).includes(value)

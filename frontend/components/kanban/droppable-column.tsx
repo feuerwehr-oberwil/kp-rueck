@@ -7,7 +7,7 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { DraggableOperation } from "./draggable-operation"
 import { type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { ageLevel, COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
+import { COLUMN_HEADER_CLASS, isOverdue } from "@/lib/kanban-utils"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -70,6 +70,9 @@ interface DroppableColumnProps {
   onToggleZuFuss?: (operationId: string) => void
   /** Editor-only: archive the incident (status → complete) directly from the card. */
   onRequestComplete?: (operationId: string) => void
+  /** Editor-only: ask to DELETE the incident — for a card that was never an
+   *  incident (a typo, a double entry). Confirmed by the board's delete dialog. */
+  onRequestDelete?: (operationId: string) => void
   /** Editor-only: open the "Ressourcen übertragen" dialog for an incident. */
   onTransfer?: (operationId: string) => void
   /** Editor-only: open the Auftrag picker to distribute an incident into a route. */
@@ -136,6 +139,12 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
       a.contact !== b.contact ||
       a.hasCompletedReko !== b.hasCompletedReko ||
       a.nachbarhilfe !== b.nachbarhilfe ||
+      // The card draws «Am Warten» — with its reason — as a chip, so both the
+      // flag and the text have to get through this gate; without them a reason
+      // typed into the detail sat invisible on the board until something else
+      // repainted the column.
+      a.amWarten !== b.amWarten ||
+      a.amWartenNote !== b.amWartenNote ||
       a.zuFuss !== b.zuFuss ||
       a.assignedReko?.id !== b.assignedReko?.id
     ) {
@@ -183,6 +192,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onToggleAmWarten,
   onToggleZuFuss,
   onRequestComplete,
+  onRequestDelete,
   onTransfer,
   onDistributeToAuftrag,
   cardView,
@@ -248,9 +258,11 @@ export const DroppableColumn = memo(function DroppableColumn({
   // "something", which is the one thing nobody can act on — so it carries the
   // names of the incidents that tripped it, up to three, on hover. Same
   // treatment as the wall board.
-  const overdueOps = isCollapsed
-    ? operations.filter((op) => ageLevel(op.statusChangedAt || op.dispatchTime) !== "normal")
-    : []
+  //
+  // `isOverdue` and not the bare age: finished work (`complete`, `returning`)
+  // has no overdue state, so the folded ABGESCHLOSSEN column stops flying a red
+  // dot for incidents that were dealt with two hours ago.
+  const overdueOps = isCollapsed ? operations.filter(isOverdue) : []
   const overdueTitle = overdueOps.length > 0
     ? t('column.overdueTitle', {
         count: overdueOps.length,
@@ -487,6 +499,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onToggleAmWarten={onToggleAmWarten ? () => onToggleAmWarten(operation.id) : undefined}
                 onToggleZuFuss={onToggleZuFuss ? () => onToggleZuFuss(operation.id) : undefined}
                 onRequestComplete={onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
+                onRequestDelete={onRequestDelete ? () => onRequestDelete(operation.id) : undefined}
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
                 cardView={cardView}

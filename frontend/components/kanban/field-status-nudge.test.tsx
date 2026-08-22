@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { screen } from "@testing-library/react"
+import { fireEvent, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import type { Operation } from "@/lib/contexts/operations-context"
@@ -131,6 +131,26 @@ describe("FieldStatusNudge", () => {
     expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "returning")
     expect(changeStatusToTop).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId("field-nudge-complete")).toBeNull()
+  })
+
+  it("answers only once, however often «Verschieben» is pressed", () => {
+    // Two copies of the same question, as the board renders them — the card and
+    // the detail. Both buttons are grabbed BEFORE the first press, because the
+    // press is what removes them: pressing the stale one is exactly the
+    // double-answer this guards against.
+    const op = operation({ status: "active", fieldCompleteReportedAt: new Date() })
+    renderWithIntl(
+      <>
+        <FieldStatusNudge operation={op} />
+        <FieldStatusNudge operation={op} variant="detail" />
+      </>,
+    )
+
+    const buttons = screen.getAllByRole("button", { name: "Verschieben" })
+    fireEvent.click(buttons[0])
+    fireEvent.click(buttons[1])
+
+    expect(changeStatusToTop).toHaveBeenCalledTimes(1)
   })
 
   it("moves an arrival straight into Einsatz", async () => {

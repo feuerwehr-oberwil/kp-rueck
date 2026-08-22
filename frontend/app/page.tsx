@@ -18,15 +18,18 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2 } from 'lucide-react'
+import { Plus, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2, Ban, ArrowRight, ArrowUpRight, Package2 } from 'lucide-react'
+import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
+import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -52,6 +55,7 @@ import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
 import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
+import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
@@ -63,7 +67,7 @@ import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns, findAuftragForStop, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
-import { getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentLocationLabel, getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
@@ -288,6 +292,212 @@ function AvailableOnlyToggle({
   )
 }
 
+/**
+ * One place a resource is held right now.
+ *
+ * The board asked this question with `operations.find(...)` — the FIRST hit —
+ * which meant a person on two Schadenplätze could never be followed to the
+ * second one, and a Magaziner or Telefondienst (bound, but on no incident at
+ * all) produced a click that did nothing whatsoever.
+ */
+interface ResourceBinding {
+  key: string
+  /** 'incident' scrolls to a card, 'route' opens the Auftrag sheet,
+   *  'function' has nowhere to go and says so. */
+  kind: "incident" | "route" | "function"
+  /** Incident id, Auftrag id, or null for a station function. */
+  targetId: string | null
+  label: string
+  /** Second line — the Auftrag a stop belongs to, or «Sonderfunktion · kein Einsatz». */
+  detail: string
+}
+
+/** What the bindings popover is currently answering for. */
+interface BindingsPopoverState {
+  kind: "person" | "material"
+  id: string
+  title: string
+  subtitle: string
+  bindings: ResourceBinding[]
+}
+
+/** Can this binding actually be followed? A station function has nowhere to go,
+ *  and neither has anything that lost its target. */
+const isNavigableBinding = (binding: ResourceBinding): boolean =>
+  binding.kind !== 'function' && !!binding.targetId
+
+/**
+ * Every binding of one busy resource, with a way to reach each.
+ *
+ * Deliberately shown only when there is something to choose: exactly one
+ * incident binding still jumps straight there, which is the common case and the
+ * behaviour operators already know.
+ *
+ * The popover also answers for a resource with NO binding — «keine Bindung» in
+ * so many words. Both that case and «Zum Anspringen auswählen» over a list where
+ * nothing IS navigable used to be silent: the hint promised an action that the
+ * single row underneath it («TLF · Sonderfunktion · kein Einsatz») could not
+ * deliver, and a free person produced no popover at all.
+ */
+function BindingsPopoverBody({
+  state,
+  onGo,
+  onClose,
+}: {
+  state: BindingsPopoverState
+  onGo: (binding: ResourceBinding) => void
+  onClose: () => void
+}) {
+  const t = useTranslations('kanban.common')
+  const hasNavigable = state.bindings.some(isNavigableBinding)
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{state.title}</p>
+          {state.subtitle && <p className="truncate text-2xs text-muted-foreground">{state.subtitle}</p>}
+        </div>
+        {state.bindings.length > 0 && (
+          <Badge variant="outline" className="shrink-0 border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+            {t('bindingsCount', { count: state.bindings.length })}
+          </Badge>
+        )}
+      </div>
+      {state.bindings.length === 0 ? (
+        <p className="text-2xs text-muted-foreground">{t('bindingsNone')}</p>
+      ) : hasNavigable ? (
+        <p className="text-2xs text-muted-foreground">{t('bindingsPick')}</p>
+      ) : null}
+      <div className="space-y-1">
+        {state.bindings.map((binding) => {
+          const reachable = isNavigableBinding(binding)
+          return (
+            <button
+              key={binding.key}
+              type="button"
+              disabled={!reachable}
+              onClick={() => { onGo(binding); onClose() }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
+                reachable ? "cursor-pointer hover:bg-muted/60" : "cursor-default",
+              )}
+            >
+              {reachable ? (
+                <ArrowRight className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <Package2 className="size-3.5 shrink-0 text-muted-foreground" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{binding.label}</span>
+                {binding.detail && <span className="block truncate text-2xs text-muted-foreground">{binding.detail}</span>}
+              </span>
+              {reachable
+                ? <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
+                : <span className="shrink-0 text-2xs text-muted-foreground">–</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** "19.08." — the stamp on «seit …», the same one the Materialverwaltung uses. */
+function shortDate(value: string | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`
+}
+
+/**
+ * One material row in the sidebar, with its right-click menu.
+ *
+ * «Nicht einsatzbereit» is settable in two places that write the SAME field:
+ * here and in the Materialverwaltung. One entry, no submenu, no reason picker
+ * and no cause list — set or not set. Clicking it again releases the device.
+ *
+ * A flagged device does not render as a draggable card at all: it is a dashed,
+ * dimmed row with the word on it, so it cannot be picked up and cannot be
+ * mistaken for something merely busy. Colour carries none of that alone.
+ */
+function MaterialSidebarRow({
+  material,
+  onClick,
+  onToggleOutOfService,
+  bindingsPopover,
+  onCloseBindings,
+  onGoBinding,
+}: {
+  material: Material
+  onClick: () => void
+  onToggleOutOfService: (material: Material, outOfService: boolean) => void
+  bindingsPopover: BindingsPopoverState | null
+  onCloseBindings: () => void
+  onGoBinding: (binding: ResourceBinding) => void
+}) {
+  const t = useTranslations('kanban.common')
+  const isOpen = bindingsPopover?.kind === 'material' && bindingsPopover.id === material.id
+  return (
+    <Popover open={isOpen} onOpenChange={(open) => { if (!open) onCloseBindings() }}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <PopoverAnchor asChild>
+            <div>
+              {material.outOfService ? (
+                <div
+                  onClick={onClick}
+                  title={t('notReady')}
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 opacity-70"
+                >
+                  {/* Icon only: the Ban glyph plus the dashed frame already say
+                      «nicht einsatzbereit», and repeating it in words pushed the
+                      device name into an ellipsis. The word survives as the
+                      accessible name and in the tooltip, so nothing is lost for
+                      a screen reader or on hover. */}
+                  <Ban className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="sr-only">{t('notReady')}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-muted-foreground">{material.name}</span>
+                    {material.outOfServiceSince && (
+                      <span className="block text-2xs text-muted-foreground">
+                        {t('notReadySince', { date: shortDate(material.outOfServiceSince) })}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <DraggableMaterial material={material} onClick={onClick} />
+              )}
+            </div>
+          </PopoverAnchor>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuCheckboxItem
+            checked={material.outOfService}
+            onCheckedChange={(checked) => onToggleOutOfService(material, checked === true)}
+          >
+            {t('notReady')}
+          </ContextMenuCheckboxItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <PopoverContent align="start" side="left" className="w-80 p-3">
+        {bindingsPopover && (
+          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Priority → its label key under `kanban.common`, for the toast a keyboard
+ *  priority change raises. */
+const PRIORITY_LABEL_KEYS: Record<Operation["priority"], "priorityLow" | "priorityMedium" | "priorityHigh"> = {
+  low: "priorityLow",
+  medium: "priorityMedium",
+  high: "priorityHigh",
+}
+
 export default function FireStationDashboard() {
   const {
     personnel,
@@ -346,7 +556,7 @@ export default function FireStationDashboard() {
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
 
-  const { materialGroups } = useMaterials()
+  const { materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
@@ -362,6 +572,10 @@ export default function FireStationDashboard() {
   const tRes = useTranslations('kanban.resources')
   const tPrint = useTranslations('print.toasts')
   const tSidePanel = useTranslations('kanban.sidePanel')
+  // Column titles, for the toasts a keyboard mutation raises.
+  const tColumns = useTranslations('kanban.columns')
+  // The board's one «Rückgängig» label — reused rather than copied.
+  const tNotifications = useTranslations('notifications.operations')
   const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
@@ -418,8 +632,19 @@ export default function FireStationDashboard() {
           const containerWidth = mainContainer.clientWidth
           const scrollLeft = columnLeft - (containerWidth / 2) + (columnWidth / 2)
 
+          // Centring is right until the column cannot be centred — the first and
+          // last columns clamp to an edge, and there the card ends up flush
+          // against it with its highlight ring half cut off. A gutter costs
+          // nothing when the column really is centred (the clamp never bites).
+          const EDGE_GUTTER = 16
+          const maxScroll = Math.max(0, mainContainer.scrollWidth - containerWidth)
+          const gutteredLeft = Math.min(
+            Math.max(scrollLeft, columnLeft + columnWidth + EDGE_GUTTER - containerWidth),
+            columnLeft - EDGE_GUTTER,
+          )
+
           mainContainer.scrollTo({
-            left: Math.max(0, scrollLeft),
+            left: Math.min(Math.max(0, gutteredLeft), maxScroll),
             behavior: 'smooth'
           })
         }
@@ -435,10 +660,6 @@ export default function FireStationDashboard() {
       }, 300)
     }, 100)
   }, [])
-
-  // Notification rows in the sidebar point at a card (highlight + scroll) while
-  // the sidebar stays open — decoupled via a window event, see notification-highlight.ts.
-  useIncidentHighlightListener(scrollToCard)
 
   // Update operation REKO summary when new report arrives
   const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
@@ -492,14 +713,22 @@ export default function FireStationDashboard() {
 
   /** `section` narrows the landing further than the tab does — today only
    *  Übersicht's Ressourcen block, which the panel has to scroll to. */
-  const openIncidentDetail = useCallback((operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => {
+  const openIncidentDetail = useCallback((
+    operationId: string,
+    tab?: OperationDetailTab,
+    section?: OperationDetailSection,
+    { allowModal = true }: { allowModal?: boolean } = {},
+  ) => {
     setOpenDetailOnTab(tab ? { tab, nonce: Date.now(), section } : null)
     setSelectedOperationId(operationId)
     setHoveredOperationId(operationId)
     if (typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT) {
       setDetailModalOpen(false)
       setSidePanelMode('detail')
-    } else {
+    } else if (allowModal) {
+      // Narrow viewport: only a notification earns the full-screen modal. A
+      // sidebar binding would bury the list the operator is working through, and
+      // its answer — «this device is on THAT card» — is the ring, not a modal.
       setDetailModalOpen(true)
     }
     // `setSidePanelMode` comes from `usePersistedState`; it is the plain
@@ -509,6 +738,24 @@ export default function FireStationDashboard() {
   const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
     if (operations.some((operation) => operation.id === incidentId)) openIncidentDetail(incidentId)
   }, [openIncidentDetail, operations])
+
+  // Anything that points at a card — a notification row, a device or person
+  // binding in the sidebar — scrolls to it, rings it AND opens its detail. A ring
+  // on its own was half an answer: the operator clicked the thing in order to
+  // look at it, then had to open the detail by hand. On the desktop that always
+  // means the side panel beside the board; `allowModal` decides only what a
+  // narrow viewport does, and only a notification may take over the screen
+  // (see notification-highlight.ts). A caller that named a tab lands on it;
+  // one that did not gets the tab that card was last left on.
+  useIncidentHighlightListener(
+    useCallback(
+      (incidentId: string, { tab, allowModal }: IncidentHighlightOptions) => {
+        scrollToCard(incidentId)
+        openIncidentDetail(incidentId, tab, undefined, { allowModal })
+      },
+      [scrollToCard, openIncidentDetail],
+    ),
+  )
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
@@ -520,6 +767,10 @@ export default function FireStationDashboard() {
   const [activeFooterSheet, setActiveFooterSheet] = useState<'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
+  // Which sidebar row is currently showing its bindings, or null. One at a time
+  // — the popover answers «wo ist die Person gerade?», and two answers at once
+  // would be two questions.
+  const [bindingsPopover, setBindingsPopover] = useState<BindingsPopoverState | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
   const [newEmergencyGroupId, setNewEmergencyGroupId] = useState<string | null>(null)
   // Routen-Editor modal: the Auftrag being edited + an optional stop to centre on.
@@ -896,6 +1147,15 @@ export default function FireStationDashboard() {
     }
   }, [transferSourceOp, tCommon])
 
+  /** «X → Im Einsatz» — a keyboard move can land on a card that is scrolled out
+   *  of sight, so the board says what it just did. */
+  const notifyStatusMove = useCallback((operation: Operation, newStatus: OperationStatus) => {
+    toast.success(tCommon('statusMovedToast', {
+      name: getIncidentLocationLabel(operation),
+      status: tColumns(newStatus),
+    }))
+  }, [tCommon, tColumns])
+
   const moveOperationRight = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
@@ -906,13 +1166,14 @@ export default function FireStationDashboard() {
       const newStatus = nextColumn.status[0] as OperationStatus
       const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
+      notifyStatusMove(operation, newStatus)
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
       if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
       if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
       if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
       if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
     }
-  }, [operations, updateOperation, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
+  }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
 
   const moveOperationLeft = useCallback((operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
@@ -924,27 +1185,113 @@ export default function FireStationDashboard() {
       const newStatus = prevColumn.status[0] as OperationStatus
       const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
+      notifyStatusMove(operation, newStatus)
+      // Backwards into «Disponiert / Anfahrt» is a correction, not a new
+      // dispatch — the workflow decides which dialog that means.
       if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
     }
-  }, [operations, updateOperation, triggerDisponiertDialog])
+  }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog])
 
   // Quick-assign (number keys / command palette) toggle of a vehicle onto an
   // incident. For a GROUPED incident the route owns resources, so route the
   // assign/unassign to the Auftrag — otherwise a per-incident row would be
   // created that never renders on a grouped card (a hidden assignment).
+  //
+  // Toasts either way: one keystroke moving a Tanklöschfahrzeug on or off an
+  // incident is exactly the mutation that must not happen in silence.
   const toggleVehicleAssignment = useCallback(
     (op: Operation, vehicle: { id: string; name: string }) => {
+      const notify = (assigned: boolean) => {
+        toast.success(
+          tCommon(assigned ? 'vehicleAssignedToast' : 'vehicleRemovedToast', {
+            vehicle: vehicle.name,
+            name: getIncidentLocationLabel(op),
+          }),
+        )
+      }
       if (op.groupId) {
         const existing = getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id)
         if (existing) unassignGroupResource(op.groupId, existing.assignmentId)
         else assignGroupResource(op.groupId, "vehicle", vehicle.id)
+        notify(!existing)
         return
       }
-      if (op.vehicles.includes(vehicle.name)) removeVehicle(op.id, vehicle.name)
-      else assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
+      if (op.vehicles.includes(vehicle.name)) {
+        removeVehicle(op.id, vehicle.name)
+        notify(false)
+      } else {
+        assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
+        notify(true)
+      }
     },
-    [getGroupResources, unassignGroupResource, assignGroupResource, removeVehicle, assignVehicleToOperation],
+    [getGroupResources, unassignGroupResource, assignGroupResource, removeVehicle, assignVehicleToOperation, tCommon],
   )
+
+  /** Priority by keystroke — the card only shows it as a small chevron, so the
+   *  change says itself. */
+  const setOperationPriority = useCallback((operationId: string, priority: Operation["priority"]) => {
+    const operation = operations.find((op) => op.id === operationId)
+    if (!operation) return
+    const previous = operation.priority
+    updateOperation(operationId, { priority })
+    toast.success(
+      tCommon('priorityChangedToast', {
+        name: getIncidentLocationLabel(operation),
+        priority: tCommon(PRIORITY_LABEL_KEYS[priority]),
+      }),
+      previous === priority ? undefined : {
+        action: {
+          label: tNotifications('undoLabel'),
+          onClick: () => updateOperation(operationId, { priority: previous }),
+        },
+      },
+    )
+  }, [operations, updateOperation, tCommon, tNotifications])
+
+  /** «Zu Fuss» by keystroke — a vehicle-less dispatch is a radio-relevant fact. */
+  const toggleZuFuss = useCallback((operationId: string) => {
+    const operation = operations.find((op) => op.id === operationId)
+    if (!operation) return
+    const next = !operation.zuFuss
+    updateOperation(operationId, { zuFuss: next })
+    toast.success(
+      tCommon(next ? 'zuFussOnToast' : 'zuFussOffToast', { name: getIncidentLocationLabel(operation) }),
+      {
+        action: {
+          label: tNotifications('undoLabel'),
+          onClick: () => updateOperation(operationId, { zuFuss: !next }),
+        },
+      },
+    )
+  }, [operations, updateOperation, tCommon, tNotifications])
+
+  /** The driver decision is read out on the radio and printed on the slip, so
+   *  the pill's click gets the same receipt as every other card mutation. The
+   *  underlying hook is optimistic and toasts on failure by itself. */
+  const handleToggleDriverStay = useCallback((operationId: string, vehicleName: string) => {
+    const operation = operations.find((op) => op.id === operationId)
+    const next = !(operation?.vehicleDriverStay?.get(vehicleName) ?? false)
+    toggleDriverStay(operationId, vehicleName)
+    toast.success(
+      tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicleName }),
+      {
+        description: tCommon('driverStayToastHint'),
+        action: {
+          label: tNotifications('undoLabel'),
+          onClick: () => toggleDriverStay(operationId, vehicleName),
+        },
+      },
+    )
+  }, [operations, toggleDriverStay, tCommon, tNotifications])
+
+  /** Stage an incident for the delete confirmation — the context menu's
+   *  destructive row and the Delete key share this one path. */
+  const handleRequestDelete = useCallback((operationId: string) => {
+    const operation = operations.find((op) => op.id === operationId)
+    if (!operation) return
+    setOperationToDelete(operation)
+    setDeleteDialogOpen(true)
+  }, [operations])
 
   const assignVehicleToGroupWithConflict = useCallback((groupId: string, vehicleId: string) => {
     const vehicle = vehicleTypes.find((item) => item.id === vehicleId)
@@ -1033,11 +1380,11 @@ export default function FireStationDashboard() {
         setSidePanelMode(prev => (prev === 'collapsed' ? 'detail' : 'collapsed')),
       onSidePanelDetail: () => setSidePanelMode('detail'),
       onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
+      // Everything below acts on the SELECTED card, never on the hovered one:
+      // while the palette is open the pointer is over the palette, and a
+      // command that mutates has to name the card the operator chose.
       onToggleZuFuss: () => {
-        if (hoveredOperationId) {
-          const op = operations.find(o => o.id === hoveredOperationId)
-          if (op) updateOperation(hoveredOperationId, { zuFuss: !op.zuFuss })
-        }
+        if (selectedOperationId) toggleZuFuss(selectedOperationId)
       },
       onSearchPersonnel: () => {
         setShowLeftSidebar(true)
@@ -1047,44 +1394,36 @@ export default function FireStationDashboard() {
         setShowRightSidebar(true)
         setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
       },
-      hasSelectedIncident: !!hoveredOperationId,
+      hasSelectedIncident: !!selectedOperationId,
       onEditIncident: () => {
-        if (hoveredOperationId) {
-          const operation = operations.find(op => op.id === hoveredOperationId)
+        if (selectedOperationId) {
+          const operation = operations.find(op => op.id === selectedOperationId)
           if (operation) {
             openIncidentDetail(operation.id)
           }
         }
       },
       onDeleteIncident: () => {
-        if (hoveredOperationId) {
-          const operation = operations.find(op => op.id === hoveredOperationId)
-          if (operation) {
-            setOperationToDelete(operation)
-            setDeleteDialogOpen(true)
-          }
-        }
+        if (selectedOperationId) handleRequestDelete(selectedOperationId)
       },
       onMoveStatusForward: () => {
-        if (hoveredOperationId) {
-          moveOperationRight(hoveredOperationId)
+        if (selectedOperationId) {
+          moveOperationRight(selectedOperationId)
         }
       },
       onMoveStatusBackward: () => {
-        if (hoveredOperationId) {
-          moveOperationLeft(hoveredOperationId)
+        if (selectedOperationId) {
+          moveOperationLeft(selectedOperationId)
         }
       },
       onSetPriority: (priority) => {
-        if (hoveredOperationId) {
-          updateOperation(hoveredOperationId, { priority })
-        }
+        if (selectedOperationId) setOperationPriority(selectedOperationId, priority)
       },
       onAssignVehicle: (vehicleNumber) => {
-        if (hoveredOperationId) {
+        if (selectedOperationId) {
           const vehicleType = vehicleTypes[vehicleNumber - 1]
           if (vehicleType) {
-            const operation = operations.find(op => op.id === hoveredOperationId)
+            const operation = operations.find(op => op.id === selectedOperationId)
             if (operation) toggleVehicleAssignment(operation, vehicleType)
           }
         }
@@ -1096,12 +1435,14 @@ export default function FireStationDashboard() {
     clearHandlers,
     refreshOperations,
     toggleNotificationSidebar,
-    hoveredOperationId,
+    selectedOperationId,
     operations,
     vehicleTypes,
     moveOperationRight,
     moveOperationLeft,
-    updateOperation,
+    setOperationPriority,
+    toggleZuFuss,
+    handleRequestDelete,
     toggleVehicleAssignment,
     openIncidentDetail,
   ])
@@ -1261,6 +1602,7 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'rapporte') ||
         deleteDialogOpen,
       hoveredOperationId,
+      selectedOperationId,
       operations,
       vehicleTypes,
       gPrefix,
@@ -1273,21 +1615,20 @@ export default function FireStationDashboard() {
         const operation = operations.find((op) => op.id === opId)
         if (operation) toggleVehicleAssignment(operation, vehicle)
       },
-      onUpdateOperation: updateOperation,
+      // The only update a shortcut applies is the priority, and it toasts —
+      // see `setOperationPriority`.
+      onUpdateOperation: (opId, updates) => {
+        if (updates.priority) setOperationPriority(opId, updates.priority)
+        else updateOperation(opId, updates)
+      },
       onMoveRight: moveOperationRight,
       onMoveLeft: moveOperationLeft,
-      onToggleZuFuss: (opId) => {
-        const op = operations.find((o) => o.id === opId)
-        if (op) updateOperation(opId, { zuFuss: !op.zuFuss })
-      },
+      onToggleZuFuss: toggleZuFuss,
       onRefresh: refreshOperations,
       onOpenDetail: (op) => {
         openIncidentDetail(op.id)
       },
-      onRequestDelete: (op) => {
-        setOperationToDelete(op)
-        setDeleteDialogOpen(true)
-      },
+      onRequestDelete: (op) => handleRequestDelete(op.id),
       onOpenNewEmergency: () => setNewEmergencyModalOpen(true),
       onFocusSearch: () => document.getElementById('search-input')?.focus(),
       onFocusPersonnel: () => {
@@ -1428,6 +1769,12 @@ export default function FireStationDashboard() {
     { personnel: personnelAvailableOnly, materials: materialsAvailableOnly },
   )
 
+  // The two sidebar footers. One helper each, and it is the same predicate the
+  // list above is filtered with — the counter and the list can no longer
+  // disagree about who counts as free.
+  const rosterSummary = useMemo(() => summarizeRoster(personnel), [personnel])
+  const materialSummary = useMemo(() => summarizeMaterials(materials), [materials])
+
   // Memoize filtered operations to avoid unnecessary recalculations on every render.
   // The predicate itself lives in lib/incident-search so the /display board and
   // status page search exactly the same fields (§ display parity).
@@ -1444,40 +1791,175 @@ export default function FireStationDashboard() {
     [operations, searchQuery, materials, groupNames],
   )
 
-  const handlePersonClick = async (person: Person) => {
-    if (person.status === "assigned") {
-      // First try to find operation where person is directly assigned to crew
-      let assignedOp = operations.find(op => op.crew.includes(person.name))
-
-      // If not found directly assigned, check if they're a driver for a vehicle
-      if (!assignedOp && selectedEvent) {
-        try {
-          const specialFunctions = await apiClient.getPersonnelSpecialFunctions(selectedEvent.id, person.id)
-          const driverFunction = specialFunctions.find(f => f.function_type === 'driver')
-
-          if (driverFunction && driverFunction.vehicle_name) {
-            // Find operation that has this vehicle assigned
-            assignedOp = operations.find(op => op.vehicles.includes(driverFunction.vehicle_name!))
-          }
-        } catch (error) {
-          console.error('Failed to load special functions for personnel:', error)
-        }
+  /**
+   * Everywhere this person is held — all of it, not the first hit.
+   *
+   * `filter`, not `find`: after a double booking the second incident used to be
+   * unreachable from the sidebar, because a second click resolved to the same
+   * first match. The special functions come straight out of the context (they
+   * are already on the person) instead of a per-click API fetch that only ever
+   * looked at `driver`.
+   */
+  const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
+    const bindings: ResourceBinding[] = []
+    for (const op of operations) {
+      if (op.crew.includes(person.name)) {
+        bindings.push({
+          key: `incident-${op.id}`,
+          kind: "incident",
+          targetId: op.id,
+          label: getIncidentRefLabel(op, 60),
+          detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
+        })
       }
-
-      if (assignedOp) {
-        scrollToCard(assignedOp.id)
+      if (op.assignedReko?.id === person.id) {
+        bindings.push({
+          key: `reko-${op.id}`,
+          kind: "incident",
+          targetId: op.id,
+          label: getIncidentRefLabel(op, 60),
+          detail: tCommon('reko'),
+        })
       }
     }
+    for (const group of groups) {
+      if (getGroupResources(group.id).personnel.some((p) => p.name === person.name)) {
+        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
+      }
+    }
+    // Reko is an Ereignis-level function first and an incident assignment second:
+    // `isReko` is set from the event's special functions, while `assignedReko`
+    // needs an assignment row on a specific incident. A Reko-Offizier who has not
+    // been sent anywhere yet has the flag and no incident — and produced exactly
+    // nothing when clicked, because the loop above found no binding to list.
+    // Same shape as the Fahrer below: the incident when there is one, the bare
+    // function when there is not.
+    if (person.isReko && !bindings.some((b) => b.key.startsWith("reko-"))) {
+      bindings.push({
+        key: "fn-reko",
+        kind: "function",
+        targetId: null,
+        label: tCommon('reko'),
+        detail: tCommon('specialFunctionNoIncident'),
+      })
+    }
+    // Station functions. They bind a person as hard as an incident does, and
+    // they are exactly the rows whose click used to do nothing at all.
+    if (person.isDriver) {
+      const drivenOp = person.driverVehicleName
+        ? operations.find((op) => op.vehicles.includes(person.driverVehicleName!))
+        : undefined
+      bindings.push({
+        key: "fn-driver",
+        kind: drivenOp ? "incident" : "function",
+        targetId: drivenOp?.id ?? null,
+        label: person.driverVehicleName || tCommon('driver'),
+        detail: drivenOp ? getIncidentRefLabel(drivenOp, 60) : tCommon('specialFunctionNoIncident'),
+      })
+    }
+    if (person.isMagazin) bindings.push({ key: "fn-magazin", kind: "function", targetId: null, label: tCommon('magazin'), detail: tCommon('specialFunctionNoIncident') })
+    if (person.isTelefondienst) bindings.push({ key: "fn-telefon", kind: "function", targetId: null, label: tCommon('telefondienst'), detail: tCommon('specialFunctionNoIncident') })
+    if (person.isKommandoposten) bindings.push({ key: "fn-kp", kind: "function", targetId: null, label: tCommon('kommandoposten'), detail: tCommon('specialFunctionNoIncident') })
+    return bindings
+  }, [operations, groups, getGroupResources, groupNames, tCommon])
+
+  const collectMaterialBindings = useCallback((material: Material): ResourceBinding[] => {
+    const bindings: ResourceBinding[] = []
+    for (const op of operations) {
+      if (op.materials.includes(material.id)) {
+        bindings.push({
+          key: `incident-${op.id}`,
+          kind: "incident",
+          targetId: op.id,
+          label: getIncidentRefLabel(op, 60),
+          detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
+        })
+      }
+    }
+    for (const group of groups) {
+      if (getGroupResources(group.id).materials.some((m) => m.resourceId === material.id)) {
+        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
+      }
+    }
+    return bindings
+  }, [operations, groups, getGroupResources, groupNames])
+
+  /**
+   * Follow one binding: a card to scroll to, or the Auftrag sheet to open.
+   *
+   * A card the board's own search is currently hiding is not there to be scrolled
+   * to, and `scrollToCard` would quietly find nothing — so the query that hides it
+   * is cleared first. The rest of the "nothing happens" cases are gone at the
+   * source: a binding that cannot be followed is not offered as a button.
+   */
+  const followBinding = useCallback((binding: ResourceBinding) => {
+    if (binding.kind === "incident" && binding.targetId) {
+      if (!filteredOperations.some((op) => op.id === binding.targetId)) setSearchQuery('')
+      scrollToCard(binding.targetId)
+      // …and open it. «Wo ist die Motorsäge?» is answered by the card, but the
+      // operator asked in order to look at it. No modal on a narrow viewport:
+      // that would cover the resource list they are working through.
+      openIncidentDetail(binding.targetId, undefined, undefined, { allowModal: false })
+    } else if (binding.kind === "route" && binding.targetId) {
+      setAuftraegeFocusGroupId(binding.targetId)
+      setActiveFooterSheet('auftraege')
+    }
+  }, [scrollToCard, filteredOperations, setSearchQuery, openIncidentDetail])
+
+  /**
+   * A sidebar person row answers «wo ist diese Person?» — always.
+   *
+   * Every early return here used to be a click that did nothing: a free person
+   * failed the occupancy gate, and an occupied one with no listable binding (the
+   * Reko-Offizier who is not on an incident yet) fell through the second. The
+   * popover now opens in both cases and says so in words; only the one-incident
+   * shortcut still jumps straight to the card, which is what operators know.
+   */
+  const handlePersonClick = (person: Person) => {
+    const bindings = collectPersonBindings(person)
+    if (bindings.length === 1 && isNavigableBinding(bindings[0]) && bindings[0].kind === "incident") {
+      followBinding(bindings[0])
+      return
+    }
+    setBindingsPopover({
+      kind: "person",
+      id: person.id,
+      title: person.name,
+      subtitle: person.role ?? "",
+      bindings,
+    })
   }
 
+  /** Right-click on a sidebar row → the same `{ out_of_service }` PUT the
+   *  Materialverwaltung sends. Set or not set; no reason, no cause list. */
+  const handleToggleMaterialOutOfService = useCallback((material: Material, outOfService: boolean) => {
+    void setMaterialOutOfService(material.id, outOfService)
+  }, [setMaterialOutOfService])
+
+  /** The device row answers the same question the person row does, including
+   *  «nirgends» — a free device used to be a click into the void as well. */
   const handleMaterialClick = (material: Material) => {
-    if (material.status === "assigned") {
-      // Find the operation this material is assigned to
-      const assignedOp = operations.find(op => op.materials.includes(material.id))
-      if (assignedOp) {
-        scrollToCard(assignedOp.id)
-      }
+    const bindings = collectMaterialBindings(material)
+    // A device inside a module block is drawn by MaterialGroupBlock, which has no
+    // anchor for the popover — there the click keeps jumping to the first
+    // binding rather than opening a list nothing could position.
+    const firstIncident = bindings.find((b) => b.kind === "incident")
+    if ((bindings.length === 1 || material.groupId) && firstIncident) {
+      followBinding(firstIncident)
+      return
     }
+    if (bindings.length === 1 && bindings[0].kind === "route") {
+      followBinding(bindings[0])
+      return
+    }
+    if (material.groupId) return
+    setBindingsPopover({
+      kind: "material",
+      id: material.id,
+      title: material.name,
+      subtitle: material.category,
+      bindings,
+    })
   }
 
   // Use shared operation handlers hook
@@ -1538,9 +2020,12 @@ export default function FireStationDashboard() {
     [materialOnSite, materials],
   )
 
+  // «Rapport erfassen» is a write, so the caret belongs in the Kurzbericht.
+  // Everything that merely opens the same tab to read (a Feldmeldung in the
+  // bell, the green icon on a card that already has one) passes no section.
   const handleOpenRapport = useCallback((operationId: string) => {
     setActiveFooterSheet(null)
-    openIncidentDetail(operationId, 'rapport')
+    openIncidentDetail(operationId, 'rapport', 'kurzbericht')
   }, [openIncidentDetail])
 
   /** Opening the Appell closes the sheet underneath it — two stacked layers for one job
@@ -1704,6 +2189,17 @@ export default function FireStationDashboard() {
   const occupiedVehicleIds = new Set([...occupiedResourceIds.vehicle].filter((id) => !routeOwnIds.has(`vehicle:${id}`)))
   const occupiedMaterialIds = new Set([...occupiedResourceIds.material].filter((id) => !routeOwnIds.has(`material:${id}`)))
 
+  /** «Freigegeben werden: 2 Personen, MTW» — what a delete hands back, named in
+   *  the confirmation. Null when the card carries nothing. */
+  const deleteReleaseHint = useMemo(() => {
+    if (!operationToDelete) return null
+    const parts = [
+      operationToDelete.crew.length ? tCommon('personCount', { count: operationToDelete.crew.length }) : null,
+      operationToDelete.vehicles.length ? operationToDelete.vehicles.join(', ') : null,
+    ].filter(Boolean)
+    return parts.length ? tCommon('deleteIncidentReleases', { what: parts.join(', ') }) : null
+  }, [operationToDelete, tCommon])
+
   // Handle operation deletion from keyboard shortcut
   const handleDeleteOperationConfirm = async () => {
     if (!operationToDelete) return
@@ -1738,6 +2234,13 @@ export default function FireStationDashboard() {
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
+        {/* Übung: the same warning strip the wall display, the Karte and the
+            Übungs-Steuerung carry, at the top edge of the WINDOW. Chrome, not
+            content — it is fixed and out of flow, so it stays put while the board
+            scrolls, lies over the Benachrichtigungen sidebar instead of pushing
+            the board 3px below it, and never competes with a card's priority
+            colour. */}
+        {selectedEvent?.training_flag && <TrainingBand />}
         {/* Top header is desktop-only — on mobile everything routes through the
             bottom navbar (event switching lives in its "Mehr" sheet). */}
         <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
@@ -1749,9 +2252,10 @@ export default function FireStationDashboard() {
                 <h1 className={`text-xl md:text-2xl font-bold tracking-tight truncate ${selectedEvent ? "" : "text-muted-foreground"}`}>
                   {selectedEvent ? selectedEvent.name : tDash('noEventSelected')}
                 </h1>
-                {selectedEvent?.training_flag && (
-                  <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">{tDash('training')}</Badge>
-                )}
+                {/* Warning-coloured, always visible: the wall display, /alarm and
+                    the mobile navigation all say «Übung» in this colour, and the
+                    loudest signal must not sit where nobody types. */}
+                {selectedEvent?.training_flag && <TrainingBadge label={tDash('training')} />}
                 <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
@@ -1940,13 +2444,35 @@ export default function FireStationDashboard() {
                         <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">{role}</h3>
                         <div className="space-y-2">
                           {groupedPersonnel[role as PersonRole]?.map((person) => (
-                            <DraggablePerson
+                            /* The row answers where the person is — completely.
+                               An anchor rather than a trigger: the card keeps
+                               its own click handler, which decides between a
+                               direct jump and this list. */
+                            <Popover
                               key={person.id}
-                              person={person}
-                              onClick={() => handlePersonClick(person)}
-                              assignmentCount={doubleBookedPersons.counts.get(person.name)}
-                              engagement={personEngagements.get(person.name)}
-                            />
+                              open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}
+                              onOpenChange={(open) => { if (!open) setBindingsPopover(null) }}
+                            >
+                              <PopoverAnchor asChild>
+                                <div>
+                                  <DraggablePerson
+                                    person={person}
+                                    onClick={() => handlePersonClick(person)}
+                                    assignmentCount={doubleBookedPersons.counts.get(person.name)}
+                                    engagement={personEngagements.get(person.name)}
+                                  />
+                                </div>
+                              </PopoverAnchor>
+                              <PopoverContent align="start" side="right" className="w-80 p-3">
+                                {bindingsPopover && (
+                                  <BindingsPopoverBody
+                                    state={bindingsPopover}
+                                    onGo={followBinding}
+                                    onClose={() => setBindingsPopover(null)}
+                                  />
+                                )}
+                              </PopoverContent>
+                            </Popover>
                           ))}
                         </div>
                       </div>
@@ -1969,40 +2495,46 @@ export default function FireStationDashboard() {
                     ? tCommon('counterLoading')
                     : effectivePersonnelQuery
                       ? tCommon('visibleCounter', { shown: filteredPersonnel.length, total: personnel.length })
-                      : tCommon('availableCounter', { available: personnel.filter((p) => p.status === "available").length, total: personnel.length })}
+                      : null}
                 </p>
+                {/* One number and its counterpart, both from the SAME predicate
+                    the list is filtered with (`summarizeRoster` → isPersonOccupied).
+                    The counter used to read `status === "available"` straight off
+                    the API while the list went through the helpers, so people on
+                    Reko, driving, in the Magazin or on Telefondienst were hidden
+                    above and counted as free here — «14 verfügbar» over nine
+                    visible rows. Deliberately NOT broken down by function: this
+                    is the line read in half a second, not a statistic. */}
+                {isLoaded && !effectivePersonnelQuery && (
+                  <div className="flex items-center justify-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <Check className="size-3.5" />
+                      {tCommon('rosterFree', { count: rosterSummary.free })}
+                    </span>
+                    <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
+                    {rosterSummary.bound > 0 && (
+                      <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+                        {tCommon('rosterBound', { count: rosterSummary.bound })}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </aside>
           )}
 
-          {/* Left sidebar reopen tab (shown when collapsed; "[" also toggles).
-              The SAME pill as the collapse handle above, inset from the window
-              edge instead of flush against it. A half-rounded tab with one
-              border side removed reads as a control the window had cut in half,
-              and it changed shape, z-layer and background every time a sidebar
-              was collapsed. One shape, one size, going in and coming out.
-              It lives in its own slim flex gutter rather than absolutely over
-              the board: floated over #kanban-main (px-4) it overlapped the first
-              column's cards, and anything the board scrolled slid under it. The
-              gutter wears the board's background so it reads as board margin. */}
-          {!showLeftSidebar && (
-            <div className="relative w-7 flex-shrink-0 bg-muted/30 dark:bg-background">
-              <button
-                onClick={() => setShowLeftSidebar(true)}
-                className="absolute left-1 top-1/2 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-                title={`${tDash('toggleLeftSidebar')} ([)`}
-                aria-label={tDash('toggleLeftSidebar')}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+          {/* The board and its three reopen tabs share one containing block, so
+              `left-1` / `right-1` mean the BOARD's edges — not the window's —
+              whether or not the detail panel is open.
 
-          {/* The board and the right-edge reopen tabs share one containing block
-              so their gutter lands on the BOARD's right edge — between the board
-              and the detail panel — whether or not that panel is open. The
-              gutter is conditional (see below), so it costs nothing while both
-              right-hand surfaces are open. */}
+              Every tab is PINNED (absolute, z-20), never a flex item. A flex
+              item reserves its width down the entire height of the board, so a
+              48px tab left a 28px column of nothing running the full height
+              beside the Material-Leiste: an empty band between a sliced-off card
+              and the sidebar's border, which is what «die hässlichen Linien»
+              were both times. Out of flow the board keeps the full width and the
+              tab is what it looks like — a control pinned to the edge, opaque
+              (`bg-card`) and shadowed so scrolled cards pass behind it. */}
           <div className="relative flex min-w-0 flex-1">
           {/* Main Kanban Board */}
           <main
@@ -2011,7 +2543,20 @@ export default function FireStationDashboard() {
             // No bottom padding: with `overflow-x-auto` the horizontal scrollbar
             // already sits below the columns, so a pb-4 underneath it drew a
             // second empty band between the board and the footer.
-            className="flex-1 overflow-x-auto overscroll-contain px-4 pt-4 pb-0 bg-muted/30 dark:bg-background"
+            //
+            // The side that carries a reopen tab gets 8 instead of 4 — the tab is
+            // pinned over the board, and the extra 16px is what keeps it off the
+            // outer column at rest. It is the board's own margin, not a strip of
+            // its own, so nothing is drawn beside the board.
+            className={cn(
+              "flex-1 overflow-x-auto overscroll-contain pt-4 pb-0 bg-muted/30 dark:bg-background",
+              showLeftSidebar ? "pl-4" : "pl-8",
+              !showRightSidebar
+                ? "pr-8"
+                // The detail tab only exists from SIDE_PANEL_BREAKPOINT up, so
+                // neither does the room it needs.
+                : sidePanelMode === 'collapsed' ? "pr-4 2xl:pr-8" : "pr-4",
+            )}
           >
             {!isLoaded ? null : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
@@ -2025,7 +2570,7 @@ export default function FireStationDashboard() {
                       onRemoveCrew={removeCrew}
                       onRemoveMaterial={removeMaterial}
                       onRemoveVehicle={removeVehicle}
-                      onToggleDriverStay={toggleDriverStay}
+                      onToggleDriverStay={handleToggleDriverStay}
                       onRemoveReko={removeReko}
                       onCardClick={handleCardClick}
                       onCardSelect={handleCardSelect}
@@ -2042,6 +2587,7 @@ export default function FireStationDashboard() {
                       onToggleAmWarten={handleToggleAmWarten}
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
+                      onRequestDelete={isEditor ? handleRequestDelete : undefined}
                       onTransfer={isEditor ? handleOpenTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
                       cardView={cardView}
@@ -2060,55 +2606,57 @@ export default function FireStationDashboard() {
             )}
           </main>
 
-          {/* The right-edge reopen tabs — Einsatz-Detail panel (top) and
-              Material-Leiste (middle) — share one slim flex gutter, the mirror
-              of the left one: floated over the board they overlapped the last
-              column's cards. The gutter only exists while a tab is visible;
-              when only the detail-panel tab wants it, it is `2xl:`-gated with
-              the tab (`2xl:` is SIDE_PANEL_BREAKPOINT — below it the panel does
-              not exist, so neither does its tab, so neither does the gutter). */}
-          {(sidePanelMode === 'collapsed' || !showRightSidebar) && (
-            <div
-              className={cn(
-                "relative w-7 flex-shrink-0 bg-muted/30 dark:bg-background",
-                showRightSidebar && "hidden 2xl:block"
-              )}
+          {/* Personen-Leiste reopen tab (shown when collapsed; "[" also toggles).
+              The SAME pill as the collapse handle on the open sidebar, inset from
+              the board edge instead of flush against it: a half-rounded tab with
+              one border side removed reads as a control the window had cut in
+              half. One shape, one size, going in and coming out. */}
+          {!showLeftSidebar && (
+            <button
+              onClick={() => setShowLeftSidebar(true)}
+              className="absolute left-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              title={`${tDash('toggleLeftSidebar')} ([)`}
+              aria-label={tDash('toggleLeftSidebar')}
             >
-              {sidePanelMode === 'collapsed' && (
-                <button
-                  onClick={() => setSidePanelMode('detail')}
-                  className="absolute right-1 top-3 hidden h-12 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
-                  title={`${tSidePanel('railLabel')} (\\)`}
-                  aria-label={tSidePanel('railLabel')}
-                >
-                  <PanelRight className="h-4 w-4" />
-                </button>
-              )}
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
 
-              {/* Right sidebar reopen tab (shown when collapsed; "]" also toggles). */}
-              {!showRightSidebar && (
-                <button
-                  onClick={() => setShowRightSidebar(true)}
-                  className="absolute right-1 top-1/2 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-                  title={
-                    materialOnSiteEntries.length > 0
-                      ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
-                      : `${tDash('toggleRightSidebar')} (])`
-                  }
-                  aria-label={tDash('toggleRightSidebar')}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {/* The «vor Ort» roll-up lives inside this panel, so a folded
-                      panel would hide the one thing on the board that says a pump
-                      is still in a stranger's cellar. A dot, not a number: it is a
-                      "there is something behind this" mark, and the count is one
-                      click and a tooltip away. */}
-                  {materialOnSiteEntries.length > 0 && (
-                    <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
-                  )}
-                </button>
+          {/* Einsatz-Detail reopen tab. `2xl:` is SIDE_PANEL_BREAKPOINT — below
+              it the panel does not exist, so neither does its tab. */}
+          {sidePanelMode === 'collapsed' && (
+            <button
+              onClick={() => setSidePanelMode('detail')}
+              className="absolute right-1 top-3 z-20 hidden h-12 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+              title={`${tSidePanel('railLabel')} (\\)`}
+              aria-label={tSidePanel('railLabel')}
+            >
+              <PanelRight className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Material-Leiste reopen tab (shown when collapsed; "]" also toggles). */}
+          {!showRightSidebar && (
+            <button
+              onClick={() => setShowRightSidebar(true)}
+              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              title={
+                materialOnSiteEntries.length > 0
+                  ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
+                  : `${tDash('toggleRightSidebar')} (])`
+              }
+              aria-label={tDash('toggleRightSidebar')}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {/* The «vor Ort» roll-up lives inside this panel, so a folded
+                  panel would hide the one thing on the board that says a pump
+                  is still in a stranger's cellar. A dot, not a number: it is a
+                  "there is something behind this" mark, and the count is one
+                  click and a tooltip away. */}
+              {materialOnSiteEntries.length > 0 && (
+                <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning" aria-hidden />
               )}
-            </div>
+            </button>
           )}
           </div>
 
@@ -2226,10 +2774,16 @@ export default function FireStationDashboard() {
                 ) : (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     {Object.entries(groupedMaterials).map(([category, items]) => {
-                      // Separate grouped vs ungrouped materials
-                      const ungroupedItems = items.filter(m => !m.groupId)
+                      // «Nicht einsatzbereit» leaves the module blocks and the
+                      // normal rows and sinks to the bottom of its depot: a
+                      // module whose contents are half defective must not read
+                      // as ready, and a dead device must not sit in the middle
+                      // of the pickable ones.
+                      const readyItems = items.filter(m => !m.outOfService)
+                      const outOfServiceItems = items.filter(m => m.outOfService)
+                      const ungroupedItems = readyItems.filter(m => !m.groupId)
                       const groupedItems = new Map<string, Material[]>()
-                      for (const m of items.filter(m => m.groupId)) {
+                      for (const m of readyItems.filter(m => m.groupId)) {
                         const group = materialGroups.find(g => g.id === m.groupId)
                         if (group) {
                           if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
@@ -2260,12 +2814,16 @@ export default function FireStationDashboard() {
                                 />
                               )
                             })}
-                            {/* Ungrouped materials */}
-                            {ungroupedItems.map((material) => (
-                              <DraggableMaterial
+                            {/* Ungrouped materials, then the ones that cannot go out */}
+                            {[...ungroupedItems, ...outOfServiceItems].map((material) => (
+                              <MaterialSidebarRow
                                 key={material.id}
                                 material={material}
                                 onClick={() => handleMaterialClick(material)}
+                                onToggleOutOfService={handleToggleMaterialOutOfService}
+                                bindingsPopover={bindingsPopover}
+                                onCloseBindings={() => setBindingsPopover(null)}
+                                onGoBinding={followBinding}
                               />
                             ))}
                           </div>
@@ -2283,8 +2841,23 @@ export default function FireStationDashboard() {
                     ? tCommon('counterLoading')
                     : effectiveMaterialQuery
                       ? tCommon('visibleCounter', { shown: filteredMaterials.length, total: materials.length })
-                      : tCommon('availableCounter', { available: materials.filter((m) => m.status === "available").length, total: materials.length })}
+                      : null}
                 </p>
+                {/* Same helper as the list filter — see the crew footer above. */}
+                {isLoaded && !effectiveMaterialQuery && (
+                  <div className="flex items-center justify-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <Check className="size-3.5" />
+                      {tCommon('rosterFree', { count: materialSummary.free })}
+                    </span>
+                    <span className="text-muted-foreground">{tCommon('rosterOf', { total: materialSummary.total })}</span>
+                    {materialSummary.bound > 0 && (
+                      <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+                        {tCommon('rosterBound', { count: materialSummary.bound })}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </aside>
           )}
@@ -2620,6 +3193,8 @@ export default function FireStationDashboard() {
         assignTarget={routeAssign ? 'route' : 'incident'}
         routeName={routeAssign ? groups.find((g) => g.id === routeAssign.groupId)?.name : undefined}
         personnel={personnel}
+        // «Nicht einsatzbereit» no longer rides along here — the dialog reads
+        // it from the operations context itself, for every caller.
         vehicles={vehicleTypes}
         materials={materials}
         assignedPersonnel={routeGroupResources ? routeGroupResources.personnel.map(p => p.name) : assignedResources.assignedPersonnel}
@@ -2788,12 +3363,17 @@ export default function FireStationDashboard() {
         onCancel={closedStopGuard.dismiss}
       />
 
-      {/* Delete Operation Confirmation Dialog */}
+      {/* Delete Operation Confirmation Dialog. The description names what the
+          deletion also RELEASES — a card that was never an incident is usually
+          one somebody had already put people and a vehicle on. */}
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title={tCommon('deleteIncidentTitle')}
-        description={tCommon('deleteIncidentDescription', { name: operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : '' })}
+        description={[
+          tCommon('deleteIncidentDescription', { name: operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : '' }),
+          deleteReleaseHint,
+        ].filter(Boolean).join(' ')}
         onConfirm={handleDeleteOperationConfirm}
       />
 

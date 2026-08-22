@@ -753,3 +753,112 @@ class TestAutoPrintOnFirstDispatch:
         )
 
         assert len(await self._slips(db_session, test_incident.id)) == 1
+
+
+class TestJoiningAnAuftragLeavesTheStopsOwnResources:
+    """Attaching an incident to an Auftrag moves the stop, not its resources.
+
+    The board renders a grouped incident's resources from two places — the
+    route's roll-up and the incident's own assignments — precisely because the
+    second set survives the grouping. Re-parenting them onto the Auftrag instead
+    would widen their scope behind the operator's back: a stop's own crew and
+    vehicles are released when THAT stop completes, the route's squad only on the
+    last one. The invariant is pinned here because the UI now depends on it.
+    """
+
+    @staticmethod
+    async def _active(db: AsyncSession, incident_id) -> set[tuple[str, object]]:
+        result = await db.execute(
+            select(IncidentAssignment).where(
+                IncidentAssignment.incident_id == incident_id,
+                IncidentAssignment.unassigned_at.is_(None),
+            )
+        )
+        return {(a.resource_type, a.resource_id) for a in result.scalars().all()}
+
+    async def test_attaching_keeps_crew_vehicle_and_material_on_the_stop(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+        test_material: Material,
+        test_user: User,
+        mock_request,
+    ):
+        """Everything assigned before the grouping is still assigned after it."""
+        for resource_type, resource_id in (
+            ("personnel", test_personnel.id),
+            ("vehicle", test_vehicle.id),
+            ("material", test_material.id),
+        ):
+            await assignment_crud.assign_resource(
+                db=db_session,
+                incident_id=test_incident.id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                current_user=test_user,
+                request=mock_request,
+            )
+        before = await self._active(db_session, test_incident.id)
+        assert len(before) == 3
+
+        group = IncidentGroup(id=uuid4(), event_id=test_incident.event_id, name="Sturmholz Nord")
+        db_session.add(group)
+        await db_session.commit()
+
+        updated = await incident_crud.update_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            incident_update=schemas.IncidentUpdate(group_id=group.id),
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert updated is not None
+        assert updated.group_id == group.id
+        assert await self._active(db_session, test_incident.id) == before
+
+    async def test_completing_the_stop_releases_what_the_stop_owns(
+        self,
+        db_session: AsyncSession,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_user: User,
+        mock_request,
+    ):
+        """The other half of the deal: kept means kept BY THIS STOP.
+
+        Its own people go home when it is finished, which is exactly what the
+        «Nur dieser Einsatz» block promises — and what a move onto the Auftrag
+        would have quietly changed.
+        """
+        group = IncidentGroup(id=uuid4(), event_id=test_incident.event_id, name="Sturmholz Nord")
+        db_session.add(group)
+        await db_session.commit()
+
+        await assignment_crud.assign_resource(
+            db=db_session,
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+            current_user=test_user,
+            request=mock_request,
+        )
+        await incident_crud.update_incident(
+            db=db_session,
+            incident_id=test_incident.id,
+            incident_update=schemas.IncidentUpdate(group_id=group.id),
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        await incident_crud.update_incident_status(
+            db=db_session,
+            incident_id=test_incident.id,
+            new_status="complete",
+            current_user=test_user,
+            request=mock_request,
+        )
+
+        assert await self._active(db_session, test_incident.id) == set()

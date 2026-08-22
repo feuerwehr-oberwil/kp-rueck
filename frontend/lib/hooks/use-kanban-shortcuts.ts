@@ -18,8 +18,20 @@ interface VehicleType {
 export interface KanbanShortcutsState {
   /** True when any modal/dialog/sheet is open — disables every shortcut. */
   modalOpen: boolean
-  /** Currently-hovered operation, if any — actions that need a target read this. */
+  /**
+   * Currently-hovered operation. READING shortcuts target it — E and Enter open
+   * a detail, which costs nothing if the pointer was somewhere unintended.
+   */
   hoveredOperationId: string | null
+  /**
+   * The card the operator CLICKED, which every mutating shortcut targets.
+   *
+   * The pointer wanders across the board while somebody reads it; a selected
+   * card does not. Digits, Shift+digits, `<` / `>` and Delete used to fire at
+   * whatever the pointer happened to rest on, so a mistyped key changed a card
+   * nobody had chosen. With no selection they now do nothing at all.
+   */
+  selectedOperationId: string | null
   operations: Operation[]
   vehicleTypes: VehicleType[]
   /** g-prefix hook output; we forward keys to its state machine. */
@@ -27,19 +39,20 @@ export interface KanbanShortcutsState {
 }
 
 export interface KanbanShortcutsActions {
-  /** Toggle a vehicle assignment on the hovered operation. */
+  /** Toggle a vehicle assignment on the selected operation. Toasts — see the
+   *  board's own handler; nothing a single keystroke changes stays silent. */
   onToggleVehicle: (vehicle: VehicleType, operationId: string, isAssigned: boolean) => void
-  /** Apply an arbitrary update to the hovered operation. */
+  /** Apply an arbitrary update to the selected operation. */
   onUpdateOperation: (operationId: string, updates: Partial<Operation>) => void
-  /** Move the hovered operation one column right (status forward). */
+  /** Move the selected operation one column right (status forward). */
   onMoveRight: (operationId: string) => void
-  /** Move the hovered operation one column left (status backward). */
+  /** Move the selected operation one column left (status backward). */
   onMoveLeft: (operationId: string) => void
-  /** Toggle zu_fuss flag on the hovered operation. */
+  /** Toggle zu_fuss flag on the selected operation. */
   onToggleZuFuss: (operationId: string) => void
   /** Refresh all operations (toast-wrapped). */
   onRefresh: () => Promise<unknown>
-  /** Open the detail modal for the hovered operation. */
+  /** Open the detail modal for the hovered operation (a read, so hover is fine). */
   onOpenDetail: (operation: Operation) => void
   /** Stage an operation for delete confirmation. */
   onRequestDelete: (operation: Operation) => void
@@ -169,6 +182,10 @@ const SHIFT_PRIORITY_KEYS: Record<string, Operation["priority"]> = {
  *
  * The full key map is rendered by the command palette (Cmd/Ctrl+K or `?`,
  * `components/ui/command-palette.tsx`) — keep its hints in sync.
+ *
+ * Two targets, deliberately: a key that only SHOWS something follows the
+ * pointer (`hoveredOperationId`), a key that CHANGES something follows the
+ * click (`selectedOperationId`). See the state doc above.
  */
 export function useKanbanShortcuts(
   state: KanbanShortcutsState,
@@ -177,6 +194,7 @@ export function useKanbanShortcuts(
   const {
     modalOpen,
     hoveredOperationId,
+    selectedOperationId,
     operations,
     vehicleTypes,
     gPrefix,
@@ -213,31 +231,31 @@ export function useKanbanShortcuts(
         return
       }
 
-      // Zu Fuss on hovered op
-      if (e.key === "0" && hoveredOperationId && !e.shiftKey) {
+      // Zu Fuss on the SELECTED op — mutating, so never on hover alone.
+      if (e.key === "0" && selectedOperationId && !e.shiftKey) {
         e.preventDefault()
-        actions.onToggleZuFuss(hoveredOperationId)
+        actions.onToggleZuFuss(selectedOperationId)
         return
       }
 
       // Vehicle quick-assign (1..N)
       const vehicleShortcut = vehicleTypes.find((vt) => vt.key === e.key)
-      if (vehicleShortcut && hoveredOperationId) {
-        const operation = operations.find((op) => op.id === hoveredOperationId)
+      if (vehicleShortcut && selectedOperationId) {
+        const operation = operations.find((op) => op.id === selectedOperationId)
         if (operation) {
           const isAssigned = operation.vehicles.includes(vehicleShortcut.name)
-          actions.onToggleVehicle(vehicleShortcut, hoveredOperationId, isAssigned)
+          actions.onToggleVehicle(vehicleShortcut, selectedOperationId, isAssigned)
         }
         return
       }
 
       // Priority (Shift + 1/2/3) — match physical key first (layout-agnostic),
       // fall back to the printed character for US layout / synthetic events.
-      if (e.shiftKey && hoveredOperationId) {
+      if (e.shiftKey && selectedOperationId) {
         const priority = SHIFT_PRIORITY_BY_CODE[e.code] ?? SHIFT_PRIORITY_KEYS[e.key]
         if (priority) {
           e.preventDefault()
-          actions.onUpdateOperation(hoveredOperationId, { priority })
+          actions.onUpdateOperation(selectedOperationId, { priority })
           return
         }
       }
@@ -245,12 +263,12 @@ export function useKanbanShortcuts(
       // Status forward/backward
       if (e.key === ">" || e.key === ".") {
         e.preventDefault()
-        if (hoveredOperationId) actions.onMoveRight(hoveredOperationId)
+        if (selectedOperationId) actions.onMoveRight(selectedOperationId)
         return
       }
       if (e.key === "<" || e.key === ",") {
         e.preventDefault()
-        if (hoveredOperationId) actions.onMoveLeft(hoveredOperationId)
+        if (selectedOperationId) actions.onMoveLeft(selectedOperationId)
         return
       }
 
@@ -384,10 +402,11 @@ export function useKanbanShortcuts(
         return
       }
 
-      // Delete with confirmation
+      // Delete with confirmation — on the SELECTED card. The most destructive
+      // key on the board was the one most easily aimed by accident.
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (hoveredOperationId) {
-          const operation = operations.find((op) => op.id === hoveredOperationId)
+        if (selectedOperationId) {
+          const operation = operations.find((op) => op.id === selectedOperationId)
           if (operation) {
             e.preventDefault()
             actions.onRequestDelete(operation)
@@ -401,6 +420,7 @@ export function useKanbanShortcuts(
   }, [
     modalOpen,
     hoveredOperationId,
+    selectedOperationId,
     operations,
     vehicleTypes,
     gPrefix,

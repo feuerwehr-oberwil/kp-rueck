@@ -28,6 +28,12 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
 vi.mock('@/lib/contexts/groups-context', () => ({
   useGroups: () => ({ groups: mockGroups, getGroupResources: () => null }),
 }))
+// Only the «Echt-Alarm» badge reads it — the mode of the Ereignis is what turns
+// that one per-incident marker on.
+const mockEvent = { training_flag: false }
+vi.mock('@/lib/contexts/event-context', () => ({
+  useEvent: () => ({ selectedEvent: mockEvent }),
+}))
 vi.mock('@/lib/hooks/use-print-job-toast', () => ({ usePrintJobToast: () => vi.fn() }))
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
 vi.mock('@atlaskit/pragmatic-drag-and-drop/element/adapter', () => ({
@@ -334,5 +340,39 @@ describe('the card routes each block into the detail', () => {
     await userEvent.click(screen.getByText('Einsturzgefahr'))
     await userEvent.click(screen.getByText('Hauptstrasse 1'))
     expect(onClick).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * «Echt-Alarm in Übung» — the ONE per-incident training marker.
+ *
+ * Übung is a property of the Ereignis and is drawn on the window chrome, never
+ * repeated per card. This badge exists precisely because such an incident
+ * deviates from the Ereignis around it, so it must appear only where both halves
+ * are true: a real alarm, inside a drill.
+ */
+describe('the «Echt-Alarm» badge', () => {
+  it('marks a real alarm that was attached to a drill', () => {
+    mockEvent.training_flag = true
+    renderCard(CARD_VIEW_PRESETS.standard, operation({ fromRealAlarm: true }))
+    expect(screen.getByTestId('real-alarm-badge')).toBeInTheDocument()
+  })
+
+  it('stays away from a simulated alarm in the same drill', () => {
+    mockEvent.training_flag = true
+    renderCard(CARD_VIEW_PRESETS.standard, operation({ fromRealAlarm: false }))
+    expect(screen.queryByTestId('real-alarm-badge')).not.toBeInTheDocument()
+  })
+
+  it('stays away outside a drill, where a real alarm is simply the normal case', () => {
+    mockEvent.training_flag = false
+    renderCard(CARD_VIEW_PRESETS.standard, operation({ fromRealAlarm: true }))
+    expect(screen.queryByTestId('real-alarm-badge')).not.toBeInTheDocument()
+  })
+
+  it('survives Kompakt — it is not one of the switchable blocks', () => {
+    mockEvent.training_flag = true
+    renderCard(CARD_VIEW_PRESETS.kompakt, operation({ fromRealAlarm: true }))
+    expect(screen.getByTestId('real-alarm-badge')).toBeInTheDocument()
   })
 })

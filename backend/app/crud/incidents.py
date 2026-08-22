@@ -664,6 +664,27 @@ async def update_incident(
         )
         incident.group_position = (max_pos + 1) if max_pos is not None else 0
 
+    # Joining an Auftrag moves the STOP, never its resources. Whatever was
+    # assigned to this incident before the grouping keeps hanging on the incident
+    # — see `TestJoiningAnAuftragLeavesTheStopsOwnResources`.
+    #
+    # This is a decision, not an omission. The two ownerships mean different
+    # things at the one moment where it counts: completing a stop releases the
+    # incident's own personnel and vehicles (`_apply_completion_release`), while
+    # the route's squad is only released on the LAST stop. Re-parenting the rows
+    # onto the Auftrag would therefore silently widen their scope — the Kettensäge
+    # somebody put on THIS Schadenplatz would ride to the next one and stay out —
+    # as a side effect of a drag, and detaching the stop again would not undo it.
+    # Keeping them is also the reversible half: remove the stop from the Auftrag
+    # and the incident is exactly what it was.
+    #
+    # What was missing was never the data, only the surface: the detail rendered
+    # the route's roll-up *exclusively*, so those rows were invisible and could
+    # not be released. That is now the «Nur dieser Einsatz» block in
+    # `operation-detail-content.tsx`, which needs no migration — nothing was ever
+    # destroyed, so every already-grouped incident's own resources reappear the
+    # moment the new detail is deployed.
+
     incident.updated_at = datetime.now(UTC)
 
     # If status changed, create a status transition record

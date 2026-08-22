@@ -1094,14 +1094,12 @@
       "markError": "Échec du marquage"
     },
     "resourceConflict": {
-      "title": "Double affectation ?",
-      "alreadyAssigned": "<strong>{name}</strong> est déjà attribué",
-      "assignedToSingle": "à « {label} ».",
-      "assignedToMultiple": "à :",
-      "bullet": "• {label}",
-      "question": "Déplacer ici, ou laisser sur les deux interventions ?",
       "moveHere": "Déplacer ici",
-      "keepBoth": "Attribuer plusieurs fois"
+      "keepBoth": "Tenir sur les deux",
+      "titleNamed": "{name} est déjà engagé",
+      "prompt": "Que faut-il retenir ?",
+      "currentLabel": "Jusqu'ici",
+      "newLabel": "Nouveau"
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} min",
@@ -1392,7 +1390,6 @@
       "removeNamed": "Retirer {name}",
       "available": "Disponible",
       "inUse": "En intervention",
-      "availableCounter": "{available}/{total} disponibles",
       "counterLoading": "–/– disponibles",
       "visibleCounter": "{shown} sur {total} affichés",
       "zuFuss": "À pied",
@@ -1447,7 +1444,28 @@
       "newIncident": "Nouvelle intervention",
       "telefondienst": "Service téléphonique",
       "kommandoposten": "Poste de commandement",
-      "unknownResource": "Inconnu"
+      "unknownResource": "Inconnu",
+      "statusMovedToast": "{name} → {status}",
+      "vehicleAssignedToast": "{vehicle} attribué à {name}",
+      "vehicleRemovedToast": "{vehicle} retiré de {name}",
+      "priorityChangedToast": "{name} : priorité {priority}",
+      "zuFussOnToast": "{name} : engagement à pied",
+      "zuFussOffToast": "{name} : plus à pied",
+      "driverStaysToast": "{vehicle} : le conducteur reste sur place",
+      "driverReturnsToast": "{vehicle} : le conducteur rentre",
+      "driverStayToastHint": "Repris dans le message radio et sur le bon d'engagement",
+      "personCount": "{count, plural, one {# personne} other {# personnes}}",
+      "deleteIncidentReleases": "Sont libérés : {what}.",
+      "notReady": "Pas prêt à l'engagement",
+      "notReadySince": "depuis le {date}",
+      "driver": "Conducteur",
+      "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
+      "bindingsCount": "{count, plural, one {# affectation} other {# affectations}}",
+      "bindingsPick": "Sélectionner pour y accéder",
+      "rosterFree": "{count} libres",
+      "rosterOf": "sur {total}",
+      "rosterBound": "{count} engagés",
+      "bindingsNone": "Aucune affectation – rien à atteindre."
     },
     "dashboard": {
       "loading": "Chargement...",
@@ -1639,7 +1657,10 @@
       "auftragStopLine": "Étape {pos} sur {total}",
       "moreCount": "+{count} autres",
       "moreCrewTitle": "{count, plural, one {# personne de plus} other {# personnes de plus}} – ouvrir l’intervention",
-      "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention"
+      "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention",
+      "deleteIncident": "Supprimer l'intervention",
+      "realAlarmBadge": "Alarme réelle",
+      "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs."
     },
     "column": {
       "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",
@@ -1701,7 +1722,14 @@
       "diveraAlarm": "Convocation",
       "eventWideRekoTransfer": "Transférer toutes les reconnaissances ouvertes",
       "eventWideRekoTransferTooltip": "Transfère toutes les missions de reconnaissance ouvertes de cette personne dans tout l’événement, pas seulement cette intervention.",
-      "allVehiclesAssigned": "Tous les véhicules sont attribués"
+      "allVehiclesAssigned": "Tous les véhicules sont attribués",
+      "resourcesCount": "Ressources ({count})",
+      "sourceAuftrag": "Mission « {name} »",
+      "sourceAuftragHint": "Poursuit vers l'étape suivante",
+      "sourceIncident": "Uniquement cette intervention",
+      "sourceIncidentHint": "Libéré à la clôture",
+      "rekoLinksLabel": "Liens",
+      "rekoEventWideLabel": "Tout l’événement"
     },
     "sidePanel": {
       "togglePanel": "Afficher/masquer le panneau",
@@ -1971,6 +1999,32 @@
         "title": "Saisir une alarme",
         "subtitle": "Téléphone et passage"
       }
+    },
+    "completion": {
+      "title": "Clore l'intervention ?",
+      "description": "<hl>{location}</hl> va être clos. Cela libère immédiatement :",
+      "materialCount": "{count, plural, one {# matériel} other {# matériels}}",
+      "toAvailable": "→ disponible",
+      "toDecision": "→ décision ci-dessous",
+      "confirm": "Clore",
+      "toastTitle": "{location} clos",
+      "releasedCrew": "{count, plural, one {# personne libérée} other {# personnes libérées}}",
+      "releasedVehicles": "{vehicles} libéré(s)",
+      "stopTitle": "Terminer l'arrêt ?",
+      "stopDescription": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Le matériel de la mission part vers le prochain arrêt – cet arrêt libère :",
+      "nextStop": "Prochain arrêt : {location}",
+      "stopConfirm": "Terminer l'arrêt",
+      "stopToastTitle": "Arrêt {location} terminé",
+      "stopConfirmAndNext": "Terminer & prochain arrêt en intervention",
+      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Cet arrêt ne libère rien – les moyens appartiennent à la mission et suivent."
+    },
+    "statusCorrection": {
+      "title": "Corriger le statut ?",
+      "description": "<hl>{location}</hl>",
+      "noAnnouncement": "Pas de message radio, pas d'alarme, aucune inscription dans la mission.",
+      "dispatchHint": "Vraiment un nouvel engagement ? « Engager à nouveau … » ouvre le dialogue complet avec message radio et alarme.",
+      "dispatchAgain": "Engager à nouveau …",
+      "confirm": "Corriger le statut"
     }
   },
   "login": {

@@ -1,6 +1,6 @@
 "use client"
 
-import { Package, Truck, User } from "lucide-react"
+import { ArrowRight, Package, Plus, Truck, User } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { Button } from "@/components/ui/button"
@@ -20,14 +20,19 @@ import {
  * three questions that actually exist: *move* it here (release it there), *keep*
  * the double booking, or leave it alone.
  *
- * It was vehicles-only, and the other two kinds took the silent route instead —
- * assigning an already-assigned person or unit simply returned. That made the
- * assignment dialog's own «Doppelbelegung? Trotzdem zuweisen» a button that did
- * nothing, and it made a busy person undraggable rather than negotiable.
+ * It is THE dialog for that question, from every entry point. There used to be a
+ * second one inside the assignment dialog with the same title and only two of
+ * the three answers — «Verschieben» was missing there entirely, and its
+ * «Trotzdem zuweisen» did not say whether the person ended up on one incident or
+ * on two. Same question, same answer set, wherever the assignment starts:
+ * kanban drag-drop, map, command palette, context menu, assignment dialog,
+ * Auftrag sheet.
  *
- * Mounted once in the root layout so it covers every assignment entry point
- * (kanban drag-drop from the sidebars, map, command palette, context menu,
- * assignment dialog, Auftrag sheet).
+ * Both incidents are named in the body rather than only in running text —
+ * «Bisher: Bahnhofstrasse 12» against «Neu: Rebgasse 8» — because whoever moves
+ * a resource is deciding what it is taken away FROM.
+ *
+ * Mounted once in the root layout.
  */
 export function ResourceConflictPrompt() {
   const t = useTranslations('incidents.resourceConflict')
@@ -36,8 +41,7 @@ export function ResourceConflictPrompt() {
 
   if (!resourceConflict) return null
 
-  const { resourceType, resourceName, conflicts } = resourceConflict
-  const conflictLabels = conflicts.map((c) => c.operationLabel)
+  const { resourceType, resourceName, conflicts, targetOperationLabel } = resourceConflict
   const Icon = resourceType === "vehicle" ? Truck : resourceType === "material" ? Package : User
 
   return (
@@ -46,40 +50,51 @@ export function ResourceConflictPrompt() {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5 text-primary" />
-            {t('title')}
+            {t('titleNamed', { name: resourceName })}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t.rich('alreadyAssigned', {
-              name: resourceName,
-              strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-            })}
-            {conflictLabels.length === 1 ? (
-              <> {t('assignedToSingle', { label: conflictLabels[0] })}</>
-            ) : (
-              <>
-                {" "}{t('assignedToMultiple')}
-                <span className="mt-1 block">
-                  {conflictLabels.map((label) => (
-                    <span key={label} className="block">{t('bullet', { label })}</span>
-                  ))}
-                </span>
-              </>
-            )}
-            {" "}{t('question')}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{t('prompt')}</AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="sm:justify-between">
-          <Button variant="outline" onClick={cancelResourceConflict}>
+
+        {/* Bisher → Neu. Each row carries a word and a glyph, never a colour on
+            its own: an arrow for a binding that exists, a plus for the one being
+            made. */}
+        <div className="rounded-lg border bg-muted/30 p-2 text-sm">
+          {conflicts.map((conflict) => (
+            <div key={conflict.operationId} className="flex items-start gap-2.5 px-1 py-1.5">
+              <ArrowRight className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="text-muted-foreground">{t('currentLabel')}: </span>
+                <span className="font-medium text-foreground">{conflict.operationLabel}</span>
+              </span>
+            </div>
+          ))}
+          {targetOperationLabel && (
+            <>
+              <div className="my-1.5 h-px bg-border" />
+              <div className="flex items-start gap-2.5 px-1 py-1.5">
+                <Plus className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="text-muted-foreground">{t('newLabel')}: </span>
+                  <span className="font-medium text-foreground">{targetOperationLabel}</span>
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* One row, one height. «Abbrechen» quiet on the left, the two answers on
+            the right with the primary one outermost — where the pointer is
+            already heading. Moving is what the operator almost always means. */}
+        <AlertDialogFooter>
+          <Button variant="ghost" onClick={cancelResourceConflict} className="sm:mr-auto">
             {tCommon('cancel')}
           </Button>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={() => resolveResourceConflict("keep")}>
-              {t('keepBoth')}
-            </Button>
-            <Button onClick={() => resolveResourceConflict("move")}>
-              {t('moveHere')}
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => resolveResourceConflict("keep")}>
+            {t('keepBoth')}
+          </Button>
+          <Button onClick={() => resolveResourceConflict("move")}>
+            {t('moveHere')}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -311,7 +311,6 @@
       "removeNamed": "{name} entfernen",
       "available": "Verfügbar",
       "inUse": "Im Einsatz",
-      "availableCounter": "{available}/{total} verfügbar",
       "counterLoading": "–/– verfügbar",
       "visibleCounter": "{shown} von {total} sichtbar",
       "zuFuss": "Zu Fuss",
@@ -366,7 +365,28 @@
       "newIncident": "Neuer Einsatz",
       "telefondienst": "Telefondienst",
       "kommandoposten": "Kommandoposten",
-      "unknownResource": "Unbekannt"
+      "unknownResource": "Unbekannt",
+      "statusMovedToast": "{name} → {status}",
+      "vehicleAssignedToast": "{vehicle} zu {name} zugewiesen",
+      "vehicleRemovedToast": "{vehicle} von {name} entfernt",
+      "priorityChangedToast": "{name}: Priorität {priority}",
+      "zuFussOnToast": "{name}: zu Fuss unterwegs",
+      "zuFussOffToast": "{name}: nicht mehr zu Fuss",
+      "driverStaysToast": "{vehicle}: Fahrer bleibt vor Ort",
+      "driverReturnsToast": "{vehicle}: Fahrer fährt zurück",
+      "driverStayToastHint": "Steht so auf der Funkdurchsage und dem Einsatzzettel",
+      "personCount": "{count, plural, one {# Person} other {# Personen}}",
+      "deleteIncidentReleases": "Freigegeben werden: {what}.",
+      "notReady": "Nicht einsatzbereit",
+      "notReadySince": "seit {date}",
+      "driver": "Fahrer",
+      "specialFunctionNoIncident": "Sonderfunktion · kein Einsatz",
+      "bindingsCount": "{count, plural, one {# Bindung} other {# Bindungen}}",
+      "bindingsPick": "Zum Anspringen auswählen",
+      "rosterFree": "{count} frei",
+      "rosterOf": "von {total}",
+      "rosterBound": "{count} gebunden",
+      "bindingsNone": "Keine Bindung – nichts zum Anspringen."
     },
     "dashboard": {
       "loading": "Laden...",
@@ -558,7 +578,10 @@
       "auftragStopLine": "Stopp {pos} von {total}",
       "moreCount": "+{count} weitere",
       "moreCrewTitle": "{count, plural, one {# weitere Person} other {# weitere Personen}} – Einsatz öffnen",
-      "moreMaterialTitle": "{count, plural, one {# weiteres Gerät} other {# weitere Geräte}} – Einsatz öffnen"
+      "moreMaterialTitle": "{count, plural, one {# weiteres Gerät} other {# weitere Geräte}} – Einsatz öffnen",
+      "deleteIncident": "Einsatz löschen",
+      "realAlarmBadge": "Echt-Alarm",
+      "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger."
     },
     "column": {
       "ariaLabelWithCount": "Spalte {title} ({count, plural, one {# Einsatz} other {# Einsätze}})",
@@ -620,7 +643,14 @@
       "diveraAlarm": "Aufgebot",
       "eventWideRekoTransfer": "Alle offenen Rekos übertragen",
       "eventWideRekoTransferTooltip": "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Event, nicht nur diesen Einsatz.",
-      "allVehiclesAssigned": "Alle Fahrzeuge zugewiesen"
+      "allVehiclesAssigned": "Alle Fahrzeuge zugewiesen",
+      "resourcesCount": "Ressourcen ({count})",
+      "sourceAuftrag": "Auftrag «{name}»",
+      "sourceAuftragHint": "Fährt mit zum nächsten Stopp",
+      "sourceIncident": "Nur dieser Einsatz",
+      "sourceIncidentHint": "Wird beim Abschluss freigegeben",
+      "rekoLinksLabel": "Links",
+      "rekoEventWideLabel": "Event-weit"
     },
     "sidePanel": {
       "togglePanel": "Panel ein-/ausblenden",
@@ -890,6 +920,32 @@
         "title": "Alarm erfassen",
         "subtitle": "Telefon und Laufkundschaft"
       }
+    },
+    "completion": {
+      "title": "Einsatz abschliessen?",
+      "description": "<hl>{location}</hl> wird abgeschlossen. Das gibt sofort frei:",
+      "materialCount": "{count, plural, one {# Gerät} other {# Geräte}}",
+      "toAvailable": "→ verfügbar",
+      "toDecision": "→ Entscheid unten",
+      "confirm": "Abschliessen",
+      "toastTitle": "{location} abgeschlossen",
+      "releasedCrew": "{count, plural, one {# Person} other {# Personen}} freigegeben",
+      "releasedVehicles": "{vehicles} freigegeben",
+      "stopTitle": "Stopp abschliessen?",
+      "stopDescription": "<hl>{location}</hl> ist erledigt, der Auftrag «{auftrag}» läuft weiter. Das Material des Auftrags fährt mit zum nächsten Stopp – dieser Stopp gibt frei:",
+      "nextStop": "Weiter zu: {location}",
+      "stopConfirm": "Stopp abschliessen",
+      "stopToastTitle": "Stopp {location} abgeschlossen",
+      "stopConfirmAndNext": "Abschliessen & nächsten Stopp auf Einsatz",
+      "stopDescriptionNoRelease": "<hl>{location}</hl> ist erledigt, der Auftrag «{auftrag}» läuft weiter. Dieser Stopp gibt nichts frei – die Mittel gehören zum Auftrag und fahren mit."
+    },
+    "statusCorrection": {
+      "title": "Status korrigieren?",
+      "description": "<hl>{location}</hl>",
+      "noAnnouncement": "Keine Funkdurchsage, kein Aufgebot, kein Eintrag im Auftrag.",
+      "dispatchHint": "Wirklich neu ausrücken? «Neu disponieren …» öffnet den vollen Dialog mit Funkdurchsage und Aufgebot.",
+      "dispatchAgain": "Neu disponieren …",
+      "confirm": "Status korrigieren"
     }
   },
   "incidents": {
@@ -1013,14 +1069,12 @@
       "markError": "Markierung fehlgeschlagen"
     },
     "resourceConflict": {
-      "title": "Doppelbelegung?",
-      "alreadyAssigned": "<strong>{name}</strong> ist bereits zugewiesen",
-      "assignedToSingle": "auf »{label}«.",
-      "assignedToMultiple": "auf:",
-      "bullet": "• {label}",
-      "question": "Hierher verschieben, oder auf beiden Einsätzen belassen?",
       "moveHere": "Hierher verschieben",
-      "keepBoth": "Mehrfach zuweisen"
+      "keepBoth": "Auf beiden führen",
+      "titleNamed": "{name} ist schon im Einsatz",
+      "prompt": "Was soll gelten?",
+      "currentLabel": "Bisher",
+      "newLabel": "Neu"
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} Min",

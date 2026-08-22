@@ -34,8 +34,23 @@ vi.mock("@/lib/contexts/personnel-context", () => ({
 vi.mock("@/lib/contexts/materials-context", () => ({
   useMaterials: () => ({ materialGroups: [] }),
 }))
+// Mutable Auftrag state, re-seeded per test: most of this file runs on a
+// standalone incident (no group), the provenance-block tests below put one in.
+const groupsState = vi.hoisted(() => ({
+  groups: [] as unknown[],
+  resources: { vehicles: [], personnel: [], materials: [] } as {
+    vehicles: unknown[]
+    personnel: unknown[]
+    materials: unknown[]
+  },
+}))
 vi.mock("@/lib/contexts/groups-context", () => ({
-  useGroups: () => ({ groups: [], getGroupResources: vi.fn(), unassignResource: vi.fn() }),
+  useGroups: () => ({
+    groups: groupsState.groups,
+    getGroupResources: () => groupsState.resources,
+    unassignResource: vi.fn(),
+    refreshGroups: vi.fn(async () => {}),
+  }),
 }))
 vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({ useVehicleDrivers: () => new Map() }))
 vi.mock("@/lib/hooks/use-reko-link-actions", () => ({
@@ -92,8 +107,18 @@ vi.mock("@/components/reko/reko-report-section", () => ({
 vi.mock("@/components/kanban/schadenplatz-rapport-section", () => ({
   // `applies` is the §18.27 gate. Surfaced on the node so the detail's own
   // tests can assert what it hands down without re-testing the section itself.
-  SchadenplatzRapportSection: ({ applies }: { applies?: boolean }) => (
-    <div data-testid="rapport-section" data-applies={String(applies)}>
+  SchadenplatzRapportSection: ({
+    applies,
+    autoFocusKurzbericht,
+  }: {
+    applies?: boolean
+    autoFocusKurzbericht?: boolean
+  }) => (
+    <div
+      data-testid="rapport-section"
+      data-applies={String(applies)}
+      data-autofocus={String(Boolean(autoFocusKurzbericht))}
+    >
       Schadenplatz-Rapport-Formular
     </div>
   ),
@@ -103,7 +128,8 @@ vi.mock("@/components/incidents/transfer-incident-dialog", () => ({
     open ? <button onClick={() => onTransfer("incident-2")}>Transfer bestätigen</button> : null,
 }))
 vi.mock("@/components/incidents/assign-reko-dialog", () => ({ AssignRekoDialog: () => null }))
-vi.mock("@/components/kanban/route-resource-sections", () => ({ RouteResourceSections: () => null }))
+// NOT mocked: the provenance blocks are the thing under test, and the route's
+// three sections are what they frame.
 vi.mock("@/components/kanban/transfer-reko-dialog", () => ({
   TransferRekoDialog: ({ open, fromPerson }: { open: boolean; fromPerson: Person }) =>
     open ? <div>Event-Rekos von {fromPerson.name}</div> : null,
@@ -156,6 +182,8 @@ const tab = (name: string | RegExp) => screen.getByRole("tab", { name })
 const storage = new Map<string, string>()
 
 beforeEach(() => {
+  groupsState.groups = []
+  groupsState.resources = { vehicles: [], personnel: [], materials: [] }
   storage.clear()
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => storage.get(key) ?? null,
@@ -709,6 +737,37 @@ describe("OperationDetailContent", () => {
     await waitFor(() => expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true"))
   }, 20_000)
 
+  it("does not put the caret in the Kurzbericht when the Rapport tab was opened to read", async () => {
+    // Clicking «Meldung vom Feld» in the bell opens the Rapport tab so the
+    // operator can READ it. Focusing the Kurzbericht there would send their
+    // next keystroke — very often a board shortcut — into a sentence the crew
+    // wrote. Only the write paths pass `section: "kurzbericht"`.
+    const { unmount } = renderWithIntl(
+      <OperationDetailContent
+        operation={operation}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+        openOnTab={{ tab: "rapport", nonce: 1 }}
+      />,
+    )
+    expect(tab(/^Feld/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("rapport-section")).toHaveAttribute("data-autofocus", "false")
+    unmount()
+
+    // …while «Rapport erfassen» does mean to write, and asks for the caret.
+    renderWithIntl(
+      <OperationDetailContent
+        operation={operation}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+        openOnTab={{ tab: "rapport", nonce: 2, section: "kurzbericht" }}
+      />,
+    )
+    expect(screen.getByTestId("rapport-section")).toHaveAttribute("data-autofocus", "true")
+  }, 20_000)
+
   it("falls back to Übersicht when a notification names a tab this detail has not got", () => {
     renderWithIntl(
       <OperationDetailContent
@@ -793,5 +852,151 @@ describe("OperationDetailContent", () => {
     const meldung = screen.getByRole("textbox", { name: "Meldung" })
     fireEvent.keyDown(meldung, { key: "0" })
     expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
+  })
+})
+
+/**
+ * Mockup 08, Variante A — the resource block says its provenance ONCE, by the
+ * frame the sections sit in, and a grouped incident's own resources are visible
+ * again instead of existing only in the database.
+ */
+describe("OperationDetailContent · Herkunft der Ressourcen", () => {
+  const auftrag = {
+    id: "g1",
+    eventId: "event-1",
+    name: "Sturmholz Nord",
+    color: "#22d3ee",
+    notes: null,
+    position: 0,
+    createdAt: new Date("2026-08-22"),
+    updatedAt: new Date("2026-08-22"),
+    createdBy: null,
+    stopIds: ["incident-1"],
+    assignments: [],
+    progress: { total: 1, done: 0 },
+    lastAnnounced: null,
+  }
+
+  const kettensaege = {
+    id: "mat-1",
+    name: "Kettensäge",
+    category: "Pio",
+    type: "Werkzeug",
+    status: "assigned" as const,
+    outOfService: false,
+    outOfServiceSince: null,
+    categorySortOrder: 0,
+    consumable: false,
+    groupId: null,
+  }
+
+  /** A stop of `auftrag` that still holds the crew and material it was given
+   *  BEFORE it was grouped — the case that used to render as nothing. */
+  const groupedOperation: Operation = {
+    ...operation,
+    groupId: "g1",
+    crew: ["Beat Kunz"],
+    crewAssignments: new Map([["Beat Kunz", "a1"]]),
+    materials: ["mat-1"],
+    materialAssignments: new Map([["mat-1", "a2"]]),
+  }
+
+  const seedAuftrag = () => {
+    groupsState.groups = [auftrag]
+    groupsState.resources = {
+      vehicles: [],
+      personnel: [{ assignmentId: "ga1", resourceId: "p1", name: "Simon Keller", isLeader: true }],
+      materials: [{ assignmentId: "ga2", resourceId: "m9", name: "Generator" }],
+    }
+  }
+
+  it("says the Auftrag once — not once per section", () => {
+    seedAuftrag()
+
+    renderWithIntl(
+      <OperationDetailContent
+        operation={groupedOperation}
+        layout="modal"
+        materials={[kettensaege]}
+        onUpdate={vi.fn()}
+        onAssignResource={vi.fn()}
+      />,
+    )
+
+    // The sentence that used to be stamped into all three section heads (and
+    // into a chip above them) is gone; the block header carries it instead.
+    expect(screen.queryByText(/über Auftrag/)).toBeNull()
+    const blocks = document.querySelectorAll("[data-resource-source]")
+    expect(Array.from(blocks).map((b) => b.getAttribute("data-resource-source"))).toEqual([
+      "route",
+      "incident",
+    ])
+  })
+
+  it("shows — and lets go of — what the stop itself still holds", async () => {
+    seedAuftrag()
+    const onRemoveCrew = vi.fn()
+    const user = userEvent.setup()
+
+    renderWithIntl(
+      <OperationDetailContent
+        operation={groupedOperation}
+        layout="modal"
+        materials={[kettensaege]}
+        onUpdate={vi.fn()}
+        onRemoveCrew={onRemoveCrew}
+        onAssignResource={vi.fn()}
+      />,
+    )
+
+    const own = document.querySelector('[data-resource-source="incident"]') as HTMLElement
+    expect(own).not.toBeNull()
+    const ownScope = within(own)
+    expect(ownScope.getByText("Beat Kunz")).toBeInTheDocument()
+    expect(ownScope.getByText("Kettensäge")).toBeInTheDocument()
+    // Empty types stay out of the leftovers block — no «Fahrzeuge (0)» row.
+    expect(ownScope.queryByText("Fahrzeuge (0)")).toBeNull()
+
+    // Visible is only half of it: the operator has to be able to release them.
+    await user.click(ownScope.getByTitle("Person entfernen"))
+    expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Beat Kunz")
+  })
+
+  it("adds from the stop's own block nowhere — the Auftrag is the only target", () => {
+    seedAuftrag()
+
+    renderWithIntl(
+      <OperationDetailContent
+        operation={groupedOperation}
+        layout="modal"
+        materials={[kettensaege]}
+        onUpdate={vi.fn()}
+        onAssignResource={vi.fn()}
+      />,
+    )
+
+    const route = within(document.querySelector('[data-resource-source="route"]') as HTMLElement)
+    const own = within(document.querySelector('[data-resource-source="incident"]') as HTMLElement)
+    expect(route.getByTitle("Mannschaft zuweisen")).toBeInTheDocument()
+    expect(own.queryByTitle("Mannschaft zuweisen")).toBeNull()
+  })
+
+  it("draws no provenance frame when there is only one provenance", () => {
+    renderWithIntl(
+      <OperationDetailContent
+        operation={operation}
+        layout="modal"
+        materials={[]}
+        onUpdate={vi.fn()}
+        onAssignResource={vi.fn()}
+      />,
+    )
+
+    expect(document.querySelector("[data-resource-source]")).toBeNull()
+    // …and the three sections are all still there, empty, as the place to add to.
+    expect(screen.getByText("Mannschaft (0)")).toBeInTheDocument()
+    expect(screen.getByText("Fahrzeuge (0)")).toBeInTheDocument()
+    expect(screen.getByText("Material (0)")).toBeInTheDocument()
+    expect(screen.getByTitle("Mannschaft zuweisen")).toBeInTheDocument()
   })
 })
