@@ -118,11 +118,15 @@ const shots = [
     viewport: FORM_VIEWPORT,
     note: 'Das öffentliche Meldeformular (Telefon/Laufkundschaft), über den Teilen-Link',
     prep: async (page) => {
-      const url = await openShareLink(page, /^Alarm$/)
-      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      const { link } = await mintLink(page, '/api/intake/generate-link')
+      await page.goto(base + link, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(3500)
       // Beispielmeldung eintippen (nicht abschicken) — ein leeres Formular mit rot
-      // markiertem Pflichtfeld sieht nach Fehler aus, nicht nach Werkzeug.
+      // markiertem Pflichtfeld sieht nach Fehler aus, nicht nach Werkzeug. Die
+      // Adresse gehört seit dem Einsatzort-Zwang dazu; Enter übernimmt den
+      // Freitext (ein Blur mit offenem Geocoder-Dropdown tut es nicht).
+      await page.getByPlaceholder(/Adresse eingeben/i).fill('Mühlemattstrasse 15, Oberwil')
+      await page.getByPlaceholder(/Adresse eingeben/i).press('Enter')
       await page.getByPlaceholder(/Brennt im Keller/i).fill('Wasser läuft über die Lichtschächte in den Heizungsraum')
       await page.getByPlaceholder(/Name der meldenden Person/i).fill('Marina Kaufmann')
       await page.getByPlaceholder(/079/).fill('079 123 45 67')
@@ -138,17 +142,15 @@ const shots = [
     viewport: FORM_VIEWPORT,
     note: 'Das Reko-Formular auf dem Handy des Trupps, über den Teilen-Link',
     prep: async (page) => {
-      const url = await openShareLink(page, /^Reko$/)
-      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      // Der Reko-Link ist weg — /feld hat die Fläche übernommen. Der Weg zum
+      // Formular ist die Feld-Tür, als die Reko-Person, die die Sandbox säät
+      // (Brunner Sarah auf «Wasser in Tiefgarage»).
+      await enterFeldDoor(page, base)
+      await page.getByPlaceholder('Name suchen...').fill('Brunner')
+      await page.locator('button').filter({ hasText: /Brunner Sarah/ }).first().click()
+      await page.waitForTimeout(2500)
+      await page.locator('button').filter({ hasText: /Reko erfassen/ }).first().click()
       await page.waitForTimeout(3000)
-      // Erst die Personenauswahl, dann der offene Einsatz — Ziel ist das Formular
-      await page.locator('button, [role=button]').filter({ hasText: /offen/ }).first().click()
-      await page.waitForTimeout(2000)
-      const openForm = page.getByRole('button', { name: /Formular öffnen/i }).first()
-      if (await openForm.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await openForm.click()
-        await page.waitForTimeout(3000)
-      }
     },
   },
   {
@@ -163,30 +165,21 @@ const shots = [
     // diesen Ausstieg risse ein voller `node site/capture.mjs`-Lauf ab und man
     // verlöre auch die acht Bilder, die sich sehr wohl aufnehmen liessen.
     skipIf: async (page) =>
-      !(await page
-        .getByRole('button', { name: /^Feld$/ })
-        .isVisible({ timeout: 10000 })
-        .catch(() => false)),
+      // Kein Feld-Link auf dieser Instanz = die Ansicht gibt es dort nicht.
+      !(await mintLink(page, '/api/feld/access', 'GET').then(() => true, () => false)),
     prep: async (page) => {
-      const url = await openShareLink(page, /^Feld$/)
-      await page.goto(url, { waitUntil: 'domcontentloaded' })
-      await page.waitForTimeout(3000)
-      // Die Personenauswahl zuerst. Gewählt wird über «N Schadenplatz/Schadenplätze»
-      // statt über einen Namen: die Demo-Namen ändern sich, die Zeile mit einer
-      // Zuteilung ist dagegen genau die, hinter der «Meine Schadenplätze» auch
-      // etwas zeigt — ein Trupp ohne Zuteilung ergäbe ein leeres Bild.
-      await page
-        .locator('button')
-        .filter({ hasText: /Schadenplat/ })
-        .first()
-        .click()
+      await enterFeldDoor(page, base)
+      // Die Personenauswahl zuerst: ein Trupp MIT Zuteilung, sonst bliebe
+      // «Meine Schadenplätze» leer. Die Sandbox gibt Schneider Peter den
+      // laufenden Einsatz mit Trawa und Pumpen — die vollste Kachel.
+      // Die Liste ist ein Stationsbestand — erst suchen, dann klicken.
+      await page.getByPlaceholder('Name suchen...').fill('Schneider')
+      await page.locator('button').filter({ hasText: /Schneider Peter/ }).first().click()
       await page.waitForTimeout(2500)
       // Dann in den Schadenplatz hinein. Die Liste allein füllt das Bild nicht
-      // — ein Trupp hat meist einen einzigen Auftrag, und der Rest der Kachel
-      // bliebe weiss. Drinnen steht, worum es bei der Ansicht geht: Auftrag,
-      // Meldung, und was der Trupp von hier aus melden kann. Derselbe Griff wie
-      // beim Reko-Shot, der auch erst im Formular etwas zeigt.
-      const firstPlatz = page.getByRole('button', { name: /Wasser|Brand|Sturm|Öl|Unfall/i }).first()
+      // — drinnen steht, worum es geht: Meldung, Mannschaft, und was der Trupp
+      // von hier aus melden kann.
+      const firstPlatz = page.locator('button').filter({ hasText: /strasse|gasse|weg|platz/i }).first()
       if (await firstPlatz.isVisible({ timeout: 5000 }).catch(() => false)) {
         await firstPlatz.click()
         await page.waitForTimeout(3000)
@@ -200,15 +193,35 @@ const shots = [
   { name: 'training', path: '/training', settle: 2500 },
 ]
 
-/** Öffnet ein Teilen-Sheet (Alarm / Reko) und liest die tokenisierte URL daraus.
- *  Damit landen die echten öffentlichen Formulare im Bild statt nur des QR-Dialogs. */
-const openShareLink = async (page, buttonName) => {
-  await page.getByRole('button', { name: buttonName }).click()
-  const field = page.locator('input[readonly]').first()
-  await field.waitFor({ timeout: 15000 })
-  const url = await field.inputValue()
-  if (!/token=/.test(url)) throw new Error(`Kein Token im Teilen-Link: ${url}`)
-  return url
+/** Holt einen tokenisierten Teilen-Link über die API der eingeloggten Sitzung.
+ *  Früher wurde er aus dem Teilen-Sheet gelesen; seit die Footer-Buttons in
+ *  einem «Links & QR»-Sheet aufgehen, ist der API-Weg der robuste — dieselben
+ *  Endpunkte, die das Sheet selbst aufruft. */
+const mintLink = async (page, path, method = 'POST') => {
+  const data = await page.evaluate(
+    async ([p, m]) => {
+      const eventId = localStorage.getItem('kp-rueck-selected-event')
+      const res = await fetch(`/backend-api${p}?event_id=${encodeURIComponent(eventId ?? '')}`, {
+        method: m,
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error(`${p}: HTTP ${res.status}`)
+      return res.json()
+    },
+    [path, method],
+  )
+  return data
+}
+
+/** Die Feld-Tür: Link öffnen, den vierstelligen Code tippen (die vierte Ziffer
+ *  schickt selbst ab), auf die Personenliste warten. */
+const enterFeldDoor = async (page, base) => {
+  const { link } = await mintLink(page, '/api/feld/generate-link')
+  const { code } = await mintLink(page, '/api/feld/access', 'GET')
+  await page.goto(base + link, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(2500)
+  await page.keyboard.type(String(code), { delay: 120 })
+  await page.waitForTimeout(3000)
 }
 
 /** Demo- und Laufzeit-Chrome, die im Marketing-Bild nichts zu suchen hat. */
