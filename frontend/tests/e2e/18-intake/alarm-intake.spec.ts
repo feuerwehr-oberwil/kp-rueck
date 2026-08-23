@@ -45,13 +45,20 @@ test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
     // button THERE is «Alarm absenden». A single button that both reviewed and sent is the
     // fat-finger the step exists to catch — see `app/alarm/page.tsx`.
     const alarmTitle = `Wohnungsbrand ${Date.now()}`;
+    // The gate requires an Einsatzort since the address-enforcement fix — a
+    // Schadenplatz with no location is the one thing this form must not produce.
+    await authenticatedPage.getByPlaceholder('Adresse eingeben oder suchen...').fill('Hauptstrasse 12, Oberwil');
+    // Enter commits the freetext — a blur with the geocoder dropdown open does not.
+    await authenticatedPage.getByPlaceholder('Adresse eingeben oder suchen...').press('Enter');
     await authenticatedPage.getByLabel('Meldung *').fill(alarmTitle);
     await authenticatedPage.getByRole('button', { name: 'Weiter' }).click();
     await expect(authenticatedPage.getByRole('heading', { name: 'Stimmt das so?' })).toBeVisible();
     await authenticatedPage.getByRole('button', { name: 'Alarm absenden' }).click();
 
     // 4. Confirmation screen with the "create another" affordance.
-    await expect(authenticatedPage.getByRole('heading', { name: 'Alarm erfasst' })).toBeVisible({ timeout: 10000 });
+    // The receipt's heading switches to «Alarm ist beim KP» once the status
+    // poll lands — accept both moments.
+    await expect(authenticatedPage.getByRole('heading', { name: /Alarm (erfasst|ist beim KP)/ })).toBeVisible({ timeout: 10000 });
     await expect(authenticatedPage.getByRole('button', { name: 'Weiteren Alarm erfassen' })).toBeVisible();
 
     // 5. The created incident is flagged as intake (verified via API).
@@ -60,7 +67,10 @@ test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
     );
     expect(incidentsRes.ok()).toBeTruthy();
     const incidents = await incidentsRes.json();
-    const created = incidents.find((i: { title: string }) => i.title === alarmTitle);
+    // With an Einsatzort present, `title` carries the ADDRESS (it is the
+    // board's address column in all but name) — the Meldung lands in
+    // `description`, so that is what identifies the created incident.
+    const created = incidents.find((i: { description: string | null }) => i.description === alarmTitle);
     expect(created).toBeTruthy();
     expect(created.source).toBe('intake');
     expect(created.created_by).toBeNull();
