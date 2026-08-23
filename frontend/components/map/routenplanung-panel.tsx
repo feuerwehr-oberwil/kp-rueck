@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { colorAccent } from "@/lib/kanban-utils"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { RouteStartMode, useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -161,7 +162,11 @@ export function RoutenplanungPanel({
                       <span className="flex items-center gap-2">
                         <span
                           className="inline-block h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: g.color ?? "var(--muted-foreground)" }}
+                          // Same resolver as the map's polylines and legend
+                          // (`colorAccent`): a route without a stored colour
+                          // hashes to the SAME hue everywhere, instead of grey
+                          // here and blue on the map.
+                          style={{ backgroundColor: colorAccent(g.id, "auftrag", groups) }}
                         />
                         {g.name}
                       </span>

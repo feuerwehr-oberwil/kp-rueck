@@ -175,7 +175,51 @@ function vehicleStackScale(zoom: number): number {
 function createVehicleStackIcon(
   vehicles: ApiVehiclePosition[],
   scale = 1,
+  /** Collapsed-cluster label («5 Fahrzeuge»). When set and more than one
+   *  vehicle shares the spot, the marker is ONE counting pill instead of a
+   *  stack — five idle vehicles at the depot used to blanket the village.
+   *  The hover tooltip on the marker still lists every vehicle by name. */
+  groupLabel?: string,
 ): L.DivIcon {
+  if (vehicles.length > 1 && groupLabel) {
+    const allOnline = vehicles.some((v) => v.status === 'online')
+    const naturalWidth = vehiclePillWidth(groupLabel)
+    const width = naturalWidth * scale
+    const totalHeight = VEHICLE_PILL_HEIGHT * scale
+    const html = `
+      <div style="
+        width: ${naturalWidth}px;
+        height: ${VEHICLE_PILL_HEIGHT}px;
+        transform: scale(${scale});
+        transform-origin: 0 0;
+      "><div style="
+        width: ${naturalWidth}px;
+        height: ${VEHICLE_PILL_HEIGHT}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: ${allOnline ? MAP_COLORS.info : MAP_COLORS.offline};
+        color: white;
+        border: 2px solid white;
+        border-radius: 4px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+        padding: 0 8px;
+        box-sizing: border-box;
+      ">${groupLabel}</div></div>
+    `
+    return L.divIcon({
+      html,
+      className: "vehicle-marker",
+      iconSize: [width, totalHeight],
+      iconAnchor: [width / 2, totalHeight / 2],
+      popupAnchor: [0, -totalHeight / 2],
+    })
+  }
+
   const widths = vehicles.map((v) => vehiclePillWidth(v.device_name))
   const pillsWidth = Math.max(...widths)
   const pillsHeight =
@@ -311,14 +355,16 @@ function ZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void })
   return null
 }
 
-// Component to auto-fit map bounds to show all incidents (only on initial mount)
+// Component to auto-fit map bounds to show all incidents. Fits exactly once —
+// the first time a locatable incident exists — but keeps watching until then:
+// on a cold cache the incidents arrive well after the map mounts, and a
+// mount-only effect would leave the operator at the default zoom forever.
 function FitBounds({ incidents }: { incidents: Incident[] }) {
   const map = useMap()
   const hasInitializedRef = useRef(false)
 
   useEffect(() => {
-    // Only run once on initial mount when we have incidents
-    if (hasInitializedRef.current || incidents.length === 0) return
+    if (hasInitializedRef.current) return
 
     const validIncidents = incidents.filter(
       (inc) => inc.location_lat !== null && inc.location_lng !== null
@@ -332,8 +378,7 @@ function FitBounds({ incidents }: { incidents: Incident[] }) {
 
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
     hasInitializedRef.current = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]) // Only depend on map, not incidents (run once when map mounts)
+  }, [map, incidents])
 
   return null
 }
@@ -717,6 +762,10 @@ interface MapViewProps {
   operationsById?: Map<string, Operation> // stop lookup (stops are real incidents)
   focusGroupId?: string | null // emphasize one route, dim the rest (planning)
   highlightGroupStopId?: string | null // highlight one stop marker (focused stop)
+  /** True while a tap-mode (Reko, Routenplanung) runs: hovering must NOT swap
+   *  the label for the detail card. The swap replaced the click target mid-tap
+   *  — the first tap died in the DOM churn and «remove» needed two. */
+  hoverCardsDisabled?: boolean
   onGroupStopMarkerClick?: (incidentId: string) => void // click a numbered stop marker
   onMapClick?: (lat: number, lng: number) => void // empty-map click (add-stop mode)
   // Token/read-only display: feed data directly instead of auth-only contexts
@@ -753,6 +802,7 @@ export default function MapView({
   operationsById,
   focusGroupId = null,
   highlightGroupStopId = null,
+  hoverCardsDisabled = false,
   onGroupStopMarkerClick,
   onMapClick,
   incidentsOverride,
@@ -834,8 +884,10 @@ export default function MapView({
             parseFloat(settings.firestation_longitude),
           ])
         }
-        const magazinLat = parseFloat(settings["gps.station_lat"] ?? "")
-        const magazinLng = parseFloat(settings["gps.station_lng"] ?? "")
+        // Same merge as the backend's get_station_coordinates: the legacy
+        // gps.* pair wins when set, the Allgemein coordinates are the fallback.
+        const magazinLat = parseFloat(settings["gps.station_lat"] || settings.firestation_latitude || "")
+        const magazinLng = parseFloat(settings["gps.station_lng"] || settings.firestation_longitude || "")
         if (Number.isFinite(magazinLat) && Number.isFinite(magazinLng)) {
           setMagazinCoords([magazinLat, magazinLng])
         }
@@ -1197,8 +1249,12 @@ export default function MapView({
                 // Hover shows the full picture (type, status, crew, reko, …)
                 // via the Operation lookup; the permanent label stays short.
                 // Token/display mode has no operations — labels stay short there.
-                const hovered = hoveredIncidentId === incident.id
-                const hoverOperation = hovered ? operationsById?.get(incident.id) : undefined
+                // A CLICK pins the same card: selecting a marker holds the
+                // detail open until the marker is clicked again (deselect).
+                const pinned = selectedIncidentId === incident.id
+                const hovered = hoveredIncidentId === incident.id || pinned
+                const hoverOperation =
+                  hovered && !hoverCardsDisabled ? operationsById?.get(incident.id) : undefined
                 const offset = labelOffsets.get(incident.id) ?? [LABEL_ANCHOR_X, 0]
                 // An Auftrag stop owns no resources of its own — they ride on
                 // the route — so resolve them here too, not just on the numbered
@@ -1269,21 +1325,21 @@ export default function MapView({
           )
         })}
 
-        {/* Vehicle GPS Markers — clustered when overlapping */}
+        {/* Vehicle GPS Markers — a shared spot collapses to ONE counting pill
+            («5 Fahrzeuge»); the hover tooltip lists them all by name. */}
         {vehicleClusters.map((cluster, idx) => {
           const grouped = cluster.vehicles.length > 1
-          const chrome = grouped ? (VEHICLE_STACK_PADDING + VEHICLE_STACK_BORDER) * 2 : 0
           const scale = vehicleStackScale(mapZoom)
-          const totalHeight =
-            (cluster.vehicles.length * VEHICLE_PILL_HEIGHT +
-              (cluster.vehicles.length - 1) * VEHICLE_PILL_GAP +
-              chrome) *
-            scale
+          const totalHeight = VEHICLE_PILL_HEIGHT * scale
           return (
             <Marker
               key={`vehicle-cluster-${idx}-${cluster.vehicles.map(v => v.device_id).join('-')}`}
               position={cluster.centroid}
-              icon={createVehicleStackIcon(cluster.vehicles, scale)}
+              icon={createVehicleStackIcon(
+                cluster.vehicles,
+                scale,
+                grouped ? t('page.vehicleCluster', { count: cluster.vehicles.length }) : undefined,
+              )}
             >
               <Tooltip permanent={false} direction="top" offset={[0, -totalHeight / 2 - 4]}>
                 <div className="text-sm space-y-1">

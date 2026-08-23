@@ -170,9 +170,9 @@ export function AssignmentLines({
       // Skip incidents without coordinates
       if (incident.location_lat == null || incident.location_lng == null) continue
 
-      // Skip completed incidents
-      const group = STATUS_TO_GROUP[incident.status as IncidentStatus]
-      if (group === "completed") continue
+      // Skip the whole completed group, Rückfahrt included — a drive-home
+      // line was tried and dropped: the beendet column is noise on this layer.
+      if (STATUS_TO_GROUP[incident.status as IncidentStatus] === "completed") continue
 
       for (const vehicle of incident.assigned_vehicles) {
         addLine(vehicle.name, incident)
