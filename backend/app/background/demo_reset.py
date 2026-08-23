@@ -126,8 +126,11 @@ async def _assert_marker_present(conn: AsyncConnection) -> None:
 
 async def _truncate_all_tables() -> None:
     """Truncate all application tables (preserve alembic_version)."""
-    # Tables to preserve
-    preserve = {"alembic_version"}
+    # Tables to preserve. `special_function_types` is a LOOKUP populated only by
+    # its migrations — the first nightly reset after that deploy emptied it, and
+    # from then on every sandbox seeding a Fahrer/Reko violated the FK (500 on
+    # /api/demo/sandbox, every visitor landed on «Noch kein Ereignis»).
+    preserve = {"alembic_version", "special_function_types"}
 
     async with engine.begin() as conn:
         # Check and truncate share one transaction — see _assert_marker_present.
