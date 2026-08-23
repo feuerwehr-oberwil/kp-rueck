@@ -54,6 +54,19 @@ export default function RekoForm() {
   const [isMarkingArrived, setIsMarkingArrived] = useState(false)
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  /**
+   * Something is on this phone that the KP has not got.
+   *
+   * Set by the `saveDraft` catch, which used to swallow the failure entirely —
+   * so the footer kept saying «Gespeichert um 20:14» through twenty minutes of
+   * failed saves. Nothing is lost when this is true (localStorage holds every
+   * keystroke); it simply has not reached the command post, and that is the
+   * distinction the person at the Schadenplatz is actually asking about.
+   */
+  const [unsent, setUnsent] = useState(false)
+  /** Whether this phone has a network at all — the difference between "es
+   *  kommt nicht durch" (a fault) and "kein Netz" (a cellar, and normal). */
+  const [online, setOnline] = useState(true)
   const [validationError, setValidationError] = useState<string | null>(null)
   // Constant until the backend returns the event's training_flag on the Reko form
   // response (see the NOTE in the loader below); the dummy generator stays hidden.
@@ -327,13 +340,31 @@ export default function RekoForm() {
         is_draft: true
       })
       setLastSaved(new Date())
+      setUnsent(false)
     } catch (error) {
       console.error('Auto-save failed:', error)
-      // Don't show error toast for background saves
+      // Still no toast — the crew is typing, not watching — but the footer is
+      // told, because a footer that keeps claiming «Gespeichert um 20:14» while
+      // six saves in a row fail is the one thing on this screen that lies.
+      setUnsent(true)
     } finally {
       setIsSaving(false)
     }
   }, [formData, incidentId, token, isSaving])
+
+  // The network coming back is the usual end of an `unsent` stretch: the next
+  // autosave carries everything. Watched so the footer can say "kein Netz"
+  // while it lasts and stop saying it the moment it does not.
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine)
+    sync()
+    window.addEventListener('online', sync)
+    window.addEventListener('offline', sync)
+    return () => {
+      window.removeEventListener('online', sync)
+      window.removeEventListener('offline', sync)
+    }
+  }, [])
 
   // The "Einsatz relevant?" requirement lives in the shared field set, which
   // refuses to call this until it is answered — the same rule on both mounts.
@@ -469,15 +500,56 @@ export default function RekoForm() {
         busy={isSaving}
         onSubmit={handleSubmit}
         photos={{
-          upload: async (file) => (await apiClient.uploadRekoPhoto(incidentId!, token!, file)).filename,
+          upload: async (file, onProgress) =>
+            (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
           remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
         }}
         footer={
-          <p className="text-xs text-center text-muted-foreground">
-            {lastSaved
-              ? t('savedAt', { time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })
-              : t('autoSave')}
-          </p>
+          /* Three honest states instead of one friendly lie. The question at a
+             Schadenplatz is never «wurde gespeichert?» — localStorage answers
+             that on every keystroke — it is whether the KP has it or whether it
+             is still on this phone. «Jetzt zum KP senden» is the same button
+             the Rapport form calls `sendChanges`; one pattern, two forms. */
+          !unsent ? (
+            <div className="space-y-1 text-center">
+              {lastSaved && (
+                <p className="text-sm">
+                  {t('syncedAt', {
+                    time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+                  })}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">{lastSaved ? t('syncedHint') : t('autoSave')}</p>
+            </div>
+          ) : online ? (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+                <p className="font-medium">{t('unsentTitle')}</p>
+                <p className="mt-0.5">
+                  {lastSaved
+                    ? t('unsentBody', {
+                        time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+                      })
+                    : t('unsentBodyNever')}
+                </p>
+                <p className="mt-1 text-xs opacity-90">{t('unsentReassurance')}</p>
+              </div>
+              <Button type="button" className="w-full" disabled={isSaving} onClick={() => saveDraft()}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {t('sendNow')}
+              </Button>
+            </div>
+          ) : (
+            /* No network is not a fault and gets no red: it is a cellar, and it
+               ends by itself. The one instruction that matters is to leave the
+               form open, because closing it is what would actually cost the
+               text. */
+            <div className="rounded-lg border border-info/40 bg-info/10 p-3 text-sm">
+              <p className="font-medium">{t('offlineTitle')}</p>
+              <p className="mt-0.5">{t('offlineBody')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>
+            </div>
+          )
         }
       />
     </div>

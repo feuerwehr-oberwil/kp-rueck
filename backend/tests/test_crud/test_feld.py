@@ -20,8 +20,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import feld as crud
 from app.models import (
     Event,
+    EventAttendance,
     Incident,
     IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
     Material,
     Personnel,
     SchadenplatzReport,
@@ -383,7 +386,7 @@ class TestMaterialReconciliation:
 
 
 class TestVehicleChecklist:
-    """The crew confirms WHICH vehicles — the whole fleet, the assigned ones ticked (§18.33)."""
+    """The crew confirms WHICH vehicles — a row per disponiertem, the fleet behind a search."""
 
     async def _actor(self, db: AsyncSession) -> crud.FieldActor:
         """A filer that really exists — `save_rapport` stores the provenance id."""
@@ -423,12 +426,12 @@ class TestVehicleChecklist:
         assert all(row["present"] is True and row["on_board"] is True for row in view["vehicles"])
 
     @pytest.mark.asyncio
-    async def test_the_whole_fleet_is_listed_with_the_unassigned_ones_unticked(
+    async def test_the_rest_of_the_fleet_is_a_candidate_and_not_a_row(
         self, db_session: AsyncSession, test_event: Event, test_user: User
     ):
-        # §18.33: the board is routinely behind reality, so a vehicle that came
-        # along without ever being dispatched must be tickable. A list that can
-        # only be unticked cannot record it.
+        # The fleet is not a checklist. §18.33 was right that a vehicle can come
+        # along without anybody disponierend it — but that is the exception the
+        # search exists for, not a reason to ask eleven questions nobody had.
         incident = await _incident(db_session, test_event, test_user)
         tlf = await self._vehicle(db_session, "TLF 1", display_order=1)
         await self._vehicle(db_session, "MTW", display_order=2)
@@ -436,9 +439,28 @@ class TestVehicleChecklist:
 
         view = await crud.get_rapport(db_session, incident, actor=ACTOR)
         rows = {row["name"]: row for row in view["vehicles"]}
-        assert set(rows) == {"TLF 1", "MTW"}
+        assert set(rows) == {"TLF 1"}
         assert rows["TLF 1"]["present"] is True and rows["TLF 1"]["on_board"] is True
-        assert rows["MTW"]["present"] is False and rows["MTW"]["on_board"] is False
+        # …and the MTW is still reachable, one fold away.
+        assert [c["name"] for c in view["prefill"]["vehicle_candidates"]] == ["MTW"]
+
+    @pytest.mark.asyncio
+    async def test_an_archived_vehicle_is_offered_nowhere(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Archived is "the station does not own it any more", not "it is out of
+        # service" — offering it to the crew invites a tick on a vehicle that
+        # cannot have been there.
+        incident = await _incident(db_session, test_event, test_user)
+        tlf = await self._vehicle(db_session, "TLF 1", display_order=1)
+        await _assign(db_session, incident, "vehicle", tlf.id)
+        sold = await self._vehicle(db_session, "Alter MTW", display_order=2)
+        sold.archived_at = datetime.now(UTC)
+        await db_session.commit()
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert [row["name"] for row in view["vehicles"]] == ["TLF 1"]
+        assert view["prefill"]["vehicle_candidates"] == []
 
     @pytest.mark.asyncio
     async def test_ticking_a_vehicle_the_board_never_sent_round_trips(
@@ -580,6 +602,173 @@ class TestVehicleChecklist:
 
         stored = (await crud._rapport_states(db_session, [incident.id]))[incident.id]
         assert [row["name"] for row in stored.vehicles_json or []] == ["TLF 1"]
+
+
+class TestPersonnelChecklist:
+    """The crew confirms WHO — a row per aufgebotenem, the roster behind a search."""
+
+    async def _person(self, db: AsyncSession, name: str, *, sort: int = 0) -> Personnel:
+        person = Personnel(id=uuid.uuid4(), name=name, role="Feuerwehrmann", role_sort_order=sort, status="available")
+        db.add(person)
+        await db.commit()
+        await db.refresh(person)
+        return person
+
+    @pytest.mark.asyncio
+    async def test_the_appell_is_a_candidate_and_not_a_row(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The whole point of the change. Being checked in says somebody turned
+        # out tonight; it says nothing about THIS address, and on a storm night
+        # the Appell is half the brigade.
+        incident = await _incident(db_session, test_event, test_user)
+        sent = await self._person(db_session, "Aeschbacher Rolf", sort=1)
+        walked_in = await self._person(db_session, "Bieri Nina", sort=2)
+        await self._person(db_session, "Cattin Yves", sort=3)
+        await _assign(db_session, incident, "personnel", sent.id)
+        db_session.add(EventAttendance(event_id=test_event.id, personnel_id=walked_in.id, checked_in=True))
+        await db_session.commit()
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert [row["name"] for row in view["personnel"]] == ["Aeschbacher Rolf"]
+        assert all(row["present"] and row["on_board"] for row in view["personnel"])
+        # Nobody is out of reach: the Appell first, then the rest of the roster.
+        assert [(c["name"], c["checked_in"]) for c in view["prefill"]["personnel_candidates"]] == [
+            ("Bieri Nina", True),
+            ("Cattin Yves", False),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_released_assignment_still_gets_a_row(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Somebody who drove back an hour ago was still at the Schadenplatz, and
+        # the rapport says who turned out — not who was there at the end.
+        incident = await _incident(db_session, test_event, test_user)
+        person = await self._person(db_session, "Aeschbacher Rolf")
+        await _assign(db_session, incident, "personnel", person.id, released=True)
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert [row["name"] for row in view["personnel"]] == ["Aeschbacher Rolf"]
+        assert view["prefill"]["personnel_candidates"] == []
+
+    @pytest.mark.asyncio
+    async def test_an_auftrag_crew_gets_rows_and_counts_as_the_boards_number(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # A stop in a multi-stop Auftrag carries no assignments of its own — the
+        # crew belongs to the route. Both the rows and «vom Board: n» have to
+        # read the same set, or the rapport reports itself as corrected against
+        # a board count of zero.
+        group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Sturmholz Nord")
+        db_session.add(group)
+        await db_session.commit()
+        incident = await _incident(db_session, test_event, test_user)
+        incident.group_id = group.id
+        person = await self._person(db_session, "Aeschbacher Rolf")
+        db_session.add(
+            IncidentGroupAssignment(incident_group_id=group.id, resource_type="personnel", resource_id=person.id)
+        )
+        await db_session.commit()
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert [row["name"] for row in view["personnel"]] == ["Aeschbacher Rolf"]
+        assert view["prefill"]["board_personnel_count"] == 1
+        assert view["personnel_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_adding_somebody_the_board_never_sent_round_trips(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident = await _incident(db_session, test_event, test_user)
+        sent = await self._person(db_session, "Aeschbacher Rolf", sort=1)
+        walked_in = await self._person(db_session, "Bieri Nina", sort=2)
+        await _assign(db_session, incident, "personnel", sent.id)
+        actor = crud.FieldActor(personnel_id=sent.id, personnel_name=sent.name)
+
+        saved = await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(
+                personnel=[
+                    {"personnel_id": sent.id, "present": True},
+                    {"personnel_id": walked_in.id, "present": True, "name": "Bieri Nina"},
+                ]
+            ),
+        )
+        rows = {row["name"]: row for row in saved["personnel"]}
+        assert rows["Bieri Nina"]["present"] is True
+        # Adding is not assigning — `/feld` writes no assignment and no attendance.
+        assert rows["Bieri Nina"]["on_board"] is False
+        # …and the board's own number stays on the response, which is what lets
+        # the form say «vom Board: 1» next to a corrected 2.
+        assert saved["personnel_count"] == 2
+        assert saved["personnel_count_corrected"] is True
+        assert saved["prefill"]["board_personnel_count"] == 1
+        # Somebody who now has a row is not offered a second time.
+        assert saved["prefill"]["personnel_candidates"] == []
+
+    @pytest.mark.asyncio
+    async def test_taking_an_added_name_back_off_the_list_sticks(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The form removes an added row by UNTICKING it, because a row the
+        # payload never mentions survives the reconciliation — that is what stops
+        # a stale phone from deleting somebody another one added. An unticked row
+        # for somebody nobody sent carries no answer, so it is not written down.
+        incident = await _incident(db_session, test_event, test_user)
+        sent = await self._person(db_session, "Aeschbacher Rolf", sort=1)
+        walked_in = await self._person(db_session, "Bieri Nina", sort=2)
+        await _assign(db_session, incident, "personnel", sent.id)
+        actor = crud.FieldActor(personnel_id=sent.id, personnel_name=sent.name)
+
+        await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(
+                personnel=[
+                    {"personnel_id": sent.id, "present": True},
+                    {"personnel_id": walked_in.id, "present": True},
+                ]
+            ),
+        )
+        undone = await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(
+                personnel=[
+                    {"personnel_id": sent.id, "present": True},
+                    {"personnel_id": walked_in.id, "present": False},
+                ]
+            ),
+        )
+        assert [row["name"] for row in undone["personnel"]] == ["Aeschbacher Rolf"]
+        assert undone["personnel_count"] == 1
+        # …and she is offerable again.
+        assert [c["name"] for c in undone["prefill"]["personnel_candidates"]] == ["Bieri Nina"]
+
+    @pytest.mark.asyncio
+    async def test_an_unticked_aufgebotene_row_survives_as_a_contradiction(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # A "nein" is the answer the rapport exists to record. It must not read
+        # as "the crew has not looked at this yet".
+        incident = await _incident(db_session, test_event, test_user)
+        person = await self._person(db_session, "Aeschbacher Rolf")
+        await _assign(db_session, incident, "personnel", person.id)
+        actor = crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
+
+        await crud.save_rapport(
+            db_session,
+            incident,
+            actor=actor,
+            payload=RapportUpdate(personnel=[{"personnel_id": person.id, "present": False}]),
+        )
+        view = await crud.get_rapport(db_session, incident, actor=actor)
+        assert [(row["name"], row["present"]) for row in view["personnel"]] == [("Aeschbacher Rolf", False)]
 
 
 class TestMaterialReturnUnits:

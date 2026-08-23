@@ -1549,7 +1549,7 @@ class TestRapport:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_the_crew_checklist_offers_the_roll_call_and_round_trips(
+    async def test_the_crew_list_confirms_the_aufgebotenen_and_round_trips(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
@@ -1557,24 +1557,32 @@ class TestRapport:
         test_user: User,
     ):
         # §18.36, the vehicle argument applied to people: the crew confirms WHO,
-        # not how many. The roll-call is the list — everybody checked in tonight,
-        # the ones the board put here ticked — so both corrections are possible:
-        # somebody who came along unplanned, and somebody who went home.
+        # not how many. A ROW belongs to whoever the board sent to this
+        # Schadenplatz — being checked in says somebody turned out tonight, not
+        # that they stood at this address, and on a storm night the Appell is
+        # half the brigade. Both corrections stay possible: somebody who went
+        # home is unticked, somebody who came along unplanned is added from the
+        # candidates.
         incident, person, token = await self._setup(db_session, test_event, test_user)
         params = {"token": token, "personnel_id": str(person.id)}
         # Checked in at the Ereignis but not on this Schadenplatz.
         walked_in = await _make_person(db_session, "Koch René")
         db_session.add(EventAttendance(event_id=test_event.id, personnel_id=walked_in.id, checked_in=True))
-        # At home: on the roster, on no roll-call, so on no list.
+        # At home: on the roster, on no roll-call. Still findable, behind the
+        # Appell — the Appell is not always kept, and a name that cannot be found
+        # is typed as free text and belongs to no person afterwards.
         await _make_person(db_session, "Zimmermann Fabian")
         await db_session.commit()
 
         opened = await client.get(f"/api/feld/incidents/{incident.id}/rapport", params=params)
         assert opened.status_code == 200
-        assert {row["name"]: row["present"] for row in opened.json()["personnel"]} == {
-            "Muster Hans": True,
-            "Koch René": False,
-        }
+        assert {row["name"]: row["present"] for row in opened.json()["personnel"]} == {"Muster Hans": True}
+        candidates = opened.json()["prefill"]["personnel_candidates"]
+        # The Appell first, then the rest of the roster.
+        assert [(c["name"], c["checked_in"]) for c in candidates] == [
+            ("Koch René", True),
+            ("Zimmermann Fabian", False),
+        ]
 
         saved = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
@@ -1643,9 +1651,11 @@ class TestRapport:
         test_event: Event,
         test_user: User,
     ):
-        # The crew confirms WHICH vehicles, not how many. The whole fleet is on
-        # the list since §18.33: the assigned ones ticked, the rest tickable,
-        # because the board is behind reality in both directions.
+        # The crew confirms WHICH vehicles, not how many — and a row belongs to
+        # what the board disponiert here. The rest of the fleet is a candidate:
+        # reachable through the section's search, because §18.33 is right that a
+        # vehicle sometimes comes along that nobody assigned, but not a row,
+        # because that case is the exception and not the shape of the list.
         incident, person, token = await self._setup(db_session, test_event, test_user)
         params = {"token": token, "personnel_id": str(person.id)}
         tlf = await self._assign_vehicle(db_session, incident, "TLF 1")
@@ -1657,8 +1667,8 @@ class TestRapport:
         assert {row["name"]: row["present"] for row in opened.json()["vehicles"]} == {
             "TLF 1": True,
             "MTW": True,
-            "ADL": False,
         }
+        assert [c["name"] for c in opened.json()["prefill"]["vehicle_candidates"]] == ["ADL"]
 
         saved = await client.put(
             f"/api/feld/incidents/{incident.id}/rapport",
@@ -1679,9 +1689,11 @@ class TestRapport:
             "MTW": False,
             "ADL": True,
         }
-        # Ticking is not assigning — `/feld` never writes an assignment.
+        # Adding is not assigning — `/feld` never writes an assignment.
         rows = {row["name"]: row for row in saved.json()["vehicles"]}
         assert rows["ADL"]["on_board"] is False
+        # …and the vehicle that now has a row is no longer offered a second time.
+        assert [c["name"] for c in saved.json()["prefill"]["vehicle_candidates"]] == []
 
     @pytest.mark.asyncio
     @pytest.mark.api

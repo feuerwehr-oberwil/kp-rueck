@@ -8,6 +8,11 @@
  * to show. The <img> is the source of truth here rather than a settings string — a 404
  * from the logo route is the "no logo set" answer, which is why `onError` and not a
  * separate existence check drives the empty state.
+ *
+ * It still *renders* as one of them: a `<SettingRow>`, so the preview lands in the same
+ * control column as the selects above it instead of in a hand-built row that happened to
+ * be a few pixels off. The row is wider than `SETTING_CONTROL_COLUMN`'s 200px — that
+ * column is a `min-w`, so the preview plus its two buttons take what they need.
  */
 
 import { useCallback, useRef, useState } from 'react'
@@ -16,7 +21,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { SettingRow } from '@/components/settings/setting-row'
 import { apiClient } from '@/lib/api-client'
 
 /** Mirrors `services/branding.MAX_UPLOAD_BYTES` — refuse locally rather than upload 20 MB to be told no. */
@@ -71,12 +76,8 @@ export function BrandingSettings({ readOnly = false }: BrandingSettingsProps) {
   }, [t])
 
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <Label className="text-sm font-semibold text-muted-foreground">{t('label')}</Label>
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
-      </div>
-      <div className="flex items-center gap-3 flex-shrink-0">
+    <SettingRow label={t('label')} hint={t('description')}>
+      <div className="flex items-center gap-3">
         <div className="flex h-14 w-28 items-center justify-center rounded-md border border-border bg-white p-1.5">
           {hasLogo ? (
             /* eslint-disable-next-line @next/next/no-img-element -- backend-served bytes, not a static asset */
@@ -120,6 +121,6 @@ export function BrandingSettings({ readOnly = false }: BrandingSettingsProps) {
           </div>
         )}
       </div>
-    </div>
+    </SettingRow>
   )
 }

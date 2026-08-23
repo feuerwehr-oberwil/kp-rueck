@@ -16,9 +16,9 @@
  * - Map key for controlled remounting
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useTranslations } from "next-intl"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { MapPin, Check } from "lucide-react"
 import { reverseGeocode } from "@/lib/geocoding"
@@ -33,6 +33,20 @@ interface MapPickerModalProps {
   onOpenChange: (open: boolean) => void
   initialLat?: number | null
   initialLon?: number | null
+  /**
+   * The address the caller already has, for the pin it opens on.
+   *
+   * Without it the picker knew coordinates and nothing else, so opening the map
+   * on an incident that HAS an Einsatzort showed «Keine Adresse gefunden» —
+   * the picker announcing the absence of something that was on screen behind
+   * it — whenever Nominatim's reverse lookup came back empty. Worse, confirming
+   * from there wrote `47.123456, 7.654321` over the address, because
+   * `handleConfirm` fell back to the coordinate string.
+   *
+   * Only valid while the pin has NOT been moved: once the operator drops a new
+   * one, the old address describes a different place.
+   */
+  initialAddress?: string | null
   onLocationSelect: (lat: number, lon: number, address: string | null) => void
 }
 
@@ -60,6 +74,7 @@ export function MapPickerModal({
   onOpenChange,
   initialLat,
   initialLon,
+  initialAddress,
   onLocationSelect,
 }: MapPickerModalProps) {
   const t = useTranslations('map')
@@ -69,6 +84,9 @@ export function MapPickerModal({
   const [geocodedAddress, setGeocodedAddress] = useState<string | null>(null)
   const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0) // Key to force map remount only when needed
+  // Has the operator dropped a pin of their own? Until they do, the address the
+  // caller handed in still describes what the marker is sitting on.
+  const [pinMoved, setPinMoved] = useState(false)
 
   // Map mode management
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
@@ -116,24 +134,35 @@ export function MapPickerModal({
       setSelectedLat(initialLat ?? null)
       setSelectedLon(initialLon ?? null)
       setGeocodedAddress(null)
+      setPinMoved(false)
       // Increment key to force map remount on open
       setMapKey((prev) => prev + 1)
     }
   }, [open, initialLat, initialLon])
 
-  // Reverse geocode when location is selected
+  // Reverse geocode when location is selected.
+  //
+  // `lookupSeq` makes the LATEST request the only one that may write. Two quick
+  // pin drops fire two un-abortable lookups, and if the first resolves last it
+  // used to name the pin after the place the operator had already moved away
+  // from — and `.finally` cleared «Suche…» while the real request was still out.
+  const lookupSeq = useRef(0)
   useEffect(() => {
     if (Number.isFinite(selectedLat) && Number.isFinite(selectedLon)) {
+      const seq = ++lookupSeq.current
       setIsGeocoding(true)
       reverseGeocode(selectedLat as number, selectedLon as number)
         .then((address) => {
+          if (seq !== lookupSeq.current) return
           setGeocodedAddress(address)
         })
         .catch((error) => {
+          if (seq !== lookupSeq.current) return
           console.error('Reverse geocoding failed:', error)
           setGeocodedAddress(null)
         })
         .finally(() => {
+          if (seq !== lookupSeq.current) return
           setIsGeocoding(false)
         })
     }
@@ -145,6 +174,12 @@ export function MapPickerModal({
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
     setSelectedLat(lat)
     setSelectedLon(lon)
+    // From here on the caller's address describes somewhere else — and so does
+    // the address the geocoder found for the PREVIOUS pin. Dropping it is what
+    // stops «Bestätigen», pressed before the new lookup returns, from writing
+    // the old street name onto the new coordinates.
+    setPinMoved(true)
+    setGeocodedAddress(null)
   }, [])
 
   // Guard for any spot that hands coords to Leaflet — accepts only finite
@@ -159,11 +194,33 @@ export function MapPickerModal({
   )
   const hasValidPin = validPin !== null
 
+  /**
+   * What this pin is called, best answer first.
+   *
+   * The caller's own address wins over a coordinate string while the pin has not
+   * been moved: confirming an unmoved map used to overwrite a perfectly good
+   * Einsatzort with `47.123456, 7.654321` whenever the reverse lookup came back
+   * empty — the operator opened the map to LOOK and closed it having lost the
+   * address. Once they drop a pin, that address is about somewhere else and only
+   * the geocoder (or the coordinates) can name the new place.
+   */
+  // `||`, not `??`: `formatNaturalAddress` can hand back an empty string, and
+  // `"" ?? x` is `""` — which would show «Keine Adresse gefunden» over a pin
+  // whose name the caller had passed in.
+  //
+  // The caller's address wins while the pin is UNMOVED. Opening the map to look
+  // at an incident and pressing Bestätigen must not silently replace a
+  // hand-typed «Waldhütte Chrischonaweg (Zufahrt Forststrasse)» with Nominatim's
+  // rendering of the same spot. Move the pin and the geocoder takes over, because
+  // then it is describing a place the caller has no name for.
+  const resolvedAddress =
+    (!pinMoved ? initialAddress?.trim() || null : null) || geocodedAddress || null
+
   const handleConfirm = () => {
     if (validPin) {
       const [lat, lon] = validPin
-      // Use geocoded address, or fall back to coordinate string if Nominatim is down
-      const address = geocodedAddress || `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+      // Fall back to a coordinate string only when nothing can name the place.
+      const address = resolvedAddress || `${lat.toFixed(6)}, ${lon.toFixed(6)}`
       onLocationSelect(lat, lon, address)
       onOpenChange(false)
     }
@@ -237,8 +294,8 @@ export function MapPickerModal({
               <div className="flex-1 min-w-0">
                 {isGeocoding ? (
                   <div className="text-sm text-muted-foreground">{t('mapPicker.searchingAddress')}</div>
-                ) : geocodedAddress ? (
-                  <div className="text-sm">{geocodedAddress}</div>
+                ) : resolvedAddress ? (
+                  <div className="text-sm">{resolvedAddress}</div>
                 ) : (
                   <div className="text-sm text-muted-foreground">{t('mapPicker.noAddress')}</div>
                 )}
@@ -250,8 +307,14 @@ export function MapPickerModal({
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t flex-shrink-0">
+        {/* `DialogFooter`, not a hand-built row: this dialog put its actions on
+            the LEFT and its confirm FIRST, so the one button an operator aims at
+            sat where every other dialog in the app puts «Abbrechen». Cancel
+            left, confirm right, right-aligned — the primitive's order. */}
+        <DialogFooter className="flex-shrink-0 border-t pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('mapPicker.cancel')}
+          </Button>
           <Button
             onClick={handleConfirm}
             disabled={selectedLat === null || selectedLon === null}
@@ -259,10 +322,7 @@ export function MapPickerModal({
             <Check className="size-4" />
             {t('mapPicker.confirm')}
           </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('mapPicker.cancel')}
-          </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

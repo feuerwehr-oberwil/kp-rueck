@@ -1,7 +1,7 @@
 import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Printer, Copy, LifeBuoy } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { translateOutsideReact } from '@/lib/i18n-messages'
-import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/components/settings/fallback-settings'
+import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/lib/lageblatt'
 import { isBooleanRecord, readJson } from '@/lib/utils/safe-storage'
 
 export interface ChecklistAction {

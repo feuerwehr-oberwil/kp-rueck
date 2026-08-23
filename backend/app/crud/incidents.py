@@ -33,6 +33,43 @@ class InvalidIncidentGroupError(ValueError):
     """Incident group is missing, deleted, or belongs to another event."""
 
 
+#: The two statuses whose FIRST entry auto-prints the Einsatzzettel. Narrower than
+#: `incident_dispatch.DISPATCHED_STATUSES` on purpose: that set answers "was a crew
+#: ever out?" and includes `returning`; this pair names the moment the slip is
+#: worth holding — a card cannot honestly begin its dispatch driving home.
+AUTO_PRINT_STATUSES = ("enroute", "active")
+
+
+async def _dispatch_print_due(db: AsyncSession, incident_id: uuid.UUID, old_status: str, new_status: str) -> bool:
+    """Is this status change the incident's first dispatch — the auto-print moment?
+
+    The trigger used to be `enroute` alone. That was the fix for the double print
+    (enroute→active spat out two identical Einsatzzettel minutes apart, which at
+    the command post looks like a second incident) — but it also un-printed the
+    incident dragged straight to `active`, and Anfahrt is skippable while the
+    Einsatzzettel is not. So: print when the card enters the dispatched pair from
+    outside it, and never twice — the transition history remembers a card that was
+    pulled back to «Eingegangen» and sent out again, and a later copy of the slip
+    is printed deliberately, from the context menu.
+
+    Must run BEFORE the new StatusTransition row joins the session, or the history
+    query reads the very transition it is guarding against.
+    """
+    if new_status == old_status or new_status not in AUTO_PRINT_STATUSES:
+        return False
+    if old_status in AUTO_PRINT_STATUSES:
+        return False
+    prior = await db.execute(
+        select(StatusTransition.id)
+        .where(
+            StatusTransition.incident_id == incident_id,
+            StatusTransition.to_status.in_(AUTO_PRINT_STATUSES),
+        )
+        .limit(1)
+    )
+    return prior.scalar_one_or_none() is None
+
+
 async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_id: uuid.UUID) -> IncidentGroup:
     group = await db.scalar(select(IncidentGroup).where(IncidentGroup.id == group_id).with_for_update())
     if group is None or group.deleted_at is not None:
@@ -627,10 +664,34 @@ async def update_incident(
         )
         incident.group_position = (max_pos + 1) if max_pos is not None else 0
 
+    # Joining an Auftrag moves the STOP, never its resources. Whatever was
+    # assigned to this incident before the grouping keeps hanging on the incident
+    # — see `TestJoiningAnAuftragLeavesTheStopsOwnResources`.
+    #
+    # This is a decision, not an omission. The two ownerships mean different
+    # things at the one moment where it counts: completing a stop releases the
+    # incident's own personnel and vehicles (`_apply_completion_release`), while
+    # the route's squad is only released on the LAST stop. Re-parenting the rows
+    # onto the Auftrag would therefore silently widen their scope — the Kettensäge
+    # somebody put on THIS Schadenplatz would ride to the next one and stay out —
+    # as a side effect of a drag, and detaching the stop again would not undo it.
+    # Keeping them is also the reversible half: remove the stop from the Auftrag
+    # and the incident is exactly what it was.
+    #
+    # What was missing was never the data, only the surface: the detail rendered
+    # the route's roll-up *exclusively*, so those rows were invisible and could
+    # not be released. That is now the «Nur dieser Einsatz» block in
+    # `operation-detail-content.tsx`, which needs no migration — nothing was ever
+    # destroyed, so every already-grouped incident's own resources reappear the
+    # moment the new detail is deployed.
+
     incident.updated_at = datetime.now(UTC)
 
     # If status changed, create a status transition record
+    print_due = False
     if incident.status != old_status:
+        # Decided before the transition row joins the session — see the helper.
+        print_due = await _dispatch_print_due(db, incident.id, old_status, incident.status)
         transition = StatusTransition(
             incident_id=incident.id,
             from_status=old_status,
@@ -678,9 +739,11 @@ async def update_incident(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
-    # Auto-print assignment slip when status changes to "enroute" or "active"
+    # Auto-print the assignment slip on the incident's FIRST dispatch — into `enroute`
+    # OR straight into `active` (Anfahrt is skippable), never twice. The rule and its
+    # history live in `_dispatch_print_due`.
     queued_print = None
-    if incident.status != old_status and incident.status in ("enroute", "active"):
+    if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 
@@ -747,6 +810,9 @@ async def update_incident_status(
     incident.status = new_status
     incident.updated_at = datetime.now(UTC)
 
+    # Decided before the transition row joins the session — see the helper.
+    print_due = await _dispatch_print_due(db, incident.id, old_status, new_status)
+
     # Create status transition record. It is written BEFORE the release below so
     # the release has a transition to hang its record on — undoing a completion
     # means undoing exactly what THAT completion closed.
@@ -791,9 +857,11 @@ async def update_incident_status(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
-    # Auto-print assignment slip when status changes to "enroute" or "active"
+    # Auto-print the assignment slip on the first dispatch — same rule as
+    # update_incident above (`_dispatch_print_due`): into `enroute` or straight
+    # into `active`, once per incident, ever.
     queued_print = None
-    if new_status in ("enroute", "active"):
+    if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 

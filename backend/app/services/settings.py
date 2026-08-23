@@ -41,7 +41,10 @@ DEFAULT_SETTINGS = {
     "printer.enabled": "false",  # Master toggle for printer functionality
     "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")
     "printer.port": "9100",  # Printer port (default ESC/POS port)
-    "printer.auto_anfahrt": "true",  # Auto-print assignment slip when status changes to "active"
+    # Auto-print the assignment slip ONCE, when an incident reaches "enroute"
+    # (Disponiert / Anfahrt). Keeps its historic key name so installations that switched it
+    # on stay switched on — see crud/incidents.py for why the second trigger ("active") went.
+    "printer.auto_anfahrt": "true",
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
     # Station identity + map preferences.
     #
@@ -54,7 +57,13 @@ DEFAULT_SETTINGS = {
     # map_mode is the offline-map switch – the one control that exists specifically for an
     # internet outage, and it was the one that could not be set.
     "home_city": "",
-    "map_mode": "online",  # online=OSM only, auto=fallback to local tiles, offline=local only
+    # "auto", not "online". The offline fallback is the one thing this control exists for,
+    # and shipping "online" meant a fresh install had no fallback at all — while the in-app
+    # help has always described "Auto (Standard): zuerst online, bei einem Fehler automatisch
+    # offline". "auto" behaves exactly like "online" until the tiles fail, so nothing changes
+    # for a station with a working internet connection. Only NEW installations move: this dict
+    # seeds a missing key, so an existing station keeps whatever its settings row already says.
+    "map_mode": "auto",  # online=OSM only, auto=fallback to local tiles, offline=local only
     "map_style": "osm",  # osm | topo | carto-light | carto-dark
     # Which time an incident chip shows everywhere (board, detail, map, wall display).
     # start = when it came in (HH:MM), column = time in the current status, total = since

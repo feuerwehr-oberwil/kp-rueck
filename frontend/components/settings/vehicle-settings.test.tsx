@@ -12,6 +12,11 @@ const apiVehicle = (overrides: Partial<ApiVehicle> = {}): ApiVehicle => ({
   display_order: 1,
   status: "available",
   radio_call_sign: "Omega 1",
+  out_of_service: false,
+  out_of_service_since: null,
+  archived_at: null,
+  assignment_count: 0,
+  can_delete: true,
   created_at: "2026-05-01T00:00:00Z",
   updated_at: "2026-05-01T00:00:00Z",
   ...overrides,
@@ -21,6 +26,8 @@ const getVehicles = vi.fn();
 const createVehicle = vi.fn();
 const updateVehicle = vi.fn();
 const deleteVehicle = vi.fn();
+const archiveVehicle = vi.fn();
+const restoreVehicle = vi.fn();
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
@@ -28,6 +35,8 @@ vi.mock("@/lib/api-client", () => ({
     createVehicle: (...args: unknown[]) => createVehicle(...args),
     updateVehicle: (...args: unknown[]) => updateVehicle(...args),
     deleteVehicle: (...args: unknown[]) => deleteVehicle(...args),
+    archiveVehicle: (...args: unknown[]) => archiveVehicle(...args),
+    restoreVehicle: (...args: unknown[]) => restoreVehicle(...args),
   },
 }));
 
@@ -42,6 +51,8 @@ import { VehicleSettings } from "@/components/settings/vehicle-settings";
 
 beforeEach(() => {
   getVehicles.mockReset().mockResolvedValue([]);
+  archiveVehicle.mockReset().mockResolvedValue(apiVehicle());
+  restoreVehicle.mockReset().mockResolvedValue(apiVehicle());
   createVehicle.mockReset();
   updateVehicle.mockReset();
   deleteVehicle.mockReset();
@@ -127,5 +138,38 @@ describe("VehicleSettings", () => {
     expect(toastError.mock.calls[0]?.[0]).toMatch(/Fehler beim Speichern/i);
     // Dialog should remain open after failure so the operator can retry
     expect(screen.queryByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("retires a unit by archiving it, not by deleting it", async () => {
+    getVehicles.mockResolvedValue([apiVehicle()]);
+    const user = userEvent.setup();
+    renderWithIntl(<VehicleSettings />);
+    await screen.findByText("TLF 1");
+
+    // [0] = edit, [1] = retire.
+    const row = screen.getByRole("row", { name: /TLF 1/ });
+    await user.click(within(row).getAllByRole("button")[1]);
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getAllByRole("button").at(-1) as HTMLElement);
+
+    await waitFor(() => expect(archiveVehicle).toHaveBeenCalledTimes(1));
+    expect(deleteVehicle).not.toHaveBeenCalled();
+  });
+
+  it("writes «nicht einsatzbereit» as the out_of_service field", async () => {
+    getVehicles.mockResolvedValue([apiVehicle()]);
+    updateVehicle.mockResolvedValue(apiVehicle({ out_of_service: true }));
+    const user = userEvent.setup();
+    renderWithIntl(<VehicleSettings />);
+    await screen.findByText("TLF 1");
+
+    // [0] = «Archivierte anzeigen», [1] = the row's readiness flag.
+    await user.click(screen.getAllByRole("checkbox")[1]);
+
+    await waitFor(() => expect(updateVehicle).toHaveBeenCalledTimes(1));
+    expect(updateVehicle).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      { out_of_service: true },
+    );
   });
 });

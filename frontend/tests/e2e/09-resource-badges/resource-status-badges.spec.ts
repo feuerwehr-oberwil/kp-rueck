@@ -26,8 +26,9 @@ import {
  *     anywhere in the app, so simply re-pointing the old locators at the detail
  *     view would still have found nothing;
  *   - the checkmark/cross icons were located by `svg[class*="lucide-x-circle"]`,
- *     and no such icon exists in this app at all. Unassigned is now said in
- *     words ("Keine Mannschaft zugewiesen"), which is what is asserted below.
+ *     and no such icon exists in this app at all. Unassigned is said in words —
+ *     the desktop rows carry a short muted «keine» next to the zero count, the
+ *     phone sheet keeps its full sentences — which is what is asserted below.
  *
  * Setup goes through the REST API rather than the events page and the "Neuer
  * Einsatz" modal. That modal commits its address through a geocoder popover, so
@@ -35,33 +36,40 @@ import {
  * is why this one file took 22 minutes in the nightly run.
  */
 
-/** The three resource sections, as the detail view renders them. */
+/**
+ * The three resource sections, as the two detail surfaces render them.
+ *
+ * The desktop detail draws each section as a `Label (N) │ chips` row under the
+ * «Kräfte» heading (no per-section icon any more) and says an empty section
+ * with a short muted `empty` value; the phone sheet keeps its own full
+ * sentences (`mobileEmpty`, `mobileDetail.*` keys).
+ */
 const SECTIONS = [
   {
     id: 'crew',
-    /** `common.crewCount` etc. — the heading is label + live count. */
+    /** `common.crewCount` etc. — the row label is section name + live count. */
     heading: /^Mannschaft \(\d+\)$/,
     zero: 'Mannschaft (0)',
-    icon: 'lucide-users',
     /** `title` on the add control (`common.assignCrew`). */
     addTitle: 'Mannschaft zuweisen',
-    empty: 'Keine Mannschaft zugewiesen',
+    empty: 'keine',
+    mobileEmpty: 'Keine Mannschaft zugewiesen',
   },
   {
     id: 'vehicles',
     heading: /^Fahrzeuge \(\d+\)$/,
     zero: 'Fahrzeuge (0)',
-    icon: 'lucide-truck',
     addTitle: 'Fahrzeug zuweisen',
-    empty: 'Keine Fahrzeuge zugewiesen',
+    empty: 'keine',
+    mobileEmpty: 'Keine Fahrzeuge zugewiesen',
   },
   {
     id: 'materials',
     heading: /^Material \(\d+\)$/,
     zero: 'Material (0)',
-    icon: 'lucide-package',
     addTitle: 'Material zuweisen',
-    empty: 'Kein Material zugewiesen',
+    empty: 'keine',
+    mobileEmpty: 'Kein Material zugewiesen',
   },
 ] as const;
 
@@ -122,12 +130,13 @@ async function closeDetail(modal: Locator) {
 }
 
 /**
- * The section box around a heading: heading span → label group → header row →
- * section. Structural, but the alternative is matching Tailwind utility classes,
- * which is precisely how the old version of this file rotted unnoticed.
+ * The row around a section label: the label span sits directly in the row div,
+ * which also carries the chips, the empty value and the add control.
+ * Structural, but the alternative is matching Tailwind utility classes, which
+ * is precisely how the old version of this file rotted unnoticed.
  */
 const sectionAround = (heading: Locator): Locator =>
-  heading.locator('xpath=ancestor::div[3]');
+  heading.locator('xpath=ancestor::div[1]');
 
 /** Board setup shared by every test: one event, one incident, board on screen. */
 async function setUpBoard(
@@ -227,23 +236,15 @@ test.describe('Resource summary — the counted sections', () => {
     }
   });
 
-  test('each section is labelled with its own icon', async ({ authenticatedPage }) => {
-    const modal = await openDetail(authenticatedPage, fixture.address);
-
-    for (const section of SECTIONS) {
-      const label = modal.getByText(section.heading).locator('xpath=..');
-      await expect(label.locator(`svg[class*="${section.icon}"]`)).toBeVisible();
-    }
-  });
-
-  test('an empty section says so in words, not only by icon', async ({
+  test('an empty section says so in words, not only by the zero count', async ({
     authenticatedPage,
   }) => {
     const modal = await openDetail(authenticatedPage, fixture.address);
 
     for (const section of SECTIONS) {
       const box = sectionAround(modal.getByText(section.heading));
-      await expect(box.getByText(section.empty)).toBeVisible();
+      // `exact`: «keine» is a substring of plenty of other sentences.
+      await expect(box.getByText(section.empty, { exact: true })).toBeVisible();
     }
   });
 });
@@ -313,7 +314,7 @@ test.describe('Resource summary — assigned state', () => {
     const heading = modal.getByText(/^Material \(\d+\)$/);
     await expect(heading).toHaveText('Material (0)');
     await expect(
-      sectionAround(heading).getByText('Kein Material zugewiesen'),
+      sectionAround(heading).getByText('keine', { exact: true }),
     ).toBeVisible();
 
     await assignMaterialFromDetail(authenticatedPage, modal, material.name);
@@ -369,7 +370,7 @@ test.describe('Resource summary — assigned state', () => {
 
     await expect(heading).toHaveText('Material (0)');
     await expect(
-      sectionAround(heading).getByText('Kein Material zugewiesen'),
+      sectionAround(heading).getByText('keine', { exact: true }),
     ).toBeVisible();
 
     await closeDetail(modal);
@@ -426,7 +427,8 @@ test.describe('Resource summary — assigned state', () => {
     await expect(secondModal.getByText(/^Material \(\d+\)$/)).toHaveText('Material (0)');
     await expect(
       sectionAround(secondModal.getByText(/^Material \(\d+\)$/)).getByText(
-        'Kein Material zugewiesen',
+        'keine',
+        { exact: true },
       ),
     ).toBeVisible();
   });
@@ -458,7 +460,9 @@ test.describe('Resource summary — phone layout', () => {
 
     for (const section of SECTIONS) {
       await expect(sheet.getByText(section.heading)).toBeVisible();
-      await expect(sheet.getByText(section.empty)).toBeVisible();
+      // The phone sheet keeps its full sentences — it is a different component
+      // (`mobile-incident-detail-sheet.tsx`) with its own `mobileDetail.*` keys.
+      await expect(sheet.getByText(section.mobileEmpty)).toBeVisible();
     }
 
     // Read-only on a phone: KP Rück is run from a desk, the phone is for

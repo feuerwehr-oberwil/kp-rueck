@@ -216,7 +216,14 @@ async def attach_emergency_to_event(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
-    # Simulated training alarms never become real incidents
+    # Simulated training alarms never become real incidents.
+    #
+    # Only this direction is blocked, and that asymmetry is deliberate: a REAL
+    # alarm may be attached to a training Ereignis, because a genuine call during
+    # a running drill has to be carried somewhere and the same board is the
+    # honest place for it. What stays different there (simulated Ausalarmierung,
+    # 50% longer overdue thresholds) is named in the pool's confirmation dialog
+    # before the operator attaches it — a question, not a verdict.
     if emergency.is_training and not event.training_flag:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -308,7 +315,8 @@ async def bulk_attach_emergencies(
 
             # Allow re-attachment to different events
 
-            # Simulated training alarms never become real incidents
+            # Simulated training alarms never become real incidents (the reverse
+            # direction is allowed — see the note on the single-attach route)
             if emergency.is_training and not event.training_flag:
                 errors.append(f"Emergency {emergency_id}: Übungs-Alarm kann nur an eine Übung angehängt werden")
                 continue

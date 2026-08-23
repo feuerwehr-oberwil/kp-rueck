@@ -887,6 +887,45 @@ async def test_webhook_never_auto_attaches_to_training_event(
     assert response.json()["auto_attached_incident_id"] is None
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_real_alarm_stops_every_simulated_gps_drive(
+    client: AsyncClient, auto_attach_event: Event, webhook_secret: str
+):
+    """Reality preempts the drill.
+
+    Simulated drives are global and mask their vehicle's real Traccar position
+    for every consumer — left running under a live Einsatz, the map would show a
+    pretend TLF while a real one is on the road. The moment a real alarm lands
+    on the board, every drive stops.
+    """
+    from app.services.gps_simulation import SimulatedDrive, gps_simulation
+
+    await gps_simulation.start(
+        SimulatedDrive(
+            vehicle_id=uuid4(),
+            vehicle_name="TLF Übung",
+            start_lat=47.51,
+            start_lng=7.55,
+            target_lat=47.52,
+            target_lng=7.56,
+            target_label="Testweg 1",
+            kind="incident",
+            cruise_kmh=40.0,
+            started_at=datetime.now(UTC),
+        )
+    )
+    try:
+        payload = {"id": 555004, "title": "FEUER Küchenbrand"}
+        with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+            response = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
+        assert response.status_code == 200
+        assert response.json()["auto_attached_incident_id"] is not None
+        assert not gps_simulation.any_active()
+    finally:
+        await gps_simulation.stop()  # never leak a drive into another test
+
+
 # ============================================
 # Training Emergency Attach Guard Tests
 # ============================================

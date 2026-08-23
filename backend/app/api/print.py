@@ -59,6 +59,33 @@ async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid agent token")
 
 
+async def require_printer_configured(db: AsyncSession) -> None:
+    """Refuse to queue a job that can never come out of a printer.
+
+    Two settings decide whether printing works, not one: ``printer.enabled`` AND an address
+    the agent can reach — the agent asks for both via ``GET /api/print/config/`` and has
+    nowhere to send the bytes without the second.
+
+    The address used to go unchecked here. A station with printing switched on but no IP
+    accepted every job, returned 201, and stacked them in ``print_jobs`` forever: no error
+    on the board, no error in the agent log, and nothing on paper. Failing at the door is
+    the whole point — an operator who prints an Einsatzzettel finds out now, not never.
+
+    Only the five endpoints that CREATE jobs use this. The agent's own poll/claim/complete
+    routes stay open on ``printer.enabled`` alone, so a queue that filled up before the
+    address went missing can still be drained.
+    """
+    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
+    if enabled.lower() != "true":
+        raise HTTPException(status_code=400, detail="Drucken ist ausgeschaltet")
+    ip = await settings_service.get_setting_value(db, "printer.ip", "")
+    if not ip.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Keine Druckeradresse gesetzt (Einstellungen → Drucker → Adresse)",
+        )
+
+
 # How long after the agent's last contact we still consider it "online".
 # The agent touches the backend at least every 25s (the long-poll hang) and, on a backend
 # too old to long-poll, every 10s (the idle poll). 90s gives margin over both.
@@ -239,8 +266,12 @@ async def _build_board_payload(
             }
         )
 
-    # Get vehicle status summary
-    all_vehicles_result = await db.execute(select(Vehicle).order_by(Vehicle.display_order))
+    # Get vehicle status summary. Archived vehicles are retired inventory — they
+    # are off the board and out of the pickers, so a slip that still lists them
+    # would be the one surface telling the KP the station owns a truck it sold.
+    all_vehicles_result = await db.execute(
+        select(Vehicle).where(Vehicle.archived_at.is_(None)).order_by(Vehicle.display_order)
+    )
     all_vehicles = all_vehicles_result.scalars().all()
 
     # Check which vehicles are assigned to active incidents
@@ -257,7 +288,9 @@ async def _build_board_payload(
             {
                 "name": v.name,
                 "type": v.type,
-                "available": v.id not in assigned_vehicle_ids and v.status == "available",
+                # Readiness reads `out_of_service`, not the legacy `status` mirror
+                # — same precedence the board draws: not ready ▸ assigned ▸ free.
+                "available": v.id not in assigned_vehicle_ids and not v.out_of_service,
             }
         )
 
@@ -412,10 +445,7 @@ async def queue_assignment_print(
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
     """Queue an assignment slip for printing."""
-    # Check if printer is enabled
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
-        raise HTTPException(status_code=400, detail="Printer is not enabled")
+    await require_printer_configured(db)
 
     # Build payload via the shared builder (includes Reko summary, internal notes,
     # Nachbarhilfe, zu_fuss, and per-vehicle driver info)
@@ -447,10 +477,7 @@ async def queue_board_print(
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
     """Queue a board snapshot for printing."""
-    # Check if printer is enabled
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
-        raise HTTPException(status_code=400, detail="Printer is not enabled")
+    await require_printer_configured(db)
 
     # Build payload
     payload = await _build_board_payload(
@@ -495,9 +522,7 @@ async def queue_abholliste_print(
     Trupp-Abholung flag: a pump running in a cellar and three people standing in
     the rain are two problems, and merging them into one sheet would lose that.
     """
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
-        raise HTTPException(status_code=400, detail="Printer is not enabled")
+    await require_printer_configured(db)
 
     event_result = await db.execute(select(Event).where(Event.id == event_id))
     event = event_result.scalar_one_or_none()
@@ -547,10 +572,7 @@ async def queue_test_print(
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
     """Queue a test print to verify the whole printing chain end-to-end."""
-    # Check if printer is enabled (the agent only polls when enabled)
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
-        raise HTTPException(status_code=400, detail="Printer is not enabled")
+    await require_printer_configured(db)
 
     payload = {
         "requested_by": current_user.display_name or current_user.username,
@@ -577,16 +599,22 @@ async def queue_qr_code_print(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
-    """Queue a QR-code slip (shareable link as QR + text) for printing."""
-    # Check if printer is enabled (the agent only polls when enabled)
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
-        raise HTTPException(status_code=400, detail="Printer is not enabled")
+    """Queue a QR-code slip (shareable link as QR + text) for printing.
+
+    ``code`` / ``valid_until`` ride along untouched when the caller sends them
+    (the Feld slip does, nothing else). They are the only reason a scanned Feld
+    poster does not strand its reader at a code prompt — see
+    ``PrintQRCodeRequest`` and ``format_qr_code_slip`` in the agent, which prints
+    both under the QR and skips them when absent.
+    """
+    await require_printer_configured(db)
 
     payload = {
         "qr_content": request.qr_content,
         "title": request.title,
         "subtitle": request.subtitle,
+        "code": request.code,
+        "valid_until": request.valid_until,
         "printed_at": datetime.now(UTC).isoformat(),
     }
 

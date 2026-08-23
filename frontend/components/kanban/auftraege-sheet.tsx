@@ -548,6 +548,8 @@ function AuftragCard({
   canEdit,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
+  // The Routen-Editor entry shares its label with the card context menu.
+  const tCommon = useTranslations("kanban.common")
   const headerRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
@@ -732,6 +734,13 @@ function AuftragCard({
                   // (opens-then-closes). Keep focus put so the picker stays open.
                   onCloseAutoFocus={(e) => e.preventDefault()}
                 >
+                  {/* First entry: the route itself is what this menu is about.
+                      Same <2-stops rule as Optimieren and the in-body button —
+                      a single pin has no route to edit. */}
+                  <DropdownMenuItem disabled={total < 2} onClick={() => onOpenRoutenEditor()}>
+                    <Route className="mr-2 h-4 w-4" />
+                    {tCommon("openRoutenEditor")}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={onStartRename}>
                     <Pencil className="mr-2 h-4 w-4" />
                     {t("rename")}
@@ -763,7 +772,7 @@ function AuftragCard({
           </div>
           </div>
         </ContextMenuTrigger>
-        {canEdit && <ContextMenuContent className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
+        {canEdit && <ContextMenuContent className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap" onCloseAutoFocus={(e) => e.preventDefault()}>
           <ContextMenuItem onClick={onStartRename}>
             <Pencil className="mr-2 h-4 w-4" />
             {t("rename")}

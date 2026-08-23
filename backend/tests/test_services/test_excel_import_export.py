@@ -8,6 +8,7 @@ Tests Excel template generation, validation, parsing, import, and export includi
 """
 
 import io
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -18,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Material, Personnel, User, Vehicle
 from app.services.excel_import_export import (
+    ARCHIVE_SHEET,
     EXAMPLE_ROW_MARKER,
     MATERIAL_COLUMNS,
     PERSONNEL_COLUMNS,
@@ -822,6 +824,79 @@ class TestImportData:
         assert (await db_session.execute(select(Vehicle))).scalars().all() == []
 
     @pytest.mark.asyncio
+    async def test_replace_mode_leaves_the_archive_untouched(self, db_session: AsyncSession, excel_user: User):
+        """Archived rows survive a replace-import.
+
+        The export keeps the archive off the round-trip sheets on purpose, so the
+        workbook a replace acts on never carries it — a whole-table DELETE would
+        destroy exactly the inventory record the export promised to preserve.
+        """
+        archived_vehicle = Vehicle(
+            id=uuid4(),
+            name="Verkauftes TLF",
+            type="TLF",
+            display_order=99,
+            status="available",
+            radio_call_sign="Alt 1",
+            archived_at=datetime.now(UTC),
+        )
+        archived_material = Material(
+            id=uuid4(),
+            name="Ausgemusterte Pumpe",
+            type="Tauchpumpen",
+            location="Magazin",
+            archived_at=datetime.now(UTC),
+        )
+        active_vehicle = Vehicle(
+            id=uuid4(), name="Aktives TLF", type="TLF", display_order=1, status="available", radio_call_sign="1"
+        )
+        db_session.add_all([archived_vehicle, archived_material, active_vehicle])
+        await db_session.commit()
+
+        parsed = full_workbook(
+            vehicles=[
+                {"name": "Neues TLF", "type": "TLF", "display_order": 1, "status": "available", "radio_call_sign": "1"}
+            ],
+            materials=[{"name": "Neue Pumpe", "type": "Tauchpumpen", "location": "TLF"}],
+        )
+        await import_data(db_session, parsed, "replace", str(excel_user.id))
+
+        vehicle_names = {v.name for v in (await db_session.execute(select(Vehicle))).scalars().all()}
+        material_names = {m.name for m in (await db_session.execute(select(Material))).scalars().all()}
+        assert vehicle_names == {"Verkauftes TLF", "Neues TLF"}  # archived kept, active replaced
+        assert material_names == {"Ausgemusterte Pumpe", "Neue Pumpe"}
+
+    @pytest.mark.asyncio
+    async def test_imported_unavailable_status_keeps_the_readiness_lockstep(
+        self, db_session: AsyncSession, excel_user: User
+    ):
+        """`status` on the sheet is only the legacy mirror — the timestamp must follow.
+
+        A row imported as `unavailable` without `out_of_service_since` would be a
+        state no other write path can produce (see `apply_out_of_service`).
+        """
+        parsed = full_workbook(
+            vehicles=[
+                {"name": "Defekt", "type": "TLF", "display_order": 1, "status": "unavailable", "radio_call_sign": "1"},
+                {"name": "Bereit", "type": "TLF", "display_order": 2, "status": "available", "radio_call_sign": "2"},
+            ],
+            # The Materials sheet carries no status column today; a row that
+            # arrives with one anyway must obey the same lockstep.
+            materials=[{"name": "Defekte Pumpe", "type": "Tauchpumpen", "location": "TLF", "status": "unavailable"}],
+        )
+        await import_data(db_session, parsed, "replace", str(excel_user.id))
+
+        vehicles = {v.name: v for v in (await db_session.execute(select(Vehicle))).scalars().all()}
+        assert vehicles["Defekt"].status == "unavailable"
+        assert vehicles["Defekt"].out_of_service_since is not None
+        assert vehicles["Bereit"].status == "available"
+        assert vehicles["Bereit"].out_of_service_since is None
+
+        material = (await db_session.execute(select(Material))).scalars().one()
+        assert material.status == "unavailable"
+        assert material.out_of_service_since is not None
+
+    @pytest.mark.asyncio
     async def test_import_empty_data(self, db_session: AsyncSession, excel_user: User):
         """Test importing empty data sets."""
         parsed_data = full_workbook(personnel=[], vehicles=[], materials=[])
@@ -952,6 +1027,63 @@ class TestExportDataToExcel:
 
         orders = [row[2] for row in ws.iter_rows(min_row=2, values_only=True) if row[0]]
         assert orders == sorted(orders)
+
+    @pytest.mark.asyncio
+    async def test_archived_rows_leave_the_round_trip_sheets_for_the_archive_sheet(
+        self,
+        db_session: AsyncSession,
+        sample_vehicles: list[Vehicle],
+        sample_materials: list[Material],
+    ):
+        """An archived vehicle/material is off `Vehicles`/`Materials` and on `Archiviert`.
+
+        Both halves matter. In the three round-trip sheets it would come back
+        ACTIVE on the next `replace` import — those sheets carry no `archived_at`
+        column — so a sold truck would drive back onto the board. Dropped
+        entirely it would vanish from what an operator uses as a backup, which is
+        why it is still in the workbook, on a sheet the parser does not read.
+        """
+        sample_vehicles[1].archived_at = datetime.now(UTC)
+        sample_materials[2].archived_at = datetime.now(UTC)
+        await db_session.commit()
+
+        wb = load_workbook(await export_data_to_excel(db_session))
+
+        vehicle_names = [row[0] for row in wb["Vehicles"].iter_rows(min_row=2, values_only=True) if row[0]]
+        material_names = [row[0] for row in wb["Materials"].iter_rows(min_row=2, values_only=True) if row[0]]
+        assert sample_vehicles[1].name not in vehicle_names
+        assert sample_materials[2].name not in material_names
+
+        # Row 1 is the "not an input sheet" note, row 2 the header.
+        archive_rows = list(wb[ARCHIVE_SHEET].iter_rows(min_row=3, values_only=True))
+        assert [row[0:2] for row in archive_rows] == [
+            ("Fahrzeug", sample_vehicles[1].name),
+            ("Material", sample_materials[2].name),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_archive_sheet_is_ignored_by_the_import(
+        self,
+        db_session: AsyncSession,
+        sample_vehicles: list[Vehicle],
+    ):
+        """Re-importing an export must not resurrect the archive as active inventory."""
+        sample_vehicles[1].archived_at = datetime.now(UTC)
+        await db_session.commit()
+
+        parsed = validate_and_parse_excel((await export_data_to_excel(db_session)).getvalue())
+
+        assert [row["name"] for row in parsed.vehicles.rows] == [sample_vehicles[0].name]
+
+    @pytest.mark.asyncio
+    async def test_no_archive_sheet_without_an_archive(
+        self,
+        db_session: AsyncSession,
+        sample_vehicles: list[Vehicle],
+    ):
+        """The extra sheet appears only when there is something to put on it."""
+        wb = load_workbook(await export_data_to_excel(db_session))
+        assert ARCHIVE_SHEET not in wb.sheetnames
 
 
 # ============================================

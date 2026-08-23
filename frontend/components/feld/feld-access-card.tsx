@@ -38,9 +38,16 @@ interface FeldAccessCardProps {
   /** Drop the card's own border/background so it can sit as a row inside a
    *  grouped container (the Links & QR sheet's Feld group). */
   bare?: boolean
+  /**
+   * The current code, as often as it changes — including after «Neu
+   * generieren». The Links & QR sheet listens so the PRINTED slip carries the
+   * same four digits the screen shows; without it the sheet would have to
+   * fetch the code a second time and could print a stale one.
+   */
+  onCodeChange?: (code: string) => void
 }
 
-export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
+export function FeldAccessCard({ eventId, bare = false, onCodeChange }: FeldAccessCardProps) {
   const t = useTranslations('feld.access')
   const [state, setState] = useState<ApiFeldAccessState | null>(null)
   const [busy, setBusy] = useState(false)
@@ -59,6 +66,11 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   useEffect(() => {
     load()
   }, [load])
+
+  // One place tells the parent, whichever of the three writers moved the code.
+  useEffect(() => {
+    if (state) onCodeChange?.(state.code)
+  }, [state, onCodeChange])
 
   const regenerate = async () => {
     setBusy(true)

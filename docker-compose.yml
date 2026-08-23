@@ -113,12 +113,15 @@ services:
       # Must live under /mnt/data: entrypoint.sh chowns exactly that path to the non-root
       # app user, and a fresh named volume is otherwise created root-owned.
       PHOTOS_DIR: /mnt/data/photos
-      # Admin account seeded on first boot (≥12 chars, required in production) – rotate
-      # after the first login. The shared editor login is dev-only and never seeded here.
-      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:?set ADMIN_SEED_PASSWORD in .env (≥12 chars)}
-      # Read-only account, also required in production: seeding refuses to fall back to a
-      # default viewer login on an internet-facing deployment.
-      VIEWER_PASSWORD: ${VIEWER_PASSWORD:?set VIEWER_PASSWORD in .env (≥12 chars)}
+      # Admin account seeded on first boot (≥12 chars) – rotate after the first login.
+      # OPTIONAL since the first-run wizard: unset, the board boots "unclaimed" and the first
+      # browser visit sets the accounts at /setup. Set, the wizard is pre-answered and the
+      # account exists before anyone opens a browser – which is what `just init` writes.
+      # The shared editor login is dev-only and never seeded here.
+      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
+      # Read-only account, same rule: unset = created in the /setup wizard, set = seeded on
+      # first boot and re-applied from .env on EVERY boot (docs/SETUP.md §2 says why).
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:-}
       # Optional integrations – leave blank to disable. See .env.example.
       DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
       TRACCAR_URL: ${TRACCAR_URL:-}

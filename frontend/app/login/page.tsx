@@ -38,7 +38,6 @@ export default function LoginPage() {
   const [progress, setProgress] = useState(0);
   const [isDemo, setIsDemo] = useState<boolean | null>(null);
   const [msConfig, setMsConfig] = useState<MicrosoftAuthConfig | null>(null);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The locale lives in a cookie the server never sees on this route, so the
@@ -50,6 +49,17 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    // An unclaimed board has no accounts to log into — the first visit belongs
+    // to the setup wizard. Checked only when this page mounts (not on every app
+    // boot), and failing open: an unreachable backend keeps this a login page.
+    apiClient.getSetupStatus().then((status) => {
+      if (status && !status.claimed) {
+        router.replace('/setup');
+      }
+    });
+  }, [router]);
 
   useEffect(() => {
     Promise.all([
@@ -245,24 +255,13 @@ export default function LoginPage() {
                   </Button>
                 )}
 
-                {/* Password form toggle / form */}
-                {msConfig && !showPasswordForm ? (
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <button
-                        type="button"
-                        className="bg-card px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={() => setShowPasswordForm(true)}
-                      >
-                        {t('loginWithPassword')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (!msConfig || showPasswordForm) && (
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Both ways in, always both visible. The password form used to hide
+                    behind a «Mit Passwort anmelden» link, which cost a click on every
+                    single login for the accounts that have no Entra ID — the Magazin
+                    display, the shared editor account, anyone during an outage of the
+                    identity provider. A login screen is not the place to save two rows
+                    of height at the cost of a step. */}
+                <form onSubmit={handleSubmit} className="space-y-5">
                     {msConfig && (
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">
@@ -323,7 +322,6 @@ export default function LoginPage() {
                       {loading ? t('loggingIn') : t('submit')}
                     </Button>
                   </form>
-                )}
               </div>
             )}
           </div>

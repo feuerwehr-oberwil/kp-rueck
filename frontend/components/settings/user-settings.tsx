@@ -3,14 +3,20 @@
 /**
  * User Management Settings Component (Admin only)
  * CRUD interface for managing user accounts
+ *
+ * The three dialogs are built from `<DetailField>` rows — `Beschriftung │ Wert` on one
+ * line — like the new-Einsatz modal, and for the same reason: a label stacked above every
+ * control spent a dialog's height saying what «Rolle» means. Controls stay BOXED here,
+ * not in the panel's borderless skin: every field of a creation dialog is empty at open,
+ * and a borderless empty input has no affordance.
  */
 
 import { useState, useEffect } from 'react';
 import { apiClient, type ApiUser, type ApiUserCreate, type ApiUserUpdate } from '@/lib/api-client';
-import { Card } from '@/components/ui/card';
+import { SettingCard } from '@/components/settings/setting-row';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { DetailField } from '@/components/kanban/detail-field';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -21,6 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +48,35 @@ import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2, Loader2 } fr
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
+
+/** The three roles in the order the select offers them, with the label key each uses. */
+const ROLE_HINTS = [
+  { role: 'editor', nameKey: 'users.roles.editor' },
+  { role: 'viewer', nameKey: 'users.roles.viewer' },
+  { role: 'admin', nameKey: 'users.roleAdmin' },
+] as const;
+
+/**
+ * One plain sentence per role, right under the role select – no disclosure, no manual.
+ *
+ * The sentence about «Betrachter» names the consequence that surprises people today:
+ * `ProtectedRoute` redirects a viewer to `/display/board` on login and the board itself
+ * is not reachable from there (see components/protected-route.tsx). Better an
+ * uncomfortable truth in the dialog than a surprise during an incident.
+ */
+function RoleHints() {
+  const t = useTranslations('settings');
+  return (
+    <ul>
+      {ROLE_HINTS.map(({ role, nameKey }) => (
+        <li key={role} className="flex gap-2 py-1 text-xs text-muted-foreground">
+          <span className="w-24 flex-shrink-0 font-semibold text-foreground">{t(nameKey)}</span>
+          <span>{t(`users.roleHints.${role}`)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function UserSettings() {
   const t = useTranslations('settings');
@@ -239,7 +282,7 @@ export function UserSettings() {
 
   if (loading) {
     return (
-      <Card className="p-6">
+      <SettingCard>
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="flex items-center gap-4">
@@ -251,67 +294,75 @@ export function UserSettings() {
             </div>
           ))}
         </div>
-      </Card>
+      </SettingCard>
     );
   }
 
   if (error) {
     return (
-      <Card className="p-6">
+      <SettingCard>
         <p className="text-destructive">{error}</p>
         <Button onClick={fetchUsers} className="mt-4">{t('common.retry')}</Button>
-      </Card>
+      </SettingCard>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header with Create Button */}
-      <div className="flex justify-end">
-        <Button onClick={openCreateDialog}>
-          <Plus className="size-4" />
-          {t('users.newUser')}
-        </Button>
-      </div>
-
-      {/* User List */}
-      <div className="space-y-3">
-        {users.map((user) => (
-          <Card key={user.id} className={`p-4 ${!user.is_active ? 'opacity-60' : ''}`}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                  user.role === 'admin' ? 'bg-warning/10 text-warning-foreground' : 'bg-info/10 text-info'
-                }`}>
+    /* Auf einer Karte wie jeder andere Abschnitt, mit «Neuer Benutzer» im Kartenkopf —
+       demselben Platz, an dem die anderen Karten ihre eine Aktion tragen. */
+    <div className="space-y-6">
+      <SettingCard
+        action={
+          <Button onClick={openCreateDialog}>
+            <Plus className="size-4" />
+            {t('users.newUser')}
+          </Button>
+        }
+      >
+      {/* One row per account, like Mannschaft/Fahrzeuge/Material — the accounts were the
+          last resource list still drawn as a stack of cards, which cost a card frame and
+          a 40px avatar per user and still left the last-login stamps unaligned. The
+          deactivated row greys out the way an archived vehicle does. */}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('common.name')}</TableHead>
+            <TableHead>{t('users.usernameLabel')}</TableHead>
+            <TableHead>{t('common.role')}</TableHead>
+            <TableHead>{t('users.lastLogin')}</TableHead>
+            <TableHead className="text-right">{t('common.actions')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map((user) => (
+            <TableRow
+              key={user.id}
+              className={!user.is_active ? 'bg-muted/40 text-muted-foreground' : undefined}
+            >
+              <TableCell className="font-medium">
+                <span className="flex items-center gap-2">
                   {user.role === 'admin' ? (
-                    <Shield className="h-5 w-5" />
+                    <Shield className="size-4 shrink-0 text-warning-foreground" aria-hidden />
                   ) : (
-                    <User className="h-5 w-5" />
+                    <User className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                   )}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{user.display_name || user.username}</span>
-                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                      {roleLabel(user.role)}
+                  {user.display_name || user.username}
+                  {!user.is_active && (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {t('users.deactivated')}
                     </Badge>
-                    {!user.is_active && (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        {t('users.deactivated')}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">@{user.username}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                {/* Last-login column: aligned across rows so stale accounts
-                    stand out at a glance (was buried in the subtitle). */}
-                <div className="hidden sm:block text-right shrink-0">
-                  <p className="text-xs text-muted-foreground">{t('users.lastLogin')}</p>
-                  <p className="text-sm tabular-nums">{formatLastLogin(user.last_login)}</p>
-                </div>
-                <div className="flex items-center gap-1">
+                  )}
+                </span>
+              </TableCell>
+              <TableCell className="text-muted-foreground">@{user.username}</TableCell>
+              <TableCell>
+                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                  {roleLabel(user.role)}
+                </Badge>
+              </TableCell>
+              <TableCell className="tabular-nums">{formatLastLogin(user.last_login)}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -363,11 +414,12 @@ export function UserSettings() {
                     </>
                   )}
                 </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      </SettingCard>
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -378,13 +430,19 @@ export function UserSettings() {
               {t('users.createDialogDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-semibold text-muted-foreground">
-                {t('users.usernameLabel')} <span className="text-destructive" aria-hidden="true">*</span>
-              </Label>
+          <div className="space-y-1 py-2">
+            <DetailField
+              label={t('users.usernameLabel')}
+              htmlFor="username"
+              required
+              error={formErrors.username}
+            >
+              {/* An admin creating an account for somebody else — never the
+                  browser's own saved KP login. Without the pair of hints the
+                  password manager fills this form with the admin's credentials. */}
               <Input
                 id="username"
+                autoComplete="off"
                 value={formData.username}
                 onChange={(e) => {
                   setFormData({ ...formData, username: e.target.value });
@@ -394,28 +452,25 @@ export function UserSettings() {
                 aria-invalid={!!formErrors.username}
                 className={cn(formErrors.username && 'border-destructive')}
               />
-              {formErrors.username && (
-                <p className="text-xs text-destructive">{formErrors.username}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="display_name" className="text-sm font-semibold text-muted-foreground">
-                {t('users.displayNameLabel')}
-              </Label>
+            </DetailField>
+            <DetailField label={t('users.displayNameLabel')} htmlFor="display_name">
               <Input
                 id="display_name"
                 value={formData.display_name}
                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                 placeholder={t('users.displayNamePlaceholder')}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold text-muted-foreground">
-                {t('users.passwordLabel')} <span className="text-destructive" aria-hidden="true">*</span>
-              </Label>
+            </DetailField>
+            <DetailField
+              label={t('users.passwordLabel')}
+              htmlFor="password"
+              required
+              error={formErrors.password}
+            >
               <Input
                 id="password"
                 type="password"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => {
                   setFormData({ ...formData, password: e.target.value });
@@ -424,19 +479,15 @@ export function UserSettings() {
                 aria-invalid={!!formErrors.password}
                 className={cn(formErrors.password && 'border-destructive')}
               />
-              {formErrors.password && (
-                <p className="text-xs text-destructive">{formErrors.password}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm font-semibold text-muted-foreground">
-                {t('users.roleLabel')}
-              </Label>
+            </DetailField>
+            {/* The role sentences hang off the row rather than sitting beside it: three
+                lines do not fit a row, and they belong to the select above them. */}
+            <DetailField label={t('users.roleLabel')} htmlFor="role" footer={<RoleHints />}>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="role" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -445,10 +496,7 @@ export function UserSettings() {
                   <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                {t('users.adminsHint')}
-              </p>
-            </div>
+            </DetailField>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
@@ -471,37 +519,39 @@ export function UserSettings() {
               {t('users.editDialogDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit_username" className="text-sm font-semibold text-muted-foreground">
-                {t('users.usernameLabel')}
-              </Label>
+          <div className="space-y-1 py-2">
+            <DetailField label={t('users.usernameLabel')} htmlFor="edit_username">
               <Input
                 id="edit_username"
+                autoComplete="off"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_display_name" className="text-sm font-semibold text-muted-foreground">
-                {t('users.displayNameLabel')}
-              </Label>
+            </DetailField>
+            <DetailField label={t('users.displayNameLabel')} htmlFor="edit_display_name">
               <Input
                 id="edit_display_name"
                 value={formData.display_name}
                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_role" className="text-sm font-semibold text-muted-foreground">
-                {t('users.roleLabel')}
-              </Label>
+            </DetailField>
+            <DetailField
+              label={t('users.roleLabel')}
+              htmlFor="edit_role"
+              footer={
+                selectedUser?.id === currentUser?.id ? (
+                  <p className="text-xs text-muted-foreground">{t('users.ownRoleHint')}</p>
+                ) : (
+                  <RoleHints />
+                )
+              }
+            >
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'editor' | 'viewer' })}
                 disabled={selectedUser?.id === currentUser?.id}
               >
-                <SelectTrigger>
+                <SelectTrigger id="edit_role" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -510,12 +560,7 @@ export function UserSettings() {
                   <SelectItem value="admin">{t('users.roleAdmin')}</SelectItem>
                 </SelectContent>
               </Select>
-              {selectedUser?.id === currentUser?.id && (
-                <p className="text-xs text-muted-foreground">
-                  {t('users.ownRoleHint')}
-                </p>
-              )}
-            </div>
+            </DetailField>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
@@ -538,19 +583,17 @@ export function UserSettings() {
               {t('users.resetPasswordDescription', { name: selectedUser?.display_name || selectedUser?.username || '' })}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="new_password" className="text-sm font-semibold text-muted-foreground">
-                {t('users.newPasswordLabel')}
-              </Label>
+          <div className="space-y-1 py-2">
+            <DetailField label={t('users.newPasswordLabel')} htmlFor="new_password">
               <Input
                 id="new_password"
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder={t('users.newPasswordPlaceholder')}
               />
-            </div>
+            </DetailField>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>

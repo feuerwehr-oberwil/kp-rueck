@@ -115,6 +115,10 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
     "intake": {
         "POST /generate-link": "session",
         "POST /alarm": "token",  # twin lives elsewhere ↓
+        # Correcting the alarm you just phoned in, before the KP disponiert it —
+        # `/feld`'s own correction window, for the door that has no person
+        # behind it. Token-only for the same reason as the create above.
+        "PUT /alarm/{incident_id}": "token",
     },
     "viewer": {
         # Output only — the token surface reads and never writes. Minting the link
@@ -128,6 +132,12 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
 # quietly outlive the route it points at; anything after that is prose.
 EXTERNAL_TWINS: dict[str, str] = {
     "POST /api/intake/alarm": "POST /api/incidents/ with source='intake'",
+    "PUT /api/intake/alarm/{incident_id}": (
+        "PATCH /api/incidents/{incident_id} — the board's own edit produces the identical "
+        "state (title, type, priority, address, Meldung, Notizen, Melder). The intake door "
+        "is the narrower one: it needs the per-incident receipt token handed out when that "
+        "alarm was created, and it closes the moment the card leaves «Eingegangen»."
+    ),
     "POST /api/feld/attendance/{personnel_id}": (
         "POST /api/personnel/check-in/{personnel_id}/in — the same attendance row, "
         "written through the same CRUD. The board twin is the door tablet's own route, "

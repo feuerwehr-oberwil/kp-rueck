@@ -36,11 +36,6 @@ interface UseKanbanDragDropProps {
   /** Attach a resource to the ROUTE (drop on an Auftrag row/stop, or on a grouped
    *  incident card). Resources are route-owned now, not per-stop. */
   assignGroupResource?: (groupId: string, resourceType: GroupResourceType, resourceId: string) => void
-  occupiedGroupResourceIds?: Record<GroupResourceType, Set<string>>
-  /** Say why a drop was refused. A drop that does nothing and says nothing is
-   *  indistinguishable from a broken one — which is exactly how the route paths
-   *  read before they stopped swallowing busy resources. */
-  notifyRefused?: (reason: "route-occupied") => void
 }
 
 /** Everything a resource drop needs — the hook hands its own props straight in. */
@@ -53,8 +48,6 @@ type ResourceDropDeps = Pick<
   | 'assignVehicleToOperation'
   | 'addStopsToGroup'
   | 'assignGroupResource'
-  | 'occupiedGroupResourceIds'
-  | 'notifyRefused'
 >
 
 /**
@@ -68,9 +61,14 @@ type ResourceDropDeps = Pick<
  * `status === "available"` first, which swallowed the drop before the question
  * could be asked — the sidebar let go of the card and nothing happened.
  *
- * Resources an *Auftrag* holds are still refused, because that conflict is
- * invisible to the incident-level prompt (route resources are route-owned and
- * never appear in `op.materials` / `op.crew`).
+ * Resources an *Auftrag* holds are not refused either, any more. That conflict
+ * is invisible to the incident-level prompt (route resources are route-owned and
+ * never appear in `op.materials` / `op.crew`), so it used to end in a flat
+ * «dort zuerst freigeben» toast — the board telling the operator to go and do by
+ * hand, mid-storm, what one click of the dialog does. The board's own
+ * `assignGroupResource` / `assignPersonToOperation` wrappers now raise the SAME
+ * Doppelbelegung dialog with the Auftrag's name on the «bisher» line, exactly as
+ * vehicles have done all along. Nothing is swallowed here.
  */
 export function applyResourceDrop(
   sourceData: DragData,
@@ -83,8 +81,6 @@ export function applyResourceDrop(
     assignVehicleToOperation,
     addStopsToGroup,
     assignGroupResource,
-    occupiedGroupResourceIds,
-    notifyRefused,
   }: ResourceDropDeps,
 ): boolean {
   // --- Aufträge (route) drop targets -----------------------------------
@@ -106,27 +102,20 @@ export function applyResourceDrop(
       const person = sourceData.person as Person
       // Reko is a per-stop scouting slot, not a route resource — ignore here.
       if (person.isReko) return true
-      // No `status === "available"` gate. That is the very check the note above
-      // says was removed from the incident path, and leaving it here meant
-      // dropping somebody who is busy elsewhere onto a STOP did nothing at all:
-      // no prompt, no toast, the card just went back. Busy is the normal state
-      // of a roster during a storm.
-      if (occupiedGroupResourceIds?.personnel.has(person.id)) notifyRefused?.("route-occupied")
-      else assignGroupResource?.(groupId, "personnel", person.id)
+      // No availability and no occupancy gate: busy is the normal state of a
+      // roster during a storm, and `assignGroupResource` is the board's
+      // conflict-aware wrapper, which asks rather than refuses.
+      assignGroupResource?.(groupId, "personnel", person.id)
     } else if (sourceData.type === "driver-vehicle") {
       const vehicleId = sourceData.vehicleId as string
       assignGroupResource?.(groupId, "vehicle", vehicleId)
     } else if (sourceData.type === "material") {
       const material = sourceData.material as Material
-      if (occupiedGroupResourceIds?.material.has(material.id)) notifyRefused?.("route-occupied")
-      else assignGroupResource?.(groupId, "material", material.id)
+      assignGroupResource?.(groupId, "material", material.id)
     } else if (sourceData.type === "material-group") {
-      let refused = false
       for (const material of sourceData.materials as Material[]) {
-        if (occupiedGroupResourceIds?.material.has(material.id)) refused = true
-        else assignGroupResource?.(groupId, "material", material.id)
+        assignGroupResource?.(groupId, "material", material.id)
       }
-      if (refused) notifyRefused?.("route-occupied")
     }
     return true
   }
@@ -143,27 +132,22 @@ export function applyResourceDrop(
     const targetOp = operations.find((o) => o.id === operationId)
     if (targetOp?.groupId) {
       const groupId = targetOp.groupId
-      // Same rule as the Auftrag row above: only a resource the ROUTE model
-      // genuinely cannot take is refused, and a refusal says so out loud.
+      // Same rule as the Auftrag row above: nothing is refused here, the
+      // wrapper asks.
       if (sourceData.type === "person") {
         const person = sourceData.person as Person
         if (person.isReko) assignRekoPersonToOperation(person.id, person.name, targetOp.id)
-        else if (occupiedGroupResourceIds?.personnel.has(person.id)) notifyRefused?.("route-occupied")
         else assignGroupResource?.(groupId, "personnel", person.id)
       } else if (sourceData.type === "driver-vehicle") {
         const vehicleId = sourceData.vehicleId as string
         assignGroupResource?.(groupId, "vehicle", vehicleId)
       } else if (sourceData.type === "material") {
         const material = sourceData.material as Material
-        if (occupiedGroupResourceIds?.material.has(material.id)) notifyRefused?.("route-occupied")
-        else assignGroupResource?.(groupId, "material", material.id)
+        assignGroupResource?.(groupId, "material", material.id)
       } else if (sourceData.type === "material-group") {
-        let refused = false
         for (const material of sourceData.materials as Material[]) {
-          if (occupiedGroupResourceIds?.material.has(material.id)) refused = true
-          else assignGroupResource?.(groupId, "material", material.id)
+          assignGroupResource?.(groupId, "material", material.id)
         }
-        if (refused) notifyRefused?.("route-occupied")
       }
       return true
     }
@@ -175,7 +159,7 @@ export function applyResourceDrop(
     // Reko personnel are assigned differently (to the reko slot, not crew)
     if (person.isReko) {
       assignRekoPersonToOperation(person.id, person.name, operationId)
-    } else if (!occupiedGroupResourceIds?.personnel.has(person.id)) {
+    } else {
       assignPersonToOperation(person.id, person.name, operationId)
     }
     return true
@@ -190,16 +174,14 @@ export function applyResourceDrop(
   // Material dropped on operation
   if (sourceData.type === "material") {
     const material = sourceData.material as Material
-    if (!occupiedGroupResourceIds?.material.has(material.id)) {
-      assignMaterialToOperation(material.id, operationId)
-    }
+    assignMaterialToOperation(material.id, operationId)
     return true
   }
 
   // Material group dropped on operation — assign every material the block carries
   if (sourceData.type === "material-group") {
     for (const material of sourceData.materials as Material[]) {
-      if (!occupiedGroupResourceIds?.material.has(material.id)) assignMaterialToOperation(material.id, operationId)
+      assignMaterialToOperation(material.id, operationId)
     }
     return true
   }
@@ -406,8 +388,6 @@ export function useKanbanDragDrop({
   groups,
   addStopsToGroup,
   assignGroupResource,
-  occupiedGroupResourceIds,
-  notifyRefused,
 }: UseKanbanDragDropProps) {
 
   useEffect(() => {
@@ -435,9 +415,7 @@ export function useKanbanDragDrop({
           assignVehicleToOperation,
           addStopsToGroup,
           assignGroupResource,
-          occupiedGroupResourceIds,
-          notifyRefused,
-        })) {
+                    })) {
           return
         }
 
@@ -454,5 +432,5 @@ export function useKanbanDragDrop({
         })
       },
     })
-  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource, occupiedGroupResourceIds, notifyRefused])
+  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, groups, addStopsToGroup, assignGroupResource])
 }

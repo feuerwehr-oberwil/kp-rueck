@@ -81,6 +81,8 @@ function renderWorkflow(
   groupResources: GroupResources = emptyGroupResources,
   groups: { id: string; stopIds: string[] }[] = [],
   consumableIds: string[] = [],
+  /** The other stops of the route, when the test is about one. */
+  siblings: Operation[] = [],
 ) {
   const changeStatusToTop = vi.fn()
   const getGroupResources = vi.fn(() => groupResources)
@@ -91,13 +93,15 @@ function renderWorkflow(
     category: "Magazin",
     categorySortOrder: 0,
     status: "assigned",
+    outOfService: false,
+    outOfServiceSince: null,
     consumable: consumableIds.includes(id),
     groupId: null,
   }))
   const removeMaterial = vi.fn()
   const unassignGroupResource = vi.fn()
   const result = renderHook(() => useIncidentStatusWorkflow({
-    operations: [currentOperation],
+    operations: [currentOperation, ...siblings],
     materials,
     groups: groups as never,
     changeStatusToTop,
@@ -440,6 +444,203 @@ describe("the material gate takes the crew's word for it", () => {
     expect(result.current.materialRapportBy).toBeNull()
     expect(result.current.materialDecisionOpenCount).toBe(1)
     expect(result.current.materialDecisionItems[0].source).toBeNull()
+  })
+
+  it("asks nothing about material while the Auftrag still has stops ahead", async () => {
+    // The squad is not driving back to the Magazin, it is driving to the next
+    // stop — «vor Ort oder ins Magazin?» offers two answers that are both
+    // wrong. The route's Geräte must also survive the gate untouched.
+    const routeMaterial: GroupResources = {
+      personnel: [],
+      vehicles: [],
+      materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
+    }
+    const { result, unassignGroupResource } = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      routeMaterial,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
+    )
+
+    act(() => result.current.requestCompletion("stop-1"))
+
+    // The gate still opens — the stop's own crew is handed back and that has to
+    // be named — but it is a «Stopp abschliessen», with the next stop on it.
+    expect(result.current.materialDecisionOperation?.id).toBe("stop-1")
+    expect(result.current.completionContinuation?.next.id).toBe("stop-2")
+    expect(result.current.materialDecisionItems).toEqual([])
+
+    let resolved: { returned: string[]; kept: string[] } | undefined
+    act(() => {
+      resolved = result.current.resolveMaterialDecision()
+    })
+    expect(resolved).toEqual({ returned: [], kept: [] })
+    expect(unassignGroupResource).not.toHaveBeenCalled()
+    expect(applyRapportMaterialDecisions).not.toHaveBeenCalled()
+  })
+
+  it("opens for a mid-route stop that hands nothing back, because the route is the subject", () => {
+    // The standard Auftrag: crew, vehicles and Geräte belong to the ROUTE, so
+    // a stop releases nothing at all. The gate used to return early on exactly
+    // that shape — which made «Weiter zu: …» and the offer to start the next
+    // stop invisible on the routes they were built for.
+    const routeResources: GroupResources = {
+      personnel: [{ assignmentId: "a0", resourceId: "p1", name: "Roth Til" }],
+      vehicles: [{ assignmentId: "a1", resourceId: "v1", name: "TLF" }],
+      materials: [{ assignmentId: "a2", resourceId: "motorsaege", name: "Motorsäge" }],
+    }
+    const { result } = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning" }),
+      routeResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
+    )
+
+    act(() => result.current.requestCompletion("stop-1"))
+
+    expect(result.current.materialDecisionOperation?.id).toBe("stop-1")
+    // Nothing to list and nothing to decide — the dialog carries the route
+    // alone, which is why its description must not promise a release list.
+    expect(result.current.completionRelease).toBeNull()
+    expect(result.current.materialDecisionItems).toEqual([])
+    expect(result.current.completionContinuation?.next.id).toBe("stop-2")
+    expect(result.current.completionNextStop?.id).toBe("stop-2")
+  })
+
+  it("stays shut when nothing is released and no stop can be started", () => {
+    const routeResources: GroupResources = {
+      personnel: [{ assignmentId: "a0", resourceId: "p1", name: "Roth Til" }],
+      vehicles: [],
+      materials: [],
+    }
+
+    // The squad is already working another stop of the route, so there is
+    // nothing to offer — and with an empty release list, nothing to say.
+    const busy = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning" }),
+      routeResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "active" })],
+    )
+    act(() => busy.result.current.requestCompletion("stop-1"))
+    expect(busy.result.current.materialDecisionOperation).toBeNull()
+
+    // The last stop of a route with no material of its own: an Abschluss that
+    // hands nothing back is still a one-gesture move.
+    const lastStop = renderWorkflow(
+      operation({ id: "stop-2", groupId: "g1", status: "returning" }),
+      routeResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
+    )
+    act(() => lastStop.result.current.requestCompletion("stop-2"))
+    expect(lastStop.result.current.materialDecisionOperation).toBeNull()
+
+    // …and an incident that belongs to no Auftrag at all.
+    const lone = renderWorkflow(operation({ status: "returning" }))
+    act(() => lone.result.current.requestCompletion("incident-1"))
+    expect(lone.result.current.materialDecisionOperation).toBeNull()
+  })
+
+  it("asks about the route's material once the last open stop closes", async () => {
+    const routeMaterial: GroupResources = {
+      personnel: [],
+      vehicles: [],
+      materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
+    }
+    const { result, unassignGroupResource } = renderWorkflow(
+      operation({ id: "stop-2", groupId: "g1", status: "returning" }),
+      routeMaterial,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
+    )
+
+    act(() => result.current.requestCompletion("stop-2"))
+    await waitFor(() => expect(result.current.materialDecisionItems).toHaveLength(1))
+    expect(result.current.completionContinuation).toBeNull()
+
+    act(() => {
+      result.current.resolveMaterialDecision()
+    })
+    expect(unassignGroupResource).toHaveBeenCalledWith("g1", "a1")
+  })
+
+  it("offers the next stop from the completion gate, and starts the one it named", () => {
+    // Dragging a stop straight to «Abgeschlossen» skips the «Nächsten Stopp
+    // starten?» prompt, which only fires on the way through «Beendet». The gate
+    // already NAMES the next stop, so it carries the same offer.
+    const { result, changeStatusToTop } = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      emptyGroupResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
+    )
+
+    act(() => result.current.requestCompletion("stop-1"))
+    expect(result.current.completionNextStop?.id).toBe("stop-2")
+    // The offer names exactly the stop the dialog prints as «Weiter zu: …».
+    expect(result.current.completionNextStop?.id).toBe(result.current.completionContinuation?.next.id)
+
+    act(() => result.current.startNextStop("stop-2"))
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("stop-2", "active")
+  })
+
+  it("offers nothing on the last stop, on a lone incident, or while the squad is working", () => {
+    const lastStop = renderWorkflow(
+      operation({ id: "stop-2", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      emptyGroupResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
+    )
+    act(() => lastStop.result.current.requestCompletion("stop-2"))
+    expect(lastStop.result.current.completionContinuation).toBeNull()
+    expect(lastStop.result.current.completionNextStop).toBeNull()
+
+    const lone = renderWorkflow(operation({ status: "returning", crew: ["AdF Eins"] }))
+    act(() => lone.result.current.requestCompletion("incident-1"))
+    expect(lone.result.current.completionNextStop).toBeNull()
+
+    // The route continues, so the gate is still a «Stopp abschliessen» — but
+    // another stop is already in Einsatz, so there is nothing to send anybody to.
+    const busy = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: ["AdF Eins"] }),
+      emptyGroupResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2", "stop-3"] }],
+      [],
+      [
+        operation({ id: "stop-2", groupId: "g1", status: "active" }),
+        operation({ id: "stop-3", groupId: "g1", status: "incoming" }),
+      ],
+    )
+    act(() => busy.result.current.requestCompletion("stop-1"))
+    expect(busy.result.current.completionContinuation?.next.id).toBe("stop-2")
+    expect(busy.result.current.completionNextStop).toBeNull()
+  })
+
+  it("keeps offering the same stop from the «Beendet» prompt", () => {
+    // The other half of the pair: both offers read one rule, so a stop finished
+    // either way sends the squad to the same place.
+    const { result, changeStatusToTop } = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "active", zuFuss: true }),
+      emptyGroupResources,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
+    )
+
+    act(() => result.current.requestStatusChange("stop-1", "returning"))
+    expect(result.current.nextStopPrompt?.next.id).toBe("stop-2")
+
+    act(() => result.current.startNextStop("stop-2"))
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("stop-2", "active")
+    expect(result.current.nextStopPrompt).toBeNull()
   })
 
   it("falls back to asking when the rapport cannot be read", async () => {

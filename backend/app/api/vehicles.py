@@ -1,6 +1,7 @@
 """Vehicle management API endpoints."""
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..crud import materials as materials_crud
 from ..crud import vehicles as crud
 from ..database import get_db
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, Vehicle
@@ -18,13 +20,43 @@ from ..websocket_manager import broadcast_vehicle_update
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
 
+def _archive_refused_detail(refused: materials_crud.ArchiveRefused) -> str:
+    """The 409 for archiving a deployed vehicle — same shape as the purge's `in_use`."""
+    return (
+        f"«{refused.name}» steht aktuell auf {refused.active_incidents} Einsätzen und kann "
+        "nicht archiviert werden – zuerst die Zuteilung aufheben."
+    )
+
+
+async def _with_usage(db: AsyncSession, rows: Sequence[Vehicle]) -> list[schemas.Vehicle]:
+    """Serialise vehicles and attach their Einsatz history in one extra query.
+
+    `assignment_count` is the archive line («Auf 14 Einsätzen gestanden»),
+    `can_delete` says whether a permanent delete would be refused — the settings
+    table greys its button on it, and the API enforces the same rule with a 409.
+    """
+    usage = await materials_crud.resource_usage(db, "vehicle", [row.id for row in rows])
+    items: list[schemas.Vehicle] = []
+    for row in rows:
+        item = schemas.Vehicle.model_validate(row)
+        counts = usage.get(row.id, materials_crud.NO_USAGE)
+        item.assignment_count = counts.total
+        item.can_delete = counts.can_delete
+        items.append(item)
+    return items
+
+
 @router.get("/", response_model=list[schemas.Vehicle])
 async def list_vehicles(
     current_user: CurrentUser,
+    include_archived: bool = Query(
+        False,
+        description="Include archived vehicles. Off for the board, on for «Archivierte anzeigen».",
+    ),
     db: AsyncSession = Depends(get_db),
-) -> list[Vehicle]:
-    """List all vehicles (all users)."""
-    return await crud.get_all_vehicles(db)
+) -> list[schemas.Vehicle]:
+    """List vehicles (all users). Archived rows are excluded unless asked for."""
+    return await _with_usage(db, await crud.get_all_vehicles(db, include_archived=include_archived))
 
 
 @router.get("/{vehicle_id}", response_model=schemas.Vehicle)
@@ -32,12 +64,12 @@ async def get_vehicle(
     vehicle_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> Vehicle:
-    """Get single vehicle by ID."""
+) -> schemas.Vehicle:
+    """Get single vehicle by ID. Archived vehicles are returned here."""
     vehicle = await crud.get_vehicle(db, vehicle_id)
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
-    return vehicle
+    return (await _with_usage(db, [vehicle]))[0]
 
 
 @router.post("/", response_model=schemas.Vehicle, status_code=status.HTTP_201_CREATED)
@@ -52,7 +84,7 @@ async def create_vehicle(
     new_vehicle = await crud.create_vehicle(db, vehicle, current_user, request)
 
     # Convert to Pydantic and broadcast WebSocket update
-    vehicle_response = schemas.Vehicle.model_validate(new_vehicle)
+    vehicle_response = (await _with_usage(db, [new_vehicle]))[0]
     background_tasks.add_task(broadcast_vehicle_update, vehicle_response.model_dump(mode="json"), "create")
 
     return vehicle_response
@@ -67,14 +99,64 @@ async def update_vehicle(
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.Vehicle:
-    """Update vehicle (editor only)."""
+    """Update vehicle (editor only).
+
+    This is also the write path for «Nicht einsatzbereit»: `{"out_of_service": true}`
+    from the board's right-click menu or from the settings row, nothing else needed.
+    """
     updated = await crud.update_vehicle(db, vehicle_id, vehicle, current_user, request)
     if not updated:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
     # Convert to Pydantic and broadcast WebSocket update
-    vehicle_response = schemas.Vehicle.model_validate(updated)
+    vehicle_response = (await _with_usage(db, [updated]))[0]
     background_tasks.add_task(broadcast_vehicle_update, vehicle_response.model_dump(mode="json"), "update")
+
+    return vehicle_response
+
+
+@router.post("/{vehicle_id}/archive", response_model=schemas.Vehicle)
+async def archive_vehicle(
+    vehicle_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.Vehicle:
+    """Archive vehicle (editor only) — the normal way to retire a vehicle.
+
+    It leaves the board, the fleet sheet and the assignment dialog; past Einsätze
+    keep it. Refuses with 409 while the vehicle stands on a live Einsatz — same
+    pattern as the purge's `in_use` refusal. Reversible with /restore. Broadcast
+    as a `delete` so live boards drop it.
+    """
+    archived = await crud.archive_vehicle(db, vehicle_id, current_user, request)
+    if not archived:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    if isinstance(archived, materials_crud.ArchiveRefused):
+        raise HTTPException(status_code=409, detail=_archive_refused_detail(archived))
+
+    vehicle_response = (await _with_usage(db, [archived]))[0]
+    background_tasks.add_task(broadcast_vehicle_update, {"id": str(vehicle_id)}, "delete")
+
+    return vehicle_response
+
+
+@router.post("/{vehicle_id}/restore", response_model=schemas.Vehicle)
+async def restore_vehicle(
+    vehicle_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.Vehicle:
+    """Bring an archived vehicle back (editor only) — «Zurückholen»."""
+    restored = await crud.restore_vehicle(db, vehicle_id, current_user, request)
+    if not restored:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    vehicle_response = (await _with_usage(db, [restored]))[0]
+    background_tasks.add_task(broadcast_vehicle_update, vehicle_response.model_dump(mode="json"), "create")
 
     return vehicle_response
 
@@ -85,14 +167,46 @@ async def delete_vehicle(
     request: Request,
     background_tasks: BackgroundTasks,
     current_user: CurrentEditor,
+    permanent: bool = Query(
+        False,
+        description="Delete the row for good instead of archiving it. Only from the archive, "
+        "and only for vehicles that never stood on a live Einsatz.",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete vehicle (editor only) - soft delete."""
-    success = await crud.delete_vehicle(db, vehicle_id, current_user, request)
-    if not success:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+    """Delete vehicle (editor only).
 
-    # Broadcast WebSocket update for deletion
+    Default is an archive — reversible, and the row really does leave every list;
+    it refuses with 409 while the vehicle stands on a live Einsatz.
+    `?permanent=true` is the purge for test entries and typos; it refuses with 409
+    unless the vehicle is archived and has no live Einsatz history.
+    """
+    if not permanent:
+        archived = await crud.archive_vehicle(db, vehicle_id, current_user, request)
+        if not archived:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        if isinstance(archived, materials_crud.ArchiveRefused):
+            raise HTTPException(status_code=409, detail=_archive_refused_detail(archived))
+        background_tasks.add_task(broadcast_vehicle_update, {"id": str(vehicle_id)}, "delete")
+        return
+
+    outcome = await crud.purge_vehicle(db, vehicle_id, current_user, request)
+    if outcome.refusal == "not_found":
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    if outcome.refusal == "not_archived":
+        raise HTTPException(
+            status_code=409,
+            detail="Fahrzeug muss zuerst archiviert werden, bevor es endgültig gelöscht werden kann.",
+        )
+    if outcome.refusal == "in_use":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"«{outcome.name}» stand auf {outcome.usage.protected} Einsätzen und kann nur "
+                "archiviert werden – endgültiges Löschen würde deren Auswertung verfälschen."
+            ),
+        )
+
     background_tasks.add_task(broadcast_vehicle_update, {"id": str(vehicle_id)}, "delete")
 
 
@@ -195,6 +309,8 @@ async def get_vehicle_status(
         name=vehicle.name,
         type=vehicle.type,
         status=vehicle.status,
+        out_of_service=vehicle.out_of_service,
+        out_of_service_since=vehicle.out_of_service_since,
         radio_call_sign=vehicle.radio_call_sign,
         driver_id=driver_id,
         driver_name=driver_name,

@@ -6,12 +6,11 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, Plus, Truck, MessageCircle, ArrowRightLeft, Users, Package, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -43,7 +42,7 @@ import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
-import { DetailField, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { DetailField, DetailGroupHeading, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
@@ -56,12 +55,28 @@ import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { RouteResourceSections } from "@/components/kanban/route-resource-sections"
+import {
+  RouteResourceSections,
+  ResourceRow,
+  RESOURCE_CHIP,
+  ResourceSourceBlock,
+} from "@/components/kanban/route-resource-sections"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import type { Incident } from "@/lib/types/incidents"
+
+/**
+ * An action that belongs to a `DetailField` row rather than to a toolbar.
+ *
+ * Grey and underlined, never blue: on this board colour carries status and
+ * priority, and a row of four blue words would read as four warnings. Used by
+ * the Reko-Auftrag rows, where four `xs` buttons used to wrap over three lines
+ * in the 420px panel.
+ */
+const ROW_ACTION =
+  "inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
 
 /** Whether the provenance toggles apply to this card at all.
  *
@@ -207,9 +222,15 @@ export function OperationDetailContent({
   // orphan dot behind the id.
   const showIncidentTime = useIncidentTimeVisible(operation.status === "complete")
 
-  // A grouped incident carries no resources itself — the Auftrag (route) owns
-  // them. Show the route's roll-up in the resource sections and route any
-  // add/remove to the Auftrag so the modal edits the same thing the sheet does.
+  // The Auftrag (route) a grouped incident hangs in, and the resources it owns —
+  // shared by every stop and riding on to the next one. Add/remove inside the
+  // route's block targets the Auftrag, so the modal edits the same thing the
+  // Aufträge sheet does.
+  //
+  // Not "the incident then carries none of its own": attaching a stop to a route
+  // leaves whatever was assigned to it beforehand exactly where it is (backend
+  // `crud/incidents.update_incident`). Those are shown too — see
+  // `ownResourceSections` below.
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
 
@@ -243,18 +264,6 @@ export function OperationDetailContent({
     },
     [refreshGroups, t],
   )
-  const viaAuftrag = auftrag ? (
-    <span
-      className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground"
-      title={t('detail.viaAuftrag', { name: auftrag.name })}
-    >
-      <span
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: auftrag.color ?? 'var(--muted-foreground)' }}
-      />
-      {t('detail.viaAuftrag', { name: auftrag.name })}
-    </span>
-  ) : null
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   // Reopening a Schadenplatz lands on the tab it was left on. An operator
   // working through the rapports of a storm night reopens the same card again
@@ -590,14 +599,31 @@ export function OperationDetailContent({
 
   // The modal is 90vw wide — a tab that only fills one narrow column wastes it.
   // The panel mount stays single-column; it is barely wider than one.
-  // The panel reads `Label │ Wert` rows; the modal keeps the stacked form.
+  //
+  // `dense` is the SKIN, not the grammar: both mounts read `Label │ Wert` rows out
+  // of the same `DetailField` since the creation modal took them too. What the flag
+  // still decides is the control (borderless in the 420px panel, boxed where a
+  // field can be empty), the column count and the tab-trigger sizing. The old note
+  // here said the modal «keeps the stacked form»; it has not since 93300d2a.
   const dense = layout === 'panel'
   // The panel's tab bar shares its row with the ← / → hints, so its triggers
   // take their own label plus a share of whatever is left (`flex-auto`) rather
   // than a fixed quarter each (`flex-1`, the default): «Rapport · erfasst» is
   // wider than a quarter of 420px and would spill over «Verlauf».
   const tabTriggerClass = dense ? "flex-auto px-1.5" : undefined
-  const tabGridClass = cn("grid grid-cols-1 gap-8 py-4", layout === 'modal' && "lg:grid-cols-2")
+  // The facts column is capped: rows built for the 420px panel sprawl on a
+  // 1100px modal half — the toggle switches ended up 800px from their labels
+  // and read as unaligned. The resources column takes what remains.
+  const tabGridClass = cn(
+    "grid grid-cols-1 gap-8 py-4",
+    layout === 'modal' && "lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]",
+  )
+  // Die Spalten trennt eine Linie. Waagrecht bleibt es bei Abstand — eine
+  // Haarlinie unter jeder Zeile sagt nichts, was der Zeilenumbruch nicht sagt —,
+  // aber SENKRECHT ist der Fall ein anderer: zwei Spalten, die nur Luft
+  // voneinander trennt, lesen sich bei langen Zeilen als eine, und ein Blick, der
+  // von «Notizen» nach rechts wandert, landet in «Kräfte», ohne die Grenze
+  // bemerkt zu haben.
   const tabColumnBreakClass = cn("space-y-5", layout === 'modal' && "lg:border-l lg:border-border lg:pl-8")
   // The one scrolling region: the dialog itself is a fixed 85vh, so switching
   // tabs must never resize it or scroll the header away.
@@ -605,7 +631,6 @@ export function OperationDetailContent({
   // block is opened, and a scrollbar that appears at that moment narrows the
   // column under the pointer — the row you were about to click moves.
   const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll"
-
   /**
    * The banners: what came in from the field and is still waiting for the KP to
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
@@ -641,6 +666,235 @@ export function OperationDetailContent({
       )}
     </div>
   )
+
+  /**
+   * Mannschaft / Fahrzeuge / Material as assigned to THIS incident.
+   *
+   * Rendered in both shapes Übersicht knows: bare for a standalone Einsatz, and
+   * inside the «Nur dieser Einsatz» block when the incident hangs in an Auftrag.
+   *
+   * That second home is the fix for a hole, not a decoration. Attaching an
+   * incident to a route deliberately leaves its own assignments where they are
+   * (see `crud/incidents.update_incident`), while the detail used to render the
+   * route's roll-up *exclusively* — so everything assigned before the grouping
+   * still existed in the database, still came back in the Rapport, and was
+   * nowhere on screen. Nobody could see it, and nobody could release it.
+   *
+   * Grouped, only the types that actually hold something appear: this block is a
+   * leftover to be worked off, not a place to add to, and «Fahrzeuge (0)» under
+   * it would be a row of frame around nothing. Standalone, all three stay — that
+   * is where an operator adds, and an empty section is the target.
+   *
+   * No add control while grouped, on purpose. Assigning from here has exactly
+   * one sensible target, the Auftrag, and offering a second one would need the
+   * assignment dialog to ask «Auftrag oder nur dieser Einsatz?» — a question the
+   * dialog does not ask today.
+   */
+  const showEmptyOwnSections = !auftrag
+  const ownAddAction = canEdit && onAssignResource && !auftrag
+  const ownResourceSections = (
+    <>
+      {/* Mannschaft (Crew) */}
+      {(showEmptyOwnSections || operation.crew.length > 0) && (
+        <ResourceRow
+          icon={Users}
+          label={t('common.crewCount', { count: operation.crew.length })}
+          addLabel={ownAddAction ? t('common.assignCrew') : undefined}
+          onAdd={ownAddAction ? () => onAssignResource?.('crew', operation.id) : undefined}
+          isEmpty={operation.crew.length === 0}
+          emptyLabel={t('detail.resourceEmpty')}
+        >
+          {/* EL first (decision 23) — the badge stays, this is ordering on top of it.
+              The empty case is the row's own: `isEmpty` above draws «keine», and
+              draws it as a button so the obvious thing to click is the thing
+              that adds. */}
+          {sortCrewByLeader(operation.crew, operation.leaderName).map((member) => {
+              const isLeader = operation.leaderName === member
+              return (
+                <RemovableChip
+                  key={member}
+                  variant="outline"
+                  // The Einsatzleiter keeps a visible accent on the SAME pill:
+                  // an amber edge (the board's "pay attention" colour, like the
+                  // EL badge itself) — never a different chip family.
+                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-amber-400/60")}
+                  onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
+                  removeTitle={t('detail.removePerson')}
+                  removeButtonClassName="ml-1"
+                >
+                  {/* A stop inside an Auftrag takes its leader from the route,
+                      so the badge is not offered on the stop's own crew — it
+                      would set a second, competing leader. */}
+                  {!auftrag && (
+                    <LeaderBadge
+                      isLeader={isLeader}
+                      onPromote={canEdit ? () => void promoteToLeader(member) : undefined}
+                    />
+                  )}
+                  {member}
+                </RemovableChip>
+              )
+            })}
+        </ResourceRow>
+      )}
+
+      {/* Fahrzeuge (Vehicles). «Zu Fuss» is a vehicle answer too, so a stop that
+          carries only that still gets this row. */}
+      {(showEmptyOwnSections || operation.vehicles.length > 0 || operation.zuFuss) && (
+        <ResourceRow
+          icon={Truck}
+          label={t('common.vehiclesCount', { count: operation.vehicles.length })}
+          // Opens the full assignment dialog, same as Mannschaft and Material.
+          // This used to be an inline dropdown of the fleet — a second, poorer
+          // vehicle picker without the driver info, «Zu Fuss» and the
+          // free/spoken-for split the dialog carries (and its popover kept
+          // colliding with the modal's close button). One picker, one behaviour.
+          addLabel={ownAddAction ? t('common.assignVehicle') : undefined}
+          onAdd={ownAddAction ? () => onAssignResource?.('vehicles', operation.id) : undefined}
+          isEmpty={operation.vehicles.length === 0 && !operation.zuFuss}
+          emptyLabel={t('detail.resourceEmpty')}
+        >
+          {operation.zuFuss && (
+            <RemovableChip
+              variant="outline"
+              className={RESOURCE_CHIP}
+              onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
+              removeTitle={t('common.removeZuFuss')}
+              removeButtonClassName="ml-1"
+            >
+              <Footprints className="h-3.5 w-3.5 shrink-0" />
+              {t('common.zuFuss')}
+            </RemovableChip>
+          )}
+          {operation.vehicles.map((vehicleName) => {
+              const driverName = vehicleDrivers.get(vehicleName)
+              const callsign = operation.vehicleCallsigns.get(vehicleName)
+              const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
+              const assignmentId = operation.vehicleAssignments.get(vehicleName)
+              return (
+                <RemovableChip
+                  key={vehicleName}
+                  variant="outline"
+                  className={RESOURCE_CHIP}
+                  title={callsign ? t('common.funkrufname', { callsign }) : undefined}
+                  onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
+                  removeTitle={t('detail.removeVehicle')}
+                  removeButtonClassName="ml-1"
+                >
+                  {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
+                  {canEdit && assignmentId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleDriverStay(operation.id, vehicleName)
+                      }}
+                      // Neutral palette: the chip is no longer a filled primary
+                      // pill, so the toggle reads as a quiet state inside it.
+                      className={cn(
+                        "ml-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
+                        driverStay
+                          ? "bg-muted text-foreground hover:bg-muted/70"
+                          : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                      )}
+                      title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
+                      tabIndex={-1}
+                    >
+                      {driverStay ? (
+                        <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3 shrink-0" /> {t('common.driverStays')}</span>
+                      ) : (
+                        <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3 shrink-0" /> {t('common.driverReturns')}</span>
+                      )}
+                    </button>
+                  )}
+                </RemovableChip>
+              )
+            })}
+        </ResourceRow>
+      )}
+
+      {/* Material */}
+      {(showEmptyOwnSections || operation.materials.length > 0) && (
+        <ResourceRow
+          icon={Package}
+          label={t('common.materialsCount', { count: operation.materials.length })}
+          addLabel={ownAddAction ? t('common.assignMaterial') : undefined}
+          onAdd={ownAddAction ? () => onAssignResource?.('materials', operation.id) : undefined}
+          isEmpty={operation.materials.length === 0}
+          emptyLabel={t('detail.resourceEmpty')}
+        >
+          {(() => {
+              const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
+              return (
+                <>
+                  {completeGroups.map(({ group, materialIds: matIds }) => (
+                    <RemovableChip
+                      key={`group-${group.id}`}
+                      variant="outline"
+                      className={RESOURCE_CHIP}
+                      onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
+                      removeTitle={t('common.removeNamed', { name: group.name })}
+                      removeButtonClassName="ml-1"
+                    >
+                      {/* h-3.5 like the «Zu Fuss» chip's glyph: both sit in a
+                          `text-sm` chip, and 12px next to 14px text read as
+                          two different chip families. */}
+                      <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      {group.name}
+                    </RemovableChip>
+                  ))}
+                  {ungrouped.map((matId) => {
+                    const mat = materials.find(m => m.id === matId)
+                    return (
+                      <RemovableChip
+                        key={matId}
+                        variant="outline"
+                        className={RESOURCE_CHIP}
+                        onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
+                        removeTitle={t('detail.removeMaterial')}
+                        removeButtonClassName="ml-1"
+                      >
+                        {mat?.name || matId}
+                        {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but
+                            deliberately omitted on the kanban card to keep it clean. */}
+                        {mat?.category && (
+                          <span className="text-xs text-muted-foreground">({mat.category})</span>
+                        )}
+                      </RemovableChip>
+                    )
+                  })}
+                </>
+              )
+            })()}
+        </ResourceRow>
+      )}
+    </>
+  )
+
+  /** Does this incident hold anything of its own? Decides whether the «Nur
+   *  dieser Einsatz» block exists at all — an incident that was grouped before
+   *  anybody assigned to it has nothing to show and gets no second head. */
+  const hasOwnResources =
+    operation.crew.length > 0 || operation.vehicles.length > 0 || operation.materials.length > 0 || operation.zuFuss
+
+  /** The one number the radio asks for: everything on this Schadenplatz,
+   *  whichever side of the provenance line it sits on. Borrowed from Variante B
+   *  of mockup 08 — it exists nowhere else in the app today. «Zu Fuss» is a way
+   *  of getting there, not a resource, so it is not counted.
+   *
+   *  The Reko IS counted. The heading covers the Reko line as much as the three
+   *  rows under it, and an incident with a Reko out and nothing else read
+   *  «Kräfte (0)» directly above that person's name — the count called a
+   *  firefighter standing on the Schadenplatz nobody. They are not in
+   *  `operation.crew`: the Reko assignment is its own field, which is exactly
+   *  why the sum missed them. */
+  const totalResourceCount =
+    (operation.assignedReko ? 1 : 0) +
+    operation.crew.length +
+    operation.vehicles.length +
+    operation.materials.length +
+    (auftragResources
+      ? auftragResources.personnel.length + auftragResources.vehicles.length + auftragResources.materials.length
+      : 0)
 
   return (
     <div
@@ -687,9 +941,7 @@ export function OperationDetailContent({
           )}
         >
           {/* In the panel this row carries everything: address, time, and the
-              mode/close controls the panel used to spend a bar of its own on.
-              The incident id moves into the title's tooltip — 36 monospace
-              characters nobody reads aloud cost a whole line there. */}
+              mode/close controls the panel used to spend a bar of its own on. */}
           <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="min-w-0 flex-1 space-y-1.5">
             <h2
@@ -700,10 +952,11 @@ export function OperationDetailContent({
                 // part that may.
                 dense ? "min-w-0 text-lg" : "text-xl",
               )}
-              // Both, because the address is what truncated and the id is what
-              // lost its line: hovering the title has to answer either question.
+              // The address is what truncates in the panel, so hovering the
+              // title spells it out. (The id used to ride along here; it is
+              // gone from both mounts — see the note below the title.)
               title={dense
-                ? `${formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)} · ${operation.id}`
+                ? formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)
                 : undefined}
             >
               <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -731,21 +984,19 @@ export function OperationDetailContent({
                 ride here as a chip and is now one of the banners below the tabs
                 / in the Übersicht column, where it states the same fact as a
                 sentence with its «erledigt» control attached.
-                In the panel the id lives in the title's tooltip and the clock
-                rides the title row, so there is nothing left to show. */}
-            {!dense && (
+                In the panel the clock rides the title row, so there is nothing
+                left to show.
+                The incident id is gone from both mounts. Thirty-six monospace
+                characters were the most prominent thing under the address, and
+                nobody at a command post reads a UUID — not aloud, not off the
+                screen, not into a report. */}
+            {!dense && showIncidentTime && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="font-mono text-xs text-muted-foreground/70">{operation.id}</span>
               {/* The board-wide time chip (start / in status / since alarm). Its
                   durations are dropped once the incident is closed: a running clock
                   on a finished Einsatz reads «19h 40'» the next morning and answers
                   nothing. The Verlauf tab holds the actual times. */}
-              {showIncidentTime && (
-                <>
-                  <span className="text-muted-foreground/40">·</span>
-                  <IncidentTime operation={operation} size="lg" suppressDurations={operation.status === "complete"} />
-                </>
-              )}
+              <IncidentTime operation={operation} size="lg" suppressDurations={operation.status === "complete"} />
             </div>
             )}
           </div>
@@ -822,8 +1073,13 @@ export function OperationDetailContent({
           {/* ------------------------------------------------------ Übersicht */}
           <TabsContent value="overview" className={tabPanelClass}>
           <div className={tabGridClass}>
-          {/* Left Column — the fields, as rows in both mounts. They space
-              themselves through their own separators. */}
+          {/* Left Column — the fields, as rows in both mounts, gathered under
+              the small grey group headings. No hairlines between rows any more:
+              whitespace separates, the headings group. */}
+          <div className="space-y-5">
+          {/* «Lage» — where, what, how urgent. */}
+          <div>
+          <DetailGroupHeading>{t('detail.groups.lage')}</DetailGroupHeading>
           <div className="space-y-1">
           {/* Location - Smart Input with Geocoding. It carries its own label
               and its own map/coordinate buttons, so it lays itself out as a row
@@ -848,29 +1104,6 @@ export function OperationDetailContent({
               }
             }}
           />
-
-          {/* Meldung - Moved up from bottom */}
-          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
-            <Textarea
-              id="notes"
-              placeholder={t('detail.meldungPlaceholder')}
-              value={operation.notes}
-              disabled={!canEdit}
-              onChange={(e) => onUpdate({ notes: e.target.value })}
-              // Grows with what is in it. `h-auto` is what makes that work:
-              // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
-              // height beats the base Textarea's `field-sizing-content` — which
-              // is how a dictated Meldung ended up scrolling inside five rems
-              // and clipped mid-word. The min-height stays the floor, the
-              // max-height is the point where it goes back to scrolling rather
-              // than pushing the whole form off the panel.
-              className={cn(
-                DENSE_CONTROL,
-                "h-auto py-1",
-                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[5rem]",
-              )}
-            />
-          </DetailField>
 
           {/* One per line, both mounts: two half-width controls sharing a row is
               how «Mittel» gets read as the Einsatzart. */}
@@ -911,6 +1144,39 @@ export function OperationDetailContent({
               </Select>
             </DetailField>
           </>
+          </div>
+          </div>
+
+          {/* «Meldung» — what came in: the wording, who reported it and how,
+              plus the KP's own notes and the flags that qualify it. */}
+          <div>
+          <DetailGroupHeading>{t('detail.groups.meldung')}</DetailGroupHeading>
+          <div className="space-y-1">
+          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+            <Textarea
+              id="notes"
+              placeholder={t('detail.meldungPlaceholder')}
+              value={operation.notes}
+              disabled={!canEdit}
+              onChange={(e) => onUpdate({ notes: e.target.value })}
+              // Grows with what is in it. `h-auto` is what makes that work:
+              // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
+              // height beats the base Textarea's `field-sizing-content` — which
+              // is how a dictated Meldung ended up scrolling inside five rems
+              // and clipped mid-word. The floor is ONE line — an empty Meldung
+              // must not reserve a void — and the max-height is where it goes
+              // back to scrolling rather than pushing the form off the panel.
+              className={cn(
+                DENSE_CONTROL,
+                // `resize-none`: the field already grows with its content
+                // (`field-sizing-content`), so the corner grabber offered a second,
+                // worse way to do the same thing - and on a borderless control it was
+                // the only thing drawing a visible edge.
+                "h-auto resize-none py-1",
+                dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
+              )}
+            />
+          </DetailField>
 
           {/* Contact */}
           <DetailField label={t('common.contact')} htmlFor="contact">
@@ -964,8 +1230,12 @@ export function OperationDetailContent({
               // Same auto-grow as «Meldung» above — see there for why `h-auto`.
               className={cn(
                 DENSE_CONTROL,
-                "h-auto py-1",
-                dense ? "max-h-[14rem] min-h-[3.5rem]" : "max-h-[20rem] min-h-[4rem]",
+                // `resize-none`: the field already grows with its content
+                // (`field-sizing-content`), so the corner grabber offered a second,
+                // worse way to do the same thing - and on a borderless control it was
+                // the only thing drawing a visible edge.
+                "h-auto resize-none py-1",
+                dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
               )}
             />
           </DetailField>
@@ -974,7 +1244,7 @@ export function OperationDetailContent({
               about the incident (how it came in, who it is for, why it waits),
               and scattering them between the text fields made the form read as
               five unrelated things. */}
-          {/* "Telefonisch gemeldet" / "Vom Feld gemeldet", correctable after
+          {/* "Telefonisch" / "Vom Feld", correctable after
               the fact (plan 26 decision 8): the realistic order is "type it in,
               then realise it was a phone call — or a Trupp's radio message".
               Same rows as in the new-emergency modal, two switches over ONE
@@ -1045,6 +1315,8 @@ export function OperationDetailContent({
           />
 
           </div>
+          </div>
+          </div>
 
           {/* Right column — who is on it. Ressourcen used to be a tab of its
               own; an operator asking "what is this and who is there" was made
@@ -1067,10 +1339,13 @@ export function OperationDetailContent({
               and must not sit below a resource list of unpredictable length. */}
           {canEdit && onChangeStatus && (
           <div className="mb-5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <ArrowRightLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="text-sm font-medium">{t('detail.changeStatus')}</span>
-            </div>
+            {/* Same heading as Lage / Meldung / Kräfte. It used to be a `text-sm
+                font-medium` line with a full-size icon, which made three heading
+                weights visible at once on one tab — and this one was the loudest
+                of them without being the most important thing on the tab. */}
+            <DetailGroupHeading icon={<ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />}>
+              {t('detail.changeStatus')}
+            </DetailGroupHeading>
             <div className="flex flex-wrap gap-1.5">
               {columns.map((col) => {
                 const isCurrent = col.status.includes(operation.status)
@@ -1090,23 +1365,6 @@ export function OperationDetailContent({
           </div>
           )}
 
-          {/* No «Zugewiesene Ressourcen» heading: Reko, Mannschaft, Fahrzeuge and
-              Material each carry their own label and count, so the line above
-              them only named the column it already is. The Auftrag chip stays —
-              it is the one thing those four labels do not say, namely that the
-              resources belong to a route rather than to this incident. */}
-          {auftrag && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
-                title={t('detail.viaAuftrag', { name: auftrag.name })}
-              >
-                <Waypoints className="h-3 w-3 shrink-0" />
-                {t('detail.viaAuftrag', { name: auftrag.name })}
-              </span>
-            </div>
-          )}
-
           {/* Ressourcen — Reko, Mannschaft, Fahrzeuge, Material. Reached
               directly by a click on the matching block of a kanban card, which
               is what the ref is for (see the scroll effect above). */}
@@ -1120,6 +1378,15 @@ export function OperationDetailContent({
               isResourceDropOver && "ring-2 ring-primary ring-offset-4 ring-offset-background bg-primary/5"
             )}
           >
+            {/* «Kräfte» — the third of the mock's group headings: who and what
+                is out there. Covers the Reko line and the Ressourcen below;
+                «Status wechseln» above keeps its own control heading. */}
+            {/* The count rides on the heading — «Kräfte (7)» is what gets asked
+                for over the radio; the standalone «Ressourcen (n)» line it
+                replaces said the same thing one heading level lower. */}
+            <DetailGroupHeading>
+              {t('detail.groups.kraefte')} ({totalResourceCount})
+            </DetailGroupHeading>
             {/* Reko, as ONE line: who is out looking, since when — and a way
                 through to the rest. The five controls that used to live here
                 (zuweisen/wechseln, the two links, the event-wide transfer) are
@@ -1141,264 +1408,90 @@ export function OperationDetailContent({
                 selectTab('reko')
                 if (canEdit && !assignedRekoPersonnel) setRekoDialogOpen(true)
               }}
-              className="group -mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-muted/50"
+              // The same hover tint and the same rhythm as the empty
+              // `ResourceRow`s below it: one target, one highlight.
+              className="-mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors duration-150 hover:bg-muted/40"
               title={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
+              aria-label={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : undefined}
             >
-              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="shrink-0 text-sm font-medium">{t('common.reko')}</span>
+              {/* The SAME gutter as the three `ResourceRow`s below, so the
+                  four values of the group start on one edge. It used to be an
+                  icon plus a bold «Reko» sized to the word, which put the name
+                  70px to the left of every chip under it — the one row of the
+                  group that did not line up. The magnifier stays, demoted into
+                  the label: it is the mnemonic, not a second heading level. */}
+              <span className="flex w-[120px] shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <Search className="h-3.5 w-3.5 shrink-0" />
+                {t('common.reko')}
+              </span>
               {assignedRekoPersonnel ? (
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                <span className="min-w-0 flex-1 truncate text-sm">
                   {assignedRekoPersonnel.name}
                   {operation.rekoArrivedAt && (
-                    <> · {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}</>
+                    <span className="text-muted-foreground">
+                      {' · '}
+                      {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}
+                    </span>
                   )}
                 </span>
               ) : (
-                <span className="min-w-0 flex-1 truncate text-sm italic text-muted-foreground/60">
-                  {canEdit ? t('card.assignReko') : t('common.noRekoAssigned')}
+                // «keine», exactly like the three rows under it. It used to read
+                // «Reko zuweisen» — the action written into the value slot, which
+                // is the one place in the group where a value belongs. The action
+                // is what the ROW is called now (title + aria-label above), which
+                // is where the other three keep theirs.
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/60">
+                  {t('detail.resourceEmpty')}
                 </span>
               )}
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
+              {/* No `group-hover` of its own — the row is the target, so it gets
+                  exactly one highlight. The chevron stays because it says this
+                  row LEADS somewhere (the Reko tab) rather than opening a picker
+                  in place, which is the one way it differs from its siblings. */}
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
             </button>
 
-          {/* The resource sections bring their own `mt-4` rhythm, which is what
-              spaces them from the Reko line above. */}
+          {/* Standalone, the resource rows share the Reko line's py-1 rhythm and
+              follow it directly; grouped, the provenance blocks below bring
+              their own `mt-4` frame. */}
           <div>
-          {/* Mannschaft / Fahrzeuge / Material. A grouped incident carries no
-              resources itself — the Auftrag (route) owns them, so render the
-              route's roll-up through the shared section UI (assign/remove target
-              the Auftrag). A standalone incident shows its own resources inline. */}
-          {auftrag ? (
-            <RouteResourceSections
-              resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
-              viaLabel={viaAuftrag}
-              // Same map the standalone-Einsatz chips below already use: an
-              // Auftrag's vehicle is no more self-explanatory than an incident's.
-              vehicleDrivers={vehicleDrivers}
-              onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
-              onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
-              onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
-              readOnly={!canEdit || !onAssignResource}
-            />
-          ) : (
-            <>
-            {/* Mannschaft (Crew) */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-medium">
-                    {t('common.crewCount', { count: operation.crew.length })}
-                  </span>
-                </div>
-                {canEdit && onAssignResource && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => onAssignResource('crew', operation.id)}
-                    className="px-2"
-                    title={t('common.assignCrew')}
-                    tabIndex={0}
-                  >
-                    <Plus className="size-3.5" />
-                    {t('common.add')}
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {operation.crew.length > 0 ? (
-                  // EL first (decision 23) — the star stays, this is ordering on top of it.
-                  sortCrewByLeader(operation.crew, operation.leaderName).map((member) => (
-                    <RemovableChip
-                      key={member}
-                      variant="secondary"
-                      className="group text-sm gap-1 pr-1 hover:bg-destructive/20"
-                      onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
-                      removeTitle={t('detail.removePerson')}
-                      removeButtonClassName="ml-1"
-                    >
-                      {/* A stop inside an Auftrag takes its leader from the
-                          route, so the star is not offered on the stop's own
-                          crew — it would set a second, competing leader. */}
-                      {!auftrag && (
-                        <LeaderBadge
-                          isLeader={operation.leaderName === member}
-                          onPromote={canEdit ? () => void promoteToLeader(member) : undefined}
-                        />
-                      )}
-                      {member}
-                    </RemovableChip>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground/60 italic">{t('detail.noCrew')}</p>
-                )}
-              </div>
-            </div>
+          {/* Mannschaft / Fahrzeuge / Material, grouped by WHERE THEY COME FROM.
+              An Auftrag owns resources that ride on to the next stop; the stop
+              itself can own resources that are released when it is finished.
+              Both can be true at once, so both get a block of their own, headed
+              once — instead of the Auftrag's name being repeated into every
+              section title (mockup 08, Variante A). */}
+          {auftrag && (
+            <ResourceSourceBlock
+              variant="route"
+              title={t('detail.sourceAuftrag', { name: auftrag.name })}
+              hint={t('detail.sourceAuftragHint')}
+              accentColor={auftrag.color}
+            >
+              <RouteResourceSections
+                resources={auftragResources ?? { vehicles: [], personnel: [], materials: [] }}
+                // Same map the incident's own chips use: an Auftrag's vehicle is
+                // no more self-explanatory than an incident's.
+                vehicleDrivers={vehicleDrivers}
+                onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
+                onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
+                onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
+                readOnly={!canEdit || !onAssignResource}
+              />
+            </ResourceSourceBlock>
+          )}
 
-            {/* Fahrzeuge (Vehicles) */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-medium">
-                    {t('common.vehiclesCount', { count: operation.vehicles.length })}
-                  </span>
-                </div>
-                {/* Opens the full assignment dialog, same as Mannschaft and
-                    Material. This used to be an inline dropdown of the fleet —
-                    a second, poorer vehicle picker without the driver info,
-                    «Zu Fuss» and the free/spoken-for split the dialog carries
-                    (and its popover kept colliding with the modal's close
-                    button). One picker, one behaviour. */}
-                {canEdit && onAssignResource && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => onAssignResource('vehicles', operation.id)}
-                    className="px-2"
-                    title={t('common.assignVehicle')}
-                    tabIndex={0}
-                  >
-                    <Plus className="size-3.5" />
-                    {t('common.add')}
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {operation.zuFuss && (
-                  <RemovableChip
-                    variant="secondary"
-                    className="text-sm gap-1"
-                    onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
-                    removeTitle={t('common.removeZuFuss')}
-                    removeButtonClassName="ml-0.5 hover:text-destructive"
-                  >
-                    <Footprints className="h-3.5 w-3.5 shrink-0" />
-                    {t('common.zuFuss')}
-                  </RemovableChip>
-                )}
-                {operation.vehicles.length > 0 ? (
-                  operation.vehicles.map((vehicleName) => {
-                    const driverName = vehicleDrivers.get(vehicleName)
-                    const callsign = operation.vehicleCallsigns.get(vehicleName)
-                    const driverStay = operation.vehicleDriverStay.get(vehicleName) || false
-                    const assignmentId = operation.vehicleAssignments.get(vehicleName)
-                    return (
-                      <RemovableChip
-                        key={vehicleName}
-                        variant="default"
-                        className="text-sm gap-1 pr-1"
-                        title={callsign ? t('common.funkrufname', { callsign }) : undefined}
-                        onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
-                        removeTitle={t('detail.removeVehicle')}
-                        removeButtonClassName="ml-0.5 hover:text-white cursor-pointer"
-                      >
-                        {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
-                        {canEdit && assignmentId && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleDriverStay(operation.id, vehicleName)
-                            }}
-                            className={cn(
-                              "ml-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors",
-                              driverStay
-                                ? "bg-white/20 text-white hover:bg-white/30"
-                                : "bg-white/10 text-white/60 hover:bg-white/20"
-                            )}
-                            title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-                            tabIndex={-1}
-                          >
-                            {driverStay ? (
-                              <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3 shrink-0" /> {t('common.driverStays')}</span>
-                            ) : (
-                              <span className="flex items-center gap-0.5"><Undo2 className="h-3 w-3 shrink-0" /> {t('common.driverReturns')}</span>
-                            )}
-                          </button>
-                        )}
-                      </RemovableChip>
-                    )
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground/60 italic">{t('detail.noVehicles')}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Material */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-medium">
-                    {t('common.materialsCount', { count: operation.materials.length })}
-                  </span>
-                </div>
-                {canEdit && onAssignResource && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => onAssignResource('materials', operation.id)}
-                    className="px-2"
-                    title={t('common.assignMaterial')}
-                    tabIndex={0}
-                  >
-                    <Plus className="size-3.5" />
-                    {t('common.add')}
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {operation.materials.length > 0 ? (
-                  (() => {
-                    const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
-                    return (
-                      <>
-                        {completeGroups.map(({ group, materialIds: matIds }) => (
-                          <RemovableChip
-                            key={`group-${group.id}`}
-                            variant="outline"
-                            className="text-sm gap-1 pr-1 hover:bg-destructive/20"
-                            onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
-                            removeTitle={t('common.removeNamed', { name: group.name })}
-                            removeButtonClassName="ml-1"
-                          >
-                            {/* h-3.5 like the «Zu Fuss» chip's glyph: both sit
-                                in a `text-sm` chip, and 12px next to 14px text
-                                read as two different chip families. */}
-                            <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            {group.name}
-                          </RemovableChip>
-                        ))}
-                        {ungrouped.map((matId) => {
-                          const mat = materials.find(m => m.id === matId)
-                          return (
-                          <RemovableChip
-                            key={matId}
-                            variant="outline"
-                            className="text-sm gap-1 pr-1 hover:bg-destructive/20"
-                            onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
-                            removeTitle={t('detail.removeMaterial')}
-                            removeButtonClassName="ml-1"
-                          >
-                            {mat?.name || matId}
-                            {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but
-                                deliberately omitted on the kanban card to keep it clean. */}
-                            {mat?.category && (
-                              <span className="text-xs text-muted-foreground">({mat.category})</span>
-                            )}
-                          </RemovableChip>
-                          )
-                        })}
-                      </>
-                    )
-                  })()
-                ) : (
-                  <p className="text-sm text-muted-foreground/60 italic">{t('detail.noMaterial')}</p>
-                )}
-              </div>
-            </div>
-            </>
+          {/* The incident's own. Without an Auftrag there is nothing to tell it
+              apart from, so it renders bare and `ResourceSourceBlock` steps out
+              of the way. */}
+          {(!auftrag || hasOwnResources) && (
+            <ResourceSourceBlock
+              variant="incident"
+              title={auftrag ? t('detail.sourceIncident') : undefined}
+              hint={auftrag ? t('detail.sourceIncidentHint') : undefined}
+            >
+              {ownResourceSections}
+            </ResourceSourceBlock>
           )}
 
           </div>
@@ -1413,119 +1506,31 @@ export function OperationDetailContent({
               is a different moment from everything below, which is why it is no
               longer stacked on top of it. */}
           <TabsContent value="reko" className={tabPanelClass}>
-            {/* Same two-column pattern as Übersicht: the Auftrag (who is sent,
-                and the links to send them with) in the LEFT column, everything
-                that comes BACK (the Funkmeldung, the filed Berichte, the entry
-                surface) in the RIGHT. The panel mount stays a single stacked
-                column in this same order — 420px has no second column. */}
+            {/* Two columns, the same grid as Übersicht: what came IN from the
+                field on the LEFT, what the KP sets or administers on the RIGHT.
+                Feld reads the same way, so the two field tabs are siblings.
+                They were briefly one stacked column — which put an unassigned
+                Reko, its Funkmeldung and «noch kein Bericht» in a single narrow
+                run and read as a form with nothing in it. */}
             <div className={tabGridClass}>
-              {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
-                  geändert wird. Moved here off Übersicht — Reko was split
-                  across two tabs, with the tab NAMED Reko holding only the
-                  report while every dispatch control sat in a column that also
-                  carries Status ändern and three resource lists.
-                  It also answers what this tab used to be before a report
-                  exists: an empty box. Now the first thing an incident without
-                  a Reko offers here is the way to assign one. */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="text-sm font-medium">{t('detail.rekoAuftrag')}</span>
-                </div>
-                {/* One wrapping row, so the 420px panel breaks it over two or
-                    three lines instead of squeezing four controls onto one. */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {assignedRekoPersonnel ? (
-                    <Badge variant="secondary" className="text-sm bg-info/10 text-info">
-                      <Search className="mr-1 h-3 w-3 shrink-0" />
-                      {assignedRekoPersonnel.name}
-                    </Badge>
-                  ) : (
-                    <p className="text-sm text-muted-foreground/60 italic">{t('common.noRekoAssigned')}</p>
-                  )}
-                  {canEdit && (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => setRekoDialogOpen(true)}
-                      tabIndex={0}
-                    >
-                      {assignedRekoPersonnel ? (
-                        <>
-                          <ArrowRightLeft className="size-3.5" />
-                          {t('common.switch')}
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="size-3.5" />
-                          {t('common.assign')}
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  {/* The two links only exist once somebody is assigned — they
-                      point the Reko person at this incident. */}
-                  {canEdit && assignedRekoPersonnel && (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={handleCopyDirectRekoLink}
-                        disabled={isCopyingRekoLink}
-                      >
-                        {isCopyingRekoLink ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : rekoCopied === 'direct' ? (
-                          <Check className="size-3.5 text-success" />
-                        ) : (
-                          <Link2 className="size-3.5" />
-                        )}
-                        {t('common.directLink')}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={handleCopyDashboardLink}
-                        disabled={isCopyingRekoLink}
-                      >
-                        {rekoCopied === 'dashboard' ? (
-                          <Check className="size-3.5 text-success" />
-                        ) : (
-                          <LayoutDashboard className="size-3.5" />
-                        )}
-                        {t('common.dashboard')}
-                      </Button>
-                    </>
-                  )}
-                </div>
-                {/* Its own line: this one reaches beyond the incident on screen
-                    (every open Reko of that person, event-wide), so it must not
-                    read as a fourth button of the row above. */}
-                {canEdit && assignedRekoPerson && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setRekoTransferDialogOpen(true)}
-                    className="px-2"
-                    title={t('detail.eventWideRekoTransferTooltip')}
-                  >
-                    <ArrowRightLeft className="size-3.5" />
-                    {t('detail.eventWideRekoTransfer')}
-                  </Button>
-                )}
-              </div>
-
-              <div className={tabColumnBreakClass}>
+              <div className="space-y-5">
               <RekoReportSection
                 incidentId={operation.id}
                 canEdit={canEdit}
+                // The board mount: the report reads as `DetailField` rows, the
+                // same ones the Auftrag column beside it and Übersicht next door
+                // use. Modal and 420px panel alike — a row list is the one
+                // layout that does not need a second design at that width.
+                dense
+
                 // «Reko vor Ort» is a Funkmeldung ABOUT the reconnaissance, so
-                // it sits with the reports in the data column — not across both,
-                // where it read as a heading for the entry surface too.
+                // it heads the reading column — the same place and the same
+                // component the Feld tab puts «Abholung nötig» in. The two are
+                // built as twins and now sit as twins.
                 dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
                 // Stacked in both mounts now: this column is half the modal —
                 // the tab's own grid took over the side-by-side reading, with
-                // the Auftrag on the left and everything reported on the right.
+                // everything reported on the left and the Auftrag on the right.
                 layout="stacked"
                 // Deep-linked with the entry form open. «Reko-Details öffnen»
                 // in the completion gate answers "no Reko report was filled in",
@@ -1535,6 +1540,106 @@ export function OperationDetailContent({
                 }
                 onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
               />
+              </div>
+
+              {/* Der Reko-Auftrag: wer schaut es an, und alles, was daran
+                  geändert wird. Moved here off Übersicht — Reko was split
+                  across two tabs, with the tab NAMED Reko holding only the
+                  report while every dispatch control sat in a column that also
+                  carries Status ändern and three resource lists.
+                  It also answers what this tab used to be before a report
+                  exists: an empty box. Now the first thing an incident without
+                  a Reko offers here is the way to assign one. */}
+              <div className={cn(tabColumnBreakClass, "space-y-2")}>
+                {/* One heading style across all four tabs — this was the last
+                    `text-sm font-medium` + full-size icon pair left over. */}
+                <DetailGroupHeading icon={<Search className="h-3.5 w-3.5 shrink-0" />}>
+                  {t('detail.rekoAuftrag')}
+                </DetailGroupHeading>
+                {/* The Auftrag as `DetailField` rows — the same 104px gutter as
+                    Übersicht and as the reports in the next column. It used to
+                    be a badge plus four `xs` buttons in a wrapping row, which
+                    at 420px broke over three lines and put every control at a
+                    different x. The actions are row links now: grey and
+                    underlined, because colour on this board means status. */}
+                <div>
+                  <DetailField
+                    label={t('common.reko')}
+                    action={canEdit ? (
+                      <button
+                        type="button"
+                        className={ROW_ACTION}
+                        onClick={() => setRekoDialogOpen(true)}
+                      >
+                        <ArrowRightLeft className="size-3" />
+                        {assignedRekoPersonnel ? t('common.switch') : t('common.assign')}
+                      </button>
+                    ) : undefined}
+                  >
+                    {assignedRekoPersonnel ? (
+                      <span className="text-sm">{assignedRekoPersonnel.name}</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground/60 italic">{t('common.noRekoAssigned')}</span>
+                    )}
+                  </DetailField>
+
+                  {/* The two links only exist once somebody is assigned — they
+                      point the Reko person at this incident. */}
+                  {canEdit && assignedRekoPersonnel && (
+                    <DetailField label={t('detail.rekoLinksLabel')}>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <button
+                          type="button"
+                          className={ROW_ACTION}
+                          onClick={handleCopyDirectRekoLink}
+                          disabled={isCopyingRekoLink}
+                        >
+                          {isCopyingRekoLink ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : rekoCopied === 'direct' ? (
+                            <Check className="size-3 text-success" />
+                          ) : (
+                            <Link2 className="size-3" />
+                          )}
+                          {t('common.directLink')}
+                        </button>
+                        <button
+                          type="button"
+                          className={ROW_ACTION}
+                          onClick={handleCopyDashboardLink}
+                          disabled={isCopyingRekoLink}
+                        >
+                          {rekoCopied === 'dashboard' ? (
+                            <Check className="size-3 text-success" />
+                          ) : (
+                            <LayoutDashboard className="size-3" />
+                          )}
+                          {t('common.dashboard')}
+                        </button>
+                      </div>
+                    </DetailField>
+                  )}
+
+                  {/* Its own row: this one reaches beyond the incident on
+                      screen (every open Reko of that person, event-wide), so it
+                      must not read as a third link of the row above. */}
+                  {canEdit && assignedRekoPerson && (
+                    <DetailField
+                      label={t('detail.rekoEventWideLabel')}
+                      description={t('detail.eventWideRekoTransferTooltip')}
+                    >
+                      <button
+                        type="button"
+                        className={ROW_ACTION}
+                        onClick={() => setRekoTransferDialogOpen(true)}
+                        title={t('detail.eventWideRekoTransferTooltip')}
+                      >
+                        <ArrowRightLeft className="size-3" />
+                        {t('detail.eventWideRekoTransfer')}
+                      </button>
+                    </DetailField>
+                  )}
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -1553,15 +1658,10 @@ export function OperationDetailContent({
             hidden={tab !== 'rapport'}
             className={tabPanelClass}
           >
-          {/* One flow, split the same way the Reko tab is: what CAME IN on the
-              left — the crew's sentences — and what the KP itself sets or fills
-              in on the right. In the panel that becomes one column, top to
-              bottom, because 420px has no second one to give. */}
-          <div className={cn("py-4", dense ? "space-y-5" : "grid grid-cols-2 gap-6")}>
-            {/* Left: what the Schadenplatz says. The two settable Funkmeldungen
-                belong with the crew's own sentences — both answer «was ist
-                gemeldet worden», and an operator taking a radio call reads and
-                sets them in the same breath. */}
+          {/* Two columns, the same grid as Reko and Übersicht: what came IN
+              from the field on the left — the crew's sentences and what they
+              left standing — and what the KP writes on the right. */}
+          <div className={tabGridClass}>
             <div className="space-y-5">
               {/* Feldmeldungen — KP parity (decision 28). Everything a crew taps
                   on /feld, an operator enters here from a radio message.
@@ -1599,10 +1699,10 @@ export function OperationDetailContent({
                   refreshKey={materialReturnKey}
                 />
               )}
+
             </div>
 
-            {/* Right: the one thing that is written rather than reported. */}
-            <div className={cn("space-y-5", !dense && "border-l border-border pl-6")}>
+            <div className={tabColumnBreakClass}>
             {/* The Schadenplatz-Rapport itself, as a FULL editing surface: the KP
                 must be able to file one for an incident that never had any field
                 contact. Same form component /feld mounts, different transport. */}
@@ -1620,7 +1720,7 @@ export function OperationDetailContent({
               // Rapporte or a notification, i.e. somebody was sent here to write
               // it. Clicking «Rapport» by hand leaves the cursor alone: stealing
               // focus from someone who came to read is its own bug.
-              autoFocusKurzbericht={openOnTab?.tab === 'rapport'}
+              autoFocusKurzbericht={openOnTab?.tab === 'rapport' && openOnTab.section === 'kurzbericht'}
               // No rapport before the Schadenplatz was disponiert (§18.27).
               // Same gate on both shapes of the detail, because it is the same
               // component — and on the card and the Restliste through the same

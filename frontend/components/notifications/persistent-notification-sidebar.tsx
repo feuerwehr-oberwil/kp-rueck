@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { NotificationCard } from '@/components/notifications/notification-card'
 import { requestIncidentHighlight } from '@/lib/notification-highlight'
+import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { cn } from '@/lib/utils'
 
 export function PersistentNotificationSidebar() {
@@ -46,13 +47,16 @@ export function PersistentNotificationSidebar() {
   // used to look clickable and do nothing — hand the card `undefined` there so
   // it renders as plain text instead.
   //
-  // Clicking a row POINTS at the card — scroll into view plus the brief accent
-  // ring — while this sidebar stays open (§19.1). It used to open the detail
-  // modal over the board, which hid exactly the card the operator was asking
-  // about. Pointing is not resolving, so the row is not dismissed by the click;
-  // the ✕ still does that.
+  // Clicking a row points at the card — scroll into view plus the brief accent
+  // ring — AND opens its detail on the tab the notification is about (§18.27):
+  // «Meldung vom Feld» is a sentence somebody wants read, and a ringed card left
+  // the operator to open the detail and find the right tab themselves. On the
+  // desktop the detail is the side panel, so the card it points at stays
+  // visible; the modal-over-the-board problem (§19.1) was the small-screen one.
+  // This sidebar stays open either way, and pointing is not resolving: the row
+  // is not dismissed by the click, the ✕ still does that.
   const handleClickIncident = canNavigateToIncident
-    ? (incidentId: string) => requestIncidentHighlight(incidentId)
+    ? (incidentId: string, tab?: OperationDetailTab) => requestIncidentHighlight(incidentId, { tab, allowModal: true })
     : undefined
 
   return (

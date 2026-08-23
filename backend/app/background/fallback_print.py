@@ -1,11 +1,18 @@
 """Periodic board-snapshot printing for the paper-fallback routine.
 
 Started once from the app lifespan and idles until ``fallback.auto_print_enabled``
-is switched on. While enabled (and the thermal printer is enabled), every live
-(non-training, non-archived) event gets a board-snapshot print job queued every
+is switched on. While enabled (and the thermal printer is enabled), every open
+(non-archived) event gets a board-snapshot print job queued every
 ``fallback.auto_print_interval_min`` minutes — but only when the board actually
 changed since the last automatic snapshot, so a quiet night doesn't burn a roll
 of thermal paper. Automatic jobs carry ``payload["auto"] = true``.
+
+**Training events included, deliberately.** This used to skip them, which meant the
+paper fallback was the one safety net nobody could ever rehearse: it silently did
+nothing during an Übung, and the switch's hint ("solange ein Live-Ereignis aktiv ist")
+read like "while an event is running". A fallback that has never been drilled is not a
+fallback. The printed slip already carries an ÜBUNG header, so a drill snapshot cannot
+be mistaken for a real one.
 """
 
 import asyncio
@@ -102,8 +109,16 @@ class FallbackPrintTask:
         enabled = await settings_service.get_setting_value(db, "fallback.auto_print_enabled", "false")
         if enabled.lower() != "true":
             return
+        # Beides, nicht nur der Schalter: ohne Adresse hat der Druckdienst nichts, wohin er
+        # senden könnte, und ein Schnappschuss alle 15 Minuten würde die Warteschlange
+        # stillschweigend vollschreiben. Dieselbe Bedingung wie in
+        # `require_printer_configured` (api/print.py) – dort mit Fehlermeldung, hier still,
+        # weil dies eine Hintergrundschleife ohne Gegenüber ist.
         printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
         if printer_enabled.lower() != "true":
+            return
+        printer_ip = await settings_service.get_setting_value(db, "printer.ip", "")
+        if not printer_ip.strip():
             return
 
         raw_interval = await settings_service.get_setting_value(db, "fallback.auto_print_interval_min", "15")
@@ -112,7 +127,9 @@ class FallbackPrintTask:
         except ValueError:
             interval_min = 15
 
-        result = await db.execute(select(Event).where(Event.archived_at.is_(None), Event.training_flag.is_(False)))
+        # Every open event, training included — see the module docstring. The only filter
+        # is "archived": a closed event has no board left to snapshot.
+        result = await db.execute(select(Event).where(Event.archived_at.is_(None)))
         events = result.scalars().all()
         now = datetime.now(UTC)
 

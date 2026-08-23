@@ -691,6 +691,11 @@ async def test_simulate_vehicle_breakdown(
     assert data["vehicle_name"] == "TLF 1"
 
     await db_session.refresh(vehicle)
+    # Readiness is the timestamp; `status` is its legacy mirror, and the exercise
+    # has to leave the row exactly as a real breakdown would — never one of the
+    # two on its own, or the fleet list shows a defect with no «seit».
+    assert vehicle.out_of_service is True
+    assert vehicle.out_of_service_since is not None
     assert vehicle.status == "unavailable"
 
     # Assignment deliberately stays — cleaning up is the trainee's job.

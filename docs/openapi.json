@@ -9185,7 +9185,7 @@
           "print"
         ],
         "summary": "Queue Qr Code Print",
-        "description": "Queue a QR-code slip (shareable link as QR + text) for printing.",
+        "description": "Queue a QR-code slip (shareable link as QR + text) for printing.\n\n``code`` / ``valid_until`` ride along untouched when the caller sends them\n(the Feld slip does, nothing else). They are the only reason a scanned Feld\nposter does not strand its reader at a code prompt — see\n``PrintQRCodeRequest`` and ``format_qr_code_slip`` in the agent, which prints\nboth under the QR and skips them when absent.",
         "operationId": "queue_qr_code_print_api_print_qr_code__post",
         "parameters": [
           {
@@ -9594,9 +9594,21 @@
           "vehicles"
         ],
         "summary": "List Vehicles",
-        "description": "List all vehicles (all users).",
+        "description": "List vehicles (all users). Archived rows are excluded unless asked for.",
         "operationId": "list_vehicles_api_vehicles__get",
         "parameters": [
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include archived vehicles. Off for the board, on for «Archivierte anzeigen».",
+              "default": false,
+              "title": "Include Archived"
+            },
+            "description": "Include archived vehicles. Off for the board, on for «Archivierte anzeigen»."
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -9738,7 +9750,7 @@
           "vehicles"
         ],
         "summary": "Get Vehicle",
-        "description": "Get single vehicle by ID.",
+        "description": "Get single vehicle by ID. Archived vehicles are returned here.",
         "operationId": "get_vehicle_api_vehicles__vehicle_id__get",
         "parameters": [
           {
@@ -9812,7 +9824,7 @@
           "vehicles"
         ],
         "summary": "Update Vehicle",
-        "description": "Update vehicle (editor only).",
+        "description": "Update vehicle (editor only).\n\nThis is also the write path for «Nicht einsatzbereit»: `{\"out_of_service\": true}`\nfrom the board's right-click menu or from the settings row, nothing else needed.",
         "operationId": "update_vehicle_api_vehicles__vehicle_id__put",
         "parameters": [
           {
@@ -9896,8 +9908,89 @@
           "vehicles"
         ],
         "summary": "Delete Vehicle",
-        "description": "Delete vehicle (editor only) - soft delete.",
+        "description": "Delete vehicle (editor only).\n\nDefault is an archive — reversible, and the row really does leave every list;\nit refuses with 409 while the vehicle stands on a live Einsatz.\n`?permanent=true` is the purge for test entries and typos; it refuses with 409\nunless the vehicle is archived and has no live Einsatz history.",
         "operationId": "delete_vehicle_api_vehicles__vehicle_id__delete",
+        "parameters": [
+          {
+            "name": "vehicle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vehicle Id"
+            }
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Delete the row for good instead of archiving it. Only from the archive, and only for vehicles that never stood on a live Einsatz.",
+              "default": false,
+              "title": "Permanent"
+            },
+            "description": "Delete the row for good instead of archiving it. Only from the archive, and only for vehicles that never stood on a live Einsatz."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vehicles/{vehicle_id}/archive": {
+      "post": {
+        "tags": [
+          "vehicles"
+        ],
+        "summary": "Archive Vehicle",
+        "description": "Archive vehicle (editor only) — the normal way to retire a vehicle.\n\nIt leaves the board, the fleet sheet and the assignment dialog; past Einsätze\nkeep it. Refuses with 409 while the vehicle stands on a live Einsatz — same\npattern as the purge's `in_use` refusal. Reversible with /restore. Broadcast\nas a `delete` so live boards drop it.",
+        "operationId": "archive_vehicle_api_vehicles__vehicle_id__archive_post",
         "parameters": [
           {
             "name": "vehicle_id",
@@ -9943,8 +10036,91 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vehicle"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vehicles/{vehicle_id}/restore": {
+      "post": {
+        "tags": [
+          "vehicles"
+        ],
+        "summary": "Restore Vehicle",
+        "description": "Bring an archived vehicle back (editor only) — «Zurückholen».",
+        "operationId": "restore_vehicle_api_vehicles__vehicle_id__restore_post",
+        "parameters": [
+          {
+            "name": "vehicle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vehicle Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vehicle"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -10053,9 +10229,21 @@
           "materials"
         ],
         "summary": "List Materials",
-        "description": "List all materials (all users).",
+        "description": "List materials (all users). Archived rows are excluded unless asked for.",
         "operationId": "list_materials_api_materials__get",
         "parameters": [
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include archived materials. Off for the board, on for «Archivierte anzeigen».",
+              "default": false,
+              "title": "Include Archived"
+            },
+            "description": "Include archived materials. Off for the board, on for «Archivierte anzeigen»."
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -10197,7 +10385,7 @@
           "materials"
         ],
         "summary": "Get Material",
-        "description": "Get single material by ID.",
+        "description": "Get single material by ID. Archived materials are returned here.",
         "operationId": "get_material_api_materials__material_id__get",
         "parameters": [
           {
@@ -10271,7 +10459,7 @@
           "materials"
         ],
         "summary": "Update Material",
-        "description": "Update material (editor only).",
+        "description": "Update material (editor only).\n\nThis is also the write path for «Nicht einsatzbereit»: `{\"out_of_service\": true}`\nfrom the board's right-click menu or from the settings row, nothing else needed.",
         "operationId": "update_material_api_materials__material_id__put",
         "parameters": [
           {
@@ -10355,8 +10543,89 @@
           "materials"
         ],
         "summary": "Delete Material",
-        "description": "Delete material (editor only) - soft delete.",
+        "description": "Delete material (editor only).\n\nDefault is an archive — reversible, and the row really does leave every list;\nit refuses with 409 while the material stands on a live Einsatz.\n`?permanent=true` is the purge for test entries and typos; it refuses with 409\nunless the material is archived and has no live Einsatz history.",
         "operationId": "delete_material_api_materials__material_id__delete",
+        "parameters": [
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Delete the row for good instead of archiving it. Only from the archive, and only for material that never stood on a live Einsatz.",
+              "default": false,
+              "title": "Permanent"
+            },
+            "description": "Delete the row for good instead of archiving it. Only from the archive, and only for material that never stood on a live Einsatz."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/materials/{material_id}/archive": {
+      "post": {
+        "tags": [
+          "materials"
+        ],
+        "summary": "Archive Material",
+        "description": "Archive material (editor only) — the normal way to retire a device.\n\nIt leaves the board, the sidebar and the assignment dialog; past Einsätze keep it.\nRefuses with 409 while the material stands on a live Einsatz — same pattern as\nthe purge's `in_use` refusal. Reversible with /restore. Broadcast as a `delete`\nso live boards drop the row.",
+        "operationId": "archive_material_api_materials__material_id__archive_post",
         "parameters": [
           {
             "name": "material_id",
@@ -10402,8 +10671,91 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Material"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/materials/{material_id}/restore": {
+      "post": {
+        "tags": [
+          "materials"
+        ],
+        "summary": "Restore Material",
+        "description": "Bring an archived material back (editor only) — «Zurückholen».",
+        "operationId": "restore_material_api_materials__material_id__restore_post",
+        "parameters": [
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Material Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Material"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -12043,7 +12395,7 @@
           "feld"
         ],
         "summary": "Generate Feld Link",
-        "description": "Generate the `/feld` link with QR code (editor only).\n\nOne global link per Ereignis — no per-incident and no per-vehicle links.\nLong-lived (30 days), because it goes on a printed poster.",
+        "description": "Generate the `/feld` link with QR code (editor only).\n\nOne global link per Ereignis — no per-incident and no per-vehicle links.\nLong-lived (30 days), because it goes on a printed poster.\n\n``valid_until`` rides along so the poster can print its own expiry date: a\nslip that stopped working looks exactly like one that still does, and the\nonly place that difference can be shown is on the paper itself.",
         "operationId": "generate_feld_link_api_feld_generate_link_post",
         "parameters": [
           {
@@ -12357,7 +12709,7 @@
           "feld"
         ],
         "summary": "Unlock Feld",
-        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns the picker in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns the picker in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
         "operationId": "unlock_feld_api_feld_unlock_post",
         "parameters": [
           {
@@ -12966,7 +13318,7 @@
           "feld"
         ],
         "summary": "Correct Own Report",
-        "description": "Fix a Meldung you sent in yourself, before the KP disponiert it.\n\n**Not `_authorized_incident`.** That helper asks the visibility union \"is\nthis Schadenplatz yours to work on\", and the answer for a reported tree the\nKP has not dispatched is no — the reporter holds no assignment on it and\nshould not. The authorization here is a different, narrower sentence: *you\nare the person this row says reported it*, which is one column comparison\nand cannot be widened by anything the union later decides.\n\nTwo more walls behind it: the status must still be «Eingegangen» (once a\ncrew is driving to an address, that address is not the reporter's to change\nfrom a phone), and the incident must belong to the token's Ereignis.",
+        "description": "Fix a Meldung you sent in yourself, before the KP disponiert it.\n\n**Not `_authorized_incident`.** That helper asks the visibility union \"is\nthis Schadenplatz yours to work on\", and the answer for a reported tree the\nKP has not dispatched is no — the reporter holds no assignment on it and\nshould not. The authorization here is a different, narrower sentence: *you\nare the person this row says reported it*, which is one column comparison\nand cannot be widened by anything the union later decides.\n\nTwo more walls behind it: the card must still be inside the reporter's\nwindow (once a crew is driving to an address, that address is not the\nreporter's to change from a phone), and the incident must belong to the\ntoken's Ereignis.\n\nThe window shuts **for good**: an un-dispatch does not reopen it\n(`never_left_the_window`), because by then the Meldung may carry operator\nedits and «Meldung» is assign-semantics — the phone sends its whole cached\nform back. Same guard, same reason as the `/alarm` receipt.",
         "operationId": "correct_own_report_api_feld_incidents__incident_id__report_put",
         "parameters": [
           {
@@ -14186,6 +14538,70 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Setting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup/status": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Get Setup Status",
+        "description": "Whether this board has been claimed. The frontend polls this on first load.",
+        "operationId": "get_setup_status_api_setup_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup": {
+      "post": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Claim Board",
+        "description": "Claim an unclaimed board: create the production account set, name the station.\n\nCreates exactly what the ADMIN_SEED_PASSWORD seed path creates\n(production_account_set: dev-user bypass row, admin, read-only viewer) —\nexcept the admin gets the submitted password and the viewer a random one\nthe admin resets later in the Einstellungen. The random viewer password is\ndeliberately NOT returned anywhere.\n\nRace-safe without a lock: two simultaneous claims both pass the cheap\ncheck below, but users.username is unique, so the second INSERT fails and\nthat claimer gets the same 409 a late visitor gets.",
+        "operationId": "claim_board_api_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupClaimRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupClaimResponse"
                 }
               }
             }
@@ -18642,6 +19058,150 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Create Intake Alarm Api Intake Alarm Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intake/alarm/{incident_id}": {
+      "get": {
+        "tags": [
+          "intake"
+        ],
+        "summary": "Get Intake Alarm State",
+        "description": "Has the KP picked this up yet? — the receipt's live half.\n\nThe page polls this while the receipt is on screen, which is the whole\nreason «Beim KP – noch nicht disponiert» can turn into «Disponiert · TLF 1»\nwithout a phone call.",
+        "operationId": "get_intake_alarm_state_api_intake_alarm__incident_id__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from generated link",
+              "title": "Token"
+            },
+            "description": "Access token from generated link"
+          },
+          {
+            "name": "receipt",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Receipt token from the create response",
+              "title": "Receipt"
+            },
+            "description": "Receipt token from the create response"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Intake Alarm State Api Intake Alarm  Incident Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "intake"
+        ],
+        "summary": "Correct Intake Alarm",
+        "description": "Fix an alarm you just phoned in, before the KP disponiert it.\n\nThe window `/feld` gives a crew (`crud.feld.report_is_editable`): while the\ncard sits in «Eingegangen» nobody has been sent anywhere and the address is\nstill the reporter's to correct. The moment it is disponiert a squad is\ndriving to that address, the window shuts, and the correction goes over the\nradio — the 409 says so in as many words.\n\nHere it shuts *for good*: unlike `/feld`, an un-dispatch does not reopen it\n(`_never_left_the_window`), because by then the Meldung may carry operator\nedits this endpoint would overwrite.",
+        "operationId": "correct_intake_alarm_api_intake_alarm__incident_id__put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from generated link",
+              "title": "Token"
+            },
+            "description": "Access token from generated link"
+          },
+          {
+            "name": "receipt",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Receipt token from the create response",
+              "title": "Receipt"
+            },
+            "description": "Receipt token from the create response"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeAlarmUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Correct Intake Alarm Api Intake Alarm  Incident Id  Put"
                 }
               }
             }
@@ -24271,6 +24831,12 @@
               }
             ],
             "title": "Location Display"
+          },
+          "from_real_alarm": {
+            "type": "boolean",
+            "title": "From Real Alarm",
+            "description": "This incident came from a genuine dispatch alarm, not a simulated drill one.",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -24281,7 +24847,8 @@
           "id",
           "event_id",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "from_real_alarm"
         ],
         "title": "IncidentResponse",
         "description": "Full incident schema with database fields."
@@ -24672,6 +25239,135 @@
         "title": "IncidentUpdate",
         "description": "Schema for updating incident."
       },
+      "IntakeAlarmUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentPriority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          }
+        },
+        "type": "object",
+        "title": "IntakeAlarmUpdate",
+        "description": "A correction to an alarm that has not been disponiert yet.\n\nField-for-field ``FeldIncidentUpdate`` (`schemas/feld.py`), including its\nsemantics: every field is optional, ``None`` means *unchanged* rather than\n*clear it*, and clearing a text field is done with ``\"\"``. The phone sends\nthe whole form back and a Meldung whose Meldungstext was fixed must not lose\nits address to an omitted key.\n\nThe two coordinates cannot play by that rule — there is no ``\"\"`` for a\nNumeric column, so ``None`` has to carry both meanings and the payload's\n``model_fields_set`` tells them apart: a coordinate field *sent* as null\nclears it (the caller un-pins a wrong map pin), a field *omitted* leaves it\nuntouched.\n\n``internal_notes`` is the one exception to \"the field is the value\": it is\n*appended* to «Notizen» rather than assigned (see ``append_reporter_note``),\nbecause that column is shared with the operator and the read half does not\nhand it back.\n\nThe validators are ``PublicIncidentCreate``'s, not ``FeldIncidentUpdate``'s:\nthis is the same login-less door the create path is, so the same 2000-char\ncap on the two free-text columns applies on the way back in.\n\nNo ``status`` and no operator flags — this is the reporter's own words, not\na second way onto the board."
+      },
       "IntegrationsResponse": {
         "properties": {
           "alarms": {
@@ -24956,6 +25652,57 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "out_of_service": {
+            "type": "boolean",
+            "title": "Out Of Service",
+            "default": false
+          },
+          "out_of_service_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Service Since"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "assignment_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Count"
+          },
+          "can_delete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Delete"
           }
         },
         "type": "object",
@@ -24968,7 +25715,7 @@
           "updated_at"
         ],
         "title": "Material",
-        "description": "Full material schema with database fields."
+        "description": "Full material schema with database fields.\n\nThree independent axes, so the board never has to guess a state:\n`out_of_service` (readiness), `archived_at` (lifecycle), and deployment —\nwhich lives in incident_assignments and is per-event, so it stays with the\ncaller that knows which Ereignis is on screen. Precedence for rendering:\nout_of_service beats assigned beats available."
       },
       "MaterialCreate": {
         "properties": {
@@ -25021,6 +25768,11 @@
               }
             ],
             "title": "Group Id"
+          },
+          "out_of_service": {
+            "type": "boolean",
+            "title": "Out Of Service",
+            "default": false
           }
         },
         "type": "object",
@@ -25383,6 +26135,17 @@
             ],
             "title": "Status"
           },
+          "out_of_service": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Service"
+          },
           "consumable": {
             "anyOf": [
               {
@@ -25409,7 +26172,7 @@
         },
         "type": "object",
         "title": "MaterialUpdate",
-        "description": "Schema for updating material."
+        "description": "Schema for updating material.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /materials/{id}/archive and /restore."
       },
       "MicrosoftAuthConfig": {
         "properties": {
@@ -26654,6 +27417,28 @@
               }
             ],
             "title": "Event Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "type": "object",
@@ -26662,7 +27447,7 @@
           "title"
         ],
         "title": "PrintQRCodeRequest",
-        "description": "Request to print a QR-code slip (shareable link as QR + text)."
+        "description": "Request to print a QR-code slip (shareable link as QR + text).\n\n``code`` and ``valid_until`` are the Feld slip's two extra fields. The\nscanned `/feld` page asks for four digits and says nothing about where they\nare written, because the answer is \"on this slip\" — so a slip that carries\nthe QR without the code strands whoever scans it at a prompt they cannot\nanswer, and one without an expiry looks exactly like a working slip long\nafter it stopped. Both optional: every other link (Check-In, Reko, Viewer)\nsends neither and prints exactly as before."
       },
       "PrinterConfigResponse": {
         "properties": {
@@ -27217,6 +28002,31 @@
         "title": "RapportMaterialUpdate",
         "description": "The two ticks, as the form sends them back."
       },
+      "RapportPersonnelCandidate": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "checked_in": {
+            "type": "boolean",
+            "title": "Checked In",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "name"
+        ],
+        "title": "RapportPersonnelCandidate",
+        "description": "Somebody the crew can ADD to the rapport, as opposed to confirm.\n\nEverybody on the roster the board did not send here. ``checked_in`` marks the\nAppell so the search can offer those first — they are the people who\nplausibly stood at the address. The rest of the roster is offered behind\nthem, because the Appell is not always kept and a name that cannot be found\ngets typed as free text, after which it belongs to no person at all.\n\nIt carries an id, and that is not a widening of decision 18: the crew list\nhas always been keyed on the person, and adding a row still writes no\nassignment and no attendance."
+      },
       "RapportPersonnelRow": {
         "properties": {
           "personnel_id": {
@@ -27245,7 +28055,7 @@
           "name"
         ],
         "title": "RapportPersonnelRow",
-        "description": "One name on the crew checklist — the crew confirms *who*, not how many.\n\nThe people checked in at the Ereignis, with the ones the board has on this\nincident arriving ticked. A number could answer neither of the two questions\nthe KP has the morning after: was somebody there that nobody aufgeboten, and\ndid somebody leave that nobody tracked. Both directions are corrections the\ncrew is the only party able to make — the same argument the vehicle list\nsettled in §18.33.\n\nKeyed on the **person**, not on an assignment: somebody who came along was\nnever assigned, so there is no assignment to key the row on."
+        "description": "One name on the crew list — the crew confirms *who*, not how many.\n\n**Only who the board aufgeboten here**, arriving ticked. The list used to be\nthe whole Appell as well, and on a storm night that is half the brigade in a\nrapport about one cellar: being checked in says somebody turned out tonight,\nnot that they stood at this address. Everybody else on the roster is reachable\nthrough the section's search and its folded Appell and, once added, gets a row\nwith ``on_board=False``.\n\nKeyed on the **person**, not on an assignment: an added person has none."
       },
       "RapportPersonnelUpdate": {
         "properties": {
@@ -27386,6 +28196,22 @@
             },
             "type": "array",
             "title": "Material Name Suggestions",
+            "default": []
+          },
+          "personnel_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/RapportPersonnelCandidate"
+            },
+            "type": "array",
+            "title": "Personnel Candidates",
+            "default": []
+          },
+          "vehicle_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/RapportVehicleCandidate"
+            },
+            "type": "array",
+            "title": "Vehicle Candidates",
             "default": []
           }
         },
@@ -27541,6 +28367,26 @@
         "title": "RapportUpdate",
         "description": "The upsert payload. ``is_draft=False`` is the submit.\n\nEvery field is optional and only the ones actually present are written\n(``model_fields_set``), for the same reason the field-report twin works that\nway: an autosave that carries half the form must not blank the other half."
       },
+      "RapportVehicleCandidate": {
+        "properties": {
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vehicle Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vehicle_id",
+          "name"
+        ],
+        "title": "RapportVehicleCandidate",
+        "description": "A vehicle the crew can add: the rest of the fleet, behind one fold."
+      },
       "RapportVehicleRow": {
         "properties": {
           "vehicle_id": {
@@ -27569,7 +28415,7 @@
           "name"
         ],
         "title": "RapportVehicleRow",
-        "description": "One vehicle on the checklist — the crew confirms *which*, not how many.\n\n**The whole fleet, not only the assigned vehicles (§18.33).** The board is\nroutinely behind reality on a storm night: a vehicle drives along without\nanybody assigning it, and one that was assigned never rolls. So every vehicle\nthe station has gets a row, the assigned ones arrive ticked, and the crew's\njob is to correct both directions rather than to retype the fleet. Same\nreasoning as the \"Weiteres Material\" list next to it.\n\nKeyed on the **vehicle**, therefore, not on an assignment: a vehicle that was\nnever dispatched has no assignment to key on.\n\n``present`` has no third state: the list carries the board's own answer\nalready, so \"keine Angabe\" would only mean \"did not correct it\"."
+        "description": "One vehicle on the list — the crew confirms *which*, not how many.\n\n**Only what the board disponiert here.** The whole fleet used to get a row\n(§18.33), which turned the rapport into a fleet inventory: eleven questions\nnobody had a reason to ask, and the one vehicle that rolled as easy to\noverlook as the eleven that did not. The correction §18.33 was right about —\na vehicle that came along unannounced — is still possible, through the\nsection's search and its folded fleet, and produces a row with\n``on_board=False``. Exactly the shape the material list has always had.\n\nKeyed on the **vehicle**, not on an assignment: an added vehicle has none.\n\n``present`` has no third state: the list carries the board's own answer\nalready, so \"keine Angabe\" would only mean \"did not correct it\"."
       },
       "RapportVehicleUpdate": {
         "properties": {
@@ -28635,6 +29481,57 @@
         "title": "SettingUpdate",
         "description": "Schema for updating setting."
       },
+      "SetupClaimRequest": {
+        "properties": {
+          "station_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Station Name"
+          },
+          "admin_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "title": "Admin Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "station_name",
+          "admin_password"
+        ],
+        "title": "SetupClaimRequest",
+        "description": "The claim: a station name and the admin password the claimer chose.\n\nThe password minimum mirrors the seed's ADMIN_SEED_PASSWORD validation\n(auth.config.MIN_PASSWORD_LENGTH = 12) — the browser path must not accept\na password the env-var path would refuse. The station name cap matches the\norder of magnitude of other identity fields (User.display_name is 100);\nthe value lands in the `firestation_name` setting and on every printout."
+      },
+      "SetupClaimResponse": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username"
+        ],
+        "title": "SetupClaimResponse",
+        "description": "The login the frontend signs in with right after a successful claim."
+      },
+      "SetupStatusResponse": {
+        "properties": {
+          "claimed": {
+            "type": "boolean",
+            "title": "Claimed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claimed"
+        ],
+        "title": "SetupStatusResponse",
+        "description": "Whether this board has been claimed (= at least one user account exists)."
+      },
       "SimulateBulkRapportResponse": {
         "properties": {
           "candidates": {
@@ -29591,6 +30488,57 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "out_of_service": {
+            "type": "boolean",
+            "title": "Out Of Service",
+            "default": false
+          },
+          "out_of_service_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Service Since"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "assignment_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Count"
+          },
+          "can_delete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Delete"
           }
         },
         "type": "object",
@@ -29605,7 +30553,7 @@
           "updated_at"
         ],
         "title": "Vehicle",
-        "description": "Full vehicle schema with database fields."
+        "description": "Full vehicle schema with database fields.\n\nThree independent axes, so the board never has to guess a state:\n`out_of_service` (readiness), `archived_at` (lifecycle), and deployment —\nwhich lives in incident_assignments and is per-event, so it stays with the\ncaller that knows which Ereignis is on screen. Precedence for rendering:\nout_of_service beats assigned beats available."
       },
       "VehicleCreate": {
         "properties": {
@@ -29628,6 +30576,11 @@
           "radio_call_sign": {
             "type": "string",
             "title": "Radio Call Sign"
+          },
+          "out_of_service": {
+            "type": "boolean",
+            "title": "Out Of Service",
+            "default": false
           }
         },
         "type": "object",
@@ -29737,6 +30690,23 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "out_of_service": {
+            "type": "boolean",
+            "title": "Out Of Service",
+            "default": false
+          },
+          "out_of_service_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Service Since"
           },
           "radio_call_sign": {
             "type": "string",
@@ -29866,7 +30836,7 @@
           "radio_call_sign"
         ],
         "title": "VehicleStatusResponse",
-        "description": "Vehicle status with driver and incident information."
+        "description": "Vehicle status with driver and incident information.\n\nAnswers all three states for one vehicle in one call: `out_of_service` wins,\nthen `incident_id` (Im Einsatz), else Verfügbar."
       },
       "VehicleTrailResponse": {
         "properties": {
@@ -29941,6 +30911,17 @@
             ],
             "title": "Status"
           },
+          "out_of_service": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Service"
+          },
           "radio_call_sign": {
             "anyOf": [
               {
@@ -29955,7 +30936,7 @@
         },
         "type": "object",
         "title": "VehicleUpdate",
-        "description": "Schema for updating vehicle."
+        "description": "Schema for updating vehicle.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /vehicles/{id}/archive and /restore."
       },
       "WsTokenResponse": {
         "properties": {

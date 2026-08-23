@@ -302,7 +302,8 @@
       "available": "disponibles",
       "freeOfTotal": "{free}/{total} libres",
       "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
-      "onIncidents": "{count, plural, one {# intervention} other {# interventions}}"
+      "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
+      "availableDeployedNotReady": "{available} disponible(s) · {deployed} engagé(s) · {notReady} hors service"
     },
     "tokenBoard": {
       "unknown": "Inconnu",
@@ -352,11 +353,15 @@
       "cancel": "Annuler",
       "attaching": "Rattachement...",
       "trainingOnlyHint": "Les alarmes d’exercice ne peuvent être rattachées qu’à des exercices.",
-      "newAlarmGeneric": "Nouvelle alarme"
+      "newAlarmGeneric": "Nouvelle alarme",
+      "realAlarmWarningTitle": "{count, plural, one {Cette alarme est réelle, l'événement est un exercice} other {Ces alarmes sont réelles, l'événement est un exercice}}",
+      "realAlarmWarningAlerting": "L'alarme sortante est seulement simulée – <hint>personne n'est mobilisé.</hint>",
+      "realAlarmWarningThresholds": "Les seuils de retard sont 50 % plus longs – <hint>les avertissements arrivent plus tard qu'en cas réel.</hint>",
+      "attachAnyway": "Rattacher quand même à l'exercice"
     },
     "alarmSettings": {
       "cardTitle": "Alarmement",
-      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées, via le fournisseur d’alarme configuré. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Nécessite une clé d’accès du fournisseur ; les personnes sont liées par la synchronisation des membres.",
+      "cardDescription": "Envoie, au moment de l’engagement, une convocation push aux personnes attribuées et liées. Le message est généré à partir de l’intervention (le genre comme mot-clé, les détails comme texte). Les personnes sont liées par la synchronisation des membres.",
       "titleFieldLabel": "Mot-clé (titre)",
       "titleFieldHint": "Titre du push. Reste bref. Champs disponibles : '{type}, {location}, {priority}'.",
       "textFieldLabel": "Texte de l’alarme",
@@ -372,7 +377,9 @@
       "membersError": "Les membres Divera n’ont pas pu être chargés (vérifie la clé d’accès).",
       "selectPerson": "Choisir une personne…",
       "loadingMembers": "Chargement des membres Divera…",
-      "sendTest": "Envoyer l’alarme de test"
+      "sendTest": "Envoyer l’alarme de test",
+      "notConfiguredBadge": "Non configuré",
+      "notConfiguredHint": "Aucun fournisseur d’alarme enregistré. La clé d’accès est saisie par la personne qui s’occupe du serveur – ensuite seulement l’interrupteur peut être activé."
     },
     "sendDialog": {
       "noRecipientsError": "Aucun destinataire lié sélectionné",
@@ -704,8 +711,9 @@
       "sections": {
         "kurzbericht": "Rapport succinct",
         "owner": "Données du propriétaire / détenteur",
-        "confirm": "Effectif et véhicules",
-        "photos": "Photos"
+        "photos": "Photos",
+        "personnel": "Personnel",
+        "vehicles": "Véhicules"
       },
       "material": {
         "title": "Matériel",
@@ -718,7 +726,6 @@
         "leftOnSiteAria": "Resté sur place : {name}",
         "extraLabel": "Autre matériel utilisé",
         "extraPlaceholder": "Pas au catalogue ? Tape-le ici, sépare par des virgules",
-        "extraFreeText": "Tout ce qui ne figure pas dans la liste – p. ex. une pompe empruntée.",
         "extraSearchPlaceholder": "Rechercher du matériel",
         "extraNoneFound": "Rien trouvé – tape-le simplement ci-dessous.",
         "extraRemove": "Retirer {name}",
@@ -727,15 +734,16 @@
         "extraHideAll": "Masquer le catalogue"
       },
       "vehicles": {
-        "label": "Véhicules – coche tous ceux qui étaient là",
         "present": "était là",
         "presentAria": "Était là : {name}",
-        "empty": "Aucun véhicule saisi.",
-        "dispatched": "engagé",
+        "empty": "Aucun véhicule engagé.",
         "searchPlaceholder": "Rechercher un véhicule",
-        "showRest": "Autres véhicules ({count})",
-        "hideRest": "Masquer les autres véhicules",
-        "noMatch": "Aucun véhicule trouvé"
+        "showRest": "Tout le parc ({count})",
+        "hideRest": "Masquer le parc",
+        "noMatch": "Aucun véhicule trouvé",
+        "dispatchedLabel": "Engagés sur ce lieu d’intervention",
+        "addLabel": "Quel autre véhicule était là",
+        "removeAria": "Retirer {name}"
       },
       "kurzberichtPlaceholder": "Situation, activité, matériel",
       "handedOverTo": "Place sinistrée remise à",
@@ -767,28 +775,32 @@
       "loadError": "Le rapport n’a pas pu être chargé.",
       "loadRetry": "Réessayer",
       "personnel": {
-        "label": "Personnel engagé – coche tous ceux qui étaient là ({count})",
         "present": "était là",
         "presentAria": "Était là : {name}",
-        "empty": "Personne n’est annoncé – saisis les personnes à la main ci-dessous.",
-        "dispatched": "convoqué",
+        "empty": "Le tableau n’a affecté personne ici.",
         "searchPlaceholder": "Rechercher une personne",
-        "showRest": "Autres personnes annoncées ({count})",
-        "hideRest": "Masquer les autres personnes annoncées",
+        "showRest": "Autres personnes ({count})",
+        "hideRest": "Masquer les autres personnes",
         "noMatch": "Aucune personne trouvée",
         "extraNamePlaceholder": "Autre personne (nom)",
         "extraNotePlaceholder": "Note, p. ex. SP Allschwil",
         "addExtra": "Ajouter",
-        "removeAria": "Retirer {name}"
+        "removeAria": "Retirer {name}",
+        "dispatchedLabel": "Convoqués sur ce lieu d’intervention",
+        "addLabel": "Qui d’autre était là",
+        "checkedIn": "annoncé"
       },
       "summary": {
         "material": "{count, plural, one {# position} other {# positions}}",
         "materialEmpty": "aucun matériel saisi",
         "kurzberichtEmpty": "rien de saisi pour l’instant",
         "ownerEmpty": "vide – seulement si nécessaire",
-        "confirm": "{people, plural, one {# personne} other {# personnes}} · {vehicles, plural, one {# véhicule} other {# véhicules}}",
         "photos": "{count, plural, one {# photo} other {# photos}}",
-        "photosEmpty": "aucune envoyée"
+        "photosEmpty": "aucune envoyée",
+        "personnel": "{count, plural, one {# personne} other {# personnes}}",
+        "personnelEmpty": "personne de saisi",
+        "vehicles": "{count, plural, one {# véhicule} other {# véhicules}}",
+        "vehiclesEmpty": "aucun véhicule"
       }
     },
     "materialReturn": {
@@ -806,7 +818,20 @@
     "code": {
       "title": "Saisir le code",
       "submit": "Continuer",
-      "wrong": "Code incorrect"
+      "wrong": "Code incorrect",
+      "attemptsLeft": "{count, plural, one {Encore # essai.} other {Encore # essais.}}",
+      "whereHint": "Le code figure sur le billet, sous le code QR.",
+      "lockedTitle": "Bloqué un instant – {time}",
+      "lockedBody": "Trop d'essais infructueux depuis le même réseau.",
+      "lockedButton": "De nouveau libre dans {time}",
+      "expiredTitle": "Lien expiré",
+      "expiredHeading": "Ce code QR n'est plus valable",
+      "expiredBody": "Les liens Terrain expirent après 30 jours.",
+      "expiredFoot": "Pas besoin de code – il faut un nouveau lien.",
+      "offlineTitle": "Pas de connexion avec le PC",
+      "offlineBody": "Le code n'a pas été vérifié – il est probablement correct.",
+      "offlineHint": "Fais quelques pas à l'air libre et réessaie.",
+      "retry": "Réessayer"
     },
     "source": {
       "reko": "Mandat de reco",
@@ -875,7 +900,12 @@
       "editSaved": "Correction transmise au PC",
       "editTooLate": "Le PC a déjà repris l’annonce – annonce la correction par radio.",
       "notes": "Autres indications",
-      "notesPlaceholder": "Accès, clé, contact sur place …"
+      "notesPlaceholder": "Accès, clé, contact sur place …",
+      "needLocation": "Sans lieu d'intervention, le PC ne peut envoyer personne.",
+      "needMessage": "Sans message, le PC ne sait pas de quoi il s'agit.",
+      "nextStepHint": "Étape suivante : vérifier l'annonce.",
+      "locationHint": "Saisir l'adresse, toucher la carte ou « Utiliser ma position ».",
+      "locationHintPhone": "Saisir l'adresse ou toucher la carte."
     },
     "attendance": {
       "notHereTitle": "Tu n'es pas enregistré",
@@ -931,6 +961,9 @@
     "kpMessages": {
       "title": "Messages du PC",
       "from": "PC · {name} · {time}"
+    },
+    "claim": {
+      "offline": "Pas de connexion avec le PC. Le nom n'a pas été enregistré – réessaie."
     }
   },
   "help": {
@@ -1064,14 +1097,12 @@
       "markError": "Échec du marquage"
     },
     "resourceConflict": {
-      "title": "Double affectation ?",
-      "alreadyAssigned": "<strong>{name}</strong> est déjà attribué",
-      "assignedToSingle": "à « {label} ».",
-      "assignedToMultiple": "à :",
-      "bullet": "• {label}",
-      "question": "Déplacer ici, ou laisser sur les deux interventions ?",
       "moveHere": "Déplacer ici",
-      "keepBoth": "Attribuer plusieurs fois"
+      "keepBoth": "Tenir sur les deux",
+      "titleNamed": "{name} est déjà engagé",
+      "prompt": "Que faut-il retenir ?",
+      "currentLabel": "Jusqu'ici",
+      "newLabel": "Nouveau"
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} min",
@@ -1186,8 +1217,6 @@
     "alarm": {
       "invalidTitle": "Lien non valable ou échu",
       "invalidDescription": "Ce lien d’alarme n’est plus valable. Demande un nouveau lien.",
-      "successTitle": "Alarme saisie",
-      "successDescription": "L’alarme a été transmise à la conduite de l’intervention ({eventName}).",
       "another": "Saisir une autre alarme",
       "submitError": "L’alarme n’a pas pu être transmise. Réessaie.",
       "title": "Saisir une alarme",
@@ -1214,7 +1243,17 @@
         "back": "Retour au formulaire",
         "where": "Lieu",
         "hasPin": "Position enregistrée"
-      }
+      },
+      "statusOpen": "Au PC – pas encore engagé",
+      "statusChecking": "Vérification du statut...",
+      "statusExpired": "Plus de correction possible – le lien a expiré.",
+      "correct": "Corriger l’annonce",
+      "correctSubmit": "Envoyer la correction",
+      "correctCancel": "Annuler",
+      "correctError": "La correction n’a pas pu être transmise. Réessaie.",
+      "receiptTitle": "L'alarme est au PC",
+      "receiptMeta": "{eventName} · {time}",
+      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel."
     },
     "checkin": {
       "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
@@ -1354,7 +1393,6 @@
       "removeNamed": "Retirer {name}",
       "available": "Disponible",
       "inUse": "En intervention",
-      "availableCounter": "{available}/{total} disponibles",
       "counterLoading": "–/– disponibles",
       "visibleCounter": "{shown} sur {total} affichés",
       "zuFuss": "À pied",
@@ -1374,9 +1412,9 @@
       "einsatzart": "Genre d’intervention",
       "einsatzartPlaceholder": "Choisir le genre d’intervention",
       "priority": "Priorité",
-      "phoneReported": "Annoncé par téléphone",
+      "phoneReported": "Par téléphone",
       "phoneReportedDescription": "L’annonce est arrivée au PC par téléphone ou au guichet",
-      "feldReported": "Annoncé depuis le terrain",
+      "feldReported": "Du terrain",
       "feldReportedDescription": "L’annonce vient d’une équipe qui était sur place",
       "contact": "Contact / annonceur",
       "contactPlaceholder": "Nom de la personne qui annonce",
@@ -1403,13 +1441,34 @@
       "assignVehicle": "Attribuer un véhicule",
       "assignMaterial": "Attribuer du matériel",
       "onlyAssignedVehicles": "Attribués uniquement",
-      "dropRefusedRouteOccupied": "Déjà pris par une autre mission – libérer là-bas d’abord.",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
+      "openRoutenEditor": "Ouvrir l’éditeur d’itinéraire",
       "newIncident": "Nouvelle intervention",
       "telefondienst": "Service téléphonique",
       "kommandoposten": "Poste de commandement",
-      "unknownResource": "Inconnu"
+      "unknownResource": "Inconnu",
+      "statusMovedToast": "{name} → {status}",
+      "vehicleAssignedToast": "{vehicle} attribué à {name}",
+      "vehicleRemovedToast": "{vehicle} retiré de {name}",
+      "priorityChangedToast": "{name} : priorité {priority}",
+      "zuFussOnToast": "{name} : engagement à pied",
+      "zuFussOffToast": "{name} : plus à pied",
+      "driverStaysToast": "{vehicle} : le conducteur reste sur place",
+      "driverReturnsToast": "{vehicle} : le conducteur rentre",
+      "driverStayToastHint": "Repris dans le message radio et sur le bon d'engagement",
+      "personCount": "{count, plural, one {# personne} other {# personnes}}",
+      "deleteIncidentReleases": "Sont libérés : {what}.",
+      "notReady": "Pas prêt à l'engagement",
+      "notReadySince": "depuis le {date}",
+      "driver": "Conducteur",
+      "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
+      "bindingsCount": "{count, plural, one {# affectation} other {# affectations}}",
+      "bindingsPick": "Sélectionner pour y accéder",
+      "rosterFree": "{count} libres",
+      "rosterOf": "sur {total}",
+      "rosterBound": "{count} engagés",
+      "bindingsNone": "Aucune affectation – rien à atteindre."
     },
     "dashboard": {
       "loading": "Chargement...",
@@ -1601,7 +1660,10 @@
       "auftragStopLine": "Étape {pos} sur {total}",
       "moreCount": "+{count} autres",
       "moreCrewTitle": "{count, plural, one {# personne de plus} other {# personnes de plus}} – ouvrir l’intervention",
-      "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention"
+      "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention",
+      "deleteIncident": "Supprimer l'intervention",
+      "realAlarmBadge": "Alarme réelle",
+      "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs."
     },
     "column": {
       "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",
@@ -1634,6 +1696,11 @@
     },
     "detail": {
       "rekoAuftrag": "Mission de reconnaissance",
+      "groups": {
+        "lage": "Situation",
+        "meldung": "Annonce",
+        "kraefte": "Moyens"
+      },
       "tabs": {
         "overview": "Vue d’ensemble",
         "reko": "Reconnaissance",
@@ -1657,13 +1724,21 @@
       "removePerson": "Retirer la personne",
       "removeMaterial": "Retirer le matériel",
       "noMaterial": "Aucun matériel attribué",
+      "resourceEmpty": "aucun",
       "changeStatus": "Changer de statut",
       "copyWhatsapp": "Copier pour WhatsApp",
       "moreActions": "Autres actions",
       "diveraAlarm": "Convocation",
       "eventWideRekoTransfer": "Transférer toutes les reconnaissances ouvertes",
       "eventWideRekoTransferTooltip": "Transfère toutes les missions de reconnaissance ouvertes de cette personne dans tout l’événement, pas seulement cette intervention.",
-      "allVehiclesAssigned": "Tous les véhicules sont attribués"
+      "allVehiclesAssigned": "Tous les véhicules sont attribués",
+      "resourcesCount": "Ressources ({count})",
+      "sourceAuftrag": "Mission « {name} »",
+      "sourceAuftragHint": "Poursuit vers l'étape suivante",
+      "sourceIncident": "Uniquement cette intervention",
+      "sourceIncidentHint": "Libéré à la clôture",
+      "rekoLinksLabel": "Liens",
+      "rekoEventWideLabel": "Tout l’événement"
     },
     "sidePanel": {
       "togglePanel": "Afficher/masquer le panneau",
@@ -1735,7 +1810,8 @@
       "allMaterialsAssigned": "Aucun matériel n’est saisi",
       "changes": "Modifications",
       "vehicleDriver": "Conducteur : {name}",
-      "vehicleNoDriver": "Pas de conducteur"
+      "vehicleNoDriver": "Pas de conducteur",
+      "outOfService": "Pas prêt à l'engagement"
     },
     "transferReko": {
       "failed": "Échec du transfert",
@@ -1854,7 +1930,11 @@
       "noCoordsBadge": "sans lieu",
       "optimized": "Ordre optimisé.",
       "undo": "Annuler",
-      "removeStop": "Retirer l’étape"
+      "removeStop": "Retirer l’étape",
+      "contextOpen": "Ouvert",
+      "contextInRoute": "Dans la mission « {name} »",
+      "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
+      "contextStopAdded": "Intervention ajoutée comme étape."
     },
     "incidentPicker": {
       "title": "Ajouter des interventions comme étapes",
@@ -1874,7 +1954,6 @@
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",
-      "showGrouped": "Dans un autre mandat",
       "showCompleted": "Terminées"
     },
     "auftragPicker": {
@@ -1932,6 +2011,32 @@
         "title": "Saisir une alarme",
         "subtitle": "Téléphone et passage"
       }
+    },
+    "completion": {
+      "title": "Clore l'intervention ?",
+      "description": "<hl>{location}</hl> va être clos. Cela libère immédiatement :",
+      "materialCount": "{count, plural, one {# matériel} other {# matériels}}",
+      "toAvailable": "→ disponible",
+      "toDecision": "→ décision ci-dessous",
+      "confirm": "Clore",
+      "toastTitle": "{location} clos",
+      "releasedCrew": "{count, plural, one {# personne libérée} other {# personnes libérées}}",
+      "releasedVehicles": "{vehicles} libéré(s)",
+      "stopTitle": "Terminer l'arrêt ?",
+      "stopDescription": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Le matériel de la mission part vers le prochain arrêt – cet arrêt libère :",
+      "nextStop": "Prochain arrêt : {location}",
+      "stopConfirm": "Terminer l'arrêt",
+      "stopToastTitle": "Arrêt {location} terminé",
+      "stopConfirmAndNext": "Terminer & prochain arrêt en intervention",
+      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission «{auftrag}» se poursuit. Cet arrêt ne libère rien – les moyens appartiennent à la mission et suivent."
+    },
+    "statusCorrection": {
+      "title": "Corriger le statut ?",
+      "description": "<hl>{location}</hl>",
+      "noAnnouncement": "Pas de message radio, pas d'alarme, aucune inscription dans la mission.",
+      "dispatchHint": "Vraiment un nouvel engagement ? « Engager à nouveau … » ouvre le dialogue complet avec message radio et alarme.",
+      "dispatchAgain": "Engager à nouveau …",
+      "confirm": "Corriger le statut"
     }
   },
   "login": {
@@ -1943,7 +2048,6 @@
       "loginAsEditor": "Se connecter comme éditeur",
       "loginAsViewer": "Se connecter comme observateur",
       "loginWithMicrosoft": "Se connecter avec Microsoft",
-      "loginWithPassword": "Se connecter avec un mot de passe",
       "or": "ou",
       "usernameLabel": "Nom d’utilisateur",
       "usernamePlaceholder": "Nom d’utilisateur",
@@ -2206,7 +2310,11 @@
     "materials": {
       "loadFailedTitle": "Le matériel n’a pas pu être chargé",
       "loadFailedDescription": "La liste du matériel est peut-être périmée.",
-      "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés"
+      "groupsLoadFailed": "Les groupes de matériel n’ont pas pu être chargés",
+      "readinessFailedTitle": "L'état de disponibilité n'a pas pu être modifié",
+      "readinessFailedDescription": "L'état est revenu comme avant. Réessaie.",
+      "outOfServiceBlockedTitle": "{name} n'est pas prêt à l'engagement",
+      "outOfServiceBlockedDescription": "Marqué comme non prêt dans la gestion – le libérer là d'abord."
     },
     "groups": {
       "loadFailedTitle": "Les missions n’ont pas pu être chargées",
@@ -2350,7 +2458,9 @@
       "photoLabel": "Limite de photos (Go)",
       "materialThresholdsTitle": "Seuils de stock de matériel",
       "materialThresholdsSubtitle": "Avertit lorsque le matériel disponible d’une catégorie passe sous le seuil. Décoche la case pour masquer les avertissements d’une catégorie.",
-      "materialThresholdsManageLink": "Gérer le matériel"
+      "materialThresholdsManageLink": "Gérer le matériel",
+      "materialThresholdsEmpty": "Aucun matériel n’est encore saisi – il n’y a donc rien à régler ici. Dès que des stocks existent sous Réglages → Matériel, une ligne apparaît par emplacement.",
+      "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
     },
     "toasts": {
       "criticalTitle": "Avertissement critique",
@@ -2568,7 +2678,22 @@
       "noPhotos": "Aucune photo envoyée pour l’instant",
       "loadFailed": "L’image n’a pas pu être chargée",
       "canvasUnavailable": "Canvas non disponible",
-      "conversionFailed": "Échec de la conversion"
+      "conversionFailed": "Échec de la conversion",
+      "rowWaiting": "En attente",
+      "rowUploading": "{percent} % · réduit à 1920 px",
+      "rowRetrying": "{percent} % · essai {attempt} sur {total}",
+      "rowSent": "Envoyée",
+      "rowFailed": "{count, plural, one {Abandonné après # essai} other {Abandonné après # essais}}",
+      "rowRetry": "Renvoyer",
+      "rowDiscard": "Abandonner",
+      "queueProgress": "{done} sur {total} au PC · cela continue même si tu écris",
+      "offlineTitle": "{count, plural, one {# photo attend la connexion} other {# photos attendent la connexion}}",
+      "offlineBody": "Elles restent sur l'appareil et partent automatiquement dès que le réseau revient.",
+      "offlineHint": "Rien n'est perdu – inutile de refaire les photos.",
+      "chooseFile": "Choisir un fichier",
+      "denseHint": "glisser, coller ou choisir un fichier",
+      "photoNumber": "Photo {number}",
+      "removePhoto": "Supprimer la photo {number}"
     },
     "form": {
       "arrivalError": "Erreur lors de l’annonce d’arrivée",
@@ -2597,9 +2722,9 @@
       "otherDangers": "Autres dangers",
       "otherDangersPlaceholder": "Description...",
       "effort": "Moyens nécessaires",
-      "personnelCount": "Effectif (nbre)",
+      "personnelCount": "Nombre de personnes",
       "personnelPlaceholder": "p. ex. 10",
-      "duration": "Durée (h)",
+      "duration": "Durée en heures",
       "durationPlaceholder": "p. ex. 2",
       "powerSupply": "Alimentation électrique",
       "powerLabels": {
@@ -2617,7 +2742,6 @@
       "notesPlaceholder": "Autres remarques...",
       "submitting": "Transmission...",
       "submit": "Transmettre le rapport de reconnaissance",
-      "savedAt": "Enregistré à {time}",
       "autoSave": "Enregistrement automatique",
       "summaries": {
         "notRelevant": [
@@ -2639,7 +2763,18 @@
         ]
       },
       "submitKp": "Enregistrer le rapport de reconnaissance",
-      "submittingKp": "Enregistrement …"
+      "submittingKp": "Enregistrement …",
+      "syncedAt": "Arrivé au PC – {time}",
+      "syncedHint": "Tout ce qui est nouveau part automatiquement au PC.",
+      "unsentTitle": "Le PC ne voit pas encore cela",
+      "unsentBody": "Le PC a l'état de {time}. Tout ce qui suit n'est que sur ce téléphone.",
+      "unsentBodyNever": "Rien n'est encore arrivé au PC. Tout est uniquement sur ce téléphone.",
+      "unsentReassurance": "Rien n'est perdu – cela ne passe simplement pas jusqu'au PC.",
+      "sendNow": "Envoyer maintenant au PC",
+      "offlineTitle": "Pas de réseau – tout reste sur ce téléphone",
+      "offlineBody": "Tu peux continuer à écrire.",
+      "offlineHint": "Dès que le réseau revient, tout part de lui-même au PC. Laisse le formulaire ouvert jusque-là.",
+      "notesShort": "Remarques"
     },
     "reportSection": {
       "noReport": "Aucun rapport de reconnaissance pour l’instant",
@@ -2683,7 +2818,14 @@
       "saved": "Rapport de reconnaissance enregistré",
       "saveFailed": "Échec de l’enregistrement",
       "submittedShort": "Transmis {time}",
-      "updatedShort": "mis à jour {time}"
+      "updatedShort": "mis à jour {time}",
+      "findingLabel": "Constat",
+      "notesShort": "Remarques",
+      "reportLabel": "Rapport de reco",
+      "noReportShort": "aucun pour l’instant",
+      "createShort": "saisir",
+      "expand": "ouvrir",
+      "collapse": "fermer"
     },
     "dummyGenerator": {
       "title": "Mode exercice",
@@ -2715,19 +2857,24 @@
       "checkInputRetry": "Vérifie la saisie et réessaie.",
       "reloadPage": "Recharge la page.",
       "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
-      "sortCategoriesTab": "Trier les catégories"
+      "sortCategoriesTab": "Trier les catégories",
+      "sortLocationsTab": "Trier les emplacements",
+      "notConfiguredBadge": "Non configuré"
     },
     "page": {
       "title": "Réglages",
       "groups": {
-        "config": "Configuration",
-        "resources": "Ressources",
-        "data": "Données"
+        "setup": "Installation",
+        "operations": "Exploitation",
+        "resources": "Inventaire",
+        "records": "Journal",
+        "device": "Cet appareil"
       },
       "sections": {
         "general": "Général",
         "notifications": "Notifications",
-        "alerting": "Alarmement",
+        "alerting": "Alarmement sortant",
+        "alarmIntake": "Alarmes entrantes",
         "checklist": "Checklist",
         "auftragTemplates": "Ordres standard",
         "gps": "GPS",
@@ -2740,7 +2887,9 @@
         "materials": "Matériel",
         "import": "Import/export",
         "audit": "Journal d’audit",
-        "telemetry": "Rapports d’erreur"
+        "telemetry": "Rapports d’erreur",
+        "integrations": "Intégrations",
+        "device": "Cet appareil"
       },
       "telemetry": {
         "reportTitle": "Signaler un problème",
@@ -2878,6 +3027,18 @@
         "validation": {
           "notANumber": "Nombre non valide.",
           "outOfRange": "Doit être compris entre {min} et {max}."
+        },
+        "tiles": {
+          "installed": "Tuiles hors ligne : installées",
+          "bootstrap": "Tuiles hors ligne : non installées",
+          "missing": "Tuiles hors ligne : aucune",
+          "unreachable": "Le serveur de tuiles ne répond pas",
+          "zoomRange": "Zoom {min}–{max}",
+          "checkedAt": "vérifié à {time}",
+          "recheck": "Vérifier à nouveau",
+          "optionUnavailable": "– aucune tuile installée",
+          "hint": "Sans tuiles, «Auto» reste en ligne et n’a aucun repli en cas de panne. Les tuiles sont téléchargées une seule fois, pour la propre région, par la personne qui s’occupe du serveur. Marche à suivre : Aide → Cartes hors ligne.",
+          "unreachableHint": "Le serveur de tuiles ne répond pas pour l’instant – impossible de dire d’ici si des tuiles hors ligne sont installées. «Hors ligne uniquement» reste sélectionnable, mais pourrait donner une carte vide."
         }
       },
       "checklist": {
@@ -2931,7 +3092,9 @@
         "message2Hint": "Appel direct : rentrer à la caserne.",
         "incidentTemplateTitle": "Message WhatsApp d’intervention",
         "incidentTemplateDescription": "Modèle de l’annonce WhatsApp copiée depuis une intervention. Changer l’ordre = déplacer les lignes. Une ligne dont tous les champs sont vides disparaît. Champs disponibles :",
-        "templateLabel": "Modèle",
+        "templateLabel": "Modèle"
+      },
+      "alarmIntake": {
         "alarmFilterTitle": "Nettoyer le texte de l’alarme",
         "alarmFilterDescription": "Les systèmes d’alarme étiquettent leurs lignes et ajoutent les mêmes lignes standard à chaque alarme. Les deux listes ci-dessous sont vides : tant que rien n’y figure, rien n’est filtré et la description apparaît sur la carte d’intervention exactement telle qu’elle est arrivée. L’alarme reçue est de toute façon conservée telle quelle.",
         "alarmFilterLabel": "Supprimer des lignes entières (un préfixe par ligne)",
@@ -2944,6 +3107,7 @@
         "feldChipsTitle": "Annonces rapides pour /feld",
         "feldChipsDescription": "Annonces en un geste qu’un groupe sur le terrain peut envoyer au PC. Une annonce par ligne. Volontairement non traduites : chaque corps les formule lui-même.",
         "feldChipsLabel": "Annonces (une par ligne)",
+        "feldDriverChipsLabel": "Chips pour conducteurs",
         "webhookSecret": {
           "title": "Clé webhook pour les alarmes",
           "description": "La clé partagée avec laquelle la centrale d'alarme signe ses messages vers POST /api/alarms. À saisir dans le champ correspondant chez le fournisseur.",
@@ -2963,8 +3127,7 @@
           "sourceEnv": "Source : .env",
           "sourceDatabase": "Source : base de données",
           "notConfigured": "Aucune clé définie – les alarmes via POST /api/alarms sont acceptées sans vérification de signature."
-        },
-        "feldDriverChipsLabel": "Chips pour conducteurs"
+        }
       },
       "demo": {
         "sync": "La synchronisation n’est pas disponible en mode démo.",
@@ -3070,7 +3233,9 @@
         "system": "Système",
         "show": "Afficher",
         "showDetails": "Afficher les détails"
-      }
+      },
+      "searchPlaceholder": "Rechercher un réglage…",
+      "searchNoResults": "Aucun résultat."
     },
     "categorySort": {
       "noCategory": "(Aucun rôle)",
@@ -3086,10 +3251,10 @@
       "autoDownloadActiveDescription": "Premier téléchargement dans ~{minutes} min, puis toutes les {minutes} min sur cet appareil.",
       "downloadFailed": "La feuille de situation n’a pas pu être téléchargée",
       "title": "Résilience",
-      "intro": "Garde l’état actuel du tableau disponible hors du système – sur papier et sur cet appareil. Marche à suivre en cas de panne : voir la SOP de panne (docs/AUSFALL_SOP.md).",
+      "intro": "Garde l’état actuel du tableau disponible hors du système – sur papier et sur cet appareil. En cas de panne : poursuivre sur le dernier instantané imprimé du tableau et y joindre la feuille de situation du dossier de téléchargement. La marche à suivre complète figure dans l’aide, sous « Résilience ».",
       "autoPrintLabel": "Imprimer le tableau automatiquement (thermique)",
-      "autoPrintHint": "Imprime régulièrement un instantané du tableau tant qu’un événement réel est actif – uniquement si quelque chose a changé",
-      "autoPrintPrinterRequired": " – nécessite une imprimante activée (Réglages → Imprimante)",
+      "autoPrintHint": "Imprime régulièrement un instantané du tableau tant qu’un événement est ouvert – aussi pendant un exercice, et uniquement si quelque chose a changé. Les impressions d’exercice portent l’en-tête « ÜBUNG ».",
+      "autoPrintPrinterRequired": "Aucune imprimante thermique n’est configurée – sans imprimante activée et adresse, rien ne s’imprime. À configurer sous Réglages → Imprimante.",
       "intervalLabel": "Intervalle d’impression (minutes)",
       "intervalHint": "Au plus tôt toutes les 5 minutes, au plus tard toutes les 120",
       "autoDownloadLabel": "Téléchargement automatique de la feuille de situation (cet appareil)",
@@ -3099,7 +3264,9 @@
       "manualLabel": "Télécharger la feuille de situation maintenant",
       "manualHint": "Formulaire de conduite A4 (mise en page BL/BS) avec tous les détails d’intervention",
       "manualNoEvent": " – aucun événement sélectionné",
-      "downloadButton": "Télécharger"
+      "downloadButton": "Télécharger",
+      "autoDownloadMovedHint": "Se trouve sous «Cet appareil» – le téléchargement arrive dans le dossier de cet ordinateur, pas dans l’installation.",
+      "autoDownloadMovedAction": "Y aller"
     },
     "gps": {
       "title": "Automatisme de statut par GPS",
@@ -3139,7 +3306,9 @@
           "hint": "Un véhicule n’est considéré à l’arrêt qu’en dessous de cette vitesse (le pas d’homme dans la cour compte). Recommandé : 10"
         }
       },
-      "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages."
+      "editorsOnly": "Seuls les éditeurs peuvent modifier ces réglages.",
+      "trackerUnavailable": "Aucun service de localisation n’est configuré pour cette caserne. L’automatisme suit le rythme des relevés Traccar – sans lui, aucune proposition n’arrive, quoi qu’il soit réglé ici. À configurer côté serveur (TRACCAR_URL) ; l’état est visible sous Réglages → Intégrations.",
+      "returnUnavailable": "Les coordonnées de la caserne manquent. Sans elles, le retour n’est pas détecté – les saisir plus bas sur cette carte, sous «Caserne (base d’attache)»."
     },
     "materials": {
       "loadError": "Le matériel n’a pas pu être chargé",
@@ -3147,7 +3316,6 @@
       "deleteError": "Erreur lors de la suppression du matériel",
       "deleteErrorDescription": "Le matériel n’a pas pu être supprimé. Réessaie.",
       "tabList": "Liste du matériel",
-      "tabGroups": "Groupes",
       "thresholdsLink": "Définir les seuils d’alerte pour le stock de matériel",
       "addButton": "Ajouter du matériel",
       "dialogEditTitle": "Modifier le matériel",
@@ -3157,12 +3325,9 @@
       "locationPlaceholder": "p. ex. TLF, Pio, dépôt",
       "consumableLabel": "Consommable",
       "consumableHint": "Disponible en quantité illimitée, aucune attribution nécessaire",
-      "categoryHead": "Catégorie",
       "empty": "Aucun matériel.",
       "sortTitle": "Tri des emplacements",
       "sortDescription": "Fais glisser les emplacements pour changer leur ordre d’affichage. Le matériel est groupé selon ce tri.",
-      "deleteTitle": "Supprimer le matériel",
-      "deleteDescription": "Es-tu sûr de vouloir supprimer le matériel « {name} » ? Cette action est irréversible.",
       "groups": {
         "intro": "Les groupes de matériel réunissent plusieurs matériels isolés en un bloc (p. ex. « Module 1 »).",
         "createButton": "Créer un groupe",
@@ -3179,7 +3344,16 @@
         "deleteError": "Erreur lors de la suppression du groupe",
         "deleteTitle": "Supprimer le groupe",
         "deleteDescription": "Es-tu sûr de vouloir supprimer le groupe « {name} » ? Les matériels ne sont pas supprimés, seul le regroupement est dissous."
-      }
+      },
+      "deviceHead": "Matériel",
+      "moduleHead": "Module",
+      "tabModules": "Modules",
+      "archiveTitle": "Archiver « {name} »",
+      "archiveDescription": "Le matériel disparaît du tableau, de la barre latérale et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
+      "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour du matériel jamais engagé sur une intervention réelle.",
+      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
+      "purgeHint": "Possible parce que ce matériel n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "personnel": {
       "loadError": "Le personnel n’a pas pu être chargé",
@@ -3218,7 +3392,8 @@
       "syncSectionUnchanged": "Inchangées",
       "syncSectionNotInDivera": "Absentes de Divera",
       "removeStaleLabel": "{count, plural, one {Retirer # personne absente de Divera} other {Retirer # personnes absentes de Divera}}",
-      "syncExecuteButton": "Synchroniser"
+      "syncExecuteButton": "Synchroniser",
+      "syncUnavailable": "Aucun fournisseur de personnel enregistré – il n’y a rien à synchroniser. La clé d’accès est saisie par la personne qui s’occupe du serveur ; l’état figure sous Réglages → Intégrations."
     },
     "printer": {
       "toasts": {
@@ -3240,6 +3415,7 @@
       "pickup": "Récupération {eta}",
       "printerEnabled": "Imprimante activée",
       "printerDisabled": "Imprimante désactivée",
+      "statusNoAddress": "Imprimante activée, mais aucune adresse saisie – rien ne peut être imprimé",
       "serviceOnline": "Service d’impression en ligne",
       "serviceOffline": "Service d’impression hors ligne",
       "serviceOfflineHint": "(le Raspberry Pi ne se manifeste pas)",
@@ -3250,8 +3426,8 @@
       "ipHint": "IP réseau de l’imprimante thermique",
       "portLabel": "Port",
       "portHint": "Port standard ESC/POS (normalement 9100)",
-      "autoAnfahrtLabel": "Impression auto au départ",
-      "autoAnfahrtHint": "Imprimer automatiquement la fiche d’intervention au statut « Intervention »",
+      "autoAnfahrtLabel": "Imprimer automatiquement la fiche d’intervention lors de l’engagement",
+      "autoAnfahrtHint": "La fiche sort dès que l’intervention passe à « Engagé / En route » – une fois par intervention. Le menu contextuel permet d’en imprimer une autre à tout moment.",
       "testConnection": "Tester la liaison",
       "testPrint": "Impression de test",
       "phaseQueued": "En attente de l’agent d’impression (Pi)…",
@@ -3266,7 +3442,10 @@
       "pollingTitle": "Comportement d’interrogation",
       "pollingText": "Au repos, l’agent interroge toutes les 60 secondes. Après un travail d’impression, il passe à un intervalle de 5 secondes pendant 15 minutes, afin que les travaux suivants soient traités plus vite.",
       "networkTitle": "Réseau",
-      "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire."
+      "networkText": "Le Raspberry Pi a besoin d’un accès Internet (backend) et d’un accès LAN à l’imprimante. Uniquement des connexions sortantes – aucune ouverture de port nécessaire.",
+      "unavailableDisabled": "L’imprimante n’est pas encore activée sur cette carte – tant qu’elle est désactivée, rien ne s’imprime.",
+      "unavailableNoIp": "Aucune adresse d’imprimante n’est enregistrée. Sans elle, le service d’impression ne trouve pas l’imprimante – remplir le champ «Adresse IP» sur cette carte.",
+      "refreshStatus": "Actualiser l’état"
     },
     "users": {
       "roles": {
@@ -3305,7 +3484,6 @@
       "passwordLabel": "Mot de passe",
       "roleLabel": "Rôle",
       "roleAdmin": "Administrateur",
-      "adminsHint": "Les administrateurs peuvent gérer les utilisateurs.",
       "creating": "Création...",
       "editDialogTitle": "Modifier l’utilisateur",
       "editDialogDescription": "Modifie les données de l’utilisateur.",
@@ -3322,7 +3500,12 @@
       "permanentDeleteTitle": "Supprimer définitivement l’utilisateur ?",
       "permanentDeleteDescription": "L’utilisateur {name} sera supprimé de manière irréversible. Cette action ne peut pas être annulée.",
       "deleting": "Suppression...",
-      "permanentDeleteAction": "Supprimer définitivement"
+      "permanentDeleteAction": "Supprimer définitivement",
+      "roleHints": {
+        "editor": "Tient le tableau : ouvrir des interventions, attribuer des ressources, modifier les réglages.",
+        "viewer": "Ne voit que l’affichage mural. Après la connexion, y arrive directement et ne peut ni ouvrir ni utiliser le tableau.",
+        "admin": "Comme l’éditeur, et gère en plus les comptes d’utilisateurs."
+      }
     },
     "vehicles": {
       "loadError": "Les véhicules n’ont pas pu être chargés",
@@ -3337,8 +3520,12 @@
       "orderPlaceholder": "p. ex. 1, 2, 3",
       "radioPlaceholder": "p. ex. Omega 1, Omega 2",
       "empty": "Aucun véhicule.",
-      "deleteTitle": "Supprimer le véhicule",
-      "deleteDescription": "Es-tu sûr de vouloir supprimer le véhicule « {name} » ? Cette action est irréversible."
+      "archiveTitle": "Archiver « {name} »",
+      "archiveDescription": "Le véhicule disparaît du tableau, de la liste des véhicules et du dialogue d'attribution. Les interventions existantes et le journal le conservent.",
+      "archiveHint": "La suppression définitive se fait ensuite dans l'archive – mais seulement pour des véhicules jamais engagés sur une intervention réelle.",
+      "purgeTitle": "Supprimer définitivement « {name} »",
+      "purgeDescription": "L'enregistrement est retiré de la base de données. Cela ne peut pas être annulé – pas même via « Afficher les archivés ».",
+      "purgeHint": "Possible parce que ce véhicule n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "validation": {
       "nameRequired": "Le nom est obligatoire",
@@ -3350,6 +3537,85 @@
       "orderNumber": "L’ordre doit être un nombre",
       "orderInt": "L’ordre doit être un nombre entier",
       "orderMin1": "Au moins 1"
+    },
+    "lifecycle": {
+      "notReady": "Pas prêt à l'engagement",
+      "notReadySince": "depuis le {date}",
+      "notReadyAria": "Marquer « {name} » comme non prêt à l'engagement",
+      "notReadyError": "L'état de disponibilité n'a pas pu être modifié",
+      "showArchived": "Afficher les archivés",
+      "archivedCount": "{count, plural, one {# archivé} other {# archivés}}",
+      "archivedOn": "Archivé · {date}",
+      "archive": "Archiver",
+      "restore": "Restaurer",
+      "deletePermanently": "Supprimer définitivement",
+      "stoodOnIncidents": "{count, plural, one {Engagé sur # intervention} other {Engagé sur # interventions}}",
+      "neverOnIncident": "Jamais sur une intervention",
+      "archiveConsequenceDrop": "Plus disponible pour l'engagement dès maintenant",
+      "archiveConsequenceRestore": "Récupérable à tout moment via « Afficher les archivés »",
+      "purgeConsequenceLists": "Disparaît des listes, des exports et du journal",
+      "purgeConsequenceNoReturn": "Aucun retour possible – l'archive sera vide pour cet objet",
+      "archiveError": "Échec de l'archivage",
+      "archiveInUseDescription": "Encore engagé sur une intervention ouverte – le libérer d'abord, puis archiver.",
+      "restoreError": "Échec de la restauration",
+      "purgeError": "Échec de la suppression définitive"
+    },
+    "integrations": {
+      "title": "Intégrations",
+      "description": "Ce qui relie cette installation au monde extérieur. Cela ne se change pas ici, mais sur le serveur – la colonne de droite dit où.",
+      "readOnlyBadge": "Lecture seule",
+      "loadFailed": "L’aperçu n’a pas pu être chargé.",
+      "columns": {
+        "domain": "Domaine",
+        "provider": "Fournisseur",
+        "status": "Statut",
+        "where": "Où le changer"
+      },
+      "domains": {
+        "alarms": "Réception d’alarme",
+        "alerting": "Alarmement",
+        "personnel": "Synchronisation du personnel",
+        "vehicles": "GPS des véhicules"
+      },
+      "status": {
+        "configured": "Configuré",
+        "notConfigured": "Non configuré",
+        "blocked": "Bloqué"
+      },
+      "serverConfig": "Configuration du serveur",
+      "builtinTitle": "Toujours disponible, sans fournisseur :",
+      "builtinPaths": {
+        "generic-webhook": "Alarmes par webhook vers /api/alarms",
+        "manual-intake": "Lien d’alarme pour le téléphone",
+        "operator": "Saisie manuelle sur le tableau"
+      },
+      "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte."
+    },
+    "device": {
+      "title": "Cet appareil",
+      "subtitle": "Ne vaut que sur cet écran. Tout le reste des réglages vaut pour toute la caserne."
+    }
+  },
+  "setup": {
+    "page": {
+      "title": "Configurer ce tableau",
+      "subtitle": "Ce tableau n’appartient encore à personne. Deux indications, et il fonctionne pour votre corps de sapeurs-pompiers.",
+      "stationNameLabel": "Nom du corps de sapeurs-pompiers",
+      "stationNamePlaceholder": "Sapeurs-pompiers d’Oberwil",
+      "passwordLabel": "Mot de passe admin",
+      "passwordHint": "au moins 12 caractères",
+      "passwordRepeatLabel": "Répéter le mot de passe admin",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
+      "submit": "Configurer le tableau",
+      "submitting": "Configuration en cours...",
+      "errorTooShort": "Le mot de passe doit comporter au moins 12 caractères.",
+      "errorMismatch": "Les mots de passe ne correspondent pas.",
+      "errorGeneric": "La configuration a échoué. Veuillez réessayer.",
+      "alreadyClaimedTitle": "Déjà configuré",
+      "alreadyClaimedBody": "Ce tableau a déjà été configuré. Connectez-vous avec votre compte.",
+      "goToLogin": "Vers la connexion",
+      "footer": "Tout le reste – comptes, cartes, sauvegardes – vous attend dans les réglages. Pour la configuration par fichier : <code>docs/SETUP.md</code>."
     }
   },
   "sync": {

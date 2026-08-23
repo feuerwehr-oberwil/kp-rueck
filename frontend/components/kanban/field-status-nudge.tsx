@@ -227,7 +227,11 @@ export function FieldStatusNudge({
   // so the move alone is the honest answer: if the crew turns up, the card is
   // already where it should be, and if they need a lift back, that arrives as an
   // Abholung, not as another prompt about this one.
+  // Answering twice is answering once: a second click (a double tap, a copy in
+  // the modal pressed after the copy on the card) must not send the card to the
+  // top of its column all over again.
   const confirm = useCallback((kind: FieldNudgeKind) => {
+    if (isAnswered(operation.id, kind)) return
     storeConfirmation(operation.id, kind)
     changeStatusToTop(operation.id, kind === "complete" ? "returning" : "active")
   }, [changeStatusToTop, operation.id])

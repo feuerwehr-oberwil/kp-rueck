@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { columns, STATUS_ACCENT, stopStatusBorderClass, stopStatusTextClass } from '@/lib/kanban-utils'
+import { columns, STATUS_ACCENT, statusBadgeClass, stopStatusBorderClass, stopStatusTextClass } from '@/lib/kanban-utils'
 import { PRIORITY_CARD_CLASSES, PRIORITY_EDGE_CLASSES, PRIORITY_ICON_CLASSES } from '@/lib/priority'
 
 /**
@@ -42,6 +42,17 @@ describe('a status has one colour on every surface', () => {
     for (const status of ['incoming', 'enroute', 'active', 'returning', 'complete'] as const) {
       expect(stopStatusBorderClass(status)).toBe(STATUS_ACCENT[status].border)
       expect(stopStatusTextClass(status)).toBe(STATUS_ACCENT[status].text)
+    }
+  })
+
+  it('a status chip in a dialog is painted from the column it names', () => {
+    // «Status korrigieren?» shows «Im Einsatz» → «Disponiert / Anfahrt» as two
+    // chips. They must be the columns, not a second palette that agrees today.
+    for (const status of Object.keys(STATUS_ACCENT) as (keyof typeof STATUS_ACCENT)[]) {
+      const chip = statusBadgeClass(status)
+      expect(chip).toContain(STATUS_ACCENT[status].surface)
+      expect(chip).toContain(STATUS_ACCENT[status].text)
+      expect(new Set(hues(chip).map(family))).toHaveLength(1)
     }
   })
 

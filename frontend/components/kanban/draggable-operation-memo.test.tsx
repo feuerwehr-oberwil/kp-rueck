@@ -125,7 +125,7 @@ describe('the card repaints when its content changes, not just its shape', () =>
       operation({ nachbarhilfe: true, nachbarhilfeNote: 'Nachbarhilfe Biel-Benken' }),
       operation({ nachbarhilfe: true, nachbarhilfeNote: 'Nachbarhilfe Therwil' }),
     )
-    expect(screen.getByText('Nachbarhilfe Therwil')).toBeInTheDocument()
+    expect(screen.getByText(/Nachbarhilfe · Nachbarhilfe Therwil/)).toBeInTheDocument()
   })
 
   it('picks up a Funkrufname that was set in the fleet settings', () => {

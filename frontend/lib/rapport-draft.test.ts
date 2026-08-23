@@ -81,6 +81,8 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       melder_phone: '079 111 22 33',
       board_personnel_count: 6,
       material_name_suggestions: ['Nassauger', 'Tauchpumpe TP-4'],
+      personnel_candidates: [],
+      vehicle_candidates: [],
     },
     ...overrides,
   }

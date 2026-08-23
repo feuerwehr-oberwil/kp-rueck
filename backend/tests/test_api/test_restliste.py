@@ -29,8 +29,13 @@ from app.services.tokens import validate_feld_token
 
 @pytest_asyncio.fixture
 async def printer_enabled(db_session: AsyncSession):
-    """Enable the thermal printer so the queue guard passes."""
+    """A WORKING printer: switched on and reachable.
+
+    Both, because the queue guard wants both — a station with printing on but no address
+    stacks jobs that never come out (`require_printer_configured` in app/api/print.py).
+    """
     db_session.add(Setting(key="printer.enabled", value="true"))
+    db_session.add(Setting(key="printer.ip", value="10.10.10.230"))
     await db_session.commit()
 
 

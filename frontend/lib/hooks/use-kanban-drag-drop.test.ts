@@ -20,20 +20,12 @@ const assignPersonToOperation = vi.fn()
 const assignMaterialToOperation = vi.fn()
 const assignGroupResource = vi.fn()
 
-const notifyRefused = vi.fn()
-
-const deps = (occupiedMaterialIds: string[] = [], occupiedPersonnelIds: string[] = []) => ({
+const deps = () => ({
   operations: [ungrouped, stop],
   assignPersonToOperation,
   assignRekoPersonToOperation: vi.fn(),
   assignMaterialToOperation,
   assignGroupResource,
-  occupiedGroupResourceIds: {
-    material: new Set(occupiedMaterialIds),
-    personnel: new Set(occupiedPersonnelIds),
-    vehicle: new Set<string>(),
-  },
-  notifyRefused,
 })
 
 const onCard = { type: "operation-drop", operationId: "op-2", index: 0 }
@@ -45,7 +37,6 @@ beforeEach(() => {
   assignPersonToOperation.mockClear()
   assignMaterialToOperation.mockClear()
   assignGroupResource.mockClear()
-  notifyRefused.mockClear()
 })
 
 // The Doppelbelegung prompt lives in operations-context. A drop that never gets
@@ -61,9 +52,15 @@ describe("applyResourceDrop", () => {
     expect(assignPersonToOperation).toHaveBeenCalledWith("p-1", "Muster Hans", "op-2")
   })
 
-  it("still refuses material an Auftrag holds — that conflict has no prompt", () => {
-    applyResourceDrop({ type: "material", material: busyMaterial }, onCard, deps(["m-1"]))
-    expect(assignMaterialToOperation).not.toHaveBeenCalled()
+  // Material an Auftrag holds is NOT refused here either. This hook does not
+  // know about route occupancy any more: the board's `assignMaterialToOperation`
+  // wrapper raises the Doppelbelegung dialog with the Auftrag on the «bisher»
+  // line. Refusing here is what produced «dort zuerst freigeben» — the board
+  // asking the operator to do by hand, mid-storm, what the dialog does in one
+  // click.
+  it("hands material an Auftrag holds to the assign call, to be asked about", () => {
+    applyResourceDrop({ type: "material", material: busyMaterial }, onCard, deps())
+    expect(assignMaterialToOperation).toHaveBeenCalledWith("m-1", "op-2")
   })
 
   // The same rule on a STOP of an Auftrag. This path kept the
@@ -73,19 +70,19 @@ describe("applyResourceDrop", () => {
   it("puts a person who is busy elsewhere on the stop's Auftrag", () => {
     expect(applyResourceDrop({ type: "person", person: busyPerson }, onStop, deps())).toBe(true)
     expect(assignGroupResource).toHaveBeenCalledWith("grp-1", "personnel", "p-1")
-    expect(notifyRefused).not.toHaveBeenCalled()
   })
 
-  it("refuses a person another Auftrag already holds — and says so", () => {
-    applyResourceDrop({ type: "person", person: busyPerson }, onStop, deps([], ["p-1"]))
-    expect(assignGroupResource).not.toHaveBeenCalled()
-    expect(notifyRefused).toHaveBeenCalledWith("route-occupied")
+  // Onto an Auftrag, the same: every drop reaches `assignGroupResource`, which
+  // the board wires to the conflict-aware wrapper. Nothing is swallowed and
+  // nothing is refused inside this hook.
+  it("hands a person another Auftrag holds to the route assign call", () => {
+    applyResourceDrop({ type: "person", person: busyPerson }, onStop, deps())
+    expect(assignGroupResource).toHaveBeenCalledWith("grp-1", "personnel", "p-1")
   })
 
-  it("refuses material another Auftrag holds — and says so", () => {
-    applyResourceDrop({ type: "material", material: busyMaterial }, onStop, deps(["m-1"]))
-    expect(assignGroupResource).not.toHaveBeenCalled()
-    expect(notifyRefused).toHaveBeenCalledWith("route-occupied")
+  it("hands material another Auftrag holds to the route assign call", () => {
+    applyResourceDrop({ type: "material", material: busyMaterial }, onStop, deps())
+    expect(assignGroupResource).toHaveBeenCalledWith("grp-1", "material", "m-1")
   })
 
   it("leaves an operation card being moved to the monitor", () => {

@@ -15,6 +15,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud.feld.melden import append_reporter_note, reporter_note_prefix
 from app.models import (
     Event,
     EventSpecialFunction,
@@ -24,6 +25,7 @@ from app.models import (
     IncidentGroupAssignment,
     Notification,
     Personnel,
+    StatusTransition,
     User,
     Vehicle,
 )
@@ -82,6 +84,34 @@ async def _post(client: AsyncClient, event: Event, db: AsyncSession, person: Per
         f"/api/feld/incidents?token={token}&personnel_id={person.id}",
         json={**MELDUNG, **overrides},
     )
+
+
+async def _report(client: AsyncClient, event: Event, db: AsyncSession, person: Personnel, **overrides: object):
+    """Send a Meldung in and hand back the incident it became."""
+    response = await _post(client, event, db, person, **overrides)
+    assert response.status_code == 201, response.text
+    incident = await db.get(Incident, uuid.UUID(response.json()["incident_id"]))
+    assert incident is not None
+    return incident
+
+
+async def _correct(
+    client: AsyncClient, event: Event, db: AsyncSession, person: Personnel, incident: Incident, **fields: object
+):
+    """The «Korrektur senden» half — a fresh device token, like a real phone."""
+    token = await feld_device_token(db, event.id, person.id)
+    return await client.put(
+        f"/api/feld/incidents/{incident.id}/report?token={token}&personnel_id={person.id}",
+        json=fields,
+    )
+
+
+async def _own_reports(client: AsyncClient, event: Event, db: AsyncSession, person: Personnel) -> list[dict]:
+    """«Von mir gemeldet», as the phone reads it."""
+    token = await feld_device_token(db, event.id, person.id)
+    response = await client.get(f"/api/feld/assignments/{person.id}?token={token}")
+    assert response.status_code == 200, response.text
+    return response.json()["reports"]
 
 
 class TestMelden:
@@ -472,3 +502,156 @@ class TestTelefondienst:
         incident = await db_session.get(Incident, uuid.UUID(response.json()["incident_id"]))
         assert incident is not None
         # The board draws a call differently from a firefighter
+
+
+class TestKorrektur:
+    """Fix a Meldung you sent in yourself — until the KP takes it over.
+
+    Same window and same rule as the `/alarm` receipt (`report_is_editable`
+    plus `never_left_the_window`); the difference is only who holds the phone.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_meldung_can_be_corrected_while_it_sits_in_eingegangen(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        person = await _person(db_session)
+        incident = await _report(client, test_event, db_session, person)
+
+        response = await _correct(
+            client, test_event, db_session, person, incident, location_address="Rebbergweg 41, Oberwil"
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["editable"] is True
+        await db_session.refresh(incident)
+        assert incident.location_address == "Rebbergweg 41, Oberwil"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_an_undispatch_does_not_reopen_the_window(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        """Dragging a card back to «Eingegangen» must not hand the phone the pen again.
+
+        `report_is_editable` is stateful, so on its own it would say yes here.
+        By this point the KP may have refined the Meldung, and the phone sends
+        its whole cached form back — «Meldung» is assign-semantics, so a stale
+        tab would silently overwrite that text.
+        """
+        person = await _person(db_session)
+        incident = await _report(client, test_event, db_session, person)
+
+        # disponiert, then dragged back by the operator
+        incident.status = "enroute"
+        db_session.add(StatusTransition(incident_id=incident.id, from_status="incoming", to_status="enroute"))
+        await db_session.commit()
+        incident.status = "incoming"
+        db_session.add(StatusTransition(incident_id=incident.id, from_status="enroute", to_status="incoming"))
+        await db_session.commit()
+
+        operator_text = "Baum auf Fahrbahn, Höhe Einfahrt Werkhof, halbseitig gesperrt"
+        incident.description = operator_text
+        await db_session.commit()
+
+        # The phone is told so too, or the button and the 409 disagree.
+        assert [row["editable"] for row in await _own_reports(client, test_event, db_session, person)] == [False]
+
+        response = await _correct(client, test_event, db_session, person, incident, description="Durchfahrt blockiert")
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk."
+        await db_session.refresh(incident)
+        assert incident.description == operator_text
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.parametrize("status", ["reko", "reko_done"])
+    async def test_reko_does_not_shut_the_window(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, status: str
+    ):
+        """A reporter still typing while the Reko-Trupp looks is *adding* information."""
+        person = await _person(db_session)
+        incident = await _report(client, test_event, db_session, person)
+        incident.status = status
+        db_session.add(StatusTransition(incident_id=incident.id, from_status="incoming", to_status=status))
+        await db_session.commit()
+
+        response = await _correct(client, test_event, db_session, person, incident, location_address="Doch Nummer 7")
+
+        assert response.status_code == 200, response.text
+        await db_session.refresh(incident)
+        assert incident.location_address == "Doch Nummer 7"
+
+
+class TestNotizenAreSharedWithTheOperator:
+    """A reporter may add to «Notizen». They may never take anything out.
+
+    The column is the KP's as well as theirs, and the phone posts its whole
+    cached form back on every correction — so assigning it meant a crew fixing
+    a house number silently deleted whatever the operator had typed since.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_correction_cannot_overwrite_what_the_kp_typed(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        person = await _person(db_session)
+        incident = await _report(client, test_event, db_session, person, internal_notes="Zufahrt über den Hinterhof")
+        operator_note = "Werkhof avisiert, kommt um 14:00"
+        incident.internal_notes = f"{incident.internal_notes}\n{operator_note}"
+        await db_session.commit()
+
+        response = await _correct(
+            client, test_event, db_session, person, incident, internal_notes="Zufahrt doch frei, Hund im Haus"
+        )
+
+        assert response.status_code == 200, response.text
+        await db_session.refresh(incident)
+        assert incident.internal_notes is not None
+        # The operator keeps every word – including the hint they were reading.
+        assert operator_note in incident.internal_notes
+        assert "Zufahrt über den Hinterhof" in incident.internal_notes
+        # And the correction arrives marked as the Nachtrag it is, by name.
+        assert incident.internal_notes.endswith(f"{reporter_note_prefix(person.name)}Zufahrt doch frei, Hund im Haus")
+        # The phone is not handed the shared column back: it would show the crew
+        # what the KP typed, and the next correction would post the whole blob
+        # straight back in.
+        assert response.json()["internal_notes"] is None
+        assert operator_note not in response.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_an_empty_hint_does_not_clear_the_column(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        """`""` clears the reporter's own fields. It cannot clear this one.
+
+        The form prefills «Weitere Hinweise» empty on a correction, so an empty
+        string is what a crew fixing the address sends — not an instruction to
+        delete the KP's notes.
+        """
+        person = await _person(db_session)
+        incident = await _report(client, test_event, db_session, person, internal_notes="Zufahrt über den Hinterhof")
+
+        response = await _correct(client, test_event, db_session, person, incident, internal_notes="")
+
+        assert response.status_code == 200, response.text
+        await db_session.refresh(incident)
+        assert incident.internal_notes == "Zufahrt über den Hinterhof"
+
+    def test_resending_the_same_nachtrag_adds_nothing_but_a_short_one_still_appends(self):
+        """Dedup is entry-exact, not substring.
+
+        A double tap must not stutter; «12» occurring inside «Hausnummer 12 …»
+        is not the same Nachtrag having been sent before, and dropping it would
+        swallow a genuine correction.
+        """
+        existing = "Zufahrt über Hausnummer 12 gesperrt"
+        prefix = reporter_note_prefix("Brunner Marco")
+
+        appended = append_reporter_note(existing, "12", reporter="Brunner Marco")
+        assert appended == f"{existing}\n{prefix}12"
+        assert append_reporter_note(appended, "12", reporter="Brunner Marco") == appended

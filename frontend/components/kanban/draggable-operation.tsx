@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2 } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -28,6 +28,7 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { useEvent } from "@/lib/contexts/event-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -73,6 +74,11 @@ interface DraggableOperationProps {
   onToggleZuFuss?: () => void
   /** Editor-only: archive the incident (status → complete) directly from the card. */
   onRequestComplete?: () => void
+  /** Editor-only: ask to DELETE the incident. «Abschliessen» is the normal way
+   *  off the board; this one is for a card that was never an incident (a typo,
+   *  a double entry) and must not turn up in the Ereignisbericht as handled
+   *  work. The board owns the confirmation dialog. */
+  onRequestDelete?: () => void
   /** Editor-only: open the "Ressourcen übertragen" dialog for this incident. */
   onTransfer?: () => void
   /** Editor-only: open the Auftrag picker to distribute this incident into a route. */
@@ -127,6 +133,42 @@ const MAX_ROW_CHIPS = 6
 const MORE_LINK_CLASSES =
   'self-center text-xs text-muted-foreground underline underline-offset-2 decoration-muted-foreground/50 transition-colors hover:text-foreground hover:decoration-foreground cursor-pointer'
 
+/**
+ * «Echt-Alarm» — the one legitimate per-incident training marker.
+ *
+ * Übung belongs to the Ereignis as a whole and is drawn on the window chrome
+ * (`components/training-mode-chrome.tsx`), never repeated per card. This badge
+ * is the exception, and only because it says the opposite: a genuine dispatch
+ * alarm was attached to a drill, so THIS card deviates from the Ereignis around
+ * it. Its Ausalarmierung is simulated and its overdue thresholds are 50% longer
+ * — the same two facts the pool's attach dialog names — but the thing at the
+ * address is real.
+ *
+ * Same warning treatment as that dialog, and the word carries it: colour alone
+ * would read as one more «Übung» tint on an amber-framed board.
+ *
+ * Its own component so that only the handful of cards actually born from a real
+ * alarm subscribe to the event context — the card body stays behind its memo.
+ */
+function RealAlarmBadge() {
+  const t = useTranslations('kanban')
+  const { selectedEvent } = useEvent()
+  if (!selectedEvent?.training_flag) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-xs">
+      <Badge
+        data-testid="real-alarm-badge"
+        variant="secondary"
+        className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+        title={t('card.realAlarmTooltip')}
+      >
+        <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+        <span className="truncate">{t('card.realAlarmBadge')}</span>
+      </Badge>
+    </div>
+  )
+}
+
 // Priority visual configuration — bold borders for quick scanning. The table
 // itself lives in lib/priority.ts, which every surface that draws a priority
 // now imports; the copy that used to sit here drifted from it (grey vs emerald
@@ -155,6 +197,7 @@ function DraggableOperationBase({
   onToggleAmWarten,
   onToggleZuFuss,
   onRequestComplete,
+  onRequestDelete,
   onTransfer,
   onDistributeToAuftrag,
   cardView = DEFAULT_CARD_VIEW,
@@ -232,10 +275,12 @@ function DraggableOperationBase({
   const showMaterialRow = cardView.material && !auftrag && operation.materials.length > 0
   // Nachbarhilfe is a status, not a detail — it stays on every preset, same as
   // the header chips. Kompakt hides what you can look up; it does not hide who
-  // else is on the address.
-  const showNachbarhilfeRow = !!operation.nachbarhilfe
+  // else is on the address. It reads as a LABELLED CHIP next to «Am Warten» now
+  // (the two are the same kind of fact), so it is no longer a row of the
+  // resource block — and no longer a reason to render that block at all, which
+  // it used to be for an incident carrying nothing else.
   const showResourceBlock =
-    showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow || showNachbarhilfeRow
+    showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow
   // How much of each resource row the counter is standing in for. Derived, not
   // props — `crew`/`materials` are already in the memo comparator.
   const hiddenCrewCount = showCrewRow ? Math.max(0, operation.crew.length - MAX_ROW_CHIPS) : 0
@@ -244,6 +289,20 @@ function DraggableOperationBase({
   const showAuftragBlock = cardView.auftrag && !!auftrag
   const showRekoSummary = cardView.reko && !!operation.rekoSummary
   const melderTel = telHref(operation.contactPhone)
+  // «Am Warten · Grund», or just the label when nobody typed a reason.
+  const amWartenNote = operation.amWartenNote?.trim()
+  const amWartenLabel = amWartenNote
+    ? `${t('common.amWarten')} · ${amWartenNote}`
+    : t('common.amWarten')
+  // Nachbarhilfe reads the same way, and for the same reason: «Nachbarhilfe
+  // Therwil» is the half that answers whose incident this actually is. It used
+  // to be a bare Building2 glyph whose only label was a hover `title` — which on
+  // a board driven at speed is no label at all, and the note the operator had
+  // typed was invisible on the card entirely.
+  const nachbarhilfeNote = operation.nachbarhilfeNote?.trim()
+  const nachbarhilfeLabel = nachbarhilfeNote
+    ? `${t('common.nachbarhilfe')} · ${nachbarhilfeNote}`
+    : t('common.nachbarhilfe')
 
   // Selection is only worth showing while a side panel is on screen to reflect
   // it. Below SIDE_PANEL_BREAKPOINT the detail opens as a modal, so the frame
@@ -422,7 +481,11 @@ function DraggableOperationBase({
               // Hover is deliberately faint (/20): selection is expressed by the
               // frame below, so the background is left to say one thing only —
               // "the pointer is here". At /30 the two states looked the same.
-              'operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/20 cursor-pointer',
+              // `scroll-m-4`: a card scrolled to by `scrollToCard` (bell, Feldmeldung,
+              // Ressourcen-Bindung) otherwise lands flush against the column edge or
+              // the panel beside it, and its highlight ring is what gets clipped —
+              // the one part that has to be seen. Applies to both axes.
+              'operation-card scroll-m-4 border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all hover:bg-muted/20 cursor-pointer',
               // Priority styling. Kept while the card is selected AND while it is
               // hovered: selection is a neutral frame now and no longer borrows
               // the priority colours, and hover has no business overwriting them
@@ -472,12 +535,13 @@ function DraggableOperationBase({
               // (the notification Spotlight) is a different signal and stays at
               // every width.
               showSelectionFrame && !isHighlighted && 'border-t-foreground border-r-foreground border-b-foreground outline-2 outline-offset-0 outline-foreground bg-linear-to-b from-foreground/[0.06] to-foreground/[0.06]',
-              // The hovered card is the one the keyboard shortcuts act on (the
-              // board feeds `hoveredOperationId` in here), so it earns a cue of
-              // its own — but NOT on the left edge, which belongs to priority.
-              // Brightening the other three sides says "this one" without
-              // overwriting anything, and stays out of the way of the selection
-              // frame, which takes the same sides at full strength.
+              // The hovered card, which the READING shortcuts act on — E and
+              // Enter open this one's detail. Everything that MUTATES follows
+              // the selection frame instead (a pointer wanders across the board
+              // while the operator reads; a clicked card does not), so this cue
+              // stays deliberately fainter than the frame. Not on the left edge,
+              // which belongs to priority: brightening the other three sides
+              // says "this one" without overwriting anything.
               isKeyboardFocused && !isHighlighted && !showSelectionFrame && 'border-t-muted-foreground/40 border-r-muted-foreground/40 border-b-muted-foreground/40'
             )}
             onMouseEnter={() => onHover(operation.id)}
@@ -541,22 +605,10 @@ function DraggableOperationBase({
                   <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                 </div>
               )}
-              {operation.amWarten && (
-                <div
-                  className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30"
-                  title={t('common.amWarten')}
-                >
-                  <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                </div>
-              )}
-              {operation.nachbarhilfe && (
-                <div
-                  className="p-1.5 rounded-md bg-muted/60"
-                  title={t('common.nachbarhilfe')}
-                >
-                  <Building2 className="h-4 w-4 text-muted-foreground/80" />
-                </div>
-              )}
+              {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
+                  more — both moved to labelled chips below, because in both
+                  cases the note is the half that decides whether anyone has to
+                  act, and a glyph cannot carry it. */}
               {/* Reko carries the Binoculars everywhere else in the app — a
                   second document glyph next to the Rapport's only invited the
                   operator to tell two near-identical papers apart.
@@ -585,7 +637,10 @@ function DraggableOperationBase({
                   a gate people defeat with empty forms). */}
               {/* Both states open the detail's Rapport tab: on a filed one
                   that is where it is read, and on a missing one that is where it
-                  gets written — the gap is the reason to click. */}
+                  gets written — the gap is the reason to click. Only the missing
+                  one asks for the caret (`kurzbericht`); landing in a filed
+                  Rapport's textarea would put the next keystroke into a sentence
+                  the crew wrote. */}
               {operation.hasSchadenplatzRapport ? (
                 <button
                   type="button"
@@ -604,7 +659,7 @@ function DraggableOperationBase({
                 }) ? (
                 <button
                   type="button"
-                  onClick={openDetailFrom('rapport')}
+                  onClick={openDetailFrom('rapport', 'kurzbericht')}
                   className="p-1.5 rounded-md bg-muted/40 transition-colors hover:bg-muted"
                   title={tFeld('cardNoRapportTooltip')}
                   aria-label={tFeld('cardNoRapportTooltip')}
@@ -622,6 +677,46 @@ function DraggableOperationBase({
               </Link>
             </div>
           </div>
+
+          {/* Above «Am Warten» and everything else in this stack: "the thing at
+              this address is real" outranks every other qualifier on the card. */}
+          {operation.fromRealAlarm && <RealAlarmBadge />}
+
+          {/* «Am Warten», with what is being waited for. The flag alone was a
+              tooltip on a clock glyph, which said nothing an operator can act
+              on — «wartet auf DL aus Reinach» is the half that decides whether
+              somebody has to phone Reinach. The wall display and the printed
+              slip have carried the reason all along; this is the surface it was
+              typed on. Truncated like every other chip, full text in `title`. */}
+          {(operation.amWarten || operation.nachbarhilfe) && (
+            <div className="flex flex-wrap items-center gap-1 text-xs">
+              {operation.amWarten && (
+                <Badge
+                  variant="secondary"
+                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  title={amWartenLabel}
+                >
+                  <Timer className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{amWartenLabel}</span>
+                </Badge>
+              )}
+              {/* Neutral, not amber: «Am Warten» is a card that is STUCK and
+                  wants an eye on it, Nachbarhilfe is simply a fact about whose
+                  incident it is. Same shape, same place, same truncation — the
+                  colour is the only thing that separates a state that costs
+                  something from one that does not. */}
+              {operation.nachbarhilfe && (
+                <Badge
+                  variant="secondary"
+                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                  title={nachbarhilfeLabel}
+                >
+                  <Building2 className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{nachbarhilfeLabel}</span>
+                </Badge>
+              )}
+            </div>
+          )}
 
           {/* Einsatzart and time share one line: they are both single short facts,
               and two stacked rows cost a card's worth of height on a full board.
@@ -850,42 +945,49 @@ function DraggableOperationBase({
                         removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
                       >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onToggleDriverStay?.(vehicleName)
-                          }}
-                          // min-w-0 so the NAME truncates while the status pill
-                          // (shrink-0 below) stays whole — a long
-                          // «Name · Funkrufname (Fahrer)» must never wrap the
-                          // chip onto a second line.
-                          className="flex min-w-0 items-center gap-1 cursor-pointer"
-                          title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-                        >
+                        {/* min-w-0 so the NAME truncates while the status pill
+                            (shrink-0 below) stays whole — a long
+                            «Name · Funkrufname (Fahrer)» must never wrap the
+                            chip onto a second line. Plain text, not a button:
+                            the whole chip used to toggle the driver decision,
+                            so reading who drives and CHANGING what he does
+                            afterwards shared one click target. */}
+                        <span className="flex min-w-0 items-center gap-1">
                           <span className="truncate">
                             {vehicleName}{callsign ? ` · ${callsign}` : ''}
                             {driverName && (
                               <span className="text-muted-foreground"> ({driverName})</span>
                             )}
                           </span>
-                          {/* Short form on the card — «vor Ort» / «zurück» —
-                              because a Kanban column holds three of these chips
-                              side by side. The full sentence is on the surfaces
-                              that have the room: the assign dialog, the wall and
-                              the phone. What it is NOT any more is two 12px
-                              glyphs at different opacities. */}
-                          <span
+                          {/* The only thing that toggles, and it says what
+                              currently holds in full — «bleibt vor Ort» /
+                              «fährt zurück». The short forms were a two-word
+                              hint that only made sense next to the tooltip;
+                              now that the chip text is no longer the click
+                              target, the pill has the room for the sentence
+                              that is read out on the radio and printed on the
+                              slip. */}
+                          <button
+                            type="button"
+                            aria-pressed={!!driverStay}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onToggleDriverStay?.(vehicleName)
+                            }}
+                            disabled={!onToggleDriverStay}
+                            title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                             className={cn(
-                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4",
+                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 transition-colors",
+                              onToggleDriverStay && "cursor-pointer hover:brightness-110",
                               driverStay
                                 ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
                                 : "bg-muted-foreground/15 text-muted-foreground",
                             )}
                           >
                             {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}
-                            {driverStay ? t('common.driverStays') : t('common.driverReturns')}
-                          </span>
-                        </button>
+                            {driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull')}
+                          </button>
+                        </span>
                       </RemovableChip>
                       )
                     })}
@@ -963,19 +1065,6 @@ function DraggableOperationBase({
                         </>
                       )
                     })()}
-                  </div>
-                </div>
-              )}
-              {showNachbarhilfeRow && (
-                <div className="flex items-start gap-1.5">
-                  {/* Plain text, not chips: mt-1 is the chip offset and left the
-                      glyph sitting off-centre against the word. 1px centres it on
-                      the first line and keeps a wrapped note top-aligned. */}
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
-                  <div className="flex flex-wrap items-center gap-1 min-w-0">
-                    <span className="text-muted-foreground break-words">
-                      {operation.nachbarhilfeNote || t('common.nachbarhilfe')}
-                    </span>
                   </div>
                 </div>
               )}
@@ -1091,7 +1180,7 @@ function DraggableOperationBase({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent
-        className="w-52 max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
+        className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
         collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
       >
         {/* Bearbeiten */}
@@ -1138,6 +1227,23 @@ function DraggableOperationBase({
                 {t('common.distributeToAuftrag')}
               </ContextMenuItem>
             )}
+            {/* Only on cards that stand on a route, editor-gated like distribute.
+                Same window-event channel as the Auftrag chip (no prop threading);
+                the stop under the cursor arrives focused. */}
+            {auftrag && onDistributeToAuftrag && (
+              <ContextMenuItem
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent('kp:open-routen-editor', {
+                      detail: { groupId: auftrag.id, focusIncidentId: operation.id },
+                    })
+                  )
+                }
+              >
+                <Route className="mr-2 h-4 w-4" />
+                {t('common.openRoutenEditor')}
+              </ContextMenuItem>
+            )}
           </>
         )}
 
@@ -1163,15 +1269,22 @@ function DraggableOperationBase({
         )}
 
         {/* Status — lifecycle. Editor-only: archive an incident that turned out
-            not to be relevant (same completion path as dragging to ABGESCHLOSSEN). */}
+            not to be relevant (same completion path as dragging to ABGESCHLOSSEN),
+            or delete one that was never an incident at all. Two intentions, two
+            rows: «abgeschlossen» is a statement about work that happened, and a
+            typo that gets closed sits in the Einsatzhistorie for ever. */}
+        {((onRequestComplete && operation.status !== "complete") || onRequestDelete) && <ContextMenuSeparator />}
         {onRequestComplete && operation.status !== "complete" && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => onRequestComplete()}>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              {t('card.completeIncident')}
-            </ContextMenuItem>
-          </>
+          <ContextMenuItem onClick={() => onRequestComplete()}>
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            {t('card.completeIncident')}
+          </ContextMenuItem>
+        )}
+        {onRequestDelete && (
+          <ContextMenuItem variant="destructive" onClick={() => onRequestDelete()}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t('card.deleteIncident')}
+          </ContextMenuItem>
         )}
 
         {/* Ansicht & Druck */}
@@ -1248,8 +1361,15 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // leave a corrected «Nachbarhilfe Therwil» reading as the old town.
     prevProps.operation.nachbarhilfeNote === nextProps.operation.nachbarhilfeNote &&
     prevProps.operation.amWarten === nextProps.operation.amWarten &&
+    // The reason IS the chip's label when there is one, so a corrected
+    // «wartet auf DL aus Reinach» has to reach the card.
+    prevProps.operation.amWartenNote === nextProps.operation.amWartenNote &&
     prevProps.operation.zuFuss === nextProps.operation.zuFuss &&
     prevProps.operation.source === nextProps.operation.source &&
+    // Server-derived and fixed at creation today, but it draws a badge — so it
+    // is compared like every other thing the card draws rather than trusted to
+    // stay constant.
+    prevProps.operation.fromRealAlarm === nextProps.operation.fromRealAlarm &&
     // The field reports drive two card badges; without them here a card that
     // just got "Abholung nötig" over the WebSocket would not repaint.
     prevProps.operation.pickupNeeded === nextProps.operation.pickupNeeded &&

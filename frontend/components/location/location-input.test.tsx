@@ -69,6 +69,55 @@ describe("LocationInput", () => {
     expect(onAddressChange).toHaveBeenCalledWith("Hinter dem Schulhaus")
   })
 
+  // A CHANGED freetext is a new answer to "where": the pin that belonged to
+  // the previous address must not ride along — downstream consumers (the map,
+  // the /alarm correction PUT) trust the pin over the text.
+  it("clears the pin when a different freetext address is committed", async () => {
+    const onCoordinatesChange = vi.fn()
+    const user = userEvent.setup()
+    searchAddress.mockResolvedValue([])
+
+    renderWithIntl(
+      <LocationInput
+        address="Hauptstrasse 1"
+        latitude={47.5}
+        longitude={7.55}
+        onAddressChange={vi.fn()}
+        onCoordinatesChange={onCoordinatesChange}
+        geocodeInitialAddress={false}
+      />,
+    )
+
+    const field = screen.getByRole("combobox")
+    await user.clear(field)
+    await user.type(field, "Hinter dem Schulhaus{Enter}")
+
+    expect(onCoordinatesChange).toHaveBeenCalledWith(null, null)
+  })
+
+  it("keeps the pin when the unchanged address is re-committed (a stray Enter)", async () => {
+    const onCoordinatesChange = vi.fn()
+    const user = userEvent.setup()
+    searchAddress.mockResolvedValue([])
+
+    renderWithIntl(
+      <LocationInput
+        address="Hauptstrasse 1"
+        latitude={47.5}
+        longitude={7.55}
+        onAddressChange={vi.fn()}
+        onCoordinatesChange={onCoordinatesChange}
+        geocodeInitialAddress={false}
+      />,
+    )
+
+    await user.click(screen.getByRole("combobox"))
+    await user.keyboard("{Enter}")
+
+    // Same text, same pin — a map-picked pin must survive a re-commit.
+    expect(onCoordinatesChange).not.toHaveBeenCalled()
+  })
+
   /**
    * The regression: clicking a suggestion did nothing at all.
    *

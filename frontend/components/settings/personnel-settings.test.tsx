@@ -24,6 +24,8 @@ const getAllPersonnel = vi.fn();
 const createPersonnel = vi.fn();
 const updatePersonnel = vi.fn();
 const deletePersonnel = vi.fn();
+/** Capability registry – decides whether the «Von Divera synchronisieren» button is live. */
+const getIntegrations = vi.fn();
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
@@ -34,8 +36,28 @@ vi.mock("@/lib/api-client", () => ({
     updatePersonnelCategorySortOrder: vi.fn(),
     getDiveraSyncPreview: vi.fn(),
     executeDiveraSync: vi.fn(),
+    getIntegrations: (...args: unknown[]) => getIntegrations(...args),
   },
 }));
+
+const capability = (configured: boolean) => ({
+  provider: configured ? "divera" : null,
+  display_name: configured ? "DIVERA 24/7" : null,
+  configured,
+  capabilities: [],
+  blocked: false,
+  blocked_reason: null,
+});
+
+const integrationsWithPersonnel = (configured: boolean) => ({
+  alarms: capability(configured),
+  alerting: capability(configured),
+  personnel: capability(configured),
+  vehicles: capability(false),
+  builtin_alarm_paths: [],
+  known_providers: [],
+  deployment: { role: "production", label: null, blocked_domains: [] },
+});
 
 const toastError = vi.fn();
 const toastSuccess = vi.fn();
@@ -47,6 +69,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { PersonnelSettings } from "@/components/settings/personnel-settings";
+import { resetIntegrationsCache } from "@/lib/hooks/use-integrations";
 
 beforeEach(() => {
   getAllPersonnel.mockReset().mockResolvedValue([]);
@@ -55,9 +78,23 @@ beforeEach(() => {
   deletePersonnel.mockReset();
   toastError.mockReset();
   toastSuccess.mockReset();
+  // The registry answer is cached per module, not per test – clear it so one test's
+  // "not configured" cannot decide the next test's sync button.
+  resetIntegrationsCache();
+  getIntegrations.mockReset().mockResolvedValue(integrationsWithPersonnel(true));
 });
 
 describe("PersonnelSettings", () => {
+  it("locks the Divera sync, with a reason, when no personnel provider is configured", async () => {
+    getIntegrations.mockResolvedValue(integrationsWithPersonnel(false));
+    renderWithIntl(<PersonnelSettings />);
+
+    const syncButton = await screen.findByRole("button", { name: /Von Divera synchronisieren/i });
+    await waitFor(() => expect(syncButton).toBeDisabled());
+    // Never disabled in silence: the reason sits next to the control.
+    expect(screen.getByRole("note")).toBeInTheDocument();
+  });
+
   it("creates a person on happy-path submit", async () => {
     createPersonnel.mockResolvedValue(apiPerson({ name: "Müller Stefan" }));
     const user = userEvent.setup();

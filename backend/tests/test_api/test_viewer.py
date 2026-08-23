@@ -19,7 +19,18 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, EventAttendance, Incident, IncidentAssignment, Personnel, RekoReport, User
+from app.crud.materials import apply_out_of_service
+from app.models import (
+    Event,
+    EventAttendance,
+    Incident,
+    IncidentAssignment,
+    Material,
+    Personnel,
+    RekoReport,
+    User,
+    Vehicle,
+)
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_alarm_token, generate_form_token, generate_viewer_token
 
@@ -195,6 +206,59 @@ async def test_viewer_data_roster_is_names_and_roles_only(
     assert row["role"] == "Feuerwehrmann"
     assert "divera_user_id" not in row
     assert "4711" not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_material_carries_readiness_but_not_the_legacy_status(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+):
+    """«Nicht einsatzbereit» rides along; the raw `status` mirror does not.
+
+    The display derives «im Einsatz» from this event's assignments, which is why
+    `status` stays behind — but readiness is a station-wide fact it cannot
+    reconstruct from anything in the payload. Without it a defective pump drew
+    green on the wall, which is the one thing that panel must never say.
+    """
+    broken = Material(id=uuid4(), name="Tauchpumpe 2", type="Tauchpumpen", location="Pio", status="available")
+    fine = Material(id=uuid4(), name="Tauchpumpe 1", type="Tauchpumpen", location="Pio", status="available")
+    apply_out_of_service(broken, True)
+    db_session.add_all([broken, fine])
+    await db_session.commit()
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+
+    rows = {row["name"]: row for row in response.json()["materials"]}
+    assert rows["Tauchpumpe 2"]["out_of_service"] is True
+    assert rows["Tauchpumpe 1"]["out_of_service"] is False
+    assert "status" not in rows["Tauchpumpe 2"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_viewer_data_omits_archived_material_and_vehicles(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_vehicle: Vehicle,
+):
+    """Retired inventory is off the shared panels, like it is off the board."""
+    retired = Material(id=uuid4(), name="Alte Motorspritze", type="Pumpen", location="Depot", status="available")
+    retired.archived_at = datetime.now(UTC)
+    sold = Vehicle(id=uuid4(), name="Alter MTW", type="MTW", status="available", display_order=9)
+    sold.archived_at = datetime.now(UTC)
+    db_session.add_all([retired, sold])
+    await db_session.commit()
+
+    token = generate_viewer_token(test_event.id)
+    response = await client.get(f"/api/viewer/data?token={token}")
+    body = response.json()
+
+    assert [row["name"] for row in body["materials"]] == []
+    assert [row["name"] for row in body["vehicles"]] == [test_vehicle.name]
 
 
 @pytest.mark.asyncio

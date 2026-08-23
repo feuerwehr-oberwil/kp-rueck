@@ -6,6 +6,7 @@ Run with: uv run python -m app.seed
 import asyncio
 import os
 import secrets
+import sys
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -23,7 +24,10 @@ def get_admin_password() -> str:
     """
     Get admin password for seeding.
 
-    Security: In production, ADMIN_SEED_PASSWORD must be explicitly set.
+    Security: In production, ADMIN_SEED_PASSWORD must be explicitly set —
+    callers only reach this once they have decided accounts ARE being seeded
+    (a production board without the var boots unclaimed instead and never
+    calls this; see seed_database).
     In development, generates a random password if not provided.
     """
     is_production = is_production_environment()
@@ -44,6 +48,63 @@ def get_admin_password() -> str:
     # Development: Generate random password
     generated_password = secrets.token_urlsafe(16)  # 128-bit random
     return generated_password
+
+
+# Settings row that marks "the seed has run". The old guard was "any user
+# exists" — which broke the moment an UNCLAIMED production boot became legal
+# (no ADMIN_SEED_PASSWORD → no users), because zero users would re-run the
+# whole seed on every restart. The marker is written by every seed path, users
+# or not, so it answers "seeded?" for both. Deliberately NOT in
+# services.settings.DEFAULT_SETTINGS: the boot-time initialize_default_settings
+# would otherwise create it on a database the seed has never seen.
+SEED_MARKER_KEY = "seed.completed_at"
+
+
+def production_account_set(admin_password: str, viewer_password: str) -> list[models.User]:
+    """The exact account rows a claimed PRODUCTION board starts with.
+
+    One function on purpose: `POST /api/setup` (the browser claim on an
+    unclaimed board) must create the same set the seed creates when
+    ADMIN_SEED_PASSWORD is provided (`just init`), and two hand-maintained
+    copies of "which accounts exist" is how they drift apart.
+
+    Three rows: the fixed-id dev-user (never a login — its empty hash fails
+    every password check — but audit/assignment rows foreign-key to it under
+    the dev auth bypass), the admin, and the shared read-only viewer for
+    kiosk/wall-display PCs. No shared editor in production — editors come from
+    SSO and admin covers break-glass (see seed_database).
+    """
+    import uuid
+
+    def hashed(password: str) -> str:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    return [
+        models.User(
+            id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
+            username="dev-user",
+            password_hash="",  # Not used in bypass mode
+            role="admin",  # Admin role for dev bypass
+            display_name="Development User",
+            is_active=True,
+        ),
+        models.User(
+            id=uuid4(),
+            username="admin",
+            password_hash=hashed(admin_password),
+            role="admin",
+            display_name="Administrator",
+            is_active=True,
+        ),
+        models.User(
+            id=uuid4(),
+            username="viewer",
+            password_hash=hashed(viewer_password),
+            role="viewer",
+            display_name="Betrachter",
+            is_active=True,
+        ),
+    ]
 
 
 def get_shared_account_password(env_var: str, dev_default: str) -> str:
@@ -619,6 +680,71 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
     return vehicles, personnel, materials
 
 
+async def seed_dev_logins() -> None:
+    """Upsert the development logins into an EXISTING database.
+
+    The counterpart of `scripts/dev-sync.sh`: a synced database arrives with the
+    source deployment's users, and the local stack still wants its own known
+    credentials – the auth-bypass user, admin/$ADMIN_SEED_PASSWORD, editor/editor,
+    viewer/viewer. Upsert, not insert: a synced «admin» is the station's admin row,
+    and replacing its hash locally is exactly the point – the station's password
+    must not work (or need to be known) on a laptop.
+
+    Development only. In production this would overwrite the station's real
+    credentials with dev defaults, so it refuses outright.
+    """
+    if is_production_environment():
+        raise RuntimeError("--dev-logins would overwrite real credentials; it refuses to run in production")
+
+    import uuid
+
+    def hashed(password: str) -> str:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    accounts = [
+        # (username, password_hash, role, display_name, fixed_id) – dev-user keeps the
+        # all-zero UUID the auth bypass looks up; empty hash because bypass never checks it.
+        ("dev-user", "", "admin", "Development User", uuid.UUID("00000000-0000-0000-0000-000000000000")),
+        ("admin", hashed(get_admin_password()), "admin", "Administrator", None),
+        (
+            "editor",
+            hashed(get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")),
+            "editor",
+            "Bearbeiter",
+            None,
+        ),
+        (
+            "viewer",
+            hashed(get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer")),
+            "viewer",
+            "Betrachter",
+            None,
+        ),
+    ]
+
+    async with async_session_maker() as db:
+        for username, password_hash, role, display_name, fixed_id in accounts:
+            result = await db.execute(select(models.User).where(models.User.username == username))
+            user = result.scalars().first()
+            if user:
+                user.password_hash = password_hash
+                user.role = role
+                user.is_active = True
+            else:
+                db.add(
+                    models.User(
+                        id=fixed_id or uuid4(),
+                        username=username,
+                        password_hash=password_hash,
+                        role=role,
+                        display_name=display_name,
+                        is_active=True,
+                    )
+                )
+        await db.commit()
+    print("✓ Dev logins ready: dev-user (bypass), admin, editor, viewer")
+
+
 async def seed_database() -> None:
     """Seed the database with initial data.
 
@@ -640,77 +766,69 @@ async def seed_database() -> None:
 
     async with async_session_maker() as db:
         try:
-            # Check if data already exists
-            result = await db.execute(select(models.User))
+            # Already seeded? The marker row is authoritative — it is written by
+            # every path below, including the unclaimed one that creates no
+            # users. The user check stays as a SECOND guard for databases seeded
+            # by an older version (users, but no marker): without it, the first
+            # boot after an upgrade would re-run the seed and crash on the
+            # users.username unique constraint.
+            result = await db.execute(select(models.Setting).where(models.Setting.key == SEED_MARKER_KEY))
             if result.scalars().first():
                 print("Database already seeded. Skipping...")
+                return
+            result = await db.execute(select(models.User))
+            if result.scalars().first():
+                print("Database already seeded (pre-marker database with users). Skipping...")
                 return
 
             print("Seeding database...")
 
+            # Production without ADMIN_SEED_PASSWORD boots UNCLAIMED: settings
+            # and templates are seeded, but no accounts — the first visitor
+            # claims the board through POST /api/setup and chooses the admin
+            # password in the browser. With the env var set, everything behaves
+            # exactly as before (the `just init` path).
+            unclaimed = is_production_environment() and not os.getenv("ADMIN_SEED_PASSWORD")
+
             # ============================================
             # 1. SEED DEFAULT USERS
             # ============================================
-            print("Creating default users...")
+            admin_user: models.User | None = None
+            password = ""
+            if unclaimed:
+                print("No ADMIN_SEED_PASSWORD - seeding an UNCLAIMED board (no user accounts).")
+            else:
+                print("Creating default users...")
 
-            # Create dev-bypass user (required for auth bypass mode)
-            import uuid
-
-            dev_user = models.User(
-                id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
-                username="dev-user",
-                password_hash="",  # Not used in bypass mode
-                role="admin",  # Admin role for dev bypass
-                display_name="Development User",
-                is_active=True,
-            )
-            db.add(dev_user)
-
-            # Create admin user with secure password
-            password = get_admin_password()
-            password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-            admin_user = models.User(
-                id=uuid4(),
-                username="admin",
-                password_hash=password_hash,
-                role="admin",
-                display_name="Administrator",
-                is_active=True,
-            )
-            db.add(admin_user)
-
-            # Create shared editor account (dev/local only). In production,
-            # editors come from SSO and the admin account covers break-glass —
-            # a shared password login would just be extra attack surface.
-            if not is_production_environment():
-                editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
-                editor_password_hash = bcrypt.hashpw(editor_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-                editor_user = models.User(
-                    id=uuid4(),
-                    username="editor",
-                    password_hash=editor_password_hash,
-                    role="editor",
-                    display_name="Bearbeiter",
-                    is_active=True,
+                password = get_admin_password()
+                users = production_account_set(
+                    password,
+                    get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer"),
                 )
-                db.add(editor_user)
+                admin_user = next(user for user in users if user.username == "admin")
+                for user in users:
+                    db.add(user)
 
-            # Create shared read-only viewer account for shared/kiosk PCs
-            viewer_password = get_shared_account_password("VIEWER_PASSWORD", dev_default="viewer")
-            viewer_password_hash = bcrypt.hashpw(viewer_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                # Create shared editor account (dev/local only). In production,
+                # editors come from SSO and the admin account covers break-glass —
+                # a shared password login would just be extra attack surface.
+                if not is_production_environment():
+                    editor_password = get_shared_account_password("EDITOR_PASSWORD", dev_default="editor")
+                    editor_password_hash = bcrypt.hashpw(editor_password.encode("utf-8"), bcrypt.gensalt()).decode(
+                        "utf-8"
+                    )
 
-            viewer_user = models.User(
-                id=uuid4(),
-                username="viewer",
-                password_hash=viewer_password_hash,
-                role="viewer",
-                display_name="Betrachter",
-                is_active=True,
-            )
-            db.add(viewer_user)
-            await db.flush()  # Get the ID for foreign key references
+                    editor_user = models.User(
+                        id=uuid4(),
+                        username="editor",
+                        password_hash=editor_password_hash,
+                        role="editor",
+                        display_name="Bearbeiter",
+                        is_active=True,
+                    )
+                    db.add(editor_user)
+
+                await db.flush()  # Get the IDs for foreign key references
 
             # ============================================
             # 2. SEED DEFAULT SETTINGS
@@ -724,7 +842,11 @@ async def seed_database() -> None:
                 ("auto_archive_timeout_hours", "24"),
                 ("notification_enabled", "false"),
                 ("alarm_webhook_secret", secrets.token_urlsafe(32)),
-                ("map_mode", "online"),  # online=OSM only, auto=fallback, offline=local tiles (dev only)
+                # "auto", matching DEFAULT_SETTINGS in services/settings.py — the seed writes
+                # the row a fresh install actually gets, so leaving "online" here would keep
+                # every new station without the offline fallback the help promises. "auto"
+                # behaves like "online" until the tiles fail; only then does it differ.
+                ("map_mode", "auto"),  # auto=online with offline fallback, online=OSM only, offline=local tiles
                 ("incident_time_display", "column"),  # start | column | total (per-device override in the UI)
             ]
 
@@ -767,7 +889,8 @@ async def seed_database() -> None:
                     setting = models.Setting(
                         key=key,
                         value=value,
-                        updated_by=admin_user.id,
+                        # None on an unclaimed board — there is no user yet to attribute to.
+                        updated_by=admin_user.id if admin_user else None,
                     )
                     db.add(setting)
                     settings_created += 1
@@ -790,13 +913,19 @@ async def seed_database() -> None:
                 vehicles, personnel, materials = await _seed_sample_resources(db)
                 await _seed_sample_operations(db, admin_user, vehicles, personnel, materials)
 
+            # Mark the database as seeded — this row, not the users, is what the
+            # guard at the top checks (an unclaimed board has no users to check).
+            db.add(models.Setting(key=SEED_MARKER_KEY, value=datetime.now().isoformat()))
+
             # ============================================
             # COMMIT ALL CHANGES
             # ============================================
             await db.commit()
             print("\n✅ Database seeded successfully!")
             is_production = is_production_environment()
-            if is_production:
+            if unclaimed:
+                print("  - No user accounts: the board is UNCLAIMED until the first visitor runs the setup wizard")
+            elif is_production:
                 print(
                     "  - Created dev-user (for auth bypass) and admin user: admin / [password from ADMIN_SEED_PASSWORD]"
                 )
@@ -805,7 +934,8 @@ async def seed_database() -> None:
                 print("  ⚠️  Save this password - it was randomly generated for development")
             if not is_production_environment():
                 print("  - Created shared editor account: editor / [EDITOR_PASSWORD, default 'editor']")
-            print("  - Created read-only viewer account: viewer / [VIEWER_PASSWORD, default 'viewer']")
+            if not unclaimed:
+                print("  - Created read-only viewer account: viewer / [VIEWER_PASSWORD, default 'viewer']")
             print(f"  - Created {settings_created} default settings")
             if is_production:
                 print("  - No vehicles, personnel or materials: import your own (docs/SETUP.md section 3)")
@@ -836,4 +966,7 @@ async def seed_database() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_database())
+    if "--dev-logins" in sys.argv[1:]:
+        asyncio.run(seed_dev_logins())
+    else:
+        asyncio.run(seed_database())

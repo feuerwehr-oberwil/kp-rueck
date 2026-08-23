@@ -7,6 +7,7 @@ import { TrainingControls } from "@/components/training-controls"
 import { TrainingCheckinCard } from "@/components/training-checkin-card"
 import { TrainingSimulationControls } from "@/components/training-simulation-controls"
 import { TrainingGpsSimulation } from "@/components/training-gps-simulation"
+import { TrainingBand } from "@/components/training-mode-chrome"
 import { useEvent } from "@/lib/contexts/event-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -66,6 +67,11 @@ export default function TrainingPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
+        {/* Same warning strip as the board and the wall display — this console
+            only ever opens on a training Ereignis, and it says so the same way.
+            Fixed and out of flow, like everywhere else, so the four surfaces
+            cannot drift apart by 3px. */}
+        <TrainingBand />
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-2 min-h-14">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t("common.title")}</h1>
           <PageNavigation

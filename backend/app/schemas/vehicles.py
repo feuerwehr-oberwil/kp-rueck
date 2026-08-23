@@ -12,6 +12,9 @@ class VehicleBase(BaseModel):
     name: str
     type: str  # Configurable vehicle types (e.g., 'TLF', 'DLK', 'MTW')
     display_order: int
+    # Legacy mirror of `out_of_service`: 'unavailable' ⇔ out_of_service=True.
+    # Still accepted on write and still returned, but new clients should read and
+    # write `out_of_service` — it is the field that carries the meaning.
     status: str  # 'available', 'unavailable'
     radio_call_sign: str
 
@@ -53,19 +56,35 @@ class VehicleBase(BaseModel):
 class VehicleCreate(VehicleBase):
     """Schema for creating vehicle."""
 
+    # «Nicht einsatzbereit» at creation time. Wins over `status` when both are sent.
+    out_of_service: bool = False
+
 
 class VehicleUpdate(BaseModel):
-    """Schema for updating vehicle."""
+    """Schema for updating vehicle.
+
+    `out_of_service` and `status` write the same readiness flag; when both are
+    present in the payload, `out_of_service` wins. `archived_at` is not settable
+    here — archiving goes through POST /vehicles/{id}/archive and /restore.
+    """
 
     name: str | None = None
     type: str | None = None
     display_order: int | None = None
     status: str | None = None
+    out_of_service: bool | None = None
     radio_call_sign: str | None = None
 
 
 class Vehicle(VehicleBase):
-    """Full vehicle schema with database fields."""
+    """Full vehicle schema with database fields.
+
+    Three independent axes, so the board never has to guess a state:
+    `out_of_service` (readiness), `archived_at` (lifecycle), and deployment —
+    which lives in incident_assignments and is per-event, so it stays with the
+    caller that knows which Ereignis is on screen. Precedence for rendering:
+    out_of_service beats assigned beats available.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,9 +92,27 @@ class Vehicle(VehicleBase):
     created_at: datetime
     updated_at: datetime
 
+    # Readiness. `out_of_service` is derived from the timestamp, never stored twice.
+    out_of_service: bool = False
+    out_of_service_since: datetime | None = None
+
+    # Lifecycle. Non-null means the row is out of the fleet; list endpoints only
+    # return it with ?include_archived=true.
+    archived_at: datetime | None = None
+
+    # Archive bookkeeping — how often this vehicle has stood on an Einsatz, and
+    # whether it may be purged permanently. Both are None where they were not
+    # computed (board snapshots); the /vehicles endpoints always fill them.
+    assignment_count: int | None = None
+    can_delete: bool | None = None
+
 
 class VehicleStatusResponse(BaseModel):
-    """Vehicle status with driver and incident information."""
+    """Vehicle status with driver and incident information.
+
+    Answers all three states for one vehicle in one call: `out_of_service` wins,
+    then `incident_id` (Im Einsatz), else Verfügbar.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -83,6 +120,8 @@ class VehicleStatusResponse(BaseModel):
     name: str
     type: str
     status: str
+    out_of_service: bool = False
+    out_of_service_since: datetime | None = None
     radio_call_sign: str
 
     driver_id: UUID | None = None

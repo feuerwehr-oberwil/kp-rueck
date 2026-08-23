@@ -12,6 +12,8 @@ function material(overrides: Partial<Material> = {}): Material {
     category: 'Magazin',
     type: 'Tauchpumpen',
     status: 'assigned',
+    outOfService: false,
+    outOfServiceSince: null,
     categorySortOrder: 0,
     consumable: false,
     groupId: null,

@@ -41,6 +41,10 @@ export interface GroupResourceItem {
   driverStay?: boolean
   /** Personnel only: Einsatzleiter for the route. */
   isLeader?: boolean
+  /** Materials only: the depot the device lies in («Standort»). Resolved here
+      rather than in the chip, so a presentational component needs no provider —
+      and so the value cannot go stale the way a copied string would. */
+  location?: string
 }
 
 /** Resolved resources owned by a route, split by kind. */

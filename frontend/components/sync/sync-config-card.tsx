@@ -1,12 +1,26 @@
 'use client'
 
+/**
+ * Die Synchronisations-Einstellungen — in derselben Zeilen-Grammatik wie jede andere
+ * Karte der Einstellungsseite (`setting-row.tsx`): Beschriftung und Hinweis links,
+ * Bedienelement rechts in der festen Spalte, Knöpfe am Fuss.
+ *
+ * Die Verbindungs-URL ist ein `SettingBlock` und keine Zeile: eine Postgres-URL in
+ * 200 Pixeln ist keine URL, sondern ein Ausschnitt davon.
+ */
+
 import { useState, useEffect } from 'react'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Loader2, Eye, EyeOff, Info } from 'lucide-react'
+import {
+  SettingActions,
+  SettingBlock,
+  SettingCard,
+  SettingRow,
+} from '@/components/settings/setting-row'
+import { SettingUnavailableNote } from '@/components/settings/setting-unavailable'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { apiClient } from '@/lib/api-client'
@@ -81,136 +95,119 @@ export function SyncConfigCard() {
   )
 
   return (
-    <Card className="p-6">
-      <div className="space-y-1 mb-4">
-        <p className="font-medium">{t('title')}</p>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-      </div>
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        ) : config?.is_production ? (
-          /* Production - Only show info message */
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
-            <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium">{t('productionOnlyTitle')}</p>
-              <p className="text-sm text-muted-foreground">
-                {t('productionOnlyText')}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Railway Database URL - full width since it's a long input */}
-            <div className="space-y-2">
-              <Label htmlFor="railway-database-url" className="text-sm font-semibold text-muted-foreground">{t('railwayUrlLabel')}</Label>
-              <div className="relative">
-                <Input
-                  id="railway-database-url"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="postgresql://user:pass@host:port/database"
-                  value={railwayDatabaseUrl}
-                  onChange={(e) => setRailwayDatabaseUrl(e.target.value)}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? t('hidePassword') : t('showPassword')}
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="size-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="size-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
-              {isInternalUrl && (
-                <p className="text-sm text-warning-foreground">
-                  {t.rich('internalUrlWarning', { strong: (chunks) => <strong>{chunks}</strong> })}
-                </p>
-              )}
-            </div>
-
-            {/* Sync Interval */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <Label htmlFor="sync-interval" className="text-sm font-semibold text-muted-foreground">{t('intervalLabel')}</Label>
-                <p className="text-xs text-muted-foreground">{t('intervalHint')}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Input
-                  id="sync-interval"
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={intervalMinutes}
-                  onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 2)}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">{t('minutesUnit')}</span>
-              </div>
-            </div>
-
-            {/* Auto-sync on create */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <Label htmlFor="auto-sync" className="font-medium">{t('autoSyncLabel')}</Label>
-                <p className="text-xs text-muted-foreground">{t('autoSyncHint')}</p>
-              </div>
-              <Switch
-                id="auto-sync"
-                checked={autoSyncOnCreate}
-                onCheckedChange={setAutoSyncOnCreate}
+    <SettingCard title={t('title')} subtitle={t('subtitle')}>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : config?.is_production ? (
+        /* Kein Formular, sondern die eine Auskunft, warum es hier keines gibt — im
+           selben Kasten, in dem jede andere Karte «geht hier nicht» sagt. */
+        <SettingUnavailableNote>
+          <span className="font-medium text-foreground">{t('productionOnlyTitle')}</span>{' '}
+          {t('productionOnlyText')}
+        </SettingUnavailableNote>
+      ) : (
+        <>
+          <SettingBlock
+            label={t('railwayUrlLabel')}
+            htmlFor="railway-database-url"
+            className="pt-0"
+          >
+            <div className="relative">
+              <Input
+                id="railway-database-url"
+                type={showPassword ? 'text' : 'password'}
+                // A connection string, not a login. `type="password"` is only
+                // shoulder-surfing cover, but the browser reads it as one half
+                // of a credential pair and fills the other half into whatever
+                // text input is nearest — which was the section search box.
+                // `new-password` is the same answer /setup already gives.
+                autoComplete="new-password"
+                placeholder="postgresql://user:pass@host:port/database"
+                value={railwayDatabaseUrl}
+                onChange={(e) => setRailwayDatabaseUrl(e.target.value)}
+                className="pr-10"
               />
-            </div>
-
-            {/* Conflict Buffer */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <Label htmlFor="conflict-buffer" className="text-sm font-semibold text-muted-foreground">{t('conflictBufferLabel')}</Label>
-                <p className="text-xs text-muted-foreground">{t('conflictBufferHint')}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Input
-                  id="conflict-buffer"
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={conflictBuffer}
-                  onChange={(e) => setConflictBuffer(parseInt(e.target.value) || 5)}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">{t('secondsUnit')}</span>
-              </div>
-            </div>
-
-            {/* Save Button */}
-            <div className="flex justify-end pt-4">
               <Button
-                onClick={handleSave}
-                disabled={!hasChanges || isSaving}
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+                tabIndex={-1}
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    {t('saving')}
-                  </>
+                {showPassword ? (
+                  <EyeOff className="size-4 text-muted-foreground" />
                 ) : (
-                  t('saveChanges')
+                  <Eye className="size-4 text-muted-foreground" />
                 )}
               </Button>
             </div>
-          </>
-        )}
-      </div>
-    </Card>
+            {isInternalUrl && (
+              <p className="mt-1.5 text-xs text-warning-foreground">
+                {t.rich('internalUrlWarning', { strong: (chunks) => <strong>{chunks}</strong> })}
+              </p>
+            )}
+          </SettingBlock>
+
+          <SettingRow label={t('intervalLabel')} htmlFor="sync-interval" hint={t('intervalHint')}>
+            <div className="flex items-center gap-2">
+              <Input
+                id="sync-interval"
+                type="number"
+                min={1}
+                max={60}
+                value={intervalMinutes}
+                onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 2)}
+                className="w-20"
+              />
+              <span className="text-xs text-muted-foreground">{t('minutesUnit')}</span>
+            </div>
+          </SettingRow>
+
+          <SettingRow label={t('autoSyncLabel')} htmlFor="auto-sync" hint={t('autoSyncHint')}>
+            <Switch
+              id="auto-sync"
+              checked={autoSyncOnCreate}
+              onCheckedChange={setAutoSyncOnCreate}
+            />
+          </SettingRow>
+
+          <SettingRow
+            label={t('conflictBufferLabel')}
+            htmlFor="conflict-buffer"
+            hint={t('conflictBufferHint')}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                id="conflict-buffer"
+                type="number"
+                min={0}
+                max={30}
+                value={conflictBuffer}
+                onChange={(e) => setConflictBuffer(parseInt(e.target.value) || 5)}
+                className="w-20"
+              />
+              <span className="text-xs text-muted-foreground">{t('secondsUnit')}</span>
+            </div>
+          </SettingRow>
+
+          <SettingActions>
+            <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t('saving')}
+                </>
+              ) : (
+                t('saveChanges')
+              )}
+            </Button>
+          </SettingActions>
+        </>
+      )}
+    </SettingCard>
   )
 }

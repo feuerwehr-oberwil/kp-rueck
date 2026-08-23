@@ -4,6 +4,13 @@
  * The Reko block of the incident detail — a **read AND write** surface since
  * plan 26 §5.1.
  *
+ * It renders in two shapes, chosen by the `dense` prop. The board (`dense`)
+ * gets `DetailField` rows: the Übersicht's own vocabulary, 104px label gutter,
+ * whitespace between rows, values at 13px — because at the KP the report is read
+ * beside the fields it is being compared against, and it has to line up with
+ * them. The phone sheet and the wall display get the card below, which keeps
+ * its thumb targets and its 16px finding on purpose.
+ *
  * It used to be a renderer and nothing else: it could display a recon report
  * faithfully and produce none of it. `POST /api/reko/` took a per-incident form
  * token and had no user path, so an editor could not file one at all — and the
@@ -32,6 +39,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type React
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
+import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -70,9 +78,31 @@ interface RekoReportSectionProps {
    * mount cannot write.
    */
   openEditorNonce?: number
+  /**
+   * The board's mount — the incident detail, modal and 420px panel alike.
+   *
+   * It renders the report as `DetailField` rows: 104px label gutter, ~30px
+   * lines, whitespace between them (no hairlines), values at 13px. That is the Übersicht's
+   * own vocabulary one tab over, and using it is the whole of Variante A — a
+   * Reko report is read while deciding what to send, next to the fields it is
+   * being compared against, so it has to line up with them.
+   *
+   * Left FALSE on purpose for the phone sheet and the wall display: those are
+   * touch and distance surfaces with thumb targets and their own type scale,
+   * and shrinking a report to a 30px row is exactly wrong there. They keep the
+   * card below, which is why it has not been deleted.
+   */
+  dense?: boolean
 }
 
 const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
+
+/**
+ * An action that belongs to a row, not a toolbar: grey, underlined, never
+ * blue — colour on this board means status, not "clickable".
+ */
+const ROW_ACTION =
+  "cursor-pointer text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
 
 export default function RekoReportSection({
   incidentId,
@@ -81,12 +111,15 @@ export default function RekoReportSection({
   layout = 'stacked',
   dataSlot,
   openEditorNonce,
+  dense = false,
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
+  /** Which earlier report is unfolded, board mount only — one at a time. */
+  const [openHistoryId, setOpenHistoryId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState<RekoFormData>(EMPTY_REKO_FORM)
@@ -214,6 +247,86 @@ export default function RekoReportSection({
 
   return (
     <div className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
+      {dense ? (
+      // The board: one column of rows. No `space-y` — the rows carry their own
+      // `py-1` and sit flush against each other, the way the Übersicht's do.
+      <div>
+      {dataSlot && <div className="mb-2">{dataSlot}</div>}
+      {latestReport ? (
+        <>
+          <RekoReportCard
+            report={latestReport}
+            incidentId={incidentId}
+            onRequestComplete={onRequestComplete}
+            dense
+          />
+
+          {/* Frühere Meldungen: one row each, unfolding in place. No collapsed
+              container in front of them — the whole history of three reports
+              costs less height than the trigger plus one dashed card did, and
+              «was hat sich seit 19:02 geändert» is the question the board
+              actually asks. */}
+          {previousReports.map((report) => {
+            const open = openHistoryId === report.id
+            return (
+              <Fragment key={report.id}>
+                <DetailField
+                  label={formatStamp(report.submitted_at)}
+                  action={
+                    <button
+                      type="button"
+                      className={ROW_ACTION}
+                      onClick={() => setOpenHistoryId(open ? null : report.id)}
+                    >
+                      {open ? t('collapse') : t('expand')}
+                    </button>
+                  }
+                >
+                  <div className="flex min-w-0 items-center gap-1.5 text-sm">
+                    {report.is_relevant ? (
+                      <CheckCircle2 className="size-3.5 shrink-0 text-success" />
+                    ) : (
+                      <XCircle className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="shrink-0">
+                      {report.is_relevant ? t('relevantShort') : t('notRelevantShort')}
+                    </span>
+                    {report.summary_text && (
+                      <span className="truncate text-muted-foreground">· {report.summary_text}</span>
+                    )}
+                  </div>
+                </DetailField>
+                {/* Unfolded, the older report is the SAME rows as the current
+                    one, indented onto the label column — there is no second
+                    card design for «alt». */}
+                {open && (
+                  <div className={DETAIL_CONTROL_INDENT}>
+                    <RekoReportBody report={report} incidentId={incidentId} dense />
+                  </div>
+                )}
+              </Fragment>
+            )
+          })}
+        </>
+      ) : (
+        // The empty state is the row that would carry the report, saying it has
+        // none and carrying the way to fix that — not a dashed box with the
+        // button that answers it standing outside.
+        !isEditing && (
+          <DetailField
+            label={t('reportLabel')}
+            action={canEdit ? (
+              <button type="button" className={ROW_ACTION} onClick={startEditing}>
+                {t('createShort')}
+              </button>
+            ) : undefined}
+          >
+            <span className="text-sm italic text-muted-foreground/60">{t('noReportShort')}</span>
+          </DetailField>
+        )
+      )}
+      </div>
+      ) : (
       <div className="space-y-2">
       {dataSlot}
       {latestReport ? (
@@ -258,22 +371,24 @@ export default function RekoReportSection({
       )}
 
       </div>
+      )}
 
       {/* The editing surface. In place, not a dialog — a modal over the incident
           detail would hide the Feldmeldungen the operator is dictating from.
           Its own column when there is one, so a long report and a long form do
           not queue up behind each other. */}
-      <div className={cn(split && "border-l border-border pl-6", !split && "space-y-2")}>
+      <div className={cn(split && "border-l border-border pl-6", !split && !dense && "space-y-2", dense && "pt-2")}>
       {canEdit && (
         isEditing ? (
-          // No card in the split layout: the column IS the frame, and a border
-          // inside a border inside the modal is two frames around one form.
-          <div className={cn("space-y-3", split ? "" : "rounded-lg border border-border p-4")}>
-            <div className="flex items-center gap-2">
-              <Binoculars className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="text-sm font-semibold text-muted-foreground">
+          // No card in the split layout, and none on the board either: the tab
+          // column IS the frame, and a border inside a border inside the modal
+          // is two frames around one form.
+          <div className={cn(dense ? "space-y-1" : "space-y-3", !split && !dense && "rounded-lg border border-border p-4")}>
+            <div className={cn("flex items-center gap-2", dense && "pb-1.5")}>
+              <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <Binoculars className="h-3.5 w-3.5 shrink-0" />
                 {latestReport ? t('amendTitle') : t('createTitle')}
-              </span>
+              </h3>
               <Button
                 type="button"
                 size="xs"
@@ -300,10 +415,17 @@ export default function RekoReportSection({
             />
           </div>
         ) : (
-          <Button type="button" size="xs" variant="outline" onClick={startEditing}>
-            {latestReport ? <Pencil className="size-3.5" /> : <Plus className="size-3.5" />}
-            {latestReport ? t('amend') : t('create')}
-          </Button>
+          // On the board an incident WITHOUT a report already carries «erfassen»
+          // on its empty row, so only the amendment needs a button of its own —
+          // and it stands at the right, where the form's own actions stand.
+          (!dense || latestReport) && (
+            <div className={cn(dense && "flex justify-end")}>
+              <Button type="button" size="xs" variant="outline" onClick={startEditing}>
+                {latestReport ? <Pencil className="size-3.5" /> : <Plus className="size-3.5" />}
+                {latestReport ? t('amend') : t('create')}
+              </Button>
+            </div>
+          )
         )
       )}
       </div>
@@ -315,6 +437,8 @@ interface RekoReportCardProps {
   report: ApiRekoReportResponse
   incidentId: string
   onRequestComplete?: () => void
+  /** See `RekoReportSectionProps.dense` — rows instead of a card. */
+  dense?: boolean
 }
 
 /**
@@ -336,24 +460,30 @@ function formatStamp(iso: string): string {
   return `${date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
 }
 
-function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCardProps) {
-  const t = useTranslations('reko.reportSection')
-  function getPhotoUrl(filename: string): string {
-    const apiUrl = getApiUrl()
-    return `${apiUrl}/api/photos/${incidentId}/${filename}`
-  }
+/** Where a stored Reko photo is read back from, on a mount that has a session. */
+function rekoPhotoUrl(incidentId: string, filename: string): string {
+  return `${getApiUrl()}/api/photos/${incidentId}/${filename}`
+}
 
-  /**
-   * The numbered facts, as `{ label, value }` pairs rather than pre-composed
-   * «Label: Wert» strings. They render as a two-column definition grid: in a
-   * wrapping row every value started at whatever x the previous string happened
-   * to end at, and no two lines agreed on anything. One label column and one
-   * value column let the eye run straight down the values.
-   *
-   * «Zusätzliche Notizen» is the last pair and not a separately styled
-   * paragraph — it is a label and a value like the rest, and one emphasis rule
-   * for all of them beats a bold label here and a plain one there.
-   */
+/**
+ * The numbered facts of a report, as `{ label, value }` pairs rather than
+ * pre-composed «Label: Wert» strings.
+ *
+ * Both renderings consume the same list: the card lays it out as a two-column
+ * definition grid, the board as `DetailField` rows. In a wrapping row every
+ * value started at whatever x the previous string happened to end at, and no
+ * two lines agreed on anything — a label column and a value column let the eye
+ * run straight down the values.
+ *
+ * «Zusätzliche Notizen» is the last pair and not a separately styled paragraph
+ * — it is a label and a value like the rest, and one emphasis rule for all of
+ * them beats a bold label here and a plain one there.
+ */
+function useReportFacts(
+  report: ApiRekoReportResponse,
+  dense: boolean,
+): { label: string; value: ReactNode; prose?: boolean }[] {
+  const t = useTranslations('reko.reportSection')
   const dangers = report.dangers_json
   const dangerLabels: string[] = []
   if (dangers?.fire) dangerLabels.push(t('dangerBadges.fire'))
@@ -364,7 +494,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
   if (dangers?.electrical) dangerLabels.push(t('dangerBadges.electrical'))
   const hasDangers = dangerLabels.length > 0 || !!dangers?.other_notes
 
-  const facts: { label: string; value: ReactNode }[] = []
+  const facts: { label: string; value: ReactNode; prose?: boolean }[] = []
   // Gefahren lead the grid as a labelled row like Mannschaft and Dauer — the
   // hazard itself stays highlighted (warning chips), the row around it does
   // not shout. It used to be a block of its own above the grid, which made one
@@ -386,6 +516,7 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           {dangers?.other_notes && <span className="leading-tight">{dangers.other_notes}</span>}
         </span>
       ),
+      prose: Boolean(dangers?.other_notes),
     })
   }
   if (report.effort_json?.personnel_count) {
@@ -416,8 +547,149 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
     })
   }
   if (report.additional_notes) {
-    facts.push({ label: t('additionalNotes'), value: report.additional_notes })
+    // «Zusätzliche Notizen» wraps the 104px label gutter onto two lines and
+    // turns a 30px row into a 46px one; on the board the label is «Notizen».
+    facts.push({
+      label: dense ? t('notesShort') : t('additionalNotes'),
+      value: report.additional_notes,
+      prose: true,
+    })
   }
+
+  return facts
+}
+
+/**
+ * Everything a report says apart from its verdict, in the mount's own shape:
+ * `DetailField` rows on the board, a definition grid in the card.
+ *
+ * One function for both, because the two must never drift on WHICH facts a
+ * report shows — only on how they are laid out.
+ */
+function RekoReportBody({ report, incidentId, dense = false }: RekoReportCardProps) {
+  const t = useTranslations('reko.reportSection')
+  const facts = useReportFacts(report, dense)
+  const photos = report.photos_json ?? []
+
+  if (dense) {
+    return (
+      <>
+        {/* The finding is a row like the rest. It loses the size it had as a
+            standalone paragraph — the cost of Variante A, paid so that every
+            value on this tab starts at the same x. */}
+        {report.summary_text && (
+          <DetailField label={t('findingLabel')} alignStart>
+            <p className="text-sm leading-snug">{report.summary_text}</p>
+          </DetailField>
+        )}
+        {facts.map(({ label, value, prose }) => (
+          <DetailField key={label} label={label} alignStart={prose}>
+            <div className="text-sm leading-snug">{value}</div>
+          </DetailField>
+        ))}
+        {photos.length > 0 && (
+          // 96px, not the 40px marks this used to be: at 40 a storm photo was
+          // an unreadable smudge, so EVERY picture had to be opened in a tab to
+          // find out what it showed. Big enough to recognise the subject, small
+          // enough that a row of them still wraps inside the column. Opening one
+          // is still there for the detail. The filename rides along as `title`.
+          <DetailField label={t('photosCount', { count: photos.length })}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {photos.map((filename, index) => (
+                <a
+                  key={filename}
+                  href={rekoPhotoUrl(incidentId, filename)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={filename}
+                  className="relative block size-24 shrink-0 overflow-hidden rounded-md bg-muted transition-opacity hover:opacity-80"
+                  tabIndex={-1}
+                >
+                  {/* unoptimized: see the grid in the card below. */}
+                  <Image
+                    src={rekoPhotoUrl(incidentId, filename)}
+                    alt={report.submitted_by_personnel_name
+                      ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
+                      : t('photoAlt', { number: index + 1 })}
+                    fill
+                    sizes="96px"
+                    unoptimized
+                    className="object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          </DetailField>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* The finding leads, one size above the facts around it — it is the
+          sentence somebody reads to decide what to send, and it used to sit
+          below four headings. Same treatment the display's own Reko block
+          gives it, so wall and board read alike. */}
+      {report.summary_text && (
+        <p className="text-base leading-snug">{report.summary_text}</p>
+      )}
+
+      {/* Dangers, effort, power and notes — ONE definition grid, muted
+          label column, foreground value column. Gefahren sit in it like
+          Mannschaft and Dauer (image #14); only the hazard chips carry the
+          warning tint, so the highlight marks the fact, not the row. */}
+      {facts.length > 0 && (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm leading-tight">
+          {facts.map(({ label, value }) => (
+            <Fragment key={label}>
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="min-w-0">{value}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+
+      {/* Photos. Its heading is a label like every other label on the card:
+          plain and muted, not the one bold thing in the box. */}
+      {photos.length > 0 && (
+        <div>
+          <h5 className="text-xs text-muted-foreground mb-1.5">{t('photosCount', { count: photos.length })}</h5>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {photos.map((filename, index) => (
+              <a
+                key={index}
+                href={rekoPhotoUrl(incidentId, filename)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
+                tabIndex={-1}
+              >
+                {/* unoptimized: photos come from the backend at a
+                    runtime-determined origin, which Next's optimizer cannot
+                    resolve (hosts are configured at build time). */}
+                <Image
+                  src={rekoPhotoUrl(incidentId, filename)}
+                  alt={report.submitted_by_personnel_name
+                    ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
+                    : t('photoAlt', { number: index + 1 })}
+                  fill
+                  sizes="33vw"
+                  unoptimized
+                  className="object-cover"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }: RekoReportCardProps) {
+  const t = useTranslations('reko.reportSection')
+  const facts = useReportFacts(report, dense)
 
   // «aktualisiert» compares the RENDERED stamps, not the raw ISO strings: a
   // submit and its own commit differ by milliseconds, and «Übermittelt 17:57 ·
@@ -431,6 +703,49 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
     Boolean(report.summary_text) ||
     facts.length > 0 ||
     Boolean(report.photos_json && report.photos_json.length > 0)
+
+  if (dense) {
+    return (
+      <div>
+        {/* The verdict line — the ONE thing that still marks a report as a
+            message from outside rather than a form field. Name and stamps ride
+            on it as muted text; the badge around the name was a third layer of
+            chrome on a line that already has an icon. No hairline under it —
+            whitespace separates it from the rows below, like everywhere else
+            in the detail. */}
+        <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', hasBody && 'pb-1.5')}>
+          {report.is_relevant ? (
+            <CheckCircle2 className="size-4 shrink-0 text-success" />
+          ) : (
+            <XCircle className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="text-sm font-semibold leading-tight">
+            {report.is_relevant ? t('relevant') : t('notNeeded')}
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5 text-xs leading-tight text-muted-foreground">
+            {report.submitted_by_personnel_name && (
+              <span className="flex items-center gap-1">
+                <Binoculars className="size-3 shrink-0" />
+                {report.submitted_by_personnel_name}
+                <span aria-hidden="true">·</span>
+              </span>
+            )}
+            {t('submittedShort', { time: submittedStamp })}
+            {updatedStamp !== submittedStamp && ` · ${t('updatedShort', { time: updatedStamp })}`}
+          </span>
+          {/* Reko reported the incident not relevant — let the operator close it
+              straight from the Reko-Meldung. */}
+          {!report.is_relevant && onRequestComplete && (
+            <Button size="xs" variant="secondary" className="ml-auto" onClick={onRequestComplete}>
+              <CheckCheck className="size-3.5" />
+              {t('completeIncident')}
+            </Button>
+          )}
+        </div>
+        <RekoReportBody report={report} incidentId={incidentId} dense />
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-lg border">
@@ -481,71 +796,20 @@ function RekoReportCard({ report, incidentId, onRequestComplete }: RekoReportCar
           </div>
         </div>
 
-        <div className="space-y-3">
-          {/* The finding leads, one size above the facts around it — it is the
-              sentence somebody reads to decide what to send, and it used to sit
-              below four headings. Same treatment the display's own Reko block
-              gives it, so wall and board read alike. */}
-          {report.summary_text && (
-            <p className="text-base leading-snug">{report.summary_text}</p>
-          )}
-
-          {/* Dangers, effort, power and notes — ONE definition grid, muted
-              label column, foreground value column. Gefahren sit in it like
-              Mannschaft and Dauer (image #14); only the hazard chips carry the
-              warning tint, so the highlight marks the fact, not the row. */}
-          {facts.length > 0 && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm leading-tight">
-              {facts.map(({ label, value }) => (
-                <Fragment key={label}>
-                  <dt className="text-muted-foreground">{label}</dt>
-                  <dd className="min-w-0">{value}</dd>
-                </Fragment>
-              ))}
-            </dl>
-          )}
-
-          {/* Photos. Its heading is a label like every other label on the card:
-              plain and muted, not the one bold thing in the box. */}
-          {report.photos_json && report.photos_json.length > 0 && (
-            <div>
-              <h5 className="text-xs text-muted-foreground mb-1.5">{t('photosCount', { count: report.photos_json.length })}</h5>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {report.photos_json.map((filename, index) => (
-                  <a
-                    key={index}
-                    href={getPhotoUrl(filename)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
-                    tabIndex={-1}
-                  >
-                    {/* unoptimized: photos come from the backend at a
-                        runtime-determined origin, which Next's optimizer cannot
-                        resolve (hosts are configured at build time). */}
-                    <Image
-                      src={getPhotoUrl(filename)}
-                      alt={report.submitted_by_personnel_name
-                        ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
-                        : t('photoAlt', { number: index + 1 })}
-                      fill
-                      sizes="33vw"
-                      unoptimized
-                      className="object-cover"
-                    />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-        </div>
+        <RekoReportBody report={report} incidentId={incidentId} />
       </div>
     </div>
   )
 }
 
-// Compact version for previous reports
+/**
+ * An earlier report, compact — the phone sheet and the wall display only.
+ *
+ * The board no longer renders this: there a previous report is one 30px row
+ * that unfolds into the same field rows as the current one, so «alt» has no
+ * design of its own. It survives because a 30px row with a text link is the
+ * wrong target on a phone and the wrong size on a wall.
+ */
 function RekoReportCardCompact({ report }: RekoReportCardProps) {
   const t = useTranslations('reko.reportSection')
 

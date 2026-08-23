@@ -165,10 +165,15 @@ export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'role' | 'ro
   divera_user_id?: null
 }
 
-/** Material panel row on a shared display. */
+/** Material panel row on a shared display.
+ *
+ *  `out_of_service` rides along and the legacy `status` mirror does not: the
+ *  display derives «im Einsatz» from this event's assignments, but readiness is
+ *  a station-wide fact it cannot reconstruct — and a wall that cannot tell
+ *  «im Einsatz» from «defekt» paints a broken pump green. */
 export type ApiViewerMaterial = Pick<
   ApiMaterialResource,
-  'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id'
+  'id' | 'name' | 'type' | 'location' | 'location_sort_order' | 'consumable' | 'group_id' | 'out_of_service'
 >
 
 /** Which resource sits on which incident – never who put it there, or when.
@@ -235,6 +240,20 @@ export interface ApiViewerData {
  */
 const REQUEST_TIMEOUT_MS = 20_000
 
+/**
+ * Ceiling for ONE photo upload attempt.
+ *
+ * Longer than a normal request because a photo is megabytes over LTE, and the
+ * caller retries: a phone that lost the network mid-picture gets another go
+ * rather than a lost photo. The pictures are downscaled to ~1920 px before they
+ * get here (`components/reko/photo-upload.tsx`), which is what makes a minute
+ * generous rather than tight.
+ */
+const PHOTO_UPLOAD_TIMEOUT_MS = 60_000
+
+/** How far one photo has got, 0…1. Fed by `XMLHttpRequest.upload.onprogress`. */
+export type PhotoUploadProgress = (fraction: number) => void
+
 // ── REST connectivity (module-level, one per tab) ────────────────────────────
 // Mirrors the notification-context outage pattern: ONE persistent toast per
 // outage (fixed id, Infinity duration) instead of a new "Verbindungsfehler"
@@ -285,6 +304,33 @@ function markRestReachable() {
   if (outageToastVisible) {
     outageToastVisible = false
     toast.dismiss(CONNECTION_TOAST_ID)
+  }
+}
+
+/**
+ * Why the Feld-Code was refused — the four causes the door can produce.
+ *
+ * They are kept apart because the crew's next move differs for each: type it
+ * again, wait, get a fresh link, or step outside and retry. `/feld` used to
+ * collapse all four into one red «Falscher Code», which is the right answer in
+ * exactly one of them.
+ */
+export type FeldUnlockFailure =
+  /** The digits did not match. `attemptsLeft` is null against an older backend. */
+  | { kind: 'wrong'; attemptsLeft: number | null }
+  /** Too many failures from this IP — and a station NATs every phone, so this
+   *  can be somebody else's typing. */
+  | { kind: 'locked'; retryAfterSeconds: number }
+  /** The link token expired (30 days). The code cannot fix this. */
+  | { kind: 'expired' }
+  /** The request never reached the server, so nothing was checked. */
+  | { kind: 'offline' }
+
+/** What `unlockFeld` rejects with — always this, never a bare `Error`. */
+export class FeldUnlockError extends Error {
+  constructor(readonly failure: FeldUnlockFailure) {
+    super(`feld unlock refused: ${failure.kind}`)
+    this.name = 'FeldUnlockError'
   }
 }
 
@@ -1047,8 +1093,11 @@ class ApiClient {
   }
 
   // Resource Management - Vehicles
-  async getVehicles(): Promise<ApiVehicle[]> {
-    return this.request<ApiVehicle[]>('/api/vehicles/')
+  /** Archived vehicles are excluded unless `includeArchived` — the board must
+   *  never see a retired unit, the Fahrzeugverwaltung shows it on request. */
+  async getVehicles(options?: { includeArchived?: boolean }): Promise<ApiVehicle[]> {
+    const query = options?.includeArchived ? '?include_archived=true' : ''
+    return this.request<ApiVehicle[]>(`/api/vehicles/${query}`)
   }
 
   async getVehicleById(id: string): Promise<ApiVehicle> {
@@ -1069,8 +1118,30 @@ class ApiClient {
     })
   }
 
-  async deleteVehicle(id: string): Promise<void> {
-    return this.request<void>(`/api/vehicles/${id}`, {
+  /** Take a vehicle out of the fleet, reversibly. Broadcast as a WS `delete`. */
+  async archiveVehicle(id: string): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>(`/api/vehicles/${id}/archive`, {
+      method: 'POST',
+    })
+  }
+
+  /** «Zurückholen» — bring an archived vehicle back. Broadcast as a WS `create`. */
+  async restoreVehicle(id: string): Promise<ApiVehicle> {
+    return this.request<ApiVehicle>(`/api/vehicles/${id}/restore`, {
+      method: 'POST',
+    })
+  }
+
+  /**
+   * Archives by default; `permanent` purges the row.
+   *
+   * The purge is refused with 409 (German `detail` on the ApiError) unless the
+   * vehicle is already archived AND never stood on a live, non-training Einsatz
+   * — otherwise the evaluation of that Einsatz would grow a hole.
+   */
+  async deleteVehicle(id: string, options?: { permanent?: boolean }): Promise<void> {
+    const query = options?.permanent ? '?permanent=true' : ''
+    return this.request<void>(`/api/vehicles/${id}${query}`, {
       method: 'DELETE',
     })
   }
@@ -1098,8 +1169,11 @@ class ApiClient {
   }
 
   // Resource Management - Materials
-  async getAllMaterials(): Promise<ApiMaterialResource[]> {
-    return this.request<ApiMaterialResource[]>('/api/materials/')
+  /** Archived material is excluded unless `includeArchived` — the board must
+   *  never see a retired device, the Materialverwaltung shows it on request. */
+  async getAllMaterials(options?: { includeArchived?: boolean }): Promise<ApiMaterialResource[]> {
+    const query = options?.includeArchived ? '?include_archived=true' : ''
+    return this.request<ApiMaterialResource[]>(`/api/materials/${query}`)
   }
 
   async getMaterialById(id: string): Promise<ApiMaterialResource> {
@@ -1120,8 +1194,30 @@ class ApiClient {
     })
   }
 
-  async deleteMaterialResource(id: string): Promise<void> {
-    return this.request<void>(`/api/materials/${id}`, {
+  /** Take a device out of the inventory, reversibly. Broadcast as a WS `delete`. */
+  async archiveMaterialResource(id: string): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>(`/api/materials/${id}/archive`, {
+      method: 'POST',
+    })
+  }
+
+  /** «Zurückholen» — bring an archived device back. Broadcast as a WS `create`. */
+  async restoreMaterialResource(id: string): Promise<ApiMaterialResource> {
+    return this.request<ApiMaterialResource>(`/api/materials/${id}/restore`, {
+      method: 'POST',
+    })
+  }
+
+  /**
+   * Archives by default; `permanent` purges the row.
+   *
+   * The purge is refused with 409 (German `detail` on the ApiError) unless the
+   * device is already archived AND never stood on a live, non-training Einsatz.
+   * A test entry used only on a drill is therefore purgeable.
+   */
+  async deleteMaterialResource(id: string, options?: { permanent?: boolean }): Promise<void> {
+    const query = options?.permanent ? '?permanent=true' : ''
+    return this.request<void>(`/api/materials/${id}${query}`, {
       method: 'DELETE',
     })
   }
@@ -1373,10 +1469,18 @@ class ApiClient {
     })
   }
 
-  async uploadRekoPhoto(incidentId: string, token: string, file: File): Promise<{ filename: string }> {
-    return this.uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos`, file, {
-      'X-Reko-Token': token,
-    })
+  async uploadRekoPhoto(
+    incidentId: string,
+    token: string,
+    file: File,
+    onProgress?: PhotoUploadProgress,
+  ): Promise<{ filename: string }> {
+    return this.uploadPhotoFile<{ filename: string }>(
+      `/api/reko/${incidentId}/photos`,
+      file,
+      { 'X-Reko-Token': token },
+      onProgress,
+    )
   }
 
   /** The board's door onto the same upload – the WhatsApp-photo case. No token:
@@ -1398,50 +1502,69 @@ class ApiClient {
    * `request()` is JSON-only, and a phone photo needs its own timeout and its
    * own error unwrapping (file size, quota, invalid type all come back as a
    * German `detail` the user has to see). One copy of that, not one per door.
+   *
+   * **`XMLHttpRequest`, not `fetch`, and only because of `onProgress`.** A
+   * storm photo on rural LTE takes half a minute, and `fetch` cannot say how
+   * far it got — the request either resolves or, sixty seconds later, does not.
+   * That is what a bar per photo needs, and the bar is what turns "4 Fotos
+   * konnten nicht hochgeladen werden" into something a crew can act on.
+   *
+   * One attempt. Retrying is the caller's business (`components/reko/photo-upload.tsx`),
+   * because it is the caller that keeps the file and shows which photo is on
+   * its second try.
    */
-  private async uploadPhotoFile<T>(path: string, file: File, headers: Record<string, string> = {}): Promise<T> {
+  private uploadPhotoFile<T>(
+    path: string,
+    file: File,
+    headers: Record<string, string> = {},
+    onProgress?: PhotoUploadProgress,
+  ): Promise<T> {
     const formData = new FormData()
     formData.append('file', file)
 
     const url = `${this.getBaseUrl()}${path}`
 
-    // Create AbortController for timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout for large files
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', url)
+      xhr.withCredentials = true // Include auth cookies
+      xhr.timeout = PHOTO_UPLOAD_TIMEOUT_MS
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value)
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        credentials: 'include',  // Include auth cookies
-        headers,
-        body: formData,
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        // Parse backend error message for specific errors (file size, quota, invalid type)
-        let errorMessage = translateOutsideReact('errors.api.photoUploadFailed')
-        try {
-          const errorData = await response.json()
-          if (errorData.detail) {
-            errorMessage = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail)
-          }
-        } catch {
-          // Ignore JSON parse errors
+      if (onProgress) {
+        xhr.upload.onprogress = event => {
+          if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total)
         }
-        throw new Error(errorMessage)
       }
 
-      return response.json()
-    } catch (error) {
-      clearTimeout(timeoutId)
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(translateOutsideReact('errors.api.uploadTimeout'))
+      xhr.onload = () => {
+        // The server answered (any status): the connection works.
+        markRestReachable()
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as T)
+          } catch {
+            reject(new Error(translateOutsideReact('errors.api.photoUploadFailed')))
+          }
+          return
+        }
+        // Backend error messages are German and specific (file size, quota,
+        // invalid type) — the crew has to see them, not a status code.
+        let message = translateOutsideReact('errors.api.photoUploadFailed')
+        try {
+          const detail = (JSON.parse(xhr.responseText) as { detail?: unknown }).detail
+          if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
+        } catch {
+          // Not JSON — keep the generic message.
+        }
+        reject(new Error(message))
       }
-      throw error
-    }
+      xhr.onerror = () => reject(new NetworkError())
+      xhr.ontimeout = () => reject(new Error(translateOutsideReact('errors.api.uploadTimeout')))
+      xhr.onabort = () => reject(new NetworkError())
+
+      xhr.send(formData)
+    })
   }
 
   async deleteRekoPhoto(incidentId: string, token: string, filename: string): Promise<void> {
@@ -2060,8 +2183,10 @@ class ApiClient {
   // token via the Feld-Code (`unlockFeld`), and that for a person-bound one when
   // somebody names themselves (`claimFeldPerson`). The phone stores the bound
   // token and stops using the link.
-  async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
-    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+  /** `valid_until` is the link's own expiry (ISO), so a printed poster can say
+   *  when it becomes waste paper. Absent on a backend older than that. */
+  async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string; valid_until?: string }> {
+    return this.request<{ token: string; link: string; full_url: string; qr_code_data: string; valid_until?: string }>(
       `/api/feld/generate-link?event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
@@ -2092,16 +2217,61 @@ class ApiClient {
 
   /** Step 2 of the door: the code buys an unlocked token *and* the picker.
    *
-   *  `skipToast` because a wrong code is not an error to be announced — it is
-   *  the expected answer to a typo, and the page already turns the field red.
-   *  A toast on top of that shouts "Fehler" across a phone screen for a
-   *  mistyped digit, and does it again on every retry. */
+   *  Its own `fetch` rather than `request()`, and both reasons are the screen
+   *  behind it (`app/feld/page.tsx`): the four ways this can fail have four
+   *  different answers, so the status and the body have to survive the call —
+   *  `request()` flattens them into one message and shows a toast. And a 429
+   *  must come back as a 429: `request()` treats it as retryable and would
+   *  sleep on a locked-out phone before reporting anything at all.
+   *
+   *  Rejects with `FeldUnlockError` and never with anything else. */
   async unlockFeld(token: string, code: string): Promise<ApiFeldUnlockResponse> {
-    return this.request<ApiFeldUnlockResponse>(`/api/feld/unlock?token=${encodeURIComponent(token)}`, {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-      skipToast: true,
-    })
+    const url = `${this.getBaseUrl()}/api/feld/unlock?token=${encodeURIComponent(token)}`
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch (error) {
+      // No answer at all: a cellar, a Funkloch, a dead uplink. The code was
+      // never checked, which is a different sentence from "wrong".
+      console.warn('[API] Feld unlock did not reach the server:', error)
+      markRestUnreachable(true)
+      throw new FeldUnlockError({ kind: 'offline' })
+    }
+    markRestReachable()
+
+    if (response.ok) return (await response.json()) as ApiFeldUnlockResponse
+
+    // `detail` is an object on the two answers that carry numbers and a plain
+    // string on everything else (including a backend older than this client).
+    const detail = await response
+      .json()
+      .then((body: { detail?: unknown }) => body?.detail)
+      .catch(() => undefined)
+    const field = (name: string): number | null => {
+      if (typeof detail !== 'object' || detail === null) return null
+      const value = (detail as Record<string, unknown>)[name]
+      return typeof value === 'number' ? value : null
+    }
+
+    if (response.status === 429) {
+      // The header says the same thing, but CORS hides it from a split-origin
+      // deployment — so the body is the source and the header the fallback.
+      const header = Number(response.headers.get('Retry-After'))
+      const seconds = field('retry_after') ?? (Number.isFinite(header) && header > 0 ? header : 300)
+      throw new FeldUnlockError({ kind: 'locked', retryAfterSeconds: seconds })
+    }
+    // The link token itself is gone: a poster that has hung there for 31 days.
+    // No code helps, so the page must stop asking for one.
+    if (response.status === 401 || response.status === 404) {
+      throw new FeldUnlockError({ kind: 'expired' })
+    }
+    throw new FeldUnlockError({ kind: 'wrong', attemptsLeft: field('attempts_left') })
   }
 
   /** Step 3: this device is that person from now on. */
@@ -2295,11 +2465,14 @@ class ApiClient {
     incidentId: string,
     personnelId: string,
     token: string,
-    file: File
+    file: File,
+    onProgress?: PhotoUploadProgress,
   ): Promise<ApiRapportPhotosResponse> {
     return this.uploadPhotoFile<ApiRapportPhotosResponse>(
       this.feldQuery(incidentId, 'photos', personnelId, token),
-      file
+      file,
+      {},
+      onProgress,
     )
   }
 
@@ -2601,6 +2774,43 @@ class ApiClient {
       skipToast: true,
     })
   }
+
+  // First-run setup (unauthenticated — the wizard at /setup)
+
+  /**
+   * Whether this deployment has been claimed by a station yet. Returns null when the
+   * backend cannot be reached — callers fail open (the login page stays a login page).
+   */
+  async getSetupStatus(): Promise<ApiSetupStatus | null> {
+    // No retries and a short timeout, unlike every other GET: the setup and
+    // login pages block their first paint on this answer, and "fail open into
+    // the form after a few seconds" beats a minute of spinner behind the
+    // default 3×20s retry ladder when the backend is down or still booting.
+    try {
+      return (
+        (await this.request<ApiSetupStatus>('/api/setup/status', {
+          skipToast: true,
+          maxRetries: 0,
+          signal: AbortSignal.timeout(4_000),
+        })) ?? null
+      )
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Claim the board: names the station and creates the admin account.
+   * Rejects with a 409 `ApiError` when someone else already claimed it,
+   * 422 when the password is too short.
+   */
+  async claimSetup(data: ApiSetupClaim): Promise<ApiSetupResult> {
+    return this.request<ApiSetupResult>('/api/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      skipToast: true,
+    })
+  }
 }
 
 // User Management Types
@@ -2646,6 +2856,12 @@ export interface ApiQRCodePrintRequest {
   title: string
   subtitle?: string
   event_id?: string
+  /** The four digits the scanned page asks for next. Without them the Feld slip
+   *  leads to a prompt it cannot answer — see `components/kanban/links-qr-sheet.tsx`. */
+  code?: string
+  /** When the link stops working (ISO). Printed as a date, so a dead slip in
+   *  the Magazin can be recognised as dead. */
+  valid_until?: string
 }
 
 export interface ApiPrintJob {
@@ -2660,6 +2876,20 @@ export interface ApiPrintJob {
   completed_at?: string
   error_message?: string
   retry_count: number
+}
+
+// First-Run Setup Types
+export interface ApiSetupStatus {
+  claimed: boolean
+}
+
+export interface ApiSetupClaim {
+  station_name: string
+  admin_password: string
+}
+
+export interface ApiSetupResult {
+  username: string
 }
 
 // Demo Mode Types

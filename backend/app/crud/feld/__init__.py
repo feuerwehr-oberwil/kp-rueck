@@ -41,7 +41,7 @@ from .material import (
     material_return_units,
 )
 from .melden import (
-    EDITABLE_STATUS,
+    EDITABLE_STATUSES,
     create_field_report,
     own_reports,
     report_is_editable,
@@ -118,7 +118,7 @@ from .visibility import (
 __all__ = [
     "ARRIVAL_SOURCES",
     "CONCURRENT_EDITOR_WINDOW",
-    "EDITABLE_STATUS",
+    "EDITABLE_STATUSES",
     "RAPPORT_SOURCES",
     "SOURCE_CREW",
     "SOURCE_DRIVER",

@@ -88,10 +88,11 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
     expect(screen.queryByText(/Board/)).toBeNull()
   })
 
-  it('shows the whole catalogue straight away — nothing to type first', () => {
-    // §18.34: a multi-select, in the shape the app uses for picking people.
-    // Neither the datalist nor the combobox before it showed anything until you
-    // had already started typing.
+  it('shows the whole catalogue one tap away, without typing a name first', async () => {
+    // §18.34: a multi-select, in the shape the app uses for picking people —
+    // neither the datalist nor the combobox before it showed anything until you
+    // had already started typing. It sits behind the fold now, the same fold
+    // the Personal and Fahrzeuge sections have, and the fold says how many.
     renderWithIntl(
       <FeldMaterialChecklist
         rows={[]}
@@ -102,6 +103,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
+    await userEvent.click(screen.getByRole('button', { name: /Katalog anzeigen \(2\)/ }))
     expect(screen.getByRole('button', { name: /Motorsäge/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Nassauger/ })).toBeInTheDocument()
   })
@@ -118,6 +120,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
+    await userEvent.click(screen.getByRole('button', { name: /Katalog anzeigen/ }))
     await userEvent.click(screen.getByRole('button', { name: /Nassauger/ }))
 
     // A name and one tick, and nothing else (decision 18) — picking a name is
@@ -137,6 +140,7 @@ describe('FeldMaterialChecklist — Weiteres Material', () => {
       />,
     )
 
+    await userEvent.click(screen.getByRole('button', { name: /Katalog anzeigen/ }))
     await userEvent.click(screen.getByRole('button', { name: /Motorsäge/ }))
 
     expect(onExtraMaterialsChange).toHaveBeenCalledWith([

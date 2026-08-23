@@ -122,6 +122,7 @@ const baseState = (
 ): KanbanShortcutsState => ({
   modalOpen: false,
   hoveredOperationId: null,
+  selectedOperationId: null,
   operations: [],
   vehicleTypes: [],
   gPrefix: makeGPrefix(),
@@ -186,10 +187,12 @@ describe("useKanbanShortcuts", () => {
   });
 
   describe("operation-targeted shortcuts", () => {
-    it("'0' toggles zu_fuss on hovered op", () => {
+    // Two targets on purpose: a key that SHOWS something follows the pointer,
+    // a key that CHANGES something follows the click. See the hook's own note.
+    it("'0' toggles zu_fuss on the selected op", () => {
       renderHook(() =>
         useKanbanShortcuts(
-          baseState({ hoveredOperationId: "op-1", operations: [baseOp()] }),
+          baseState({ selectedOperationId: "op-1", operations: [baseOp()] }),
           actions,
         ),
       );
@@ -197,12 +200,34 @@ describe("useKanbanShortcuts", () => {
       expect(actions.onToggleZuFuss).toHaveBeenCalledWith("op-1");
     });
 
+    it("mutating keys do nothing on a merely hovered card", () => {
+      const vehicleTypes = [{ key: "1", id: "v1", name: "TLF" }];
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ hoveredOperationId: "op-1", operations: [baseOp()], vehicleTypes }),
+          actions,
+        ),
+      );
+      press("0");
+      press("1");
+      press("1", { shiftKey: true });
+      press(">");
+      press("<");
+      press("Delete");
+      expect(actions.onToggleZuFuss).not.toHaveBeenCalled();
+      expect(actions.onToggleVehicle).not.toHaveBeenCalled();
+      expect(actions.onUpdateOperation).not.toHaveBeenCalled();
+      expect(actions.onMoveRight).not.toHaveBeenCalled();
+      expect(actions.onMoveLeft).not.toHaveBeenCalled();
+      expect(actions.onRequestDelete).not.toHaveBeenCalled();
+    });
+
     it("vehicle number key toggles assignment via onToggleVehicle", () => {
       const vehicleTypes = [{ key: "1", id: "v1", name: "TLF" }];
       renderHook(() =>
         useKanbanShortcuts(
           baseState({
-            hoveredOperationId: "op-1",
+            selectedOperationId: "op-1",
             operations: [baseOp({ vehicles: [] })],
             vehicleTypes,
           }),
@@ -222,7 +247,7 @@ describe("useKanbanShortcuts", () => {
       renderHook(() =>
         useKanbanShortcuts(
           baseState({
-            hoveredOperationId: "op-1",
+            selectedOperationId: "op-1",
             operations: [baseOp({ vehicles: ["Pio"] })],
             vehicleTypes,
           }),
@@ -240,7 +265,7 @@ describe("useKanbanShortcuts", () => {
     it("Shift+1/2/3 sets priority", () => {
       renderHook(() =>
         useKanbanShortcuts(
-          baseState({ hoveredOperationId: "op-1", operations: [baseOp()] }),
+          baseState({ selectedOperationId: "op-1", operations: [baseOp()] }),
           actions,
         ),
       );
@@ -261,7 +286,7 @@ describe("useKanbanShortcuts", () => {
     it("Shift+1/2/3 sets priority on Swiss/German layout (shifted char differs, e.code matches)", () => {
       renderHook(() =>
         useKanbanShortcuts(
-          baseState({ hoveredOperationId: "op-1", operations: [baseOp()] }),
+          baseState({ selectedOperationId: "op-1", operations: [baseOp()] }),
           actions,
         ),
       );
@@ -280,10 +305,10 @@ describe("useKanbanShortcuts", () => {
       });
     });
 
-    it("'>' and '<' move the hovered op forward / back", () => {
+    it("'>' and '<' move the selected op forward / back", () => {
       renderHook(() =>
         useKanbanShortcuts(
-          baseState({ hoveredOperationId: "op-1", operations: [baseOp()] }),
+          baseState({ selectedOperationId: "op-1", operations: [baseOp()] }),
           actions,
         ),
       );
@@ -333,11 +358,11 @@ describe("useKanbanShortcuts", () => {
       expect(bare.defaultPrevented).toBe(true);
     });
 
-    it("'Delete' stages the hovered op for delete confirmation", () => {
+    it("'Delete' stages the selected op for delete confirmation", () => {
       const op = baseOp();
       renderHook(() =>
         useKanbanShortcuts(
-          baseState({ hoveredOperationId: op.id, operations: [op] }),
+          baseState({ selectedOperationId: op.id, operations: [op] }),
           actions,
         ),
       );

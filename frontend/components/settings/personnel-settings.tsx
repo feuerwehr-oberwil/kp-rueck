@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -28,14 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Form, FormField } from '@/components/ui/form';
+import { DetailField } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,6 +37,9 @@ import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, Chevr
 import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
+import { SettingUnavailableNote } from './setting-unavailable';
+import { SettingCard } from './setting-row';
+import { useIntegrationCapability } from '@/lib/hooks/use-integrations';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
@@ -67,7 +63,12 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Divera sync state
+  // Divera sync state. Ohne hinterlegten Personal-Anbieter gibt es nichts abzugleichen:
+  // Der Knopf öffnete bisher einen Dialog, der sofort mit einem Fehler antwortete. Die
+  // Antwort kommt aus der Fähigkeiten-Registratur (`GET /api/integrations`); `null` heisst
+  // «noch nicht beantwortet» und sperrt nichts.
+  const personnelProvider = useIntegrationCapability('personnel');
+  const syncUnavailable = personnelProvider !== null && !personnelProvider.configured;
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
   const [syncPreview, setSyncPreview] = useState<ApiDiveraSyncPreview | null>(null);
   const [isSyncLoading, setIsSyncLoading] = useState(false);
@@ -353,27 +354,45 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const submitDisabled = isSaving || !trimmedName || !trimmedRole;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="list">{t('personnel.tabList')}</TabsTrigger>
           <TabsTrigger value="sort">{t('common.sortCategoriesTab')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="space-y-4">
+        {/* Beide Reiter tragen jetzt eine Karte: die Sortierung brachte ihre schon
+            mit (`CategorySortOrder`), die Liste stand als einzige Fläche der
+            Einstellungsseite direkt auf dem Seitenhintergrund. Die zwei Knöpfe
+            ziehen in den Kartenkopf, wo die übrigen Karten ihre Aktion tragen. */}
+        <TabsContent value="list" className="mt-4">
+          <SettingCard
+            action={
+              <DemoLock active={demoMode}>
+                <div className="flex gap-2">
+                  {!demoMode && (
+                    <Button
+                      variant="outline"
+                      onClick={handleOpenSyncDialog}
+                      title={syncUnavailable ? t('personnel.syncUnavailable') : undefined}
+                      disabled={syncUnavailable}
+                    >
+                      <RefreshCw className="size-4" />
+                      {t('personnel.syncButton')}
+                    </Button>
+                  )}
+                  <Button onClick={handleOpenCreate}>
+                    <PlusCircle className="size-4" />
+                    {t('personnel.addButton')}
+                  </Button>
+                </div>
+              </DemoLock>
+            }
+          >
           <DemoLock active={demoMode} className="space-y-4">
-          <div className="flex justify-end gap-2">
-            {!demoMode && (
-              <Button variant="outline" onClick={handleOpenSyncDialog}>
-                <RefreshCw className="size-4" />
-                {t('personnel.syncButton')}
-              </Button>
-            )}
-            <Button onClick={handleOpenCreate}>
-              <PlusCircle className="size-4" />
-              {t('personnel.addButton')}
-            </Button>
-          </div>
+          {!demoMode && syncUnavailable && (
+            <SettingUnavailableNote>{t('personnel.syncUnavailable')}</SettingUnavailableNote>
+          )}
 
           <Table>
             <TableHeader>
@@ -456,9 +475,10 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
             </TableBody>
           </Table>
           </DemoLock>
+          </SettingCard>
         </TabsContent>
 
-        <TabsContent value="sort">
+        <TabsContent value="sort" className="mt-4">
           <CategorySortOrder
             title={t('personnel.sortTitle')}
             description={t('personnel.sortDescription')}
@@ -471,47 +491,53 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
       {/* Edit / Create Personnel Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               {editingPersonnel ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
             </DialogTitle>
           </DialogHeader>
+          {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.
+              `fieldState` off the Controller render props carries the validation message,
+              so the row needs neither FormItem nor FormMessage. */}
           <Form {...form}>
-            <form onSubmit={onSubmit} className="space-y-3" noValidate>
+            <form onSubmit={onSubmit} className="space-y-1 py-2" noValidate>
               <FormField
                 control={form.control}
                 name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-semibold text-muted-foreground">
-                      {t('common.name')} <span className="text-destructive" aria-hidden="true">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder={t('personnel.namePlaceholder')}
-                        autoFocus
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                render={({ field, fieldState }) => (
+                  <DetailField
+                    label={t('common.name')}
+                    htmlFor="personnel-name"
+                    required
+                    error={fieldState.error?.message}
+                  >
+                    <Input
+                      {...field}
+                      id="personnel-name"
+                      aria-invalid={!!fieldState.error}
+                      placeholder={t('personnel.namePlaceholder')}
+                      autoFocus
+                    />
+                  </DetailField>
                 )}
               />
 
               <FormField
                 control={form.control}
                 name="role"
-                render={({ field }) => {
+                render={({ field, fieldState }) => {
                   const showCustomInput =
                     existingRoles.length === 0 ||
                     !existingRoles.includes(field.value) ||
                     field.value === '';
                   return (
-                    <FormItem>
-                      <FormLabel htmlFor="role" className="text-sm font-semibold text-muted-foreground">
-                        {t('personnel.roleLabel')} <span className="text-destructive" aria-hidden="true">*</span>
-                      </FormLabel>
+                    <DetailField
+                      label={t('personnel.roleLabel')}
+                      htmlFor="personnel-role"
+                      required
+                      error={fieldState.error?.message}
+                    >
                       {existingRoles.length > 0 ? (
                         <>
                           <Select
@@ -534,11 +560,9 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                               }
                             }}
                           >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder={t('personnel.rolePlaceholder')} />
-                              </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger id="personnel-role" className="w-full">
+                              <SelectValue placeholder={t('personnel.rolePlaceholder')} />
+                            </SelectTrigger>
                             <SelectContent>
                               {existingRoles.map((role) => (
                                 <SelectItem key={role} value={role}>
@@ -564,16 +588,14 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                           )}
                         </>
                       ) : (
-                        <FormControl>
-                          <Input
-                            {...field}
-                            id="role"
-                            placeholder={t('personnel.roleExamplePlaceholder')}
-                          />
-                        </FormControl>
+                        <Input
+                          {...field}
+                          id="personnel-role"
+                          aria-invalid={!!fieldState.error}
+                          placeholder={t('personnel.roleExamplePlaceholder')}
+                        />
                       )}
-                      <FormMessage />
-                    </FormItem>
+                    </DetailField>
                   );
                 }}
               />
@@ -581,86 +603,90 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               <FormField
                 control={form.control}
                 name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-semibold text-muted-foreground">{t('personnel.availability')}</FormLabel>
+                render={({ field, fieldState }) => (
+                  <DetailField
+                    label={t('personnel.availability')}
+                    htmlFor="personnel-status"
+                    error={fieldState.error?.message}
+                  >
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
+                      <SelectTrigger id="personnel-status" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="available">{t('common.available')}</SelectItem>
                         <SelectItem value="unavailable">{t('common.unavailable')}</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
-                  </FormItem>
+                  </DetailField>
                 )}
               />
 
-              <div className="space-y-1.5">
-                <Label className="text-sm font-semibold text-muted-foreground">{t('personnel.tags')}</Label>
-                {/* Currently assigned tags */}
-                {tags.length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap">
-                    {tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="default"
-                        className="text-xs px-2 py-0.5 cursor-pointer gap-1"
-                        onClick={() => toggleTag(tag)}
-                      >
-                        {tag}
-                        <X className="h-3 w-3" />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {/* Quick-toggle existing tags not yet assigned */}
-                {existingTags.filter((t) => !tags.includes(t)).length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap">
-                    {existingTags
-                      .filter((t) => !tags.includes(t))
-                      .map((tag) => (
+              {/* Chips stack, so the label sits at the top of the row rather than centred
+                  against three lines of them. */}
+              <DetailField label={t('personnel.tags')} htmlFor="personnel-new-tag" alignStart>
+                <div className="space-y-1.5">
+                  {/* Currently assigned tags */}
+                  {tags.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {tags.map((tag) => (
                         <Badge
                           key={tag}
-                          variant="outline"
-                          className="text-xs px-2 py-0.5 cursor-pointer text-muted-foreground"
+                          variant="default"
+                          className="text-xs px-2 py-0.5 cursor-pointer gap-1"
                           onClick={() => toggleTag(tag)}
                         >
-                          + {tag}
+                          {tag}
+                          <X className="h-3 w-3" />
                         </Badge>
                       ))}
+                    </div>
+                  )}
+                  {/* Quick-toggle existing tags not yet assigned */}
+                  {existingTags.filter((t) => !tags.includes(t)).length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {existingTags
+                        .filter((t) => !tags.includes(t))
+                        .map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-xs px-2 py-0.5 cursor-pointer text-muted-foreground"
+                            onClick={() => toggleTag(tag)}
+                          >
+                            + {tag}
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
+                  {/* Add custom tag */}
+                  <div className="flex gap-1.5">
+                    <Input
+                      id="personnel-new-tag"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addCustomTag();
+                        }
+                      }}
+                      placeholder={t('personnel.newTagPlaceholder')}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addCustomTag}
+                      disabled={!newTag.trim()}
+                      className="h-8 px-3"
+                    >
+                      {t('personnel.addTag')}
+                    </Button>
                   </div>
-                )}
-                {/* Add custom tag */}
-                <div className="flex gap-1.5">
-                  <Input
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addCustomTag();
-                      }
-                    }}
-                    placeholder={t('personnel.newTagPlaceholder')}
-                    className="h-8 text-sm"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addCustomTag}
-                    disabled={!newTag.trim()}
-                    className="h-8 px-3"
-                  >
-                    {t('personnel.addTag')}
-                  </Button>
                 </div>
-              </div>
+              </DetailField>
 
               <DialogFooter>
                 <Button

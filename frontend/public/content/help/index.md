@@ -98,7 +98,9 @@ Unter **Einstellungen → Karten-Modus** stehen drei Einstellungen zur Wahl:
 
 Offline-Kacheln müssen einmalig heruntergeladen werden, und zwar für das **eigene** Gebiet – die Voreinstellung deckt Basel-Landschaft ab. Das macht die Person, die den Server betreut, mit `just tiles-download` auf dem Docker-Host; die Anleitung dazu steht in `docs/OFFLINE_MAPS.md`. Der Download ist gross und dauert; er gehört auf einen ruhigen Nachmittag, nicht auf den Abend vor einer Übung.
 
-Ob es geklappt hat, zeigt `just tiles-status`: es unterscheidet zwischen «nur die minimalen Start-Kacheln» und «echte Offline-Daten für die Region».
+**Solange keine Kacheln da sind, ist "Nur Offline" nicht wählbar.** Beim ersten Start wird eine leere Start-Kacheldatei angelegt, damit der Kachel-Server überhaupt hochfährt – sie enthält nichts. Die Einstellungsseite prüft das und schreibt direkt neben die Auswahl, was tatsächlich installiert ist; ohne Kacheln bleibt auch "Auto" online und fällt bei einem Ausfall auf nichts zurück.
+
+Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es unterscheidet zwischen «nur die minimalen Start-Kacheln» und «echte Offline-Daten für die Region».
 
 ---
 
@@ -255,7 +257,7 @@ Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **
 - **Wo:** Button **"Divera-Alarm"** im Einsatz-Detail-Dialog und im Disponiert-Dialog.
 - **Empfänger:** die dem Einsatz zugewiesene Mannschaft (vorausgewählt) sowie die **Fahrer** der zugewiesenen Fahrzeuge (gelistet, aber nicht vorausgewählt). Vor dem Senden bestätigen.
 - **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden – nicht verknüpfte sind ausgegraut. Verknüpft wird über den Divera-Personen-Sync (Einstellungen → Personal).
-- **Aktivieren:** Einstellungen → Alarmierung → "Divera-Ausalarmierung" einschalten (benötigt Divera-Zugangsschlüssel). Dort gibt es auch einen **Testalarm** an eine einzelne Person.
+- **Aktivieren:** Einstellungen → Alarmierung → "Ausalarmierung" einschalten. Dort gibt es auch einen **Testalarm** an eine einzelne Person. Ist auf dem Server kein Alarmierungs-Anbieter hinterlegt, ist der Schalter **ausgegraut** und die Zeile sagt es – so entsteht gar nicht erst ein Alarm-Knopf auf dem Board, der beim Drücken nichts tut. Welche Bereiche eingerichtet sind, steht unter **Einstellungen → Integrationen**.
 - Wird im **Trainings- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
 
 ### Divera-Mitteilung (Info, kein Alarm)
@@ -565,7 +567,7 @@ Ereignisse können als **Training** markiert werden (Badge „Übung"). Übungsd
 
 ### Übungs-Steuerung
 
-Bei Trainings-Ereignissen erscheint in den Einstellungen die **Übungs-Steuerung** zum Generieren von Übungs-Einsätzen:
+Ist das ausgewählte Ereignis eine Übung, erscheint **in der Werkzeugleiste des Boards** (oben, neben "Drucken") der Knopf **"Übungs-Steuerung"**. Er öffnet die Seite `/training` zum Generieren von Übungs-Einsätzen – nicht in den Einstellungen:
 
 | Knopf | Wirkung |
 |-------|---------|
@@ -642,28 +644,65 @@ Klick auf einen Eintrag öffnet die entsprechenden Einstellungen.
 
 ---
 
+## Ausfallsicherheit (Papier-Fallback)
+
+Einstellungen → **Ausfallsicherheit**. Zwei Schalter, die den aktuellen Board-Stand
+ausserhalb des Systems bereithalten, bevor man ihn braucht:
+
+| Schalter | Was er tut | Reichweite |
+|----------|------------|------------|
+| **Board automatisch drucken (Thermo)** | Legt in einem festen Takt einen Board-Schnappschuss auf den Thermodrucker – nur, wenn sich seit dem letzten Ausdruck etwas geändert hat | Ganze Station |
+| **Lageblatt Auto-Download** | Legt in einem festen Takt ein A4-Lageblatt (PDF) in den Download-Ordner; bleibt auch ohne Netz lesbar und druckbar | Nur dieses Gerät |
+
+**Beides läuft auch in einer Übung.** Ein Papier-Fallback, den niemand üben kann, ist
+keiner – darum druckt der automatische Schnappschuss bei Übungs-Ereignissen genauso.
+Ein Übungs-Zettel trägt den Kopf **ÜBUNG** und ist damit nicht mit einem echten zu
+verwechseln.
+
+### Wenn das System ausfällt
+
+1. **Nicht neu anfangen.** Der zuletzt gedruckte Board-Schnappschuss ist der Stand –
+   ab hier wird auf Papier weitergeführt: neue Einsätze, Zuweisungen und Statuswechsel
+   von Hand darauf nachtragen.
+2. **Das letzte Lageblatt dazunehmen.** Es liegt im Download-Ordner dieses Geräts und
+   braucht kein Netz.
+3. **Eine Person führt das Papier**, so wie sonst eine Person das Board führt. Zwei
+   parallele Papierstände sind schlimmer als gar keiner.
+4. **Kommt das System zurück**, wird der Papierstand nachgetragen – erst dann gilt
+   wieder der Bildschirm.
+
+Deshalb gehören beide Schalter zum Aufstarten des KP (die Setup-Checkliste fragt sie
+ab) und nicht in den Moment, in dem der Bildschirm schwarz ist.
+
+---
+
 ## Lokale Installation
 
 Für den Einsatz ohne Internetverbindung kann KP Rück lokal auf einem Kommandoposten-Rechner betrieben werden.
 
 ### Voraussetzungen
-- Docker Desktop installiert
-- Git Repository geklont
+- Docker installiert
+- Die Aufstellung eingerichtet (`.env` vorhanden)
 
-### Starten
+### Erstes Mal einrichten
 ```bash
-just dev        # Startet alle Services
+just init       # Legt die .env an und führt durch die Einrichtung
+```
+
+### Starten und stoppen
+```bash
+just up         # Startet die Anlage
+just down       # Stoppt die Anlage (die Daten bleiben)
+just doctor     # Prüft, ob alles läuft – Datenbank, Drucker, Kacheln, Backup
 ```
 
 Daten werden automatisch von Railway synchronisiert (siehe Sync-Einstellungen).
 
-### Stoppen
-```bash
-just dev-stop    # Services stoppen
-just dev-clean   # Alles zurücksetzen (löscht Daten) – fragt zuerst nach
-```
-
 Die lokale Instanz läuft unter `http://localhost:3000`.
+
+> **Die `dev-`Rezepte sind nicht für den Betrieb.** `just dev`, `just dev-stop` und
+> `just dev-clean` gehören zur Entwicklung; `just dev-clean` **löscht die Datenbank und
+> alle Fotos**. Am Kommandoposten gelten die vier Verben oben.
 
 ---
 
@@ -686,7 +725,7 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 
 | Auftrag | Auslöser | Inhalt |
 |---------|----------|--------|
-| **Einsatzzettel** | Automatisch bei Status "Disponiert"/"Einsatz", oder Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
+| **Einsatzzettel** | Automatisch beim Wechsel auf **"Disponiert / Anfahrt"** – einmal pro Einsatz –, oder jederzeit von Hand über Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
 | **Board-Snapshot** | Footer → "Drucken" (oder Taste `D`) → Spalte **Thermodruck** → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
 | **QR-Code-Zettel** | In den Slide-ups Check-In / Reko / Viewer / Alarm → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links – zum Verteilen auf Papier |
 

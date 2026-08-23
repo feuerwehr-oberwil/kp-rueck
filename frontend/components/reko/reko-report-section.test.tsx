@@ -33,6 +33,25 @@ import RekoReportSection from '@/components/reko/reko-report-section'
  * on site — is exactly the case a radio message arrives for, and it is the one
  * the old read-only section had no answer to at all.
  */
+/** A submitted report, with only the fields a case cares about spelled out. */
+function report(overrides: Record<string, unknown>) {
+  return {
+    incident_id: 'i-1',
+    is_draft: false,
+    is_relevant: true,
+    summary_text: null,
+    additional_notes: null,
+    dangers_json: null,
+    effort_json: null,
+    power_supply: null,
+    photos_json: [],
+    submitted_at: '2026-08-10T18:00:00Z',
+    updated_at: '2026-08-10T18:00:00Z',
+    submitted_by_personnel_name: 'Muster Hans',
+    ...overrides,
+  }
+}
+
 describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -41,10 +60,28 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
   })
 
   it('offers "Reko-Bericht erfassen" on an incident with no report and no field contact', async () => {
+    // The card mount (phone sheet, wall display), where the placeholder is a
+    // box and the button stands beside it.
     renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
 
     expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Reko-Bericht erfassen/ })).toBeInTheDocument()
+  })
+
+  it('carries the create action ON the empty row at the board (Variante A)', async () => {
+    // No dashed box and no second control: the row that would hold the report
+    // says it has none and offers the way to fix that. So there is exactly one
+    // thing to click on an incident with nothing filed.
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+
+    await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
+    expect(screen.queryByText('Noch kein Reko-Bericht')).not.toBeInTheDocument()
+
+    const actions = screen.getAllByRole('button')
+    expect(actions).toHaveLength(1)
+    await user.click(actions[0])
+    expect(screen.getByText('Einsatz relevant?')).toBeInTheDocument()
   })
 
   it('expands the form in place rather than opening a dialog', async () => {
@@ -61,9 +98,10 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
   it('files the dictated report through the board door', async () => {
     const user = userEvent.setup()
-    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit />)
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
 
-    await user.click(await screen.findByRole('button', { name: /Reko-Bericht erfassen/ }))
+    await waitFor(() => expect(getIncidentRekoReports).toHaveBeenCalled())
+    await user.click(screen.getAllByRole('button')[0])
     await user.click(screen.getByRole('button', { name: 'Ja' }))
     await user.click(screen.getByRole('button', { name: /Bericht speichern/ }))
 
@@ -115,6 +153,36 @@ describe('the Reko block as an editing surface (plan 26 §5.1)', () => {
 
     expect(await screen.findByText('Noch kein Reko-Bericht')).toBeInTheDocument()
     expect(screen.queryByText(/vor Ort/)).not.toBeInTheDocument()
+  })
+
+  it('shows the whole history as rows at the board, not behind a collapsible', async () => {
+    // The board's question is «was hat sich seit der letzten Meldung geändert»,
+    // and it used to cost two clicks: one on «2 frühere Reko-Berichte», one per
+    // dashed card. Every report is a row now, and unfolding one gives the same
+    // field rows as the current report — there is no second card design for
+    // "older".
+    getIncidentRekoReports.mockResolvedValue([
+      report({ id: 'r-now', summary_text: 'Wasser 15 cm', submitted_at: '2026-08-10T19:34:00Z' }),
+      report({
+        id: 'r-before',
+        summary_text: 'Zulauf noch nicht gestoppt',
+        submitted_at: '2026-08-10T19:02:00Z',
+        effort_json: { personnel_count: 4, vehicles_needed: [], equipment_needed: [], estimated_duration_hours: null },
+      }),
+    ])
+    const user = userEvent.setup()
+    renderWithIntl(<RekoReportSection incidentId="i-1" canEdit dense />)
+
+    expect(await screen.findByText(/Zulauf noch nicht gestoppt/)).toBeInTheDocument()
+    expect(screen.queryByText(/frühere Reko-Berichte/)).not.toBeInTheDocument()
+    // Folded, the earlier report is a one-line digest and nothing more.
+    expect(screen.queryByText('4 Personen')).not.toBeInTheDocument()
+
+    const amend = screen.getByRole('button', { name: /Reko-Bericht ergänzen/ })
+    const rowAction = screen.getAllByRole('button').find(button => button !== amend)
+    await user.click(rowAction!)
+
+    expect(screen.getByText('4 Personen')).toBeInTheDocument()
   })
 
   it('offers nothing to a mount that may not write', async () => {

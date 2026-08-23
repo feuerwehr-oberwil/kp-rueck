@@ -99,8 +99,11 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
 
   if (returned.length === 0 && leftOnSite.length === 0 && leftOnSiteNamed.length === 0) return null
 
+  // Unboxed («Nur Abstand»): its only production mount is the incident
+  // detail's Rapport column, where the heading + whitespace do what the card
+  // border used to.
   return (
-    <div className="rounded-lg border border-border p-4 space-y-3">
+    <div className="space-y-3">
       <div>
         <h4 className="text-sm font-semibold">{t('title')}</h4>
         <p className="text-xs text-muted-foreground">{t('description')}</p>

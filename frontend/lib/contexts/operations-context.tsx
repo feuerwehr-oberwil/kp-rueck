@@ -126,6 +126,11 @@ export interface Operation {
   /** Order of this stop within its Auftrag (lower = earlier). 0 when ungrouped. */
   groupPosition: number
   source?: string // Origin: "operator" (dashboard), "intake" (phone/walk-in), "feld" (a Trupp), or a delivering system's slug. Absent for locally-created ops.
+  /** Server-derived: this incident came from a GENUINE dispatch alarm rather
+   *  than a simulated drill one. Meaningful only inside a training Ereignis,
+   *  where the card says so — the only per-incident marker the training mode
+   *  has, because such an incident deviates from the Ereignis around it. */
+  fromRealAlarm?: boolean
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -268,6 +273,10 @@ interface OperationsContextType {
         /** Display name; also the key crew/vehicle lists are held under. */
         resourceName: string
         targetOperationId: string
+        /** Where it is going, by name — the dialog's «Neu:» line. The question
+         *  «wovon wird abgezogen» has two halves and the prompt used to name
+         *  only one of them, in running text. */
+        targetOperationLabel?: string
         conflicts: { operationId: string; operationLabel: string }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
@@ -282,6 +291,13 @@ interface OperationsContextType {
    * on a truck. Read from the same `/restliste` endpoint the Abholliste prints,
    * so there is one computation of "what is still out there", not two. */
   materialOnSite: Map<string, { incidentId: string; address: string | null; since: string | null }>
+  /** Vehicle ids flagged «Nicht einsatzbereit» in the fleet list.
+   *
+   * Vehicles have no sidebar of their own, so their readiness has to travel with
+   * the board state: the shortcut keys, the assignment dialog and the drop
+   * targets all read this set. Until now nothing on the board consulted a
+   * vehicle's state at all — a unit recorded as defective was assignable. */
+  outOfServiceVehicleIds: Set<string>
   resolveResourceConflict: (action: "move" | "keep") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
@@ -359,6 +375,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
   const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
   const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
+  const [outOfServiceVehicleIds, setOutOfServiceVehicleIds] = useState<Set<string>>(new Set())
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
@@ -540,6 +557,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       groupId: incident.group_id ?? null,
       groupPosition: incident.group_position ?? 0,
       source: incident.source || "operator",
+      fromRealAlarm: incident.from_real_alarm ?? false,
       statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
       hasCompletedReko: incident.has_completed_reko || false,
       rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -595,6 +613,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         apiClient.getEventRestliste(selectedEvent.id).catch(() => null),
       ])
       setMaterialOnSite(toMaterialOnSite(restliste))
+      setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
       const apiIncidents = incidentPage.incidents
       setIncidentTotal(incidentPage.total)
 
@@ -721,7 +740,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         isKommandoposten: kommandopostenPersonnelIds.has(person.id),
       }))
 
-      // Update material status based on assignments
+      // Update material DEPLOYMENT based on the assignments of this Ereignis.
+      //
+      // Only deployment. This used to be the whole state — a plain ternary over
+      // the assignments — which silently overwrote the readiness a station had
+      // recorded: a Tauchpumpe entered as defective came back green and
+      // draggable on the next load. `outOfService` is carried through untouched
+      // by the spread and beats this field wherever the state is read (see
+      // `materialResourceState`).
       const eventScopedMaterials = materialsList.map(material => ({
         ...material,
         status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
@@ -802,6 +828,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           apiClient.getEventRestliste(eventId).catch(() => null),
         ])
         setMaterialOnSite(toMaterialOnSite(restliste))
+        setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
         const apiIncidents = incidentPage.incidents
         setIncidentTotal(incidentPage.total)
 
@@ -935,6 +962,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           isKommandoposten: kommandopostenPersonnelIds.has(person.id),
         }))
 
+        // Deployment only — see the note in refreshOperations. `outOfService`
+        // rides through the spread and is never recomputed from assignments.
         const eventScopedMaterials = materialsList.map(material => ({
           ...material,
           status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
@@ -1640,6 +1669,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           amWartenNote: apiIncident.am_warten_note || "",
           zuFuss: apiIncident.zu_fuss || false,
           source: apiIncident.source || "operator",
+          fromRealAlarm: apiIncident.from_real_alarm ?? false,
           statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
           hasCompletedReko: false,
           rekoArrivedAt: null,
@@ -1719,6 +1749,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           resourceId: personId,
           resourceName: personName,
           targetOperationId: operationId,
+          targetOperationLabel: getIncidentRefLabel(operation),
           conflicts,
         })
         return
@@ -1860,6 +1891,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // «Nicht einsatzbereit» is a lock, not a note. The sidebar row is already
+    // undraggable and the picker greys it out, so this is the backstop for the
+    // paths that don't go through either (command palette, Auftrag sheet).
+    if (material.outOfService) {
+      toast.error(translateOutsideReact('notifications.materials.outOfServiceBlockedTitle', { name: material.name }), {
+        description: translateOutsideReact('notifications.materials.outOfServiceBlockedDescription'),
+      })
+      return
+    }
+
     // A consumable is not a single physical thing — several incidents can draw
     // from the same Bindemittel, so it never conflicts. Everything else does,
     // and used to be dropped in silence by a `status === "assigned"` guard right
@@ -1872,6 +1913,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           resourceId: materialId,
           resourceName: material.name,
           targetOperationId: operationId,
+          targetOperationLabel: getIncidentRefLabel(operation),
           conflicts,
         })
         return
@@ -1940,6 +1982,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // «Nicht einsatzbereit» is a lock for vehicles too. The picker greys the row
+    // out; this is the backstop for the shortcut keys and the command palette.
+    if (outOfServiceVehicleIds.has(vehicleId)) {
+      toast.error(translateOutsideReact('notifications.materials.outOfServiceBlockedTitle', { name: vehicleName }), {
+        description: translateOutsideReact('notifications.materials.outOfServiceBlockedDescription'),
+      })
+      return
+    }
+
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
     // ask the operator whether to move it here or keep the double booking,
     // rather than silently double-booking it.
@@ -1950,6 +2001,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         resourceId: vehicleId,
         resourceName: vehicleName,
         targetOperationId: operationId,
+        targetOperationLabel: getIncidentRefLabel(operation),
         conflicts,
       })
       return
@@ -2273,6 +2325,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         vehicleNeedingDriver,
         clearVehicleNeedingDriver,
         resourceConflict,
+        outOfServiceVehicleIds,
         materialOnSite,
         resolveResourceConflict,
         cancelResourceConflict,

@@ -496,7 +496,7 @@ export function StopListRow({
       </div>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
+        <ContextMenuContent className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap">
           {onSetStatus &&
             (mirror === "complete"
               ? (["complete"] as MirrorStatus[])

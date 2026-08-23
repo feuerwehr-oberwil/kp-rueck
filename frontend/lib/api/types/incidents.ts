@@ -60,6 +60,12 @@ export interface ApiIncident {
   source: string
   /** The alarm's id in the delivering system, when created from a pool alarm. */
   source_ref?: string | null
+  /** Server-derived: this card came from a GENUINE dispatch alarm, not a
+   *  simulated drill one. The rule lives in the backend schema
+   *  (`IncidentResponse.from_real_alarm`) because it reads the two write paths
+   *  that mint alarms; clients must not re-derive it from `source`/`source_ref`.
+   *  Only ever shown inside a training Ereignis — see the card badge. */
+  from_real_alarm?: boolean
   description: string | null
   contact: string | null
   contact_phone: string | null

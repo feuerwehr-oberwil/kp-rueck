@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app import models
-from app.seed import seed_database
+from app.seed import SEED_MARKER_KEY, seed_database, seed_dev_logins
 
 
 class RecordingSession:
@@ -24,13 +24,24 @@ class RecordingSession:
 
     def __init__(self):
         self.added: list[object] = []
+        # Rows that "already exist". Keyed by the compared value when the query
+        # carries a WHERE clause (a username, a settings key), and by the MODEL
+        # CLASS for clause-less existence checks ("any user at all?") — so a
+        # test can plant `existing[models.User]` to simulate a pre-marker
+        # database. Unplanted lookups get None, i.e. "nothing here yet".
+        self.existing: dict[object, object] = {}
 
-    async def execute(self, _statement):
-        # Both queries seed_database makes are existence checks, and both must
-        # answer "nothing here yet" so the seed actually runs.
+    async def execute(self, statement):
         result = MagicMock()
-        result.scalars.return_value.first.return_value = None
-        result.scalar_one_or_none.return_value = None
+        clause = getattr(statement, "whereclause", None)
+        if clause is not None:
+            key = getattr(getattr(clause, "right", None), "value", None)
+        else:
+            descriptions = getattr(statement, "column_descriptions", None) or [{}]
+            key = descriptions[0].get("entity")
+        found = self.existing.get(key) if key is not None else None
+        result.scalars.return_value.first.return_value = found
+        result.scalar_one_or_none.return_value = found
         return result
 
     def add(self, obj):
@@ -79,6 +90,18 @@ def training(monkeypatch) -> AsyncMock:
 @pytest.fixture
 def production(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
+
+
+@pytest.fixture
+def production_unclaimed(monkeypatch, _seed_environment):
+    """Production with NONE of the seed secrets: the unclaimed first boot.
+
+    Depends on `_seed_environment` explicitly so its setenvs are guaranteed to
+    happen first and the delenvs here win.
+    """
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    for name in ("ADMIN_SEED_PASSWORD", "VIEWER_PASSWORD", "EDITOR_PASSWORD"):
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture
@@ -139,3 +162,71 @@ async def test_development_seeds_training_locations(session, development, traini
     await seed_database()
 
     assert training.await_args.kwargs["seed_locations"] is True
+
+
+async def test_unclaimed_production_seeds_settings_but_no_accounts(session, production_unclaimed):
+    """No ADMIN_SEED_PASSWORD no longer aborts the boot: the board comes up
+    unclaimed — settings and templates seeded, zero user accounts."""
+    await seed_database()
+
+    assert session.count(models.User) == 0
+    assert session.count(models.Setting) > 0
+
+
+@pytest.mark.parametrize("env", ["production", "production_unclaimed", "development"])
+async def test_every_seed_path_writes_the_marker(session, env, request):
+    """The marker row IS the "already seeded" guard now — a path that forgets
+    it would re-seed on every boot (unclaimed) or crash on the username
+    constraint (the others)."""
+    request.getfixturevalue(env)
+
+    await seed_database()
+
+    keys = {s.key for s in session.added if isinstance(s, models.Setting)}
+    assert SEED_MARKER_KEY in keys
+
+
+async def test_marker_guards_the_reseed(session, production_unclaimed):
+    """Second boot of an unclaimed board: still zero users, so only the marker
+    can say "already seeded"."""
+    session.existing[SEED_MARKER_KEY] = models.Setting(key=SEED_MARKER_KEY, value="2026-08-22")
+
+    await seed_database()
+
+    assert session.added == []
+
+
+async def test_users_without_marker_also_guard(session, production):
+    """A database seeded by an older version has users but no marker row. The
+    seed must skip, not crash into the users.username unique constraint."""
+    session.existing[models.User] = models.User(
+        username="admin", password_hash="hash", role="admin", display_name="Administrator", is_active=True
+    )
+
+    await seed_database()
+
+    assert session.added == []
+
+
+async def test_dev_logins_refuse_in_production(session, production):
+    """The upsert replaces password hashes – on a station that is sabotage, not setup."""
+    with pytest.raises(RuntimeError):
+        await seed_dev_logins()
+
+    assert session.added == []
+
+
+async def test_dev_logins_overwrite_a_synced_admin_and_add_the_rest(session, development):
+    """After `just dev-sync`, the station's admin row is still there – but its hash
+    must become the LOCAL dev password, and the missing dev accounts must appear."""
+    synced_admin = models.User(
+        username="admin", password_hash="station-hash", role="admin", display_name="Administrator", is_active=False
+    )
+    session.existing["admin"] = synced_admin
+
+    await seed_dev_logins()
+
+    assert synced_admin.password_hash != "station-hash"
+    assert synced_admin.is_active is True
+    added_users = {u.username for u in session.added if isinstance(u, models.User)}
+    assert added_users == {"dev-user", "editor", "viewer"}

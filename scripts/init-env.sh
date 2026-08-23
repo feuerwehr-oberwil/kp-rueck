@@ -328,14 +328,29 @@ port_holder() {
 # Status report – what a re-run does instead of overwriting
 # ---------------------------------------------------------------------------------------
 
+# account_line KEY LABEL – like secret_line below, but for the two login accounts, which are
+# OPTIONAL since the first-run wizard: empty does not stop the stack, it means the board boots
+# unclaimed and the accounts are set in the browser at /setup. An .env from the double-click
+# starter (deploy/Start KP Rück.command) does not carry them at all, and this report must not
+# call that broken.
+account_line() {
+    local key="$1" label="$2" value
+    value="$(envval "$key")"
+    if [ -z "$value" ]; then
+        warn "$(printf '%-22s empty – the account is set in the browser at /setup (first-run wizard)' "$label")"
+    elif [ "${#value}" -lt 12 ]; then
+        bad "$(printf '%-22s only %d characters – the seed needs 12, so no account is created' "$label" "${#value}")"
+    else
+        ok "$(printf '%-22s set' "$label")"
+    fi
+}
+
 # secret_line KEY LABEL – say whether a value is present and long enough, never what it is.
 secret_line() {
-    local key="$1" label="$2" min="${3:-0}" value
+    local key="$1" label="$2" value
     value="$(envval "$key")"
     if [ -z "$value" ]; then
         bad "$(printf '%-22s empty – the stack refuses to start without it' "$label")"
-    elif [ "$min" -gt 0 ] && [ "${#value}" -lt "$min" ]; then
-        bad "$(printf '%-22s only %d characters – the seed needs %d, so no account is created' "$label" "${#value}" "$min")"
     else
         ok "$(printf '%-22s set' "$label")"
     fi
@@ -397,11 +412,11 @@ EOF
 
     printf '\n'
     say "Secrets (values are never printed)"
-    secret_line POSTGRES_PASSWORD   "POSTGRES_PASSWORD"
-    secret_line SECRET_KEY          "SECRET_KEY"
-    secret_line AUTH_SECRET_KEY     "AUTH_SECRET_KEY"
-    secret_line ADMIN_SEED_PASSWORD "ADMIN_SEED_PASSWORD" 12
-    secret_line VIEWER_PASSWORD     "VIEWER_PASSWORD" 12
+    secret_line POSTGRES_PASSWORD    "POSTGRES_PASSWORD"
+    secret_line SECRET_KEY           "SECRET_KEY"
+    secret_line AUTH_SECRET_KEY      "AUTH_SECRET_KEY"
+    account_line ADMIN_SEED_PASSWORD "ADMIN_SEED_PASSWORD"
+    account_line VIEWER_PASSWORD     "VIEWER_PASSWORD"
 
     printf '\n'
     say "Ports on this box"

@@ -13,6 +13,13 @@ import { useAuth } from "@/lib/contexts/auth-context"
  * MapView) — deliberately not app-wide, so trainees keep working realistically;
  * only whoever looks at the map sees that the vehicle movement is simulated.
  * Renders nothing while no simulation runs.
+ *
+ * NOT bound to `training_flag`, and that is deliberate: sim drives are global
+ * and can outlive the drill they were started in, so simulated movement can
+ * render on a LIVE event's map. The backend kills running sims when a real
+ * alarm comes in; this banner is the belt-and-braces backstop — whenever the
+ * user is authenticated and sim drives exist, it says so, whatever event is
+ * selected.
  */
 export function GpsSimBanner() {
   const t = useTranslations("training.banner")

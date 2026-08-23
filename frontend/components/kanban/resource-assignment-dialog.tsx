@@ -7,10 +7,10 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2 } from "lucide-react"
+import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
-import { personMatchesQuery } from "@/lib/resource-status"
+import { isPersonOccupied, materialResourceState, personMatchesQuery } from "@/lib/resource-status"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -31,7 +31,13 @@ interface ResourceAssignmentDialogProps {
   /** Auftrag name shown in the title when assignTarget === 'route'. */
   routeName?: string
   personnel: Person[]
-  vehicles: Array<{ id: string; name: string; type: string }>
+  /** «Nicht einsatzbereit» (readiness, which beats deployment) is resolved
+   *  INSIDE the dialog from the operations context — every caller gets it
+   *  without threading a flag through, and the context refreshes with every
+   *  poll. `outOfService` remains as an optional caller-side override and is
+   *  OR-ed with the context. A flagged vehicle stays visible and is not
+   *  selectable; hiding it would leave the operator wondering where it went. */
+  vehicles: Array<{ id: string; name: string; type: string; outOfService?: boolean }>
   materials: Material[]
   assignedPersonnel: string[] // Array of personnel names
   assignedVehicles: string[] // Array of vehicle names
@@ -58,6 +64,21 @@ interface ResourceAssignmentDialogProps {
 /** Where an occupied resource currently is: `short` is length-capped for the
  *  card subtitle, `full` untruncated for the hover title and confirm copy. */
 type OccupancyLabel = { short: string; full: string }
+
+/**
+ * One place a resource is currently held, with enough to RELEASE it again.
+ *
+ * The dialog used to keep only a display label per resource, which is why its
+ * own «Doppelbelegung?» could not offer «Verschieben» — it had no idea which
+ * incident to take the person off. `id` is an incident id for `kind: 'incident'`
+ * and an Auftrag id for `kind: 'route'`; a route release additionally needs the
+ * group-assignment id.
+ */
+type Binding = OccupancyLabel & {
+  kind: 'incident' | 'route'
+  id: string
+  assignmentId?: string
+}
 
 /**
  * The rule above one of the two blocks the lists are split into.
@@ -118,8 +139,8 @@ export function ResourceAssignmentDialog({
 }: ResourceAssignmentDialogProps) {
   const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
-  const { operations } = useOperations()
-  const { groups, getGroupResources } = useGroups()
+  const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
+  const { groups, getGroupResources, unassignResource } = useGroups()
   const { selectedEvent } = useEvent()
   // Who drives what, live. Assigning a vehicle without knowing whether anybody
   // is driving it is how a Fahrzeug reaches a Schadenplatz on the board and
@@ -212,43 +233,104 @@ export function ResourceAssignmentDialog({
   }
 
   const availableVehicles = useMemo(() => {
-    // Show all vehicles — assigned ones appear checked and can be toggled off
+    // Show all vehicles — assigned ones appear checked and can be toggled off.
     // Keep occupied vehicles visible: selecting one invokes the standard
     // move/keep conflict prompt instead of silently hiding it.
-    return vehicles
-  }, [vehicles])
+    // «Nicht einsatzbereit» joins here from the operations context rather than
+    // from the caller: the map and the Auftrag path used to pass bare fleet
+    // lists, so a defective vehicle read as free on exactly those surfaces.
+    return vehicles.map((v) => ({
+      ...v,
+      outOfService: (v.outOfService ?? false) || outOfServiceVehicleIds.has(v.id),
+    }))
+  }, [vehicles, outOfServiceVehicleIds])
 
   // For materials: show EVERYTHING — items bound to another incident/Auftrag stay
   // visible (amber-flagged) and need an explicit confirm instead of vanishing.
   const selectableMaterials = materials
 
-  // Where an occupied vehicle/material/person currently is, resolved from the
-  // operations + Auftrag contexts (no prop threading): vehicle name → label,
-  // material id → label, person name → label (crew arrays hold names). Labels
-  // carry a truncated `short` for the card plus an untruncated `full` for the
-  // hover title / confirm copy. The current assign target never counts as
-  // "elsewhere" — note operationId holds the GROUP id when assignTarget === 'route'.
+  // EVERY place an occupied vehicle/material/person is currently held, resolved
+  // from the operations + Auftrag contexts (no prop threading): vehicle name →
+  // bindings, material id → bindings, person name → bindings (crew arrays hold
+  // names). Each binding carries a truncated `short` for the card, an
+  // untruncated `full` for the hover title, and what is needed to release it.
+  // The current assign target never counts as "elsewhere" — note operationId
+  // holds the GROUP id when assignTarget === 'route'.
+  //
+  // A LIST, not a single entry: a resource can stand on two Schadenplätze and a
+  // route at once, and «Hierher verschieben» has to release all of them.
   const { vehicleOccupancy, materialOccupancy, personOccupancy } = useMemo(() => {
-    const vehicleMap = new Map<string, OccupancyLabel>()
-    const materialMap = new Map<string, OccupancyLabel>()
-    const personMap = new Map<string, OccupancyLabel>()
+    const vehicleMap = new Map<string, Binding[]>()
+    const materialMap = new Map<string, Binding[]>()
+    const personMap = new Map<string, Binding[]>()
+    const push = (map: Map<string, Binding[]>, key: string, binding: Binding) => {
+      const existing = map.get(key)
+      if (existing) existing.push(binding)
+      else map.set(key, [binding])
+    }
     for (const op of operations) {
       if (assignTarget === 'incident' && op.id === operationId) continue
       const label = { short: getIncidentRefLabel(op, 40), full: getIncidentRefLabel(op, 1000) }
-      for (const name of op.vehicles) if (!vehicleMap.has(name)) vehicleMap.set(name, label)
-      for (const id of op.materials) if (!materialMap.has(id)) materialMap.set(id, label)
-      for (const name of op.crew) if (!personMap.has(name)) personMap.set(name, label)
+      for (const name of op.vehicles) push(vehicleMap, name, { ...label, kind: 'incident', id: op.id })
+      for (const id of op.materials) push(materialMap, id, { ...label, kind: 'incident', id: op.id })
+      for (const name of op.crew) push(personMap, name, { ...label, kind: 'incident', id: op.id })
     }
     for (const group of groups) {
       if (assignTarget === 'route' && group.id === operationId) continue
       const res = getGroupResources(group.id)
       const label = { short: group.name, full: group.name }
-      for (const v of res.vehicles) if (!vehicleMap.has(v.name)) vehicleMap.set(v.name, label)
-      for (const m of res.materials) if (!materialMap.has(m.resourceId)) materialMap.set(m.resourceId, label)
-      for (const p of res.personnel) if (!personMap.has(p.name)) personMap.set(p.name, label)
+      for (const v of res.vehicles) push(vehicleMap, v.name, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
+      for (const m of res.materials) push(materialMap, m.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: m.assignmentId })
+      for (const p of res.personnel) push(personMap, p.name, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
     }
     return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap, personOccupancy: personMap }
   }, [operations, groups, getGroupResources, assignTarget, operationId])
+
+  /** The «Neu:» half of the conflict prompt — where the resource is heading. */
+  const targetLabel = useMemo(() => {
+    if (assignTarget === 'route') return routeName
+    const op = operations.find((o) => o.id === operationId)
+    return op ? getIncidentRefLabel(op, 1000) : undefined
+  }, [assignTarget, routeName, operations, operationId])
+
+  /**
+   * Hand the double-booking question to the ONE dialog that asks it.
+   *
+   * This dialog used to ask it a second time itself, with two of the three
+   * answers: «Trotzdem zuweisen» or nothing, no «Verschieben». Same question,
+   * same three answers, whichever way the assignment started.
+   */
+  const askConflict = (
+    resourceType: 'personnel' | 'material',
+    resourceId: string,
+    resourceName: string,
+    bindings: Binding[],
+    proceed: () => void,
+  ) => {
+    requestResourceConflict({
+      resourceType,
+      resourceId,
+      resourceName,
+      targetOperationId: operationId ?? '',
+      targetOperationLabel: targetLabel,
+      conflicts: bindings.map((b) => ({ operationId: b.id, operationLabel: b.full })),
+      customResolve: async (action) => {
+        if (action === 'move') {
+          // Sequentially: two releases of the same person racing each other
+          // reconcile against each other's stale snapshot.
+          for (const binding of bindings) {
+            if (binding.kind === 'incident') {
+              if (resourceType === 'material') await removeMaterial(binding.id, resourceId)
+              else await removeCrew(binding.id, resourceName)
+            } else if (binding.assignmentId) {
+              await unassignResource(binding.id, binding.assignmentId)
+            }
+          }
+        }
+        proceed()
+      },
+    })
+  }
 
   // Materials bound to ANOTHER incident/Auftrag (never the current target —
   // anything in assignedMaterials is "here"). Status doubles as a fallback flag
@@ -274,17 +356,17 @@ export function ResourceAssignmentDialog({
   }
   const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
     if (assignedVehicles.includes(vehicle.name)) return null
-    if (vehicleOccupancy.has(vehicle.name)) return vehicleOccupancy.get(vehicle.name)!
+    if (vehicleOccupancy.has(vehicle.name)) return vehicleOccupancy.get(vehicle.name)![0]
     if (occupiedVehicleIds.has(vehicle.id)) return genericElsewhereLabel()
     return null
   }
   const materialElsewhereLabel = (material: Material): OccupancyLabel | null => {
     if (!occupiedElsewhereMaterialIds.has(material.id)) return null
-    return materialOccupancy.get(material.id) ?? genericElsewhereLabel()
+    return materialOccupancy.get(material.id)?.[0] ?? genericElsewhereLabel()
   }
   const personElsewhereLabel = (person: Person): OccupancyLabel | null => {
     if (assignedPersonnel.includes(person.name)) return null
-    if (personOccupancy.has(person.name)) return personOccupancy.get(person.name)!
+    if (personOccupancy.has(person.name)) return personOccupancy.get(person.name)![0]
     // Deliberately NOT falling back on `status === 'assigned'`: the context sets
     // that flag for special-function people too (Fahrer, Telefondienst, …), and
     // the generic «Im Einsatz» next to their function badge claimed an incident
@@ -430,9 +512,16 @@ export function ResourceAssignmentDialog({
       })
       return
     }
-    // Selecting someone bound to another incident/Auftrag → confirm first,
-    // mirroring the material double-booking guard. Takes precedence over the
-    // special-function confirm — one confirm is enough.
+    // Selecting someone bound to another incident/Auftrag → the shared
+    // Doppelbelegung dialog (verschieben / auf beiden führen / abbrechen).
+    // Takes precedence over the special-function confirm — one question is enough.
+    const bindings = personOccupancy.get(person.name)
+    if (bindings?.length) {
+      askConflict('personnel', person.id, person.name, bindings, () => addPersonToSelection(person))
+      return
+    }
+    // Bound elsewhere but not resolvable to a concrete incident/route: nothing
+    // to move it off, so it stays a plain confirm.
     if (personElsewhereLabel(person)) {
       setConfirmOccupiedPerson(person)
       return
@@ -482,9 +571,14 @@ export function ResourceAssignmentDialog({
       })
       return
     }
-    // Selecting a material bound to another incident/Auftrag → confirm first,
-    // mirroring the crew double-booking guard.
+    // Selecting a material bound to another incident/Auftrag → the same shared
+    // Doppelbelegung dialog the crew list and drag & drop use.
     if (occupiedElsewhereMaterialIds.has(material.id)) {
+      const bindings = materialOccupancy.get(material.id)
+      if (bindings?.length) {
+        askConflict('material', material.id, material.name, bindings, () => addMaterialToSelection(material.id))
+        return
+      }
       setConfirmMaterial(material)
       return
     }
@@ -563,8 +657,23 @@ export function ResourceAssignmentDialog({
     const free: Person[] = []
     const busy: Person[] = []
     for (const person of sortedFilteredPersonnel) {
-      const isBusy = !!personElsewhereLabel(person) || specialFunctionsOf(person).length > 0
-      ;(isBusy ? busy : free).push(person)
+      // `isPersonOccupied` — the SAME predicate the sidebar list is filtered
+      // with and the same one its «N frei» footer counts, so the dialog and the
+      // roster two panels away can never disagree about who is available.
+      //
+      // A standing Ereignis function counts as busy: a Magaziner, a
+      // Telefondienst or the TLF's Fahrer is doing a job, and «frei» has to mean
+      // «kann ich losschicken». It is a sorting decision, not a gate — the block
+      // stays clickable and taking somebody out of it still asks first.
+      //
+      // EXCEPT on THIS target, which is never «busy» — it is selected. Somebody
+      // already on this Einsatz is `status: "assigned"` like anyone else, so
+      // without this they sank under «Bereits im Einsatz» and the dialog hid the
+      // crew it was opened to edit. `assignedPersonnel`, not the live checkbox
+      // set: ticking somebody must not make their row jump between blocks under
+      // the pointer.
+      const onThisTarget = assignedPersonnel.includes(person.name)
+      ;(!onThisTarget && isPersonOccupied(person) ? busy : free).push(person)
     }
     return { free, busy, ordered: [...free, ...busy] }
   })()
@@ -573,7 +682,10 @@ export function ResourceAssignmentDialog({
     const free: typeof filteredVehicles = []
     const busy: typeof filteredVehicles = []
     for (const vehicle of filteredVehicles) {
-      (vehicleElsewhereLabel(vehicle) ? busy : free).push(vehicle)
+      // «Nicht einsatzbereit» is not free. It sinks with the spoken-for block so
+      // «4 frei» over the grid keeps meaning what it says.
+      const spokenFor = !!vehicleElsewhereLabel(vehicle) || (!!vehicle.outOfService && !isVehicleAssigned(vehicle.name))
+      ;(spokenFor ? busy : free).push(vehicle)
     }
     return { free, busy, ordered: [...free, ...busy] }
   })()
@@ -582,7 +694,10 @@ export function ResourceAssignmentDialog({
     const free: Material[] = []
     const busy: Material[] = []
     for (const material of groupedFilteredMaterials.ungrouped) {
-      (occupiedElsewhereMaterialIds.has(material.id) ? busy : free).push(material)
+      const spokenFor =
+        occupiedElsewhereMaterialIds.has(material.id) ||
+        (materialResourceState(material) === 'unavailable' && !isMaterialSelected(material.id))
+      ;(spokenFor ? busy : free).push(material)
     }
     return { free, busy }
   })()
@@ -822,9 +937,13 @@ export function ResourceAssignmentDialog({
   }
 
   /** One vehicle row — shared by the free and the spoken-for block. */
-  const renderVehicleTile = (vehicle: { id: string; name: string; type: string }) => {
+  const renderVehicleTile = (vehicle: { id: string; name: string; type: string; outOfService?: boolean }) => {
     const isAssigned = isVehicleAssigned(vehicle.name)
     const wasJustAssigned = justAssigned === vehicle.id
+    // «Nicht einsatzbereit» beats everything: the row says so in a word and a
+    // glyph and refuses the click. No error message — the target is simply not
+    // grabbable, which is the same treatment the sidebar gives it.
+    const isOutOfService = !!vehicle.outOfService && !isAssigned
     // Already on another incident/Auftrag → amber flag with the
     // reference, matching the crew special-function treatment.
     const elsewhere = vehicleElsewhereLabel(vehicle)
@@ -841,16 +960,24 @@ export function ResourceAssignmentDialog({
       <div
         key={vehicle.id}
         className={cn(
-          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all hover-delight",
+          "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 transition-all",
+          !isOutOfService && "hover:border-primary/50 hover:bg-secondary/30 hover-delight",
           isAssigned && "border-primary/30 bg-primary/5",
-          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5"
+          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5",
+          isOutOfService && "border-dashed opacity-60"
         )}
       >
         <button
           onClick={() => handleToggleVehicle(vehicle)}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left"
+          disabled={isOutOfService}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2.5 text-left",
+            isOutOfService ? "cursor-not-allowed" : "cursor-pointer",
+          )}
         >
-          {isAssigned ? (
+          {isOutOfService ? (
+            <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+          ) : isAssigned ? (
             <CheckCircle className={cn(
               "h-5 w-5 text-emerald-500 flex-shrink-0",
               wasJustAssigned && "animate-check-appear"
@@ -859,8 +986,12 @@ export function ResourceAssignmentDialog({
             <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           )}
           <div className="min-w-0">
-            <p className="font-medium text-sm truncate" title={vehicle.name}>{vehicle.name}</p>
-            {elsewhere ? (
+            <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={vehicle.name}>{vehicle.name}</p>
+            {isOutOfService ? (
+              <p className="truncate text-2xs font-medium text-muted-foreground">
+                {t('assignmentDialog.outOfService')}
+              </p>
+            ) : elsewhere ? (
               <span
                 title={elsewhere.full}
                 className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
@@ -922,6 +1053,9 @@ export function ResourceAssignmentDialog({
     const isSelected = isMaterialSelected(material.id)
     const wasJustAssigned = justAssigned === material.id
     const elsewhere = materialElsewhereLabel(material)
+    // Readiness beats deployment — see materialResourceState. A device recorded
+    // as defective is shown, named as such, and cannot be ticked.
+    const isOutOfService = materialResourceState(material) === 'unavailable' && !isSelected
     // This material's depot IS a vehicle already assigned to the target (e.g.
     // Mowa): its stock is on scene. Emphasis only — nothing gets preselected.
     const vehicleOnScene = !elsewhere && assignedVehicles.includes(material.category)
@@ -929,14 +1063,18 @@ export function ResourceAssignmentDialog({
       <button
         key={material.id}
         onClick={() => handleToggleMaterialSelection(material)}
+        disabled={isOutOfService}
         className={cn(
-          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
+          "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
+          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-primary/50 hover:bg-secondary/30 hover-delight",
           isSelected && "border-primary/30 bg-primary/5",
           elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5",
           vehicleOnScene && !isSelected && "border-emerald-500/30"
         )}
       >
-        {isSelected ? (
+        {isOutOfService ? (
+          <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+        ) : isSelected ? (
           <CheckCircle className={cn(
             "h-5 w-5 text-emerald-500 flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
@@ -945,8 +1083,12 @@ export function ResourceAssignmentDialog({
           <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
         )}
         <div className="min-w-0">
-          <p className="font-medium text-sm truncate" title={material.name}>{material.name}</p>
-          {elsewhere ? (
+          <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={material.name}>{material.name}</p>
+          {isOutOfService ? (
+            <p className="truncate text-2xs font-medium text-muted-foreground">
+              {t('assignmentDialog.outOfService')}
+            </p>
+          ) : elsewhere ? (
             <span
               title={elsewhere.full}
               className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
@@ -1331,8 +1473,9 @@ export function ResourceAssignmentDialog({
       }}
     />
 
-    {/* Double-booking guard: selecting a material that is already on another
-        incident/Auftrag asks first. Deselecting stays immediate. */}
+    {/* Fallback only: the material is flagged as busy but the binding could not
+        be resolved to a concrete incident/Auftrag, so there is nothing to move
+        it off. Everything resolvable goes to the shared conflict dialog. */}
     <ConfirmDialog
       open={!!confirmMaterial}
       onOpenChange={(o) => !o && setConfirmMaterial(null)}
@@ -1352,8 +1495,7 @@ export function ResourceAssignmentDialog({
       }}
     />
 
-    {/* Double-booking guard: selecting a person already on another
-        incident/Auftrag asks first. Deselecting stays immediate. */}
+    {/* Fallback only — same reasoning as the material confirm above. */}
     <ConfirmDialog
       open={!!confirmOccupiedPerson}
       onOpenChange={(o) => !o && setConfirmOccupiedPerson(null)}

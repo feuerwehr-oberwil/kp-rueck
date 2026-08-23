@@ -13,6 +13,11 @@
  *  - drop board/sheet resources onto stop rows to assign them (the page-level
  *    `useKanbanDragDrop` monitor handles the `group-stop` drop contract).
  *
+ * Besides the route's own numbered stops, the map shows every OTHER located,
+ * non-completed incident of the event as a small context pin — labelled, not
+ * hidden: grey = «Offen» (click adds it as a stop), route-coloured + muted =
+ * already on another Auftrag (passive, the tooltip names the route).
+ *
  * SSR-safe: leaflet is only pulled in behind an `isClient` guard (the require()
  * pattern established by map-picker-modal.tsx), so nothing leaflet touches the
  * server render of the page that mounts this modal.
@@ -24,11 +29,14 @@ import { toast } from "sonner"
 import { MapPin, MousePointerClick, MapPinned } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
+import { useGroups } from "@/lib/contexts/groups-context"
 import type { IncidentGroup } from "@/lib/types/groups"
-import { isLocated } from "@/lib/utils/route-geo"
+import { colorAccent } from "@/lib/kanban-utils"
+import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { RouteStopList, RouteOptimizeMenu } from "../map/route-stop-list"
 
@@ -130,6 +138,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
   const { getTileUrl, getAttribution, handleTileError } = useMapMode()
 
+  // All routes + the add-by-incident-id path (the same `addStops` the "+ Stop"
+  // picker persists through) — used for the map's context pins below.
+  const { groups, addStops } = useGroups()
+
   // Keep the modal open while a drag-reorder happens inside it — a native drag
   // churns focus/pointer state that Radix would otherwise read as an outside
   // interaction and close the dialog on.
@@ -192,6 +204,39 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     [canEdit, addMode, addStopAtLatLng],
   )
 
+  /**
+   * Context pins: every OTHER located incident of the event — everything that is
+   * not a stop of THIS route and not completed. Membership comes from the
+   * groups' `stopIds` (not `op.groupId`) so the pins track the optimistic group
+   * state: adding one via its pin turns it into a numbered stop immediately.
+   */
+  const contextPins = useMemo(() => {
+    if (!group) return []
+    const memberIds = new Set(group.stopIds)
+    const routeByStopId = new Map<string, IncidentGroup>()
+    for (const g of groups) {
+      if (g.id === group.id) continue
+      for (const id of g.stopIds) routeByStopId.set(id, g)
+    }
+    const pins: { op: LocatedOperation; otherRoute: IncidentGroup | undefined }[] = []
+    for (const op of operationsById.values()) {
+      if (memberIds.has(op.id) || op.status === "complete" || !isLocated(op)) continue
+      pins.push({ op, otherRoute: routeByStopId.get(op.id) })
+    }
+    return pins
+  }, [group, groups, operationsById])
+
+  // Clicking an OPEN context pin adds that incident as a stop (same `addStops`
+  // path the "+ Stop" picker persists through). Dispatched pins stay passive.
+  const handleOpenPinClick = useCallback(
+    async (incidentId: string) => {
+      if (!canEdit || !group) return
+      const ok = await addStops(group.id, [incidentId])
+      if (ok) toast.success(t("contextStopAdded"))
+    },
+    [canEdit, group, addStops, t],
+  )
+
   // Optimize applies immediately (no preview / Übernehmen step): compute the
   // nearest-neighbour order from the chosen start anchor and persist it right away,
   // with an undo toast.
@@ -227,15 +272,55 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
       )
     }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { MapContainer, TileLayer } = require("react-leaflet")
+    const { MapContainer, TileLayer, Marker, Tooltip } = require("react-leaflet")
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require("leaflet/dist/leaflet.css")
     // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const L = require("leaflet")
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { GroupRoutes } = require("../map/group-routes")
+
+    // Small dot, deliberately unlike the 26px numbered sequence markers: solid
+    // grey = «Offen» (nobody's yet), dashed + muted route colour = already on
+    // another Auftrag (mirrors the incident picker's pin language).
+    const contextPinIcon = (fill: string, opts: { dashed?: boolean; dimmed?: boolean } = {}) =>
+      L.divIcon({
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:${fill};border:2px ${opts.dashed ? "dashed" : "solid"} white;box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:${opts.dimmed ? 0.45 : 0.9};"></div>`,
+        className: "routen-editor-context-marker",
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      })
 
     return (
       <MapContainer key={mapKey} center={center} zoom={14} className="h-full w-full" zoomControl>
         <TileLayer attribution={getAttribution()} url={getTileUrl()} eventHandlers={{ tileerror: handleTileError }} />
+        {/* Context pins first (default z), so numbered stops always sit on top. */}
+        {contextPins.map(({ op, otherRoute }) => {
+          const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
+          const clickable = !otherRoute && canEdit
+          return (
+            <Marker
+              key={op.id}
+              position={op.coordinates}
+              icon={
+                otherRoute
+                  ? contextPinIcon(colorAccent(otherRoute.id, "auftrag", groups), { dashed: true, dimmed: true })
+                  : contextPinIcon("#64748b")
+              }
+              eventHandlers={clickable ? { click: () => void handleOpenPinClick(op.id) } : undefined}
+            >
+              <Tooltip direction="top" offset={[0, -10]}>
+                <div className="text-xs leading-tight">
+                  <div className="font-medium">{location || getIncidentTypeLabel(op.incidentType)}</div>
+                  <div className="text-muted-foreground">
+                    {otherRoute ? t("contextInRoute", { name: otherRoute.name }) : t("contextOpen")}
+                  </div>
+                  {clickable && <div className="text-muted-foreground">{t("contextClickToAdd")}</div>}
+                </div>
+              </Tooltip>
+            </Marker>
+          )
+        })}
         <GroupRoutes
           groups={[displayGroup]}
           operationsById={operationsById}
@@ -255,6 +340,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     mapKey,
     displayGroup,
     operationsById,
+    contextPins,
+    groups,
+    canEdit,
+    handleOpenPinClick,
     focusStopId,
     handleMapClick,
     getAttribution,
@@ -310,10 +399,19 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
           {/* Ordered list column — fills the remaining width, truncates long rows. */}
           <div className="flex min-w-0 flex-1 flex-col min-h-0">
-            {/* Reihenfolge heading + the optimize wand (a single button whose menu
-                picks the start anchor and runs optimize immediately). */}
+            {/* Reihenfolge heading — with the stop count beside it, so the head
+                states what already gilt (the list head carries a number, like the
+                assignment dialogs') — + the optimize wand (a single button whose
+                menu picks the start anchor and runs optimize immediately). */}
             <div className="mb-2 flex h-8 items-center justify-between gap-2">
-              <span className="text-sm font-semibold">{t("order")}</span>
+              <span className="text-sm font-semibold">
+                {t("order")}
+                {displayOrder.length > 0 && (
+                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted-foreground">
+                    {displayOrder.length}
+                  </span>
+                )}
+              </span>
               {canEdit && <RouteOptimizeMenu
                 options={startOptions}
                 menuLabel={t("optimizeStartHint")}

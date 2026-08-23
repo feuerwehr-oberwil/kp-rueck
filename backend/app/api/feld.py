@@ -43,7 +43,7 @@ line here. The field surface is the first place kp-rueck touches citizen PII.
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -59,6 +59,7 @@ from ..config import settings
 from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
+from ..crud.feld.melden import never_left_the_window
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
@@ -81,6 +82,11 @@ from ..websocket_manager import broadcast_incident_update
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/feld", tags=["feld"])
+
+#: How long the poster link is good for. Named here rather than left to the
+#: token default because the same number is printed on the paper — the date and
+#: the token have to expire on the same day or the slip lies.
+FELD_LINK_VALID_HOURS = 720  # 30 days
 
 
 async def require_feld_claims(
@@ -176,8 +182,13 @@ async def generate_feld_link(
 
     One global link per Ereignis — no per-incident and no per-vehicle links.
     Long-lived (30 days), because it goes on a printed poster.
+
+    ``valid_until`` rides along so the poster can print its own expiry date: a
+    slip that stopped working looks exactly like one that still does, and the
+    only place that difference can be shown is on the paper itself.
     """
-    token = generate_feld_token(event_id)
+    valid_until = datetime.now(UTC) + timedelta(hours=FELD_LINK_VALID_HOURS)
+    token = generate_feld_token(event_id, expires_hours=FELD_LINK_VALID_HOURS)
     link = f"/feld?token={token}"
 
     base_url = str(request.base_url).rstrip("/")
@@ -187,6 +198,7 @@ async def generate_feld_link(
         "link": link,
         "full_url": f"{base_url}{link}",
         "qr_code_data": link,  # Frontend generates the QR code from this
+        "valid_until": valid_until.isoformat(),
     }
 
 
@@ -246,6 +258,24 @@ async def revoke_feld_devices(
     )
 
 
+class _FeldCodeThrottle(LoginThrottle):
+    """The login throttle plus the one number the code screen needs.
+
+    A phone in the rain deserves to know whether it has three tries left or
+    one, and only the throttle knows. Naming the remaining tries is safe here
+    in a way it is not on a login form: the secret is four digits scoped to a
+    single Ereignis, the counter counts failures only, and the lockout that
+    follows is the real defence.
+    """
+
+    async def attempts_left(self, ip: str, scope: str) -> int:
+        """Failed attempts still available before the lockout kicks in."""
+        async with self._lock:
+            entry = self._attempts.get(self._key(ip, scope))
+            used = entry.count if entry is not None else 0
+        return max(0, settings.login_max_failed_attempts - used)
+
+
 #: Wrong Feld-Codes, counted per (IP, Ereignis) — never per IP alone.
 #:
 #: The obvious control was a plain rate limit on this route, and it was wrong
@@ -255,7 +285,7 @@ async def revoke_feld_devices(
 #: page matters. Counting only FAILURES fixes that: a correct code is not an
 #: attack and costs nobody else their budget, while somebody sitting there
 #: guessing four digits against one Ereignis is cut off after a handful.
-feld_code_throttle = LoginThrottle()
+feld_code_throttle = _FeldCodeThrottle()
 
 
 @router.post("/unlock", response_model=schemas.FeldUnlockResponse)
@@ -278,24 +308,51 @@ async def unlock_feld(
 
     Rate limited hard: the limit counts every attempt, but a device unlocks once
     per Ereignis, so the ceiling only ever bites on repeated guessing.
+
+    **The refusals are told apart in the body**, because the phone screen has to
+    say something different for each: 403 carries how many tries are left, 429
+    carries the seconds to wait (`Retry-After` says the same, but a browser is
+    only allowed to read that header cross-origin when CORS exposes it, and the
+    split-origin deployments do not). An expired link token never reaches here —
+    it is the 401 from ``require_feld_claims``.
     """
     event = await _load_event(db, claims.event_id)
     scope = str(event.id)
     ip = client_ip(request) or "unknown"
 
-    wait = await feld_code_throttle.retry_after(ip, scope)
-    if wait:
-        raise HTTPException(
+    def locked(wait: int) -> HTTPException:
+        return HTTPException(
             status_code=429,
-            detail="Zu viele Fehlversuche. Bitte kurz warten.",
+            detail={
+                "error": "locked",
+                "retry_after": wait,
+                "message": "Zu viele Fehlversuche. Bitte kurz warten.",
+            },
             headers={"Retry-After": str(wait)},
         )
 
+    wait = await feld_code_throttle.retry_after(ip, scope)
+    if wait:
+        raise locked(wait)
+
     if not crud.code_matches(event, payload.code):
         await feld_code_throttle.record_failure(ip, scope)
+        # The failure that fills the counter answers "wait", not "wrong": the
+        # code the crew types next is refused whatever it says, and telling
+        # them it was wrong would send them looking for a better one.
+        wait = await feld_code_throttle.retry_after(ip, scope)
+        if wait:
+            raise locked(wait)
         # No hint about length, no "close" — and deliberately the same shape of
         # answer whether the code was wrong or malformed.
-        raise HTTPException(status_code=403, detail="Falscher Code")
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "wrong_code",
+                "attempts_left": await feld_code_throttle.attempts_left(ip, scope),
+                "message": "Falscher Code",
+            },
+        )
 
     # A correct code clears the counter: the crew that just fumbled it twice
     # must not be carrying that against the next phone on the same Wi-Fi.
@@ -743,9 +800,15 @@ async def correct_own_report(
     are the person this row says reported it*, which is one column comparison
     and cannot be widened by anything the union later decides.
 
-    Two more walls behind it: the status must still be «Eingegangen» (once a
-    crew is driving to an address, that address is not the reporter's to change
-    from a phone), and the incident must belong to the token's Ereignis.
+    Two more walls behind it: the card must still be inside the reporter's
+    window (once a crew is driving to an address, that address is not the
+    reporter's to change from a phone), and the incident must belong to the
+    token's Ereignis.
+
+    The window shuts **for good**: an un-dispatch does not reopen it
+    (`never_left_the_window`), because by then the Meldung may carry operator
+    edits and «Meldung» is assign-semantics — the phone sends its whole cached
+    form back. Same guard, same reason as the `/alarm` receipt.
     """
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
     incident = await db.get(Incident, incident_id)
@@ -759,7 +822,7 @@ async def correct_own_report(
         # somebody else's — a public token must not become a way to probe the
         # board.
         raise HTTPException(status_code=403, detail="Diese Meldung ist nicht deine.")
-    if not crud.report_is_editable(incident):
+    if not crud.report_is_editable(incident) or not await never_left_the_window(db, incident):
         raise HTTPException(
             status_code=409,
             detail="Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
@@ -777,7 +840,14 @@ async def correct_own_report(
         type=updated.type,
         priority=updated.priority,
         description=updated.description,
-        internal_notes=updated.internal_notes,
+        # **Deliberately withheld**, unlike every other field here. Since the
+        # correction appends to «Notizen» instead of assigning it, that column
+        # now holds the operator's words as well as the reporter's — handing it
+        # back would show the phone what the KP typed, and the next correction
+        # would post the whole blob straight back as a fresh Nachtrag. The
+        # reporter's own list does not carry it either (`own_reports`), so the
+        # form prefills empty and a Nachtrag stays a Nachtrag.
+        internal_notes=None,
         location_address=updated.location_address,
         location_display=incident_display.location_display(updated.location_address, home_city),
         location_lat=updated.location_lat,
@@ -786,7 +856,9 @@ async def correct_own_report(
         contact_phone=updated.contact_phone,
         status=updated.status,
         created_at=updated.created_at,
-        editable=crud.report_is_editable(updated),
+        # Both halves, like the list — the button on the page and the 409 above
+        # must never disagree about whether another correction is possible.
+        editable=crud.report_is_editable(updated) and await never_left_the_window(db, updated),
         vehicles=[],
     )
 

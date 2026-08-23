@@ -41,7 +41,7 @@ import {
   LAGEBLATT_AUTODOWNLOAD_EVENT,
   LAGEBLATT_AUTODOWNLOAD_KEY,
   readLageblattInterval,
-} from '@/components/settings/fallback-settings';
+} from '@/lib/lageblatt';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface UserMenuProps {

@@ -204,7 +204,24 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
 
   /** Not enough to send: the KP dispatches against a street, so one of address
    *  or pin must exist, and the phone desk always writes down what was said. */
-  const incomplete = (!address?.trim() && lat === null) || (isPhoneDesk && !title.trim())
+  const locationMissing = !address?.trim() && lat === null
+  const messageMissing = Boolean(isPhoneDesk) && !title.trim()
+  const incomplete = locationMissing || messageMissing
+  /**
+   * Why «Weiter» is grey, in one line under the button.
+   *
+   * Under the button and not as a toast: the reason belongs to the button and
+   * has to disappear with the reason, not after five seconds. And it names the
+   * CONSEQUENCE — the KP cannot send anybody — rather than the rule, because
+   * "Pflichtfeld" is the vocabulary of the form, not of the person standing in
+   * front of a fallen tree. The button stays disabled: a button that accepts
+   * the tap and then complains is a second failed attempt in the rain.
+   */
+  const blockedReason = locationMissing
+    ? t('needLocation')
+    : messageMissing
+      ? t('needMessage')
+      : null
 
   /** The reporter is standing there, so their own position is the best address
    *  they have — and typing a street name one-handed in the rain is the worst. */
@@ -398,6 +415,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             the geocoder, a map to tap, coordinates to paste. A crew reporting a
             tree on a road it cannot name needs the map more than the KP does. */}
         <LocationInput
+          required
           address={address}
           latitude={lat}
           longitude={lng}
@@ -407,6 +425,10 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             setLng(nextLng)
           }}
           disabled={sending}
+          // The field the whole Meldung hangs on, marked as such: the red
+          // outline and the star are the same pair the phone-desk fields
+          // already wear, and this is the one that actually blocks «Weiter».
+          error={locationMissing}
           // Third way of setting the same field, so it sits with the other two
           // rather than on a line of its own underneath. Only for somebody
           // standing in front of the thing: the phone desk's own position is
@@ -428,6 +450,16 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             )
           }
         />
+        {/* The three ways in, named once. The field offers all of them and
+            looked like it only took typing — and the GPS button is an icon
+            whose label is a tooltip nobody sees on a phone. Only while the
+            field is empty: once there is an address it is an instruction for
+            work already done. */}
+        {locationMissing && (
+          <p className="-mt-3 text-xs text-muted-foreground">
+            {isPhoneDesk ? t('locationHintPhone') : t('locationHint')}
+          </p>
+        )}
 
         {/* Meldung, Priorität, Einsatzart — the three `/alarm` has and a crew
             in the field does not need. Somebody taking a call has both hands
@@ -576,10 +608,20 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
 
         {/* Not "absetzen": this button does not send anything, and a button that
             claims it does is the fat-finger this step exists to catch. */}
-        <Button size="lg" className="w-full" onClick={() => setStep('review')} disabled={sending || incomplete}>
-          {t('review.next')}
-          <ChevronRight className="size-4" />
-        </Button>
+        <div className="space-y-2">
+          <Button size="lg" className="w-full" onClick={() => setStep('review')} disabled={sending || incomplete}>
+            {t('review.next')}
+            <ChevronRight className="size-4" />
+          </Button>
+          {/* Grey button, stated reason — or, once it is ready, what the tap
+              leads to. A dead button that says nothing is the complaint this
+              answers. */}
+          <p
+            className={`text-center text-xs ${blockedReason ? 'text-destructive' : 'text-muted-foreground'}`}
+          >
+            {blockedReason ?? t('nextStepHint')}
+          </p>
+        </div>
       </div>
     </FooterSheet>
   )

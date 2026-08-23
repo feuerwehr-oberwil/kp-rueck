@@ -587,7 +587,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
    */
   const emptySections = [
     !kurzberichtSummary ? t('sections.kurzbericht') : null,
-    peopleCount === 0 ? t('sections.confirm') : null,
+    peopleCount === 0 ? t('sections.personnel') : null,
     materialCount === 0 ? t('material.title') : null,
     showOwnerBlock && !ownerSummary ? t('sections.owner') : null,
   ].filter((section): section is string => section !== null)
@@ -668,38 +668,56 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         )}
       </RapportSection>
 
-      {/* --------------------------------------- Mannschaft und Fahrzeuge */}
-      {/* A plain confirmation of two facts, nothing else. The block used to be
-          headed "Kostenpflicht" and asked for two numbers; the crew in the
-          field does not decide who gets billed, and a vehicle COUNT tells
-          whoever retypes it nothing that three names do not tell better. */}
+      {/* ---------------------------------------------------- Personal */}
+      {/* Its own section since the three lists became one grammar. "Mannschaft
+          und Fahrzeuge" was one block for a historical reason — it used to be
+          headed "Kostenpflicht" and wanted two numbers — and the only place the
+          two ever meant something together was the summary line «5 Personen · 1
+          Fahrzeug». Mensch und Fahrzeug are not one list, and each section now
+          carries its own count in its own header. */}
       <RapportSection
         collapsible={foldLists}
         dense={isKp}
-        title={t('sections.confirm')}
-        summary={t('summary.confirm', { people: peopleCount, vehicles: vehicleCount })}
+        title={t('sections.personnel')}
+        summary={peopleCount > 0 ? t('summary.personnel', { count: peopleCount }) : t('summary.personnelEmpty')}
         // Prefilled from the board, so it is normally already right — the
         // summary is what lets a crew confirm that without opening it.
         state={peopleCount > 0 ? 'filled' : 'todo'}
       >
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <FeldPersonnelChecklist
             rows={formData.personnel}
             extra={formData.extra_personnel}
+            candidates={rapport.prefill.personnel_candidates ?? []}
             disabled={readOnly}
             onChange={(rows: ApiRapportPersonnelRow[]) => update('personnel', rows)}
             onExtraChange={(entries: ApiRapportExtraPersonnel[]) => update('extra_personnel', entries)}
           />
-          {/* The divergence is itself information: it says the board was
-              behind reality, and the export prints it as such. Read off the
-              list now rather than off a typed number — same rule, one source. */}
+          {/* The divergence is itself information: it says the board was behind
+              reality, and the export prints it as such. It matters more now that
+              the list is only the aufgebotenen — this rapport feeds paid hours,
+              and the one failure mode of a shorter list is a name nobody
+              remembered to add back. Read off the list, never off a typed
+              number. */}
           {isCorrected(derivePersonnelCount(formData), boardPersonnel) && (
             <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
           )}
         </div>
+      </RapportSection>
 
+      {/* --------------------------------------------------- Fahrzeuge */}
+      <RapportSection
+        collapsible={foldLists}
+        dense={isKp}
+        title={t('sections.vehicles')}
+        summary={vehicleCount > 0 ? t('summary.vehicles', { count: vehicleCount }) : t('summary.vehiclesEmpty')}
+        // «Kein Fahrzeug» is a normal, often correct answer for a Schadenplatz —
+        // zu Fuss or privat angefahren — so this never nags.
+        state={vehicleCount > 0 ? 'filled' : 'optional'}
+      >
         <FeldVehicleChecklist
           rows={formData.vehicles}
+          candidates={rapport.prefill.vehicle_candidates ?? []}
           disabled={readOnly}
           onChange={(rows: ApiRapportVehicleRow[]) => update('vehicles', rows)}
         />

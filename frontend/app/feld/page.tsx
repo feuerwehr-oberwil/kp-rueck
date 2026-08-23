@@ -21,6 +21,9 @@ import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, Chevron
 
 import {
   apiClient,
+  FeldUnlockError,
+  NetworkError,
+  type FeldUnlockFailure,
   type ApiFeldPersonnel,
   type ApiFeldAssignment,
   type ApiFeldMaterialItem,
@@ -157,6 +160,13 @@ function decodeBoundFeldToken(token: string): { personnelId: string } | null {
     // Not a readable JWT — the poster-token path below handles it.
   }
   return null
+}
+
+/** A lockout countdown as «4:12» — minutes and seconds, because "noch 252
+ *  Sekunden" is a number nobody converts while standing in the rain. */
+function formatCountdown(seconds: number): string {
+  const safe = Math.max(0, Math.ceil(seconds))
+  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
 function formatTime(value: string | null): string {
@@ -415,6 +425,10 @@ function FeldSurface() {
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Whether the error screen offers a way back. A missing token has none —
+   *  there is no page behind it — but a failed claim does: the picker is still
+   *  right there, and a dead end is the wrong answer to "das Netz war kurz weg". */
+  const [errorRecoverable, setErrorRecoverable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('code')
   /**
    * The token this device actually uses.
@@ -426,7 +440,17 @@ function FeldSurface() {
    */
   const [deviceToken, setDeviceToken] = useState<string | null>(null)
   const [codeInput, setCodeInput] = useState('')
-  const [codeError, setCodeError] = useState(false)
+  /**
+   * WHY the code screen said no — four causes, four different things to do.
+   *
+   * It used to be a boolean, so «Falscher Code» was also the answer to a
+   * lockout somebody else's typing had earned, to a poster that expired three
+   * weeks ago, and to a cellar with no reception. Three of those are not fixed
+   * by typing more carefully, and the screen said nothing else.
+   */
+  const [codeError, setCodeError] = useState<FeldUnlockFailure | null>(null)
+  /** Seconds left on a lockout, counted down locally so «4:12» actually moves. */
+  const [lockRemaining, setLockRemaining] = useState(0)
   const [unlocking, setUnlocking] = useState(false)
   // "Nicht ich" is not just a name change any more: it throws away the device's
   // bound token, so the next person types the code. Worth asking first — on a
@@ -565,13 +589,16 @@ function FeldSurface() {
    * Step 2 of the door: trade the link token plus the four digits for an
    * unlocked one, and get the picker back in the same response.
    *
-   * A wrong code is a red box and nothing else — no hint about where the code
-   * lives. Whoever is standing here just scanned the poster it is printed on.
+   * Every failure is named (`FeldUnlockFailure`), because the four of them ask
+   * for four different moves. Only the wrong-code case clears the field: after
+   * a lockout or a dropped connection the digits are probably right, and making
+   * somebody type them again in the rain to find that out is a punishment for
+   * the network's mistake.
    */
   const submitCode = useCallback(async () => {
     if (!linkToken || codeInput.length < 4 || unlocking) return
     setUnlocking(true)
-    setCodeError(false)
+    setCodeError(null)
     try {
       const data = await apiClient.unlockFeld(linkToken, codeInput)
       setDeviceToken(data.token)
@@ -581,12 +608,27 @@ function FeldSurface() {
       setCodeInput('')
     } catch (err) {
       console.error('Feld unlock failed:', err)
-      setCodeError(true)
-      setCodeInput('')
+      const failure: FeldUnlockFailure =
+        err instanceof FeldUnlockError ? err.failure : { kind: 'wrong', attemptsLeft: null }
+      setCodeError(failure)
+      if (failure.kind === 'locked') setLockRemaining(failure.retryAfterSeconds)
+      if (failure.kind === 'wrong') setCodeInput('')
     } finally {
       setUnlocking(false)
     }
   }, [linkToken, codeInput, unlocking])
+
+  // The lockout counts itself down and lets go on its own: a screen that says
+  // «Wieder frei in 0:00» and stays dead is the same dead end one line later.
+  useEffect(() => {
+    if (codeError?.kind !== 'locked') return
+    if (lockRemaining <= 0) {
+      setCodeError(null)
+      return
+    }
+    const timer = setTimeout(() => setLockRemaining(seconds => seconds - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [codeError, lockRemaining])
 
   /**
    * ``silent`` is what the poll passes: no top loading bar, and a failed
@@ -727,7 +769,12 @@ function FeldSurface() {
       await loadAssignments(person.personnel_id, { token: claim.token })
     } catch (err) {
       console.error('Feld claim failed:', err)
-      setError(t('invalidCode'))
+      // A dropped connection is not a bad code. Saying «Ungültiger Code, bitte
+      // QR-Code erneut scannen» to somebody standing in a cellar sends them
+      // back to a poster in the vehicle hall for nothing — and the screen it
+      // said it on had no way out at all.
+      setError(err instanceof NetworkError ? t('claim.offline') : t('invalidCode'))
+      setErrorRecoverable(true)
     }
   }, [token, loadAssignments, t])
 
@@ -1112,17 +1159,56 @@ function FeldSurface() {
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">{t('accessRequired')}</div>
           <div className="text-muted-foreground">{error}</div>
+          {/* The way out. Without it the only exit from a claim that failed
+              once was closing the tab — and the crew's own list was one tap
+              away the whole time. */}
+          {errorRecoverable && (
+            <Button
+              size="lg"
+              className="mt-6 w-full"
+              onClick={() => {
+                setError(null)
+                setErrorRecoverable(false)
+              }}
+            >
+              {tCommon('back')}
+            </Button>
+          )}
         </div>
       </div>
     )
   }
 
   // ---------------------------------------------------------------- code
-  // Four boxes and one button. No explanation of where the code lives: whoever
-  // is standing here scanned the poster it is printed under two seconds ago,
-  // and the one screen somebody reads in the rain is not the place for a
-  // paragraph. The hint appears only when they get it wrong.
+  // Four boxes and one button. No explanation of where the code lives while
+  // nothing has gone wrong: whoever is standing here scanned the poster it is
+  // printed under two seconds ago, and the one screen somebody reads in the
+  // rain is not the place for a paragraph. What appears when it DOES go wrong
+  // is the whole point of this block — each of the four failures says what
+  // happened and what to do about it.
   if (viewMode === 'code') {
+    // An expired link is its own screen: no field, no button. The four digits
+    // cannot fix a token that ran out, so asking for them again is the one
+    // thing this page must stop doing.
+    if (codeError?.kind === 'expired') {
+      return (
+        <div className="min-h-screen bg-background flex flex-col justify-center p-6">
+          <div className="mx-auto w-full max-w-xs">
+            <h1 className="mb-6 text-center text-2xl font-semibold">{t('code.expiredTitle')}</h1>
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+              <p className="font-medium">{t('code.expiredHeading')}</p>
+              <p className="mt-0.5">{t('code.expiredBody')}</p>
+            </div>
+            <p className="mt-3 rounded-lg border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground">
+              {t('code.expiredFoot')}
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    const locked = codeError?.kind === 'locked'
+    const countdown = formatCountdown(lockRemaining)
     return (
       <div className="min-h-screen bg-background flex flex-col justify-center p-6">
         <div className="mx-auto w-full max-w-xs">
@@ -1143,29 +1229,63 @@ function FeldSurface() {
             maxLength={4}
             value={codeInput}
             autoFocus
+            disabled={locked}
             onChange={event => {
               setCodeInput(event.target.value.replace(/\D/g, '').slice(0, 4))
-              setCodeError(false)
+              // Typing clears a verdict about the digits, not one about the
+              // network or the lockout — those are still true.
+              setCodeError(current => (current?.kind === 'wrong' ? null : current))
             }}
             onKeyDown={event => {
               if (event.key === 'Enter') submitCode()
             }}
-            className={`w-full rounded-xl border-2 bg-muted px-4 py-5 text-center text-4xl font-semibold tracking-[0.4em] tabular-nums outline-none transition-colors ${
-              codeError ? 'border-destructive' : 'border-border focus:border-primary'
+            className={`w-full rounded-xl border-2 bg-muted px-4 py-5 text-center text-4xl font-semibold tracking-[0.4em] tabular-nums outline-none transition-colors disabled:opacity-60 ${
+              codeError?.kind === 'wrong' ? 'border-destructive' : 'border-border focus:border-primary'
             }`}
           />
 
-          {codeError && (
-            <p className="mt-3 text-center text-sm font-medium text-destructive">{t('code.wrong')}</p>
+          {/* Wrong: the only failure the typing can fix — so it is also the only
+              one that says where the code is written. Since the slip carries it
+              (see `links-qr-sheet`), that sentence is now true. */}
+          {codeError?.kind === 'wrong' && (
+            <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground">
+              <p className="font-medium text-destructive">{t('code.wrong')}</p>
+              {codeError.attemptsLeft !== null && (
+                <p className="mt-0.5">{t('code.attemptsLeft', { count: codeError.attemptsLeft })}</p>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">{t('code.whereHint')}</p>
+            </div>
+          )}
+
+          {/* Locked: the one message where the crew's own typing may not be to
+              blame at all — the station NATs every phone behind one address. */}
+          {locked && (
+            <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+              <p className="font-medium">{t('code.lockedTitle', { time: countdown })}</p>
+              <p className="mt-0.5">{t('code.lockedBody')}</p>
+            </div>
+          )}
+
+          {/* Offline: nothing was checked, so nothing is known about the code. */}
+          {codeError?.kind === 'offline' && (
+            <div className="mt-3 rounded-lg border border-info/40 bg-info/10 p-3 text-sm text-foreground">
+              <p className="font-medium">{t('code.offlineTitle')}</p>
+              <p className="mt-0.5">{t('code.offlineBody')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('code.offlineHint')}</p>
+            </div>
           )}
 
           <Button
             size="lg"
             className="mt-6 w-full"
-            disabled={codeInput.length < 4 || unlocking}
+            disabled={locked || codeInput.length < 4 || unlocking}
             onClick={submitCode}
           >
-            {t('code.submit')}
+            {locked
+              ? t('code.lockedButton', { time: countdown })
+              : codeError?.kind === 'offline'
+                ? t('code.retry')
+                : t('code.submit')}
           </Button>
         </div>
       </div>
@@ -1425,13 +1545,14 @@ function FeldSurface() {
                     // Same storage as the Reko form, a different door: the feld
                     // two-step, never a widened form token.
                     photos: {
-                      upload: async file =>
+                      upload: async (file, onProgress) =>
                         (
                           await apiClient.uploadFeldPhoto(
                             selectedAssignment.incident_id,
                             selectedPerson.personnel_id,
                             token,
                             file,
+                            onProgress,
                           )
                         ).filename ?? '',
                       remove: async filename => {

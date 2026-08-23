@@ -15,7 +15,7 @@
  * section here, gate its endpoint on the backend – not just its sidebar entry.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useEvent } from '@/lib/contexts/event-context';
@@ -25,7 +25,6 @@ import { Card } from '@/components/ui/card';
 import { SearchInput } from '@/components/ui/search-input'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   WHATSAPP_MESSAGE_1_KEY,
@@ -78,25 +77,24 @@ import {
   X,
   Save,
   User,
-  Sun,
-  Moon,
-  Monitor,
   Printer,
   Shield,
   Info,
   Megaphone,
+  Inbox,
   Navigation,
   LifeBuoy,
+  MessageSquareWarning,
+  MonitorCog,
   ClipboardCheck,
   Route,
   Trash2,
   Plus,
   Lock,
   ArrowRight,
+  Plug,
 } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { useTranslations } from 'next-intl';
-import { AVAILABLE_LOCALES, LOCALE_NAMES, getActiveLocale, setActiveLocale, type SupportedLocale } from '@/lib/i18n-messages';
+import { useMessages, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
@@ -128,38 +126,89 @@ import { VehicleSettings } from '@/components/settings/vehicle-settings';
 import { MaterialSettings } from '@/components/settings/material-settings';
 import { PrinterSettings } from '@/components/settings/printer-settings';
 import { FallbackSettings } from '@/components/settings/fallback-settings';
+import { DeviceSettings } from '@/components/settings/device-settings';
 import { ChecklistSettings } from '@/components/settings/checklist-settings';
 import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
+import {
+  SettingBlock,
+  SettingCard,
+  SettingRow,
+} from '@/components/settings/setting-row';
+import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
+import { IntegrationsSection } from './integrations-section';
+import { useTileAvailability } from './use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSyncStatus } from '@/lib/hooks/use-sync-status';
 import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { useIsMobile } from '@/components/ui/use-mobile';
+import { searchSettings } from '@/lib/settings-search';
+
+/**
+ * Die Gruppen der Seitenleiste, in ihrer Reihenfolge.
+ *
+ * Sortiert nach **wie oft man sie anfasst**, nicht nach Sachgebiet. Vorher hiess die
+ * erste «Konfiguration» und enthielt 11 von 17 Abschnitten – eine Gruppe, die nie falsch
+ * sein kann, sagt auch nichts. Die Drucker-Adresse und der Traccar-Zugang werden einmal
+ * pro Station gesetzt; Standard-Aufträge und die Checkliste pflegt das Kommando laufend.
+ * Genau diesen Unterschied will man vor dem Klicken kennen.
+ *
+ * `device` steht zuletzt und für sich: alles darin liegt im Browser (Cookie,
+ * localStorage, next-themes) und gilt nur auf diesem Bildschirm. Solange das über die
+ * Seite verstreut war, brauchte jede einzelne Zeile eine Marke, um ihre Reichweite
+ * anzuzeigen – jetzt trägt die Gliederung sie, und die Marke ist weg.
+ */
+const GROUPS = ['setup', 'operations', 'resources', 'records', 'device'] as const;
 
 // Sidebar sections configuration (labels come from settings.page.sections.*)
 const SECTIONS = [
-  { id: 'general', icon: Settings2, group: 'config', editorOnly: false, adminOnly: false },
-  { id: 'notifications', icon: Bell, group: 'config', editorOnly: false, adminOnly: false },
-  { id: 'alerting', icon: Megaphone, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'checklist', icon: ClipboardCheck, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'auftragTemplates', icon: Route, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'gps', icon: Navigation, group: 'config', editorOnly: true, adminOnly: false },
+  // ---- Einrichtung: einmal pro Station, meistens beim Aufbau
+  { id: 'general', icon: Settings2, group: 'setup', editorOnly: false, adminOnly: false },
+  // Read-only view of the capability registry (`GET /api/integrations`). No controls:
+  // the keys it reports live in the server configuration, not in a form field here.
+  { id: 'integrations', icon: Plug, group: 'setup', editorOnly: false, adminOnly: false },
+  { id: 'printer', icon: Printer, group: 'setup', editorOnly: true, adminOnly: false },
+  { id: 'gps', icon: Navigation, group: 'setup', editorOnly: true, adminOnly: false },
+  { id: 'users', icon: Shield, group: 'setup', editorOnly: false, adminOnly: true },
   // Sync can rewrite whole tables and points at a database URL – admin-only (matches /api/sync/*).
-  { id: 'sync', icon: RefreshCw, group: 'config', editorOnly: false, adminOnly: true },
-  { id: 'printer', icon: Printer, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'fallback', icon: LifeBuoy, group: 'config', editorOnly: true, adminOnly: false },
-  { id: 'users', icon: Shield, group: 'config', editorOnly: false, adminOnly: true },
+  { id: 'sync', icon: RefreshCw, group: 'setup', editorOnly: false, adminOnly: true },
+
+  // ---- Betrieb: was das Kommando über die Saison pflegt
+  // Alarmierung ist an der RICHTUNG geteilt, nicht am Anbieter: was die Station
+  // hinausschickt (WhatsApp-Vorlagen, Divera) gegen das, was hereinkommt (der
+  // Alarmtext der Zentrale, der Webhook-Schlüssel, die Meldungs-Chips, mit denen
+  // ein Trupp zurückmeldet). Zusammen war das ein Abschnitt von ~2500 Pixeln, in
+  // dem «Alarmtext bereinigen» unter einer Überschrift «Alarmierung» stand und
+  // darum nicht zu finden war. Die id `alerting` bleibt der ausgehenden Hälfte,
+  // damit bestehende `?section=alerting`-Links nicht ins Leere zeigen.
+  { id: 'alerting', icon: Megaphone, group: 'operations', editorOnly: true, adminOnly: false },
+  { id: 'alarmIntake', icon: Inbox, group: 'operations', editorOnly: true, adminOnly: false },
+  { id: 'notifications', icon: Bell, group: 'operations', editorOnly: false, adminOnly: false },
+  { id: 'checklist', icon: ClipboardCheck, group: 'operations', editorOnly: true, adminOnly: false },
+  { id: 'auftragTemplates', icon: Route, group: 'operations', editorOnly: true, adminOnly: false },
+  { id: 'fallback', icon: LifeBuoy, group: 'operations', editorOnly: true, adminOnly: false },
+
+  // ---- Bestand
   { id: 'personnel', icon: Users, group: 'resources', editorOnly: true, adminOnly: false },
   { id: 'vehicles', icon: Truck, group: 'resources', editorOnly: true, adminOnly: false },
   { id: 'materials', icon: Package, group: 'resources', editorOnly: true, adminOnly: false },
-  { id: 'import', icon: FileSpreadsheet, group: 'data', editorOnly: true, adminOnly: false },
-  { id: 'audit', icon: FileText, group: 'data', editorOnly: true, adminOnly: false },
+
+  // ---- Protokoll
+  { id: 'import', icon: FileSpreadsheet, group: 'records', editorOnly: true, adminOnly: false },
+  { id: 'audit', icon: FileText, group: 'records', editorOnly: true, adminOnly: false },
   // Not adminOnly: «Problem melden» is for whoever hit the problem. The consent switch
-  // inside the section is what checks isAdmin.
-  { id: 'telemetry', icon: LifeBuoy, group: 'data', editorOnly: false, adminOnly: false },
+  // inside the section is what checks isAdmin — and it is the only gate now. The whole
+  // «Daten» group used to be wrapped in `isEditor &&`, so a viewer who hit a problem
+  // could not reach the one section written for them.
+  // Nicht LifeBuoy: das trägt schon «Ausfallsicherheit». Zwei Einträge derselben Liste
+  // mit demselben Symbol heben die Symbolspalte auf – sie ist dann Dekoration.
+  { id: 'telemetry', icon: MessageSquareWarning, group: 'records', editorOnly: false, adminOnly: false },
+
+  // ---- Dieses Gerät: Erscheinungsbild, Sprache, Auto-Download. Alles im Browser.
+  { id: 'device', icon: MonitorCog, group: 'device', editorOnly: false, adminOnly: false },
 ] as const;
 
 // Audit log constants
@@ -238,14 +287,6 @@ export default function SettingsPage() {
   const { isEditor, isAdmin, isAuthenticated } = useAuth();
   const { events, isLoading: eventsLoading } = useEvent();
   const isMobile = useIsMobile();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Active section from URL or default
   const sectionParam = searchParams.get('section') as SectionId | null;
   const activeSection = sectionParam && SECTIONS.some(s => s.id === sectionParam)
@@ -267,6 +308,16 @@ export default function SettingsPage() {
   // Sync status
   const { status: syncStatus, isLoading: isSyncLoading, error: syncError, isStale } = useSyncStatus();
   useRailwayRecovery(syncStatus);
+
+  // Are there real offline map tiles on this server? Answered next to the Karten-Modus
+  // select, because that is where «Nur Offline» gets chosen – and choosing it without
+  // tiles blanks the map for the whole station, silently.
+  const { availability: tiles, recheck: recheckTiles } = useTileAvailability();
+  // Only refuse the option when we positively KNOW there is nothing to fall back to.
+  // A tile server that merely fails to answer right now must not lock an operator out
+  // of a setting – and the option that is already stored stays selectable either way,
+  // otherwise the select would show a disabled item as its own value.
+  const offlineTilesUnavailable = tiles.status === 'bootstrap' || tiles.status === 'missing';
 
   // Import/Export state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -619,11 +670,23 @@ export default function SettingsPage() {
             <SelectValue placeholder={t('page.general.selectPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            {config.options.map((option) => (
-              <SelectItem key={option} value={option}>
-                {t(`page.general.configs.${config.key}.options.${option}`)}
-              </SelectItem>
-            ))}
+            {config.options.map((option) => {
+              const unavailable =
+                config.key === 'map_mode' &&
+                option === 'offline' &&
+                offlineTilesUnavailable &&
+                value !== option;
+              return (
+                <SelectItem key={option} value={option} disabled={unavailable}>
+                  {t(`page.general.configs.${config.key}.options.${option}`)}
+                  {unavailable && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {t('page.general.tiles.optionUnavailable')}
+                    </span>
+                  )}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       );
@@ -680,10 +743,82 @@ export default function SettingsPage() {
     );
   };
 
-  // Filter sections based on editor role
-  const visibleSections = SECTIONS.filter(s =>
-    (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin)
+  /**
+   * The line under Karten-Modus that says whether an offline fallback exists at all.
+   *
+   * It checks rather than believes: `scripts/init-tileserver.sh` creates an empty
+   * bootstrap MBTiles on first start, so a tile file that merely exists proves nothing.
+   * `unreachable` says exactly that – we could not ask – instead of inventing a verdict.
+   */
+  const renderTileAvailability = () => {
+    if (tiles.status === 'checking') return null;
+
+    const installed = tiles.status === 'installed';
+    const zoom =
+      tiles.status === 'installed' && tiles.minzoom !== null && tiles.maxzoom !== null
+        ? t('page.general.tiles.zoomRange', { min: tiles.minzoom, max: tiles.maxzoom })
+        : null;
+
+    return (
+      <div className="space-y-2 pl-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={
+              installed
+                ? 'border-success/40 bg-success/10 text-success-foreground'
+                : 'border-warning/40 bg-warning/10 text-warning-foreground'
+            }
+          >
+            {t(`page.general.tiles.${tiles.status}`)}
+          </Badge>
+          {tiles.status === 'installed' && (
+            <span className="text-xs text-muted-foreground">
+              {[tiles.name, zoom, t('page.general.tiles.checkedAt', {
+                time: tiles.checkedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+              })]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
+          <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={recheckTiles}>
+            <RefreshCw className="size-3" />
+            {t('page.general.tiles.recheck')}
+          </Button>
+        </div>
+        {!installed && (
+          <SettingUnavailableNote>
+            {t(
+              tiles.status === 'unreachable'
+                ? 'page.general.tiles.unreachableHint'
+                : 'page.general.tiles.hint',
+            )}
+          </SettingUnavailableNote>
+        )}
+      </div>
+    );
+  };
+
+  // Filter sections based on editor role. Memoised because the search below depends on
+  // it — a fresh array every render would re-run the catalogue scan on every keystroke
+  // anywhere on the page, not only on the search field.
+  const visibleSections = useMemo(
+    () => SECTIONS.filter(s => (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin)),
+    [isEditor, isAdmin],
   );
+
+  // Suche. `null` heisst «nichts eingetippt» und lässt die Gliederung stehen; eine leere
+  // Liste heisst «gesucht und nichts gefunden» und sagt das auch.
+  const [search, setSearch] = useState('');
+  const messages = useMessages() as Record<string, unknown>;
+  const searchHits = useMemo(() => {
+    if (search.trim().length < 2) return null;
+    return searchSettings(
+      messages,
+      search,
+      visibleSections.map(s => ({ id: s.id, label: t(`page.sections.${s.id}`) })),
+    );
+  }, [messages, search, visibleSections, t]);
 
   const DemoHint = ({ text }: { text: string }) => (
     demoMode ? (
@@ -700,104 +835,49 @@ export default function SettingsPage() {
       case 'general':
         return (
           <div className="space-y-6">
-            <Card className="p-6 space-y-4">
-              {/* Theme Selection */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.appearance')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('page.general.appearanceHint')}</p>
-                </div>
-                {mounted && (
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    {([
-                      { value: 'light', icon: Sun, label: t('page.general.themeLight') },
-                      { value: 'dark', icon: Moon, label: t('page.general.themeDark') },
-                      { value: 'system', icon: Monitor, label: t('page.general.themeSystem') },
-                    ] as const).map(({ value, icon: Icon, label }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setTheme(value)}
-                        className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-all ${
-                          theme === value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                        }`}
-                        title={label}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Language – per-device (NEXT_LOCALE cookie), like the theme above. The row
-                  only renders once a second locale has real translations; while fr/it are
-                  empty stubs, German-only stations never see it. */}
-              {mounted && AVAILABLE_LOCALES.length > 1 && (
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <Label className="text-sm font-semibold text-muted-foreground">{t('page.general.language')}</Label>
-                    <p className="text-xs text-muted-foreground">{t('page.general.languageHint')}</p>
-                  </div>
-                  <div className="w-56 flex-shrink-0">
-                    <Select
-                      value={getActiveLocale()}
-                      onValueChange={(value) => {
-                        setActiveLocale(value as SupportedLocale)
-                        // Full reload: server components and out-of-React translators
-                        // (toasts, api-client errors) read the cookie at load time.
-                        window.location.reload()
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AVAILABLE_LOCALES.map((locale) => (
-                          <SelectItem key={locale} value={locale}>{LOCALE_NAMES[locale]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {/* Other Settings */}
+            {/* Nur noch Stationswerte: Erscheinungsbild und Sprache sind nach
+                «Dieses Gerät» gezogen. Damit braucht keine Zeile dieser Karte mehr
+                eine Reichweiten-Marke – der Abschnitt IST die Reichweite. */}
+            <SettingCard>
               {loading ? (
-                <div className="space-y-4">
+                <div className="space-y-4 pt-3">
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-10 w-full" />
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-10 w-full" />
                 </div>
               ) : error ? (
-                <div>
+                <div className="pt-3">
                   <p className="text-destructive">{error}</p>
                   <Button onClick={fetchSettings} className="mt-4">{t('common.retry')}</Button>
                 </div>
               ) : (
                 <DemoLock active={demoMode}>
-                  <div className="space-y-4">
-                    {SETTING_CONFIGS.map((config) => (
-                      <div key={config.key} className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <Label htmlFor={config.key} className="text-sm font-semibold text-muted-foreground">{t(`page.general.configs.${config.key}.label`)}</Label>
-                          <p className="text-xs text-muted-foreground">{t(`page.general.configs.${config.key}.description`)}</p>
+                  {SETTING_CONFIGS.map((config) => (
+                    <SettingRow
+                      key={config.key}
+                      label={t(`page.general.configs.${config.key}.label`)}
+                      htmlFor={config.key}
+                      hint={t(`page.general.configs.${config.key}.description`)}
+                      // What «Nur Offline» would actually get you, right at the control
+                      // that offers it – see use-tile-availability.ts.
+                      footer={config.key === 'map_mode' ? renderTileAvailability() : null}
+                    >
+                      <div className="flex w-full items-start gap-2">
+                        {/* Schalter drängen sich an die rechte Kante, alles mit einem Feld
+                            füllt die Spalte – so steht eine Kante über die ganze Karte. */}
+                        <div className={config.type === 'boolean' && !config.options ? 'ml-auto' : 'min-w-0 flex-1'}>
+                          {renderSettingInput(config)}
                         </div>
-                        <div className="flex items-start gap-2 flex-shrink-0">
-                          <div className={config.type === 'text' || config.type === 'number' ? 'w-48' : config.type === 'select' ? 'w-56' : ''}>
-                            {renderSettingInput(config)}
-                          </div>
-                          {saving === config.key && <Save className="mt-2.5 h-4 w-4 text-primary animate-pulse" />}
-                        </div>
+                        {saving === config.key && <Save className="mt-2.5 h-4 w-4 shrink-0 text-primary animate-pulse" />}
                       </div>
-                    ))}
-                    <BrandingSettings readOnly={!isEditor} />
-                  </div>
+                    </SettingRow>
+                  ))}
+                  {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
+                  <BrandingSettings readOnly={!isEditor} />
                 </DemoLock>
               )}
-            </Card>
+            </SettingCard>
             {!isEditor && (
               <p className="text-sm text-muted-foreground">
                 {t('page.general.editorsOnlyNote')}
@@ -834,20 +914,20 @@ export default function SettingsPage() {
         return (
           <div className="space-y-6">
             <DemoLock active={demoMode}>
-            <Card className="p-6 space-y-4">
-              <div>
-                <h3 className="font-medium">{t('page.alerting.whatsappTitle')}</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t('page.alerting.whatsappDescription')}
-                </p>
-              </div>
+            <SettingCard
+              title={t('page.alerting.whatsappTitle')}
+              subtitle={t('page.alerting.whatsappDescription')}
+            >
               {whatsappFields.map((field) => {
                 const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback;
                 const isCurrentlySaving = saving === field.key;
                 return (
-                  <div key={field.key} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-semibold text-muted-foreground">{field.label}</Label>
+                  <SettingBlock
+                    key={field.key}
+                    label={field.label}
+                    htmlFor={field.key}
+                    hint={field.hint}
+                    action={
                       <Button
                         variant="ghost"
                         size="xs"
@@ -857,9 +937,10 @@ export default function SettingsPage() {
                       >
                         {t('common.reset')}
                       </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{field.hint}</p>
+                    }
+                  >
                     <Textarea
+                      id={field.key}
                       value={value}
                       rows={6}
                       className="font-mono text-xs"
@@ -871,20 +952,20 @@ export default function SettingsPage() {
                       }}
                       disabled={!isEditor || isCurrentlySaving}
                     />
-                  </div>
+                  </SettingBlock>
                 );
               })}
-            </Card>
+            </SettingCard>
             {(() => {
               const key = WHATSAPP_INCIDENT_TEMPLATE_KEY;
               const fallback = DEFAULT_WHATSAPP_INCIDENT_TEMPLATE;
               const value = settings[key] !== undefined ? settings[key] : fallback;
               const isCurrentlySaving = saving === key;
               return (
-                <Card className="p-6 space-y-4">
-                  <div>
-                    <h3 className="font-medium">{t('page.alerting.incidentTemplateTitle')}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
+                <SettingCard
+                  title={t('page.alerting.incidentTemplateTitle')}
+                  subtitle={
+                    <>
                       {t('page.alerting.incidentTemplateDescription')}{' '}
                       <code className="font-mono">{'{type}'}</code>,{' '}
                       <code className="font-mono">{'{location}'}</code>,{' '}
@@ -896,11 +977,13 @@ export default function SettingsPage() {
                       <code className="font-mono">{'{materials}'}</code>,{' '}
                       <code className="font-mono">{'{reko}'}</code>,{' '}
                       <code className="font-mono">{'{timestamp}'}</code>.
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-semibold text-muted-foreground">{t('page.alerting.templateLabel')}</Label>
+                    </>
+                  }
+                >
+                  <SettingBlock
+                    label={t('page.alerting.templateLabel')}
+                    htmlFor={key}
+                    action={
                       <Button
                         variant="ghost"
                         size="xs"
@@ -910,8 +993,10 @@ export default function SettingsPage() {
                       >
                         {t('common.reset')}
                       </Button>
-                    </div>
+                    }
+                  >
                     <Textarea
+                      id={key}
                       value={value}
                       rows={14}
                       className="font-mono text-xs"
@@ -923,8 +1008,8 @@ export default function SettingsPage() {
                       }}
                       disabled={!isEditor || isCurrentlySaving}
                     />
-                  </div>
-                </Card>
+                  </SettingBlock>
+                </SettingCard>
               );
             })()}
             <DiveraAlarmSettingsCard
@@ -935,9 +1020,20 @@ export default function SettingsPage() {
               isEditor={isEditor}
               saving={saving}
             />
-            {/* Inbound side of Alarmierung: what the dispatch system puts into every alarm
-                text – standing lines dropped whole, labels stripped off kept lines. Both
-                lists ship empty, so an install that configures nothing filters nothing. */}
+            </DemoLock>
+          </div>
+        );
+      }
+
+      // Die hereinkommende Hälfte: was die Alarmzentrale schickt, womit sie sich
+      // ausweist, und was ein Trupp im Feld zurückmeldet.
+      case 'alarmIntake': {
+        return (
+          <div className="space-y-6">
+            <DemoLock active={demoMode}>
+            {/* What the dispatch system puts into every alarm text – standing lines
+                dropped whole, labels stripped off kept lines. Both lists ship empty,
+                so an install that configures nothing filters nothing. */}
             <AlarmDescriptionFilterSettings
               settings={settings}
               serverSettings={serverSettings}
@@ -959,21 +1055,22 @@ export default function SettingsPage() {
                 does. A driver cannot report «Angekommen» or «Einsatz beendet»
                 at all, so the crew's chips are the wrong four for the person
                 sitting outside in the vehicle. */}
-            <Card className="p-6 space-y-4">
-              <div>
-                <h3 className="font-medium">{t('page.alerting.feldChipsTitle')}</h3>
-                <p className="text-xs text-muted-foreground mt-1">{t('page.alerting.feldChipsDescription')}</p>
-              </div>
+            <SettingCard
+              title={t('page.alarmIntake.feldChipsTitle')}
+              subtitle={t('page.alarmIntake.feldChipsDescription')}
+            >
               {([
-                { key: FELD_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_MESSAGE_CHIPS, label: t('page.alerting.feldChipsLabel') },
-                { key: FELD_DRIVER_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_DRIVER_MESSAGE_CHIPS, label: t('page.alerting.feldDriverChipsLabel') },
+                { key: FELD_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_MESSAGE_CHIPS, label: t('page.alarmIntake.feldChipsLabel') },
+                { key: FELD_DRIVER_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_DRIVER_MESSAGE_CHIPS, label: t('page.alarmIntake.feldDriverChipsLabel') },
               ] as const).map(({ key, fallback, label }) => {
                 const value = settings[key] !== undefined ? settings[key] : fallback;
                 const isCurrentlySaving = saving === key;
                 return (
-                  <div key={key} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-semibold text-muted-foreground">{label}</Label>
+                  <SettingBlock
+                    key={key}
+                    label={label}
+                    htmlFor={key}
+                    action={
                       <Button
                         variant="ghost"
                         size="xs"
@@ -983,8 +1080,10 @@ export default function SettingsPage() {
                       >
                         {t('common.reset')}
                       </Button>
-                    </div>
+                    }
+                  >
                     <Textarea
+                      id={key}
                       value={value}
                       rows={5}
                       className="text-xs"
@@ -996,10 +1095,10 @@ export default function SettingsPage() {
                       }}
                       disabled={!isEditor || isCurrentlySaving}
                     />
-                  </div>
+                  </SettingBlock>
                 );
               })}
-            </Card>
+            </SettingCard>
             </DemoLock>
           </div>
         );
@@ -1042,6 +1141,9 @@ export default function SettingsPage() {
         );
       }
 
+      case 'integrations':
+        return <IntegrationsSection />;
+
       case 'sync':
         return demoMode ? (
           <DemoHint text={t('page.demo.sync')} />
@@ -1061,7 +1163,7 @@ export default function SettingsPage() {
 
       case 'printer':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <DemoLock active={demoMode}>
               <PrinterSettings />
             </DemoLock>
@@ -1070,17 +1172,20 @@ export default function SettingsPage() {
 
       case 'fallback':
         return (
-          <div className="space-y-4">
-            <FallbackSettings demoMode={demoMode} />
+          <div className="space-y-6">
+            <FallbackSettings demoMode={demoMode} onOpenDeviceSection={() => navigateToSection('device')} />
           </div>
         );
+
+      case 'device':
+        return <DeviceSettings />;
 
       case 'telemetry':
         return <TelemetrySettings isAdmin={isAdmin} />;
 
       case 'users':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <DemoLock active={demoMode}>
               <UserSettings />
             </DemoLock>
@@ -1125,7 +1230,7 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Notifications */}
             {importError && (
-              <Card className="p-4 border-destructive bg-destructive/10">
+              <SettingCard className="border-destructive bg-destructive/10">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                   <div className="flex-1">
@@ -1135,11 +1240,11 @@ export default function SettingsPage() {
                     <X className="size-3.5" />
                   </Button>
                 </div>
-              </Card>
+              </SettingCard>
             )}
 
             {importSuccess && (
-              <Card className="p-4 border-success bg-success/10">
+              <SettingCard className="border-success bg-success/10">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-success mt-0.5" />
                   <div className="flex-1">
@@ -1149,22 +1254,22 @@ export default function SettingsPage() {
                     <X className="size-3.5" />
                   </Button>
                 </div>
-              </Card>
+              </SettingCard>
             )}
 
-            {/* Export - Simple one-click action */}
-            <Card className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{t('page.import.exportTitle')}</p>
-                  <p className="text-sm text-muted-foreground">{t('page.import.exportDescription')}</p>
-                </div>
+            {/* Export - Simple one-click action. Titel, Untertitel und die eine
+                Aktion sind genau der Kartenkopf, den `SettingCard` mitbringt. */}
+            <SettingCard
+              title={t('page.import.exportTitle')}
+              subtitle={t('page.import.exportDescription')}
+              action={
                 <Button onClick={handleExport} disabled={importLoading}>
                   <Download className="size-4" />
                   {t('page.import.exportButton')}
                 </Button>
-              </div>
-            </Card>
+              }
+            />
+
 
             {/* Import – mode first, then the file.
                 The mode, not the file, decides what the import costs: the same
@@ -1172,33 +1277,35 @@ export default function SettingsPage() {
                 then adds two recruits. Choosing it last, tucked below the upload,
                 made the expensive half of that sentence the easy thing to skip. */}
             <DemoLock active={demoMode}>
-            <Card className={`p-5 ${isReplace ? 'border-destructive/40' : ''}`}>
-              <div className="space-y-5">
-                <div className="flex items-start gap-3">
+            {/* Das Symbol wandert in den Titel, das Abzeichen in den Aktionsplatz –
+                derselbe Kartenkopf wie überall, nur dass er hier mit dem Modus die
+                Farbe wechselt. */}
+            <SettingCard
+              className={isReplace ? 'border-destructive/40' : undefined}
+              title={
+                <span className="flex items-center gap-2">
                   {isReplace
-                    ? <Trash2 className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
-                    : <Plus className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">
-                      {isReplace ? t('page.import.importTitleReplace') : t('page.import.importTitleAppend')}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isReplace ? t('page.import.importDescriptionReplace') : t('page.import.importDescriptionAppend')}
-                    </p>
-                  </div>
-                  {isReplace ? (
-                    <Badge variant="destructive">
-                      <Trash2 aria-hidden="true" />
-                      {t('page.import.badgeDataLoss')}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-success/40 text-success">
-                      <CheckCircle aria-hidden="true" />
-                      {t('page.import.badgeNoDeletion')}
-                    </Badge>
-                  )}
-                </div>
-
+                    ? <Trash2 className="size-4 shrink-0 text-destructive" aria-hidden="true" />
+                    : <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                  {isReplace ? t('page.import.importTitleReplace') : t('page.import.importTitleAppend')}
+                </span>
+              }
+              subtitle={isReplace ? t('page.import.importDescriptionReplace') : t('page.import.importDescriptionAppend')}
+              action={
+                isReplace ? (
+                  <Badge variant="destructive">
+                    <Trash2 aria-hidden="true" />
+                    {t('page.import.badgeDataLoss')}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-success/40 text-success">
+                    <CheckCircle aria-hidden="true" />
+                    {t('page.import.badgeNoDeletion')}
+                  </Badge>
+                )
+              }
+            >
+              <div className="space-y-5">
                 {/* Step 1: Mode – with its price in the station's own numbers. */}
                 <div className="p-3 bg-muted/50 rounded-lg space-y-3">
                   <div className="flex items-center gap-4">
@@ -1245,7 +1352,7 @@ export default function SettingsPage() {
                               whole stock, `append` deletes nothing. */}
                           {stock && (
                             <div className="mt-2 border-t pt-2">
-                              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              <p className="text-xs font-semibold text-muted-foreground">
                                 {t('page.import.modeCostHeading')}
                               </p>
                               <dl className="mt-1 space-y-0.5 text-xs tabular-nums">
@@ -1352,7 +1459,7 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
-            </Card>
+            </SettingCard>
             </DemoLock>
 
             {/* The balance: what the station looks like before and after, and what
@@ -1362,8 +1469,13 @@ export default function SettingsPage() {
 
             {/* Preview */}
             {preview && (
-              <Card ref={balance ? undefined : previewRef} className="p-5 space-y-4">
-                <p className="font-medium">{t('page.import.previewTitle')}</p>
+              <div ref={balance ? undefined : previewRef}>
+              {/* `space-y-4` on the INNER wrapper, not on the card: SettingCard
+                  renders its children into one div, so a card-level space-y only
+                  ever separated the header from the body — and the Mannschaft /
+                  Fahrzeuge / Material tables inside sat flush against each other. */}
+              <SettingCard title={t('page.import.previewTitle')}>
+              <div className="space-y-4">
 
                 {/* A sheet with a header row and nothing under it used to render as
                     absolutely nothing – indistinguishable from a sheet the file does
@@ -1465,7 +1577,9 @@ export default function SettingsPage() {
                     </Table>
                   </div>
                 )}
-              </Card>
+              </div>
+              </SettingCard>
+              </div>
             )}
           </div>
         );
@@ -1473,17 +1587,13 @@ export default function SettingsPage() {
 
       case 'audit':
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Audit Export */}
-            <Card className="p-5">
-              <div className="space-y-4">
-                <div>
-                  <p className="font-medium">{t('page.audit.exportTitle')}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t('page.audit.exportDescription')}
-                  </p>
-                </div>
-
+            <SettingCard
+              title={t('page.audit.exportTitle')}
+              subtitle={t('page.audit.exportDescription')}
+            >
+              <div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex-1 w-full sm:w-auto">
                     <Select
@@ -1535,9 +1645,14 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
-            </Card>
+            </SettingCard>
 
-            {/* Search - Full width */}
+            {/* Suche, Filter und Treffer in EINER Karte – wie die Bestandslisten:
+                die Bedienleiste oben, die Tabelle darunter, alles auf derselben
+                Fläche. Vorher stand die Leiste nackt auf dem Seitenhintergrund und
+                jeder Zustand darunter (Laden / Fehler / leer / Tabelle) brachte
+                seine eigene Karte mit. */}
+            <SettingCard>
             <SearchInput
               placeholder={t('page.audit.searchPlaceholder')}
               value={auditSearchQuery}
@@ -1546,7 +1661,7 @@ export default function SettingsPage() {
             />
 
             {/* Filters - Compact row */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Select value={auditResourceFilter} onValueChange={setAuditResourceFilter}>
                 <SelectTrigger className="w-36 h-9">
                   <SelectValue placeholder={t('page.audit.resource')} />
@@ -1581,31 +1696,30 @@ export default function SettingsPage() {
             </div>
 
             {/* Content */}
+            <div className="mt-4">
             {auditLoading ? (
-              <Card className="p-6">
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex gap-3">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-4 w-16" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex gap-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))}
+              </div>
             ) : auditError ? (
-              <Card className="p-6">
+              <>
                 <p className="text-destructive">{auditError}</p>
                 <Button onClick={fetchAuditLogs} className="mt-4">{t('common.retry')}</Button>
-              </Card>
+              </>
             ) : filteredAuditEntries.length === 0 ? (
-              <Card className="p-8 text-center text-muted-foreground">
+              <p className="py-4 text-center text-muted-foreground">
                 {hasActiveAuditFilters ? t('page.audit.noEntriesFiltered') : t('page.audit.noEntries')}
-              </Card>
+              </p>
             ) : (
               <>
                 {/* Desktop Table - Hidden on mobile */}
-                <Card className="hidden md:block overflow-hidden">
+                <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1649,7 +1763,7 @@ export default function SettingsPage() {
                       ))}
                     </TableBody>
                   </Table>
-                </Card>
+                </div>
 
                 {/* Mobile Cards - Shown only on mobile */}
                 <div className="md:hidden space-y-3">
@@ -1683,6 +1797,8 @@ export default function SettingsPage() {
                 </div>
               </>
             )}
+            </div>
+            </SettingCard>
           </div>
         );
 
@@ -1708,85 +1824,86 @@ export default function SettingsPage() {
           {/* Sidebar - Desktop */}
           {!isMobile && (
             <aside className="w-56 border-r bg-muted/30 p-4 overflow-y-auto">
+              {/* Suche über Abschnittsnamen UND Katalogtexte. Eine Gliederung beantwortet
+                  «wo gehört das hin», nicht «wo war noch mal der Port» – siehe
+                  lib/settings-search.ts. Die Trefferliste ersetzt die Navigation, solange
+                  etwas eingetippt ist; leeren bringt sie zurück. */}
+              <SearchInput
+                size="sm"
+                containerClassName="mb-3"
+                placeholder={t('page.searchPlaceholder')}
+                value={search}
+                onValueChange={setSearch}
+              />
+
+              {searchHits !== null ? (
+                <nav className="space-y-1">
+                  {searchHits.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      {t('page.searchNoResults')}
+                    </p>
+                  ) : (
+                    searchHits.map((hit) => {
+                      const section = SECTIONS.find(s => s.id === hit.section);
+                      if (!section) return null;
+                      const Icon = section.icon;
+                      return (
+                        <button
+                          key={hit.section}
+                          onClick={() => { navigateToSection(hit.section as SectionId); setSearch(''); }}
+                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+                        >
+                          <span className="flex items-center gap-3 text-foreground">
+                            <Icon className="h-4 w-4 shrink-0" />
+                            {t(`page.sections.${section.id}`)}
+                          </span>
+                          {/* Der Beleg: welcher Text gepasst hat. Ohne ihn ist ein Treffer
+                              in einem Hinweistext nicht nachvollziehbar. */}
+                          {hit.text !== t(`page.sections.${section.id}`) && (
+                            <span className="mt-0.5 block truncate pl-7 text-xs">{hit.text}</span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </nav>
+              ) : (
+              /* One loop over GROUPS. This used to be three near-identical blocks,
+                 which is how the «Daten» group ended up wrapped in `isEditor &&` and
+                 hid Fehlerberichte from the very people it is for. A group renders
+                 when it has visible sections and not otherwise. */
               <nav className="space-y-1">
-                {/* Config group */}
-                <p className="text-xs font-semibold text-muted-foreground tracking-wide px-3 py-2">
-                  {t('page.groups.config')}
-                </p>
-                {visibleSections.filter(s => s.group === 'config').map((section) => {
-                  const Icon = section.icon;
-                  const isActive = activeSection === section.id;
+                {GROUPS.map((group, groupIndex) => {
+                  const groupSections = visibleSections.filter(s => s.group === group);
+                  if (groupSections.length === 0) return null;
                   return (
-                    <button
-                      key={section.id}
-                      onClick={() => navigateToSection(section.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                        isActive
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {t(`page.sections.${section.id}`)}
-                    </button>
+                    <div key={group}>
+                      <p className={`px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground ${groupIndex > 0 ? 'mt-4' : ''}`}>
+                        {t(`page.groups.${group}`)}
+                      </p>
+                      {groupSections.map((section) => {
+                        const Icon = section.icon;
+                        const isActive = activeSection === section.id;
+                        return (
+                          <button
+                            key={section.id}
+                            onClick={() => navigateToSection(section.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                              isActive
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {t(`page.sections.${section.id}`)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   );
                 })}
-
-                {/* Resources group */}
-                {isEditor && (
-                  <>
-                    <p className="text-xs font-semibold text-muted-foreground tracking-wide px-3 py-2 mt-4">
-                      {t('page.groups.resources')}
-                    </p>
-                    {visibleSections.filter(s => s.group === 'resources').map((section) => {
-                      const Icon = section.icon;
-                      const isActive = activeSection === section.id;
-                      return (
-                        <button
-                          key={section.id}
-                          onClick={() => navigateToSection(section.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                            isActive
-                              ? 'bg-background text-foreground shadow-sm'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {t(`page.sections.${section.id}`)}
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {/* Data group */}
-                {isEditor && (
-                  <>
-                    <p className="text-xs font-semibold text-muted-foreground tracking-wide px-3 py-2 mt-4">
-                      {t('page.groups.data')}
-                    </p>
-                    {visibleSections.filter(s => s.group === 'data').map((section) => {
-                      const Icon = section.icon;
-                      const isActive = activeSection === section.id;
-                      return (
-                        <button
-                          key={section.id}
-                          onClick={() => navigateToSection(section.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                            isActive
-                              ? 'bg-background text-foreground shadow-sm'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {t(`page.sections.${section.id}`)}
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
               </nav>
+              )}
             </aside>
           )}
 
@@ -1798,7 +1915,7 @@ export default function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(['config', 'resources', 'data'] as const).map((group) => {
+                  {GROUPS.map((group) => {
                     const groupSections = visibleSections.filter(s => s.group === group);
                     if (groupSections.length === 0) return null;
                     const groupLabel = t(`page.groups.${group}`);
@@ -1823,7 +1940,7 @@ export default function SettingsPage() {
           {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; extra bottom padding so content clears the bottom nav. */}
           <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
-            <div className="max-w-4xl">
+            <div className="max-w-4xl space-y-6">
               {renderContent()}
             </div>
           </main>

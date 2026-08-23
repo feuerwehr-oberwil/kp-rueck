@@ -31,6 +31,7 @@ Three cases, in the order they are tried:
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -47,6 +48,7 @@ from ...models import (
     IncidentGroup,
     IncidentGroupAssignment,
     Personnel,
+    StatusTransition,
     Vehicle,
 )
 from ...services.audit import log_action
@@ -414,17 +416,70 @@ def report_summary(incident: Incident, mode: TakeoverMode) -> dict[str, Any]:
     return {"incident_id": str(incident.id), "takeover": mode}
 
 
-#: While the Schadenplatz is still sitting in «Eingegangen», nobody has been sent
-#: anywhere and the reporter may still fix what they typed. The moment the KP
-#: disponiert it, a crew is driving to that address and the address stops being
-#: the reporter's to change — the correction goes over the radio, like it always
-#: did. This is the whole of the edit window, and it is enforced server-side.
-EDITABLE_STATUS = "incoming"
+#: The phases in which the person who reported a Schadenplatz may still correct
+#: it. «Eingegangen» is obvious — nobody has been sent anywhere yet. Reko counts
+#: too: a caller who is still typing while the Reko-Trupp is already looking is
+#: *adding* information, and blocking that only pushes it onto the radio for no
+#: gain. The window shuts once a crew is actually committed to the address, and
+#: the correction goes over the radio, like it always did. Enforced server-side;
+#: `/feld` and the `/alarm` receipt share this one rule so the two surfaces
+#: cannot drift apart.
+EDITABLE_STATUSES = frozenset({"incoming", "reko", "reko_done"})
 
 
 def report_is_editable(incident: Incident) -> bool:
-    """Can the person who reported this still correct it?"""
-    return incident.status == EDITABLE_STATUS and incident.deleted_at is None
+    """Can the person who reported this still correct it?
+
+    Status only, and deliberately *stateful*: it answers "is a crew committed to
+    this address right now?". Both correction paths put
+    ``never_left_the_window`` on top of it — an operator dragging a card back
+    into these phases must not hand the phone the pen again (see there).
+    """
+    return incident.status in EDITABLE_STATUSES and incident.deleted_at is None
+
+
+async def reports_that_left_the_window(db: AsyncSession, incident_ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these Schadenplätze have been outside the editable phases at least once.
+
+    One query for a whole list, because the reporter's «Von mir gemeldet» list
+    asks it of every row at once and a per-row lookup would be N+1 on the one
+    request a phone in a cellar retries.
+    """
+    if not incident_ids:
+        return set()
+    rows = await db.execute(
+        select(StatusTransition.incident_id).where(
+            StatusTransition.incident_id.in_(incident_ids),
+            StatusTransition.to_status.notin_(EDITABLE_STATUSES),
+        )
+    )
+    return set(rows.scalars().all())
+
+
+async def never_left_the_window(db: AsyncSession, incident: Incident) -> bool:
+    """Has this card stayed inside the editable phases its whole life?
+
+    Stricter than `report_is_editable`, and deliberately so. That rule is
+    stateful, so an operator dragging a disponierte Karte back to «Eingegangen»
+    would reopen the reporter's window. By then the Meldung may carry operator
+    edits, and `description` is assign-semantics: the phone sends its whole
+    cached form back, so a stale tab pressing «Korrektur senden» would replace
+    the KP's refined text with the reporter's original sentence, silently.
+    «Notizen» is safe (it appends, see `append_reporter_note`); this closes the
+    same hole one column over.
+
+    Reko does not count as leaving: a reporter still typing while the Trupp is
+    looking is adding information, which is the point. Only a card that has
+    genuinely been committed to at some point stops being the reporter's.
+
+    The twin of `api/intake.py::_never_left_the_window` — the `/alarm` receipt
+    and `/feld` share `report_is_editable`, so they share this guard too. The
+    honest difference is who is holding the phone: a `/feld` reporter is a known
+    crew member at the Schadenplatz rather than an anonymous caller, so the risk
+    of a stale correction is smaller — the failure mode, silently overwriting
+    what the KP typed, is identical.
+    """
+    return incident.id not in await reports_that_left_the_window(db, [incident.id])
 
 
 async def own_reports(
@@ -471,6 +526,11 @@ async def own_reports(
     for incident_id, name in vehicle_rows.all():
         vehicles.setdefault(incident_id, []).append(name)
 
+    # Both halves of the rule, so «Korrigieren» on the phone and the 409 on the
+    # write path never disagree: a card the KP disponierte and then dragged back
+    # reads as closed here too.
+    left = await reports_that_left_the_window(db, [incident.id for incident in incidents])
+
     return [
         {
             "incident_id": incident.id,
@@ -485,11 +545,60 @@ async def own_reports(
             "contact_phone": incident.contact_phone,
             "status": incident.status,
             "created_at": incident.created_at,
-            "editable": report_is_editable(incident),
+            "editable": report_is_editable(incident) and incident.id not in left,
             "vehicles": vehicles.get(incident.id, []),
         }
         for incident in incidents
     ]
+
+
+def reporter_note_prefix(reporter: str) -> str:
+    """What marks a line in «Notizen» as a later addition by the reporter.
+
+    `/alarm` writes a fixed «Nachtrag Melder: » because it has nobody to name.
+    Here the reporter is a known crew member (`reported_by_personnel_id`), so
+    the column says which one — an operator reading «Nachtrag Brunner Marco:
+    Zufahrt doch frei» knows who to ask back, and that is worth the two words.
+    Only the person a Meldung names may correct it, so the marker is stable for
+    the whole column and the dedup below can split on it.
+    """
+    return f"Nachtrag {reporter}: "
+
+
+def append_reporter_note(existing: str | None, addition: str, *, reporter: str) -> str | None:
+    """«Notizen» grows from the field door; it is never overwritten through it.
+
+    The column is shared with the KP — an operator types into «Notizen» while
+    the Meldung sits in «Eingegangen» — and the phone sends its whole cached
+    form back on every correction. Assigning here therefore replaced whatever
+    the operator had written since, silently and with neither side told.
+    Appending keeps the one legitimate reason to touch the column (the reporter
+    fixing their own Hinweis) without ever costing the operator a word, and it
+    is what a correction over the radio does anyway: you send a Nachtrag, you do
+    not un-say what the KP already read.
+
+    Empty text is *not* a clear: `""` clears the reporter's own fields, but this
+    column is not theirs alone. A note that already stands in the column *as its
+    own entry* is dropped, which is what makes a double tap – or a page that
+    resends its whole draft – add nothing. Entry-exact, not substring: a short
+    genuine Nachtrag («12») must not be swallowed just because those two
+    characters occur somewhere inside an existing line.
+
+    The twin of `api/intake.py::append_reporter_note`. The two doors share
+    `report_is_editable`, so they share this resolution too.
+    """
+    text = addition.strip()
+    if not text:
+        return existing
+    if not existing:
+        return text
+    # The column is the original Hinweis followed by prefixed Nachträge, so
+    # splitting on the prefix recovers the entries a resend could duplicate.
+    # Only an exact entry match dedups; everything else is new information.
+    prefix = reporter_note_prefix(reporter)
+    if text in existing.split(f"\n{prefix}"):
+        return existing
+    return f"{existing}\n{prefix}{text}"
 
 
 async def update_field_report(
@@ -501,10 +610,15 @@ async def update_field_report(
 ) -> Incident:
     """Correct a Meldung that has not been disponiert yet.
 
-    The caller has already been checked (`report_is_editable` plus the reporter
-    binding); this only writes and logs. Every field is optional — the phone
-    sends the whole form back, but a Meldung that only had its description fixed
-    must not have its address blanked by an omitted key.
+    The caller has already been checked (`report_is_editable` and
+    `never_left_the_window`, plus the reporter binding); this only writes and
+    logs. Every field is optional — the phone sends the whole form back, but a
+    Meldung that only had its description fixed must not have its address
+    blanked by an omitted key.
+
+    **«Notizen» is appended, never assigned** (`append_reporter_note`): it is
+    the one column here the KP writes into as well, so the reporter's correction
+    arrives as a marked Nachtrag instead of as a blind overwrite.
 
     **The title follows the address** when it was the address: a crew's Meldung
     is titled with the street it is at (`create_field_report`), so correcting the
@@ -527,8 +641,12 @@ async def update_field_report(
         incident.priority = payload.priority
     if payload.description is not None:
         incident.description = payload.description or None
+    # Appended, never assigned — «Notizen» is shared with the operator, so a set
+    # here would be a blind overwrite of text the reporter cannot even see.
     if payload.internal_notes is not None:
-        incident.internal_notes = payload.internal_notes or None
+        incident.internal_notes = append_reporter_note(
+            incident.internal_notes, payload.internal_notes, reporter=person.name
+        )
     if payload.location_address is not None:
         incident.location_address = payload.location_address or None
     # The shared validator hands a coordinate over as a string; the column is
@@ -561,6 +679,10 @@ async def update_field_report(
                 "priority": incident.priority,
                 "location_address": incident.location_address,
                 "description": incident.description,
+                # Same keys before and after, so a Nachtrag in «Notizen» is
+                # readable as one in the trail rather than as a column that
+                # changed for no recorded reason.
+                "internal_notes": incident.internal_notes,
             },
             "corrected_by": person.name,
             "source": "feld",

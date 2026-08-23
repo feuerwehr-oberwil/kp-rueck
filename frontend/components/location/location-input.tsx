@@ -22,6 +22,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
 import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
@@ -53,6 +54,16 @@ interface LocationInputProps {
    *  instead of above it, and the map/coordinate buttons shrink to match. Same
    *  control either way — see components/kanban/detail-field.tsx. */
   dense?: boolean
+  /** With `dense`: keep the row grammar but draw the input as a normal boxed
+   *  field. For creation dialogs, where every field is empty at open — a
+   *  borderless empty input has no affordance, and the pin icon alone reads
+   *  as a row of buttons, not a field. */
+  boxed?: boolean
+  /** Draw the required asterisk. Only a form that can be SUBMITTED empty has
+   *  anything to require — an existing incident already has an Einsatzort, and
+   *  marking it on the detail asked the operator to satisfy a rule they had
+   *  satisfied when the card was created. */
+  required?: boolean
 }
 
 export function LocationInput({
@@ -67,6 +78,8 @@ export function LocationInput({
   error = false,
   extraAction,
   dense = false,
+  boxed = false,
+  required = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
@@ -223,6 +236,14 @@ export function LocationInput({
   const commitFreetext = (value: string) => {
     const text = value.trim()
     if (!text) return
+    // A CHANGED freetext is a new answer to "where", so a pin that belonged to
+    // the previous address must not survive it: the map — and everything that
+    // trusts the pin over the text, like the /alarm correction — would keep
+    // pointing at the old spot. Cleared only when the text actually changed;
+    // re-committing the same address (a blur, a stray Enter) must not throw
+    // away a pin that was picked on the map. If the geocoder does know the new
+    // text after all, the geocode effect above sets a fresh pin.
+    if (text !== (address ?? "").trim()) onCoordinatesChange(null, null)
     onAddressChange(text)
     setEditing(false)
     setAddressSearchOpen(false)
@@ -320,6 +341,38 @@ export function LocationInput({
     longitude >= -180 &&
     longitude <= 180
 
+  // The map picker and the coordinate toggle. Beside the field normally; INSIDE
+  // its right edge when `boxed`, so the input ends where every other control of
+  // the form ends instead of stopping two buttons short of the shared edge.
+  const locationActions = (
+    <>
+      <Button
+        type="button"
+        variant={dense || boxed ? "ghost" : "outline"}
+        size={dense || boxed ? "icon-xs" : "icon"}
+        className={cn((dense || boxed) && "size-7")}
+        onClick={() => setMapPickerOpen(true)}
+        disabled={disabled}
+        title={t('locationInput.pickOnMap')}
+        tabIndex={-1}
+      >
+        <Map className={dense || boxed ? "size-3.5" : "size-4"} />
+      </Button>
+      <Button
+        type="button"
+        variant={showCoordinates ? "default" : dense || boxed ? "ghost" : "outline"}
+        size={dense || boxed ? "icon-xs" : "icon"}
+        className={cn((dense || boxed) && "size-7")}
+        onClick={() => setShowCoordinates(!showCoordinates)}
+        disabled={disabled}
+        title={t('locationInput.enterCoordinates')}
+        tabIndex={-1}
+      >
+        <Navigation className={dense || boxed ? "size-3.5" : "size-4"} />
+      </Button>
+    </>
+  )
+
   return (
     // No blanket vertical spacing here: the coordinate drawer below is collapsed
     // to zero height most of the time, and a `space-y-*` on this wrapper still
@@ -328,8 +381,10 @@ export function LocationInput({
     // margin only while it is open.
     <div>
       {/* Address Input with Autocomplete */}
-      <div className={cn(dense ? "flex items-center gap-2 border-b border-border/50 py-1" : "min-h-[40px]")}>
-        <div className={cn("flex items-center gap-1", dense && "w-[104px] shrink-0")}>
+      {/* No hairline under the dense row — like every DetailField row since the
+          «Nur Abstand» pick: whitespace separates, headings group. */}
+      <div className={cn(dense ? "flex items-center gap-2 py-1" : "min-h-[40px]")}>
+        <div className={cn("flex items-center gap-1", dense && "w-[120px] shrink-0")}>
           <Label
             htmlFor="location_address"
             className={cn(
@@ -340,7 +395,9 @@ export function LocationInput({
           >
             {dense ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
           </Label>
-          <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
+          {required && (
+            <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
+          )}
         </div>
         {/* items-CENTER, not items-start: the two icon buttons belong on the
             field's own line. Nothing in this row ever grows taller than the
@@ -357,13 +414,10 @@ export function LocationInput({
           <Popover open={addressSearchOpen} onOpenChange={setAddressSearchOpen}>
             <PopoverAnchor asChild>
               <div ref={anchorRef} className="relative flex-1">
-                {/* Dense only: the side panel's borderless row needs the pin to
-                    read as a field at all. In a normal form the icon made this
-                    the one input styled unlike its siblings, so there it is a
-                    plain Input like every other field. */}
-                {dense && (
-                  <MapPin className="pointer-events-none absolute top-1/2 left-1.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                )}
+                {/* No pin inside the dense field any more: its pl-7 shifted the
+                    address right of every sibling row's value — the one visibly
+                    unaligned line in the detail. The row's own label plus the
+                    map buttons beside it say what the field is. */}
                 <Input
                   id="location_address"
                   ref={searchInputRef}
@@ -383,7 +437,11 @@ export function LocationInput({
                   }}
                   onFocus={(e) => {
                     setEditing(true)
-                    setAddressSearchOpen(true)
+                    // Only reopen the list when there is something to search for.
+                    // With an empty field — the autofocused creation dialog — the
+                    // popover has nothing but its «Mindestens 3 Zeichen»-hint and
+                    // would open OVER the next row before the operator typed a key.
+                    if (addressSearchQuery.trim()) setAddressSearchOpen(true)
                     e.target.select()
                   }}
                   onBlur={() => {
@@ -399,13 +457,27 @@ export function LocationInput({
                   }}
                   onKeyDown={handleAddressKeyDown}
                   className={cn(
-                    // Transparent border + constant padding: focusing must not
-                    // move the text the operator just clicked on.
-                    dense &&
-                      "h-7 rounded-md border border-transparent bg-transparent px-2 pl-7 shadow-none hover:bg-input/50 focus-visible:bg-input dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input",
-                    error && "border-destructive focus-visible:ring-destructive"
+                    // `DENSE_CONTROL`, not a copy of it. This row used to
+                    // hand-roll the same classes, which is why it was the ONE
+                    // field of the detail left without a box when the skin grew
+                    // its resting border: every value around it read as
+                    // editable and the Einsatzort read as printed text.
+                    dense && !boxed && DENSE_CONTROL,
+                    boxed && "pr-16",
+                    // The hover/focus variants have to be beaten in kind:
+                    // `DENSE_CONTROL` sets `hover:border-border` and
+                    // `focus-visible:border-border`, and an unprefixed
+                    // `border-destructive` loses to both — the error outline
+                    // disappeared the moment the field was hovered or focused.
+                    error &&
+                      "border-destructive hover:border-destructive focus-visible:border-destructive focus-visible:ring-destructive"
                   )}
                 />
+                {boxed && (
+                  <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+                    {locationActions}
+                  </div>
+                )}
               </div>
             </PopoverAnchor>
             <PopoverContent
@@ -517,33 +589,9 @@ export function LocationInput({
             </PopoverContent>
           </Popover>
 
-          {/* Map Picker Button - excluded from tab order for cleaner form navigation */}
-          <Button
-            type="button"
-            variant={dense ? "ghost" : "outline"}
-            size={dense ? "icon-xs" : "icon"}
-            className={cn(dense && "size-7")}
-            onClick={() => setMapPickerOpen(true)}
-            disabled={disabled}
-            title={t('locationInput.pickOnMap')}
-            tabIndex={-1}
-          >
-            <Map className={dense ? "size-3.5" : "size-4"} />
-          </Button>
-
-          {/* Show Coordinates Button - excluded from tab order for cleaner form navigation */}
-          <Button
-            type="button"
-            variant={showCoordinates ? "default" : dense ? "ghost" : "outline"}
-            size={dense ? "icon-xs" : "icon"}
-            className={cn(dense && "size-7")}
-            onClick={() => setShowCoordinates(!showCoordinates)}
-            disabled={disabled}
-            title={t('locationInput.enterCoordinates')}
-            tabIndex={-1}
-          >
-            <Navigation className={dense ? "size-3.5" : "size-4"} />
-          </Button>
+          {/* Excluded from tab order for cleaner form navigation; boxed mounts
+              carry these inside the field instead (see `locationActions`). */}
+          {!boxed && locationActions}
 
           {extraAction}
         </div>
@@ -660,6 +708,10 @@ export function LocationInput({
           onOpenChange={setMapPickerOpen}
           initialLat={latitude}
           initialLon={longitude}
+          // The address this field already holds, so the picker does not report
+          // «Keine Adresse gefunden» about a place whose name is in the input
+          // right behind it — and does not overwrite it with coordinates.
+          initialAddress={address}
           onLocationSelect={handleMapSelect}
         />
       )}

@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, computed_field, field_serializer, field_validator
 
 # The provenances an editor may claim from the board (plan 26 §6, sweep 27 §P5b.3).
 # "operator" = typed in at the KP, "intake" = the operator took the call and
@@ -20,6 +20,12 @@ from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 # 422. A card claiming to come from a system that has never heard of it is a
 # worse lie than the one this field exists to fix.
 EditorIncidentSource = Literal["operator", "intake", "feld"]
+
+# Sources that are NOT a delivered alarm: somebody at the KP, at a Schadenplatz
+# or in an import wrote this card. Every other slug belongs to a sending system
+# (`schemas.alarms.RESERVED_ALARM_SOURCES` minus these, plus whatever slug an
+# external sender declares).
+_NON_ALARM_SOURCES = frozenset({"operator", "intake", "feld", "manual", "migrated", "training"})
 
 
 class IncidentType(str, Enum):
@@ -304,6 +310,36 @@ class IncidentResponse(IncidentBase):
     # once the home_city setting loads client-side. "" when the address is only
     # the home city; None when there is no address (or on older backends).
     location_display: str | None = None
+
+    # Only interesting inside a training Ereignis, where it is the one thing
+    # about a single incident that deviates from the drill it sits in: its
+    # Ausalarmierung is simulated and its overdue thresholds are 50% longer, but
+    # the thing at the address is real. The surfaces decide when to say so; the
+    # rule itself lives here, next to the write paths it reads.
+    #
+    # Derived rather than stored, because both halves are already columns:
+    #
+    # * `source` names the sender. Everything in `_NON_ALARM_SOURCES` was typed
+    #   by a human at the KP, at a Schadenplatz, or by an import — never an
+    #   alarm. Anything else is a delivering system.
+    # * `source_ref` is the alarm's id in that system. The simulated drill
+    #   alarms in `services.training` are minted locally into the pool with no
+    #   `source_id` at all, while the Divera adapter always carries one
+    #   (`crud.divera.create_divera_emergency`). So within "divera" — the only
+    #   slug that has a simulated variant — the id IS the mark of a real
+    #   delivery.
+    #
+    # The `source != "divera"` half is deliberate and not redundant: a
+    # generic-webhook sender may legitimately omit `source_id`, and reading
+    # `source_ref is not None` alone would then call a real alarm a drill. That
+    # is the dangerous direction of this flag, so it is not left open.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def from_real_alarm(self) -> bool:
+        """This incident came from a genuine dispatch alarm, not a simulated drill one."""
+        if self.source in _NON_ALARM_SOURCES:
+            return False
+        return self.source != "divera" or self.source_ref is not None
 
     @field_validator(
         "pickup_needed",

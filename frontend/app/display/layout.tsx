@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { SearchInput } from "@/components/ui/search-input"
 import { Kbd } from "@/components/ui/kbd"
 import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-search-context"
+import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { useDisplayErrorRecovery } from "@/components/display-error"
 
 const displayPages = [
@@ -209,6 +210,11 @@ function DisplayChrome({
     // the stale-data one, which fires precisely when a wall display has lost its
     // connection. `h-full` takes the height <main> actually has.
     <div className="flex h-full flex-col bg-background text-foreground">
+      {/* Übung: the same warning strip the board carries, so a glance from the
+          wall to the KP confirms itself. Fixed to the top of the viewport, so it
+          needs no `order-first` to stay above the control bar that goes
+          `order-last` on mobile, and it costs this column no height. */}
+      {isTraining && <TrainingBand />}
       {/* Control bar — top navbar on desktop, bottom bar on mobile (order-last
           keeps it thumb-reachable there). Pinned: it is the only bar the display
           pages have, and on a share link it also carries the «Nur-Lesen» badge
@@ -241,11 +247,7 @@ function DisplayChrome({
           ) : (
             <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate">{eventName}</h1>
           )}
-          {isTraining && (
-            <span className="text-[11px] sm:text-xs font-medium text-warning-foreground bg-warning/10 border border-warning/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
-              {t('layout.training')}
-            </span>
-          )}
+          {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that
               repeated the Ereignis name this one already carries. */}
           {token && (

@@ -13,7 +13,7 @@ import {
   type GroupResourceType,
 } from "@/lib/api-client"
 import type { GroupAssignment, GroupResources, IncidentGroup } from "@/lib/types/groups"
-import type { Operation } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { shouldStartPollingOnMount } from "@/lib/sync-cooldown"
 import { isValidUUID, randomId } from "@/lib/utils/validation"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
@@ -115,6 +115,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { selectedEvent, isEventLoaded } = useEvent()
   const { personnel } = usePersonnel()
   const { materials } = useMaterials()
+  // Readiness lives in the operations context (refreshed with every poll).
+  // GroupsProvider sits inside OperationsProvider in the root layout.
+  const { outOfServiceVehicleIds } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
@@ -591,6 +594,18 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         return true
       }
 
+      // «Nicht einsatzbereit» locks the route exactly like it locks a
+      // Schadenplatz (operations-context assignVehicle): without this, a
+      // defective vehicle could silently land on an Auftrag — the dialog greys
+      // the row, but the number keys and any caller with a stale list bypass it.
+      if (resourceType === "vehicle" && outOfServiceVehicleIds.has(resourceId)) {
+        const name = vehicles.find((v) => String(v.id) === resourceId)?.name ?? resourceId
+        toast.error(translateOutsideReact("notifications.materials.outOfServiceBlockedTitle", { name }), {
+          description: translateOutsideReact("notifications.materials.outOfServiceBlockedDescription"),
+        })
+        return false
+      }
+
       mutationEpochRef.current++
 
       const tempId = `temp-${randomId()}`
@@ -615,7 +630,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         return false
       }
     },
-    [groups, refreshGroups],
+    [groups, refreshGroups, outOfServiceVehicleIds, vehicles],
   )
 
   const unassignResource = useCallback(
@@ -689,7 +704,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
           })
         } else {
           const m = materials.find((x) => x.id === a.resourceId)
-          res.materials.push({ assignmentId: a.id, resourceId: a.resourceId, name: m?.name?.trim() || unknown })
+          res.materials.push({
+            assignmentId: a.id,
+            resourceId: a.resourceId,
+            name: m?.name?.trim() || unknown,
+            location: m?.category?.trim() || undefined,
+          })
         }
       }
       return res

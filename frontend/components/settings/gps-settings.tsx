@@ -2,10 +2,15 @@
 
 import { Satellite, AlertTriangle } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { Card } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
+import { SettingUnavailableNote } from "@/components/settings/setting-unavailable"
+import {
+  SettingCard,
+  SettingGroup,
+  SettingRow,
+} from "@/components/settings/setting-row"
 
 const MASTER_KEY = "gps.automation_enabled"
 const ARRIVAL_KEY = "gps.rule_arrival_enabled"
@@ -36,7 +41,8 @@ interface Props {
  *   location, the operator is PROMPTED to confirm disponiert -> einsatz (default).
  *   Silent auto-advance is an explicit, risky opt-in (`gps.rule_arrival_silent`).
  * - **Rückkehr (Regel B):** only PROMPTS the operator to release a vehicle when it is
- *   back in the magazin — never silent.
+ *   back in the magazin — never silent. Needs the Magazin coordinates to measure against,
+ *   so the switch is locked (with the reason) until they are set further down this card.
  *
  * Also active in training events; disabled in demo mode. The card warns that auto-advance acts on GPS.
  */
@@ -52,6 +58,25 @@ export function GpsSettingsCard({
   const enabled = settings[MASTER_KEY] === "true"
 
   const arrivalEnabled = settings[ARRIVAL_KEY] === "true"
+
+  // Die ganze Automatik läuft im Takt des Traccar-Abrufs: `gps_automation.py` wird aus
+  // `traccar_poller` gerufen. Ohne hinterlegten Ortungsdienst kommt nie ein Vorschlag –
+  // der Hauptschalter liess sich trotzdem umlegen und schwieg dann. Die Antwort kommt aus
+  // der Fähigkeiten-Registratur (`GET /api/integrations`, Bereich `vehicles`); `null` heisst
+  // «noch nicht beantwortet» und sperrt nichts, denn ein Schalter, der eine halbe Sekunde
+  // nach dem Laden von selbst zufällt, ist schlimmer als einer, der eine Sekunde wartet.
+  const trackerProvider = useIntegrationCapability("vehicles")
+  const trackerMissing =
+    trackerProvider !== null && !trackerProvider.configured ? t("gps.trackerUnavailable") : null
+
+  // Regel B misst gegen die Magazin-Koordinaten. Fehlen sie, kehrt die Rückkehr-Prüfung
+  // im Backend sofort um (`_check_return` in backend/app/services/gps_automation.py) –
+  // der Schalter stünde auf «an» und es käme nie ein Vorschlag. Darum hier gesperrt, mit
+  // dem Grund und dem Feld, das ihn behebt: «Magazin (Heimatbasis)» weiter unten auf
+  // dieser Karte. Ein bereits gespeichertes «an» bleibt gespeichert.
+  const stationConfigured =
+    Number.isFinite(Number.parseFloat(settings[STATION_LAT_KEY] ?? "")) &&
+    Number.isFinite(Number.parseFloat(settings[STATION_LNG_KEY] ?? ""))
 
   // Default fallbacks for every numeric key (used when the setting is unset).
   const NUMBER_FALLBACKS: Record<string, string> = {
@@ -127,156 +152,130 @@ export function GpsSettingsCard({
   }
 
   return (
-    <Card className="p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-medium flex items-center gap-2">
-            <Satellite className="h-4 w-4 text-primary" />
-            {t("gps.title")}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t.rich("gps.intro", {
-              strong: (chunks) => <strong>{chunks}</strong>,
-              em: (chunks) => <em>{chunks}</em>,
-            })}
-          </p>
-        </div>
+    // Rules, radii and tuning constants are all rows in the shared settings table – the
+    // automation runs in the backend, once, for everybody. Der Hauptschalter sitzt im
+    // Kartenkopf, weil er die Karte selbst ein- und ausschaltet, nicht eine Zeile darin.
+    <SettingCard
+      title={
+        <span className="flex items-center gap-2">
+          <Satellite className="size-4 text-primary" />
+          {t("gps.title")}
+        </span>
+      }
+      subtitle={t.rich("gps.intro", {
+        strong: (chunks) => <strong>{chunks}</strong>,
+        em: (chunks) => <em>{chunks}</em>,
+      })}
+      action={
         <Switch
+          aria-label={t("gps.title")}
           checked={enabled}
-          disabled={!isEditor || saving === MASTER_KEY}
+          title={trackerMissing ?? undefined}
+          disabled={!isEditor || Boolean(trackerMissing) || saving === MASTER_KEY}
           onCheckedChange={(v) => updateSetting(MASTER_KEY, v ? "true" : "false")}
         />
-      </div>
+      }
+    >
+      {/* Der Grund steht ganz oben, nicht an einer einzelnen Zeile: es fehlt nicht einer
+          Regel etwas, sondern allen. Ein gespeichertes «an» bleibt gespeichert und wirkt
+          wieder, sobald ein Ortungsdienst eingerichtet ist. */}
+      {trackerMissing && (
+        <SettingUnavailableNote className="mb-3">{trackerMissing}</SettingUnavailableNote>
+      )}
 
       {enabled && (
-        <div className="space-y-4">
+        <>
           {/* Ankunft (Regel A) — confirm by default, silent is an opt-in */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label className="font-medium">{t("gps.arrivalLabel")}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t("gps.arrivalHint")}
-              </p>
-            </div>
+          <SettingRow
+            label={t("gps.arrivalLabel")}
+            htmlFor="gps-rule-arrival"
+            hint={t("gps.arrivalHint")}
+          >
             <Switch
+              id="gps-rule-arrival"
               checked={arrivalEnabled}
               disabled={!isEditor || saving === ARRIVAL_KEY}
               onCheckedChange={(v) => updateSetting(ARRIVAL_KEY, v ? "true" : "false")}
             />
-          </div>
+          </SettingRow>
 
           {arrivalEnabled && (
-            <div className="ml-4 border-l pl-4 space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <Label className="font-medium text-sm">{t("gps.silentLabel")}</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t("gps.silentHint")}
-                  </p>
-                </div>
-                <Switch
-                  checked={settings[ARRIVAL_SILENT_KEY] === "true"}
-                  disabled={!isEditor || saving === ARRIVAL_SILENT_KEY}
-                  onCheckedChange={(v) => updateSetting(ARRIVAL_SILENT_KEY, v ? "true" : "false")}
-                />
-              </div>
-              {settings[ARRIVAL_SILENT_KEY] === "true" && (
-                <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                  <span>
-                    {t.rich("gps.silentWarning", {
-                      strong: (chunks) => <strong>{chunks}</strong>,
-                    })}
-                  </span>
-                </div>
-              )}
-            </div>
+            <SettingRow
+              className="ml-6"
+              label={t("gps.silentLabel")}
+              htmlFor="gps-rule-arrival-silent"
+              hint={t("gps.silentHint")}
+              footer={
+                settings[ARRIVAL_SILENT_KEY] === "true" ? (
+                  <div className="mt-2 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      {t.rich("gps.silentWarning", {
+                        strong: (chunks) => <strong>{chunks}</strong>,
+                      })}
+                    </span>
+                  </div>
+                ) : null
+              }
+            >
+              <Switch
+                id="gps-rule-arrival-silent"
+                checked={settings[ARRIVAL_SILENT_KEY] === "true"}
+                disabled={!isEditor || saving === ARRIVAL_SILENT_KEY}
+                onCheckedChange={(v) => updateSetting(ARRIVAL_SILENT_KEY, v ? "true" : "false")}
+              />
+            </SettingRow>
           )}
 
           {/* Rückkehr (Regel B) — confirm only */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label className="font-medium">{t("gps.returnLabel")}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t("gps.returnHint")}
-              </p>
-            </div>
+          <SettingRow
+            label={t("gps.returnLabel")}
+            htmlFor="gps-rule-return"
+            hint={t("gps.returnHint")}
+            unavailable={stationConfigured ? null : t("gps.returnUnavailable")}
+            unavailableBadge={t("common.notConfiguredBadge")}
+          >
             <Switch
+              id="gps-rule-return"
               checked={settings[RETURN_KEY] === "true"}
-              disabled={!isEditor || saving === RETURN_KEY}
+              title={!stationConfigured ? t("gps.returnUnavailable") : undefined}
+              disabled={!isEditor || !stationConfigured || saving === RETURN_KEY}
               onCheckedChange={(v) => updateSetting(RETURN_KEY, v ? "true" : "false")}
             />
-          </div>
+          </SettingRow>
 
           {/* Magazin coordinates + radius */}
-          <div className="border-t pt-4 space-y-3">
-            <div>
-              <Label className="font-medium">{t("gps.stationLabel")}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t("gps.stationHint")}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.latLabel")}</Label>
-                {renderCoord(STATION_LAT_KEY)}
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.lngLabel")}</Label>
-                {renderCoord(STATION_LNG_KEY)}
-              </div>
-            </div>
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.stationRadiusLabel")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("gps.stationRadiusHint")}
-                </p>
-              </div>
-              <div className="flex-shrink-0">
-                {renderNumber(STATION_RADIUS_KEY, NUMBER_FALLBACKS[STATION_RADIUS_KEY])}
-              </div>
-            </div>
-          </div>
+          <SettingGroup title={t("gps.stationLabel")} hint={t("gps.stationHint")}>
+            <SettingRow label={t("gps.latLabel")}>{renderCoord(STATION_LAT_KEY)}</SettingRow>
+            <SettingRow label={t("gps.lngLabel")}>{renderCoord(STATION_LNG_KEY)}</SettingRow>
+            <SettingRow label={t("gps.stationRadiusLabel")} hint={t("gps.stationRadiusHint")}>
+              {renderNumber(STATION_RADIUS_KEY, NUMBER_FALLBACKS[STATION_RADIUS_KEY])}
+            </SettingRow>
+          </SettingGroup>
 
           {/* Ankunftsradius (moved from Benachrichtigungen) — shared with Rule A */}
-          <div className="border-t pt-4 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <Label className="text-sm font-semibold text-muted-foreground">{t("gps.arrivalRadiusLabel")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("gps.arrivalRadiusHint")}
-                </p>
-              </div>
-              <div className="flex-shrink-0">
-                {renderNumber(ARRIVAL_RADIUS_KEY, NUMBER_FALLBACKS[ARRIVAL_RADIUS_KEY])}
-              </div>
-            </div>
-          </div>
+          <SettingRow
+            className="mt-6"
+            label={t("gps.arrivalRadiusLabel")}
+            hint={t("gps.arrivalRadiusHint")}
+          >
+            {renderNumber(ARRIVAL_RADIUS_KEY, NUMBER_FALLBACKS[ARRIVAL_RADIUS_KEY])}
+          </SettingRow>
 
           {/* Tuning constants */}
-          <div className="border-t pt-4 space-y-3">
-            <Label className="font-medium">{t("gps.tuningTitle")}</Label>
+          <SettingGroup title={t("gps.tuningTitle")}>
             {tuningFields.map((field) => (
-              <div key={field.key} className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <Label className="text-sm font-semibold text-muted-foreground">{field.label}</Label>
-                  <p className="text-xs text-muted-foreground">{field.hint}</p>
-                </div>
-                <div className="flex-shrink-0">
-                  {renderNumber(field.key, NUMBER_FALLBACKS[field.key])}
-                </div>
-              </div>
+              <SettingRow key={field.key} label={field.label} hint={field.hint}>
+                {renderNumber(field.key, NUMBER_FALLBACKS[field.key])}
+              </SettingRow>
             ))}
-          </div>
-        </div>
+          </SettingGroup>
+        </>
       )}
 
       {!isEditor && (
-        <p className="text-xs text-muted-foreground">
-          {t("gps.editorsOnly")}
-        </p>
+        <p className="pt-3 text-xs text-muted-foreground">{t("gps.editorsOnly")}</p>
       )}
-    </Card>
+    </SettingCard>
   )
 }

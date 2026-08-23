@@ -153,14 +153,18 @@ up:
                     2>/dev/null | tr -d ' \r')"
                 case "$ROSTER" in
                     0\|*)
-                        echo -e "\033[1;33m⚠️  The board is up and NOBODY can log in – the roster is empty.\033[0m"
-                        echo "Seeding was refused, almost always ADMIN_SEED_PASSWORD in .env (12+ characters)."
+                        echo -e "\033[1;33m⚠️  The board is up and NOBODY can log in yet – the roster is empty.\033[0m"
+                        echo "If ADMIN_SEED_PASSWORD is empty in .env, that is the unclaimed first-run state:"
+                        echo "open the board and finish the /setup wizard. If it IS set, seeding was refused,"
+                        echo "almost always because it has under 12 characters."
                         echo "Confirm:  docker compose logs backend | grep -i seed"
                         echo "Then re-seed:  docker compose up -d --force-recreate backend"
                         ;;
                     *\|0)
                         echo -e "\033[1;33m⚠️  The login endpoint answers, but there is no active \"admin\" account.\033[0m"
-                        echo "Somebody may have renamed or disabled it. Look:  docker compose logs backend | grep -i seed"
+                        echo "On a board whose .env has no ADMIN_SEED_PASSWORD this is the unclaimed first-run"
+                        echo "state – the admin account is created in the browser at /setup. Otherwise somebody"
+                        echo "may have renamed or disabled it. Look:  docker compose logs backend | grep -i seed"
                         ;;
                     [0-9]*\|[0-9]*)
                         echo -e "\033[1;32m✓ A login is possible: the login endpoint answers and \"admin\" exists (${ROSTER%%|*} active accounts).\033[0m"
@@ -490,6 +494,14 @@ dev-clean:
     # production stack's `${VAR:?}` guards fire on any subcommand, `down` included, so this
     # errors without an .env and must not mask the dev teardown above having succeeded.
     docker compose down -v || true
+
+# Fill the dev stack from a real deployment so a fresh checkout needs zero configuration:
+# `just dev`, then `just dev-sync railway` – or any Postgres URL, any provider. `--config`
+# brings settings/fleet/roster/material but no Einsätze; `--yes` skips the prompt. The
+# replaced dev database is dumped to ./backups/ first, and the dev logins keep working.
+# Pull a deployment's database into the dev stack (SOURCE: Postgres URL or 'railway')
+dev-sync SOURCE *FLAGS:
+    ./scripts/dev-sync.sh {{SOURCE}} {{FLAGS}}
 
 # ============================================
 # Database

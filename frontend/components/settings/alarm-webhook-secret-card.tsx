@@ -30,13 +30,13 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { SettingCard } from '@/components/settings/setting-row'
 import { apiClient, ApiError, type ApiAlarmWebhookSecret } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
 
 export function AlarmWebhookSecretCard() {
-  const t = useTranslations('settings.page.alerting.webhookSecret')
+  const t = useTranslations('settings.page.alarmIntake.webhookSecret')
   const [secret, setSecret] = useState<ApiAlarmWebhookSecret | null>(null)
   const [revealing, setRevealing] = useState(false)
   const [rotateOpen, setRotateOpen] = useState(false)
@@ -110,76 +110,80 @@ export function AlarmWebhookSecretCard() {
   const pinnedToEnv = secret?.source === 'env'
 
   return (
-    <Card className="p-6 space-y-4">
-      <div className="flex items-start gap-3">
-        <KeyRound className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium">{t('title')}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{t('description')}</p>
-        </div>
-        {secret && (
+    <SettingCard
+      title={
+        <span className="flex items-center gap-1.5">
+          <KeyRound className="size-3.5 text-muted-foreground" aria-hidden="true" />
+          {t('title')}
+        </span>
+      }
+      subtitle={t('description')}
+      action={
+        secret && (
           <Badge variant="outline">{pinnedToEnv ? t('sourceEnv') : t('sourceDatabase')}</Badge>
-        )}
-      </div>
+        )
+      }
+    >
+      <div className="space-y-4">
+        {secret ? (
+          <div className="space-y-3">
+            {secret.configured ? (
+              <div className="flex items-center gap-2">
+                <code className="flex-1 min-w-0 truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
+                  {secret.secret}
+                </code>
+                <Button variant="outline" size="sm" onClick={copy}>
+                  {copied ? <Check className="size-3.5 text-success" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+                  {copied ? t('copied') : t('copy')}
+                </Button>
+              </div>
+            ) : (
+              <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-foreground">
+                {t('notConfigured')}
+              </p>
+            )}
 
-      {secret ? (
-        <div className="space-y-3">
-          {secret.configured ? (
             <div className="flex items-center gap-2">
-              <code className="flex-1 min-w-0 truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
-                {secret.secret}
-              </code>
-              <Button variant="outline" size="sm" onClick={copy}>
-                {copied ? <Check className="size-3.5 text-success" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
-                {copied ? t('copied') : t('copy')}
+              <Button variant="outline" size="sm" onClick={hide}>
+                <EyeOff className="size-3.5" aria-hidden="true" />
+                {t('hide')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pinnedToEnv}
+                onClick={() => setRotateOpen(true)}
+              >
+                <RefreshCw className="size-3.5" aria-hidden="true" />
+                {t('rotate')}
               </Button>
             </div>
-          ) : (
-            <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-foreground">
-              {t('notConfigured')}
-            </p>
-          )}
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={hide}>
-              <EyeOff className="size-3.5" aria-hidden="true" />
-              {t('hide')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pinnedToEnv}
-              onClick={() => setRotateOpen(true)}
-            >
-              <RefreshCw className="size-3.5" aria-hidden="true" />
-              {t('rotate')}
-            </Button>
+            {pinnedToEnv && <p className="text-xs text-muted-foreground">{t('rotateDisabledHint')}</p>}
           </div>
+        ) : (
+          <Button variant="outline" size="sm" onClick={reveal} disabled={revealing}>
+            {revealing ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Eye className="size-3.5" aria-hidden="true" />}
+            {t('reveal')}
+          </Button>
+        )}
 
-          {pinnedToEnv && <p className="text-xs text-muted-foreground">{t('rotateDisabledHint')}</p>}
-        </div>
-      ) : (
-        <Button variant="outline" size="sm" onClick={reveal} disabled={revealing}>
-          {revealing ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Eye className="size-3.5" aria-hidden="true" />}
-          {t('reveal')}
-        </Button>
-      )}
+        {error && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
-      {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      <ConfirmDialog
-        open={rotateOpen}
-        onOpenChange={setRotateOpen}
-        variant="destructive"
-        title={t('rotateConfirmTitle')}
-        description={t('rotateConfirmDescription')}
-        confirmText={t('rotate')}
-        onConfirm={rotate}
-      />
-    </Card>
+        <ConfirmDialog
+          open={rotateOpen}
+          onOpenChange={setRotateOpen}
+          variant="destructive"
+          title={t('rotateConfirmTitle')}
+          description={t('rotateConfirmDescription')}
+          confirmText={t('rotate')}
+          onConfirm={rotate}
+        />
+      </div>
+    </SettingCard>
   )
 }
