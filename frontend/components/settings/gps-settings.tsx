@@ -1,6 +1,7 @@
 "use client"
 
 import { Satellite, AlertTriangle } from "lucide-react"
+import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -71,12 +72,23 @@ export function GpsSettingsCard({
 
   // Regel B misst gegen die Magazin-Koordinaten. Fehlen sie, kehrt die Rückkehr-Prüfung
   // im Backend sofort um (`_check_return` in backend/app/services/gps_automation.py) –
-  // der Schalter stünde auf «an» und es käme nie ein Vorschlag. Darum hier gesperrt, mit
-  // dem Grund und dem Feld, das ihn behebt: «Magazin (Heimatbasis)» weiter unten auf
-  // dieser Karte. Ein bereits gespeichertes «an» bleibt gespeichert.
-  const stationConfigured =
-    Number.isFinite(Number.parseFloat(settings[STATION_LAT_KEY] ?? "")) &&
-    Number.isFinite(Number.parseFloat(settings[STATION_LNG_KEY] ?? ""))
+  // der Schalter stünde auf «an» und es käme nie ein Vorschlag. Die Koordinaten wohnen in
+  // **Allgemein** (firestation_*): dieselbe Frage stand hier ein zweites Mal als
+  // gps.station_* und lief auseinander – wer die eine Hälfte ausfüllte, sah hier weiter
+  // die Warnung. Der Abschnitt fragt nicht mehr selbst; ein Altbestand in gps.station_*
+  // wird weiterhin gelesen (er gewinnt sogar, damit kein Geofence stillschweigend
+  // umzieht – siehe get_station_coordinates im Backend).
+  const legacyLat = Number.parseFloat(settings[STATION_LAT_KEY] ?? "")
+  const legacyLng = Number.parseFloat(settings[STATION_LNG_KEY] ?? "")
+  const generalLat = Number.parseFloat(settings.firestation_latitude ?? "")
+  const generalLng = Number.parseFloat(settings.firestation_longitude ?? "")
+  const effectiveCoords =
+    Number.isFinite(legacyLat) && Number.isFinite(legacyLng)
+      ? ([legacyLat, legacyLng] as const)
+      : Number.isFinite(generalLat) && Number.isFinite(generalLng)
+        ? ([generalLat, generalLng] as const)
+        : null
+  const stationConfigured = effectiveCoords !== null
 
   // Default fallbacks for every numeric key (used when the setting is unset).
   const NUMBER_FALLBACKS: Record<string, string> = {
@@ -122,27 +134,6 @@ export function GpsSettingsCard({
         onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
         onBlur={(e) => {
           if (e.target.value !== (serverSettings[key] ?? fallback)) {
-            updateSetting(key, e.target.value)
-          }
-        }}
-        disabled={!isEditor || isCurrentlySaving}
-      />
-    )
-  }
-
-  const renderCoord = (key: string) => {
-    const value = settings[key] ?? ""
-    const isCurrentlySaving = saving === key
-    return (
-      <Input
-        type="number"
-        value={value}
-        placeholder={t("gps.coordPlaceholder")}
-        className="w-44"
-        step="any"
-        onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
-        onBlur={(e) => {
-          if (e.target.value !== (serverSettings[key] ?? "")) {
             updateSetting(key, e.target.value)
           }
         }}
@@ -244,10 +235,25 @@ export function GpsSettingsCard({
             />
           </SettingRow>
 
-          {/* Magazin coordinates + radius */}
-          <SettingGroup title={t("gps.stationLabel")} hint={t("gps.stationHint")}>
-            <SettingRow label={t("gps.latLabel")}>{renderCoord(STATION_LAT_KEY)}</SettingRow>
-            <SettingRow label={t("gps.lngLabel")}>{renderCoord(STATION_LNG_KEY)}</SettingRow>
+          {/* Magazin position: read-only here — the value lives in Allgemein.
+              One grey underlined cross-link, the house idiom for «woanders
+              ändern»; colour stays reserved for status. */}
+          <SettingGroup title={t("gps.stationLabel")} hint={t("gps.stationMergedHint")}>
+            <SettingRow label={t("gps.stationCoordsLabel")}>
+              <span className="flex items-center gap-3 text-sm">
+                <span className={effectiveCoords ? "tabular-nums" : "text-muted-foreground"}>
+                  {effectiveCoords
+                    ? `${effectiveCoords[0].toFixed(5)} · ${effectiveCoords[1].toFixed(5)}`
+                    : t("gps.stationCoordsUnset")}
+                </span>
+                <Link
+                  href="/settings?section=general"
+                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("gps.stationCoordsEditInGeneral")}
+                </Link>
+              </span>
+            </SettingRow>
             <SettingRow label={t("gps.stationRadiusLabel")} hint={t("gps.stationRadiusHint")}>
               {renderNumber(STATION_RADIUS_KEY, NUMBER_FALLBACKS[STATION_RADIUS_KEY])}
             </SettingRow>

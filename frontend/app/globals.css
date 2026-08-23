@@ -416,6 +416,28 @@
     animation: gentle-pulse 3s ease-in-out infinite;
   }
 
+  /* The settings search landed here: a short flash plus a left rule that
+     lingers, so the eye finds the row the jump was aiming at. */
+  @keyframes settings-search-flash {
+    0% {
+      background-color: color-mix(in oklab, var(--primary) 10%, transparent);
+      box-shadow: inset 2px 0 0 var(--primary);
+    }
+    60% {
+      background-color: transparent;
+      box-shadow: inset 2px 0 0 var(--primary);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: none;
+    }
+  }
+
+  .settings-search-flash {
+    border-radius: var(--radius-sm, 0.25rem);
+    animation: settings-search-flash 2.4s ease-out;
+  }
+
   /* Fade in with slight slide up for cards */
   @keyframes fade-in-up {
     from {

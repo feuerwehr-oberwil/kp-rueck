@@ -148,6 +148,24 @@ import { useIsMobile } from '@/components/ui/use-mobile';
 import { searchSettings } from '@/lib/settings-search';
 
 /**
+ * Der Beleg eines Suchtreffers: der Katalogtext mit hervorgehobener Fundstelle.
+ * Gekürzt wird UM die Fundstelle herum – ein Beleg, der vor dem Treffer endet
+ * («Benachrichtigung wenn…»), belegt nichts.
+ */
+function SearchHitEvidence({ text, matchStart, matchEnd }: { text: string; matchStart: number; matchEnd: number }) {
+  const WINDOW = 30;
+  const from = Math.max(0, matchStart - WINDOW);
+  return (
+    <span className="block truncate pl-5 text-xs">
+      {from > 0 ? '…' : ''}
+      {text.slice(from, matchStart)}
+      <mark className="rounded-[2px] bg-warning/25 text-inherit">{text.slice(matchStart, matchEnd)}</mark>
+      {text.slice(matchEnd)}
+    </span>
+  );
+}
+
+/**
  * Die Gruppen der Seitenleiste, in ihrer Reihenfolge.
  *
  * Sortiert nach **wie oft man sie anfasst**, nicht nach Sachgebiet. Vorher hiess die
@@ -810,6 +828,8 @@ export default function SettingsPage() {
   // Suche. `null` heisst «nichts eingetippt» und lässt die Gliederung stehen; eine leere
   // Liste heisst «gesucht und nichts gefunden» und sagt das auch.
   const [search, setSearch] = useState('');
+  // Tastatur: ↑/↓ bewegen die Auswahl über die Trefferliste, Enter öffnet sie.
+  const [searchSelected, setSearchSelected] = useState(0);
   const messages = useMessages() as Record<string, unknown>;
   const searchHits = useMemo(() => {
     if (search.trim().length < 2) return null;
@@ -819,6 +839,39 @@ export default function SettingsPage() {
       visibleSections.map(s => ({ id: s.id, label: t(`page.sections.${s.id}`) })),
     );
   }, [messages, search, visibleSections, t]);
+  useEffect(() => setSearchSelected(0), [search]);
+
+  /**
+   * Ein Treffer führt zur ZEILE, nicht zum Abschnittsanfang: nach dem Wechsel wird der
+   * Katalogtext, der gepasst hat, im gerenderten Abschnitt gesucht, ins Bild gescrollt
+   * und kurz markiert. Der Index kommt aus dem Katalog (lib/settings-search.ts), und
+   * genau derselbe Text steht auf dem Bildschirm – die Verbindung braucht deshalb
+   * keine zweite, handgepflegte Schlüsselliste. Interpolierte Texte ({count} …)
+   * finden kein DOM-Gegenstück; dann bleibt es beim Abschnittswechsel von früher.
+   */
+  const jumpToHit = (hit: { section: string; text: string }) => {
+    navigateToSection(hit.section as SectionId);
+    setSearch('');
+    // Zwei Frames Abstand: der Abschnitt muss erst rendern.
+    window.setTimeout(() => {
+      const scope = document.querySelector('main') ?? document.body;
+      const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+      const wanted = hit.text.trim();
+      let node: Node | null;
+      let found: HTMLElement | null = null;
+      while ((node = walker.nextNode())) {
+        if (node.textContent?.trim() === wanted) {
+          found = node.parentElement;
+          break;
+        }
+      }
+      if (!found) return;
+      const row = (found.closest('[data-slot="setting-row"]') ?? found) as HTMLElement;
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      row.classList.add('settings-search-flash');
+      window.setTimeout(() => row.classList.remove('settings-search-flash'), 2600);
+    }, 160);
+  };
 
   const DemoHint = ({ text }: { text: string }) => (
     demoMode ? (
@@ -1834,37 +1887,75 @@ export default function SettingsPage() {
                 placeholder={t('page.searchPlaceholder')}
                 value={search}
                 onValueChange={setSearch}
+                onKeyDown={(e) => {
+                  if (!searchHits || searchHits.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSearchSelected((i) => Math.min(i + 1, searchHits.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSearchSelected((i) => Math.max(i - 1, 0));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const hit = searchHits[searchSelected] ?? searchHits[0];
+                    if (hit) jumpToHit(hit);
+                  }
+                }}
               />
 
               {searchHits !== null ? (
-                <nav className="space-y-1">
+                <nav aria-label={t('page.searchPlaceholder')}>
                   {searchHits.length === 0 ? (
                     <p className="px-3 py-2 text-xs text-muted-foreground">
                       {t('page.searchNoResults')}
                     </p>
                   ) : (
-                    searchHits.map((hit) => {
-                      const section = SECTIONS.find(s => s.id === hit.section);
-                      if (!section) return null;
-                      const Icon = section.icon;
-                      return (
-                        <button
-                          key={hit.section}
-                          onClick={() => { navigateToSection(hit.section as SectionId); setSearch(''); }}
-                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
-                        >
-                          <span className="flex items-center gap-3 text-foreground">
-                            <Icon className="h-4 w-4 shrink-0" />
-                            {t(`page.sections.${section.id}`)}
-                          </span>
-                          {/* Der Beleg: welcher Text gepasst hat. Ohne ihn ist ein Treffer
-                              in einem Hinweistext nicht nachvollziehbar. */}
-                          {hit.text !== t(`page.sections.${section.id}`) && (
-                            <span className="mt-0.5 block truncate pl-7 text-xs">{hit.text}</span>
-                          )}
-                        </button>
-                      );
-                    })
+                    <>
+                      {searchHits.map((hit, index) => {
+                        const section = SECTIONS.find(s => s.id === hit.section);
+                        if (!section) return null;
+                        const Icon = section.icon;
+                        const sectionLabel = t(`page.sections.${section.id}`);
+                        // Gruppiert nach Abschnitt: der Kopf steht vor dem ersten
+                        // Treffer eines Abschnitts, die weiteren rücken darunter ein.
+                        const isFirstOfSection = searchHits[index - 1]?.section !== hit.section;
+                        const selected = index === searchSelected;
+                        return (
+                          <button
+                            key={`${hit.section}-${index}`}
+                            onClick={() => jumpToHit(hit)}
+                            onMouseEnter={() => setSearchSelected(index)}
+                            className={`relative w-full rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
+                              selected ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
+                            }`}
+                          >
+                            {selected && (
+                              <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary" />
+                            )}
+                            {isFirstOfSection && (
+                              <span className="flex items-center gap-2 pb-0.5 text-[11px] font-medium text-muted-foreground">
+                                <Icon className="h-3.5 w-3.5 shrink-0" />
+                                {sectionLabel}
+                              </span>
+                            )}
+                            {/* Der Beleg: welcher Text gepasst hat, mit markierter
+                                Fundstelle – gekürzt wird um sie herum, nie davor. */}
+                            {hit.text === sectionLabel ? (
+                              <span className="block pl-5 text-sm text-foreground">{sectionLabel}</span>
+                            ) : (
+                              <SearchHitEvidence
+                                text={hit.text}
+                                matchStart={hit.matchStart}
+                                matchEnd={hit.matchEnd}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                      <p className="px-3 pt-1.5 text-right text-[11px] text-muted-foreground">
+                        {t('page.searchHitCount', { count: searchHits.length })}
+                      </p>
+                    </>
                   )}
                 </nav>
               ) : (
@@ -1940,7 +2031,11 @@ export default function SettingsPage() {
           {/* Content area – min-h-0 so it scrolls inside the flex column on
               mobile; extra bottom padding so content clears the bottom nav. */}
           <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
-            <div className="max-w-4xl space-y-6">
+            {/* Form sections keep a reading width; the four resource LISTS get
+                the whole screen — a five-column table squeezed to 896px on a
+                1920 board while half the page stood empty was the opposite of
+                density with order. */}
+            <div className={`${['personnel', 'vehicles', 'materials', 'users'].includes(activeSection) ? 'max-w-none' : 'max-w-4xl'} space-y-6`}>
               {renderContent()}
             </div>
           </main>

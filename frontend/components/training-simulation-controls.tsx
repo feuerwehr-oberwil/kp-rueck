@@ -114,9 +114,10 @@ export function TrainingSimulationControls() {
     apiClient
       .getAllSettings()
       .then((settings) => {
-        // Exactly the pair the backend parses for the Magazin target.
-        const lat = parseFloat(settings['gps.station_lat'] ?? '');
-        const lng = parseFloat(settings['gps.station_lng'] ?? '');
+        // Same merge as the backend's get_station_coordinates (legacy gps.*
+        // first, Allgemein as fallback) — the two must agree on "configured".
+        const lat = parseFloat(settings['gps.station_lat'] || settings.firestation_latitude || '');
+        const lng = parseFloat(settings['gps.station_lng'] || settings.firestation_longitude || '');
         setMagazinConfigured(Number.isFinite(lat) && Number.isFinite(lng));
       })
       .catch(() => {}); // unknown → don't block; the backend error still catches it

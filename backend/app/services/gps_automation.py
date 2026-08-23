@@ -58,7 +58,7 @@ from ..models import (
 )
 from ..traccar import VehiclePosition
 from ..websocket_manager import broadcast_incident_update, broadcast_message
-from .settings import get_setting_value
+from .settings import get_setting_value, get_station_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -181,8 +181,10 @@ async def _load_config(db: AsyncSession) -> _AutomationConfig:
     rule_return = (await get_setting_value(db, "gps.rule_return_enabled", "false")).lower() == "true"
 
     arrival_radius = _parse_float(await get_setting_value(db, "geofence_radius_meters", "200")) or 200.0
-    station_lat = _parse_float(await get_setting_value(db, "gps.station_lat", ""))
-    station_lng = _parse_float(await get_setting_value(db, "gps.station_lng", ""))
+    # One source for the Magazin position: gps.station_* if a station still
+    # carries the legacy pair, else the Allgemein coordinates. See the helper.
+    station = await get_station_coordinates(db)
+    station_lat, station_lng = station if station else (None, None)
     station_radius = _parse_float(await get_setting_value(db, "gps.station_radius_meters", "100")) or 100.0
 
     debounce_count = int(_parse_float(await get_setting_value(db, "gps.debounce_count", "2")) or 2)
