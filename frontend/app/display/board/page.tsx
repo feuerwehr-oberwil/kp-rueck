@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { TokenBoard } from "./token-board"
-import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
@@ -15,7 +15,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, ageLevel, COLUMN_HEADER_CLASS } from "@/lib/kanban-utils"
+import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { DisplayIncidentCard } from "@/components/display/incident-card"
@@ -208,6 +208,11 @@ function BoardDisplay() {
             })
           : undefined
 
+        // The column's accent, worn as a 2px rule instead of the old pastel
+        // wash — the same treatment the command-post board got. `column.id` IS
+        // a status (see kanban-utils), so the lookup cannot miss.
+        const accent = STATUS_ACCENT[column.id as OperationStatus]
+
         // Collapsed: thin vertical toggle bar showing the count, reclaiming width.
         if (isCollapsed) {
           return (
@@ -219,12 +224,10 @@ function BoardDisplay() {
                 requestKeepInView(column.id)
                 collapsedColumns.toggle(column.id)
               }}
-              className={cn(
-                "flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5",
-                column.color
-              )}
+              className="flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5"
               title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: ops.length })}
             >
+              <span aria-hidden className={cn("h-0.5 w-full", accent?.dot)} />
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
               <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                 {ops.length}
@@ -269,6 +272,11 @@ function BoardDisplay() {
             // for — the floor never binds and columns stay 300px, unchanged.
             className="flex flex-1 flex-col min-w-[160px] overflow-hidden"
           >
+            {/* The accent as a 2px rule above the header, not a wash behind
+                it — the header is a line of the board now, not a box on it.
+                The whole header stays the fold control: a wall has no sort
+                menu competing for the click. */}
+            <div aria-hidden className={cn("h-0.5 rounded-full", accent?.dot)} />
             <button
               type="button"
               onClick={() => {
@@ -276,10 +284,7 @@ function BoardDisplay() {
                 collapsedColumns.toggle(column.id)
               }}
               aria-expanded
-              className={cn(
-                "mb-2 w-full cursor-pointer rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-foreground/5",
-                column.color,
-              )}
+              className="mb-2 w-full cursor-pointer rounded-md px-1 py-2 text-left transition-colors hover:bg-foreground/5"
             >
               <div className="flex items-center gap-2">
                 <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />

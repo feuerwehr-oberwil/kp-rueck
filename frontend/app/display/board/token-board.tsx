@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { Loader2, Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
-import { columns, ageLevel, COLUMN_HEADER_CLASS } from '@/lib/kanban-utils'
+import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
 import { getIncidentLocationLabel } from '@/lib/incident-types'
 import { cn } from '@/lib/utils'
@@ -81,6 +81,9 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
       })
     : undefined
   const alarmDotClass = 'cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]'
+  // 2px accent rule instead of the pastel wash — same as the KP board and the
+  // logged-in wall. `column.id` IS a status (see kanban-utils).
+  const accent = STATUS_ACCENT[column.id as keyof typeof STATUS_ACCENT]
 
   // Folded: a thin bar that still carries the count and the overdue mark, so a
   // closed column never hides the thing that needed looking at.
@@ -90,9 +93,10 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
         type="button"
         data-column={column.id}
         onClick={onToggle}
-        className={cn('flex w-12 flex-shrink-0 flex-col items-center gap-3 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/5', column.color)}
+        className="flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5"
         title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: operations.length })}
       >
+        <span aria-hidden className={cn('h-0.5 w-full', accent?.dot)} />
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
         <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
           {operations.length}
@@ -107,11 +111,13 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 
   return (
     <div data-column={column.id} className="flex flex-1 flex-col min-w-[280px] overflow-hidden">
+      {/* The accent as a 2px rule above the header, not a wash behind it. */}
+      <div aria-hidden className={cn('h-0.5 rounded-full', accent?.dot)} />
       <button
         type="button"
         onClick={onToggle}
         aria-expanded
-        className={cn('mb-2 w-full cursor-pointer rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-foreground/5', column.color)}
+        className="mb-2 w-full cursor-pointer rounded-md px-1 py-2 text-left transition-colors hover:bg-foreground/5"
       >
         <div className="flex items-center gap-2">
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
