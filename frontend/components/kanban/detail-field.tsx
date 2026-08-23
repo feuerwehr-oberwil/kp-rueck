@@ -198,13 +198,20 @@ export function DetailToggle({
         <div onClick={(event) => event.stopPropagation()}>
           <Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onToggle} />
         </div>
-        <div className="min-w-0 flex-1" />
+        {/* The «warum» input stands RIGHT of the switch, not under the row —
+            the row stays one line and the question sits next to its answer. */}
+        {checked && note ? (
+          <div
+            ref={noteRef}
+            className="min-w-0 flex-1"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {note}
+          </div>
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
       </div>
-      {checked && note && (
-        <div ref={noteRef} className={cn("mt-1", DETAIL_CONTROL_INDENT)}>
-          {note}
-        </div>
-      )}
     </div>
   )
 }

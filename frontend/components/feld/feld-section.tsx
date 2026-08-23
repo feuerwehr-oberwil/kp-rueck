@@ -58,6 +58,10 @@ interface FeldSectionProps {
    * nothing. Same content, same fold, tighter box.
    */
   dense?: boolean
+  /** Imperative open: increment to unfold the section from outside (e.g. the
+   *  journey's «Rapport erfassen» opening the Kurzbericht). Scrolls into view
+   *  like a tap would. 0 / undefined = never fired. */
+  openSignal?: number
   children: ReactNode
 }
 
@@ -68,6 +72,7 @@ export function FeldSection({
   defaultOpen = false,
   alwaysOpen = false,
   dense = false,
+  openSignal,
   children,
 }: FeldSectionProps) {
   const [open, setOpen] = useState(defaultOpen || alwaysOpen)
@@ -85,6 +90,12 @@ export function FeldSection({
     shouldReveal.current = false
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [open])
+
+  useEffect(() => {
+    if (!openSignal) return
+    shouldReveal.current = true
+    setOpen(true)
+  }, [openSignal])
 
   if (alwaysOpen) {
     return (

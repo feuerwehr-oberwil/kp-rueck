@@ -169,6 +169,7 @@ export const DEFAULT_COLLAPSED_COLUMN_IDS: OperationStatus[] = columns
  */
 export const COLUMN_HEADER_CLASS = "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
 
+
 // ── Map marker coloring ("Färben nach") ──────────────────────────────────────
 // Re-colors the map's incident markers by a chosen dimension so the operator can
 // group visually (e.g. all incidents handled by one Reko person share a colour).

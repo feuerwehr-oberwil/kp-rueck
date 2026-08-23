@@ -240,7 +240,7 @@ test.describe('/feld: der Fahrer', { tag: '@smoke' }, () => {
 
       // One button survives, deliberately: noticing something is not a crew
       // privilege, and the driver is standing right there.
-      await expect(phone.getByRole('button', { name: 'Meldung', exact: true })).toBeVisible();
+      await expect(phone.getByRole('button', { name: 'Meldung an den KP', exact: true })).toBeVisible();
 
       // ── 3. the vehicle leaves, the row goes with it ──────────────────────
       await phone.getByRole('button', { name: 'Zurück' }).click();

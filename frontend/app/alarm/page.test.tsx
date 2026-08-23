@@ -52,8 +52,11 @@ async function renderForm() {
   await screen.findByLabelText(/Meldung/)
 }
 
-/** Fill in the minimum and send it, leaving the receipt on screen. */
+/** Fill in the minimum and send it, leaving the receipt on screen. The minimum
+ *  includes an Einsatzort — the form refuses to review without one. */
 async function sendAlarm(user: ReturnType<typeof userEvent.setup>, message: string) {
+  const ort = screen.getByLabelText('Ort') as HTMLInputElement
+  if (!ort.value) await user.type(ort, 'Hauptstrasse 12')
   await user.type(screen.getByLabelText(/Meldung/), message)
   await user.click(screen.getByRole('button', { name: 'Weiter' }))
   await user.click(screen.getByRole('button', { name: 'Alarm absenden' }))
@@ -77,6 +80,7 @@ describe('AlarmPage', () => {
     const user = userEvent.setup()
     await renderForm()
 
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
     await user.type(screen.getByLabelText(/Meldung/), 'Baum auf der Fahrbahn')
     await user.click(screen.getByRole('button', { name: 'Weiter' }))
 
@@ -100,6 +104,8 @@ describe('AlarmPage', () => {
 
     await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
     await user.type(screen.getByLabelText(/Meldung/), 'Wasser im Keller')
+    // Hinweise live behind the «Details ergänzen» fold now.
+    await user.click(screen.getByRole('button', { name: 'Details ergänzen' }))
     await user.type(screen.getByLabelText('Weitere Hinweise'), 'Anwohner wartet vor dem Haus')
     await user.click(screen.getByRole('button', { name: 'Weiter' }))
     await user.click(screen.getByRole('button', { name: 'Alarm absenden' }))
@@ -121,6 +127,7 @@ describe('AlarmPage', () => {
     const user = userEvent.setup()
     await renderForm()
 
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
     await user.type(screen.getByLabelText(/Meldung/), 'Ölspur')
     await user.click(screen.getByRole('button', { name: 'Weiter' }))
 
@@ -133,6 +140,23 @@ describe('AlarmPage', () => {
   it('cannot reach the review step without a Meldung', async () => {
     await renderForm()
     expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+  })
+
+  it('cannot reach the review step without an Einsatzort – a pin counts', async () => {
+    const user = userEvent.setup()
+    await renderForm()
+
+    // A Meldung alone is not enough: a Schadenplatz with no location is the
+    // one thing this form must not produce.
+    await user.type(screen.getByLabelText(/Meldung/), 'Baum auf der Fahrbahn')
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+    // The gate names itself instead of leaving a dead button.
+    expect(screen.getByText('Ohne Einsatzort kann der KP niemanden schicken.')).toBeInTheDocument()
+
+    // Not every meadow has a street: a map pin satisfies the gate too.
+    await user.click(screen.getByRole('button', { name: 'Pin setzen' }))
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeEnabled()
+    expect(screen.queryByText('Ohne Einsatzort kann der KP niemanden schicken.')).not.toBeInTheDocument()
   })
 
   it('offers the number pad for the phone number', async () => {
@@ -265,6 +289,7 @@ describe('AlarmPage', () => {
   it('sends the Hinweis along only when the reporter actually changed it', async () => {
     const user = userEvent.setup()
     await renderForm()
+    await user.click(screen.getByRole('button', { name: 'Details ergänzen' }))
     await user.type(screen.getByLabelText('Weitere Hinweise'), 'Zufahrt gesperrt')
     await sendAlarm(user, 'Wasser im Keller')
 

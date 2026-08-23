@@ -89,7 +89,10 @@ async function confirmArrived(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function confirmComplete(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+  // The CURRENT step carries the big amber button; a step that is not yet its
+  // turn offers the quiet inline «melden» link instead — never a trap.
+  const primary = screen.queryByRole('button', { name: 'Einsatz beendet melden' })
+  await user.click(primary ?? screen.getByRole('button', { name: 'melden' }))
   await user.click(screen.getByRole('button', { name: 'Ja, beendet' }))
 }
 
@@ -124,7 +127,9 @@ describe('Angekommen', () => {
 
   it('is already done when the crew reported it before', () => {
     render({ arrived_at: '2026-08-09T20:00:00Z' })
-    expect(screen.getByRole('button', { name: /Angekommen gemeldet/ })).toBeDisabled()
+    // A done step is a quiet line with its time, not a button any more.
+    expect(screen.getByText(/Angekommen gemeldet/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Angekommen melden/ })).not.toBeInTheDocument()
   })
 
   it('stops asking once the GPS automation saw the vehicle arrive (§18.24)', () => {
@@ -133,9 +138,9 @@ describe('Angekommen', () => {
     // nobody reported anything: "erkannt", not "gemeldet".
     render({ arrived_at: '2026-08-09T20:00:00Z', arrived_by_automation: true })
 
-    const button = screen.getByRole('button', { name: /Angekommen erkannt/ })
-    expect(button).toBeDisabled()
-    expect(screen.queryByRole('button', { name: /Angekommen gemeldet/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Angekommen erkannt/)).toBeInTheDocument()
+    expect(screen.queryByText(/Angekommen gemeldet/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Angekommen melden/ })).not.toBeInTheDocument()
   })
 
   it('still offers the tap to a crew that went zu Fuss — no vehicle, no GPS', async () => {
@@ -229,7 +234,9 @@ describe('Einsatz beendet', () => {
     const user = userEvent.setup()
     render()
 
-    await user.click(screen.getByRole('button', { name: /Einsatz beendet/ }))
+    // Not the current step on a fresh assignment — the quiet «melden» link
+    // opens the same ask-first question.
+    await user.click(screen.getByRole('button', { name: 'melden' }))
     expect(screen.getByText('Einsatz beendet melden?')).toBeInTheDocument()
     expect(feldReportComplete).not.toHaveBeenCalled()
 
@@ -249,13 +256,17 @@ describe('an open Abholung', () => {
 
   it('never offers to report itself abgeholt — that is the KP\'s chip (§18.9)', async () => {
     const user = userEvent.setup()
-    render({ pickup_needed: true, pickup_requested_at: '2026-08-09T21:14:00Z' })
+    render({
+      pickup_needed: true,
+      pickup_requested_at: '2026-08-09T21:14:00Z',
+      field_complete_reported_at: '2026-08-09T21:00:00Z',
+    })
 
     expect(screen.queryByRole('button', { name: /Abgeholt/i })).not.toBeInTheDocument()
 
     // The button is still there and still only asks — re-opening it updates the
     // note rather than clearing anything.
-    await user.click(screen.getByRole('button', { name: 'Abholung' }))
+    await user.click(screen.getByRole('button', { name: 'Abholung anfordern' }))
     await user.type(screen.getByPlaceholderText(/Notiz/), '5 Personen')
     await user.click(screen.getByRole('button', { name: 'Notiz aktualisieren' }))
 
@@ -299,7 +310,7 @@ describe('Freitext-Meldung', () => {
   it('sends a station chip with one tap', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: 'Meldung' }))
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     await user.click(screen.getByRole('button', { name: 'Verstärkung nötig' }))
 
     await waitFor(() => expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', 'Verstärkung nötig'))
@@ -308,7 +319,7 @@ describe('Freitext-Meldung', () => {
   it('refuses to send whitespace', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: 'Meldung' }))
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     await user.type(screen.getByPlaceholderText(/Kurze Meldung/), '   ')
 
     expect(feldSendMessage).not.toHaveBeenCalled()
@@ -319,7 +330,7 @@ describe('delivery feedback (a phone on a bad connection)', () => {
   it('confirms explicitly that the KP got the Meldung', async () => {
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: 'Meldung' }))
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     await user.click(screen.getByRole('button', { name: 'Verstärkung nötig' }))
 
     await waitFor(() =>
@@ -331,7 +342,7 @@ describe('delivery feedback (a phone on a bad connection)', () => {
     feldSendMessage.mockRejectedValueOnce(new Error('offline'))
     const user = userEvent.setup()
     render()
-    await user.click(screen.getByRole('button', { name: 'Meldung' }))
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     const input = screen.getByPlaceholderText(/Kurze Meldung/)
     await user.type(input, 'Keller 40cm Wasser')
     await user.click(screen.getByRole('button', { name: 'Meldung senden' }))
@@ -357,8 +368,9 @@ describe('delivery feedback (a phone on a bad connection)', () => {
   it('reports a failed Abholung with a retry', async () => {
     feldReportPickup.mockRejectedValueOnce(new Error('offline'))
     const user = userEvent.setup()
-    render()
-    await user.click(screen.getByRole('button', { name: 'Abholung' }))
+    // The Abholung link appears once the Einsatz is beendet.
+    render({ field_complete_reported_at: '2026-08-09T21:00:00Z' })
+    await user.click(screen.getByRole('button', { name: 'Abholung anfordern' }))
     await user.click(screen.getByRole('button', { name: 'Wir müssen abgeholt werden' }))
 
     await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())

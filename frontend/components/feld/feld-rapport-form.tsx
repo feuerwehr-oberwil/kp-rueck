@@ -103,6 +103,10 @@ interface FeldRapportFormProps {
    *  type into. Never set when the detail was merely opened on this tab by hand;
    *  stealing focus from somebody who is reading is its own bug. */
   autoFocusKurzbericht?: boolean
+  /** Imperative counterpart for a form that is ALREADY mounted: increment to
+   *  unfold the Kurzbericht block and put the caret in it — the journey's
+   *  «Rapport erfassen» button. 0 / undefined = never fired. */
+  focusKurzberichtSignal?: number
 }
 
 const AUTOSAVE_MS = 30000
@@ -138,6 +142,7 @@ function RapportSection({
   title,
   summary,
   state,
+  openSignal,
   children,
 }: {
   collapsible: boolean
@@ -146,6 +151,8 @@ function RapportSection({
   title: string
   summary: string
   state: FeldSectionState
+  /** Forwarded to FeldSection — imperative unfold. */
+  openSignal?: number
   children: React.ReactNode
 }) {
   if (!collapsible) {
@@ -157,7 +164,7 @@ function RapportSection({
     )
   }
   return (
-    <FeldSection title={title} summary={summary} state={state} dense={dense}>
+    <FeldSection title={title} summary={summary} state={state} dense={dense} openSignal={openSignal}>
       {children}
     </FeldSection>
   )
@@ -176,7 +183,7 @@ function formatDateTime(value: string | null): string {
   })
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const isKp = mount === 'kp'
 
@@ -503,6 +510,21 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     field.setSelectionRange(end, end)
   }, [autoFocusKurzbericht, disabled, isLoading])
 
+  // «Rapport erfassen» on the journey: unfold the Kurzbericht (the section
+  // gets the same signal) and put the caret in it. Delayed past the unfold and
+  // the smooth scroll — focusing a still-hidden textarea does nothing.
+  useEffect(() => {
+    if (!focusKurzberichtSignal || disabled || isLoading) return
+    const timer = setTimeout(() => {
+      const field = kurzberichtRef.current
+      if (!field) return
+      field.focus()
+      const end = field.value.length
+      field.setSelectionRange(end, end)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [focusKurzberichtSignal, disabled, isLoading])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -640,6 +662,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         summary={kurzberichtSummary || t('summary.kurzberichtEmpty')}
         // The one block a rapport really wants filled.
         state={kurzberichtSummary ? 'filled' : 'todo'}
+        openSignal={focusKurzberichtSignal}
       >
         {/* No dictation tip under the box. Every phone keyboard has had a
             microphone key for a decade; the people who use it already do, and

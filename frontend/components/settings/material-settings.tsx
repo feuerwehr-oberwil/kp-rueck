@@ -31,7 +31,7 @@ import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField, DetailToggle } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, Check, CircleSlash, PackageMinus } from 'lucide-react';
+import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, CircleSlash, PackageMinus } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient, ApiError, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -706,12 +706,8 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         <Ban className="size-3.5" />
                         {t('lifecycle.notReady')}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium bg-success/10 text-success">
-                        <Check className="size-3.5" />
-                        {t('common.available')}
-                      </span>
-                    )}
+                    ) : /* Empty when the device is simply ready — the cell
+                           speaks only for exceptions, same as the fleet list. */ null}
                   </TableCell>
                   <TableCell className="text-right">
                     {isArchived ? (

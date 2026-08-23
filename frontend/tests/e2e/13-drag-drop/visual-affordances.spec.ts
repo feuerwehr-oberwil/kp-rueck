@@ -279,10 +279,9 @@ test.describe('Drag-Drop Visual Affordances - Visual Feedback', () => {
   // card to check — the separation it was after is the border, asserted above.
 
   test('column headers have visual distinction', async ({ authenticatedPage }) => {
-    // The column titles are title-case strings ("Eingegangen"), upper-cased by CSS —
-    // the main app dropped ALL-CAPS copy, only the wall display keeps it. So the old
-    // /EINGEGANGEN/ regex matched no text node, and the `uppercase` class check said
-    // nothing about what is on screen. Assert the rendered result instead.
+    // Headers stay ALL-CAPS (Bastian's field-round verdict: a label must not
+    // read like an item); the column's identity additionally comes from the
+    // accent rule instead of a background wash.
     const columnHeader = authenticatedPage
       .locator('[data-column="incoming"]')
       .getByRole('heading', { name: 'Eingegangen' });

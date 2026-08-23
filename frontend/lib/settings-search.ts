@@ -24,9 +24,11 @@ const SECTION_NAMESPACES: Record<string, readonly string[]> = {
   printer: ['settings.printer'],
   gps: ['settings.gps'],
   users: ['settings.users'],
-  // Die Synchronisation bringt ihre Texte in den Karten selbst mit, nicht im Katalog –
-  // auffindbar bleibt sie über ihren Abschnittsnamen (siehe `searchSettings`).
-  sync: [],
+  // Die Karte holt ihre Texte aus `sync.config` (top-level, nicht unter settings.*) –
+  // der Eintrag hier war lange leer, und «railway» fand auf einer Seite mit einem
+  // Abschnitt «Railway Offline» nichts. Eine Suche, die einmal lügt, wird nicht mehr
+  // gefragt.
+  sync: ['sync.config'],
   alerting: ['settings.page.alerting'],
   alarmIntake: ['settings.page.alarmIntake'],
   notifications: ['notifications.settings'],
@@ -65,6 +67,10 @@ export interface SettingsSearchHit {
   text: string
   /** Punktzahl, klein ist besser: Treffer am Wortanfang schlagen Treffer in der Mitte. */
   score: number
+  /** Wo im Text der Treffer beginnt/endet – die Anzeige hebt genau das hervor
+   *  und kürzt UM die Fundstelle herum, nie davor. */
+  matchStart: number
+  matchEnd: number
 }
 
 type MessageTree = Record<string, unknown>
@@ -89,8 +95,13 @@ function* leaves(node: unknown, depth = 0): Generator<string> {
   }
 }
 
+/** Höchstens so viele Treffer pro Abschnitt. Einer war zu wenig: «radius» fand den
+ *  Magazinradius und verschluckte den Ankunftsradius wortlos. */
+const HITS_PER_SECTION = 3
+
 /**
- * Die Abschnitte, in denen `query` vorkommt – höchstens `limit`, bester Treffer zuerst.
+ * Die Fundstellen für `query` – gruppierbar nach Abschnitt, bester Treffer zuerst,
+ * höchstens `HITS_PER_SECTION` je Abschnitt und `limit` insgesamt.
  *
  * `sections` kommt von der Seite und trägt schon die Rechte: wer keine Fahrzeuge bearbeiten
  * darf, soll sie auch nicht über die Suche finden. Der Abschnittsname zählt als bester
@@ -101,7 +112,7 @@ export function searchSettings(
   messages: MessageTree,
   query: string,
   sections: readonly { id: string; label: string }[],
-  limit = 8,
+  limit = 12,
 ): SettingsSearchHit[] {
   const needle = query.trim().toLowerCase()
   if (needle.length < 2) return []
@@ -109,10 +120,17 @@ export function searchSettings(
   const hits: SettingsSearchHit[] = []
 
   for (const { id: section, label } of sections) {
-    let best: SettingsSearchHit | null = null
+    const sectionHits: SettingsSearchHit[] = []
 
-    if (label.toLowerCase().includes(needle)) {
-      best = { section, text: label, score: -100 }
+    const labelAt = label.toLowerCase().indexOf(needle)
+    if (labelAt >= 0) {
+      sectionHits.push({
+        section,
+        text: label,
+        score: -100,
+        matchStart: labelAt,
+        matchEnd: labelAt + needle.length,
+      })
     }
 
     const namespaces = SECTION_NAMESPACES[section] ?? []
@@ -124,11 +142,27 @@ export function searchSettings(
         // Katalogtext eher eine Beschriftung ist und ein langer eher ein Hinweis.
         const startsWord = at === 0 || /[\s(«"'\-/]/.test(text[at - 1] ?? '')
         const score = (startsWord ? 0 : 100) + Math.min(text.length, 400)
-        if (!best || score < best.score) best = { section, text, score }
+        sectionHits.push({ section, text, score, matchStart: at, matchEnd: at + needle.length })
       }
     }
-    if (best) hits.push(best)
+
+    sectionHits.sort((a, b) => a.score - b.score)
+    hits.push(...sectionHits.slice(0, HITS_PER_SECTION))
   }
 
-  return hits.sort((a, b) => a.score - b.score).slice(0, limit)
+  // Abschnitte in der Reihenfolge ihres jeweils besten Treffers, die Treffer eines
+  // Abschnitts beieinander – die Anzeige gruppiert nach Abschnitt, und eine Liste,
+  // die zwischen zwei Abschnitten hin- und herspringt, liest sich als Unordnung.
+  const bestPerSection = new Map<string, number>()
+  for (const hit of hits) {
+    const best = bestPerSection.get(hit.section)
+    if (best === undefined || hit.score < best) bestPerSection.set(hit.section, hit.score)
+  }
+  return hits
+    .sort((a, b) =>
+      (bestPerSection.get(a.section)! - bestPerSection.get(b.section)!) ||
+      a.section.localeCompare(b.section) ||
+      (a.score - b.score),
+    )
+    .slice(0, limit)
 }

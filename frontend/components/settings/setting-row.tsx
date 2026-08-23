@@ -89,7 +89,9 @@ export function SettingRow({
   const t = useTranslations('settings.common')
 
   return (
-    <div className={cn('py-3', className)}>
+    // `data-slot`: the settings search lands ON the row (scroll + flash) — it
+    // finds the matched catalogue text in the DOM and walks up to this marker.
+    <div data-slot="setting-row" className={cn('py-3', className)}>
       <div className="flex items-center gap-5">
         <div className="min-w-0 flex-1">
           {/* Die Marken stehen NEBEN der Beschriftung, nie darin: ein Button innerhalb

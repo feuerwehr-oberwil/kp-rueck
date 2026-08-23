@@ -509,8 +509,18 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
    *  wrong house number sends a squad to the wrong street. A correction is read
    *  back too — it is the step that catches the second typo. */
   const [step, setStep] = useState<'form' | 'review'>('form')
+  /** Priorität, Einsatzart and Hinweise live behind one fold: they are the
+   *  KP's decisions (both carry sensible defaults) and the Telefondienst's
+   *  extra time — not questions the form leads with. A correction opens the
+   *  fold, and so does a draft that already carries a Hinweis: what is set
+   *  must never be hidden. */
+  const [detailsOpen, setDetailsOpen] = useState(Boolean(editing) || Boolean(start.hints))
 
-  const incomplete = !message.trim()
+  /** A Schadenplatz without a location is the one thing this form must not
+   *  produce — the address input says «required», so the gate enforces it.
+   *  A map pin counts: not every meadow has a street. */
+  const hasLocation = Boolean(address?.trim()) || (lat !== null && lng !== null)
+  const incomplete = !message.trim() || !hasLocation
 
   /** What the review step lists, in the order the form asked for it. Empty rows
    *  are dropped rather than shown blank — a dash next to «Melder» is a field
@@ -738,9 +748,26 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         />
       </div>
 
+      {/* Details — Priorität, Einsatzart and Hinweise behind one fold. Wo and
+          Was are the alarm; these three are classification and colour, both of
+          which the KP sets on the board within seconds anyway. The fold keeps
+          them reachable for the Telefondienst, who has the caller on the line
+          and time to ask — and out of the way of everybody who does not. */}
+      <button
+        type="button"
+        onClick={() => setDetailsOpen((open) => !open)}
+        aria-expanded={detailsOpen}
+        className="flex w-full items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ChevronRight className={`size-4 transition-transform ${detailsOpen ? 'rotate-90' : ''}`} />
+        {t('detailsToggle')}
+      </button>
+
+      {detailsOpen && (
+      <>
       {/* Priority — three quick buttons (mobile-friendly, like the Reko form) */}
       <div>
-        <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')} <span className="text-destructive" aria-hidden="true">*</span></Label>
+        <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')}</Label>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {(Object.entries(PRIORITY_LABELS) as [IncidentPriority, string][]).map(([key, label]) => (
             <Button
@@ -759,7 +786,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
 
       {/* Type */}
       <div>
-        <Label className="text-sm font-semibold text-muted-foreground">{t('typeLabel')} <span className="text-destructive" aria-hidden="true">*</span></Label>
+        <Label className="text-sm font-semibold text-muted-foreground">{t('typeLabel')}</Label>
         <Popover open={typeOpen} onOpenChange={setTypeOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -818,6 +845,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
             than one that says so. */}
         {editing && <p className="mt-1.5 text-xs text-muted-foreground">{t('hintsCorrectionHelp')}</p>}
       </div>
+      </>
+      )}
 
       {/* Contact (Melder / Anrufer) */}
       <div>
@@ -855,6 +884,11 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         {t('review.next')}
         <ChevronRight className="size-4" />
       </Button>
+      {/* Name the missing piece instead of leaving a dead button: the message
+          field is visibly empty on its own, the location gate is not. */}
+      {!hasLocation && (
+        <p className="text-center text-sm text-muted-foreground">{t('missingLocation')}</p>
+      )}
       {/* Only on a correction: the way out of an edit nobody wanted after all.
           The alarm itself is already at the KP and stays there. */}
       {editing && onCancel && (

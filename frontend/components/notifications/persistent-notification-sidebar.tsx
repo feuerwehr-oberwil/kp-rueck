@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Bell, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,8 @@ export function PersistentNotificationSidebar() {
   const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, canNavigateToIncident } = useNotifications()
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
+  const pathname = usePathname()
+  const router = useRouter()
 
   // On mobile, don't render (Sheet handles it via NotificationBellTrigger).
   // Never render when logged out — isSidebarOpen is persisted in localStorage,
@@ -55,8 +58,19 @@ export function PersistentNotificationSidebar() {
   // visible; the modal-over-the-board problem (§19.1) was the small-screen one.
   // This sidebar stays open either way, and pointing is not resolving: the row
   // is not dismissed by the click, the ✕ still does that.
+  // Away from the board there is no listener for the highlight event, so the
+  // click navigates there instead — the board reads `?highlight` + `detail=1`
+  // on arrival and performs the same scroll-ring-open.
   const handleClickIncident = canNavigateToIncident
-    ? (incidentId: string, tab?: OperationDetailTab) => requestIncidentHighlight(incidentId, { tab, allowModal: true })
+    ? (incidentId: string, tab?: OperationDetailTab) => {
+        if (pathname === '/') {
+          requestIncidentHighlight(incidentId, { tab, allowModal: true })
+        } else {
+          router.push(
+            `/?highlight=${encodeURIComponent(incidentId)}&detail=1${tab ? `&tab=${tab}` : ''}`,
+          )
+        }
+      }
     : undefined
 
   return (

@@ -133,10 +133,10 @@ test.describe('Event Management', () => {
   test('should display event card with correct information', async () => {
     const card = eventsPage.eventCard(testEventName);
 
+    // The row/banner grammar: count and relative age, no label:value stack.
     await expect(card).toBeVisible();
-    await expect(card.locator('text=/Einsätze:/i')).toBeVisible();
-    await expect(card.locator('text=/Erstellt:/i')).toBeVisible();
-    await expect(card.locator('text=/Letzte Aktivität:/i')).toBeVisible();
+    await expect(card.locator('text=/\\d+ Einsätze?/').first()).toBeVisible();
+    await expect(card.locator('button[title="Aktionen"]')).toBeVisible();
   });
 
   test('should select an event', { tag: '@smoke' }, async () => {
@@ -153,9 +153,10 @@ test.describe('Event Management', () => {
     await eventsPage.page.waitForTimeout(1000);
 
     // Event should no longer be in active events
-    // It should appear in archived events section
-    const archivedSection = eventsPage.page.locator('text=Archivierte Ereignisse');
-    await expect(archivedSection).toBeVisible();
+    // It should appear behind the Archiv disclosure
+    await expect(eventsPage.archivedEventsSection).toBeVisible();
+    await eventsPage.openArchiveDisclosure();
+    await expect(eventsPage.eventCard(testEventName)).toBeVisible();
   });
 
   test('should unarchive an event', async () => {
@@ -167,9 +168,10 @@ test.describe('Event Management', () => {
     await eventsPage.unarchiveEvent(testEventName);
     await eventsPage.page.waitForTimeout(1000);
 
-    // Should be back in active events
-    const activeSection = eventsPage.page.locator('text=Aktive Ereignisse');
-    await expect(activeSection).toBeVisible();
+    // Should be back in active events: its row offers Auswählen again
+    const card = eventsPage.eventCard(testEventName);
+    await expect(card).toBeVisible();
+    await expect(card.locator('button:has-text("Auswählen"), button:has-text("Zum Board")').first()).toBeVisible();
   });
 
   test('should delete an archived event', async () => {

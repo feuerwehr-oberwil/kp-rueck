@@ -58,9 +58,22 @@ export class EventsPage extends BasePage {
     this.deleteDialog = page.locator('div[role="dialog"]', { hasText: 'Ereignis dauerhaft löschen?' });
     this.deleteConfirmButton = this.deleteDialog.getByRole('button', { name: 'Dauerhaft löschen' });
 
-    // Page sections
-    this.activeEventsSection = page.locator('text=Aktive Ereignisse').locator('..');
-    this.archivedEventsSection = page.locator('text=Archivierte Ereignisse').locator('..');
+    // Page sections. Active events are simply the row list now; the archive is
+    // a collapsed disclosure ("Archiv (N)") at the foot of it.
+    this.activeEventsSection = page.getByTestId('event-card').first();
+    this.archivedEventsSection = page.getByRole('button', { name: /^Archiv \(\d+\)$/ });
+  }
+
+  /**
+   * Open the archive disclosure if it is present and still collapsed.
+   * Archived rows are hidden until it is opened.
+   */
+  async openArchiveDisclosure() {
+    const disclosure = this.archivedEventsSection;
+    if (await disclosure.isVisible().catch(() => false)) {
+      const expanded = await disclosure.locator('svg.rotate-90').isVisible().catch(() => false);
+      if (!expanded) await disclosure.click();
+    }
   }
 
   /**
@@ -149,21 +162,26 @@ export class EventsPage extends BasePage {
   }
 
   /**
-   * Select an event by clicking its "Auswählen" button
+   * Select an event and land on the board. A row carries "Auswählen"; the
+   * already-selected event renders as the banner, whose button is "Zum Board".
    */
   async selectEvent(name: string) {
     const card = this.eventCard(name);
     const selectButton = card.locator('button:has-text("Auswählen")');
-    await selectButton.click();
+    if (await selectButton.isVisible().catch(() => false)) {
+      await selectButton.click();
+    } else {
+      await card.locator('button:has-text("Zum Board")').click();
+    }
   }
 
   /**
-   * Archive an event
+   * Archive an event. The action lives in the row's ⋯ menu.
    */
   async archiveEvent(name: string) {
     const card = this.eventCard(name);
-    const archiveButton = card.locator('button[title="Archivieren"]');
-    await archiveButton.click();
+    await card.locator('button[title="Aktionen"]').click();
+    await this.page.getByRole('menuitem', { name: 'Archivieren' }).click();
 
     // Confirm in dialog
     await expect(this.archiveDialog).toBeVisible();
@@ -171,9 +189,10 @@ export class EventsPage extends BasePage {
   }
 
   /**
-   * Unarchive an event
+   * Unarchive an event. Archived rows sit behind the Archiv disclosure.
    */
   async unarchiveEvent(name: string) {
+    await this.openArchiveDisclosure();
     const card = this.eventCard(name);
     const unarchiveButton = card.locator('button:has-text("Wiederherstellen")');
     await unarchiveButton.click();
@@ -181,12 +200,14 @@ export class EventsPage extends BasePage {
   }
 
   /**
-   * Delete an event
+   * Delete an event. Löschen lives in the archived row's ⋯ menu, behind the
+   * Archiv disclosure.
    */
   async deleteEvent(name: string) {
+    await this.openArchiveDisclosure();
     const card = this.eventCard(name);
-    const deleteButton = card.locator('button[title="Löschen"]');
-    await deleteButton.click();
+    await card.locator('button[title="Aktionen"]').click();
+    await this.page.getByRole('menuitem', { name: 'Löschen' }).click();
 
     // Confirm in dialog
     await expect(this.deleteDialog).toBeVisible();
@@ -217,22 +238,21 @@ export class EventsPage extends BasePage {
   }
 
   /**
-   * Check if event has training flag icon
+   * Check if event carries the Übung chip (TrainingBadge)
    */
   async hasTrainingFlag(name: string): Promise<boolean> {
     const card = this.eventCard(name);
-    const trainingIcon = card.locator('svg[class*="lucide-graduation-cap"]');
-    return await trainingIcon.isVisible().catch(() => false);
+    return await card.getByText('Übung', { exact: true }).isVisible().catch(() => false);
   }
 
   /**
-   * Get event incident count
+   * Get event incident count ("N Einsätze" / "1 Einsatz" on the row)
    */
   async getEventIncidentCount(name: string): Promise<number> {
     const card = this.eventCard(name);
-    const countText = await card.locator('text=/Einsätze: \\d+/').textContent();
+    const countText = await card.locator('text=/\\d+ Einsätze?/').textContent();
     if (!countText) return 0;
-    const match = countText.match(/Einsätze: (\d+)/);
+    const match = countText.match(/(\d+) Einsätze?/);
     return match ? parseInt(match[1], 10) : 0;
   }
 

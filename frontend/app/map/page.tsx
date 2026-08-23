@@ -16,11 +16,8 @@ import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
-import { RemovableChip } from "@/components/ui/removable-chip"
-import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { Card } from "@/components/ui/card"
-import { FileText, Clock, Users, Package, Truck, Siren, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown, Wrench } from "lucide-react"
+import { FileText, Clock, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -55,7 +52,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
-import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 // The board's shortcut hook owns the canonical "should this keystroke reach the
@@ -77,18 +73,6 @@ const MapView = dynamic(() => import("@/components/map-view"), {
   ),
 })
 
-/**
- * The resource chips in the incident rail. Same `RemovableChip` the kanban card
- * and the wall board use, same secondary tint — the rail had been hand-rolling
- * `<Badge>` with a third set of variants (vehicles secondary, Geräte outline),
- * so the same TLF looked like two different things depending on which surface
- * you were looking at. `max-w-full` on top of the shared classes because the
- * rail is 320px and a long Gerätename has to ellipsise rather than push the
- * card sideways. `min-w-0 shrink` override the Badge base's `shrink-0`
- * (twMerge) — without them a lone long chip refuses to shrink and shoves the
- * row past the card edge instead of truncating; same guard as the board card.
- */
-const RAIL_CHIP = "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal"
 
 /**
  * Plain-letter shortcuts for «Färben nach», German mnemonics: P­riorität,
@@ -129,7 +113,6 @@ export default function MapPage() {
   const { selectedEvent, isEventLoaded } = useEvent()
   // vehicle name → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
   const { isAuthenticated, isEditor } = useAuth()
   const {
     groups,
@@ -173,7 +156,6 @@ export default function MapPage() {
     return operations.find(op => op.id === selectedOperationId) || null
   }, [selectedOperationId, operations])
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
-  const [panTrigger, setPanTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilters, setStatusFilters] = useState<Record<StatusGroup, boolean>>({
     open: true,
@@ -257,6 +239,13 @@ export default function MapPage() {
     },
   })
 
+  // Ask-first for a planning add without an undo — see handleIncidentClick.
+  const [planningAddConfirm, setPlanningAddConfirm] = useState<{
+    incidentId: string
+    incidentLabel: string
+    fromName: string | null
+  } | null>(null)
+
   const handleIncidentClick = (incidentId: string) => {
     // In Routenplanung mode with a selected route, clicking an incident marker
     // adds that incident to the route instead of selecting it on the map.
@@ -265,6 +254,23 @@ export default function MapPage() {
       if (group?.stopIds.includes(incidentId)) {
         toast.info(t('planning.stopAlreadyOnRoute'))
       } else {
+        // Two adds that cannot be taken back ask first (no undo yet): pulling
+        // a stop OUT of another Auftrag, and folding an already disponierten
+        // Einsatz into the route. Same guard as the board's picker.
+        const op = operations.find((candidate) => candidate.id === incidentId)
+        const otherGroup =
+          op?.groupId && op.groupId !== planningGroupId
+            ? groups.find((g) => g.id === op.groupId)
+            : undefined
+        const dispatched = !!op && ['enroute', 'active', 'returning'].includes(op.status)
+        if (otherGroup || dispatched) {
+          setPlanningAddConfirm({
+            incidentId,
+            incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
+            fromName: otherGroup?.name ?? null,
+          })
+          return
+        }
         void addStops(planningGroupId, [incidentId]).then((ok) => {
           if (ok) toast.success(t('planning.stopAdded'))
         })
@@ -292,8 +298,9 @@ export default function MapPage() {
       return
     }
     if (incidentId === selectedIncidentId) {
-      // Re-clicking same incident - trigger pan
-      setPanTrigger(prev => prev + 1)
+      // Toggle: the second click deselects, which also closes the pinned
+      // detail card on the marker.
+      setSelectedIncidentId(null)
     } else {
       // Different incident - update selection
       setSelectedIncidentId(incidentId)
@@ -692,6 +699,30 @@ export default function MapPage() {
     setStatusFilters(prev => ({ ...prev, [group]: !prev[group] }))
   }
 
+  // The rail's sections: the SEARCHED list split by status group. The section
+  // headings are the filter now — toggling one flips `statusFilters`, which
+  // also drives the map's markers, exactly as the old pill row did. Split from
+  // the search-only list so a collapsed section still knows its count.
+  const sectionedIncidents = useMemo(() => {
+    const searched = !searchQuery
+      ? incidents
+      : incidents.filter((inc) => {
+          const lowerQuery = searchQuery.toLowerCase()
+          return (
+            (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
+            (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
+            (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
+            (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+          )
+        })
+    const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }
+    for (const inc of searched) {
+      const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+      if (group) sections[group].push(inc)
+    }
+    return sections
+  }, [incidents, searchQuery, tIncidents, tKanban])
+
   useEffect(() => {
     if (!assignmentDialogOpen || assignmentResourceType !== 'crew' || !selectedEvent) {
       setRekoPersonnelNames([])
@@ -989,7 +1020,6 @@ export default function MapPage() {
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
               resetZoomTrigger={resetZoomTrigger}
-              panTrigger={panTrigger}
               statusFilters={statusFilters}
               filterExceptionId={deepLinkExceptionId}
               showAssignmentLines={showAssignmentLines}
@@ -1008,6 +1038,9 @@ export default function MapPage() {
               focusGroupId={planningActive ? planningGroupId : null}
               highlightGroupStopId={planningActive ? planningFocusStopId : null}
               onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : handleIncidentClick}
+              // Tap-modes: the hover card must not swap in under the finger —
+              // that DOM churn ate the first tap of a Reko un-assign.
+              hoverCardsDisabled={planningActive || rekoModeActive}
               onGpsAvailabilityChange={setGpsAvailable}
               onMapClick={
                 planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
@@ -1019,6 +1052,9 @@ export default function MapPage() {
               Flex column with its own inner scroller: in list mode the header
               (title → search) sits outside the scroll container, so it can
               never move — no sticky, no overscroll spring. */}
+          {/* Back at 320px (Bastian's second field round): the one-line rows
+              were right, the narrower rail was not — addresses truncated and
+              the mode panels burst their headers. */}
           <aside className={`bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
             isMobile
               ? 'flex-1 border-t border-border'
@@ -1057,25 +1093,10 @@ export default function MapPage() {
                 {t('page.incidentsHeading', { count: activeIncidents.length })}
               </h2>
 
-              {/* Status filters — the only pill-style control: they change which
-                  incidents show (list + map). View options and modes live behind
-                  their own buttons below so three control families read apart. */}
-              <div className="inline-flex rounded-lg border border-border overflow-hidden mb-2">
-                {(['open', 'active', 'completed'] as StatusGroup[]).map((group, index) => (
-                  <button
-                    key={group}
-                    onClick={() => toggleStatusFilter(group)}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${index > 0 ? 'border-l border-border' : ''} ${
-                      statusFilters[group]
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {t(`statusGroups.${group}`)} ({statusGroupCounts[group]})
-                  </button>
-                ))}
-              </div>
-
+              {/* No pill row any more: the list's section headings ARE the
+                  status filter (they toggle the same `statusFilters`, list and
+                  map together). View options and modes keep their own buttons
+                  below so the control families read apart. */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {/* Ansicht — every map display option in one popover. The button
                     lights up subtly when any option differs from the defaults. */}
@@ -1182,34 +1203,27 @@ export default function MapPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Modus — editor tools that change what tapping the map does.
-                    Deliberately rounded-md (not pill) so tools read apart from
-                    filters; both modes swap the sidebar for their panel. */}
+                {/* The two editor modes, as direct buttons — a dropdown for
+                    exactly two entries was a click to see two words. Both swap
+                    the sidebar for their panel; same rounded-md so tools read
+                    apart from filters. */}
                 {isEditor && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
-                        title={t('page.modes')}
-                      >
-                        <Wrench className="h-3 w-3" />
-                        {t('page.modes')}
-                        <ChevronDown className="h-3 w-3 opacity-60" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    {/* The sidebar hugs the right screen edge — right-align the
-                        menu to its trigger so it can't clip off-screen. */}
-                    <DropdownMenuContent align="end" collisionPadding={8} className="w-52">
-                      <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
-                        <Milestone className="h-4 w-4" />
-                        {t('page.routePlanning')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
-                        <Binoculars className="h-4 w-4" />
-                        {t('rekoMode.title')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <>
+                    <button
+                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                      onClick={() => enterPlanning()}
+                    >
+                      <Milestone className="h-3 w-3" />
+                      {t('page.routePlanning')}
+                    </button>
+                    <button
+                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                      onClick={() => enterRekoMode()}
+                    >
+                      <Binoculars className="h-3 w-3" />
+                      {t('rekoMode.title')}
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -1219,215 +1233,112 @@ export default function MapPage() {
                 placeholder={t('page.searchPlaceholder')}
                 value={searchQuery}
                 onValueChange={setSearchQuery}
-                hint={!isMobile ? <Kbd className="text-xs">S</Kbd> : undefined}
+                hint={!isMobile ? <Kbd>S</Kbd> : undefined}
               />
               </div>
 
               {/* On mobile the fixed bottom navbar overlays the page, so pad the
                   scrollable list past it (nav height + safe-area) — otherwise the
                   last incidents sit behind the bar and can't be scrolled into view. */}
-              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pt-3 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''}`}>
+              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-3 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''}`}>
+              {/* One-line rows in sections. The rail stopped repeating the
+                  board's cards: detail lives on the marker's hover card and
+                  behind «Details anzeigen» (double-click, or the icon that
+                  appears on hover). A section heading toggles its status group
+                  — for the list AND the map markers. */}
               <div className="space-y-3">
-                {activeIncidents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    {t('common.noActiveIncidents')}
-                  </p>
-                ) : (
-                  activeIncidents.map((incident) => {
-                    const isExpanded = selectedIncidentId === incident.id
-                    // The list runs on the `useIncidents()` adapter shape, which
-                    // carries neither the pickup flags nor who the Einsatzleiter
-                    // is. Both live on the Operation, one lookup away.
-                    const operation = operationsById.get(incident.id)
-                    return (
-                      <Card
-                        key={incident.id}
-                        id={`map-incident-card-${incident.id}`}
-                        className={`p-4 cursor-pointer transition-all hover:border-border ${
-                          isExpanded
-                            ? "border-primary ring-2 ring-primary/20 scale-[1.02]"
-                            : ""
-                        }`}
-                        onClick={() => handleIncidentClick(incident.id)}
-                        onDoubleClick={() => handleDetailsClick(incident)}
+                {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => {
+                  const rows = sectionedIncidents[group]
+                  const enabled = statusFilters[group]
+                  return (
+                    <div key={group} className={group === 'completed' && !enabled ? 'opacity-60' : undefined}>
+                      <button
+                        onClick={() => toggleStatusFilter(group)}
+                        aria-expanded={enabled}
+                        className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        <div className="space-y-3">
-                          {/* Location and Details button */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start gap-2 min-w-0 flex-1">
-                              <div
-                                className={`h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1 ${
-                                  PRIORITY_DOT_CLASSES[(incident.priority ?? "low") as Priority]
-                                }`}
-                                title={incident.priority === "high" ? t('common.priorityHigh') : incident.priority === "medium" ? t('common.priorityMedium') : t('common.priorityLow')}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <h3 className="font-bold text-base leading-tight">
-                                  {incident.location_address ? formatLocation(incident.location_address) : incident.title}
-                                </h3>
-                                {incident.title && incident.title !== incident.location_address && (
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    {incident.title}
-                                  </p>
-                                )}
-                                {/* Abholung (decision 24). The pickup is a
-                                    driving job and whoever assigns it is looking
-                                    at where things are, so the rail carries the
-                                    same chip the board does — and, like there,
-                                    it IS the «Abholung disponiert» button:
-                                    completing the incident already released the
-                                    crew, so this chip is the only thing left
-                                    saying they are standing at the kerb.
-                                    Not gated on status, for the same reason. */}
-                                {operation?.pickupNeeded && (
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform ${enabled ? '' : '-rotate-90'}`}
+                        />
+                        {t(`statusGroups.${group}`)} · {statusGroupCounts[group]}
+                      </button>
+                      {enabled && rows.length > 0 && (
+                        <div className="space-y-0.5">
+                          {rows.map((incident) => {
+                            const isSelected = selectedIncidentId === incident.id
+                            // Pickup flags live on the Operation, one lookup away.
+                            const operation = operationsById.get(incident.id)
+                            return (
+                              <div key={incident.id}>
+                                <div
+                                  id={`map-incident-card-${incident.id}`}
+                                  onClick={() => handleIncidentClick(incident.id)}
+                                  onDoubleClick={() => handleDetailsClick(incident)}
+                                  className={`group relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
+                                    isSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary" />
+                                  )}
+                                  <span
+                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                                      PRIORITY_DOT_CLASSES[(incident.priority ?? 'low') as Priority]
+                                    }`}
+                                    title={incident.priority === 'high' ? t('common.priorityHigh') : incident.priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')}
+                                  />
+                                  <span
+                                    className="min-w-0 flex-1 truncate text-[13px] font-medium"
+                                    title={incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                                  >
+                                    {incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                                  </span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDetailsClick(incident)
+                                        }}
+                                        className="hidden flex-shrink-0 rounded p-1 hover:bg-background/80 group-hover:block"
+                                        aria-label={t('page.showDetails')}
+                                      >
+                                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{t('page.showDetails')}</TooltipContent>
+                                  </Tooltip>
+                                  <IncidentTimeRow
+                                    operation={incidentTimeSource(incident)}
+                                    colorByAge
+                                    className="flex-shrink-0"
+                                  />
+                                </div>
+                                {/* The pickup chip survives — it IS the
+                                    «Abholung disponiert» control (decision 24).
+                                    On the selected row only: everywhere else
+                                    the row stays one quiet line. */}
+                                {isSelected && operation?.pickupNeeded && (
                                   <PickupBadge
                                     requestedAt={operation.pickupRequestedAt}
                                     note={operation.pickupNote}
                                     incidentId={incident.id}
                                     canEdit={isEditor}
-                                    className="mt-1.5"
+                                    className="mb-1 ml-6 mt-0.5"
                                   />
                                 )}
                               </div>
-                            </div>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDetailsClick(incident)
-                                  }}
-                                  className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0"
-                                >
-                                  <FileText className="h-4 w-4 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>{t('page.showDetails')}</TooltipContent>
-                            </Tooltip>
-                          </div>
-
-                          {/* Incident Type */}
-                          <div className="flex items-center gap-2">
-                            <Siren className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm text-muted-foreground">{incident.type in INCIDENT_TYPE_LABELS ? tIncidents(`types.${incident.type}`) : incident.type}</span>
-                          </div>
-
-                          {/* Time and Status. The list used to count from the alarm
-                              while the board counted from the last status change —
-                              the same-looking chip, two different answers. Both are
-                              the shared IncidentTime chip now. */}
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <IncidentTimeRow operation={incidentTimeSource(incident)} />
-                            <Badge variant="outline" className="text-xs">
-                              {incident.status in STATUS_LABELS ? tKanban(`statusLabels.${incident.status}`) : incident.status}
-                            </Badge>
-                          </div>
-
-                          {/* Description (only when expanded) */}
-                          {isExpanded && incident.description && (
-                            <p className="text-sm text-muted-foreground">
-                              {incident.description}
-                            </p>
-                          )}
-
-                          {/* Assigned Vehicles (only when expanded) */}
-                          {isExpanded && incident.assigned_vehicles && incident.assigned_vehicles.length > 0 && (
-                            <div className="flex items-start gap-2">
-                              <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
-                                {/* Same «Name · Funkrufname (Fahrer)» line as the
-                                    board card, so the same TLF reads the same on
-                                    both surfaces. Truncates inside the chip — the
-                                    rail is 320px and a chip must not force it. */}
-                                {incident.assigned_vehicles.map((vehicle) => {
-                                  const callsign = operation?.vehicleCallsigns.get(vehicle.name)
-                                  const driverName = vehicleDrivers.get(vehicle.name)
-                                  return (
-                                    <RemovableChip
-                                      key={vehicle.name}
-                                      variant="secondary"
-                                      className={`${RAIL_CHIP} flex items-center gap-1`}
-                                      title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
-                                    >
-                                      <span className="min-w-0 truncate">
-                                        {vehicle.name}{callsign ? ` · ${callsign}` : ''}
-                                        {driverName && (
-                                          <span className="text-muted-foreground"> ({driverName})</span>
-                                        )}
-                                      </span>
-                                    </RemovableChip>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Assigned Crew (only when expanded) */}
-                          {isExpanded && incident.assigned_personnel && incident.assigned_personnel.length > 0 && (
-                            <div className="flex items-start gap-2">
-                              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
-                                {/* Full names, same chips as the board card —
-                                    the rail used to shorten to initials, which
-                                    made the same person look different on the
-                                    two surfaces. Chips wrap; a single long name
-                                    ellipsises inside its chip instead of
-                                    stretching the rail. EL first is already the
-                                    adapter's order (decision 23). */}
-                                {incident.assigned_personnel.map((person, index) =>
-                                  person.name.trim() ? (
-                                    <RemovableChip
-                                      key={person.name}
-                                      variant="secondary"
-                                      className={`${RAIL_CHIP} flex items-center gap-1`}
-                                      title={person.name}
-                                    >
-                                      <LeaderBadge isLeader={operation?.leaderName === person.name} />
-                                      <span className="min-w-0 truncate">{person.name}</span>
-                                    </RemovableChip>
-                                  ) : (
-                                    // A nameless assignment must still show as
-                                    // *something*, never as an empty pill.
-                                    <RemovableChip
-                                      key={`unknown-${index}`}
-                                      variant="secondary"
-                                      className={`${RAIL_CHIP} text-muted-foreground italic`}
-                                    >
-                                      <span>{tKanban('common.unknownResource')}</span>
-                                    </RemovableChip>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Assigned Materials (only when expanded) */}
-                          {isExpanded && incident.assigned_materials && incident.assigned_materials.length > 0 && (
-                            <div className="flex items-start gap-2">
-                              <Package className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex min-w-0 flex-wrap gap-1.5 flex-1">
-                                {/* Was hard-cut at 15 characters, which turned
-                                    «Tauchpumpe gross» into «Tauchpumpe gro»
-                                    with nothing to say it had been cut. The
-                                    chip ellipsises instead, and the full name
-                                    is on the tooltip. */}
-                                {incident.assigned_materials.map((material) => (
-                                  <RemovableChip
-                                    key={material.material_id}
-                                    variant="secondary"
-                                    className={RAIL_CHIP}
-                                    title={material.name}
-                                  >
-                                    <span className="min-w-0 truncate">{material.name}</span>
-                                  </RemovableChip>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                            )
+                          })}
                         </div>
-                      </Card>
-                    )
-                  })
+                      )}
+                    </div>
+                  )
+                })}
+                {activeIncidents.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    {t('common.noActiveIncidents')}
+                  </p>
                 )}
               </div>
               </div>
@@ -1559,6 +1470,33 @@ export default function MapPage() {
           }}
           onSendDivera={setDiveraDialogOp}
           onRefresh={refreshIncidents}
+        />
+
+        {/* Routenplanung: the two adds without an undo ask first — same guard
+            and wording as the board's «An Auftrag verteilen» picker. */}
+        <ConfirmDialog
+          open={planningAddConfirm !== null}
+          onOpenChange={(open) => { if (!open) setPlanningAddConfirm(null) }}
+          title={tKanban('dashboard.distributeConfirmTitle')}
+          description={
+            planningAddConfirm?.fromName
+              ? tKanban('dashboard.distributeConfirmTransfer', {
+                  incident: planningAddConfirm.incidentLabel,
+                  from: planningAddConfirm.fromName,
+                })
+              : tKanban('dashboard.distributeConfirmDispatched', {
+                  incident: planningAddConfirm?.incidentLabel ?? '',
+                })
+          }
+          confirmText={tKanban('dashboard.distributeConfirmAction')}
+          onConfirm={() => {
+            if (planningAddConfirm && planningGroupId) {
+              void addStops(planningGroupId, [planningAddConfirm.incidentId]).then((ok) => {
+                if (ok) toast.success(t('planning.stopAdded'))
+              })
+            }
+            setPlanningAddConfirm(null)
+          }}
         />
 
         {/* Reko-Modus: replacing another person's reko needs a confirm */}

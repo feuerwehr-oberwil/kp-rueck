@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
-import { RESOURCE_STATE_ICON_CLASSES, isPersonOccupied } from "@/lib/resource-status"
+import { isPersonOccupied } from "@/lib/resource-status"
+import { abbreviateRank } from "@/lib/roster-order"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
-import { Car, Binoculars, Package2, Phone, MonitorCog, Check, Minus, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
 interface DraggablePersonProps {
@@ -60,67 +60,6 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
     })
   }, [person, canDrag])
 
-  // Render badges from Person props (already computed in operations context)
-  const renderSpecialFunctionBadges = () => {
-    const badges = []
-
-    // Driver badge (show vehicle name)
-    if (person.isDriver && person.driverVehicleName) {
-      badges.push(
-        <Badge key={`driver-${person.driverVehicleId}`} variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
-          <Car className="h-3 w-3" />
-          {person.driverVehicleName}
-        </Badge>
-      )
-    }
-
-    // Reko badge
-    if (person.isReko) {
-      badges.push(
-        <Badge key="reko" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
-          <Binoculars className="h-3 w-3" />
-          {t('common.reko')}
-        </Badge>
-      )
-    }
-
-    // Magazin badge
-    if (person.isMagazin) {
-      badges.push(
-        <Badge key="magazin" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
-          <Package2 className="h-3 w-3" />
-          {t('common.magazin')}
-        </Badge>
-      )
-    }
-
-    // Telefondienst badge — the phone desk is a role like the three above it
-    // (plan 26, decision 6), so it wears a chip rather than becoming a "rank".
-    if (person.isTelefondienst) {
-      badges.push(
-        <Badge key="telefondienst" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
-          <Phone className="h-3 w-3" />
-          {t('common.telefondienst')}
-        </Badge>
-      )
-    }
-
-    // Kommandoposten — the one role that unlocks nothing. It exists to say the
-    // person is working on THIS, so the board stops offering its own operators
-    // as crew for a Schadenplatz.
-    if (person.isKommandoposten) {
-      badges.push(
-        <Badge key="kommandoposten" variant="secondary" className="text-xs font-normal px-1.5 py-0 gap-1">
-          <MonitorCog className="h-3 w-3" />
-          {t('common.kommandoposten')}
-        </Badge>
-      )
-    }
-
-    return badges
-  }
-
-  const specialFunctionBadges = renderSpecialFunctionBadges()
   const isDoubleBooked = (assignmentCount ?? 0) > 1
   // "Occupied" = on an incident OR tied up in a special function. Drivers/reko
   // stay draggable, so without this they read as free. Shared with the sidebar's
@@ -152,7 +91,10 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
       personnelId={person.id}
       personnelName={person.name}
     >
-      <Card
+      {/* A quiet row, not a card: no border, no fill at rest — the sidebar is
+          a list of forty names, and forty boxes were chrome without meaning.
+          Hover carries the affordance; the drag/context behaviour is unchanged. */}
+      <div
         ref={ref}
         onClick={onClick}
         role={canDrag ? "button" : undefined}
@@ -160,49 +102,26 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
         aria-grabbed={isDragging}
         aria-label={canDrag ? `Drag ${person.name} to assign to incident` : undefined}
         className={cn(
-          "group border border-border/50 bg-card/80 backdrop-blur-sm px-3 py-2 gap-0 transition-all hover:bg-muted/50 hover:border-border",
+          "group rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",
-          // Every card keeps the same BORDER and the same FILL — that part of
-          // the earlier note stands. What was tried and reverted was
-          // `opacity-60` together with `bg-muted/30` and `border-border/30`, and
-          // it was the border going soft that made one column read as "some
-          // cards have a border and some don't".
-          //
-          // The opacity is back on its own. Scanning a roster of forty for
-          // somebody free was a hunt for a 12px minus against a 12px check, in
-          // colours a quarter of a second apart; who is available has to be
-          // answerable at a glance down the column, and that is what a second
-          // channel buys. Hover brings the card back to full strength, so
-          // nothing dimmed is ever hard to read while it is being read.
+          // The dimming stayed through the row restyle: who is available has to
+          // be answerable at a glance down the column, and the amber dot alone
+          // is a smaller signal than a whole row changing weight. Hover brings
+          // the row back to full strength, so nothing dimmed is ever hard to
+          // read while it is being read.
           isOccupied && !isDoubleBooked && "opacity-60 hover:opacity-100",
           !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked is the one exception: a genuine conflict the operator
           // has to catch, so it still gets a ring.
-          isDoubleBooked && "border-warning/70 ring-1 ring-warning/30",
+          isDoubleBooked && "ring-1 ring-warning/50",
         )}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* Status indicator - icon only, muted colors */}
-              <div
-                className={cn(
-                  "flex items-center justify-center h-4 w-4 rounded flex-shrink-0",
-                  RESOURCE_STATE_ICON_CLASSES[isOccupied ? "assigned" : "available"],
-                )}
-                aria-label={isOccupied ? occupiedTooltip : t('common.available')}
-                title={isOccupied ? occupiedTooltip : t('common.available')}
-              >
-                {isOccupied ? (
-                  <Minus className="h-3 w-3" />
-                ) : (
-                  <Check className="h-3 w-3" />
-                )}
-              </div>
-
+            <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
               {/* The sidebar is narrow enough that longer names truncate. On
                   hover the name wraps to its full length instead of relying on
                   the browser's title tooltip, which only appears after a second
@@ -212,17 +131,16 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
               </span>
             </div>
 
-            {/* Tags */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {isDoubleBooked && (
-                <Badge
-                  variant="outline"
-                  className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning-foreground"
-                  title={t('person.doubleBookedTooltip', { count: assignmentCount ?? 0 })}
-                >
-                  <AlertTriangle className="h-3 w-3" />
-                  {assignmentCount}×
-                </Badge>
+            {/* Rank, then tags and the conflict badge at the outer edge — the
+                marks worth catching sit against the rail, the Grad («Wm»,
+                «Kpl», full word on hover) is a quieter fact just inside them.
+                The amber dot only fills when bound — available shows nothing,
+                but the slot stays, so the columns line up across groups. */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {person.role && (
+                <span className="shrink-0 text-right text-xs text-muted-foreground" title={person.role}>
+                  {abbreviateRank(person.role)}
+                </span>
               )}
               {person.tags && person.tags.length > 0 ? (
                 <div className="flex gap-1">
@@ -233,17 +151,34 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
                   ))}
                 </div>
               ) : null}
+              {isDoubleBooked && (
+                <Badge
+                  variant="outline"
+                  className="text-xs font-medium px-1.5 py-0 gap-1 border-warning/60 text-warning-foreground"
+                  title={t('person.doubleBookedTooltip', { count: assignmentCount ?? 0 })}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {assignmentCount}×
+                </Badge>
+              )}
+              <span
+                aria-label={isOccupied ? occupiedTooltip : undefined}
+                title={isOccupied ? occupiedTooltip : undefined}
+                className={cn("size-1.5 shrink-0 rounded-full", isOccupied ? "bg-amber-500" : "invisible")}
+              />
             </div>
           </div>
 
-          {/* Special function badges */}
-          {specialFunctionBadges.length > 0 && (
-            <div className="flex gap-1 flex-wrap pl-4">
-              {specialFunctionBadges}
+          {/* Where the person is, as a second quiet line — the binding used to
+              live only in a hover tooltip. Incident address or Auftrag first,
+              function (Fahrer TLF, Reko, Telefondienst …) as the fallback. */}
+          {isOccupied && (engagement?.short || functionLabel) && (
+            <div className="truncate text-[11px] leading-tight text-muted-foreground" title={occupiedTooltip}>
+              {engagement?.short ?? functionLabel}
             </div>
           )}
         </div>
-      </Card>
+      </div>
     </PersonContextMenu>
   )
 }
@@ -265,7 +200,9 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.disabled === nextProps.disabled &&
     prevProps.assignmentCount === nextProps.assignmentCount &&
     // The engagement label is derived state — compare by value, not identity,
-    // because the parent's map is rebuilt on every operations change.
-    prevProps.engagement?.full === nextProps.engagement?.full
+    // because the parent's map is rebuilt on every operations change. Both
+    // forms: the row draws `short`, the tooltip `full`.
+    prevProps.engagement?.full === nextProps.engagement?.full &&
+    prevProps.engagement?.short === nextProps.engagement?.short
   )
 })

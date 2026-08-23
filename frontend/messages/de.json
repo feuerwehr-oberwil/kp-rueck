@@ -378,15 +378,18 @@
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
       "deleteIncidentReleases": "Freigegeben werden: {what}.",
       "notReady": "Nicht einsatzbereit",
+      "notReadyOne": "Ein Gerät als nicht einsatzbereit markieren",
+      "aggregateCountTitle": "{free} von {total} frei",
+      "aggregateUnitCount": "{count} Stück",
       "notReadySince": "seit {date}",
       "driver": "Fahrer",
       "specialFunctionNoIncident": "Sonderfunktion · kein Einsatz",
-      "bindingsCount": "{count, plural, one {# Bindung} other {# Bindungen}}",
+      "bindingsCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}}",
       "bindingsPick": "Zum Anspringen auswählen",
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
-      "bindingsNone": "Keine Bindung – nichts zum Anspringen."
+      "bindingsNone": "Keine Zuweisung – nichts zum Anspringen."
     },
     "dashboard": {
       "loading": "Laden...",
@@ -417,6 +420,8 @@
       "personnelLoading": "Personal wird geladen",
       "materialLoading": "Material wird geladen",
       "noPersonnelMatch": "Keine Person passt zu <term>«{query}»</term>",
+      "groupFree": "Frei · {count}",
+      "groupBound": "Gebunden · {count}",
       "noMaterialMatch": "Kein Gerät passt zu <term>«{query}»</term>",
       "resetSearch": "Suche zurücksetzen",
       "noMaterialYet": "Noch kein Material erfasst",
@@ -469,7 +474,11 @@
         "since": "seit {duration}",
         "unknownAddress": "Ohne Adresse"
       },
-      "linksAndQr": "Links & QR"
+      "linksAndQr": "Links & QR",
+      "distributeConfirmTitle": "In Auftrag aufnehmen?",
+      "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
+      "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
+      "distributeConfirmAction": "Ja, aufnehmen"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -1216,6 +1225,7 @@
       "distance": "Distanz",
       "searchPlaceholder": "Suchen...",
       "showDetails": "Details anzeigen",
+      "vehicleCluster": "{count} Fahrzeuge",
       "groupRoutes": "Aufträge",
       "groupRoutesColorHint": "Färbt die Karte nach Auftrag",
       "colorByRoutesOverride": "Von «Aufträge» gesetzt – beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
@@ -1353,6 +1363,9 @@
       "name": "Name",
       "status": "Status",
       "actions": "Aktionen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "listCount": "{shown} von {total}",
       "role": "Rolle",
       "type": "Typ",
       "radioCallSign": "Funkrufname",
@@ -1744,7 +1757,8 @@
         "showDetails": "Details anzeigen"
       },
       "searchPlaceholder": "Einstellung suchen…",
-      "searchNoResults": "Nichts gefunden."
+      "searchNoResults": "Nichts gefunden.",
+      "searchHitCount": "{count} Treffer · ↵ öffnen"
     },
     "categorySort": {
       "noCategory": "(Keine Rolle)",
@@ -1780,7 +1794,6 @@
     "gps": {
       "title": "GPS-Statusautomatik",
       "intro": "Schaltet zwei GPS-gestützte Regeln frei. <strong>Ankunft</strong> fragt nach, ob ein disponierter Einsatz auf <em>Einsatz</em> gesetzt werden soll, sobald ein zugewiesenes Fahrzeug am Einsatzort steht. <strong>Rückkehr</strong> fragt nach, ob ein Fahrzeug freigegeben werden soll, wenn es ins Magazin zurückkehrt – nie automatisch. Funktioniert auch in Übungen; im Demo-Modus inaktiv.",
-      "coordPlaceholder": "z. B. 47.4983",
       "arrivalLabel": "Ankunft am Einsatzort",
       "arrivalHint": "Fragt nach, ob ein disponierter Einsatz auf „Einsatz“ gesetzt werden soll, sobald ein zugewiesenes Fahrzeug am Einsatzort bestätigt ist.",
       "silentLabel": "Automatisch ohne Rückfrage",
@@ -1789,9 +1802,10 @@
       "returnLabel": "Magazin: Freigabe vorschlagen",
       "returnHint": "Fragt nach, ob ein Fahrzeug freigegeben werden soll, wenn es ins Magazin zurückkehrt. Schliesst den Einsatz nie automatisch.",
       "stationLabel": "Magazin (Heimatbasis)",
-      "stationHint": "Koordinaten des Magazins für die Rückkehr-Regel (Dezimalgrad). Ohne Koordinaten ist die Rückkehr-Erkennung inaktiv.",
-      "latLabel": "Breite (lat)",
-      "lngLabel": "Länge (lng)",
+      "stationMergedHint": "Die Rückkehr-Regel misst gegen die Magazin-Koordinaten aus «Allgemein» – eine Frage, ein Ort.",
+      "stationCoordsLabel": "Koordinaten",
+      "stationCoordsUnset": "Noch nicht hinterlegt",
+      "stationCoordsEditInGeneral": "in Allgemein ändern",
       "stationRadiusLabel": "Magazinradius (m)",
       "stationRadiusHint": "Wie nah ein Fahrzeug dem Magazin sein muss, damit die Rückkehr erkannt wird. Eng halten (z. B. 80–120 m), damit vorbeifahrende Fahrzeuge nicht auslösen.",
       "arrivalRadiusLabel": "Ankunftsradius (m)",
@@ -1876,6 +1890,9 @@
       "syncError": "Fehler bei der Synchronisation",
       "syncErrorDescription": "Die Verbindung zu Divera konnte nicht hergestellt werden. Versuche es erneut.",
       "tabList": "Personalliste",
+      "listSearchPlaceholder": "Name, Rolle, Tag …",
+      "roleFilterAll": "Alle Rollen",
+      "emptyFiltered": "Kein Eintrag passt zum Filter.",
       "syncButton": "Von Divera synchronisieren",
       "addButton": "Personal hinzufügen",
       "tags": "Tags",
@@ -1902,7 +1919,10 @@
       "syncSectionNotInDivera": "Nicht in Divera",
       "removeStaleLabel": "{count, plural, one {# Person entfernen, die nicht in Divera vorhanden ist} other {# Personen entfernen, die nicht in Divera vorhanden sind}}",
       "syncExecuteButton": "Synchronisieren",
-      "syncUnavailable": "Kein Personal-Anbieter hinterlegt – es gibt nichts abzugleichen. Den Zugangsschlüssel trägt die Person ein, die den Server betreut; den Stand zeigt Einstellungen → Integrationen."
+      "syncUnavailable": "Kein Personal-Anbieter hinterlegt – es gibt nichts abzugleichen. Den Zugangsschlüssel trägt die Person ein, die den Server betreut; den Stand zeigt Einstellungen → Integrationen.",
+      "abbreviationsTitle": "Gradabkürzungen",
+      "abbreviationsHint": "Kurzform, die die Seitenleiste des Boards anzeigt. Leer = eingebaute Abkürzung (im Feld angedeutet).",
+      "abbreviationsSaveError": "Abkürzungen konnten nicht gespeichert werden"
     },
     "printer": {
       "toasts": {
@@ -2163,23 +2183,21 @@
   "events": {
     "page": {
       "title": "Ereignisse",
-      "activeBadge": "Aktiv: {name}",
       "newEvent": "Neues Ereignis",
       "searchPlaceholder": "Ereignisse durchsuchen...",
       "emptyNone": "Keine Ereignisse vorhanden. Erstelle ein neues Ereignis, um zu beginnen.",
       "emptySearch": "Keine Ereignisse gefunden.",
-      "activeSection": "Aktive Ereignisse",
-      "archivedSection": "Archivierte Ereignisse",
-      "incidentCount": "Einsätze: {count}",
-      "createdAt": "Erstellt: {date}",
-      "lastActivity": "Letzte Aktivität: {date}",
-      "archivedAt": "Archiviert: {date}",
+      "incidentCountShort": "{count, plural, one {# Einsatz} other {# Einsätze}}",
+      "lastActivityRelative": "zuletzt {rel}",
+      "toBoard": "Zum Board",
+      "archiveDisclosure": "Archiv ({count})",
+      "rowActions": "Aktionen",
+      "rowMissingRapport": "{count} ohne Rapport",
+      "rowOpenPickups": "{count, plural, one {# Abholung} other {# Abholungen}}",
       "select": "Auswählen",
       "archive": "Archivieren",
       "restore": "Wiederherstellen",
       "delete": "Löschen",
-      "exportTitle": "Exportieren",
-      "export": "Export",
       "exportReport": "Einsatzbericht (PDF)",
       "exportAudit": "Audit (XLSX)",
       "exportEinsaetze": "Einsätze (XLSX)",
@@ -3404,6 +3422,7 @@
       "contactPlaceholder": "Name der meldenden Person",
       "contactPhoneLabel": "Telefonnummer",
       "contactPhonePlaceholder": "z. B. 079 123 45 67",
+      "missingLocation": "Ohne Einsatzort kann der KP niemanden schicken.",
       "submitting": "Wird übermittelt...",
       "submit": "Alarm absenden",
       "review": {
@@ -3424,7 +3443,8 @@
       "correctError": "Die Korrektur konnte nicht übermittelt werden. Bitte erneut versuchen.",
       "receiptTitle": "Alarm ist beim KP",
       "receiptMeta": "{eventName} · {time}",
-      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen."
+      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen.",
+      "detailsToggle": "Details ergänzen"
     },
     "checkin": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte QR-Code erneut scannen.",
@@ -3529,7 +3549,13 @@
       "sent": "«{label}» ist beim KP angekommen.",
       "failedTitle": "«{label}» wurde nicht übermittelt.",
       "retry": "Nochmals senden",
-      "send": "Meldung senden"
+      "send": "Meldung senden",
+      "arrivedAction": "Angekommen melden",
+      "completeAction": "Einsatz beendet melden",
+      "rapportNext": "danach: Rapport erfassen",
+      "rapportDone": "Rapport erfasst",
+      "reportNow": "melden",
+      "rapportAction": "Rapport erfassen"
     },
     "pickup": {
       "badge": "Abholung",
@@ -3553,7 +3579,8 @@
       "hasVehicleHint": "{vehicle} steht bei euch vor Ort.",
       "ackSeen": "Vom KP gesehen",
       "ackVehicle": "KP hat {vehicle} disponiert",
-      "ackResolved": "Abholung disponiert · {time}"
+      "ackResolved": "Abholung disponiert · {time}",
+      "requestLong": "Abholung anfordern"
     },
     "pickupPrompt": {
       "title": "Abholung disponiert?",
@@ -3714,13 +3741,11 @@
     },
     "code": {
       "title": "Code eingeben",
-      "submit": "Weiter",
       "wrong": "Falscher Code",
       "attemptsLeft": "{count, plural, one {Noch # Versuch.} other {Noch # Versuche.}}",
       "whereHint": "Der Code steht auf dem Zettel unter dem QR-Code.",
       "lockedTitle": "Kurz gesperrt – {time}",
       "lockedBody": "Zu viele Fehlversuche vom gleichen Netz.",
-      "lockedButton": "Wieder frei in {time}",
       "expiredTitle": "Link abgelaufen",
       "expiredHeading": "Dieser QR-Code ist nicht mehr gültig",
       "expiredBody": "Feld-Links laufen nach 30 Tagen ab.",
@@ -3728,7 +3753,8 @@
       "offlineTitle": "Keine Verbindung zum KP",
       "offlineBody": "Der Code wurde nicht geprüft – er ist wahrscheinlich richtig.",
       "offlineHint": "Ein paar Schritte ins Freie und nochmals versuchen.",
-      "retry": "Nochmals versuchen"
+      "retry": "Nochmals versuchen",
+      "training": "Übung"
     },
     "source": {
       "reko": "Reko-Auftrag",

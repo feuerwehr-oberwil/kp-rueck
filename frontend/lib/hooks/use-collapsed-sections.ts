@@ -46,5 +46,21 @@ export function useCollapsedSections(storageKey: string, defaultCollapsed: reado
 
   const isCollapsed = useCallback((id: string) => collapsed.has(id), [collapsed])
 
-  return { isCollapsed, toggle }
+  /** Unfold one section if it is folded — a no-op otherwise. The board uses
+   *  this when it spotlights a card: a highlight inside a folded column is a
+   *  highlight nobody sees. */
+  const expand = useCallback(
+    (id: string) => {
+      setCollapsed((previous) => {
+        if (!previous.has(id)) return previous
+        const next = new Set(previous)
+        next.delete(id)
+        writeJson(storageKey, [...next])
+        return next
+      })
+    },
+    [storageKey],
+  )
+
+  return { isCollapsed, toggle, expand }
 }

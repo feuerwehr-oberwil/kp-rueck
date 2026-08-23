@@ -160,7 +160,12 @@ test.describe('Event Selection Empty State - With Event Selected', () => {
       .filter({ hasText: eventName })
       .first();
     await expect(eventCard).toBeVisible();
-    await eventCard.getByRole('button', { name: 'Auswählen' }).click();
+    // The event is currently selected, so it renders as the banner — whose
+    // button is "Zum Board"; an unselected row would offer "Auswählen".
+    await eventCard
+      .getByRole('button', { name: /Auswählen|Zum Board/ })
+      .first()
+      .click();
 
     await expect(authenticatedPage).toHaveURL('/');
     await expect(authenticatedPage.getByRole('heading', { name: eventName }).first()).toBeVisible();

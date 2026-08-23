@@ -288,6 +288,27 @@ class _FeldCodeThrottle(LoginThrottle):
 feld_code_throttle = _FeldCodeThrottle()
 
 
+@router.get("/context", response_model=schemas.FeldContextResponse)
+@limiter.limit(RateLimits.FELD)
+async def get_feld_context(
+    request: Request,
+    claims: FeldClaims,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldContextResponse:
+    """The door's proof of place: station + Ereignis, with the LINK token alone.
+
+    Rendered ABOVE the code prompt, so whoever scanned a poster in the rain can
+    tell they reached the right brigade before typing anything. Deliberately
+    thin — the roster and the work stay behind the code exchange below.
+    """
+    event = await _load_event(db, claims.event_id)
+    return schemas.FeldContextResponse(
+        event_name=event.name,
+        training_flag=event.training_flag,
+        station_name=await get_setting_value(db, "firestation_name", ""),
+    )
+
+
 @router.post("/unlock", response_model=schemas.FeldUnlockResponse)
 @limiter.limit(RateLimits.FELD_UNLOCK)
 async def unlock_feld(

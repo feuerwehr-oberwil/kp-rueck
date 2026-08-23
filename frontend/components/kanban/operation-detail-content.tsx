@@ -630,7 +630,9 @@ export function OperationDetailContent({
   // `scroll`, not `auto`: every one of these panels grows the moment a folded
   // block is opened, and a scrollbar that appears at that moment narrows the
   // column under the pointer — the row you were about to click moves.
-  const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll"
+  // `overflow-x-hidden`: a long unbroken value (URL in the Meldung, a wide
+  // chip row) must wrap or clip — the panel itself never scrolls sideways.
+  const tabPanelClass = "min-h-0 flex-1 overflow-y-scroll overflow-x-hidden"
   /**
    * The banners: what came in from the field and is still waiting for the KP to
    * do something about it — «Feld meldet beendet / angekommen» and «Abholung».
@@ -1173,7 +1175,8 @@ export function OperationDetailContent({
                 // worse way to do the same thing - and on a borderless control it was
                 // the only thing drawing a visible edge.
                 "h-auto resize-none py-1",
-                dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
+                // Three lines of floor: the field must READ as a textarea, not a textbox.
+                dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
               )}
             />
           </DetailField>
@@ -1235,7 +1238,8 @@ export function OperationDetailContent({
                 // worse way to do the same thing - and on a borderless control it was
                 // the only thing drawing a visible edge.
                 "h-auto resize-none py-1",
-                dense ? "max-h-[14rem] min-h-7" : "max-h-[20rem] min-h-7",
+                // Three lines of floor: the field must READ as a textarea, not a textbox.
+                dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
               )}
             />
           </DetailField>

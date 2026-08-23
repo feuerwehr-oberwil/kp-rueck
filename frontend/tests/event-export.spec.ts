@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
  * Rewritten wholesale. The previous version drove a UI that no longer exists: a
  * single "Event exportieren" button per card firing `POST /api/exports/events/{id}`
  * and receiving a ZIP, with a success toast reading "Export erfolgreich". The page
- * now offers one "Export" dropdown per card with two formats — Einsatzbericht (PDF), which
+ * now offers one ⋯ "Aktionen" menu per row carrying the export formats — Einsatzbericht (PDF), which
  * is `GET …/report`, and Audit (XLSX), which is `POST …/audit` — and neither shows a
  * success toast, only a download. Nothing else in the suite covers either.
  *
@@ -35,7 +35,7 @@ async function gotoEventsWith(page: Page, name: string): Promise<Locator> {
 }
 
 async function openExportMenu(page: Page, card: Locator) {
-  await card.getByRole('button', { name: 'Export', exact: true }).click();
+  await card.getByRole('button', { name: 'Aktionen' }).click();
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
   return menu;
@@ -61,12 +61,14 @@ test.describe('Event Export', () => {
     expect(archived.ok(), await archived.text()).toBeTruthy();
 
     await authenticatedPage.goto('/events');
+    // Archived rows sit behind the collapsed Archiv disclosure.
+    await authenticatedPage.getByRole('button', { name: /^Archiv \(\d+\)$/ }).click();
     const card = authenticatedPage.getByTestId('event-card').filter({ hasText: name });
     await expect(card).toBeVisible();
 
     // An archived event is exactly the one you still want a report from.
     await expect(card.getByRole('button', { name: 'Wiederherstellen' })).toBeVisible();
-    await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Aktionen' })).toBeVisible();
   });
 
   test('the report export asks the backend for this event, as a GET', async ({
@@ -145,7 +147,7 @@ test.describe('Event Export', () => {
     // the copy is an app decision, not this task's.
     const errorToast = authenticatedPage.locator('[data-sonner-toast][data-type="error"]');
     await expect(errorToast).toBeVisible();
-    await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+    await expect(card.getByRole('button', { name: 'Aktionen' })).toBeEnabled();
   });
 
   test('the export control is usable again after an export', async ({ authenticatedPage }) => {
@@ -163,7 +165,7 @@ test.describe('Event Export', () => {
       await menu.getByRole('menuitem', { name: 'Einsatzbericht (PDF)' }).click();
       await download;
       // The trigger goes disabled while a job runs; it has to come back.
-      await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+      await expect(card.getByRole('button', { name: 'Aktionen' })).toBeEnabled();
     }
 
     expect(exports).toBe(2);

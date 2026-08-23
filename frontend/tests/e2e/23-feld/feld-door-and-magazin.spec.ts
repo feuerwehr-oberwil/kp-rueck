@@ -183,9 +183,9 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
 
       // The code screen, and only that. This is the security property plan 26
       // bought: before it, this same navigation landed on the picker.
-      await expect(phone.getByRole('heading', { name: 'Code eingeben' })).toBeVisible({
-        timeout: FELD_TIMEOUT,
-      });
+      // The door again — its heading carries the EVENT name now (the proof of
+      // place), so the door is recognised by its code input, not by a title.
+      await expect(feld.codeInput).toBeVisible({ timeout: FELD_TIMEOUT });
       await expect(feld.codeInput).toBeVisible();
 
       // Nothing about the Ereignis has leaked to a device that only holds the
@@ -210,8 +210,8 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       await phone.goto(fixture.link);
       await expect(feld.codeInput).toBeVisible({ timeout: FELD_TIMEOUT });
 
+      // The fourth digit submits by itself — no button on the door.
       await feld.codeInput.fill(wrongCode(fixture.code));
-      await feld.submitCodeButton.click();
 
       await expect(feld.codeError).toBeVisible({ timeout: FELD_TIMEOUT });
       // Refused means refused: still no picker, and the box is cleared for the
@@ -243,8 +243,8 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       await expect(feld.codeInput).toBeVisible({ timeout: FELD_TIMEOUT });
       await expect(feld.personSearch).toHaveCount(0);
 
+      // The fourth digit submits by itself — no button on the door.
       await feld.codeInput.fill(fixture.code);
-      await feld.submitCodeButton.click();
 
       // The picker is exactly what the four digits buy — no more: the device is
       // still nobody until it names itself.
@@ -274,9 +274,9 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       // All the way back to the door, not just back to the picker: whoever
       // takes the phone next types the code. That is what makes the binding a
       // rule instead of a request.
-      await expect(phone.getByRole('heading', { name: 'Code eingeben' })).toBeVisible({
-        timeout: FELD_TIMEOUT,
-      });
+      // The door again — its heading carries the EVENT name now (the proof of
+      // place), so the door is recognised by its code input, not by a title.
+      await expect(feld.codeInput).toBeVisible({ timeout: FELD_TIMEOUT });
       await expect(feld.personSearch).toHaveCount(0);
       await expect(phone.getByText(crew.name)).toHaveCount(0);
     } finally {

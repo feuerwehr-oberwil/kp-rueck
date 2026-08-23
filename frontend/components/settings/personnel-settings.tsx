@@ -33,7 +33,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { apiClient, ApiPersonnel, ApiDiveraSyncPreview } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
@@ -50,7 +57,13 @@ import {
 } from '@/lib/schemas/personnel';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { compareByName, compareByRankThenName } from '@/lib/roster-order';
+import {
+  RANK_ABBREVIATIONS_KEY,
+  abbreviateRank,
+  compareByName,
+  compareByRankThenName,
+  setGlobalRankAbbreviations,
+} from '@/lib/roster-order';
 
 export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
@@ -263,6 +276,29 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
     });
   }, [personnel, sortColumn, sortDirection]);
 
+  // The list's own filter bar: ~140 rows whose only affordance used to be a
+  // column sort. Free text goes over name, Grad and tags; the Rolle chip
+  // narrows to one Grad. The count next to them says what the filter did.
+  const [listQuery, setListQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const roleOptions = useMemo(() => {
+    const roles = new Set<string>();
+    for (const person of personnel) if (person.role) roles.add(person.role);
+    return [...roles].sort((a, b) => a.localeCompare(b, 'de-CH'));
+  }, [personnel]);
+  const visibleRows = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    return sortedPersonnel.filter((person) => {
+      if (roleFilter && person.role !== roleFilter) return false;
+      if (!q) return true;
+      return (
+        person.name.toLowerCase().includes(q) ||
+        (person.role ?? '').toLowerCase().includes(q) ||
+        (person.tags ?? []).some((tag) => tag.toLowerCase().includes(q))
+      );
+    });
+  }, [sortedPersonnel, listQuery, roleFilter]);
+
   // Render sort indicator
   const SortIndicator = ({ column }: { column: 'name' | 'role' | 'status' }) => {
     if (sortColumn !== column) return null;
@@ -299,6 +335,55 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
       // must not reorder itself when somebody switches the interface language.
       .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'de-CH'));
   }, [personnel]);
+
+  /**
+   * The station's Grad shortforms — a JSON object in ONE settings row, edited
+   * field by field here. The placeholder shows what the built-in table would
+   * render, so an empty input is a visible «default», not a mystery.
+   */
+  const [roleAbbreviations, setRoleAbbreviations] = useState<Record<string, string>>({});
+  useEffect(() => {
+    apiClient
+      .getAllSettings()
+      .then((allSettings) => {
+        try {
+          const parsed: unknown = JSON.parse((allSettings as Record<string, string>)[RANK_ABBREVIATIONS_KEY] || '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            setRoleAbbreviations(parsed as Record<string, string>);
+          }
+        } catch {
+          // A malformed value renders as empty inputs; saving heals it.
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  /** The built-in default an empty field falls back to — shown as placeholder.
+   *  Computed WITHOUT the station overrides, or editing a row would show the
+   *  half-typed value back as its own default. */
+  const builtinAbbreviation = (role: string) => {
+    const saved = roleAbbreviations[role];
+    if (!saved) return abbreviateRank(role);
+    // abbreviateRank consults the global override first; strip it for the hint.
+    return role.length > 8 ? `${role.slice(0, 6)}.` : role;
+  };
+
+  const saveRoleAbbreviations = async () => {
+    const clean = Object.fromEntries(
+      Object.entries(roleAbbreviations)
+        .map(([role, abbreviation]) => [role, abbreviation.trim()])
+        .filter(([, abbreviation]) => abbreviation),
+    );
+    const json = Object.keys(clean).length > 0 ? JSON.stringify(clean) : '';
+    try {
+      await apiClient.updateSetting(RANK_ABBREVIATIONS_KEY, json);
+      // The board reads the module mirror — update it now, not on next load.
+      setGlobalRankAbbreviations(json);
+    } catch (error) {
+      console.error('Failed to save role abbreviations:', error);
+      toast.error(t('personnel.abbreviationsSaveError'));
+    }
+  };
 
   const handleSaveRoleSortOrder = async (categories: Array<{ name: string; sort_order: number }>) => {
     await apiClient.updatePersonnelCategorySortOrder({
@@ -394,6 +479,42 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
             <SettingUnavailableNote>{t('personnel.syncUnavailable')}</SettingUnavailableNote>
           )}
 
+          {/* Filter bar: search, one Rolle chip, and the honest count. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              size="sm"
+              containerClassName="w-64"
+              placeholder={t('personnel.listSearchPlaceholder')}
+              value={listQuery}
+              onValueChange={setListQuery}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={roleFilter ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 text-xs"
+                >
+                  {roleFilter ? `${t('common.role')}: ${roleFilter}` : t('common.role')}
+                  {roleFilter ? <X className="size-3" /> : <ChevronDown className="size-3 opacity-60" />}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => setRoleFilter(null)} className="cursor-pointer">
+                  {t('personnel.roleFilterAll')}
+                </DropdownMenuItem>
+                {roleOptions.map((role) => (
+                  <DropdownMenuItem key={role} onClick={() => setRoleFilter(role)} className="cursor-pointer">
+                    {role}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+              {t('common.listCount', { shown: visibleRows.length, total: personnel.length })}
+            </span>
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -420,14 +541,14 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedPersonnel.length === 0 && (
+              {visibleRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    {t('personnel.empty')}
+                    {personnel.length === 0 ? t('personnel.empty') : t('personnel.emptyFiltered')}
                   </TableCell>
                 </TableRow>
               )}
-              {sortedPersonnel.map((person) => (
+              {visibleRows.map((person) => (
                 <TableRow key={person.id}>
                   <TableCell className="font-medium">{person.name}</TableCell>
                   <TableCell>{person.role || '-'}</TableCell>
@@ -443,32 +564,38 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     )}
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        person.status === 'available'
-                          ? 'bg-success/10 text-success'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {person.status === 'available' ? t('common.available') : t('common.unavailable')}
-                    </span>
+                    {/* Empty when everything is fine — ~140 identical green
+                        «Verfügbar» chips said nothing. Colour marks exceptions. */}
+                    {person.status !== 'available' && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        <span aria-hidden className="size-1.5 rounded-full bg-amber-500" />
+                        {t('common.unavailable')}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(person)}
-                    >
-                      <Edit className="size-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteClick(person)}
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                    {/* One quiet ⋯ per row; the destructive item lives only in
+                        the menu, so the table shows no standing red at rest. */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" aria-label={t('common.actions')} title={t('common.actions')}>
+                          <MoreHorizontal className="size-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(person)} className="cursor-pointer">
+                          <Edit className="mr-2 size-3.5" />
+                          {t('common.edit')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteClick(person)}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 size-3.5" />
+                          {t('common.delete')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -478,7 +605,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
           </SettingCard>
         </TabsContent>
 
-        <TabsContent value="sort" className="mt-4">
+        <TabsContent value="sort" className="mt-4 space-y-6">
           <CategorySortOrder
             title={t('personnel.sortTitle')}
             description={t('personnel.sortDescription')}
@@ -486,6 +613,35 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
             onSave={handleSaveRoleSortOrder}
             readOnly={demoMode}
           />
+
+          {/* The Grad shortforms the board sidebar shows («Wachtmeister» →
+              «Wm»). Station data, not i18n: a brigade that writes «Wm.» or
+              «Zfü» should not need a translation round. Empty = the built-in
+              default, which the placeholder shows. */}
+          <SettingCard
+            title={t('personnel.abbreviationsTitle')}
+            subtitle={t('personnel.abbreviationsHint')}
+          >
+            <DemoLock active={demoMode}>
+              <div className="space-y-1 pt-2">
+                {roleCategories.filter((category) => category.name).map((category) => (
+                  <div key={category.name} className="flex items-center gap-4 py-1">
+                    <span className="w-48 shrink-0 text-sm">{category.name}</span>
+                    <Input
+                      value={roleAbbreviations[category.name] ?? ''}
+                      placeholder={builtinAbbreviation(category.name)}
+                      className="h-8 w-28 text-sm"
+                      maxLength={12}
+                      onChange={(e) =>
+                        setRoleAbbreviations((prev) => ({ ...prev, [category.name]: e.target.value }))
+                      }
+                      onBlur={() => void saveRoleAbbreviations()}
+                    />
+                  </div>
+                ))}
+              </div>
+            </DemoLock>
+          </SettingCard>
         </TabsContent>
       </Tabs>
 

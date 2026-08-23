@@ -57,6 +57,10 @@ DEFAULT_SETTINGS = {
     # map_mode is the offline-map switch – the one control that exists specifically for an
     # internet outage, and it was the one that could not be set.
     "home_city": "",
+    # Station overrides for the Grad abbreviations the board sidebar shows
+    # («Wachtmeister» → «Wm»), as a JSON object {role: abbreviation}. Empty =
+    # the frontend's built-in table (lib/roster-order.ts).
+    "personnel.role_abbreviations": "",
     # "auto", not "online". The offline fallback is the one thing this control exists for,
     # and shipping "online" meant a fresh install had no fallback at all — while the in-app
     # help has always described "Auto (Standard): zuerst online, bei einem Fehler automatisch
@@ -219,6 +223,30 @@ async def get_setting_value(db: AsyncSession, key: str, default: str | None = No
     if value is None:
         return default if default is not None else DEFAULT_SETTINGS.get(key, "")
     return value
+
+
+async def get_station_coordinates(db: AsyncSession) -> tuple[float, float] | None:
+    """The Magazin/home-base coordinates — one answer for a question that was
+    asked twice.
+
+    `firestation_latitude/longitude` (Allgemein) is the pair the settings UI
+    writes; `gps.station_lat/lng` survives as a legacy override for stations
+    that configured only the GPS section before the merge — their geofence must
+    not silently move. Everything that needs the station's position (Rule B
+    return geofence, the Magazin map marker, simulated drives) reads THIS, so
+    filling in either pair makes all of them work.
+    """
+    for lat_key, lng_key in (
+        ("gps.station_lat", "gps.station_lng"),
+        ("firestation_latitude", "firestation_longitude"),
+    ):
+        try:
+            lat = float(await get_setting_value(db, lat_key, ""))
+            lng = float(await get_setting_value(db, lng_key, ""))
+        except (TypeError, ValueError):
+            continue
+        return (lat, lng)
+    return None
 
 
 async def get_alarm_description_filter_prefixes(db: AsyncSession) -> list[str]:

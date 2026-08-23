@@ -30,7 +30,7 @@ import {
 import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField } from '@/components/kanban/detail-field';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, Ban, Check, CircleSlash } from 'lucide-react';
+import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, Ban, CircleSlash } from 'lucide-react';
 import { apiClient, ApiError, ApiVehicle } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -517,12 +517,9 @@ export function VehicleSettings() {
                     <Ban className="size-3.5" />
                     {t('lifecycle.notReady')}
                   </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium bg-success/10 text-success">
-                    <Check className="size-3.5" />
-                    {t('common.available')}
-                  </span>
-                )}
+                ) : /* Empty when the vehicle is simply ready: a green chip on
+                       every normal row is colour without information — the
+                       cell speaks only for exceptions. */ null}
               </TableCell>
               <TableCell className="text-right">
                 {isArchived ? (

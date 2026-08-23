@@ -61,6 +61,20 @@ class FeldPersonnelListResponse(BaseModel):
     event_name: str
 
 
+class FeldContextResponse(BaseModel):
+    """The door's proof of place — readable with the LINK token, before the code.
+
+    Someone who scanned a poster in the rain must be able to tell they reached
+    the right brigade and the right Ereignis; the code gates the roster and the
+    work, never the name of the drill. `station_name` is the Allgemein setting
+    and may be empty on an unconfigured station.
+    """
+
+    event_name: str
+    training_flag: bool
+    station_name: str
+
+
 class FeldUnlockRequest(BaseModel):
     """The four digits from under the QR poster."""
 

@@ -24,12 +24,12 @@ import { cn } from '@/lib/utils'
 
 type SearchInputSize = 'sm' | 'default' | 'lg'
 
-const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; clear: string; clearIcon: string }> = {
+const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; clear: string; clearIcon: string; hint: string }> = {
   // Dense sidebar filters (personnel/materials lists).
-  sm: { icon: 'h-3.5 w-3.5', left: 'left-2.5', pad: 'pl-8 pr-8', clear: 'right-1', clearIcon: 'h-3 w-3' },
-  default: { icon: 'h-4 w-4', left: 'left-3', pad: 'pl-9 pr-9', clear: 'right-1.5', clearIcon: 'h-3.5 w-3.5' },
+  sm: { icon: 'h-3.5 w-3.5', left: 'left-2.5', pad: 'pl-8 pr-8', clear: 'right-1', clearIcon: 'h-3 w-3', hint: 'right-2' },
+  default: { icon: 'h-4 w-4', left: 'left-3', pad: 'pl-9 pr-9', clear: 'right-1.5', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
   // Phone surfaces (check-in), where the field is taller.
-  lg: { icon: 'h-5 w-5', left: 'left-3', pad: 'pl-10 pr-10', clear: 'right-2', clearIcon: 'h-4 w-4' },
+  lg: { icon: 'h-5 w-5', left: 'left-3', pad: 'pl-10 pr-10', clear: 'right-2', clearIcon: 'h-4 w-4', hint: 'right-3' },
 }
 
 export interface SearchInputProps
@@ -78,7 +78,13 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           {...props}
         />
         {hint && value.length === 0 && (
-          <div className={cn('pointer-events-none absolute top-1/2 -translate-y-1/2', o.clear)}>{hint}</div>
+          // A flex box, not a bare div: an inline <kbd> child would sit on the
+          // text baseline and float a pixel high of center. The inset mirrors
+          // the magnifier's, not the clear button's — the button carries its
+          // own p-1, the chip doesn't.
+          <div className={cn('pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center', o.hint)}>
+            {hint}
+          </div>
         )}
         {value.length > 0 && !disabled && (
           <button

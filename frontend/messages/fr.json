@@ -481,23 +481,21 @@
   "events": {
     "page": {
       "title": "Événements",
-      "activeBadge": "Actif : {name}",
       "newEvent": "Nouvel événement",
       "searchPlaceholder": "Rechercher des événements...",
       "emptyNone": "Aucun événement. Crée un nouvel événement pour commencer.",
       "emptySearch": "Aucun événement trouvé.",
-      "activeSection": "Événements actifs",
-      "archivedSection": "Événements archivés",
-      "incidentCount": "Interventions : {count}",
-      "createdAt": "Créé : {date}",
-      "lastActivity": "Dernière activité : {date}",
-      "archivedAt": "Archivé : {date}",
+      "incidentCountShort": "{count, plural, one {# intervention} other {# interventions}}",
+      "lastActivityRelative": "dernière activité {rel}",
+      "toBoard": "Vers le tableau",
+      "archiveDisclosure": "Archives ({count})",
+      "rowActions": "Actions",
+      "rowMissingRapport": "{count} sans rapport",
+      "rowOpenPickups": "{count, plural, one {# récupération} other {# récupérations}}",
       "select": "Sélectionner",
       "archive": "Archiver",
       "restore": "Restaurer",
       "delete": "Supprimer",
-      "exportTitle": "Exporter",
-      "export": "Export",
       "exportReport": "Rapport d’intervention (PDF)",
       "exportAudit": "Audit (XLSX)",
       "exportEinsaetze": "Interventions (XLSX)",
@@ -632,7 +630,13 @@
       "sent": "« {label} » est arrivée au PC.",
       "failedTitle": "« {label} » n’a pas été transmise.",
       "retry": "Renvoyer",
-      "send": "Envoyer l’annonce"
+      "send": "Envoyer l’annonce",
+      "arrivedAction": "Annoncer l'arrivée",
+      "completeAction": "Annoncer la fin de l'intervention",
+      "rapportNext": "ensuite : saisir le rapport",
+      "rapportDone": "Rapport saisi",
+      "reportNow": "annoncer",
+      "rapportAction": "Saisir le rapport"
     },
     "pickup": {
       "badge": "Récupération",
@@ -656,7 +660,8 @@
       "hasVehicleHint": "{vehicle} est sur place avec vous.",
       "ackSeen": "Vu par le PC",
       "ackVehicle": "Le PC a engagé {vehicle}",
-      "ackResolved": "Récupération organisée · {time}"
+      "ackResolved": "Récupération organisée · {time}",
+      "requestLong": "Demander une récupération"
     },
     "pickupPrompt": {
       "title": "Récupération organisée ?",
@@ -817,13 +822,11 @@
     },
     "code": {
       "title": "Saisir le code",
-      "submit": "Continuer",
       "wrong": "Code incorrect",
       "attemptsLeft": "{count, plural, one {Encore # essai.} other {Encore # essais.}}",
       "whereHint": "Le code figure sur le billet, sous le code QR.",
       "lockedTitle": "Bloqué un instant – {time}",
       "lockedBody": "Trop d'essais infructueux depuis le même réseau.",
-      "lockedButton": "De nouveau libre dans {time}",
       "expiredTitle": "Lien expiré",
       "expiredHeading": "Ce code QR n'est plus valable",
       "expiredBody": "Les liens Terrain expirent après 30 jours.",
@@ -831,7 +834,8 @@
       "offlineTitle": "Pas de connexion avec le PC",
       "offlineBody": "Le code n'a pas été vérifié – il est probablement correct.",
       "offlineHint": "Fais quelques pas à l'air libre et réessaie.",
-      "retry": "Réessayer"
+      "retry": "Réessayer",
+      "training": "Exercice"
     },
     "source": {
       "reko": "Mandat de reco",
@@ -1233,6 +1237,7 @@
       "contactPlaceholder": "Nom de la personne qui annonce",
       "contactPhoneLabel": "Numéro de téléphone",
       "contactPhonePlaceholder": "p. ex. 079 123 45 67",
+      "missingLocation": "Sans lieu d’intervention, le PC ne peut envoyer personne.",
       "submitting": "Transmission...",
       "submit": "Envoyer l’alarme",
       "review": {
@@ -1253,7 +1258,8 @@
       "correctError": "La correction n’a pas pu être transmise. Réessaie.",
       "receiptTitle": "L'alarme est au PC",
       "receiptMeta": "{eventName} · {time}",
-      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel."
+      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel.",
+      "detailsToggle": "Compléter les détails"
     },
     "checkin": {
       "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
@@ -1460,6 +1466,9 @@
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "deleteIncidentReleases": "Sont libérés : {what}.",
       "notReady": "Pas prêt à l'engagement",
+      "notReadyOne": "Marquer un appareil comme pas prêt à l'engagement",
+      "aggregateCountTitle": "{free} sur {total} libres",
+      "aggregateUnitCount": "{count} pièces",
       "notReadySince": "depuis le {date}",
       "driver": "Conducteur",
       "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
@@ -1499,6 +1508,8 @@
       "personnelLoading": "Chargement du personnel",
       "materialLoading": "Chargement du matériel",
       "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
+      "groupFree": "Libres · {count}",
+      "groupBound": "Engagés · {count}",
       "noMaterialMatch": "Aucun engin ne correspond à <term>« {query} »</term>",
       "resetSearch": "Réinitialiser la recherche",
       "noMaterialYet": "Aucun matériel enregistré",
@@ -1551,7 +1562,11 @@
         "since": "depuis {duration}",
         "unknownAddress": "Sans adresse"
       },
-      "linksAndQr": "Liens & QR"
+      "linksAndQr": "Liens & QR",
+      "distributeConfirmTitle": "Ajouter à la mission ?",
+      "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
+      "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
+      "distributeConfirmAction": "Oui, ajouter"
     },
     "missingResources": {
       "title": "Il manque des ressources",
@@ -2094,6 +2109,7 @@
       "distance": "Distance",
       "searchPlaceholder": "Rechercher...",
       "showDetails": "Afficher les détails",
+      "vehicleCluster": "{count} véhicules",
       "groupRoutes": "Missions",
       "groupRoutesColorHint": "Colore la carte par mission",
       "colorByRoutesOverride": "Défini par « Missions » – la coloration précédente est rétablie à la désactivation.",
@@ -2844,6 +2860,9 @@
       "name": "Nom",
       "status": "Statut",
       "actions": "Actions",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "listCount": "{shown} sur {total}",
       "role": "Rôle",
       "type": "Genre",
       "radioCallSign": "Indicatif radio",
@@ -3235,7 +3254,8 @@
         "showDetails": "Afficher les détails"
       },
       "searchPlaceholder": "Rechercher un réglage…",
-      "searchNoResults": "Aucun résultat."
+      "searchNoResults": "Aucun résultat.",
+      "searchHitCount": "{count} résultats · ↵ ouvrir"
     },
     "categorySort": {
       "noCategory": "(Aucun rôle)",
@@ -3271,7 +3291,6 @@
     "gps": {
       "title": "Automatisme de statut par GPS",
       "intro": "Active deux règles fondées sur le GPS. <strong>Arrivée</strong> demande si une intervention engagée doit passer sur <em>Intervention</em> dès qu’un véhicule attribué se trouve sur le lieu d’intervention. <strong>Retour</strong> demande si un véhicule doit être libéré lorsqu’il rentre à la caserne – jamais automatiquement. Fonctionne aussi en exercice ; inactif en mode démo.",
-      "coordPlaceholder": "p. ex. 47.4983",
       "arrivalLabel": "Arrivée sur le lieu d’intervention",
       "arrivalHint": "Demande si une intervention engagée doit passer sur « Intervention » dès qu’un véhicule attribué est confirmé sur le lieu d’intervention.",
       "silentLabel": "Automatiquement, sans demander",
@@ -3280,9 +3299,10 @@
       "returnLabel": "Caserne : proposer la libération",
       "returnHint": "Demande si un véhicule doit être libéré lorsqu’il rentre à la caserne. Ne clôture jamais l’intervention automatiquement.",
       "stationLabel": "Caserne (base d’attache)",
-      "stationHint": "Coordonnées de la caserne pour la règle de retour (degrés décimaux). Sans coordonnées, la détection du retour est inactive.",
-      "latLabel": "Latitude (lat)",
-      "lngLabel": "Longitude (lng)",
+      "stationMergedHint": "La règle de retour mesure par rapport aux coordonnées de la caserne définies dans « Général » – une question, un seul endroit.",
+      "stationCoordsLabel": "Coordonnées",
+      "stationCoordsUnset": "Pas encore renseignées",
+      "stationCoordsEditInGeneral": "modifier dans Général",
       "stationRadiusLabel": "Rayon de la caserne (m)",
       "stationRadiusHint": "À quelle distance de la caserne un véhicule doit se trouver pour que le retour soit reconnu. Reste serré (p. ex. 80–120 m) pour qu’un véhicule qui ne fait que passer ne déclenche rien.",
       "arrivalRadiusLabel": "Rayon d’arrivée (m)",
@@ -3367,6 +3387,9 @@
       "syncError": "Erreur lors de la synchronisation",
       "syncErrorDescription": "La liaison avec Divera n’a pas pu être établie. Réessaie.",
       "tabList": "Liste du personnel",
+      "listSearchPlaceholder": "Nom, rôle, tag …",
+      "roleFilterAll": "Tous les rôles",
+      "emptyFiltered": "Aucune entrée ne correspond au filtre.",
       "syncButton": "Synchroniser depuis Divera",
       "addButton": "Ajouter du personnel",
       "tags": "Étiquettes",
@@ -3393,7 +3416,10 @@
       "syncSectionNotInDivera": "Absentes de Divera",
       "removeStaleLabel": "{count, plural, one {Retirer # personne absente de Divera} other {Retirer # personnes absentes de Divera}}",
       "syncExecuteButton": "Synchroniser",
-      "syncUnavailable": "Aucun fournisseur de personnel enregistré – il n’y a rien à synchroniser. La clé d’accès est saisie par la personne qui s’occupe du serveur ; l’état figure sous Réglages → Intégrations."
+      "syncUnavailable": "Aucun fournisseur de personnel enregistré – il n’y a rien à synchroniser. La clé d’accès est saisie par la personne qui s’occupe du serveur ; l’état figure sous Réglages → Intégrations.",
+      "abbreviationsTitle": "Abréviations des grades",
+      "abbreviationsHint": "Forme courte affichée dans la barre latérale du tableau. Vide = abréviation intégrée (suggérée dans le champ).",
+      "abbreviationsSaveError": "Les abréviations n’ont pas pu être enregistrées"
     },
     "printer": {
       "toasts": {

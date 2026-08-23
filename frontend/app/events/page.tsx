@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
@@ -9,8 +9,6 @@ import { apiClient } from '@/lib/api-client'
 import type { Event } from '@/lib/types/incidents'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -20,12 +18,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { DetailField } from '@/components/kanban/detail-field'
-import { Plus, Archive, ArchiveRestore, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, Download } from 'lucide-react'
+import { Plus, Archive, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { EventRestliste } from '@/components/events/event-restliste'
 import { TrainingBadge } from '@/components/training-mode-chrome'
@@ -49,6 +48,51 @@ function slugifyEventName(name: string): string {
   )
 }
 
+/**
+ * The two open-work counts as quiet amber chips on a list row. The full
+ * Restliste stays on the active-event banner, where it can be worked off —
+ * every other row only needs to say whether something is still open there.
+ * Renders nothing when nothing is.
+ */
+function RestlisteRowChips({ eventId }: { eventId: string }) {
+  const t = useTranslations('events.page')
+  const [counts, setCounts] = useState<{ rapport: number; pickups: number } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    apiClient
+      .getEventRestliste(eventId)
+      .then((d) => {
+        if (alive) setCounts({ rapport: d.missing_rapport.length, pickups: d.open_pickups.length })
+      })
+      // A missing chip is not an error state — same reasoning as EventRestliste.
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [eventId])
+
+  if (!counts || (counts.rapport === 0 && counts.pickups === 0)) return null
+  const chip =
+    'inline-flex shrink-0 items-center gap-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-xs text-warning-foreground whitespace-nowrap'
+  return (
+    <div className="hidden shrink-0 items-center gap-1.5 lg:flex">
+      {counts.rapport > 0 && (
+        <span className={chip}>
+          <FileWarning className="size-3" />
+          {t('rowMissingRapport', { count: counts.rapport })}
+        </span>
+      )}
+      {counts.pickups > 0 && (
+        <span className={chip}>
+          <Package className="size-3" />
+          {t('rowOpenPickups', { count: counts.pickups })}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** Hand a fetched blob to the browser as a download, then clean up the object URL. */
 function downloadBlob(blob: Blob, filename: string) {
   const url = window.URL.createObjectURL(blob)
@@ -67,6 +111,10 @@ export default function EventsPage() {
   // French — and `fr` ships. `useFormatter` follows the active locale, and gives
   // the three date lines one format instead of two (one had a time, two did not).
   const format = useFormatter()
+  // Anchor for the relative ages ("vor 3 Tagen"), refreshed each minute so an
+  // open tab does not quietly age — and required: `relativeTime` without an
+  // explicit now logs an ENVIRONMENT_FALLBACK error per row in dev.
+  const now = useNow({ updateInterval: 60_000 })
   // The board's own «Übung» wording, so one drill is not called two things.
   const tTraining = useTranslations('kanban')
   const router = useRouter()
@@ -90,6 +138,9 @@ export default function EventsPage() {
   const [isArchiving, setIsArchiving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  // The archive is auskunft, not workspace: collapsed by default, and only
+  // forced open while a search actually matches something in it.
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
   const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
   const [einsaetzeLoadingId, setEinsaetzeLoadingId] = useState<string | null>(null)
@@ -130,6 +181,20 @@ export default function EventsPage() {
       event.name.toLowerCase().includes(query)
     )
   }, [archivedEvents, searchQuery])
+
+  // The selected event, as long as it is still active: it renders as the pinned
+  // banner, and the row list carries everything else. Deliberately taken from
+  // the unfiltered list — a search may narrow the rows, but never hides where
+  // the board currently stands.
+  const bannerEvent = useMemo(
+    () => (selectedEvent ? activeEvents.find((e) => e.id === selectedEvent.id) : undefined),
+    [activeEvents, selectedEvent]
+  )
+  const rowEvents = useMemo(
+    () => filteredActiveEvents.filter((e) => e.id !== bannerEvent?.id),
+    [filteredActiveEvents, bannerEvent]
+  )
+  const archiveListOpen = archiveOpen || (searchQuery.trim() !== '' && filteredArchivedEvents.length > 0)
 
   const handleCreateEvent = async () => {
     if (!newEventName.trim()) return
@@ -258,23 +323,27 @@ export default function EventsPage() {
     }
   }
 
-  // Compact export control: one button, both formats in a dropdown.
-  const renderExportMenu = (event: Event) => {
+  // One quiet ⋯ per row: the three exports for every event, plus the row's
+  // one-way action — Archivieren, or Löschen once archived. The destructive
+  // item lives only in here, so the list shows no standing red at rest.
+  const renderRowMenu = (event: Event, archived: boolean) => {
     const busy =
       reportLoadingId === event.id || auditLoadingId === event.id || einsaetzeLoadingId === event.id
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" disabled={busy} title={t('page.exportTitle')}>
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Download className="size-4" />
-            )}
-            {t('page.export')}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('page.rowActions')}
+            title={t('page.rowActions')}
+            disabled={busy}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
             <FileText className="mr-2 h-4 w-4" />
             {t('page.exportReport')}
@@ -287,6 +356,30 @@ export default function EventsPage() {
             <ReceiptText className="mr-2 h-4 w-4" />
             {t('page.exportEinsaetze')}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {archived ? (
+            <DropdownMenuItem
+              className="cursor-pointer text-destructive focus:text-destructive"
+              onClick={() => {
+                setTargetEvent(event)
+                setShowDeleteDialog(true)
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t('page.delete')}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => {
+                setTargetEvent(event)
+                setShowArchiveDialog(true)
+              }}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {t('page.archive')}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     )
@@ -397,11 +490,6 @@ export default function EventsPage() {
         <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
-            {selectedEvent && (
-              <Badge variant="secondary" className="hidden sm:inline-flex flex-shrink-0">
-                {t('page.activeBadge', { name: selectedEvent.name })}
-              </Badge>
-            )}
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
@@ -423,7 +511,7 @@ export default function EventsPage() {
 
         {/* Content */}
         <main className="flex-1 overflow-auto p-4 md:p-6">
-          <div className="container mx-auto">
+          <div className="mx-auto max-w-[1100px]">
 
             {/* Search bar */}
             <div className="mb-6">
@@ -434,132 +522,139 @@ export default function EventsPage() {
               />
             </div>
 
-            {/* Active Events */}
-            {filteredActiveEvents.length === 0 && filteredArchivedEvents.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-center text-muted-foreground">
-                  {events.length === 0
-                    ? t('page.emptyNone')
-                    : t('page.emptySearch')}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-8">
-                {/* Active Events Section */}
-                {filteredActiveEvents.length > 0 && (
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">{t('page.activeSection')}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredActiveEvents.map((event) => (
-                        <Card
-                          key={event.id}
-                          data-testid="event-card"
-                          className={`flex flex-col transition-all ${
-                            selectedEvent?.id === event.id ? 'ring-2 ring-primary' : ''
-                          }`}
-                        >
-                          <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              <span className="min-w-0 truncate">{event.name}</span>
-                              {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="flex flex-1 flex-col">
-                            <div className="space-y-1 text-sm text-muted-foreground">
-                              <div>{t('page.incidentCount', { count: event.incident_count })}</div>
-                              <div>{t('page.createdAt', { date: format.dateTime(new Date(event.created_at), { dateStyle: 'short' }) })}</div>
-                              <div>{t('page.lastActivity', { date: format.dateTime(new Date(event.last_activity_at), { dateStyle: 'short', timeStyle: 'short' }) })}</div>
-                            </div>
-
-                            {/* The Restliste (plan 25, §6/V-8): what is still
-                                open, with a way into each incident. Active
-                                events only — an archived Ereignis has no gaps
-                                left to chase. Renders nothing when there is
-                                nothing open. */}
-                            <EventRestliste
-                              eventId={event.id}
-                              onOpenIncident={(incidentId) => handleOpenIncident(event, incidentId)}
-                              printerEnabled={printerEnabled}
-                            />
-
-                            <div className="mt-auto flex gap-2 pt-4">
-                              <Button
-                                className="flex-1"
-                                onClick={() => handleSelectEvent(event)}
-                              >
-                                {t('page.select')}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                title={t('page.archive')}
-                                onClick={() => {
-                                  setTargetEvent(event)
-                                  setShowArchiveDialog(true)
-                                }}
-                              >
-                                <Archive className="size-4" />
-                              </Button>
-                              {renderExportMenu(event)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+            {/* The active event is not a row — it is a banner, pinned above the
+                list, with the only other red on the page and the Restliste
+                expanded here only. Search never hides "you are here". */}
+            {bannerEvent && (
+              <div
+                data-testid="event-card"
+                className="relative mb-6 overflow-hidden rounded-lg border border-border bg-muted/30 p-4 pl-5"
+              >
+                <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-primary" />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="truncate text-xl font-semibold">{bannerEvent.name}</h2>
+                      {bannerEvent.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
                     </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {t('page.incidentCountShort', { count: bannerEvent.incident_count })}
+                      {' · '}
+                      {t('page.lastActivityRelative', { rel: format.relativeTime(new Date(bannerEvent.last_activity_at), now) })}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button onClick={() => router.push('/')}>
+                      {t('page.toBoard')}
+                      <ArrowRight className="size-4" />
+                    </Button>
+                    {renderRowMenu(bannerEvent, false)}
+                  </div>
+                </div>
+                {/* The Restliste (plan 25, §6/V-8): what is still open, with a
+                    way into each incident. Expanded only here — this is the one
+                    event whose gaps are being worked. Renders nothing when
+                    nothing is open. */}
+                <EventRestliste
+                  eventId={bannerEvent.id}
+                  onOpenIncident={(incidentId) => handleOpenIncident(bannerEvent, incidentId)}
+                  printerEnabled={printerEnabled}
+                />
+              </div>
+            )}
+
+            {/* The banner is search-immune by design, so a fruitless search
+                still needs its answer below it — only the "one event, and it
+                is selected" idle case renders nothing extra. */}
+            {rowEvents.length === 0 && filteredArchivedEvents.length === 0 &&
+            (!bannerEvent || searchQuery.trim() !== '') ? (
+              <div className="rounded-lg border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+                {events.length === 0 ? t('page.emptyNone') : t('page.emptySearch')}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Every other event is a row: name, count, open-work chips,
+                    age — and its actions always visible, but quiet. */}
+                {rowEvents.length > 0 && (
+                  <div className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
+                    {rowEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        data-testid="event-card"
+                        onClick={() => handleSelectEvent(event)}
+                        className="flex min-h-[52px] cursor-pointer items-center gap-3 px-4 py-2 hover:bg-muted/50"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <span className="truncate text-[15px] font-medium">{event.name}</span>
+                          {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
+                        </div>
+                        <RestlisteRowChips eventId={event.id} />
+                        <span className="hidden w-24 shrink-0 text-right text-sm tabular-nums text-muted-foreground sm:block">
+                          {t('page.incidentCountShort', { count: event.incident_count })}
+                        </span>
+                        <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
+                          {format.relativeTime(new Date(event.last_activity_at), now)}
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSelectEvent(event)
+                          }}
+                        >
+                          {t('page.select')}
+                        </button>
+                        {renderRowMenu(event, false)}
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* Archived Events Section */}
+                {/* Archive: collapsed auskunft at the foot of the list, not a
+                    second grid. A matching search forces it open. */}
                 {filteredArchivedEvents.length > 0 && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-4 text-muted-foreground">{t('page.archivedSection')}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredArchivedEvents.map((event) => (
-                        <Card
-                          key={event.id}
-                          data-testid="event-card"
-                          className="flex flex-col border-dashed bg-muted/20"
-                        >
-                          <CardHeader>
-                            <CardTitle className="text-lg text-muted-foreground flex items-center gap-2">
-                              <span className="min-w-0 truncate">{event.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setArchiveOpen((o) => !o)}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      <ChevronRight
+                        className={`size-4 transition-transform ${archiveListOpen ? 'rotate-90' : ''}`}
+                      />
+                      {t('page.archiveDisclosure', { count: filteredArchivedEvents.length })}
+                    </button>
+                    {archiveListOpen && (
+                      <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card opacity-70">
+                        {filteredArchivedEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            data-testid="event-card"
+                            className="flex min-h-[52px] items-center gap-3 px-4 py-2"
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <span className="truncate text-[15px] font-medium text-muted-foreground">{event.name}</span>
                               {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="flex flex-1 flex-col">
-                            <div className="space-y-1 text-sm text-muted-foreground">
-                              <div>{t('page.incidentCount', { count: event.incident_count })}</div>
-                              <div>{t('page.createdAt', { date: format.dateTime(new Date(event.created_at), { dateStyle: 'short' }) })}</div>
-                              <div>{t('page.archivedAt', { date: format.dateTime(new Date(event.archived_at!), { dateStyle: 'short' }) })}</div>
                             </div>
-
-                            <div className="mt-auto flex gap-2 pt-4">
-                              <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => handleUnarchive(event)}
-                              >
-                                <ArchiveRestore className="size-4" />
-                                {t('page.restore')}
-                              </Button>
-                              {renderExportMenu(event)}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title={t('page.delete')}
-                                className="hover:bg-destructive/10"
-                                onClick={() => {
-                                  setTargetEvent(event)
-                                  setShowDeleteDialog(true)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                            <span className="hidden w-24 shrink-0 text-right text-sm tabular-nums text-muted-foreground sm:block">
+                              {t('page.incidentCountShort', { count: event.incident_count })}
+                            </span>
+                            <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
+                              {format.relativeTime(new Date(event.archived_at!), now)}
+                            </span>
+                            <button
+                              type="button"
+                              className="shrink-0 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                              onClick={() => handleUnarchive(event)}
+                            >
+                              {t('page.restore')}
+                            </button>
+                            {renderRowMenu(event, true)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

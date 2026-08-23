@@ -32,7 +32,16 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getFeldPersonnel, getFeldAssignments, unlockFeld, claimFeldPerson, mintFeldRekoLink, getFeldMaterial },
+  apiClient: {
+    getFeldPersonnel,
+    getFeldAssignments,
+    unlockFeld,
+    claimFeldPerson,
+    mintFeldRekoLink,
+    getFeldMaterial,
+    // The door's proof-of-place fetch; null = render without the proof.
+    getFeldContext: vi.fn().mockResolvedValue(null),
+  },
 }))
 
 // The detail view is a stack of sections; this test is about which section the
@@ -172,8 +181,8 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
 
+    // The fourth digit submits by itself — there is no button on the door.
     await user.type(await screen.findByRole('textbox'), '4713')
-    await user.click(screen.getByRole('button', { name: 'Weiter' }))
 
     // The picker only appears after the code — it is what the code buys.
     await user.click(await screen.findByText('Muster Hans'))

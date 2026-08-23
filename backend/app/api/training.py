@@ -1298,7 +1298,7 @@ async def start_gps_simulation(
     notification and the arrival/return prompts.
     """
     from ..services.gps_simulation import SimulatedDrive, gps_simulation
-    from ..services.settings import get_setting_value
+    from ..services.settings import get_station_coordinates
     from ..services.traccar_poller import traccar_poller
     from ..traccar import traccar_client
 
@@ -1328,15 +1328,13 @@ async def start_gps_simulation(
         target = (float(incident.location_lat), float(incident.location_lng))
         target_label = incident.location_address or incident.title or "Einsatz"
     else:
-        lat_raw = await get_setting_value(db, "gps.station_lat", "")
-        lng_raw = await get_setting_value(db, "gps.station_lng", "")
-        try:
-            target = (float(lat_raw), float(lng_raw))
-        except (TypeError, ValueError):
+        station = await get_station_coordinates(db)
+        if station is None:
             raise HTTPException(
                 status_code=400,
-                detail="Magazin-Koordinaten fehlen (Einstellungen → GPS)",
-            ) from None
+                detail="Magazin-Koordinaten fehlen (Einstellungen → Allgemein)",
+            )
+        target = station
         target_label = "Magazin"
 
     # Start position: current simulated position > (for returns) the assigned
@@ -1371,21 +1369,8 @@ async def start_gps_simulation(
         except Exception:
             start = None
     if start is None:
-        try:
-            start = (
-                float(await get_setting_value(db, "gps.station_lat", "")),
-                float(await get_setting_value(db, "gps.station_lng", "")),
-            )
-        except (TypeError, ValueError):
-            start = None
-    if start is None:
-        try:
-            start = (
-                float(await get_setting_value(db, "firestation_latitude", "")),
-                float(await get_setting_value(db, "firestation_longitude", "")),
-            )
-        except (TypeError, ValueError):
-            start = (47.51637699933488, 7.561800450458299)
+        # Both pairs in one question — see get_station_coordinates.
+        start = await get_station_coordinates(db) or (47.51637699933488, 7.561800450458299)
 
     drive = SimulatedDrive(
         vehicle_id=vehicle.id,

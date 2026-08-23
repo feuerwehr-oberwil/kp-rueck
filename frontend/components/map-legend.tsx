@@ -75,8 +75,6 @@ export function MapLegend({
   // Priorität section for the active grouping's colours.
   const coloring = colorBy !== "priority" && colorGroups.length > 0
 
-  // Collapsible: until the user toggles it, default to collapsed on mobile
-  // (the panel otherwise covers half the map) and expanded on desktop.
   const isMobile = useIsMobile()
   const [open, setOpen] = useState<boolean | null>(null)
 
@@ -94,17 +92,21 @@ export function MapLegend({
     if (changed && colorBy !== "priority") setOpen(true)
   }, [colorBy])
 
+  // Open by default on desktop (Bastian's verdict from the field round: a
+  // legend you have to find is a legend that gets skipped), collapsed on
+  // mobile where it would cover half the map. The compact ⓘ pill is the
+  // folded form either way.
   const expanded = open ?? !isMobile
 
   if (!expanded) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-full bg-card/95 backdrop-blur-sm border border-border px-3 py-1.5 text-xs font-medium shadow-lg hover:bg-card"
+        className="absolute bottom-4 right-4 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-card/95 backdrop-blur-sm border border-border shadow-lg hover:bg-card"
         aria-label={t('legend.show')}
+        title={t('legend.title')}
       >
-        <Info className="h-3.5 w-3.5 text-muted-foreground" />
-        {t('legend.title')}
+        <Info className="h-4 w-4 text-muted-foreground" />
       </button>
     )
   }

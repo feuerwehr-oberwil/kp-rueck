@@ -34,6 +34,9 @@ vi.mock("@/lib/api-client", () => ({
     updatePersonnel: (...args: unknown[]) => updatePersonnel(...args),
     deletePersonnel: (...args: unknown[]) => deletePersonnel(...args),
     updatePersonnelCategorySortOrder: vi.fn(),
+    // The Gradabkürzungen card loads its map from the settings row.
+    getAllSettings: vi.fn().mockResolvedValue({}),
+    updateSetting: vi.fn().mockResolvedValue({ key: '', value: '' }),
     getDiveraSyncPreview: vi.fn(),
     executeDiveraSync: vi.fn(),
     getIntegrations: (...args: unknown[]) => getIntegrations(...args),

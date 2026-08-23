@@ -122,7 +122,9 @@ export function PickupBadge({
   )
 
   const chrome = cn(
-    'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium',
+    // nowrap: in a narrow card header the chip broke «seit 15:43» onto its own
+    // line inside the pill — the chip wraps as a whole or not at all.
+    'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium',
     'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
     className,
   )
