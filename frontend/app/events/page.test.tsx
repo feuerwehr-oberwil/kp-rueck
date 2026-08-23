@@ -36,7 +36,17 @@ vi.mock('@/lib/contexts/event-context', () => ({
 }))
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getPrinterStatus: vi.fn().mockResolvedValue({ enabled: false }) },
+  apiClient: {
+    getPrinterStatus: vi.fn().mockResolvedValue({ enabled: false }),
+    // The row chips ask every active row the same question; empty answer here —
+    // the chips are not what this test is about.
+    getEventRestliste: vi.fn().mockResolvedValue({
+      missing_rapport: [],
+      material_on_site: [],
+      open_pickups: [],
+      incident_total: 0,
+    }),
+  },
 }))
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
@@ -84,10 +94,17 @@ function pending() {
 async function openDialog(name: 'Archivieren' | 'Löschen') {
   const user = userEvent.setup()
   renderWithIntl(<EventsPage />)
+  // Löschen lives on archived rows, which sit behind the collapsed Archiv
+  // disclosure; Archivieren on the active row. Both hide in the row's ⋯ menu.
+  if (name === 'Löschen') {
+    await user.click(screen.getByRole('button', { name: 'Archiv (1)' }))
+  }
+  const rowName = name === 'Löschen' ? 'Hochwasser Alt' : 'Sturm Ost'
   const card = screen
     .getAllByTestId('event-card')
-    .find((c) => within(c).queryByTitle(name)) as HTMLElement
-  await user.click(within(card).getByTitle(name))
+    .find((c) => within(c).queryByText(rowName)) as HTMLElement
+  await user.click(within(card).getByRole('button', { name: 'Aktionen' }))
+  await user.click(await screen.findByRole('menuitem', { name }))
   return { user, dialog: await screen.findByRole('dialog') }
 }
 
