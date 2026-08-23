@@ -428,7 +428,7 @@ export function TrainingControls() {
         </SettingGroup>
 
         {/* Burst Generation */}
-        <SettingGroup title={t('controls.multipleIncidents')} hint={t('controls.burstHint')}>
+        <SettingGroup title={t('controls.multipleIncidents')}>
           <Button
             onClick={handleGenerateBurst}
             disabled={isGenerating}

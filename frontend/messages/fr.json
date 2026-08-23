@@ -1712,8 +1712,6 @@
     "detail": {
       "rekoAuftrag": "Mission de reconnaissance",
       "groups": {
-        "lage": "Situation",
-        "meldung": "Annonce",
         "kraefte": "Moyens"
       },
       "tabs": {
@@ -3737,12 +3735,12 @@
       "notTraining": "La commande d’exercice n’est disponible que pour les événements d’exercice. L’événement actuel n’en est pas un."
     },
     "controls": {
-      "description": "Génération manuelle d’interventions pour l’exercice · {count} interventions au total",
+      "description": "{count} interventions au total",
       "generateSingle": "Générer des interventions isolées",
       "normal": "Normale",
       "critical": "Critique",
       "phoneAlarm": "Téléphone",
-      "generateHint": "Normale : eau, tempête, arbre | Critique : incendie, DAI, sauvetage de personnes | Téléphone : simule une annonce via le lien d’alarme",
+      "generateHint": "Téléphone simule une annonce via le lien d'alarme.",
       "targetedDispatch": "Intervention ciblée",
       "scenarioPlaceholder": "Choisir un scénario...",
       "scenarioLoading": "Chargement des scénarios...",
@@ -3751,10 +3749,9 @@
       "removePin": "Retirer le repère",
       "setPin": "Placer un repère sur la carte",
       "dispatch": "Déclencher",
-      "dispatchHint": "Scénario + adresse depuis la liste – ou place un repère directement sur la carte.",
+      "dispatchHint": "Ou placer le pin directement sur la carte.",
       "multipleIncidents": "Plusieurs interventions à la fois",
       "burst": "Rafale (5x au hasard)",
-      "burstHint": "Génère 5 interventions aléatoires d’un coup",
       "toastGenerated": "Intervention générée",
       "toastGeneratedCritical": "Intervention critique générée",
       "toastGenerateFailed": "L’intervention n’a pas pu être générée",
@@ -3767,11 +3764,11 @@
     },
     "autogen": {
       "title": "Automatisme",
-      "description": "Génère continuellement de nouvelles interventions – tu observes au lieu d’appuyer sur des boutons",
+      "description": "Génère continuellement de nouvelles interventions.",
       "toggleAria": "Automatisme activé/désactivé",
       "intervalLabel": "Intervalle (min)",
       "maxLabel": "Interventions max.",
-      "hint": "Agit sur l’exercice actif le plus récent. Pendant les 30 premières minutes, la génération tourne à double vitesse (phase chaude).",
+      "hint": "Les 30 premières minutes à double cadence (phase chaude).",
       "saveFailed": "Le réglage n’a pas pu être enregistré",
       "started": "Automatisme démarré",
       "stopped": "Automatisme arrêté",
@@ -3794,7 +3791,7 @@
     },
     "gpsSim": {
       "title": "Simulation GPS",
-      "description": "Envoie un véhicule sur une course simulée – la carte, les distances et les annonces d’arrivée et de retour se comportent comme avec un vrai GPS",
+      "description": "Envoie un véhicule sur un trajet simulé – comme avec un vrai GPS.",
       "stopAll": "Tout arrêter",
       "speed": "{speed} km/h",
       "noVehicles": "Aucun véhicule.",
@@ -3822,7 +3819,7 @@
     },
     "simulation": {
       "title": "Simulation de terrain",
-      "description": "Simule les actions normalement exécutées par les personnes sur le terrain",
+      "description": "Annonce ce que le groupe annoncerait depuis le terrain.",
       "nextActions": "Prochaines actions",
       "noOpenActions": "Aucune action de terrain en attente. Convoquer la reconnaissance / engager, c’est l’opérateur qui le fait au tableau.",
       "since": "depuis {time}",
@@ -3836,7 +3833,7 @@
       "injectReinforcementDesc": "Le groupe demande du personnel ou du matériel – ce qui part, c’est le PC qui décide.",
       "injectBreakdown": "Un véhicule tombe en panne",
       "injectBreakdownDesc": "Un véhicule attribué tombe en panne – le PC doit engager un remplacement.",
-      "footer": "Uniquement des actions de terrain. En évidence = échu (temps d’attente atteint). « Course vers l’intervention » et « Retour à la caserne » démarrent des courses GPS – l’arrivée et le retour s’annoncent via la demande GPS. « Intervention terminée » n’apparaît qu’ici – c’est toi qui informes le tableau (p. ex. par radio).",
+      "footer": "Surligné = à échéance. Les trajets annoncent arrivée et retour via GPS ; le tableau, c'est toi qui l'informes.",
       "noVehicleFound": "Aucun véhicule trouvé pour la course",
       "noVehicleFoundDescription": "Les véhicules attribués sont inconnus ou déjà en route.",
       "actionFailed": "Échec de l’action",
@@ -3886,7 +3883,7 @@
       "fieldReportExample2": "Odeur de gaz au sous-sol",
       "fieldReportExample3": "Encore un arbre sur la route",
       "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
-      "fieldReportHint": "L’équipe de l’intervention choisie annonce une nouvelle place sinistrée – l’annonce arrive comme une vraie (cloche, Reçu)."
+      "fieldReportHint": "Le groupe annonce une nouvelle place de sinistre – arrive comme une vraie annonce."
     }
   }
 }

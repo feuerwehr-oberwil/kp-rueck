@@ -174,15 +174,19 @@ function SearchHitEvidence({ text, matchStart, matchEnd }: { text: string; match
  * pro Station gesetzt; Standard-Aufträge und die Checkliste pflegt das Kommando laufend.
  * Genau diesen Unterschied will man vor dem Klicken kennen.
  *
- * `device` steht zuletzt und für sich: alles darin liegt im Browser (Cookie,
- * localStorage, next-themes) und gilt nur auf diesem Bildschirm. Solange das über die
+ * `device` steht zuoberst und für sich: alles darin liegt im Browser (Cookie,
+ * localStorage, next-themes) und gilt nur auf diesem Bildschirm – und Erscheinungsbild
+ * und Sprache sind das, was auch ein Viewer am ehesten sucht. Solange das über die
  * Seite verstreut war, brauchte jede einzelne Zeile eine Marke, um ihre Reichweite
  * anzuzeigen – jetzt trägt die Gliederung sie, und die Marke ist weg.
  */
-const GROUPS = ['setup', 'operations', 'resources', 'records', 'device'] as const;
+const GROUPS = ['device', 'setup', 'operations', 'resources', 'records'] as const;
 
 // Sidebar sections configuration (labels come from settings.page.sections.*)
 const SECTIONS = [
+  // ---- Dieses Gerät: Erscheinungsbild, Sprache, Auto-Download. Alles im Browser.
+  { id: 'device', icon: MonitorCog, group: 'device', editorOnly: false, adminOnly: false },
+
   // ---- Einrichtung: einmal pro Station, meistens beim Aufbau
   { id: 'general', icon: Settings2, group: 'setup', editorOnly: false, adminOnly: false },
   // Read-only view of the capability registry (`GET /api/integrations`). No controls:
@@ -225,8 +229,6 @@ const SECTIONS = [
   // mit demselben Symbol heben die Symbolspalte auf – sie ist dann Dekoration.
   { id: 'telemetry', icon: MessageSquareWarning, group: 'records', editorOnly: false, adminOnly: false },
 
-  // ---- Dieses Gerät: Erscheinungsbild, Sprache, Auto-Download. Alles im Browser.
-  { id: 'device', icon: MonitorCog, group: 'device', editorOnly: false, adminOnly: false },
 ] as const;
 
 // Audit log constants
