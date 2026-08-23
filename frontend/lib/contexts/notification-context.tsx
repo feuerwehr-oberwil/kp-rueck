@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Notification, NotificationSettings } from '@/lib/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
@@ -152,19 +153,27 @@ export function NotificationProvider({
   // re-render when a handler appears or goes away. Re-registering the same
   // handler is cheap — setting a boolean to the value it already has bails out
   // of the render.
-  const [canNavigateToIncident, setCanNavigateToIncident] = useState(false)
+  // Always true since the router fallback below: a notification is clickable
+  // from EVERY page, not only where the board registered its handler.
+  const canNavigateToIncident = true
 
   const registerNavigateHandler = useCallback(
     (handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null) => {
       navigateHandlerRef.current = handler
-      setCanNavigateToIncident(handler !== null)
     },
     [],
   )
 
+  const router = useRouter()
   const navigateToIncident = useCallback((incidentId: string, tab?: OperationDetailTab) => {
-    navigateHandlerRef.current?.(incidentId, tab)
-  }, [])
+    if (navigateHandlerRef.current) {
+      navigateHandlerRef.current(incidentId, tab)
+      return
+    }
+    // Not on the board (map, settings, …): the incident lives there, so go
+    // there — the board already understands highlight + detail + tab from the URL.
+    router.push(`/?highlight=${encodeURIComponent(incidentId)}&detail=1${tab ? `&tab=${tab}` : ''}`)
+  }, [router])
 
   // State, not a ref like the navigate handler above: the notification card has
   // to RENDER differently depending on whether anybody can perform the move, so
