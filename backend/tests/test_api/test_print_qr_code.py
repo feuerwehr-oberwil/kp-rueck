@@ -65,9 +65,7 @@ class TestQRCodePrintEndpoint:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_rejected_when_no_printer_address(
-        self, editor_client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_rejected_when_no_printer_address(self, editor_client: AsyncClient, db_session: AsyncSession):
         """Switched on, no address: the job used to be accepted with a 201 and then sat in
         the queue forever — no error on the board, nothing on paper. The operator has to
         find out at the moment they press print, and the message has to say where to fix it."""
