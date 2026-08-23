@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2, Ban, ArrowRight, ArrowUpRight, Package2 } from 'lucide-react'
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
-import { summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
+import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
+import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
@@ -31,7 +32,7 @@ import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Person, type Operation, type Material, type PersonRole, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
+import { useOperations, type Person, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { RapportBacklogSheet, selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
@@ -59,7 +60,7 @@ import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
-import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -78,6 +79,7 @@ import { useCardView } from "@/lib/card-view"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist, RekoPickerDialog } from "@/components/event-setup-checklist"
@@ -505,6 +507,140 @@ function MaterialSidebarRow({
   )
 }
 
+/**
+ * Fold a depot's ready devices into bundles of identical units, order
+ * preserved by first appearance. Keyed by NAME — two devices that cannot be
+ * told apart on the shelf cannot be told apart on the board. Consumables stay
+ * single: their row already says «stock», and folding a Schlauch into a
+ * counted bundle would double-count what `consumable` already models.
+ */
+function aggregateByName(items: Material[]): Material[][] {
+  const order: Material[][] = []
+  const byName = new Map<string, Material[]>()
+  for (const item of items) {
+    if (item.consumable) {
+      order.push([item])
+      continue
+    }
+    const existing = byName.get(item.name)
+    if (existing) {
+      existing.push(item)
+    } else {
+      const bundle = [item]
+      byName.set(item.name, bundle)
+      order.push(bundle)
+    }
+  }
+  return order
+}
+
+/**
+ * Several indistinguishable devices as ONE row: «Wassersauger  3/4».
+ *
+ * Picking between four identical Sauger is a decision with no content, so the
+ * sidebar stops asking. Dragging the row takes one FREE unit (the drop side
+ * neither knows nor cares which); clicking asks where the taken ones are (the
+ * bindings popover of the first assigned unit); the context menu's «nicht
+ * einsatzbereit» takes one free unit out of service — the flagged device then
+ * stands at the bottom of its depot as its own dashed row, individually
+ * restorable, exactly as before.
+ */
+function AggregatedMaterialRow({
+  units,
+  onOpenBindings,
+  onToggleOutOfService,
+  bindingsPopover,
+  onCloseBindings,
+  onGoBinding,
+}: {
+  units: Material[]
+  /** Opens the combined popover — every taken unit's whereabouts at once. */
+  onOpenBindings: (units: Material[]) => void
+  onToggleOutOfService: (material: Material, outOfService: boolean) => void
+  bindingsPopover: BindingsPopoverState | null
+  onCloseBindings: () => void
+  onGoBinding: (binding: ResourceBinding) => void
+}) {
+  const t = useTranslations('kanban.common')
+  const ref = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const freeUnits = units.filter((u) => materialResourceState(u) === 'available')
+  const assignedUnit = units.find((u) => u.status === 'assigned')
+  const dragUnit = freeUnits[0] ?? assignedUnit ?? units[0]
+  const allTaken = freeUnits.length === 0
+  // The popover may have been opened for ANY unit of this bundle.
+  const isOpen = bindingsPopover?.kind === 'material' && units.some((u) => u.id === bindingsPopover.id)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    return draggable({
+      element,
+      getInitialData: () => ({ type: 'material', material: dragUnit }),
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+    })
+  }, [dragUnit])
+
+  return (
+    <Popover open={isOpen} onOpenChange={(open) => { if (!open) onCloseBindings() }}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <PopoverAnchor asChild>
+            <div
+              ref={ref}
+              role="button"
+              title={dragUnit.name}
+              aria-grabbed={isDragging}
+              onClick={() => onOpenBindings(units)}
+              className={cn(
+                "group draggable rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
+                isDragging && "dragging",
+                allTaken && "opacity-60 hover:opacity-100",
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                  {dragUnit.name}
+                </span>
+                {/* The count IS the state: 0/4 needs no extra dot. Amber once
+                    nothing is left — the depot answers «kann ich noch einen
+                    holen?» at a glance. */}
+                <span
+                  className={cn(
+                    "shrink-0 text-xs tabular-nums",
+                    allTaken ? "font-medium text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+                  )}
+                  title={t('aggregateCountTitle', { free: freeUnits.length, total: units.length })}
+                >
+                  {freeUnits.length}/{units.length}
+                </span>
+              </div>
+            </div>
+          </PopoverAnchor>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuCheckboxItem
+            checked={false}
+            disabled={freeUnits.length === 0}
+            onCheckedChange={() => {
+              if (freeUnits[0]) onToggleOutOfService(freeUnits[0], true)
+            }}
+          >
+            {t('notReadyOne')}
+          </ContextMenuCheckboxItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <PopoverContent align="start" side="left" className="w-80 p-3">
+        {bindingsPopover && (
+          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 /** Priority → its label key under `kanban.common`, for the toast a keyboard
  *  priority change raises. */
 const PRIORITY_LABEL_KEYS: Record<Operation["priority"], "priorityLow" | "priorityMedium" | "priorityHigh"> = {
@@ -584,7 +720,29 @@ export default function FireStationDashboard() {
     return () => topLoading.done()
   }, [isLoaded])
 
-  const doubleBookedPersons = useDoubleBookedPersons(operations)
+  // Distinct PLACES, not just crew rows: an Auftrag membership and the
+  // whereabouts of a driven vehicle both commit a person — the Fahrer who was
+  // also on an Auftrag used to stand double-committed with no warning.
+  const groupEngagements = useMemo(
+    () =>
+      groups.map((group) => {
+        const resources = getGroupResources(group.id)
+        return {
+          id: group.id,
+          personnelNames: resources.personnel.map((p) => p.name),
+          vehicleNames: resources.vehicles.map((v) => v.name),
+        }
+      }),
+    [groups, getGroupResources],
+  )
+  const driverEngagements = useMemo(
+    () =>
+      personnel
+        .filter((person) => person.isDriver && person.driverVehicleName)
+        .map((person) => ({ name: person.name, vehicleName: person.driverVehicleName! })),
+    [personnel],
+  )
+  const doubleBookedPersons = useDoubleBookedPersons(operations, groupEngagements, driverEngagements)
   // Where each person actually is, for the sidebar card's tooltip (§P3.5) —
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
@@ -598,6 +756,10 @@ export default function FireStationDashboard() {
   const router = useRouter()
   const highlightParam = searchParams.get("highlight")
   const openDetailParam = searchParams.get("detail") === "1"
+  // Which detail tab the deep link meant («Angekommen» clicked away from the
+  // board lands on Rapport, not Übersicht). Unknown values fall back to none.
+  const rawTabParam = searchParams.get("tab")
+  const tabParam = isDetailTab(rawTabParam) ? rawTabParam : undefined
   const isMobile = useIsMobile()
 
   const tCommon = useTranslations('kanban.common')
@@ -614,6 +776,12 @@ export default function FireStationDashboard() {
   // Ref for highlight timeout cleanup
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const spotlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Render-time mirrors for `scrollToCard`, which stays dependency-free: the
+  // operations list (to find the card's column) and the column expander
+  // (declared further down, next to the other board-layout state).
+  const operationsRef = useRef(operations)
+  operationsRef.current = operations
+  const expandColumnRef = useRef<(id: string) => void>(() => {})
   // Spotlight: for the first moment of a highlight the REST of the board steps
   // back instead of the card shouting. It is a separate, shorter window than the
   // highlight itself — the dim lifts, the accent ring stays for the remainder.
@@ -621,6 +789,12 @@ export default function FireStationDashboard() {
 
   // Scroll to and highlight a card by operation ID
   const scrollToCard = useCallback((operationId: string) => {
+    // Unfold the card's column FIRST: a spotlight inside a folded column is a
+    // spotlight nobody sees — the card is not even in the DOM to scroll to.
+    // Refs, not deps: this callback stays stable while operations churn.
+    const op = operationsRef.current.find((candidate) => candidate.id === operationId)
+    if (op) expandColumnRef.current(op.status)
+
     // Clear any existing highlight timeout
     if (highlightTimeoutRef.current) {
       clearTimeout(highlightTimeoutRef.current)
@@ -791,7 +965,7 @@ export default function FireStationDashboard() {
   )
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string; status: string }>>([])
   const [showLeftSidebar, setShowLeftSidebar] = usePersistedState(LEFT_SIDEBAR_KEY, true, isBoolean)
   const [showRightSidebar, setShowRightSidebar] = usePersistedState(RIGHT_SIDEBAR_KEY, true, isBoolean)
   // Single state for footer sheets - only one can be open at a time
@@ -813,6 +987,15 @@ export default function FireStationDashboard() {
   const [stopPickerGroupId, setStopPickerGroupId] = useState<string | null>(null)
   // "An Auftrag verteilen" picker: the incident being distributed into a route.
   const [auftragPickerIncidentId, setAuftragPickerIncidentId] = useState<string | null>(null)
+  // The ask-first for the two distribute moves without an undo: transferring a
+  // stop out of another Auftrag, or folding a disponierter Einsatz into one.
+  const [distributeConfirm, setDistributeConfirm] = useState<{
+    groupId: string
+    incidentId: string
+    incidentLabel: string
+    fromName: string | null
+    dispatched: boolean
+  } | null>(null)
   // Route-level resource assign: when set, the assignment dialog is scoped to the
   // ROUTE (Auftrag) rather than a single incident — assign/remove hit the group.
   const [routeAssign, setRouteAssign] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
@@ -1092,6 +1275,7 @@ export default function FireStationDashboard() {
   // fold answers «how wide is this monitor», which nobody wants inherited on
   // the next machine — same hook, same reasoning as both wall boards.
   const collapsedColumns = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
+  expandColumnRef.current = collapsedColumns.expand
 
   // One-shot column sort: persist the chosen column's order without turning off
   // manual drag-and-drop ordering afterwards.
@@ -1706,7 +1890,9 @@ export default function FireStationDashboard() {
           key: String(vehicle.display_order),
           name: vehicle.name,
           id: vehicle.id,
-          type: vehicle.type
+          type: vehicle.type,
+          // The sidebar's Fahrzeuge section draws «nicht einsatzbereit» off this.
+          status: vehicle.status,
         }))
         setVehicleTypes(typesWithKeys)
       } catch {
@@ -1730,11 +1916,11 @@ export default function FireStationDashboard() {
   useEffect(() => {
     if (highlightParam) {
       scrollToCard(highlightParam)
-      if (openDetailParam) openIncidentDetail(highlightParam)
+      if (openDetailParam) openIncidentDetail(highlightParam, tabParam)
       // Clear the URL param to prevent re-scroll on refresh
       router.replace('/', { scroll: false })
     }
-  }, [highlightParam, openDetailParam, scrollToCard, openIncidentDetail, router])
+  }, [highlightParam, openDetailParam, tabParam, scrollToCard, openIncidentDetail, router])
 
   useKanbanShortcuts(
     {
@@ -1994,7 +2180,7 @@ export default function FireStationDashboard() {
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
   // `filtered*` are what the sidebars actually draw — the footer counters read
   // them so "0 von 17 sichtbar" can never disagree with the list above it.
-  const { groupedPersonnel, groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
+  const { availabilityGroupedPersonnel, groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
     personnel,
     materials,
     effectivePersonnelQuery,
@@ -2024,6 +2210,30 @@ export default function FireStationDashboard() {
     () => filterIncidents(operations, searchQuery, materials, groupNames),
     [operations, searchQuery, materials, groupNames],
   )
+
+  /**
+   * The event's normal case: the Einsatzart that a clear majority of the
+   * board's incidents share. Cards suppress their type row when it matches —
+   * in a storm, 14 of 15 cards saying «Elementarereignis» is a row of ink that
+   * tells the operator nothing, and the one card that differs should be the
+   * one that stands out. Unfiltered operations on purpose: a search must not
+   * change what counts as normal. Null below 3 incidents — with two cards
+   * there is no "normal case" to suppress against.
+   */
+  const dominantIncidentType = useMemo(() => {
+    if (operations.length < 3) return null
+    const counts = new Map<string, number>()
+    for (const op of operations) counts.set(op.incidentType, (counts.get(op.incidentType) ?? 0) + 1)
+    let best: string | null = null
+    let bestCount = 0
+    counts.forEach((count, type) => {
+      if (count > bestCount) {
+        best = type
+        bestCount = count
+      }
+    })
+    return bestCount > operations.length / 2 ? best : null
+  }, [operations])
 
   /**
    * Everywhere this person is held — all of it, not the first hit.
@@ -2099,24 +2309,37 @@ export default function FireStationDashboard() {
 
   const collectMaterialBindings = useCallback((material: Material): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
-    for (const op of operations) {
-      if (op.materials.includes(material.id)) {
-        bindings.push({
-          key: `incident-${op.id}`,
-          kind: "incident",
-          targetId: op.id,
-          label: getIncidentRefLabel(op, 60),
-          detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
-        })
-      }
-    }
+    // ONE row per Auftrag, like the person rows: an engagement anywhere inside
+    // a route — the route owning the unit, or a direct assignment to one of
+    // its stops — reads as «Auftrag X», once. Only incidents outside every
+    // Auftrag keep their own row.
+    const routeGroupIds = new Set<string>()
     for (const group of groups) {
       if (getGroupResources(group.id).materials.some((m) => m.resourceId === material.id)) {
+        routeGroupIds.add(group.id)
+      }
+    }
+    for (const op of operations) {
+      if (!op.materials.includes(material.id)) continue
+      if (op.groupId) {
+        routeGroupIds.add(op.groupId)
+        continue
+      }
+      bindings.push({
+        key: `incident-${op.id}`,
+        kind: "incident",
+        targetId: op.id,
+        label: getIncidentRefLabel(op, 60),
+        detail: "",
+      })
+    }
+    for (const group of groups) {
+      if (routeGroupIds.has(group.id)) {
         bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
       }
     }
     return bindings
-  }, [operations, groups, getGroupResources, groupNames])
+  }, [operations, groups, getGroupResources])
 
   /**
    * Follow one binding: a card to scroll to, or the Auftrag sheet to open.
@@ -2193,6 +2416,31 @@ export default function FireStationDashboard() {
       id: material.id,
       title: material.name,
       subtitle: material.category,
+      bindings,
+    })
+  }
+
+  /** The aggregate row answers for the WHOLE bundle: every taken unit's
+   *  bindings in one popover — «wo sind die anderen zwei Sauger?» must not
+   *  need three clicks through three identical rows. */
+  const handleAggregateMaterialClick = (units: Material[]) => {
+    // Units share targets — two Sägen on one Auftrag are ONE place, so the
+    // list carries each target once, with a ×n when several units are there.
+    const merged = new Map<string, { binding: ResourceBinding; count: number }>()
+    for (const binding of units.flatMap((unit) => collectMaterialBindings(unit))) {
+      const entry = merged.get(binding.key)
+      if (entry) entry.count += 1
+      else merged.set(binding.key, { binding, count: 1 })
+    }
+    const bindings = [...merged.values()].map(({ binding, count }) =>
+      count > 1 ? { ...binding, detail: tCommon('aggregateUnitCount', { count }) } : binding,
+    )
+    const free = units.filter((unit) => materialResourceState(unit) === 'available').length
+    setBindingsPopover({
+      kind: "material",
+      id: units[0].id,
+      title: units[0].name,
+      subtitle: `${units[0].category} · ${tCommon('aggregateCountTitle', { free, total: units.length })}`,
       bindings,
     })
   }
@@ -2331,9 +2579,7 @@ export default function FireStationDashboard() {
     setAuftragPickerIncidentId(operationId)
   }
 
-  const handleChooseAuftrag = (groupId: string) => {
-    if (!auftragPickerIncidentId) return
-    const incidentId = auftragPickerIncidentId
+  const performDistribute = (groupId: string, incidentId: string) => {
     closedStopGuard.guard([incidentId], async () => {
       const ok = await addStopsToGroup(groupId, [incidentId])
       if (ok) {
@@ -2341,6 +2587,29 @@ export default function FireStationDashboard() {
         toast.success(tDash('distributedToast', { name: group?.name ?? '' }))
       }
     })
+  }
+
+  const handleChooseAuftrag = (groupId: string) => {
+    if (!auftragPickerIncidentId) return
+    const incidentId = auftragPickerIncidentId
+    // Two moves that cannot be taken back ask first (there is no undo yet):
+    // pulling a stop OUT of another Auftrag, and folding an already
+    // disponierter Einsatz into a route.
+    const op = operations.find((candidate) => candidate.id === incidentId)
+    const otherGroup =
+      op?.groupId && op.groupId !== groupId ? groups.find((g) => g.id === op.groupId) : undefined
+    const dispatched = !!op && ['enroute', 'active', 'returning'].includes(op.status)
+    if (otherGroup || dispatched) {
+      setDistributeConfirm({
+        groupId,
+        incidentId,
+        incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
+        fromName: otherGroup?.name ?? null,
+        dispatched,
+      })
+      return
+    }
+    performDistribute(groupId, incidentId)
   }
 
   // "Aus Auftrag entfernen" — detach the incident from its current route (it
@@ -2589,7 +2858,7 @@ export default function FireStationDashboard() {
                   value={personnelSearchQuery}
                   onValueChange={setPersonnelSearchQuery}
                   className="h-8 text-sm"
-                  hint={!isMobile ? <Kbd className="h-5 text-xs">P</Kbd> : undefined}
+                  hint={!isMobile ? <Kbd>P</Kbd> : undefined}
                 />
                 <AvailableOnlyToggle
                   active={personnelAvailableOnly}
@@ -2643,7 +2912,7 @@ export default function FireStationDashboard() {
                       </div>
                     ) : null}
                   </div>
-                ) : Object.keys(groupedPersonnel).length === 0 ? (
+                ) : filteredPersonnel.length === 0 ? (
                   /* Nothing to list although people ARE checked in: the search or
                      the «nur Verfügbare» filter is hiding all of them. Which of
                      the two it is decides what the way out is, so it decides the
@@ -2674,11 +2943,22 @@ export default function FireStationDashboard() {
                   )
                 ) : (
                   <div className="space-y-4 animate-in fade-in duration-300">
-                    {Object.keys(groupedPersonnel).map((role) => (
-                      <div key={role}>
-                        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">{role}</h3>
-                        <div className="space-y-2">
-                          {groupedPersonnel[role as PersonRole]?.map((person) => (
+                    {/* Frei first, Gebunden second — the sidebar's first job is
+                        «wen kann ich noch schicken?», so availability is the
+                        structure and rank is a suffix on the row. Caps, so a
+                        heading can never read as a person. */}
+                    {([
+                      ['free', availabilityGroupedPersonnel.free],
+                      ['bound', availabilityGroupedPersonnel.bound],
+                    ] as const).map(([kind, people]) => people.length === 0 ? null : (
+                      <div key={kind}>
+                        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {kind === 'free'
+                            ? tDash('groupFree', { count: people.length })
+                            : tDash('groupBound', { count: people.length })}
+                        </h3>
+                        <div className="space-y-0.5">
+                          {people.map((person) => (
                             /* The row answers where the person is — completely.
                                An anchor rather than a trigger: the card keeps
                                its own click handler, which decides between a
@@ -2826,6 +3106,7 @@ export default function FireStationDashboard() {
                       onTransfer={isEditor ? handleOpenTransfer : undefined}
                       onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
                       cardView={cardView}
+                      dominantIncidentType={dominantIncidentType}
                       printerEnabled={printerEnabled}
                       vehicleDrivers={vehicleDrivers}
                       doubleBookedCrewNames={doubleBookedPersons.names}
@@ -2958,7 +3239,7 @@ export default function FireStationDashboard() {
                   value={materialSearchQuery}
                   onValueChange={setMaterialSearchQuery}
                   className="h-8 text-sm"
-                  hint={!isMobile ? <Kbd className="h-5 text-xs">M</Kbd> : undefined}
+                  hint={!isMobile ? <Kbd>M</Kbd> : undefined}
                 />
                 <AvailableOnlyToggle
                   active={materialsAvailableOnly}
@@ -3029,8 +3310,10 @@ export default function FireStationDashboard() {
                       }
                       return (
                         <div key={category}>
-                          <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">{category}</h3>
-                          <div className="space-y-2">
+                          {/* Caps like every sidebar heading — a depot label
+                              must not read as a device. */}
+                          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</h3>
+                          <div className="space-y-0.5">
                             {/* Material groups/blocks */}
                             {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
                               const group = materialGroups.find(g => g.id === groupId)!
@@ -3049,8 +3332,34 @@ export default function FireStationDashboard() {
                                 />
                               )
                             })}
-                            {/* Ungrouped materials, then the ones that cannot go out */}
-                            {[...ungroupedItems, ...outOfServiceItems].map((material) => (
+                            {/* Ungrouped materials — identical devices fold
+                                into one counted row (see AggregatedMaterialRow);
+                                consumables and singletons keep their own row.
+                                Then the ones that cannot go out. */}
+                            {aggregateByName(ungroupedItems).map((bundle) =>
+                              bundle.length > 1 ? (
+                                <AggregatedMaterialRow
+                                  key={bundle[0].id}
+                                  units={bundle}
+                                  onOpenBindings={handleAggregateMaterialClick}
+                                  onToggleOutOfService={handleToggleMaterialOutOfService}
+                                  bindingsPopover={bindingsPopover}
+                                  onCloseBindings={() => setBindingsPopover(null)}
+                                  onGoBinding={followBinding}
+                                />
+                              ) : (
+                                <MaterialSidebarRow
+                                  key={bundle[0].id}
+                                  material={bundle[0]}
+                                  onClick={() => handleMaterialClick(bundle[0])}
+                                  onToggleOutOfService={handleToggleMaterialOutOfService}
+                                  bindingsPopover={bindingsPopover}
+                                  onCloseBindings={() => setBindingsPopover(null)}
+                                  onGoBinding={followBinding}
+                                />
+                              ),
+                            )}
+                            {outOfServiceItems.map((material) => (
                               <MaterialSidebarRow
                                 key={material.id}
                                 material={material}
@@ -3589,6 +3898,29 @@ export default function FireStationDashboard() {
         onChoose={handleChooseAuftrag}
         onCreate={(name) => createGroup({ name })}
         onRemoveFromCurrent={handleRemoveFromAuftrag}
+      />
+
+      {/* Ask-first for the two distribute moves without an undo — pulling a
+          stop out of another Auftrag, folding a disponierter Einsatz into one. */}
+      <ConfirmDialog
+        open={distributeConfirm !== null}
+        onOpenChange={(open) => !open && setDistributeConfirm(null)}
+        title={tDash('distributeConfirmTitle')}
+        description={
+          distributeConfirm?.fromName
+            ? tDash('distributeConfirmTransfer', {
+                incident: distributeConfirm.incidentLabel,
+                from: distributeConfirm.fromName,
+              })
+            : tDash('distributeConfirmDispatched', {
+                incident: distributeConfirm?.incidentLabel ?? '',
+              })
+        }
+        confirmText={tDash('distributeConfirmAction')}
+        onConfirm={() => {
+          if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId)
+          setDistributeConfirm(null)
+        }}
       />
 
       {/* «Dieser Einsatz ist abgeschlossen. Trotzdem als Stop hinzufügen?» */}

@@ -110,7 +110,7 @@ describe('a device inside a module block', () => {
 
     await userEvent.click(screen.getByText('Tauchpumpe gross'))
 
-    expect(await screen.findByText('2 Bindungen')).toBeInTheDocument()
+    expect(await screen.findByText('2 Zuweisungen')).toBeInTheDocument()
     // Same «Ort (Einsatzart: Meldung)» label the board's own bindings list uses.
     expect(screen.getByText(/Hauptstrasse 1/)).toBeInTheDocument()
     expect(screen.getByText(/Bahnhofweg 4/)).toBeInTheDocument()
@@ -128,7 +128,7 @@ describe('a device inside a module block', () => {
 
     await userEvent.click(screen.getByText('Tauchpumpe gross'))
 
-    expect(await screen.findByText('2 Bindungen')).toBeInTheDocument()
+    expect(await screen.findByText('2 Zuweisungen')).toBeInTheDocument()
     expect(screen.getByText('Sturmholz Nord')).toBeInTheDocument()
   })
 

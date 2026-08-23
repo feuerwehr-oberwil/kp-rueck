@@ -88,6 +88,11 @@ interface DraggableOperationProps {
    *  here. Pass a stable object: the memo comparator reads it field by field,
    *  but a fresh identity every render still costs nine comparisons per card. */
   cardView?: CardViewSettings
+  /** The event's majority Einsatzart. When this card's type matches it, the
+   *  type row is suppressed — in a storm every card saying «Elementarereignis»
+   *  is ink without information, and the one deviating card should be the one
+   *  that stands out. Null/undefined = no majority, every type renders. */
+  dominantIncidentType?: string | null
   printerEnabled?: boolean
   /** Vehicle name → driver, as the detail panel shows it. Threaded in from the
    *  board rather than fetched here: one roster call, not one per card. */
@@ -201,6 +206,7 @@ function DraggableOperationBase({
   onTransfer,
   onDistributeToAuftrag,
   cardView = DEFAULT_CARD_VIEW,
+  dominantIncidentType,
   printerEnabled,
   vehicleDrivers,
   doubleBookedCrewNames,
@@ -210,6 +216,10 @@ function DraggableOperationBase({
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
   const tFeld = useTranslations('feld.board')
+  // The type row renders only when it deviates from the event's normal case —
+  // see `dominantIncidentType` on the props.
+  const showEinsatzartRow =
+    cardView.einsatzart && operation.incidentType !== dominantIncidentType
   // The board's own wording for the Reko verdict — one label per fact, so the
   // card and the detail never disagree about what «Kein Einsatz nötig» is called.
   const tRekoSection = useTranslations('reko.reportSection')
@@ -732,7 +742,7 @@ function DraggableOperationBase({
               The chip carries the age colouring (amber/red once it has sat too long),
               which is a separate signal from whichever number the mode shows —
               see components/ui/incident-time.tsx. */}
-          {cardView.einsatzart && cardView.zeiten ? (
+          {showEinsatzartRow && cardView.zeiten ? (
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-1.5">
                 <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -740,7 +750,7 @@ function DraggableOperationBase({
               </div>
               <IncidentTimeRow operation={operation} colorByAge className="flex-shrink-0" />
             </div>
-          ) : cardView.einsatzart ? (
+          ) : showEinsatzartRow ? (
             <div className="flex items-center gap-1.5">
               <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
@@ -1411,6 +1421,9 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // failure mode of a hand-written comparator (a switch that flips but never
     // repaints) is closed by the type, not by remembering.
     cardViewEquals(prevProps.cardView ?? DEFAULT_CARD_VIEW, nextProps.cardView ?? DEFAULT_CARD_VIEW) &&
+    // The type row's visibility depends on the board's majority type, so a
+    // storm tipping over the 50% line must repaint the cards.
+    prevProps.dominantIncidentType === nextProps.dominantIncidentType &&
     !rekoSummaryChanged &&
     !assignedRekoChanged &&
     // Conflict set: identity check is enough — page.tsx memoizes the Set

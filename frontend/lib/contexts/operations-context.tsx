@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
 import { apiClient, ApiError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
+import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { isValidUUID } from "@/lib/utils/validation"
@@ -769,6 +770,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // (getIncidentRefLabel & co.) would format the first paint without the
       // home city and visibly re-render to the short label later.
       setGlobalHomeCity(settings.home_city || "")
+      setGlobalRankAbbreviations((settings as Record<string, string>)[RANK_ABBREVIATIONS_KEY] || "")
       setHomeCity(settings.home_city || "")
       setLastSyncAt(new Date())
     } catch (error) {
@@ -1018,6 +1020,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       // (getIncidentRefLabel & co.) would format the first paint without the
       // home city and visibly re-render to the short label later.
       setGlobalHomeCity(settings.home_city || "")
+      setGlobalRankAbbreviations((settings as Record<string, string>)[RANK_ABBREVIATIONS_KEY] || "")
       setHomeCity(settings.home_city || "")
         setIsLoaded(true)
         setLastSyncAt(new Date())

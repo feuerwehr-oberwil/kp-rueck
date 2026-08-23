@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { Person, Material, PersonRole } from '@/lib/contexts/operations-context'
 import { isPersonOccupied, materialResourceState, personMatchesQuery } from '@/lib/resource-status'
-import { compareByRankThenName } from '@/lib/roster-order'
+import { compareByName, compareByRankThenName } from '@/lib/roster-order'
 
 /**
  * Shared hook for filtering and grouping personnel and materials
@@ -83,6 +83,25 @@ export function useResourceFiltering(
     [filteredPersonnel, roleFallbackLabel]
   )
 
+  /**
+   * The same roster split by the question the BOARD's sidebar answers first:
+   * who can I still send? Same `isPersonOccupied` predicate as the
+   * available-only filter and the footer counter, so the three can never
+   * disagree. Alphabetical inside each group (de-CH, see roster-order) — rank
+   * is demoted to a suffix on the row, so it stops dictating where somebody
+   * is found in the list.
+   */
+  const availabilityGroupedPersonnel = useMemo(() => {
+    const free: Person[] = []
+    const bound: Person[] = []
+    for (const person of filteredPersonnel) {
+      ;(isPersonOccupied(person) ? bound : free).push(person)
+    }
+    free.sort(compareByName)
+    bound.sort(compareByName)
+    return { free, bound }
+  }, [filteredPersonnel])
+
   const groupedMaterials = useMemo(
     () => {
       const groups: Record<string, Material[]> = {}
@@ -100,6 +119,7 @@ export function useResourceFiltering(
     filteredPersonnel,
     filteredMaterials,
     groupedPersonnel,
+    availabilityGroupedPersonnel,
     groupedMaterials,
   }
 }

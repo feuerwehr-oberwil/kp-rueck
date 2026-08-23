@@ -12,7 +12,9 @@ import { setupBoard } from '../../helpers/api.helper';
  * those collisions). One picker, one behaviour.
  */
 
-const VEHICLE_ADD_BUTTON = 'button[title="Fahrzeug zuweisen"]';
+// The whole resource row is the add control since the Zeilengrammatik rework —
+// a div[role="button"] carrying the title, not a <button> element.
+const VEHICLE_ADD_BUTTON = '[title="Fahrzeug zuweisen"]';
 
 test.describe('Vehicle assignment from the incident detail', () => {
   test.beforeEach(async ({ authenticatedPage }) => {

@@ -7,7 +7,8 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { DraggableOperation } from "./draggable-operation"
 import { type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { COLUMN_HEADER_CLASS, isOverdue } from "@/lib/kanban-utils"
+import { COLUMN_HEADER_CLASS, STATUS_ACCENT, isOverdue } from "@/lib/kanban-utils"
+import type { OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -79,6 +80,9 @@ interface DroppableColumnProps {
   onDistributeToAuftrag?: (operationId: string) => void
   /** Which card blocks this device shows — plumbing only, see lib/card-view.ts. */
   cardView?: CardViewSettings
+  /** The event's majority Einsatzart; cards whose type matches suppress their
+   *  type row. See the computation on the board (app/page.tsx). */
+  dominantIncidentType?: string | null
   printerEnabled?: boolean
   /** Vehicle name → driver, loaded ONCE on the board and threaded down. Per-card
    *  it would be one roster fetch per card. */
@@ -109,6 +113,7 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     // Identity is enough here — the store hands out one stable object per
     // settings value, and the card runs the field-by-field comparison anyway.
     prev.cardView !== next.cardView ||
+    prev.dominantIncidentType !== next.dominantIncidentType ||
     prev.printerEnabled !== next.printerEnabled ||
     prev.vehicleDrivers !== next.vehicleDrivers ||
     prev.materials !== next.materials ||
@@ -196,6 +201,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onTransfer,
   onDistributeToAuftrag,
   cardView,
+  dominantIncidentType,
   printerEnabled,
   vehicleDrivers,
   doubleBookedCrewNames,
@@ -208,6 +214,11 @@ export const DroppableColumn = memo(function DroppableColumn({
   const t = useTranslations('kanban')
   const tDash = useTranslations('kanban.dashboard')
   const columnTitle = t(`columns.${column.id}`)
+  // The column's accent, worn as a 2px rule and a dot instead of the old
+  // pastel wash: the hue still identifies the column at a glance, but stops
+  // painting a seventh of the screen behind the cards. `column.id` IS a status
+  // (see kanban-utils), so the lookup cannot miss.
+  const accent = STATUS_ACCENT[column.id as OperationStatus]
   /** What accepts a dropped card: the column body when the column is open, the
    *  folded strip when it is not. One ref for both — they are two different
    *  elements and only ever one of them is mounted, so a callback ref keeps the
@@ -331,8 +342,9 @@ export const DroppableColumn = memo(function DroppableColumn({
           // The strip used to grow to w-16 on both, which shifted every column
           // to its right whenever the pointer crossed it — nothing on the board
           // may move because the pointer moved.
-          "flex w-12 flex-shrink-0 cursor-pointer flex-col items-center gap-2 rounded-lg border border-border py-3 transition-colors hover:bg-foreground/10",
-          column.color,
+          // Neutral body, accent as a 2px top rule — the strip follows the
+          // open header's no-wash treatment.
+          "flex w-12 flex-shrink-0 cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/10",
           isOver && "drop-zone-active"
         )}
         onClick={expand}
@@ -340,6 +352,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         aria-label={t('column.ariaLabelWithCount', { title: columnTitle, count: operations.length })}
         title={t('column.collapsedHint', { title: columnTitle, count: operations.length })}
       >
+        <span aria-hidden className={cn("h-0.5 w-full", accent?.dot)} />
         <ChevronRight className="size-4 text-muted-foreground" />
         {/* The count is the whole safety case for folding: the strip must never
             let the board hide that something is sitting in here. Same badge as
@@ -364,13 +377,10 @@ export const DroppableColumn = memo(function DroppableColumn({
 
   return (
     <div data-column={column.id} className="flex min-w-[320px] max-w-[420px] flex-1 flex-col transition-all">
-      <div className={cn(
-        // py-2, not py-3: the header carries one line of text and three small
-        // controls, and every pixel it takes is a pixel off the column body.
-        "mb-2 rounded-lg border border-border px-3 py-2 transition-all",
-        column.color
-      )}>
-        <div className="flex items-center justify-between gap-1">
+      <div className="mb-2">
+        {/* The accent as a 2px rule above the header, not a wash behind it. */}
+        <div aria-hidden className={cn("h-0.5 rounded-full", accent?.dot)} />
+        <div className="flex items-center justify-between gap-1 px-1 pt-1.5">
           {/* The fold handle sits left of the title, where the wall board puts
               it — same disclosure chevron, same place, so the two screens teach
               one gesture. Its own <button> rather than the whole header, which
@@ -391,9 +401,8 @@ export const DroppableColumn = memo(function DroppableColumn({
           )}
           {/* min-w-0 + truncate: the title is the only part that may give way. A long
               column name must not push the sort/collapse controls off the header. */}
-          {/* Treatment from COLUMN_HEADER_CLASS — see there for why caps but quiet.
-              Shared with both display boards so one column cannot look like two
-              different things on two screens. */}
+          {/* COLUMN_HEADER_CLASS — caps, like every header: a label must not
+              read like an item (Bastian's verdict from the field round). */}
           <h2 className={cn("min-w-0 flex-1 truncate", COLUMN_HEADER_CLASS)} title={columnTitle}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
@@ -503,6 +512,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onTransfer={onTransfer ? () => onTransfer(operation.id) : undefined}
                 onDistributeToAuftrag={onDistributeToAuftrag ? () => onDistributeToAuftrag(operation.id) : undefined}
                 cardView={cardView}
+                dominantIncidentType={dominantIncidentType}
                 printerEnabled={printerEnabled}
                 vehicleDrivers={vehicleDrivers}
                 doubleBookedCrewNames={doubleBookedCrewNames}

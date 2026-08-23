@@ -131,7 +131,7 @@ export const OPERATION_DETAIL_TABS: readonly OperationDetailTab[] = ["overview",
  *    types their next keyboard shortcut into somebody's Kurzbericht. */
 export type OperationDetailSection = "resources" | "newReport" | "kurzbericht"
 
-function isDetailTab(value: unknown): value is OperationDetailTab {
+export function isDetailTab(value: unknown): value is OperationDetailTab {
   return typeof value === "string" && (OPERATION_DETAIL_TABS as readonly string[]).includes(value)
 }
 

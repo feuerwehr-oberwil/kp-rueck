@@ -18,6 +18,67 @@
  * was never needed and only cost the tie-break.
  */
 
+/**
+ * The Grad as a row suffix — «Wachtmeister» would eat half a 240px sidebar
+ * row. Known grades map to their Swiss service abbreviations; an unknown one
+ * that is still long is cut to its first six letters with a period. Whoever
+ * needs the full word gets it from the row's tooltip.
+ */
+const RANK_ABBREVIATIONS: Record<string, string> = {
+  Rekrut: 'Rekr',
+  Soldat: 'Sdt',
+  Feuerwehrmann: 'Fwm',
+  Feuerwehrfrau: 'Fwf',
+  Mannschaft: 'Mschft',
+  Gefreiter: 'Gfr',
+  Korporal: 'Kpl',
+  Wachtmeister: 'Wm',
+  Feldweibel: 'Fw',
+  Fourier: 'Four',
+  Adjutant: 'Adj',
+  Leutnant: 'Lt',
+  Oberleutnant: 'Oblt',
+  Hauptmann: 'Hptm',
+  Major: 'Maj',
+  Gruppenführer: 'Grfhr',
+  Zugführer: 'Zfhr',
+  'Zugführer-Stv.': 'Zfhr-Stv',
+  Offizier: 'Of',
+  Offiziere: 'Of',
+  Kommandant: 'Kdt',
+  'Kommandant-Stv.': 'Kdt-Stv',
+}
+
+/** The settings key holding the station's own abbreviations (JSON object). */
+export const RANK_ABBREVIATIONS_KEY = 'personnel.role_abbreviations'
+
+/**
+ * Station overrides, mirrored module-level from the settings load — same
+ * pattern as the home city (`setGlobalHomeCity`), so the memoized sidebar rows
+ * need no provider to read it.
+ */
+let globalRankOverrides: Record<string, string> = {}
+
+export function setGlobalRankAbbreviations(json: string): void {
+  try {
+    const parsed: unknown = JSON.parse(json || '{}')
+    globalRankOverrides =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, string>)
+        : {}
+  } catch {
+    globalRankOverrides = {}
+  }
+}
+
+export function abbreviateRank(role: string): string {
+  const override = globalRankOverrides[role]?.trim()
+  if (override) return override
+  const known = RANK_ABBREVIATIONS[role]
+  if (known) return known
+  return role.length > 8 ? `${role.slice(0, 6)}.` : role
+}
+
 /** Compare two roster rows by name. Pass to `Array.prototype.sort`. */
 export function compareByName(a: { name: string }, b: { name: string }): number {
   return a.name.localeCompare(b.name, 'de-CH')

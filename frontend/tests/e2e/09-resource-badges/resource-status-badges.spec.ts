@@ -262,11 +262,10 @@ test.describe('Resource summary — the add controls', () => {
     const modal = await openDetail(authenticatedPage, fixture.address);
 
     for (const section of SECTIONS) {
-      // All three buttons read "Hinzufügen"; the `title` is the only thing that
-      // says *what* gets added, so it is both the locator and the assertion.
-      const add = sectionAround(modal.getByText(section.heading)).getByTitle(
-        section.addTitle,
-      );
+      // The whole row is the add control (Zeilengrammatik): a div[role=button]
+      // whose accessible name says *what* gets added — the name is both the
+      // locator and the assertion.
+      const add = modal.getByRole('button', { name: section.addTitle });
       await expect(add).toBeVisible();
       await expect(add).toBeEnabled();
     }
