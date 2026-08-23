@@ -26,6 +26,15 @@ export interface ApiFeldAccessState {
   device_count: number
 }
 
+/** The door's proof of place — readable with the LINK token, before the code.
+ *  Station + Ereignis above the code prompt, so whoever scanned a poster in
+ *  the rain can tell they reached the right brigade before typing anything. */
+export interface ApiFeldContextResponse {
+  event_name: string
+  training_flag: boolean
+  station_name: string
+}
+
 /** What the Feld-Code buys: an unlocked token, and the picker to use it on. */
 export interface ApiFeldUnlockResponse {
   token: string

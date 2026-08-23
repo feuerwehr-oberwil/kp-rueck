@@ -12703,6 +12703,51 @@
         }
       }
     },
+    "/api/feld/context": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Get Feld Context",
+        "description": "The door's proof of place: station + Ereignis, with the LINK token alone.\n\nRendered ABOVE the code prompt, so whoever scanned a poster in the rain can\ntell they reached the right brigade before typing anything. Deliberately\nthin — the roster and the work stay behind the code exchange below.",
+        "operationId": "get_feld_context_api_feld_context_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldContextResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/unlock": {
       "post": {
         "tags": [
@@ -22509,6 +22554,30 @@
         ],
         "title": "FeldClaimResponse",
         "description": "The bound token. The device stores this and stops using the link token."
+      },
+      "FeldContextResponse": {
+        "properties": {
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          },
+          "training_flag": {
+            "type": "boolean",
+            "title": "Training Flag"
+          },
+          "station_name": {
+            "type": "string",
+            "title": "Station Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_name",
+          "training_flag",
+          "station_name"
+        ],
+        "title": "FeldContextResponse",
+        "description": "The door's proof of place — readable with the LINK token, before the code.\n\nSomeone who scanned a poster in the rain must be able to tell they reached\nthe right brigade and the right Ereignis; the code gates the roster and the\nwork, never the name of the drill. `station_name` is the Allgemein setting\nand may be empty on an unconfigured station."
       },
       "FeldIncidentCreate": {
         "properties": {

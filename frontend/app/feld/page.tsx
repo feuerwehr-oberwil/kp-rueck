@@ -24,6 +24,7 @@ import {
   FeldUnlockError,
   NetworkError,
   type FeldUnlockFailure,
+  type ApiFeldContextResponse,
   type ApiFeldPersonnel,
   type ApiFeldAssignment,
   type ApiFeldMaterialItem,
@@ -414,6 +415,13 @@ function FeldSurface() {
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  // «Rapport erfassen» on the journey: each increment unfolds the Kurzbericht
+  // and focuses it. Reset on incident switch so a remounted form does not
+  // steal focus from somebody who merely opened another Schadenplatz.
+  const [rapportFocusSignal, setRapportFocusSignal] = useState(0)
+  useEffect(() => {
+    setRapportFocusSignal(0)
+  }, [selectedIncidentId])
   const [eventName, setEventName] = useState<string>('')
   // Station-configurable Freitext chips (decision 20), served with the list.
   // Two sets: what a crew radios in, and what a DRIVER does — a driver may not
@@ -449,6 +457,14 @@ function FeldSurface() {
    * by typing more carefully, and the screen said nothing else.
    */
   const [codeError, setCodeError] = useState<FeldUnlockFailure | null>(null)
+  /** The door's proof of place (station + Ereignis), fetched with the LINK
+   *  token before the code. Null while loading or when the fetch failed — the
+   *  door renders without the proof rather than blocking on it. */
+  const [doorContext, setDoorContext] = useState<ApiFeldContextResponse | null>(null)
+  /** Whether the (invisible) code input owns the focus — drives the active
+   *  cell's ring in the four-box rendering. */
+  const [codeFocused, setCodeFocused] = useState(false)
+  const codeInputRef = useRef<HTMLInputElement>(null)
   /** Seconds left on a lockout, counted down locally so «4:12» actually moves. */
   const [lockRemaining, setLockRemaining] = useState(0)
   const [unlocking, setUnlocking] = useState(false)
@@ -617,6 +633,29 @@ function FeldSurface() {
       setUnlocking(false)
     }
   }, [linkToken, codeInput, unlocking])
+
+  // The proof of place, as soon as the door is on screen: station + Ereignis
+  // above the digits, so the person in the rain knows they reached the right
+  // brigade before typing anything.
+  useEffect(() => {
+    if (viewMode !== 'code' || !linkToken || doorContext) return
+    let alive = true
+    apiClient.getFeldContext(linkToken).then((ctx) => {
+      if (alive && ctx) setDoorContext(ctx)
+    })
+    return () => {
+      alive = false
+    }
+  }, [viewMode, linkToken, doorContext])
+
+  // The fourth digit submits by itself — no button that can look dead. Only in
+  // the clean state: after a lockout or a dropped connection the digits stay
+  // put and the retry is a deliberate tap (see the offline block below).
+  useEffect(() => {
+    if (viewMode === 'code' && codeInput.length === 4 && !unlocking && !codeError) {
+      submitCode()
+    }
+  }, [viewMode, codeInput, unlocking, codeError, submitCode])
 
   // The lockout counts itself down and lets go on its own: a screen that says
   // «Wieder frei in 0:00» and stays dead is the same dead end one line later.
@@ -1212,37 +1251,82 @@ function FeldSurface() {
     return (
       <div className="min-h-screen bg-background flex flex-col justify-center p-6">
         <div className="mx-auto w-full max-w-xs">
-          <h1 id="feld-code-title" className="mb-8 text-center text-2xl font-semibold">
-            {t('code.title')}
-          </h1>
+          {/* The proof of place: station and Ereignis, fetched with the link
+              token before any digit. Whoever scanned a poster must see they
+              reached the right brigade — the heading falls back to the bare
+              prompt only while the proof has not arrived. */}
+          <div className="mb-8">
+            {doorContext?.station_name && (
+              <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                {doorContext.station_name}
+              </p>
+            )}
+            <h1 id="feld-code-title" className="mt-1 text-3xl font-semibold">
+              {doorContext?.event_name ?? t('code.title')}
+            </h1>
+            {doorContext?.training_flag && (
+              <span className="mt-2 inline-flex items-center rounded border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">
+                {t('code.training')}
+              </span>
+            )}
+          </div>
 
-          {/* Labelled BY the heading rather than carrying a second, invisible
-              copy of the same words — one accessible name, not two. */}
-          <input
-            id="feld-code"
-            aria-labelledby="feld-code-title"
-            // A phone must open the number pad for this, and a browser must not
-            // offer to remember it like a password.
-            inputMode="numeric"
-            autoComplete="off"
-            pattern="[0-9]*"
-            maxLength={4}
-            value={codeInput}
-            autoFocus
-            disabled={locked}
-            onChange={event => {
-              setCodeInput(event.target.value.replace(/\D/g, '').slice(0, 4))
-              // Typing clears a verdict about the digits, not one about the
-              // network or the lockout — those are still true.
-              setCodeError(current => (current?.kind === 'wrong' ? null : current))
-            }}
-            onKeyDown={event => {
-              if (event.key === 'Enter') submitCode()
-            }}
-            className={`w-full rounded-xl border-2 bg-muted px-4 py-5 text-center text-4xl font-semibold tracking-[0.4em] tabular-nums outline-none transition-colors disabled:opacity-60 ${
-              codeError?.kind === 'wrong' ? 'border-destructive' : 'border-border focus:border-primary'
-            }`}
-          />
+          {/* Four cells over ONE invisible input: the input keeps the number
+              pad, paste and the accessible name; the cells are the rendering.
+              Labelled BY the heading — one accessible name, not two. */}
+          <div className="relative" onClick={() => codeInputRef.current?.focus()}>
+            <input
+              id="feld-code"
+              ref={codeInputRef}
+              aria-labelledby="feld-code-title"
+              // A phone must open the number pad for this, and a browser must
+              // not offer to remember it like a password.
+              inputMode="numeric"
+              autoComplete="off"
+              pattern="[0-9]*"
+              maxLength={4}
+              value={codeInput}
+              autoFocus
+              disabled={locked}
+              onFocus={() => setCodeFocused(true)}
+              onBlur={() => setCodeFocused(false)}
+              onChange={event => {
+                setCodeInput(event.target.value.replace(/\D/g, '').slice(0, 4))
+                // Typing clears a verdict about the digits, not one about the
+                // network or the lockout — those are still true.
+                setCodeError(current => (current?.kind === 'wrong' ? null : current))
+              }}
+              onKeyDown={event => {
+                if (event.key === 'Enter') submitCode()
+              }}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+            <div aria-hidden className="pointer-events-none flex justify-between gap-3">
+              {[0, 1, 2, 3].map(index => (
+                <div
+                  key={index}
+                  className={`flex h-20 flex-1 items-center justify-center rounded-xl border-2 bg-muted text-4xl font-semibold tabular-nums transition-colors ${
+                    codeError?.kind === 'wrong'
+                      ? 'border-destructive'
+                      : codeFocused && Math.min(codeInput.length, 3) === index && !locked
+                        ? 'border-primary ring-2 ring-primary/25'
+                        : 'border-border'
+                  } ${locked ? 'opacity-60' : ''}`}
+                >
+                  {unlocking && index === 3 && codeInput.length === 4 ? (
+                    <span className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                  ) : (
+                    codeInput[index] ?? ''
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Always visible, not withheld until a failure: the reasoning that a
+              scanner "just saw the poster" does not survive a gloved hand and a
+              borrowed phone. */}
+          <p className="mt-4 text-sm text-muted-foreground">{t('code.whereHint')}</p>
 
           {/* Wrong: the only failure the typing can fix — so it is also the only
               one that says where the code is written. Since the slip carries it
@@ -1275,18 +1359,20 @@ function FeldSurface() {
             </div>
           )}
 
-          <Button
-            size="lg"
-            className="mt-6 w-full"
-            disabled={locked || codeInput.length < 4 || unlocking}
-            onClick={submitCode}
-          >
-            {locked
-              ? t('code.lockedButton', { time: countdown })
-              : codeError?.kind === 'offline'
-                ? t('code.retry')
-                : t('code.submit')}
-          </Button>
+          {/* No standing submit button: the fourth digit submits by itself, so
+              the happy path never shows a control that could look dead. The one
+              deliberate tap left is the offline retry — the digits are kept and
+              probably right, so retrying must not mean retyping. */}
+          {codeError?.kind === 'offline' && (
+            <Button
+              size="lg"
+              className="mt-6 w-full"
+              disabled={codeInput.length < 4 || unlocking}
+              onClick={submitCode}
+            >
+              {t('code.retry')}
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -1483,6 +1569,20 @@ function FeldSurface() {
                 token={token}
                 messageChips={selectedAssignment.source === 'driver' ? driverMessageChips : messageChips}
                 onReported={applyFieldReport}
+                // The journey's third step: carries the eye to the form below
+                // — only when that form is actually mounted on this page.
+                onOpenRapport={
+                  assignmentRapportApplies(selectedAssignment)
+                    ? () => {
+                        document
+                          .getElementById('feld-rapport-section')
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        // …and open the Kurzbericht with the caret in it — a
+                        // scroll to a page of folded blocks was half the trip.
+                        setRapportFocusSignal(signal => signal + 1)
+                      }
+                    : undefined
+                }
               />
             )}
 
@@ -1527,11 +1627,12 @@ function FeldSurface() {
               </section>
             )}
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
-              <section className="space-y-3">
+              <section id="feld-rapport-section" className="scroll-mt-4 space-y-3">
                 <h2 className="px-1 text-sm font-medium text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
                   key={selectedAssignment.incident_id}
                   incidentId={selectedAssignment.incident_id}
+                  focusKurzberichtSignal={rapportFocusSignal}
                   transport={{
                     load: () =>
                       apiClient.getFeldRapport(selectedAssignment.incident_id, selectedPerson.personnel_id, token),

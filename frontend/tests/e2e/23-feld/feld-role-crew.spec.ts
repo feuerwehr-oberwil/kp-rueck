@@ -167,10 +167,12 @@ test.describe('/feld — die eigene Zuteilung (crew)', () => {
       // missing one leaves a crew at an address with no way to say so.
       await expect(feld.arrivedButton).toBeVisible({ timeout: FIELD_TIMEOUT });
       await expect(feld.completeButton).toBeVisible();
-      await expect(feld.pickupButton).toBeVisible();
+      // The Abholung link waits for «Einsatz beendet» — asking to be fetched
+      // from an address the crew is still working was the odd affordance.
+      await expect(feld.pickupButton).toHaveCount(0);
       // …and the fourth, which everybody gets: noticing something is not a crew
       // privilege. Asserted here to prove the grid is four wide, not three.
-      await expect(phone.getByRole('button', { name: 'Meldung', exact: true })).toBeVisible();
+      await expect(phone.getByRole('button', { name: 'Meldung an den KP', exact: true })).toBeVisible();
 
       // The Rapport itself — the Schadenplatz is dispatched, so it is owed. The
       // fold block and the field's own "I am done": the `/feld` mount is the

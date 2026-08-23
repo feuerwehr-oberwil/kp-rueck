@@ -95,6 +95,7 @@ import {
   type ApiFeldPersonnelListResponse,
   type ApiFeldAssignmentsResponse,
   type ApiFeldAccessState,
+  type ApiFeldContextResponse,
   type ApiFeldUnlockResponse,
   type ApiFeldClaimResponse,
   type ApiFeldIncidentCreate,
@@ -2192,6 +2193,22 @@ class ApiClient {
         method: 'POST',
       }
     )
+  }
+
+  /** The door's proof of place: station + Ereignis, with the LINK token alone.
+   *  Plain fetch, silent failure — the code screen renders without the proof
+   *  rather than blocking the door on a cosmetic fetch. */
+  async getFeldContext(token: string): Promise<ApiFeldContextResponse | null> {
+    try {
+      const response = await fetch(
+        `${this.getBaseUrl()}/api/feld/context?token=${encodeURIComponent(token)}`,
+        { credentials: 'include', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
+      )
+      if (!response.ok) return null
+      return (await response.json()) as ApiFeldContextResponse
+    } catch {
+      return null
+    }
   }
 
   /** The Feld-Code, and how many devices redeemed it. Editor only. */

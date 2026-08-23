@@ -19,9 +19,9 @@ export class FeldPage extends BasePage {
   readonly personSearch: Locator;
   readonly notMeButton: Locator;
 
-  // --- the door: Feld-Code → picker → bound device (plan 26) ---
+  // --- the door: Feld-Code → picker → bound device (plan 26). The fourth
+  // digit submits by itself since the door redesign — there is no button. ---
   readonly codeInput: Locator;
-  readonly submitCodeButton: Locator;
   readonly codeError: Locator;
 
   // --- the four field actions (components/feld/feld-actions.tsx) ---
@@ -52,16 +52,20 @@ export class FeldPage extends BasePage {
     this.personSearch = page.getByPlaceholder('Name suchen...');
     this.notMeButton = page.getByRole('button', { name: 'Nicht ich' });
 
-    // The door (plan 26): four digits before anything at all.
+    // The door (plan 26): four digits before anything at all. The fourth
+    // digit submits by itself.
     this.codeInput = page.getByRole('textbox').first();
-    this.submitCodeButton = page.getByRole('button', { name: 'Weiter' });
     this.codeError = page.getByText('Falscher Code');
 
-    this.arrivedButton = page.getByRole('button', { name: /^Angekommen/ });
-    this.completeButton = page.getByRole('button', { name: /^(Einsatz beendet|Beendet gemeldet)$/ });
+    // The journey chain: the pending step is a button («… melden»), a done
+    // step is a quiet text line.
+    this.arrivedButton = page.getByRole('button', { name: /^Angekommen melden$/ });
+    // Amber primary when it is the current step, the quiet inline «melden»
+    // link while «Angekommen» is still owed — the same ask-first behind both.
+    this.completeButton = page.getByRole('button', { name: /^(Einsatz beendet melden|melden)$/ });
     // One label, always. "Abgeholt" was removed from the field after the first
     // real use (§18.9) — the crew asks, the KP clears.
-    this.pickupButton = page.getByRole('button', { name: /^Abholung$/ });
+    this.pickupButton = page.getByRole('button', { name: /^Abholung anfordern$/ });
 
     this.confirmArrivedButton = page.getByRole('button', { name: 'Ja, angekommen' });
     this.confirmCompleteButton = page.getByRole('button', { name: 'Ja, beendet' });
@@ -90,8 +94,8 @@ export class FeldPage extends BasePage {
   async open(link: string, code: string) {
     await this.page.goto(link);
     await expect(this.codeInput).toBeVisible({ timeout: 15_000 });
+    // The fourth digit submits by itself — no button to click.
     await this.codeInput.fill(code);
-    await this.submitCodeButton.click();
     // The picker is what the code buys.
     await expect(this.personSearch).toBeVisible({ timeout: 15_000 });
   }
