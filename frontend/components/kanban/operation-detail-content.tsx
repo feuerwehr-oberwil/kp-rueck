@@ -1079,9 +1079,9 @@ export function OperationDetailContent({
               the small grey group headings. No hairlines between rows any more:
               whitespace separates, the headings group. */}
           <div className="space-y-5">
-          {/* «Lage» — where, what, how urgent. */}
+          {/* Where, what, how urgent. The fields carry their own labels, so a
+              «Lage» heading over them said nothing – gone, whitespace groups. */}
           <div>
-          <DetailGroupHeading>{t('detail.groups.lage')}</DetailGroupHeading>
           <div className="space-y-1">
           {/* Location - Smart Input with Geocoding. It carries its own label
               and its own map/coordinate buttons, so it lays itself out as a row
@@ -1149,10 +1149,10 @@ export function OperationDetailContent({
           </div>
           </div>
 
-          {/* «Meldung» — what came in: the wording, who reported it and how,
-              plus the KP's own notes and the flags that qualify it. */}
+          {/* What came in: the wording, who reported it and how, plus the
+              KP's own notes and the flags that qualify it. Unnamed like the
+              block above – the first row's label already says «Meldung». */}
           <div>
-          <DetailGroupHeading>{t('detail.groups.meldung')}</DetailGroupHeading>
           <div className="space-y-1">
           <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
             <Textarea

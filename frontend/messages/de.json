@@ -624,8 +624,6 @@
     "detail": {
       "rekoAuftrag": "Reko-Auftrag",
       "groups": {
-        "lage": "Lage",
-        "meldung": "Meldung",
         "kraefte": "Kräfte"
       },
       "tabs": {
@@ -2960,12 +2958,12 @@
       "notTraining": "Die Übungs-Steuerung ist nur für Trainingsereignisse verfügbar. Das aktuelle Ereignis ist kein Training."
     },
     "controls": {
-      "description": "Manuelle Einsatz-Generierung für Training · {count} Einsätze total",
+      "description": "{count} Einsätze total",
       "generateSingle": "Einzelne Einsätze generieren",
       "normal": "Normal",
       "critical": "Kritisch",
       "phoneAlarm": "Telefon",
-      "generateHint": "Normal: Wasser, Sturm, Baum | Kritisch: Brand, BMA, Personenrettung | Telefon: simuliert eine Meldung über den Alarm-Link",
+      "generateHint": "Telefon simuliert eine Meldung über den Alarm-Link.",
       "targetedDispatch": "Gezielter Einsatz",
       "scenarioPlaceholder": "Szenario wählen...",
       "scenarioLoading": "Lade Szenarien...",
@@ -2974,10 +2972,9 @@
       "removePin": "Pin entfernen",
       "setPin": "Pin auf Karte setzen",
       "dispatch": "Auslösen",
-      "dispatchHint": "Szenario + Adresse aus der Liste – oder Pin direkt auf die Karte setzen.",
+      "dispatchHint": "Oder den Pin direkt auf die Karte setzen.",
       "multipleIncidents": "Mehrere Einsätze gleichzeitig",
       "burst": "Burst (5x zufällig)",
-      "burstHint": "Generiert 5 zufällige Einsätze gleichzeitig",
       "toastGenerated": "Einsatz generiert",
       "toastGeneratedCritical": "Kritischer Einsatz generiert",
       "toastGenerateFailed": "Einsatz konnte nicht generiert werden",
@@ -2990,11 +2987,11 @@
     },
     "autogen": {
       "title": "Automatik",
-      "description": "Generiert laufend neue Einsätze – du beobachtest, statt Knöpfe zu drücken",
+      "description": "Generiert laufend neue Einsätze.",
       "toggleAria": "Automatik ein/aus",
       "intervalLabel": "Intervall (Min.)",
       "maxLabel": "Max. Einsätze",
-      "hint": "Wirkt auf die neueste aktive Übung. In den ersten 30 Minuten läuft die Generierung mit doppeltem Tempo (heisse Phase).",
+      "hint": "Erste 30 Minuten mit doppeltem Tempo (heisse Phase).",
       "saveFailed": "Einstellung konnte nicht gespeichert werden",
       "started": "Automatik gestartet",
       "stopped": "Automatik gestoppt",
@@ -3017,7 +3014,7 @@
     },
     "gpsSim": {
       "title": "GPS-Simulation",
-      "description": "Schickt ein Fahrzeug auf eine simulierte Fahrt – Karte, Distanzen und die Ankunfts-/Rückkehr-Meldungen verhalten sich wie mit echtem GPS",
+      "description": "Schickt ein Fahrzeug auf eine simulierte Fahrt – wie mit echtem GPS.",
       "stopAll": "Alle stoppen",
       "speed": "{speed} km/h",
       "noVehicles": "Keine Fahrzeuge vorhanden.",
@@ -3045,7 +3042,7 @@
     },
     "simulation": {
       "title": "Feld-Simulation",
-      "description": "Simuliert Aktionen, die normalerweise von Personen im Feld ausgeführt werden",
+      "description": "Meldet, was sonst der Trupp im Feld meldet.",
       "nextActions": "Nächste Aktionen",
       "noOpenActions": "Keine offene Feldaktion. Reko aufbieten / disponieren macht der Operator am Board.",
       "since": "seit {time}",
@@ -3059,7 +3056,7 @@
       "injectReinforcementDesc": "Der Trupp fordert Leute oder Material an – was kommt, entscheidet das KP.",
       "injectBreakdown": "Fahrzeug fällt aus",
       "injectBreakdownDesc": "Ein zugewiesenes Fahrzeug fällt aus – das KP muss Ersatz disponieren.",
-      "footer": "Nur Feldaktionen. Hervorgehoben = fällig (Wartezeit erreicht). \"Fahrt zu Einsatz\" und \"Rückfahrt Magazin\" starten GPS-Fahrten – Ankunft und Rückkehr melden sich über die GPS-Abfrage. \"Fahrzeug vor Ort\" meldet zugleich \"Angekommen\". \"Einsatz beendet\" erscheint nur hier – das Board informierst du selbst (z. B. per Funk).",
+      "footer": "Hervorgehoben = fällig. Fahrten melden Ankunft und Rückkehr über GPS; das Board informierst du selbst.",
       "noVehicleFound": "Kein Fahrzeug für die Fahrt gefunden",
       "noVehicleFoundDescription": "Die zugewiesenen Fahrzeuge sind unbekannt oder bereits unterwegs.",
       "actionFailed": "Aktion fehlgeschlagen",
@@ -3109,7 +3106,7 @@
       "fieldReportExample2": "Gasgeruch im UG",
       "fieldReportExample3": "Weiterer Baum auf der Strasse",
       "fieldReportNoIncidents": "Kein offener Einsatz mit zugeteiltem Trupp – eine Meldung vom Feld braucht einen Trupp im Feld.",
-      "fieldReportHint": "Der Trupp des gewählten Einsatzes meldet einen neuen Schadenplatz – die Meldung trifft wie eine echte ein (Glocke, Eingegangen)."
+      "fieldReportHint": "Der Trupp meldet einen neuen Schadenplatz – trifft ein wie eine echte Meldung."
     }
   },
   "sync": {
