@@ -46,24 +46,31 @@ test.describe('Viewer role — map', () => {
     authenticatedPage,
     viewerPage,
   }) => {
-    // app/map/page.tsx: the "Modus" dropdown (route planning / Reko mode) is the
-    // one control on this page rendered behind a bare `{isEditor && …}`.
+    // app/map/page.tsx: the two editor modes (Routenplanung / Reko-Modus) are
+    // direct buttons now, not a "Modus" dropdown — still the one control block
+    // on this page rendered behind a bare `{isEditor && …}`.
     await expect(
-      authenticatedPage.getByRole('button', { name: 'Modus' }),
+      authenticatedPage.getByRole('button', { name: 'Routenplanung' }),
     ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Reko-Modus' }),
+    ).toBeVisible();
 
     await expect(viewerPage.locator('.leaflet-container')).toBeVisible({
       timeout: 20_000,
     });
-    await expect(viewerPage.getByRole('button', { name: 'Modus' })).toHaveCount(0);
+    await expect(viewerPage.getByRole('button', { name: 'Routenplanung' })).toHaveCount(0);
+    await expect(viewerPage.getByRole('button', { name: 'Reko-Modus' })).toHaveCount(0);
   });
 
   test('the incident is on both maps', async ({ authenticatedPage, viewerPage }) => {
     // The event holds exactly one incident, and it is active — so the status
     // filter counts are a readable-data assertion that does not depend on
-    // whatever else lives in the shared database.
+    // whatever else lives in the shared database. The editor map's rail renders
+    // the count as a section heading ("Aktiv · 1"); the display map keeps the
+    // pill grammar ("Aktiv (1)").
     await expect(
-      authenticatedPage.getByRole('button', { name: 'Aktiv (1)' }),
+      authenticatedPage.getByRole('button', { name: 'Aktiv · 1' }),
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(viewerPage.getByRole('button', { name: 'Aktiv (1)' })).toBeVisible({

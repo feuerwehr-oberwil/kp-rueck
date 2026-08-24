@@ -42,17 +42,24 @@ async function agentReports(page: Page, jobId: string, status: 'completed' | 'fa
 
 test.describe('Print job outcome reaches the operator', () => {
   test.beforeEach(async ({ authenticatedPage: page }) => {
-    // The print endpoints refuse to queue while the printer is off.
+    // The print endpoints refuse to queue while the printer is off — and both the
+    // backend and the card's context menu now also require an address
+    // (`printer.ip`), so an "enabled" printer without one shows no print entry.
     const enable = await page.request.patch(`${BACKEND}/api/settings/printer.enabled`, {
       data: { value: 'true' },
     });
     expect(enable.ok(), 'could not enable the printer').toBeTruthy();
+    const address = await page.request.patch(`${BACKEND}/api/settings/printer.ip`, {
+      data: { value: '127.0.0.1' },
+    });
+    expect(address.ok(), 'could not set the printer address').toBeTruthy();
 
     await setupBoard(page, 'Print Outcome');
   });
 
   test.afterEach(async ({ authenticatedPage: page }) => {
     await page.request.patch(`${BACKEND}/api/settings/printer.enabled`, { data: { value: 'false' } });
+    await page.request.patch(`${BACKEND}/api/settings/printer.ip`, { data: { value: '' } });
   });
 
   /** Print via the card context menu; returns the id of the job that was queued. */

@@ -19,7 +19,8 @@ import { expectBouncedToDisplayBoard, VIEWER_LANDING } from './viewer-role.helpe
  */
 
 const EDITOR_ONLY_SECTIONS = [
-  'Alarmierung',
+  'Ausalarmierung',
+  'Alarm-Eingang',
   'GPS',
   'Drucker',
   'Ausfallsicherheit',

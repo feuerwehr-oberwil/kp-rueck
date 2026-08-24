@@ -23,17 +23,17 @@ import type { Locator } from '@playwright/test';
 const ELAPSED = /^(\d+'|\d+h \d+')$/;
 
 /** The four things an operator must be able to take in at a glance. */
-function facets(card: Locator) {
+function facets(card: Locator, typeLabel = 'Elementarereignis') {
   return {
     location: card.getByRole('heading').first(),
     priority: card.locator('[aria-label*="Priorität"]'),
-    type: card.getByText('Elementarereignis'),
+    type: card.getByText(typeLabel),
     age: card.getByText(ELAPSED),
   };
 }
 
-async function expectAllVisible(card: Locator) {
-  const { location, priority, type, age } = facets(card);
+async function expectAllVisible(card: Locator, typeLabel?: string) {
+  const { location, priority, type, age } = facets(card, typeLabel);
   await expect(location).toBeVisible();
   await expect(priority).toBeVisible();
   await expect(type).toBeVisible();
@@ -102,13 +102,26 @@ test.describe('Sprint 3 Integration - Rapid triage', () => {
   test('a board of several incidents shows priority and age on every one', async ({
     authenticatedPage,
   }) => {
-    await setupBoard(authenticatedPage, 'Triage', { count: 3 });
+    // Mixed types on purpose: three of a kind would be the event's "normal case"
+    // (`dominantIncidentType`, app/page.tsx), and the board then suppresses the
+    // type row on every majority card. With no majority, all three keep the row.
+    const typed = [
+      { type: 'elementarereignis', label: 'Elementarereignis' },
+      { type: 'brandbekaempfung', label: 'Brandbekämpfung' },
+      { type: 'strassenrettung', label: 'Strassenrettung' },
+    ] as const;
+    const board = await setupBoard(authenticatedPage, 'Triage', {
+      incidents: typed.map(({ type }) => ({ type })),
+    });
 
     const cards = incidentCards(authenticatedPage);
     await expect(cards).toHaveCount(3);
 
-    for (let i = 0; i < 3; i += 1) {
-      await expectAllVisible(cards.nth(i));
+    for (const [i, { label }] of typed.entries()) {
+      // Find each card by its own address rather than by position, so the
+      // assertion does not depend on column ordering.
+      const street = board.incidents[i].location_address!.split(',')[0];
+      await expectAllVisible(cards.filter({ hasText: street }), label);
     }
   });
 });
