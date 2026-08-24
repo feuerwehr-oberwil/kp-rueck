@@ -4024,6 +4024,11 @@ export default function FireStationDashboard() {
           availableIncidents={transferAvailableIncidents}
           onTransfer={handleTransfer}
           isTransferring={isTransferring}
+          resourceSummary={{
+            crew: transferSourceOp.crew.length,
+            vehicles: transferSourceOp.vehicles.length,
+            materials: transferSourceOp.materials.length,
+          }}
         />
       )}
 
