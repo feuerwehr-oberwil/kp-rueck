@@ -602,19 +602,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fastapi-socketio"
-version = "0.0.10"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "python-socketio" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/14/dde9633af2168f1929447c7d8a8947e9371dfca37d58c72d8c1ad686db75/fastapi-socketio-0.0.10.tar.gz", hash = "sha256:202f9b319f010001cbd1114ec92a0d9eb5f5ca9316eae5fd41a6088da0812727", size = 7156, upload-time = "2023-03-03T08:41:39.827Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/49/50fe1f72b10c1902fc057e5810f51bffc94c5cab416cf9f16358e71b021a/fastapi_socketio-0.0.10-py3-none-any.whl", hash = "sha256:11c2bfa3f25d786bd860ed13c892472e86bfeba85e7a0bec4f922ae5e4d8650f", size = 7412, upload-time = "2023-03-03T08:41:38.23Z" },
-]
-
-[[package]]
 name = "greenlet"
 version = "3.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -782,7 +769,6 @@ dependencies = [
     { name = "asyncpg" },
     { name = "bcrypt" },
     { name = "fastapi" },
-    { name = "fastapi-socketio" },
     { name = "httpx" },
     { name = "markdown" },
     { name = "openpyxl" },
@@ -830,7 +816,6 @@ requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "bcrypt", specifier = ">=4.0.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "fastapi-socketio", specifier = ">=0.0.10" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "markdown", specifier = ">=3.9" },

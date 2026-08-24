@@ -116,50 +116,6 @@ export interface ApiEventRekoSummariesResponse {
   total: number
 }
 
-// Reko Dashboard
-export interface ApiRekoDashboardPersonnel {
-  personnel_id: string
-  name: string
-  role: string | null
-  assignment_count: number
-  /** Active assignments whose incident still needs a reko (actively open work). */
-  open_count: number
-  /** Active assignments whose incident already has a completed reko ("Beendet"). */
-  done_count: number
-}
-
-export interface ApiRekoDashboardPersonnelListResponse {
-  personnel: ApiRekoDashboardPersonnel[]
-  event_id: string
-  event_name: string
-}
-
-export interface ApiRekoDashboardAssignment {
-  incident_id: string
-  incident_title: string
-  incident_type: string
-  incident_status: string
-  location_address: string | null
-  /** Server-computed short label for location_address (home city stripped).
-   *  "" when the address is only the home city; null/absent when no address. */
-  location_display?: string | null
-  location_lat: string | null
-  location_lng: string | null
-  /** null for historical (submitted but unassigned) */
-  assignment_id: string | null
-  /** null for historical */
-  assigned_at: string | null
-  has_completed_reko: boolean
-  /** false for previously submitted (greyed out) */
-  is_active_assignment: boolean
-}
-
-export interface ApiRekoDashboardAssignmentsResponse {
-  personnel_id: string
-  personnel_name: string
-  assignments: ApiRekoDashboardAssignment[]
-}
-
 export interface ApiRekoOpenAssignmentInfo {
   incident_id: string
   incident_title: string

@@ -16,7 +16,6 @@ export const materialFormSchema = z.object({
 });
 
 export type MaterialFormValues = z.input<typeof materialFormSchema>;
-export type MaterialFormOutput = z.output<typeof materialFormSchema>;
 
 export const materialFormDefaults: MaterialFormValues = {
   name: "",

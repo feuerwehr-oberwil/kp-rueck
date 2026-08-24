@@ -27,12 +27,6 @@ export interface WebSocketUpdate<T = unknown> {
   data: T
 }
 
-export interface SystemMessage {
-  message: string
-  level: 'info' | 'warning' | 'error'
-  timestamp: number
-}
-
 class WebSocketClient {
   private socket: Socket | null = null
   private status: WebSocketStatus = 'disconnected'

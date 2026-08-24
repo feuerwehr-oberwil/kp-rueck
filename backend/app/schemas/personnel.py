@@ -87,13 +87,6 @@ class Personnel(PersonnelBase):
 
 
 # Check-in schemas
-class PersonnelCheckInRequest(BaseModel):
-    """Request to check in/out a person."""
-
-    personnel_id: UUID
-    checked_in: bool  # True = check in, False = check out
-
-
 class PersonnelCheckInResponse(BaseModel):
     """Response with check-in status."""
 

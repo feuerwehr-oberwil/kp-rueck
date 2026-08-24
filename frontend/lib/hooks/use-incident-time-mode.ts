@@ -124,11 +124,3 @@ export function useIncidentTimeMode(): {
   const current = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   return { mode: current, setMode: setIncidentTimeMode }
 }
-
-/** Test seam: drop all module state so each case starts from a clean board. */
-export function __resetIncidentTimeModeForTests(): void {
-  mode = DEFAULT_INCIDENT_TIME_MODE
-  hasDeviceOverride = false
-  initialised = false
-  listeners.clear()
-}

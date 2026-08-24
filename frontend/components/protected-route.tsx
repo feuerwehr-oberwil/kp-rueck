@@ -139,29 +139,3 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
-
-/**
- * Protected route that requires editor role
- * Redirects to home if user is not an editor
- */
-export function EditorRoute({ children }: { children: React.ReactNode }) {
-  const t = useTranslations('login.protectedRoute');
-  const { user, loading, isEditor } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    } else if (!loading && user && !isEditor) {
-      router.push('/');
-    }
-  }, [user, loading, isEditor, router]);
-
-  if (loading) {
-    return <AuthLoadingScreen message={t('preparingLogin')} />;
-  }
-
-  if (!user || !isEditor) return null;
-
-  return <>{children}</>;
-}

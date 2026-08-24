@@ -233,7 +233,6 @@ class Settings(BaseSettings):
     railway_url: str = ""  # Railway production URL (empty = local mode, no sync)
     sync_interval_minutes: int = 2  # Periodic sync interval
     sync_conflict_buffer_seconds: int = 5  # Timestamp buffer for conflict resolution (Local wins if within buffer)
-    sync_timeout_seconds: int = 30  # HTTP timeout for sync requests
 
     # Traccar GPS Integration
     traccar_url: str = ""  # Traccar server URL (e.g., https://gps.example.com)

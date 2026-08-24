@@ -1,42 +1,7 @@
 """Error handling utilities.
 
-Provides standardized error responses that don't leak internal details.
+Provides standardized error messages that don't leak internal details.
 """
-
-import logging
-from typing import Any
-
-from fastapi import HTTPException
-
-
-def safe_http_exception(
-    status_code: int,
-    public_message: str,
-    error: Exception | None = None,
-    logger: logging.Logger | None = None,
-    context: dict[str, Any] | None = None,
-) -> HTTPException:
-    """
-    Create an HTTPException with a safe public message.
-
-    Logs the actual error details server-side for debugging while
-    returning a generic message to the client.
-
-    Args:
-        status_code: HTTP status code
-        public_message: User-friendly message (will be shown to client)
-        error: Optional exception that occurred (logged, not exposed)
-        logger: Optional logger for recording the error
-        context: Optional context dict for logging
-
-    Returns:
-        HTTPException with the public message
-    """
-    if error and logger:
-        log_context = f" Context: {context}" if context else ""
-        logger.error(f"{public_message}: {error!r}{log_context}")
-
-    return HTTPException(status_code=status_code, detail=public_message)
 
 
 # Standard error messages in German for user-facing errors
