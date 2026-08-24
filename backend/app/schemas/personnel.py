@@ -62,7 +62,6 @@ class PersonnelUpdate(BaseModel):
     role_sort_order: int | None = None
     status: str | None = None
     tags: list[str] | None = None
-    divera_user_id: int | None = None
 
 
 class Personnel(PersonnelBase):
@@ -78,7 +77,6 @@ class Personnel(PersonnelBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    divera_user_id: int | None = None
     # Whether this person has a Divera identity in `personnel_external_identities`
     # (i.e. is addressable for outbound alarms). The provider-side id itself stays
     # server-side; the UI only needs the yes/no.

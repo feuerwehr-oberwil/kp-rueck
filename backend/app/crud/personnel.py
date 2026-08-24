@@ -37,7 +37,6 @@ def to_personnel_schema(
         role_sort_order=person.role_sort_order,
         status=person.status,
         tags=person.tags,
-        divera_user_id=person.divera_user_id,
         divera_linked=divera_linked,
         checked_in=bool(attendance is not None and attendance.checked_in),
         checked_in_at=attendance.checked_in_at if attendance else None,

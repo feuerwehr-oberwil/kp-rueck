@@ -192,9 +192,12 @@ async def test_viewer_data_roster_is_names_and_roles_only(
     test_event: Event,
 ):
     """A checked-in person, without their account identity in another system."""
-    person = Personnel(id=uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available", divera_user_id=4711)
+    from app.models import PersonnelExternalIdentity
+
+    person = Personnel(id=uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
     db_session.add(person)
     await db_session.flush()
+    db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="4711"))
     db_session.add(EventAttendance(event_id=test_event.id, personnel_id=person.id, checked_in=True))
     await db_session.commit()
 
@@ -204,7 +207,8 @@ async def test_viewer_data_roster_is_names_and_roles_only(
     row = next(p for p in response.json()["personnel"] if p["id"] == str(person.id))
     assert row["name"] == "Muster Hans"
     assert row["role"] == "Feuerwehrmann"
-    assert "divera_user_id" not in row
+    # Neither the provider-side id nor the link flag belongs on a shared wall.
+    assert "divera_linked" not in row
     assert "4711" not in response.text
 
 

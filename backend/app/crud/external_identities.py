@@ -2,8 +2,8 @@
 
 Providers attach identity (provider slug + opaque external id) to canonical
 local personnel via ``personnel_external_identities`` instead of vendor
-columns. The deprecated ``personnel.divera_user_id`` column is dual-written
-elsewhere for one compatibility release.
+columns. This table is the only place a person's id at a provider lives —
+the deprecated ``personnel.divera_user_id`` dual-write is gone.
 """
 
 from typing import Any

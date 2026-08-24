@@ -20,7 +20,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import Event, Incident, IncidentAssignment, Personnel, Setting
+from app.models import Event, Incident, IncidentAssignment, Personnel, PersonnelExternalIdentity, Setting
 from app.services import divera_alarm
 
 
@@ -50,9 +50,14 @@ async def alarm_incident(db_session: AsyncSession, alarm_event: Event) -> Incide
     return incident
 
 
-async def _make_person(db_session, name, divera_user_id=None):
-    person = Personnel(id=uuid4(), name=name, status="available", divera_user_id=divera_user_id)
+async def _make_person(db_session, name, divera_id=None):
+    """Create a person; with ``divera_id``, link them via the identity table —
+    the only place a Divera id lives."""
+    person = Personnel(id=uuid4(), name=name, status="available")
     db_session.add(person)
+    await db_session.flush()
+    if divera_id is not None:
+        db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id=str(divera_id)))
     await db_session.commit()
     await db_session.refresh(person)
     return person
@@ -152,7 +157,7 @@ async def test_alarm_refused_by_deployment_role_despite_enabled_setting(
     no request may reach the provider.
     """
     await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Linked", divera_user_id=999001)
+    person = await _make_person(db_session, "Linked", divera_id=999001)
     await _assign(db_session, alarm_incident, person)
 
     with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
@@ -190,7 +195,7 @@ async def test_alarm_is_not_a_silent_success_when_refused(
 ):
     """A refusal that looked like a send would be worse than no lock at all."""
     await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Linked", divera_user_id=999001)
+    person = await _make_person(db_session, "Linked", divera_id=999001)
     await _assign(db_session, alarm_incident, person)
 
     with patch.object(divera_alarm, "send_alarm", new=AsyncMock()):
@@ -215,7 +220,7 @@ async def test_alarm_sends_normally_under_the_production_role(
     """
     monkeypatch.setenv("DEPLOYMENT_ROLE", "production")
     await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Linked", divera_user_id=999001)
+    person = await _make_person(db_session, "Linked", divera_id=999001)
     await _assign(db_session, alarm_incident, person)
 
     mock_send = AsyncMock(return_value={"id": 7, "count_recipients": 1})
@@ -248,7 +253,7 @@ async def test_alarm_simulated_for_training_event(editor_client: AsyncClient, db
     )
     db_session.add(incident)
     await db_session.commit()
-    person = await _make_person(db_session, "Linked", divera_user_id=111)
+    person = await _make_person(db_session, "Linked", divera_id=111)
     await _assign(db_session, incident, person)
 
     with patch.object(divera_alarm, "send_alarm", new=AsyncMock()) as mock_send:
@@ -277,8 +282,8 @@ async def test_alarm_success_sends_linked_only(
     editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key
 ):
     await _enable_alarm(db_session)
-    linked = await _make_person(db_session, "Linked Person", divera_user_id=999001)
-    unlinked = await _make_person(db_session, "Unlinked Person", divera_user_id=None)
+    linked = await _make_person(db_session, "Linked Person", divera_id=999001)
+    unlinked = await _make_person(db_session, "Unlinked Person", divera_id=None)
     await _assign(db_session, alarm_incident, linked)
     await _assign(db_session, alarm_incident, unlinked)
 
@@ -308,7 +313,7 @@ async def test_alarm_never_sends_empty_title_or_text(
 ):
     """Guard: a blank client override must never reach Divera as an empty body."""
     await _enable_alarm(db_session)
-    linked = await _make_person(db_session, "Linked Person", divera_user_id=999002)
+    linked = await _make_person(db_session, "Linked Person", divera_id=999002)
     await _assign(db_session, alarm_incident, linked)
 
     mock_send = AsyncMock(return_value={"id": 1})
@@ -332,7 +337,7 @@ async def test_alarm_skips_non_assigned(
 ):
     await _enable_alarm(db_session)
     # Linked person but NOT assigned to this incident.
-    outsider = await _make_person(db_session, "Outsider", divera_user_id=555)
+    outsider = await _make_person(db_session, "Outsider", divera_id=555)
 
     mock_send = AsyncMock(return_value={"id": 1})
     with patch.object(divera_alarm, "send_alarm", new=mock_send):
@@ -527,12 +532,10 @@ async def test_test_alarm_blocked_when_disabled(editor_client: AsyncClient, conf
 async def test_alarm_resolves_recipient_via_identity_table(
     editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key
 ):
-    """A person linked only via personnel_external_identities (no legacy
-    divera_user_id column value) is addressable for outbound alarms."""
-    from app.models import PersonnelExternalIdentity
-
+    """A person's Divera id resolves via personnel_external_identities — the
+    only place it lives (the legacy divera_user_id column is gone)."""
     await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Neutral Linked", divera_user_id=None)
+    person = await _make_person(db_session, "Neutral Linked", divera_id=None)
     db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="777001"))
     await db_session.commit()
     await _assign(db_session, alarm_incident, person)
@@ -550,28 +553,3 @@ async def test_alarm_resolves_recipient_via_identity_table(
     assert [r["name"] for r in body["sent"]] == ["Neutral Linked"]
     assert body["sent"][0]["divera_user_id"] == 777001
     assert mock_send.call_args.kwargs["user_cluster_relation"] == [777001]
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_alarm_identity_table_wins_over_legacy_column(
-    editor_client: AsyncClient, alarm_incident: Incident, db_session, configured_key
-):
-    """When both exist, the neutral identity table is authoritative."""
-    from app.models import PersonnelExternalIdentity
-
-    await _enable_alarm(db_session)
-    person = await _make_person(db_session, "Both Linked", divera_user_id=111111)
-    db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="222222"))
-    await db_session.commit()
-    await _assign(db_session, alarm_incident, person)
-
-    mock_send = AsyncMock(return_value={"id": 1, "count_recipients": 1})
-    with patch.object(divera_alarm, "send_alarm", new=mock_send):
-        resp = await editor_client.post(
-            f"/api/divera/incidents/{alarm_incident.id}/alarm",
-            json={"personnel_ids": [str(person.id)]},
-        )
-
-    assert resp.status_code == 200
-    assert mock_send.call_args.kwargs["user_cluster_relation"] == [222222]
