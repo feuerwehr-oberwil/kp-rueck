@@ -11,6 +11,7 @@ import { COLUMN_HEADER_CLASS, STATUS_ACCENT, isOverdue } from "@/lib/kanban-util
 import type { OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
+import { areOperationListsEqual } from "@/lib/operation-equality"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
@@ -126,51 +127,14 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     return false
   }
 
-  // Deep compare operations array for this column
-  if (prev.operations.length !== next.operations.length) return false
-  for (let i = 0; i < prev.operations.length; i++) {
-    const a = prev.operations[i]
-    const b = next.operations[i]
-    if (
-      a.id !== b.id ||
-      a.status !== b.status ||
-      a.priority !== b.priority ||
-      a.location !== b.location ||
-      a.incidentType !== b.incidentType ||
-      a.crew.length !== b.crew.length ||
-      a.vehicles.length !== b.vehicles.length ||
-      a.materials.length !== b.materials.length ||
-      a.notes !== b.notes ||
-      a.contact !== b.contact ||
-      a.hasCompletedReko !== b.hasCompletedReko ||
-      a.nachbarhilfe !== b.nachbarhilfe ||
-      // The card draws «Am Warten» — with its reason — as a chip, so both the
-      // flag and the text have to get through this gate; without them a reason
-      // typed into the detail sat invisible on the board until something else
-      // repainted the column.
-      a.amWarten !== b.amWarten ||
-      a.amWartenNote !== b.amWartenNote ||
-      a.zuFuss !== b.zuFuss ||
-      a.assignedReko?.id !== b.assignedReko?.id
-    ) {
-      return false
-    }
-    // Check crew members changed
-    for (let j = 0; j < a.crew.length; j++) {
-      if (a.crew[j] !== b.crew[j]) return false
-    }
-    // Check vehicles changed
-    for (let j = 0; j < a.vehicles.length; j++) {
-      if (a.vehicles[j] !== b.vehicles[j]) return false
-      if (a.vehicleDriverStay?.get(a.vehicles[j]) !== b.vehicleDriverStay?.get(b.vehicles[j])) return false
-    }
-    // Check materials changed
-    for (let j = 0; j < a.materials.length; j++) {
-      if (a.materials[j] !== b.materials[j]) return false
-    }
-  }
-
-  return true
+  // Structural compare (lib/operation-equality.ts) rather than a hand-written field list.
+  // This comparator is the OUTER memo gate: a field the list forgot never reached the
+  // card's own comparator at all, and the hand list here had drifted well behind what the
+  // cards draw (nachbarhilfeNote, locationDisplay, contactPhone, the pickup fields,
+  // vehicleCallsigns, …). The walk compares by value, which is also what the data needs —
+  // the ApiIncident → Operation mapper rebuilds arrays, Dates and Maps on every sync, so
+  // identity checks would report "changed" on every poll.
+  return areOperationListsEqual(prev.operations, next.operations)
 }
 
 export const DroppableColumn = memo(function DroppableColumn({
