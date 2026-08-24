@@ -8,30 +8,48 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Default `collisionPadding` for Radix poppers — menus, popovers, selects.
  *
- * Radix avoids collisions against the VIEWPORT, and on the board the viewport
- * reaches ~53px past the top of the fixed footer toolbar. A context menu opened
- * on a low sidebar row was therefore placed flush with the viewport's bottom
- * edge, and its last entries ended up behind the toolbar — which is opaque and
- * at a higher z-index, so they were neither readable nor reachable. Reserving
- * the toolbar's height turns that into a shorter, scrollable menu instead
+ * Two obstacles, one answer:
+ *
+ * EVERY EDGE gets 8px. Radix defaults `collisionPadding` to 0, which lets a
+ * panel sit flush against the glass with its border merged into the screen
+ * edge — and, worse, tells the operator nothing about whether anything was
+ * cut. Keeping 8px off every edge means an overlay that had to be shifted
+ * still *reads* as a whole panel. A property of the screen being finite, not
+ * of any one call site, so it lives here rather than at the call sites that
+ * kept discovering it by hand. NOTE: this only shifts — a panel wider than the
+ * viewport still overflows, so a fixed `w-[...]` above ~360px needs its own
+ * clamp (see location-input, the readiness checklist).
+ *
+ * THE BOTTOM additionally reserves the board's footer toolbar. The viewport
+ * reaches ~53px past the top of that fixed toolbar; a context menu opened on a
+ * low sidebar row was placed flush with the viewport's bottom edge, and its
+ * last entries ended up behind the toolbar — opaque and at a higher z-index,
+ * so neither readable nor reachable. Reserving the toolbar's height turns that
+ * into a shorter, scrollable menu instead
  * (`max-h-(--radix-*-content-available-height)` is already on every popper).
- *
  * Measured, not hard-coded: the toolbar's height follows its content and
- * padding. The extra few pixels are so the menu ends visibly ABOVE the toolbar
- * — flush with its top edge still reads as cut off. Returns `undefined` — i.e.
- * Radix's own default — on every page that has no footer, which is every page
- * except the board.
+ * padding, and the extra few pixels make the menu end visibly ABOVE it — flush
+ * with its top edge still reads as cut off. On pages without a footer the
+ * bottom is the same 8px as the other edges.
  *
- * Only the bottom, and only for placements Radix can move: a popper with
+ * The footer reservation only helps placements Radix can move: a popper with
  * `side="top"` is pinned to its trigger and is not shifted along that axis, so
  * one anchored to a button INSIDE the toolbar needs a `sideOffset` that clears
  * it instead (see CardViewMenu and the Bereitschaft checklist).
  */
-export function footerCollisionPadding(): { bottom: number } | undefined {
-  if (typeof document === 'undefined') return undefined
+const EDGE_PADDING = 8
+
+export function footerCollisionPadding(): {
+  top: number
+  left: number
+  right: number
+  bottom: number
+} {
+  const padding = { top: EDGE_PADDING, left: EDGE_PADDING, right: EDGE_PADDING, bottom: EDGE_PADDING }
+  if (typeof document === 'undefined') return padding
   const footer = document.querySelector('footer')
-  if (!footer) return undefined
-  return { bottom: Math.ceil(footer.getBoundingClientRect().height) + 4 }
+  if (!footer) return padding
+  return { ...padding, bottom: Math.max(EDGE_PADDING, Math.ceil(footer.getBoundingClientRect().height) + 4) }
 }
 
 // Module-level mirror of the home-city setting so non-React helpers (e.g.

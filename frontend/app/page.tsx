@@ -3489,7 +3489,9 @@ export default function FireStationDashboard() {
                       button is still badge-less ("Checkliste wird geladen…"),
                       which put the panel's bottom edge under the toolbar. */}
                   <PopoverContent
-                    className="w-[600px] p-0"
+                    // Clamped: collision handling can shift this panel but not shrink it,
+                    // so a flat 600px runs off a narrow desktop window's edge.
+                    className="w-[min(600px,calc(100vw-2rem))] p-0"
                     align="start"
                     side="top"
                     sideOffset={20}
