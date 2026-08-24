@@ -242,6 +242,13 @@ will keep holding.
 
 ### Removed
 
+- **The deprecated `personnel.divera_user_id` column is gone.** Provider identity has lived in
+  `personnel_external_identities` since 0.4; the column stayed one compatibility release as a
+  dual-write and is now dropped. The migration backfills any remaining column values into the
+  identity table *before* dropping, so the update needs no parity check and runs automatically
+  on boot. The personnel API now carries a `divera_linked` flag instead of the raw id — the
+  send dialog only ever needed "is this person alarm-addressable", never the provider-side id.
+
 - **`/reko-dashboard` is gone.** ⚠️ Its links now 404. It was the same page as the field surface
   — pick your name, see your rows, open a form — and a Reko trupp uses `/feld` like everybody
   else now. Nothing else was lost: the four endpoints the board used were never that page's and
