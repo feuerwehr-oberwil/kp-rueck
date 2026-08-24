@@ -27,8 +27,8 @@ What is deliberately NOT here, per model:
   and cannot get itself back" is a fact about the situation, not about a person
   — a boolean and a timestamp, naming nobody — and a crew standing at the kerb
   is the last thing a wall display may keep to itself.
-* **Personnel** — `divera_user_id` (an account identity in another system),
-  the raw `status` column and the check-in stamps. The display computes
+* **Personnel** — `divera_linked` (whether the person has an account identity
+  in another system), the raw `status` column and the check-in stamps. The display computes
   "assigned vs. available" from this event's assignments; the roster is already
   scoped to who is checked in here.
 * **Material** — the free-text `description` and the raw `status` column (the

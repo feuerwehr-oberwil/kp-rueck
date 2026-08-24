@@ -161,9 +161,9 @@ export type ApiViewerIncident = Pick<
 
 /** Roster row on a shared display: enough to name and sort a person, no more.
  *  Availability is derived from this event's assignments, so the raw status
- *  column and the external account id (`divera_user_id`) stay behind. */
+ *  column and the Divera link flag (`divera_linked`) stay behind. */
 export type ApiViewerPersonnel = Pick<ApiPersonnel, 'id' | 'name' | 'role' | 'role_sort_order' | 'tags'> & {
-  divera_user_id?: null
+  divera_linked?: null
 }
 
 /** Material panel row on a shared display.

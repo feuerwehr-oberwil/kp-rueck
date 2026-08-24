@@ -250,8 +250,8 @@ async def execute_sync(
     linked = 0  # existing people backfilled with their Divera id
 
     # Create new personnel, storing the Divera user_cluster_relation id so they
-    # can be targeted directly by outbound alarms. Identity lives in the
-    # provider-neutral table; divera_user_id stays as a deprecated dual-write.
+    # can be targeted directly by outbound alarms. Identity lives only in the
+    # provider-neutral table.
     for item in preview["new"]:
         member = item["member"]
         personnel_data = schemas.PersonnelCreate(
@@ -262,20 +262,20 @@ async def execute_sync(
         created += 1
         divera_id = member.get("divera_id")
         if divera_id:
-            person.divera_user_id = divera_id
             await identities_crud.set_identity(db, person.id, "divera", str(divera_id))
             linked += 1
 
-    # Backfill the Divera id on existing matches that don't have it yet. The id
-    # is what makes a person addressable for outbound alarms.
+    # Backfill the Divera id on existing matches that don't have it yet — the id
+    # is what makes a person addressable for outbound alarms. One identity query
+    # for the whole batch; set_identity upserts, so a changed id is an update.
+    current_ids = await identities_crud.get_identity_map(db, "divera")
     for item in preview["unchanged"]:
         divera_id = item["member"].get("divera_id")
         existing_id = item.get("existing_id")
         if not divera_id or not existing_id:
             continue
         existing_person = await personnel_crud.get_personnel(db, UUID(existing_id))
-        if existing_person is not None and existing_person.divera_user_id != divera_id:
-            existing_person.divera_user_id = divera_id
+        if existing_person is not None and current_ids.get(existing_person.id) != str(divera_id):
             await identities_crud.set_identity(db, existing_person.id, "divera", str(divera_id))
             linked += 1
 
