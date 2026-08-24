@@ -212,22 +212,6 @@ export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   maintenance: "bg-muted-foreground/40",
 }
 
-/**
- * Colour for a status *glyph* (the check / minus / infinity icon on a resource
- * card), as opposed to a filled dot or a badge outline.
- *
- * Personnel and material cards sit in the same sidebar column, so their
- * availability has to read identically: the material card used to draw its icon
- * in flat `text-muted-foreground` while the person card next to it was already
- * amber/emerald, which made material look stateless.
- */
-export const RESOURCE_STATE_ICON_CLASSES: Record<ResourceState, string> = {
-  available: "text-emerald-600 dark:text-emerald-400",
-  assigned: "text-amber-600 dark:text-amber-400",
-  unavailable: "text-muted-foreground",
-  maintenance: "text-muted-foreground",
-}
-
 /** Outline-badge tint (text + border) for the same states. */
 export const RESOURCE_STATE_BADGE_CLASSES: Record<ResourceState, string> = {
   available: "text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800/50",

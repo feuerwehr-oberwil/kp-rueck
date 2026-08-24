@@ -227,34 +227,6 @@ async def attach_emergency_to_event(
     return emergency
 
 
-async def detach_emergency_from_event(
-    db: AsyncSession,
-    emergency_id: UUID,
-) -> models.DiveraEmergency:
-    """
-    Detach a Divera emergency from its Event.
-
-    Note: This does NOT delete the created Incident, just unlinks it.
-    """
-    emergency = await get_divera_emergency_by_id(db, emergency_id)
-    if not emergency:
-        raise ValueError(f"Divera emergency {emergency_id} not found")
-
-    await db.execute(
-        update(models.DiveraEmergency)
-        .where(models.DiveraEmergency.id == emergency_id)
-        .values(
-            attached_to_event_id=None,
-            attached_at=None,
-            created_incident_id=None,
-        )
-    )
-    await db.commit()
-    await db.refresh(emergency)
-
-    return emergency
-
-
 async def archive_divera_emergency(
     db: AsyncSession,
     emergency_id: UUID,
@@ -270,29 +242,6 @@ async def archive_divera_emergency(
         .values(
             is_archived=True,
             archived_at=datetime.now(UTC),
-        )
-    )
-    await db.commit()
-    await db.refresh(emergency)
-
-    return emergency
-
-
-async def unarchive_divera_emergency(
-    db: AsyncSession,
-    emergency_id: UUID,
-) -> models.DiveraEmergency:
-    """Unarchive a Divera emergency."""
-    emergency = await get_divera_emergency_by_id(db, emergency_id)
-    if not emergency:
-        raise ValueError(f"Divera emergency {emergency_id} not found")
-
-    await db.execute(
-        update(models.DiveraEmergency)
-        .where(models.DiveraEmergency.id == emergency_id)
-        .values(
-            is_archived=False,
-            archived_at=None,
         )
     )
     await db.commit()

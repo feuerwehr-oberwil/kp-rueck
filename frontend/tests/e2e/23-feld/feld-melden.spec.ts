@@ -46,6 +46,11 @@ import {
 
 const FIELD_TIMEOUT = 20_000;
 
+/** The street part of the address — what both `/feld` list and detail render. */
+function street(incident: TestIncident): string {
+  return (incident.location_address ?? '').split(',')[0];
+}
+
 interface MeldenFixture {
   eventId: string;
   link: string;
@@ -189,6 +194,6 @@ test.describe('/feld: eine neue Meldung', () => {
     // …and the old Schadenplatz is still theirs. Taking one on is not leaving
     // the other — that was the reason for mirroring the crew onto the route
     // rather than moving it.
-    await expect(feld.assignmentRow(fixture.existing.location_address!)).toBeVisible();
+    await expect(feld.assignmentRow(street(fixture.existing))).toBeVisible();
   });
 });

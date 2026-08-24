@@ -62,12 +62,6 @@ class NotificationResponse(BaseModel):
     dismissed_by: UUID | None = None
 
 
-class NotificationDismiss(BaseModel):
-    """Schema for dismissing a notification."""
-
-    # No body needed, user comes from auth
-
-
 class NotificationSettings(BaseModel):
     """Notification threshold settings for Training and Live modes."""
 

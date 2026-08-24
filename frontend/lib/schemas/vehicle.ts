@@ -23,7 +23,6 @@ export const vehicleFormSchema = z.object({
 });
 
 export type VehicleFormValues = z.input<typeof vehicleFormSchema>;
-export type VehicleFormOutput = z.output<typeof vehicleFormSchema>;
 
 export const vehicleFormDefaults: VehicleFormValues = {
   name: "",

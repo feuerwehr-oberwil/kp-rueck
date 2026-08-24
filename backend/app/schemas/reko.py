@@ -1,4 +1,4 @@
-"""Reko (reconnaissance) report + dashboard schemas."""
+"""Reko (reconnaissance) report schemas."""
 
 from datetime import datetime
 from typing import Any, Literal
@@ -200,56 +200,6 @@ class EventRekoSummariesResponse(BaseModel):
 
     summaries: dict[str, RekoSummary]  # incident_id -> summary
     total: int
-
-
-# Reko dashboard
-class RekoDashboardPersonnel(BaseModel):
-    """Reko personnel with assignment status for dashboard list."""
-
-    personnel_id: UUID
-    name: str
-    role: str | None = None
-    assignment_count: int = 0
-    # Active assignments whose incident still needs a reko (actively open work).
-    open_count: int = 0
-    # Active assignments whose incident already has a completed reko ("Beendet").
-    done_count: int = 0
-
-
-class RekoDashboardPersonnelListResponse(BaseModel):
-    """Response for Reko dashboard personnel list."""
-
-    personnel: list[RekoDashboardPersonnel]
-    event_id: UUID
-    event_name: str
-
-
-class RekoDashboardAssignment(BaseModel):
-    """Incident assignment for Reko personnel (active or historical)."""
-
-    incident_id: UUID
-    incident_title: str
-    incident_type: str
-    incident_status: str
-    location_address: str | None = None
-    # Server-computed short label (home city stripped), so the dashboard paints
-    # the final string on first render instead of reformatting once its settings
-    # arrive.
-    location_display: str | None = None
-    location_lat: str | None = None
-    location_lng: str | None = None
-    assignment_id: UUID | None = None
-    assigned_at: datetime | None = None
-    has_completed_reko: bool = False
-    is_active_assignment: bool = True
-
-
-class RekoDashboardAssignmentsResponse(BaseModel):
-    """Response for Reko personnel assignments."""
-
-    personnel_id: UUID
-    personnel_name: str
-    assignments: list[RekoDashboardAssignment]
 
 
 class AssignRekoPersonnelRequest(BaseModel):

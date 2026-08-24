@@ -29,23 +29,6 @@ export interface Event {
 }
 
 /**
- * Event creation payload
- */
-export interface EventCreate {
-  name: string
-  training_flag: boolean
-}
-
-/**
- * Event update payload (all fields optional)
- */
-export interface EventUpdate {
-  name?: string
-  training_flag?: boolean
-  archived_at?: Date | null
-}
-
-/**
  * Assigned vehicle with details
  */
 export interface AssignedVehicle {
@@ -86,55 +69,6 @@ export interface Incident {
   reko_arrived_at?: Date | null // When reko personnel arrived on site
   /** Server-computed short label for location_address (home city stripped). */
   location_display?: string | null
-}
-
-/**
- * Incident creation payload
- */
-export interface IncidentCreate {
-  event_id: string // UUID - required for all new incidents
-  title: string
-  type: IncidentType
-  priority: IncidentPriority
-  location_address?: string | null
-  location_lat?: number | null
-  location_lng?: number | null
-  status?: IncidentStatus
-  description?: string | null
-  nachbarhilfe?: boolean
-  am_warten?: boolean
-  zu_fuss?: boolean
-}
-
-/**
- * Incident update payload (all fields optional)
- */
-export interface IncidentUpdate {
-  title?: string
-  type?: IncidentType
-  priority?: IncidentPriority
-  location_address?: string | null
-  location_lat?: number | null
-  location_lng?: number | null
-  status?: IncidentStatus
-  description?: string | null
-  nachbarhilfe?: boolean
-  am_warten?: boolean
-  am_warten_note?: string | null
-  zu_fuss?: boolean
-}
-
-/**
- * Status transition record
- */
-export interface StatusTransition {
-  id: string
-  incident_id: string
-  from_status: IncidentStatus
-  to_status: IncidentStatus
-  timestamp: Date
-  user_id: string | null
-  notes: string | null
 }
 
 /**
@@ -197,15 +131,6 @@ export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
   active: 'active',
   returning: 'completed',
   complete: 'completed',
-}
-
-/**
- * Human-readable labels for status groups
- */
-export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
-  open: 'Offen',
-  active: 'Aktiv',
-  completed: 'Beendet',
 }
 
 /**

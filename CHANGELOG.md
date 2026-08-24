@@ -87,6 +87,45 @@ will keep holding.
   piece of paper, which is also why a lost slip is answered with **Neuer Code** rather than a
   shrug. An older print agent simply prints the QR as before.
 
+- **The first visit sets up the board in the browser.** A board booted without seeded passwords
+  starts *unclaimed*: the login page sends the first visitor to `/setup`, which creates the admin
+  account and claims the board – from then on the page refuses everyone. The line this follows is
+  the one the settings screen already drew: what is read before the app can serve a page stays in
+  `.env` (signing keys, database URL), everything after that belongs in the browser. Seeding
+  passwords via `ADMIN_SEED_PASSWORD` keeps working exactly as before; the status probe fails
+  open in seconds, so a broken backend still shows the login page rather than a spinner.
+
+- **Download, double-click, done.** `deploy/` carries three launchers – `Start KP Rück.command`
+  (macOS), `Start-KP-Rueck.bat` / `start-kp-rueck.ps1` (Windows) – that check for Docker, write a
+  minimal `.env` with generated secrets, pull the published images and open the browser on the
+  new setup page. Together the two make a station's first boot terminal-free.
+
+- **The caller keeps a receipt, and can correct the alarm while it waits.** The phone-intake
+  form (`/alarm`) answers with a receipt – what was reported, when – and the receipt can amend
+  the alarm as long as it sits unconverted in the pool, instead of forcing a second alarm for a
+  corrected house number. And the form refuses to send without an Einsatzort – address or pin,
+  with a hint naming what is missing – because a Schadenplatz with no location is the one thing
+  this form must not produce. Priorität, Einsatzart and Hinweise fold behind «Details ergänzen»;
+  the Melder stays visible.
+
+- **Archive and readiness stop sharing one status column.** Vehicles and materials carry
+  «archiviert» separately from «nicht einsatzbereit» now, each with its own control and a note
+  field for the defect. A broken pump no longer has to choose between disappearing from the
+  board and looking fine: it stays listed, marked, and the wall Statusanzeige paints it amber
+  with its note instead of green. Archived resources leave the board and the pickers but keep
+  their history. The Excel import/export carries both columns. (Migration runs automatically.)
+
+- **The Schadenplatz-Rapport offers the roster and the fleet.** Reconciling who was actually
+  there stops being free text against memory: the form offers the event's own personnel,
+  vehicles and material as checklists. And the phone survives being offline – a Rapport or Reko
+  typed in a dead spot keeps its draft, photos wait in a visible upload queue, and everything
+  goes out when the network returns; a cellar is not a fault.
+
+- **The Einsatzzettel prints on the first dispatch – once, and also in drills.** The slip used
+  to depend on somebody remembering the context-menu print in the first minutes; it now prints
+  itself the first time an incident is dispatched, exactly once, and drills print it too –
+  Übung is chrome, the paper flow is part of what is being drilled.
+
 ### Changed
 
 - **Die Übungssteuerung is laid out like the evening it runs.** Personal einchecken became its
@@ -151,6 +190,56 @@ will keep holding.
   before this release and is refused now. `docs/RUNNING-BOTH.md` §3 has the five rules that keep
   a body portable — it previously said the opposite, that the payloads were not interchangeable.
 
+- **The board reads in one grammar.** The columns become headers – a 2px accent rule instead of
+  a pastel wash – and the roster sidebar reads **frei/gebunden**: availability groups it, ranks
+  abbreviate (settable in Einstellungen) into their own column, and same-name material answers
+  as one row per kind and depot («2 Stück»), its popover naming every place once. The detail
+  panel, the new-Einsatz modal and the Reko/Feld/Verlauf tabs all read in one Zeilengrammatik –
+  label left, value right, one chip style for every resource kind, whitespace and headings
+  instead of hairlines – and a whole row adds, not a 24px glyph inside it. The incident UUID is
+  gone from the detail; nobody reads a UUID off a screen. **The wall boards wear the same column
+  treatment**, so the KP board and the wall are one grammar.
+
+- **Settings became five groups that say where a change lands.** Every section is the same
+  SettingCard/SettingRow grammar now, «Dieses Gerät» leads, and every row says whom it reaches
+  and whether it can do anything – a printer row without a configured printer, a sync button
+  without a personnel provider, say so instead of offering a dead control. Search jumps to the
+  matched row with a flash. **Alarmierung splits at the direction an alarm travels:**
+  Ausalarmierung (WhatsApp-Vorlagen, Divera) and Alarm-Eingang (Alarmtext bereinigen,
+  Webhook-Schlüssel, die Meldungs-Chips) – Alarmierung was ~2500px in one scroll, and «Alarmtext
+  bereinigen» hid under a heading that did not say its direction, which is why nobody found it.
+  The station's coordinates have one home; automation, Übung and the map read the same Magazin.
+
+- **The map rail rows are filters.** Slim rows under OFFEN/AKTIV/BEENDET headings that toggle
+  their group on and off; a tapped marker pins its hover card (second tap closes); the legend
+  starts open on a desktop and collapses to an ⓘ; stacked vehicles cluster into a counting
+  pill; Auftrag colours come from the route everywhere. Adding an already-dispatched Einsatz to
+  a route asks first.
+
+- **The moves that cost something are dialogs that name the price.** Closing an Einsatz names
+  the crew, vehicles and material it will release; moving a dispatched one backwards asks before
+  it re-announces; a drop that double-books raises the Doppelbelegung dialog naming where the
+  resource currently is – including an Auftrag, which used to answer «dort zuerst freigeben»
+  and send the operator off to do by hand what the dialog does in one click.
+
+- **Übung is chrome on every surface** – the map, the events page, the pool and the displays
+  carry the same marker instead of each finding its own – and a real alarm arriving inside a
+  running Übung wears a badge saying exactly that, instead of blending into the drill.
+
+- **The events page leads with the running Ereignis.** The selected event is a search-immune
+  banner with Restliste, board link and its actions; every other event is a slim row with an
+  always-visible «Auswählen»; the archive folds behind «Archiv (N)».
+
+- **The route editor sees every Einsatz.** The stop picker always lists incidents standing on
+  another Auftrag – their route's coloured badge says where they are, instead of a hide-toggle
+  whose only job was hiding – and the editor's map shows open incidents as pins a click adds as
+  a stop. A routed card's context menu leads with its Routen-Editor.
+
+- **The Feld door proves the place before asking for the code.** The code screen names station,
+  Ereignis and Übung, and the fourth digit submits by itself. The actions became a journey
+  chain: done steps carry their time, the one owed step is the one red button, and «Kommt ihr
+  selbst zurück?» sits directly under the beendet line.
+
 ### Removed
 
 - **`/reko-dashboard` is gone.** ⚠️ Its links now 404. It was the same page as the field surface
@@ -159,6 +248,32 @@ will keep holding.
   moved to `/api/reko`.
 
 ### Fixed
+
+- **Belegt heisst belegt – auf einem Auftrag, in einer Funktion, hier.** Five people driving a
+  Sturm route read as «verfügbar» in the sidebar, and the wall Statusanzeige said «5 verfügbar /
+  0 im Einsatz» while the board in the same room had them greyed out – route crew lives on the
+  Auftrag and the reconciliation never saw it. The sidebar, the wall, the Zuweisen dialog and
+  the «N frei» footer now all read the same occupancy predicate, function holders included; the
+  dialog's only exception is deliberate – a person already on *this* target is selected, not
+  busy. Dropping a Modul-Block with three Geräte asks once about all three instead of asking
+  about one and silently dropping the rest.
+
+- **A printer without an address refuses jobs at the door.** A print job against a printer with
+  no configured address answers an error immediately instead of queueing work that dies later in
+  the background, looking like a printer fault.
+
+- **A Meldung is clickable from every page, and lands on the tab it is about.** Away from the
+  board, the notification sidebar's click navigates to the board with the incident highlighted
+  and the right tab open, instead of dispatching an event nobody was listening to; a click on a
+  card in a folded column unfolds the column first.
+
+- **A real alarm stops every simulated drive.** An incoming real alarm halts the training GPS
+  simulation instead of letting simulated vehicles keep painting the live map.
+
+- **Railway deployments restart themselves.** The policy was `ON_FAILURE`, which only restarts
+  a container that *crashed* – a graceful exit 0 reads as work finished and nothing starts it
+  again, which is how a board can serve 502 until a human opens the app. Production is `ALWAYS`
+  on both services now; the change takes effect on the next redeploy (`docs/RAILWAY.md` §7.1).
 
 - **The row says where the crew is in its own evening** — «Anfahrt», «Vor Ort», «Rückfahrt»,
   read off the crew's own taps. A Schadenplatz somebody had finished sat at the top of the list
@@ -758,6 +873,14 @@ will keep holding.
   and when both were drawn the same the eye stopped finding the column boundaries.
 
 ### Fixed
+
+- **An unreachable printer no longer burns the job's retry budget.** *(Shipped in 0.6.0 but
+  missed in these notes when it was cut.)* The agent has long distinguished «the printer did not
+  answer» from «the printer refused the job», but the backend dropped that field and counted
+  both against the three attempts – so a printer that was merely rebooting killed its jobs in 90
+  seconds. Unreachable now bounds by TTL instead of attempts, and a successful **fallback print
+  surfaces as a warning – «Auf Ersatzdrucker gedruckt»** – because paper coming out of the wrong
+  machine is something the operator has to know, not an ordinary success toast.
 
 - **The left sidebar's collapse handle was painted over by the board.** Both handles straddle
   the inner edge of their sidebar, so half of each hangs over the board – and `backdrop-blur`

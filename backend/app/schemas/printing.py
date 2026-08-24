@@ -31,15 +31,6 @@ class PrintJobStatus(str, Enum):
     FAILED = "failed"
 
 
-class PrintJobCreate(BaseModel):
-    """Schema for creating a print job (internal use)."""
-
-    job_type: PrintJobType
-    payload: dict[str, Any]
-    incident_id: UUID | None = None
-    event_id: UUID | None = None
-
-
 class PrintJobUpdate(BaseModel):
     """Schema for updating a print job (agent reports status)."""
 
@@ -69,12 +60,6 @@ class PrintJobResponse(BaseModel):
     completed_at: datetime | None = None
     error_message: str | None = None
     retry_count: int = 0
-
-
-class PrintAssignmentRequest(BaseModel):
-    """Request to print an assignment slip."""
-
-    # No body needed, incident_id comes from URL
 
 
 class PrintBoardRequest(BaseModel):

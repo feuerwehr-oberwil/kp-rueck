@@ -22,7 +22,6 @@ export const personnelFormSchema = z.object({
 });
 
 export type PersonnelFormValues = z.input<typeof personnelFormSchema>;
-export type PersonnelFormOutput = z.output<typeof personnelFormSchema>;
 
 export const personnelFormDefaults: PersonnelFormValues = {
   name: "",

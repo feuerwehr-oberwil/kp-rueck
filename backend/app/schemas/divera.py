@@ -102,13 +102,6 @@ class BulkAttachEmergenciesResponse(BaseModel):
     errors: list[str] = []
 
 
-class AutoAttachSettingRequest(BaseModel):
-    """Request to enable/disable auto-attach for an Event."""
-
-    event_id: UUID
-    enabled: bool
-
-
 # Personnel sync
 class DiveraMemberPreview(BaseModel):
     """Preview of a single Divera member."""
