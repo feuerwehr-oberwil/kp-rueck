@@ -12,7 +12,7 @@ graph TB
         dashboard["Dashboard<br/><small>Kanban Board</small>"]
         mapview["Map View<br/><small>Leaflet + OSM</small>"]
         settings["Settings<br/><small>Configuration UI</small>"]
-        public["Public Pages<br/><small>Check-In / Viewer / Reko</small>"]
+        public["Public Pages<br/><small>Check-In / Viewer / Feld / Alarm / Reko</small>"]
     end
 
     subgraph frontend["Frontend – Next.js 15"]
@@ -83,7 +83,7 @@ graph TB
 
 | Component | Responsibility |
 |-----------|---------------|
-| **App Router** | Page routing, server/client component split, layouts |
+| **App Router** | Page routing and layouts – every page is a client component; the board is a live surface with no server-rendered page |
 | **Operations Context** | Core state: incidents, assignments, drag-and-drop, optimistic updates |
 | **Personnel Context** | Personnel list, check-in status, availability tracking |
 | **Materials Context** | Material inventory, location-based grouping |
@@ -96,7 +96,7 @@ graph TB
 
 | Component | Responsibility |
 |-----------|---------------|
-| **API Routes** | 28 route modules covering incidents, resources, print, integrations, admin |
+| **API Routes** | 33 route modules covering incidents, resources, feld, print, integrations, setup, admin |
 | **Middleware Stack** | CORS, audit logging, security headers, rate limiting |
 | **CRUD Layer** | Async database operations with eager loading (prevents N+1 queries) |
 | **WebSocket Manager** | Socket.IO server, room-based broadcasting per event |
@@ -317,7 +317,7 @@ sequenceDiagram
 
     U->>F: Drag personnel onto incident
     F->>F: Optimistic UI update
-    F->>B: POST /api/assignments
+    F->>B: POST /api/incidents/{incident_id}/assign
     B->>B: Create assignment in DB
     B->>WS: Broadcast "assignment_update"
     WS->>O: Push update to all clients
@@ -329,6 +329,10 @@ sequenceDiagram
     B-->>F: Full incident list
     F->>F: Diff and update UI
 ```
+
+Assigning to an *Auftrag* (a routed group of incidents) goes through
+`POST /api/incident-groups/{group_id}/assign` instead – same flow, but the resource
+belongs to the route and covers every stop on it.
 
 ### Print Flow
 
@@ -403,15 +407,15 @@ Columns may be skipped in either direction; there is no enforced state machine, 
 **no `archiv` status** – archiving happens one level up, on the *Ereignis*
 (`events.archived_at`), never on a single incident.
 
-| # | Status (API) | Column (German UI) | Meaning |
-|---|--------------|--------------------|---------|
-| 1 | `incoming` | Eingegangen | Reported, not yet assessed |
-| 2 | `reko` | Reko | Field recon in progress |
-| 3 | `reko_done` | Reko abgeschlossen | Recon report filed, decision pending |
-| 4 | `enroute` | Disponiert / Anfahrt | Crew and vehicles dispatched |
-| 5 | `active` | Im Einsatz | Working on scene |
-| 6 | `returning` | Beendet / Rückfahrt | Work done, crew driving back |
-| 7 | `complete` | Abgeschlossen | Closed. Collapsible column; collapsed by default on `/display/board` |
+| # | Status (API) | Column header (German UI) | Meaning |
+|---|--------------|---------------------------|---------|
+| 1 | `incoming` | EINGEGANGEN | Reported, not yet assessed |
+| 2 | `reko` | REKO | Field recon in progress |
+| 3 | `reko_done` | REKO ABGESCHLOSSEN | Recon report filed, decision pending |
+| 4 | `enroute` | DISPONIERT / ANFAHRT | Crew and vehicles dispatched |
+| 5 | `active` | EINSATZ | Working on scene |
+| 6 | `returning` | BEENDET / RÜCKFAHRT | Work done, crew driving back |
+| 7 | `complete` | ABGESCHLOSSEN | Closed. Starts folded on every board (any column can be folded; only this one starts that way) |
 
 ```mermaid
 stateDiagram-v2
@@ -510,7 +514,7 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 | **Real-time sync** | Socket.IO + polling fallback | WebSocket for speed, polling for reliability in unstable field networks |
 | **Database** | PostgreSQL | Robust, widely supported, async driver available (asyncpg) |
 | **ORM** | SQLAlchemy 2.0 async | Type-safe, eager loading, migration support via Alembic |
-| **Frontend framework** | Next.js 15 App Router | Server components by default, great DX, React 19 features |
+| **Frontend framework** | Next.js 15 App Router | React 19, great DX – used as an all-client app: every page is `'use client'`, because the board is a live surface |
 | **State management** | React Context | Sufficient for this scale, no external state library needed |
 | **UI components** | shadcn/ui + Tailwind CSS 4 | Composable, accessible, easy to customize |
 | **Map tiles** | Leaflet + self-hosted TileServer GL | Offline-capable, free OSM data, no vendor lock-in |

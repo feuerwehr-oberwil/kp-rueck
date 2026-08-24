@@ -94,6 +94,11 @@ wollen.
 | `lat`/`lng` | float          | nein    | Koordinaten (WGS84); nur **beide zusammen** gültig. |
 | `number`    | string (≤50)   | nein    | Referenznummer des Senders, z.B. `"E-501"`. |
 
+`address` ist in der Webhook-API bewusst optional (ein Dispatchsystem liefert nicht immer eine);
+das In-App-Telefonformular unter `/alarm` verlangt dagegen vor dem Senden einen Einsatzort –
+Adresse oder Pin –, weil ein Schadenplatz ohne Ort das eine ist, was dieses Formular nicht
+produzieren darf.
+
 ## Antwort
 
 ```json
