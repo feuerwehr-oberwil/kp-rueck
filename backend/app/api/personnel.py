@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..crud import external_identities as identities_crud
 from ..crud import personnel as crud
 from ..database import get_db
 from ..models import Personnel
@@ -44,7 +45,8 @@ async def get_personnel(
     personnel = await crud.get_personnel(db, personnel_id)
     if not personnel:
         raise HTTPException(status_code=404, detail="Personnel not found")
-    return crud.to_personnel_schema(personnel, None)
+    linked = bool(await identities_crud.get_identity_map(db, "divera", [personnel_id]))
+    return crud.to_personnel_schema(personnel, None, divera_linked=linked)
 
 
 @router.post("/", response_model=schemas.Personnel, status_code=status.HTTP_201_CREATED)
@@ -60,6 +62,7 @@ async def create_personnel(
 
     # Convert to Pydantic and broadcast WebSocket update. A brand-new person belongs to
     # no Ereignis yet, so there is no attendance to report — the caller checks them in.
+    # No identity lookup either: only the Divera sync links people, never this route.
     personnel_response = crud.to_personnel_schema(new_personnel, None)
     background_tasks.add_task(broadcast_personnel_update, personnel_response.model_dump(mode="json"), "create")
 
@@ -82,7 +85,8 @@ async def update_personnel(
 
     # Convert to Pydantic and broadcast WebSocket update. Editing name/role/tags says
     # nothing about attendance, and this route names no Ereignis to report it for.
-    personnel_response = crud.to_personnel_schema(updated, None)
+    linked = bool(await identities_crud.get_identity_map(db, "divera", [personnel_id]))
+    personnel_response = crud.to_personnel_schema(updated, None, divera_linked=linked)
     background_tasks.add_task(broadcast_personnel_update, personnel_response.model_dump(mode="json"), "update")
 
     return personnel_response

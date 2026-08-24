@@ -79,6 +79,10 @@ class Personnel(PersonnelBase):
 
     id: UUID
     divera_user_id: int | None = None
+    # Whether this person has a Divera identity in `personnel_external_identities`
+    # (i.e. is addressable for outbound alarms). The provider-side id itself stays
+    # server-side; the UI only needs the yes/no.
+    divera_linked: bool = False
     checked_in: bool = False
     checked_in_at: datetime | None = None
     checked_out_at: datetime | None = None

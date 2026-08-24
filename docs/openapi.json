@@ -26855,6 +26855,11 @@
             ],
             "title": "Divera User Id"
           },
+          "divera_linked": {
+            "type": "boolean",
+            "title": "Divera Linked",
+            "default": false
+          },
           "checked_in": {
             "type": "boolean",
             "title": "Checked In",

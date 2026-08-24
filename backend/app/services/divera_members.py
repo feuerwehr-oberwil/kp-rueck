@@ -7,7 +7,9 @@ to produce a sync preview and execute synchronization.
 import logging
 import unicodedata
 from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any
+from uuid import UUID
 
 import httpx
 from fastapi import Request
@@ -145,8 +147,16 @@ async def fetch_divera_groups() -> list[dict[str, Any]]:
     return groups
 
 
-def build_sync_preview(divera_members: list[dict[str, Any]], existing_personnel: Sequence[Personnel]) -> dict[str, Any]:
+def build_sync_preview(
+    divera_members: list[dict[str, Any]],
+    existing_personnel: Sequence[Personnel],
+    linked_personnel_ids: AbstractSet[UUID],
+) -> dict[str, Any]:
     """Compare Divera member names with existing personnel.
+
+    ``linked_personnel_ids`` are the people who already have a Divera identity in
+    ``personnel_external_identities`` (the source of truth for "addressable for
+    outbound alarms") — the caller fetches them in one query.
 
     Returns dict with keys: new, unchanged, not_in_divera
     """
@@ -188,9 +198,9 @@ def build_sync_preview(divera_members: list[dict[str, Any]], existing_personnel:
                     "member": member,
                     "status": "unchanged",
                     "existing_id": str(matched_person.id),
-                    # Whether this person already has the Divera id stored locally.
+                    # Whether this person already has a Divera identity row.
                     # False here means execute_sync will backfill it.
-                    "divera_linked": getattr(matched_person, "divera_user_id", None) is not None,
+                    "divera_linked": matched_person.id in linked_personnel_ids,
                 }
             )
 
