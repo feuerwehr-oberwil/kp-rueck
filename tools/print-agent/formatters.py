@@ -8,12 +8,32 @@ to preserve German umlauts (the printer's default codepage is CP437).
 """
 
 import logging
-from datetime import datetime
-from escpos.printer import Network
+import os
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from core import QR_BORDER_MODULES, QR_MIN_BOX_DOTS, qr_box_size
+from escpos.printer import Network
 
 logger = logging.getLogger(__name__)
+
+# The station's wall-clock timezone. The backend serialises UTC; a slip that is carried to
+# an address must show the time the operator would read off the clock, and say which clock.
+# Overridable per deployment (`PRINT_TZ`) for a station outside Switzerland. Deliberately
+# NOT the host's timezone: the compose stack runs this agent in a container, and containers
+# default to UTC.
+#
+# Resolved defensively: ZoneInfo raises when the host has no tz database, and a station box
+# missing tzdata must not lose its printer over a timestamp. Falling back to UTC prints a
+# time that is honestly labelled UTC rather than no slip at all.
+_TZ_NAME = os.environ.get("PRINT_TZ", "Europe/Zurich")
+try:
+    LOCAL_TZ = ZoneInfo(_TZ_NAME)
+    LOCAL_TZ_LABEL = os.environ.get("PRINT_TZ_LABEL", "Ortszeit")
+except Exception:  # noqa: BLE001 - no tzdata on this host; keep printing
+    logger.warning("Timezone %r unavailable (no tzdata?) — printing times as UTC", _TZ_NAME)
+    LOCAL_TZ = timezone.utc
+    LOCAL_TZ_LABEL = os.environ.get("PRINT_TZ_LABEL", "UTC")
 
 # Paper widths in characters for 80mm paper
 WIDTH_A = 48   # Font A chars per line
@@ -82,6 +102,29 @@ def _qr_box_size(content: str) -> int:
         return QR_MIN_BOX_DOTS
 
 
+def _to_local(value: object):
+    """Parse a backend timestamp and express it in station-local time (`PRINT_TZ`).
+
+    The backend writes `datetime.utcnow()` — naive, in UTC — into `timezone=True` columns,
+    so what arrives here is either an explicit `+00:00` or a naive string that is
+    nonetheless UTC. Both are treated as UTC and converted; a naive value read as local
+    time is exactly the bug this replaces, where the slip showed an alarm one to two hours
+    before it happened.
+
+    Returns None when the value cannot be parsed, so callers omit the line rather than
+    print something wrong.
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(LOCAL_TZ)
+
+
 def _date_only(raw: object) -> str:
     """An ISO timestamp as a Swiss date, or "" when it is not one.
 
@@ -89,13 +132,12 @@ def _date_only(raw: object) -> str:
     deliberate: a slip that names the wrong last day is worse than one that
     names none.
     """
-    if not isinstance(raw, str) or not raw:
+    local = _to_local(raw)
+    if local is None:
+        if raw:
+            logger.warning("valid_until not parseable (%r) — printing the slip without it", raw)
         return ""
-    try:
-        return datetime.fromisoformat(raw).astimezone().strftime("%d.%m.%Y")
-    except ValueError:
-        logger.warning("valid_until not parseable (%r) — printing the slip without it", raw)
-        return ""
+    return local.strftime("%d.%m.%Y")
 
 
 def _sep(p: Network, char: str = "=") -> None:
@@ -121,22 +163,39 @@ def _stamp(payload: dict) -> str:
     still print, just without the guarantee.
     """
     raw = payload.get("printed_at")
-    if isinstance(raw, str) and raw:
-        try:
-            # Backend sends UTC ISO-8601; show it in the printer's local time, which is what
-            # the person holding the slip is comparing against the clock on the wall.
-            return datetime.fromisoformat(raw).astimezone().strftime("%d.%m.%Y %H:%M")
-        except ValueError:
-            logger.warning("printed_at not parseable (%r) — stamping current time", raw)
-    return datetime.now().strftime("%d.%m.%Y %H:%M")
+    local = _to_local(raw)
+    if local is not None:
+        # Backend sends UTC ISO-8601; show it in station-local time (PRINT_TZ, not the
+        # host clock — in the compose stack this agent runs in a container, and containers
+        # default to UTC) and say which clock, because the person holding the slip is
+        # comparing it against the one on the wall.
+        return f"{local.strftime('%d.%m.%Y %H:%M')} {LOCAL_TZ_LABEL}"
+    if raw:
+        logger.warning("printed_at not parseable (%r) — stamping current time", raw)
+    return f"{datetime.now(LOCAL_TZ).strftime('%d.%m.%Y %H:%M')} {LOCAL_TZ_LABEL}"
 
 
 # ── Assignment slip ──────────────────────────────────────────────────
 
 def format_assignment_slip(p: Network, payload: dict) -> None:
-    """Format and print an assignment slip."""
+    """Format and print an assignment slip.
+
+    This is the one artefact that leaves the building. A crew carries it to an address and
+    treats it as ground truth, and the paper fallback in docs/AUSFALL_SOP.md leans on it
+    when nothing else works — so what it does NOT say matters as much as what it does.
+    """
     vehicles = payload.get("vehicles", [])
     location = payload.get("location", "")
+
+    # --- Exercise marker, before anything else ---
+    # The board snapshot has always carried this; the slip did not, so an exercise slip and
+    # a real one were indistinguishable once torn off. It goes above the address because
+    # that is the first thing read.
+    if payload.get("training_flag"):
+        p.set(font="a", bold=True, align="center")
+        _text(p, "*" * WIDTH_A + "\n")
+        _text(p, "UEBUNG - KEIN ECHTER EINSATZ\n")
+        _text(p, "*" * WIDTH_A + "\n")
 
     # --- Location title (Font A bold, centered) ---
     _sep(p)
@@ -167,16 +226,23 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
     if description:
         for line in _wrap_text(description, WIDTH_B):
             _text(p, f"{line}\n")
+    # `contact` is the reporter's NAME; it used to be printed under a "Tel:" label with no
+    # number anywhere, so the slip named a person where a crew looked for a phone number.
     contact = payload.get("contact", "")
     if contact:
-        _text(p, f"Tel: {contact}\n")
+        _text(p, f"Meldende(r): {contact}\n")
+    contact_phone = payload.get("contact_phone", "")
+    if contact_phone:
+        _text(p, f"Tel: {contact_phone}\n")
+
     created_at = payload.get("created_at", "")
     if created_at:
-        try:
-            dt = datetime.fromisoformat(created_at)
-            _text(p, f"Alarmiert: {dt.strftime('%d.%m.%Y %H:%M')}\n")
-        except (ValueError, TypeError):
-            pass
+        local = _to_local(created_at)
+        if local:
+            # Labelled with the zone. This used to render the raw value with strftime and
+            # no conversion, and the backend serialises UTC — so a slip carried to an
+            # address showed an alarm time one to two hours earlier than it happened.
+            _text(p, f"Alarmiert: {local.strftime('%d.%m.%Y %H:%M')} {LOCAL_TZ_LABEL}\n")
 
     # Zu Fuss flag
     if payload.get("zu_fuss"):
@@ -301,9 +367,21 @@ def format_assignment_slip(p: Network, payload: dict) -> None:
             _text(p, f"Code: {feld_code}\n")
 
     # --- Footer ---
+    #
+    # Two things a carried document needs that this one lacked. A REFERENCE, so a radio call
+    # about "the slip" can name which incident it is — the id was already in the payload,
+    # just never rendered. And an END MARKER, because a thermal print that runs out of paper
+    # or is torn early simply stops, and a partial slip missing its crew list looks exactly
+    # like a complete slip for an incident with no crew assigned.
     _sep(p, "-")
     p.set(font="b", bold=False, align="center")
+    incident_id = payload.get("incident_id", "")
+    if incident_id:
+        _text(p, f"Ref: {str(incident_id)[:8]}\n")
     _text(p, f"{_stamp(payload)}\n")
+    if payload.get("training_flag"):
+        _text(p, "UEBUNG - KEIN ECHTER EINSATZ\n")
+    _text(p, "--- ENDE ---\n")
     p.cut()
 
 
