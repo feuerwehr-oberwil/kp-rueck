@@ -423,7 +423,8 @@ async def get_personnel_sync_preview(
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
-    preview = build_sync_preview(divera_members, existing)
+    linked_ids = set(await identities_crud.get_identity_map(db, "divera"))
+    preview = build_sync_preview(divera_members, existing, linked_ids)
 
     return schemas.DiveraSyncPreview(
         new=[schemas.DiveraSyncPreviewItem(**item) for item in preview["new"]],
@@ -469,7 +470,8 @@ async def execute_personnel_sync(
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
-    preview = build_sync_preview(divera_members, existing)
+    linked_ids = set(await identities_crud.get_identity_map(db, "divera"))
+    preview = build_sync_preview(divera_members, existing, linked_ids)
 
     result = await execute_sync(
         db=db,

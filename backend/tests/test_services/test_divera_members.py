@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Personnel, PersonnelExternalIdentity, User
-from app.services.divera_members import execute_sync
+from app.services.divera_members import build_sync_preview, execute_sync
 
 
 @pytest.fixture
@@ -44,6 +44,26 @@ async def _divera_id_for(db: AsyncSession, personnel_id) -> str | None:
         )
     ).scalar_one_or_none()
     return row
+
+
+def test_preview_divera_linked_comes_from_identity_table():
+    """`divera_linked` in the sync preview reflects the identity table, not any column.
+
+    The caller passes the set of personnel ids that have a provider="divera" row;
+    a matched person is "linked" exactly when they are in that set.
+    """
+    linked_person = Personnel(id=uuid4(), name="Linked Lisa", status="available")
+    unlinked_person = Personnel(id=uuid4(), name="Unlinked Udo", status="available")
+    members = [
+        {"divera_id": 1, "name": "Linked Lisa"},
+        {"divera_id": 2, "name": "Unlinked Udo"},
+    ]
+
+    preview = build_sync_preview(members, [linked_person, unlinked_person], {linked_person.id})
+
+    by_name = {item["member"]["name"]: item for item in preview["unchanged"]}
+    assert by_name["Linked Lisa"]["divera_linked"] is True
+    assert by_name["Unlinked Udo"]["divera_linked"] is False
 
 
 @pytest.mark.asyncio
