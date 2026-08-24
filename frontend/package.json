@@ -93,17 +93,18 @@
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
+  "packageManager": "pnpm@9.12.0",
   "pnpm": {
     "// overrides": "Transitive advisories our direct deps still pin. Each target is bounded to the same major as the vulnerable version, so this closes the CVE without a breaking upgrade. Drop an entry once the parent ships a fixed range on its own.",
     "overrides": {
       "postcss@8": ">=8.5.18 <9",
       "brace-expansion@1": ">=1.1.16 <2",
       "brace-expansion@5": ">=5.0.7 <6",
-      "js-yaml@4": ">=4.3.0 <5",
+      "js-yaml@4": ">=4.3.1 <5",
+      "nanoid@3": ">=3.3.18 <4",
       "undici@7": ">=7.28.0 <8",
       "ws@8": ">=8.21.0 <9",
       "sharp": ">=0.35.0 <1"
     }
-  },
-  "packageManager": "pnpm@9.12.0"
+  }
 }
