@@ -545,7 +545,11 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
   if (incidents.length === 0) return null
 
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-warning/15 border border-warning text-warning-foreground px-4 py-2 rounded-lg shadow-md z-30 max-w-md backdrop-blur-sm">
+    // Centre-anchored, so an over-wide banner clips on BOTH edges with no scrollbar to say
+    // so. `max-w-md` is 448px against ~358px of usable width inside the map's padding on a
+    // phone — and /map is a mobile bottom-nav tab. The clamp is relative to the map, which
+    // is what this is centred in.
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-warning/15 border border-warning text-warning-foreground px-4 py-2 rounded-lg shadow-md z-30 max-w-[min(28rem,calc(100%-2rem))] backdrop-blur-sm">
       <div
         className="flex items-center gap-2 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -564,7 +568,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
           {incidents.map((incident) => (
             <li
               key={incident.id}
-              className="hover:bg-warning/20 px-2 py-1.5 rounded cursor-pointer transition-colors"
+              className="hover:bg-warning/20 px-2 py-1.5 rounded cursor-pointer transition-colors min-w-0 break-words"
               onClick={(e) => {
                 e.stopPropagation()
                 onIncidentClick?.(incident.id)
