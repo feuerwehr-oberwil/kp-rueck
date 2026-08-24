@@ -152,10 +152,9 @@ class Personnel(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
 
-    # DEPRECATED dual-write: superseded by PersonnelExternalIdentity
-    # (provider="divera"). Kept in sync for one compatibility release, then
-    # removed. Do not add new readers.
-    divera_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # Provider identity (e.g. the Divera user id) lives in
+    # PersonnelExternalIdentity, never as a vendor column here. The deprecated
+    # `divera_user_id` dual-write was dropped in migration b7c2e5a1d4f8.
 
     # Check-in tracking lives in `event_attendance`, NOT here. This table used to carry
     # checked_in / checked_in_at / checked_out_at; they were superseded one day after they

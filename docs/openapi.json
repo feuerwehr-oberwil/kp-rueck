@@ -26844,16 +26844,10 @@
             "format": "uuid",
             "title": "Id"
           },
-          "divera_user_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Divera User Id"
+          "divera_linked": {
+            "type": "boolean",
+            "title": "Divera Linked",
+            "default": false
           },
           "checked_in": {
             "type": "boolean",
@@ -27251,17 +27245,6 @@
               }
             ],
             "title": "Tags"
-          },
-          "divera_user_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Divera User Id"
           }
         },
         "type": "object",

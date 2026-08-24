@@ -81,6 +81,35 @@ async def test_list_personnel_viewer_can_read(viewer_client: AsyncClient, test_p
     assert len(response.json()) == 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_list_personnel_reports_divera_linked_from_identity_table(
+    editor_client: AsyncClient, db_session: AsyncSession, test_personnel: Personnel
+):
+    """`divera_linked` is True exactly for people with a Divera identity row.
+
+    The flag is what the send dialog gates recipient selection on; the
+    provider-side id itself never leaves the backend.
+    """
+    from app.models import PersonnelExternalIdentity
+
+    linked = Personnel(id=uuid4(), name="Verknüpft Vera", status="available")
+    db_session.add(linked)
+    await db_session.flush()
+    db_session.add(PersonnelExternalIdentity(personnel_id=linked.id, provider="divera", external_id="4711"))
+    await db_session.commit()
+
+    response = await editor_client.get("/api/personnel/")
+    assert response.status_code == 200
+    by_id = {row["id"]: row for row in response.json()}
+    assert by_id[str(linked.id)]["divera_linked"] is True
+    assert by_id[str(test_personnel.id)]["divera_linked"] is False
+
+    # The single-person route agrees with the list.
+    single = await editor_client.get(f"/api/personnel/{linked.id}")
+    assert single.json()["divera_linked"] is True
+
+
 # ============================================
 # Get Personnel Tests
 # ============================================

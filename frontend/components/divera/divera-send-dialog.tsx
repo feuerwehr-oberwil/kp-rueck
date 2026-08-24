@@ -94,7 +94,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     setSelected(
       new Set(
         recipients
-          .filter((r) => !r.isDriverRow && r.person.diveraUserId)
+          .filter((r) => !r.isDriverRow && r.person.diveraLinked)
           .map((r) => r.person.id),
       ),
     )
@@ -133,12 +133,12 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
   }
 
   const selectedLinkedCount = recipients.filter(
-    (r) => selected.has(r.person.id) && r.person.diveraUserId,
+    (r) => selected.has(r.person.id) && r.person.diveraLinked,
   ).length
 
   const handleSend = async () => {
     const personnelIds = recipients
-      .filter((r) => selected.has(r.person.id) && r.person.diveraUserId)
+      .filter((r) => selected.has(r.person.id) && r.person.diveraLinked)
       .map((r) => r.person.id)
     if (personnelIds.length === 0) {
       toast.error(t("noRecipientsError"))
@@ -209,7 +209,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
             ) : (
               <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
                 {recipients.map((r) => {
-                  const linked = Boolean(r.person.diveraUserId)
+                  const linked = Boolean(r.person.diveraLinked)
                   return (
                     <label
                       key={r.person.id}

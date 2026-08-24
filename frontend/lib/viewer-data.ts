@@ -218,9 +218,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     driverVehicleName: driverInfoByPerson.get(String(p.id))?.vehicleName || undefined,
     isMagazin: magazinPersonnelIds.has(String(p.id)),
     roleSortOrder: p.role_sort_order,
-    // Not in the share payload — an account id in another system is nothing a
-    // display draws, and it identifies a person across events.
-    diveraUserId: null,
+    // Not in the share payload — whether a person is linked to another system
+    // is nothing a display draws, and a viewer never sends alarms.
+    diveraLinked: false,
   }))
 
   const materials: Material[] = payload.materials.map((m) => ({

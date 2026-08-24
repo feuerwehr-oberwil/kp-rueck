@@ -10,9 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import EventAttendance, Personnel, User
 from ..services.audit import calculate_changes, log_action
+from . import external_identities
 
 
-def to_personnel_schema(person: Personnel, attendance: EventAttendance | None) -> schemas.Personnel:
+def to_personnel_schema(
+    person: Personnel, attendance: EventAttendance | None, *, divera_linked: bool = False
+) -> schemas.Personnel:
     """Serialise a roster row together with its attendance at ONE Ereignis.
 
     The single place the three attendance fields of ``schemas.Personnel`` are ever
@@ -22,6 +25,10 @@ def to_personnel_schema(person: Personnel, attendance: EventAttendance | None) -
     ``checked_in: false`` — the filter had been moved to ``event_attendance``, the
     response field had not. Passing ``None`` says "no Ereignis was asked about", which
     is the only case where "not present" is an answer rather than an omission.
+
+    ``divera_linked`` reports whether the person has a Divera identity in
+    ``personnel_external_identities``; the caller resolves it (one membership query
+    per request, never per row) because this serialiser stays sync.
     """
     return schemas.Personnel(
         id=person.id,
@@ -30,7 +37,7 @@ def to_personnel_schema(person: Personnel, attendance: EventAttendance | None) -
         role_sort_order=person.role_sort_order,
         status=person.status,
         tags=person.tags,
-        divera_user_id=person.divera_user_id,
+        divera_linked=divera_linked,
         checked_in=bool(attendance is not None and attendance.checked_in),
         checked_in_at=attendance.checked_in_at if attendance else None,
         checked_out_at=attendance.checked_out_at if attendance else None,
@@ -75,7 +82,8 @@ async def list_personnel_with_attendance(
             # wrong answer to "only the people who are here".
             return []
         rows = await get_all_personnel(db)
-        return [to_personnel_schema(person, None) for person in rows]
+        linked_ids = set(await external_identities.get_identity_map(db, "divera"))
+        return [to_personnel_schema(person, None, divera_linked=person.id in linked_ids) for person in rows]
 
     join_on = and_(
         EventAttendance.personnel_id == Personnel.id,
@@ -92,7 +100,12 @@ async def list_personnel_with_attendance(
     query = query.order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
 
     result = await db.execute(query)
-    return [to_personnel_schema(person, attendance) for person, attendance in result.all()]
+    rows = result.all()
+    # One membership query for the whole list — never a per-row identity lookup.
+    linked_ids = set(await external_identities.get_identity_map(db, "divera"))
+    return [
+        to_personnel_schema(person, attendance, divera_linked=person.id in linked_ids) for person, attendance in rows
+    ]
 
 
 async def get_personnel(db: AsyncSession, personnel_id: uuid.UUID) -> Personnel | None:
