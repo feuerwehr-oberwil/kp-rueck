@@ -1057,7 +1057,10 @@
       "needTwoIncidents": "Il faut au moins deux interventions",
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert...",
-      "transfer": "Transférer"
+      "transfer": "Transférer",
+      "confirmTitle": "Vraiment transférer les ressources ?",
+      "confirmDescription": "Toutes les ressources attribuées à « {source} » seront déplacées vers « {target} ». Cette action est irréversible.",
+      "confirmCounts": "Seront déplacés : {crew} personnel, {vehicles} véhicules, {materials} matériel."
     },
     "driver": {
       "assignErrorTitle": "Erreur lors de l’attribution du conducteur",
