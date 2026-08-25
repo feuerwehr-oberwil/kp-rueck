@@ -214,6 +214,11 @@ export const DroppableColumn = memo(function DroppableColumn({
   const t = useTranslations('kanban')
   const tDash = useTranslations('kanban.dashboard')
   const columnTitle = t(`columns.${column.id}`)
+  // User tests kept mixing up the two right-most columns, so their header
+  // tooltip spells out the distinction instead of repeating the title.
+  const columnTooltip = column.id === 'returning' || column.id === 'complete'
+    ? t('column.statusDistinctionHint')
+    : columnTitle
   // The column's accent, worn as a 2px rule and a dot instead of the old
   // pastel wash: the hue still identifies the column at a glance, but stops
   // painting a seventh of the screen behind the cards. `column.id` IS a status
@@ -403,7 +408,7 @@ export const DroppableColumn = memo(function DroppableColumn({
               column name must not push the sort/collapse controls off the header. */}
           {/* COLUMN_HEADER_CLASS — caps, like every header: a label must not
               read like an item (Bastian's verdict from the field round). */}
-          <h2 className={cn("min-w-0 flex-1 truncate", COLUMN_HEADER_CLASS)} title={columnTitle}>{columnTitle}</h2>
+          <h2 className={cn("min-w-0 flex-1 truncate", COLUMN_HEADER_CLASS)} title={columnTooltip}>{columnTitle}</h2>
           <div className="flex items-center gap-2">
             {onSort && (
               <DropdownMenu>

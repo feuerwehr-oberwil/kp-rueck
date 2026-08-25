@@ -1675,6 +1675,7 @@
       "dropHere": "Déposer l’intervention ici",
       "empty": "Aucune intervention",
       "collapsedHint": "{title} – {count} – cliquer pour déplier",
+      "statusDistinctionHint": "Terminé / retour : travaux sur le lieu du sinistre achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
       "overdueTitle": "{count} en retard : {titles}",
       "overdueMore": "… et {count} de plus"
     },
