@@ -331,7 +331,7 @@
       "einsatzartPlaceholder": "Einsatzart auswählen",
       "priority": "Priorität",
       "phoneReported": "Telefonisch",
-      "phoneReportedDescription": "Meldung kam per Telefon oder Walk-in ins KP",
+      "phoneReportedDescription": "Meldung kam per Telefon oder durch Laufkundschaft ins KP",
       "feldReported": "Vom Feld",
       "feldReportedDescription": "Meldung kam von einem Trupp, der davor stand",
       "contact": "Kontakt / Melder",
@@ -554,7 +554,7 @@
       "priorityHighAria": "Hohe Priorität",
       "priorityMediumAria": "Mittlere Priorität",
       "priorityLowAria": "Niedrige Priorität",
-      "intakeTooltip": "Per Telefon / Walk-in erfasst – bitte prüfen",
+      "intakeTooltip": "Per Telefon / Laufkundschaft erfasst – bitte prüfen",
       "feldTooltip": "Von einem Trupp im Feld gemeldet – bitte prüfen",
       "rekoDoneTooltip": "Reko-Bericht ausgefüllt",
       "showOnMap": "Auf Karte anzeigen",
@@ -587,6 +587,7 @@
       "dropHere": "Einsatz hier ablegen",
       "empty": "Noch keine Einsätze.",
       "collapsedHint": "{title} – {count} – zum Aufklappen klicken",
+      "statusDistinctionHint": "Beendet / Rückfahrt: Arbeiten am Schadenplatz beendet, Ressourcen noch auf der Rückfahrt. Abgeschlossen: Einsatz vollständig erledigt, Ressourcen freigegeben, offene Rückmeldungen geprüft.",
       "overdueTitle": "{count} überfällig: {titles}",
       "overdueMore": "… und {count} weitere"
     },
@@ -758,7 +759,7 @@
     "auftraege": {
       "title": "Aufträge",
       "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
-      "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Squad übergeben.",
+      "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Trupp übergeben.",
       "newAuftrag": "Neuer Auftrag",
       "templatesLabel": "Vorlagen:",
       "defaultName": "Auftrag {n}",
@@ -767,7 +768,7 @@
       "cancel": "Abbrechen",
       "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze zu einer Route zu bündeln.",
       "noStops": "Noch keine Stopps. Zieh Karten hierher oder füge einen Stopp hinzu.",
-      "noSquad": "kein Squad",
+      "noSquad": "kein Trupp",
       "persLabel": "{count} Pers",
       "matLabel": "{count, plural, one {# Gerät} other {# Geräte}}",
       "progress": "{done}/{total} erledigt",
@@ -1723,7 +1724,7 @@
         "exportTitle": "Einsatz-Protokoll exportieren (Excel)",
         "exportDescription": "Vollständiges Protokoll eines Ereignisses zur Archivierung und Abrechnung: alle Einsätze, die komplette Zuweisungshistorie von Personal, Fahrzeugen und Material mit Zeitstempeln (zugewiesen/freigegeben), Status-Verlauf und Reko-Berichte.",
         "selectEventPlaceholder": "Ereignis auswählen …",
-        "trainingTag": "(Training)",
+        "trainingTag": "(Übung)",
         "archivedDivider": "– Archiviert –",
         "exporting": "Wird exportiert …",
         "exportButton": "Audit exportieren",
@@ -2420,8 +2421,8 @@
       "collapse": "schliessen"
     },
     "dummyGenerator": {
-      "title": "Übungs-Modus",
-      "description": "Dummy-Daten für schnelleres Training generieren",
+      "title": "Übungsmodus",
+      "description": "Dummy-Daten für schnelleres Üben generieren",
       "fill": "Ausfüllen"
     }
   },
@@ -2810,7 +2811,7 @@
       "resourceAlertsHint": "Warnung bei knappen Ressourcen oder Personalermüdung",
       "dataQualityAlertsLabel": "Datenqualitäts-Warnungen",
       "dataQualityAlertsHint": "Warnung bei fehlenden Pflichtdaten",
-      "eventAlertsLabel": "Ereignis-Limit-Warnungen",
+      "eventAlertsLabel": "Ereignisgrenzen-Warnungen",
       "eventAlertsHint": "Warnung bei Annäherung an Datenbankgrenzen",
       "geofenceAlertsLabel": "Geofence-Ankunft",
       "geofenceAlertsHint": "Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS). Der Ankunftsradius wird unter Einstellungen → GPS festgelegt.",
@@ -2819,7 +2820,7 @@
       "timeLimitsTitle": "Status-Zeitlimits",
       "timeLimitsSubtitle": "Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.",
       "liveTab": "Live-Modus",
-      "trainingTab": "Trainingsmodus",
+      "trainingTab": "Übungsmodus",
       "eingegangenMin": "Eingegangen (Min.)",
       "rekoMin": "Reko (Min.)",
       "disponiertMin": "Disponiert (Min.)",
@@ -2937,7 +2938,7 @@
     },
     "page": {
       "loading": "Wird geladen …",
-      "notTraining": "Die Übungs-Steuerung ist nur für Trainingsereignisse verfügbar. Das aktuelle Ereignis ist kein Training."
+      "notTraining": "Die Übungs-Steuerung ist nur für Übungsereignisse verfügbar. Das aktuelle Ereignis ist keine Übung."
     },
     "controls": {
       "description": "{count} Einsätze total",
@@ -3194,7 +3195,7 @@
       },
       "share-alarm-link": {
         "title": "Alarm-Link teilen",
-        "description": "Meldungen von aussen: Walk-in am Schalter, Anrufe ohne KP-Zugang",
+        "description": "Meldungen von aussen: Laufkundschaft am Schalter, Anrufe ohne KP-Zugang",
         "note": "Für den Telefonistendienst · 1 Ausdruck"
       },
       "share-feld-link": {
@@ -3265,7 +3266,7 @@
       "checkInTitle": "Personal-Check-in",
       "checkInSubtitle": "QR scannen zum Einchecken – funktioniert ohne Anmeldung.",
       "alarmTitle": "Alarm-Link",
-      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Walk-in) – ohne Anmeldung.",
+      "alarmSubtitle": "Neue Alarme erfassen (Telefon/Laufkundschaft) – ohne Anmeldung.",
       "feldTitle": "Feld-Ansicht",
       "feldSubtitle": "Eigene Schadenplätze, Meldungen an den KP und der Rapport – ohne Anmeldung.",
       "dismiss": "Checkliste ausblenden"
@@ -3322,7 +3323,7 @@
       "estimatedDuration": "Geschätzte Dauer:",
       "durationHours": "{hours}h",
       "contactPhone": "Telefon",
-      "intakeBadge": "Telefon / Walk-in",
+      "intakeBadge": "Telefon / Laufkundschaft",
       "feldBadge": "Vom Feld",
       "rekoHeading": "Reko",
       "rekoOnSite": "vor Ort seit {time}",
