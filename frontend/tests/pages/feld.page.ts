@@ -49,7 +49,7 @@ export class FeldPage extends BasePage {
     super(page);
 
     this.title = page.getByRole('heading', { name: 'Schadenplatz-Rapport' }).first();
-    this.personSearch = page.getByPlaceholder('Name suchen...');
+    this.personSearch = page.getByPlaceholder('Name suchen …');
     this.notMeButton = page.getByRole('button', { name: 'Nicht ich' });
 
     // The door (plan 26): four digits before anything at all. The fourth

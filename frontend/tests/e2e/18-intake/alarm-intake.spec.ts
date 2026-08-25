@@ -47,9 +47,9 @@ test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
     const alarmTitle = `Wohnungsbrand ${Date.now()}`;
     // The gate requires an Einsatzort since the address-enforcement fix — a
     // Schadenplatz with no location is the one thing this form must not produce.
-    await authenticatedPage.getByPlaceholder('Adresse eingeben oder suchen...').fill('Hauptstrasse 12, Oberwil');
+    await authenticatedPage.getByPlaceholder('Adresse eingeben oder suchen …').fill('Hauptstrasse 12, Oberwil');
     // Enter commits the freetext — a blur with the geocoder dropdown open does not.
-    await authenticatedPage.getByPlaceholder('Adresse eingeben oder suchen...').press('Enter');
+    await authenticatedPage.getByPlaceholder('Adresse eingeben oder suchen …').press('Enter');
     await authenticatedPage.getByLabel('Meldung *').fill(alarmTitle);
     await authenticatedPage.getByRole('button', { name: 'Weiter' }).click();
     await expect(authenticatedPage.getByRole('heading', { name: 'Stimmt das so?' })).toBeVisible();

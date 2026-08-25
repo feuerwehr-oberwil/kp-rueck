@@ -19,7 +19,7 @@ export class LoginPage extends BasePage {
     this.passwordInput = page.locator('input#password');
     this.loginButton = page.locator('button[type="submit"]');
     this.errorMessage = page.locator('.text-destructive');
-    this.loadingText = page.locator('text=Wird angemeldet...');
+    this.loadingText = page.locator('text=Wird angemeldet …');
     // The password form is collapsed behind "Mit Passwort anmelden" when
     // Microsoft auth is enabled. Clicking the toggle expands it.
     this.passwordLoginToggle = page.locator('button', { hasText: /Mit Passwort anmelden/i });

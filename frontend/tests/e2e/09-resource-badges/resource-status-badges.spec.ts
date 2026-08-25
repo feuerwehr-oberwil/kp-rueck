@@ -205,7 +205,7 @@ async function assignMaterialFromDetail(page: Page, modal: Locator, materialName
   const dialog = page.getByRole('dialog', { name: 'Material zu Einsatz zuweisen' });
   await expect(dialog).toBeVisible({ timeout: 15_000 });
 
-  await dialog.getByPlaceholder('Suchen...').fill(materialName);
+  await dialog.getByPlaceholder('Suchen …').fill(materialName);
   await dialog.getByRole('button', { name: materialName }).click();
   // Material selection is staged locally and only written on "Fertig".
   await dialog.getByRole('button', { name: 'Fertig' }).click();
@@ -335,7 +335,7 @@ test.describe('Resource summary — assigned state', () => {
     });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
 
-    const search = dialog.getByPlaceholder('Suchen...');
+    const search = dialog.getByPlaceholder('Suchen …');
     const row = dialog.getByRole('button', { name: material.name });
     await expect(row).toHaveCount(1);
 
@@ -361,7 +361,7 @@ test.describe('Resource summary — assigned state', () => {
       name: 'Material zu Einsatz zuweisen',
     });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
-    await dialog.getByPlaceholder('Suchen...').fill(material.name);
+    await dialog.getByPlaceholder('Suchen …').fill(material.name);
     // The row is a toggle: clicking an assigned one deselects it.
     await dialog.getByRole('button', { name: material.name }).click();
     await dialog.getByRole('button', { name: 'Fertig' }).click();

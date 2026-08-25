@@ -71,7 +71,7 @@ test.describe('Authentication', () => {
     await loginPage.loginButton.click();
 
     // Check if button shows loading state (might be too fast to catch)
-    const loadingText = page.locator('text=Wird angemeldet...');
+    const loadingText = page.locator('text=Wird angemeldet …');
     // This might not always be visible due to speed, so we just check for it
     const isVisible = await loadingText.isVisible().catch(() => false);
 
