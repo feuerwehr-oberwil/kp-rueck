@@ -93,7 +93,7 @@
         "time": "21:19",
         "tag": "Assegnazione",
         "h3": "Squadra e veicoli sono assegnati.",
-        "p": "Personale, veicoli e materiale sull’intervento con il trascinamento. Il sistema aiuta la condotta a riconoscere e rendere visibili doppie assegnazioni, risorse mancanti o contraddizioni. Chi arriva si annuncia da sé con un codice QR."
+        "p": "Personale, veicoli e materiale sull’intervento con il trascinamento. KP Rück riconosce doppie assegnazioni e risorse mancanti. La condotta decide: riassegnare, integrare o assegnare comunque in modo consapevole. Chi arriva si annuncia da sé con un codice QR."
       },
       {
         "time": "21:26",
@@ -165,7 +165,7 @@
       {
         "alt": "Incarichi: più interventi raggruppati in un unico itinerario",
         "title": "Incarichi",
-        "sub": "Più interventi come un solo itinerario – con squadra, mezzi e un ordine che il tavolo ottimizza per distanza"
+        "sub": "Raggruppare più interventi in un incarico: squadra e mezzi restano legati all’incarico e procedono di tappa in tappa nell’ordine stabilito o ottimizzato"
       },
       {
         "alt": "Comandi esercitazione: generare interventi singoli o mirati, automatismo e simulazione sul campo",

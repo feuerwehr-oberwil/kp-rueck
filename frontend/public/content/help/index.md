@@ -35,7 +35,7 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **De
 - **Doppelklick**: Öffnet den vollständigen Detail-Dialog (Modal)
 
 ### Ereignisse (`G E`)
-Events verwalten, wechseln, archivieren, exportieren.
+Ereignisse verwalten, wechseln, archivieren, exportieren.
 
 ### Einstellungen (`G S`)
 System-Konfiguration: Benutzer, Sync, Drucker, Kartenstil und mehr.
@@ -43,9 +43,9 @@ System-Konfiguration: Benutzer, Sync, Drucker, Kartenstil und mehr.
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
 
-**Echt vs. Training:** Events können als "Training" markiert werden. Badge "Übung" erscheint, Daten werden separat geführt. Echte Events kommen von Divera.
+**Echt vs. Übung:** Ereignisse können als «Übung» markiert werden. Das Badge «Übung» erscheint, Daten werden separat geführt. Echte Ereignisse kommen von Divera.
 
-**Audit-Export:** Einstellungen → Import/Export → Event auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
+**Audit-Export:** Einstellungen → Import/Export → Ereignis auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
 
 **Drucken & Export:** Footer → "Drucken" oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
 - **Thermodruck** – Board-Snapshot auf den [Thermodrucker](#thermodrucker)
@@ -157,9 +157,9 @@ Zeigen, wie lange ein Einsatz bereits offen ist:
 
 Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" aktiviert werden. Rechtsklick auf Karte → "Nachbarhilfe" oder im Detail-Dialog. Markierte Einsätze zeigen ein Gebäude-Icon.
 
-### Telefon / Walk-in-Abzeichen
+### Telefon / Laufkundschaft-Abzeichen
 
-Alarme, die über den [Alarm-Link](#alarm-link-telefon-walk-in) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
+Alarme, die über den [Alarm-Link](#alarm-link-telefon-laufkundschaft) erfasst wurden, zeigen oben rechts ein blaues **Telefon-Symbol** (in einer Reihe mit den übrigen Status-Symbolen). Es markiert Meldungen aus ungeprüfter Quelle, die von der Einsatzleitung verifiziert werden sollten.
 
 ### Ansicht – was auf den Karten steht
 
@@ -258,7 +258,7 @@ Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **
 - **Empfänger:** die dem Einsatz zugewiesene Mannschaft (vorausgewählt) sowie die **Fahrer** der zugewiesenen Fahrzeuge (gelistet, aber nicht vorausgewählt). Vor dem Senden bestätigen.
 - **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden – nicht verknüpfte sind ausgegraut. Verknüpft wird über den Divera-Personen-Sync (Einstellungen → Personal).
 - **Aktivieren:** Einstellungen → Alarmierung → "Ausalarmierung" einschalten. Dort gibt es auch einen **Testalarm** an eine einzelne Person. Ist auf dem Server kein Alarmierungs-Anbieter hinterlegt, ist der Schalter **ausgegraut** und die Zeile sagt es – so entsteht gar nicht erst ein Alarm-Knopf auf dem Board, der beim Drücken nichts tut. Welche Bereiche eingerichtet sind, steht unter **Einstellungen → Integrationen**.
-- Wird im **Trainings- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
+- Wird im **Übungs- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
 
 ### Divera-Mitteilung (Info, kein Alarm)
 
@@ -276,7 +276,7 @@ Divera-App, weckt niemanden wie ein Aufgebot und steuert keinen Pager an.
   "Pikett" soll nicht versehentlich die ganze Feuerwehr erreichen.
 - **Text:** kommt aus der Vorlage (Einstellungen → Alarmierung) und ist im
   Fenster vor dem Senden noch editierbar.
-- Wird im **Trainings- und Demo-Modus nicht** wirklich gesendet.
+- Wird im **Übungs- und Demo-Modus nicht** wirklich gesendet.
 - **Hinweis Divera-FREE:** dort ist nur **eine Mitteilung alle fünf Minuten**
   möglich.
 
@@ -334,7 +334,7 @@ korrigiert, nicht ergänzt).
 **«Telefonisch gemeldet».** Im Dialog *Neuer Einsatz* bei Kontakt/Melder – und
 nachträglich im Einsatz-Detail korrigierbar, weil die realistische Reihenfolge
 «erst eintippen, dann merken, dass es ein Anruf war» ist. Der Einsatz bekommt
-dasselbe blaue [Telefon-Abzeichen](#telefon-walk-in-abzeichen) wie eine Meldung
+dasselbe blaue [Telefon-Abzeichen](#telefon-laufkundschaft-abzeichen) wie eine Meldung
 über den Alarm-Link.
 
 **Woran man sieht, welcher Weg es war.** Gedruckte und exportierte Unterlagen
@@ -379,6 +379,11 @@ Einsätze durchlaufen 7 Spalten: **Eingegangen** → **Reko** → **Reko abgesch
 | Im Einsatz | Aktive Arbeitsphase |
 | Beendet / Rückfahrt | Arbeit fertig, Trupp fährt zurück |
 | Abgeschlossen | Erledigt, Personal & Fahrzeuge automatisch freigegeben. Die Spalte lässt sich einklappen. |
+
+**Beendet / Rückfahrt oder Abgeschlossen?**
+
+- **Beendet / Rückfahrt** – Die Arbeiten am Schadenplatz sind beendet. Mannschaft und Fahrzeuge befinden sich auf der Rückfahrt oder sind noch nicht vollständig zurück. Material kann weiterhin am Schadenplatz stehen.
+- **Abgeschlossen** – Der Einsatz ist vollständig erledigt. Mannschaft und Fahrzeuge sind wieder verfügbar. Beim Material ist geklärt, was ins Magazin zurückgekehrt, verbraucht oder vor Ort geblieben ist. Der Rapport ist eingegangen oder sein Fehlen wurde bewusst geprüft.
 
 Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **Ereignis** als Ganzes (`G E`).
 
@@ -563,7 +568,7 @@ erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
 ## Übungsmodus & Demo
 
-Ereignisse können als **Training** markiert werden (Badge „Übung"). Übungsdaten werden separat geführt und vermischen sich nicht mit echten Einsätzen.
+Ereignisse können als **Übung** markiert werden (Badge «Übung»). Übungsdaten werden separat geführt und vermischen sich nicht mit echten Einsätzen.
 
 ### Übungs-Steuerung
 
@@ -600,9 +605,9 @@ Für Personen ohne Login: Footer → "Viewer" generiert einen Link mit 24h Gült
 
 > **Wer den Link hat, sieht das.** Bewusst **nicht** enthalten: das Feld «Weitere Bemerkungen» (freier Text, in dem regelmässig Anwohner namentlich vorkommen), **wer** den Bericht erfasst hat, und die Fotos eines noch nicht eingereichten Entwurfs. Fotos aus dem Schadenplatz-Rapport bleiben ebenfalls hinter der Anmeldung. Der Link gilt für **ein** Ereignis: ein weitergegebener Link öffnet nichts aus einem anderen. Entsprechend überlegt weitergeben.
 
-### Alarm-Link (Telefon / Walk-in)
+### Alarm-Link (Telefon / Laufkundschaft)
 
-Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis des restlichen Systems – z. B. jemand am Telefon oder am Schalter (Walk-in).
+Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis des restlichen Systems – z. B. jemand am Telefon oder am Schalter (Laufkundschaft).
 
 **Erstellen:** Toolbar → "Alarm" (Sirenen-Symbol) generiert einen Link bzw. QR-Code, der pro Ereignis **30 Tage** gültig ist. Einmal generieren, beim Telefon-Arbeitsplatz aufhängen oder als Lesezeichen speichern.
 

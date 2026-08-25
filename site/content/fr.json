@@ -93,7 +93,7 @@
         "time": "21:19",
         "tag": "Engagement",
         "h3": "Effectif et véhicules sont attribués.",
-        "p": "Personnel, véhicules et matériel se glissent sur l’intervention. Le système aide la direction\n            d’intervention à repérer et à rendre visibles les doubles affectations, les ressources\n            manquantes ou les contradictions. Qui arrive s’annonce lui-même par code QR."
+        "p": "Personnel, véhicules et matériel se glissent sur l’intervention. KP Rück détecte les\n            doubles affectations et les ressources manquantes. La direction d’intervention décide :\n            réaffecter, compléter ou engager sciemment malgré tout. Qui arrive s’annonce lui-même par code QR."
       },
       {
         "time": "21:26",
@@ -165,7 +165,7 @@
       {
         "alt": "Missions : plusieurs interventions regroupées en une tournée",
         "title": "Missions",
-        "sub": "Plusieurs interventions comme une seule tournée – avec l’effectif, les moyens et un ordre que le tableau optimise selon la distance"
+        "sub": "Regrouper plusieurs interventions en une mission : l’effectif et les moyens restent liés à la mission et roulent d’arrêt en arrêt dans l’ordre fixé ou optimisé"
       },
       {
         "alt": "Commande d’exercice : générer des interventions isolées ou ciblées, automatisme et simulation de terrain",
