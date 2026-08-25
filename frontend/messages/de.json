@@ -778,7 +778,7 @@
       "routenEditor": "Routen-Editor",
       "stopsCount": "Zugewiesene Einsätze ({count})",
       "deleteTitle": "Auftrag löschen?",
-      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird entfernt.",
+      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird gelöscht.",
       "deleteConfirm": "Löschen",
       "map": "Karte",
       "dragStop": "Stopp verschieben",
@@ -2285,7 +2285,7 @@
       "chooseFile": "Datei wählen",
       "denseHint": "ziehen, einfügen oder Datei wählen",
       "photoNumber": "Foto {number}",
-      "removePhoto": "Foto {number} entfernen"
+      "removePhoto": "Foto {number} verwerfen"
     },
     "form": {
       "arrivalError": "Ankunft melden fehlgeschlagen",
