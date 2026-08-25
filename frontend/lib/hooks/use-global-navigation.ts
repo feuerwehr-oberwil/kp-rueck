@@ -1,20 +1,29 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { usePathname, useRouter } from "next/navigation"
+
+import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 
 /**
- * Global g-prefix keyboard navigation (g+k → kanban, g+m → map, g+e → events).
- * Mount this on any page to enable cross-page navigation shortcuts.
+ * Mount-and-forget g-prefix navigation (G B → Board, G M → Karte, G E →
+ * Ereignisse, G S → Einstellungen, G H → Hilfe) for pages that have no keydown
+ * handler of their own — training, divera-pool, settings, help, events.
+ *
+ * The state machine lives in {@link useGPrefixNavigation}; this only owns the
+ * listener and the guard about when a keystroke is ours to read. A page that
+ * already runs its own keydown handler should call the primitive directly
+ * instead, so the guards stay in one place per page (see /map and
+ * use-kanban-shortcuts).
  */
 export function useGlobalNavigation() {
   const router = useRouter()
-  const [gPrefixActive, setGPrefixActive] = useState(false)
-  const gPrefixTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pathname = usePathname()
+  const gPrefix = useGPrefixNavigation(router, pathname)
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignore if typing in input/textarea or inside a dialog/modal
+      // Not ours while the user is typing or an overlay owns the keyboard.
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -23,61 +32,19 @@ export function useGlobalNavigation() {
         return
       }
 
-      // Esc cancels g-prefix mode
-      if (e.key === 'Escape' && gPrefixActive) {
-        setGPrefixActive(false)
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-          gPrefixTimeoutRef.current = null
-        }
+      if (e.key === "Escape") {
+        gPrefix.cancel()
         return
       }
 
-      // Handle g-prefix navigation
-      if (gPrefixActive) {
-        e.preventDefault()
-        setGPrefixActive(false)
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-          gPrefixTimeoutRef.current = null
-        }
+      // A bare modifier chord is the browser's (⌘K, ctrl+G); only the plain key
+      // arms or completes the prefix.
+      if (e.metaKey || e.ctrlKey || e.altKey) return
 
-        if (e.key === 'b' || e.key === 'B') {
-          router.push('/')
-        } else if (e.key === 'm' || e.key === 'M') {
-          router.push('/map')
-        } else if (e.key === 'e' || e.key === 'E') {
-          router.push('/events')
-        } else if (e.key === 's' || e.key === 'S') {
-          router.push('/settings')
-        } else if (e.key === 'h' || e.key === 'H') {
-          router.push('/help')
-        }
-        return
-      }
-
-      // Activate g-prefix mode
-      if ((e.key === 'g' || e.key === 'G') && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        setGPrefixActive(true)
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-        }
-        gPrefixTimeoutRef.current = setTimeout(() => {
-          setGPrefixActive(false)
-          gPrefixTimeoutRef.current = null
-        }, 1500)
-        return
-      }
+      gPrefix.handleKey(e)
     }
 
-    window.addEventListener('keydown', handleKeyPress)
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress)
-      if (gPrefixTimeoutRef.current) {
-        clearTimeout(gPrefixTimeoutRef.current)
-      }
-    }
-  }, [gPrefixActive, router])
-
-  return { gPrefixActive, setGPrefixActive, gPrefixTimeoutRef }
+    window.addEventListener("keydown", handleKeyPress)
+    return () => window.removeEventListener("keydown", handleKeyPress)
+  }, [gPrefix])
 }

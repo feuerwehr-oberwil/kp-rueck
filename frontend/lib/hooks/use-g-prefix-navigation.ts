@@ -9,11 +9,12 @@ export interface GPrefixRouter {
 const PREFIX_TIMEOUT_MS = 1500
 
 /**
- * Maps the second-key after `g` to a destination path.
- * `null` means "consume the prefix but stay" (e.g. G B when already on the Board).
+ * Maps the second key after `g` to its destination path. Every entry is a real
+ * path — "already here" is not baked in, it falls out of comparing the target
+ * against the caller's `currentPath`, which is why one table serves every page.
  */
-const G_PREFIX_TARGETS: Record<string, string | null> = {
-  b: null, // Board — already here
+export const G_PREFIX_TARGETS: Record<string, string> = {
+  b: "/", // Board
   m: "/map",
   e: "/events",
   s: "/settings",
@@ -36,11 +37,16 @@ export interface UseGPrefixNavigation {
 /**
  * Vim-style "G then X" navigation state machine.
  *
- *   G B → already on the Board (no nav)
+ *   G B → the Board (/)
  *   G M → /map
  *   G E → /events
  *   G S → /settings
  *   G H → /help
+ *
+ * This is the ONE implementation. Pages that own a keydown handler drive it
+ * through `handleKey`/`cancel` (the Board via use-kanban-shortcuts, /map inline);
+ * pages that just want the shortcuts mount `useGlobalNavigation`, which wraps
+ * this and supplies `currentPath` from the router.
  *
  * The first `G` arms the prefix for 1.5s. Any matching second key navigates
  * and clears it; any other key clears it without navigating. Escape also
@@ -48,6 +54,10 @@ export interface UseGPrefixNavigation {
  */
 export function useGPrefixNavigation(
   router: GPrefixRouter,
+  /** The page this hook is mounted on. Its own key consumes the prefix without
+   *  navigating — `G B` on the Board should not push a route. Omit it and every
+   *  key navigates, which is correct for a page that is not in the table. */
+  currentPath?: string,
 ): UseGPrefixNavigation {
   const [isActive, setIsActive] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -83,7 +93,7 @@ export function useGPrefixNavigation(
         setIsActive(false)
         clearTimer()
         const target = G_PREFIX_TARGETS[event.key.toLowerCase()]
-        if (target) router.push(target)
+        if (target && target !== currentPath) router.push(target)
         return true
       }
       // First press: arm prefix
@@ -94,7 +104,7 @@ export function useGPrefixNavigation(
       }
       return false
     },
-    [isActive, activate, clearTimer, router],
+    [isActive, activate, clearTimer, router, currentPath],
   )
 
   // Belt-and-suspenders cleanup if the component unmounts mid-prefix.

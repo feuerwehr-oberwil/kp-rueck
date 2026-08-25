@@ -14,6 +14,8 @@ import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
+
+import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
@@ -126,6 +128,7 @@ export default function MapPage() {
   } = useGroups()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const gPrefix = useGPrefixNavigation(router, '/map')
   const highlightParam = searchParams.get("highlight")
   const isMobile = useIsMobile()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
@@ -225,8 +228,6 @@ export default function MapPage() {
   }
   const [focusVehicleName, setFocusVehicleName] = useState<string | null>(null)
   const [focusVehicleTrigger, setFocusVehicleTrigger] = useState(0)
-  const [gPrefixActive, setGPrefixActive] = useState(false)
-  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -830,14 +831,7 @@ export default function MapPage() {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Esc to blur input or cancel g-prefix mode
       if (e.key === 'Escape') {
-        if (gPrefixActive) {
-          setGPrefixActive(false)
-          if (gPrefixTimeoutRef.current) {
-            clearTimeout(gPrefixTimeoutRef.current)
-            gPrefixTimeoutRef.current = null
-          }
-          return
-        }
+        if (gPrefix.cancel()) return
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
           (e.target as HTMLElement).blur()
           return
@@ -852,48 +846,10 @@ export default function MapPage() {
       if (isTypingTarget(e.target)) return
       if (isOverlayOpen()) return
 
-      // Handle g-prefix navigation
-      if (gPrefixActive) {
-        e.preventDefault()
-        setGPrefixActive(false)
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-          gPrefixTimeoutRef.current = null
-        }
-
-        if (e.key === 'b' || e.key === 'B') {
-          router.push('/')
-          return
-        } else if (e.key === 'm' || e.key === 'M') {
-          // Already on Map, do nothing
-          return
-        } else if (e.key === 'e' || e.key === 'E') {
-          router.push('/events')
-          return
-        } else if (e.key === 's' || e.key === 'S') {
-          router.push('/settings')
-          return
-        } else if (e.key === 'h' || e.key === 'H') {
-          router.push('/help')
-          return
-        }
-        return
-      }
-
-      // Activate g-prefix mode
-      if (e.key === 'g' || e.key === 'G') {
-        e.preventDefault()
-        setGPrefixActive(true)
-        // Reset g-prefix mode after 1.5 seconds
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-        }
-        gPrefixTimeoutRef.current = setTimeout(() => {
-          setGPrefixActive(false)
-          gPrefixTimeoutRef.current = null
-        }, 1500)
-        return
-      }
+      // g-prefix navigation. Must sit BEFORE the single-letter shortcuts below:
+      // `s` alone focuses the search, `G S` opens the settings, and only the hook
+      // knows which of the two a keystroke is.
+      if (gPrefix.handleKey(e)) return
 
       // '/' or 'S' key to focus search (S for Suche - Swiss-German keyboard friendly)
       if (e.key === '/' || ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey)) {
@@ -963,14 +919,9 @@ export default function MapPage() {
     }
 
     window.addEventListener('keydown', handleKeyPress)
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress)
-      // Clean up timeout on unmount
-      if (gPrefixTimeoutRef.current) {
-        clearTimeout(gPrefixTimeoutRef.current)
-      }
-    }
-  }, [gPrefixActive, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes, gpsAvailable, setColorByPersisted])
+    // (the prefix timer is the hook's to clear)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes, gpsAvailable, setColorByPersisted])
 
   return (
     <ProtectedRoute>

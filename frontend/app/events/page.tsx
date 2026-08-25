@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
+
+import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
 import { apiClient } from '@/lib/api-client'
@@ -118,6 +120,7 @@ export default function EventsPage() {
   // The board's own «Übung» wording, so one drill is not called two things.
   const tTraining = useTranslations('kanban')
   const router = useRouter()
+  useGlobalNavigation()
   const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
   const isMobile = useIsMobile()
@@ -144,8 +147,6 @@ export default function EventsPage() {
   const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
   const [auditLoadingId, setAuditLoadingId] = useState<string | null>(null)
   const [einsaetzeLoadingId, setEinsaetzeLoadingId] = useState<string | null>(null)
-  const [gPrefixActive, setGPrefixActive] = useState(false)
-  const gPrefixTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // One fetch for the whole page: every event card's Restliste asks the same
   // question (may I offer the Abholliste?), and the answer is a station setting.
   const [printerEnabled, setPrinterEnabled] = useState(false)
@@ -395,83 +396,18 @@ export default function EventsPage() {
     }
   }
 
-  // Keyboard shortcuts
+  // Esc leaves a field – the g-prefix shortcuts themselves live in
+  // useGlobalNavigation (one state machine, see use-g-prefix-navigation).
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Esc to blur input or cancel g-prefix mode
-      if (e.key === 'Escape') {
-        if (gPrefixActive) {
-          setGPrefixActive(false)
-          if (gPrefixTimeoutRef.current) {
-            clearTimeout(gPrefixTimeoutRef.current)
-            gPrefixTimeoutRef.current = null
-          }
-          return
-        }
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-          (e.target as HTMLElement).blur()
-          return
-        }
-      }
-
-      // Ignore if typing in input
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
-
-      // Handle g-prefix navigation
-      if (gPrefixActive) {
-        e.preventDefault()
-        setGPrefixActive(false)
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-          gPrefixTimeoutRef.current = null
-        }
-
-        if (e.key === 'b' || e.key === 'B') {
-          router.push('/')
-          return
-        } else if (e.key === 'm' || e.key === 'M') {
-          router.push('/map')
-          return
-        } else if (e.key === 'e' || e.key === 'E') {
-          // Already on Events, do nothing
-          return
-        } else if (e.key === 's' || e.key === 'S') {
-          router.push('/settings')
-          return
-        } else if (e.key === 'h' || e.key === 'H') {
-          router.push('/help')
-          return
-        }
-        return
-      }
-
-      // Activate g-prefix mode
-      if (e.key === 'g' || e.key === 'G') {
-        e.preventDefault()
-        setGPrefixActive(true)
-        // Reset g-prefix mode after 1.5 seconds
-        if (gPrefixTimeoutRef.current) {
-          clearTimeout(gPrefixTimeoutRef.current)
-        }
-        gPrefixTimeoutRef.current = setTimeout(() => {
-          setGPrefixActive(false)
-          gPrefixTimeoutRef.current = null
-        }, 1500)
-        return
+        (e.target as HTMLElement).blur()
       }
     }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress)
-      // Clean up timeout on unmount
-      if (gPrefixTimeoutRef.current) {
-        clearTimeout(gPrefixTimeoutRef.current)
-      }
-    }
-  }, [gPrefixActive, router])
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [])
 
   // Auto-open create dialog when action=create query param is present
   useEffect(() => {
