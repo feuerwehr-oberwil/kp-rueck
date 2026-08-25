@@ -96,7 +96,7 @@
         "time": "21:19",
         "tag": "Disposition",
         "h3": "Mannschaft und Fahrzeuge sind zugeteilt.",
-        "p": "Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz. Das System\n            unterstützt die Einsatzleitung dabei, Doppelbelegungen, fehlende Ressourcen oder\n            Widersprüche zu erkennen und sichtbar zu machen. Wer eintrifft, meldet sich per QR-Code\n            selbst an."
+        "p": "Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz. KP Rück erkennt\n            Doppelbelegungen und fehlende Ressourcen. Die Einsatzleitung entscheidet: umteilen,\n            ergänzen oder bewusst trotzdem disponieren. Wer eintrifft, meldet sich per QR-Code\n            selbst an."
       },
       {
         "time": "21:26",
@@ -191,7 +191,7 @@
         "h": 937,
         "alt": "Aufträge: mehrere Einsätze zu einer Route gebündelt",
         "title": "Aufträge",
-        "sub": "Mehrere Einsätze als eine Route – mit Mannschaft, Mitteln und einer Reihenfolge, die das Board nach Distanz optimiert"
+        "sub": "Mehrere Einsätze als Auftrag bündeln: Mannschaft und Mittel bleiben beim Auftrag und fahren in der festgelegten oder optimierten Reihenfolge von Stopp zu Stopp"
       },
       {
         "file": "training.webp",
