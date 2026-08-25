@@ -42,7 +42,7 @@ export function useGlobalNavigation() {
           gPrefixTimeoutRef.current = null
         }
 
-        if (e.key === 'k' || e.key === 'K') {
+        if (e.key === 'b' || e.key === 'B') {
           router.push('/')
         } else if (e.key === 'm' || e.key === 'M') {
           router.push('/map')

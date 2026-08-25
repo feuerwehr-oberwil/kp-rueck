@@ -104,7 +104,7 @@ describe("PersonnelSettings", () => {
     renderWithIntl(<PersonnelSettings />);
     await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
     await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");
@@ -126,7 +126,7 @@ describe("PersonnelSettings", () => {
     renderWithIntl(<PersonnelSettings />);
     await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Halffilled");
     await user.click(within(dialog).getByRole("button", { name: /Abbrechen/i }));
@@ -140,7 +140,7 @@ describe("PersonnelSettings", () => {
     renderWithIntl(<PersonnelSettings />);
     await waitFor(() => expect(getAllPersonnel).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Personal hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Person erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Müller Stefan");
     await user.type(within(dialog).getByLabelText(/Rolle/i), "Offizier");

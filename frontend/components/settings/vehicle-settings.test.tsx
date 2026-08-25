@@ -72,7 +72,7 @@ describe("VehicleSettings", () => {
 
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Fahrzeug erstellen/i }));
 
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Pio");
@@ -95,7 +95,7 @@ describe("VehicleSettings", () => {
     renderWithIntl(<VehicleSettings />);
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Fahrzeug erstellen/i }));
 
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/Funkrufname/i), "Omega 1");
@@ -110,7 +110,7 @@ describe("VehicleSettings", () => {
     renderWithIntl(<VehicleSettings />);
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Fahrzeug erstellen/i }));
 
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Halffilled");
@@ -128,14 +128,14 @@ describe("VehicleSettings", () => {
     renderWithIntl(<VehicleSettings />);
     await waitFor(() => expect(getVehicles).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Fahrzeug hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Fahrzeug erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Boom");
     await user.type(within(dialog).getByLabelText(/Funkrufname/i), "Omega 9");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
     await waitFor(() => expect(toastError).toHaveBeenCalled());
-    expect(toastError.mock.calls[0]?.[0]).toMatch(/Fehler beim Speichern/i);
+    expect(toastError.mock.calls[0]?.[0]).toMatch(/Fahrzeug speichern fehlgeschlagen/i);
     // Dialog should remain open after failure so the operator can retry
     expect(screen.queryByRole("dialog")).toBeInTheDocument();
   });

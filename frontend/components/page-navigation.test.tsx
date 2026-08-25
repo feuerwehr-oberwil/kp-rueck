@@ -38,9 +38,9 @@ describe("PageNavigation", () => {
     renderNav({ currentPage: "kanban" })
 
     // Nothing navigates back to the page we are already on.
-    expect(within(nav()).queryByRole("link", { name: "Kanban Board" })).toBeNull()
+    expect(within(nav()).queryByRole("link", { name: "Board" })).toBeNull()
 
-    const current = within(nav()).getByRole("button", { name: "Kanban Board" })
+    const current = within(nav()).getByRole("button", { name: "Board" })
     expect(current).toBeDisabled()
     expect(current).toHaveAttribute("aria-current", "page")
 

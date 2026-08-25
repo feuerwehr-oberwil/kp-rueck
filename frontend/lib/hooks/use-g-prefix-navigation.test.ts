@@ -59,13 +59,13 @@ describe("useGPrefixNavigation", () => {
     expect(result.current.isActive).toBe(false);
   });
 
-  it("'G K' clears the prefix without navigating (already on Kanban)", () => {
+  it("'G B' clears the prefix without navigating (already on the Board)", () => {
     const { result } = renderHook(() => useGPrefixNavigation({ push }));
     act(() => {
       result.current.handleKey(makeEvent("g"));
     });
     act(() => {
-      result.current.handleKey(makeEvent("k"));
+      result.current.handleKey(makeEvent("b"));
     });
     expect(push).not.toHaveBeenCalled();
     expect(result.current.isActive).toBe(false);

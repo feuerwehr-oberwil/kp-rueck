@@ -10,10 +10,10 @@ const PREFIX_TIMEOUT_MS = 1500
 
 /**
  * Maps the second-key after `g` to a destination path.
- * `null` means "consume the prefix but stay" (e.g. G K when already on Kanban).
+ * `null` means "consume the prefix but stay" (e.g. G B when already on the Board).
  */
 const G_PREFIX_TARGETS: Record<string, string | null> = {
-  k: null, // Kanban — already here
+  b: null, // Board — already here
   m: "/map",
   e: "/events",
   s: "/settings",
@@ -36,7 +36,7 @@ export interface UseGPrefixNavigation {
 /**
  * Vim-style "G then X" navigation state machine.
  *
- *   G K → already on Kanban (no nav)
+ *   G B → already on the Board (no nav)
  *   G M → /map
  *   G E → /events
  *   G S → /settings

@@ -861,7 +861,7 @@ export default function MapPage() {
           gPrefixTimeoutRef.current = null
         }
 
-        if (e.key === 'k' || e.key === 'K') {
+        if (e.key === 'b' || e.key === 'B') {
           router.push('/')
           return
         } else if (e.key === 'm' || e.key === 'M') {
