@@ -85,7 +85,7 @@ describe("useRekoLinkActions", () => {
       await result.current.copyDashboardLink();
     });
 
-    expect(toastError).toHaveBeenCalledWith("Kein Event ausgewählt");
+    expect(toastError).toHaveBeenCalledWith("Kein Ereignis ausgewählt");
     expect(generateFeldLink).not.toHaveBeenCalled();
   });
 
@@ -114,7 +114,7 @@ describe("useRekoLinkActions", () => {
       await result.current.copyDirectLink();
     });
 
-    expect(toastError).toHaveBeenCalledWith("Fehler beim Kopieren");
+    expect(toastError).toHaveBeenCalledWith("Kopieren fehlgeschlagen");
     await waitFor(() => expect(result.current.isCopying).toBe(false));
   });
 });

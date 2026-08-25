@@ -244,7 +244,7 @@ describe("OperationDetailContent", () => {
     const transfer = screen.getByRole("button", { name: "Alle offenen Rekos übertragen" })
     expect(transfer).toHaveAttribute(
       "title",
-      "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Event, nicht nur diesen Einsatz.",
+      "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
     )
     await user.click(transfer)
     expect(screen.getByText("Event-Rekos von Reko Eins")).toBeInTheDocument()

@@ -250,7 +250,7 @@ describe('AlarmPage', () => {
     await sendAlarm(user, 'Baum auf der Fahrbahn')
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-    expect(screen.getByText('Status wird abgefragt...')).toBeInTheDocument()
+    expect(screen.getByText('Status wird abgefragt …')).toBeInTheDocument()
     // No correction offer while nothing is known about the alarm's state.
     expect(screen.getAllByRole('button')).toHaveLength(1)
   })

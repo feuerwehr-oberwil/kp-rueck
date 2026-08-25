@@ -80,7 +80,7 @@ describe("MaterialSettings", () => {
     renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Material erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Tauchpumpe");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
@@ -100,7 +100,7 @@ describe("MaterialSettings", () => {
     renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Material erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /Erstellen/i }));
 
@@ -113,7 +113,7 @@ describe("MaterialSettings", () => {
     renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Material erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Halffilled");
     await user.click(within(dialog).getByRole("button", { name: /Abbrechen/i }));
@@ -127,7 +127,7 @@ describe("MaterialSettings", () => {
     renderWithIntl(<MaterialSettings />);
     await waitFor(() => expect(getAllMaterials).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /Material hinzufügen/i }));
+    await user.click(screen.getByRole("button", { name: /Material erstellen/i }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Name\s*\*?$/i), "Flatterband");
 

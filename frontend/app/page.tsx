@@ -1019,7 +1019,7 @@ export default function FireStationDashboard() {
     }).catch(() => {})
   }, [selectedEvent, personnel, checkInUrl, isLoading])
 
-  const gPrefix = useGPrefixNavigation(router)
+  const gPrefix = useGPrefixNavigation(router, '/')
   const cmdHint = useCommandPaletteHint()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null)

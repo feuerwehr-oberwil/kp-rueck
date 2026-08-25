@@ -173,7 +173,7 @@ test.describe('/feld: eine neue Meldung', () => {
     // address and only commits on Enter (freetext) or on picking a suggestion —
     // filling alone leaves the form empty, which is exactly what a crew sees if
     // they type and tap Melden. Enter is the freetext commit.
-    const field = page.getByPlaceholder('Adresse eingeben oder suchen...');
+    const field = page.getByPlaceholder('Adresse eingeben oder suchen …');
     await field.fill(address);
     await field.press('Enter');
     await takeOverSwitch(page).click();

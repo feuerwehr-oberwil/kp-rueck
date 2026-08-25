@@ -519,7 +519,7 @@ describe("useKanbanShortcuts", () => {
       );
       renderHook(() => useKanbanShortcuts(baseState(), actions));
       press("r");
-      expect(toastLoading).toHaveBeenCalledWith("Aktualisiere...");
+      expect(toastLoading).toHaveBeenCalledWith("Wird aktualisiert …");
       expect(actions.onRefresh).toHaveBeenCalled();
       await new Promise<void>((res) => {
         resolveRefresh();

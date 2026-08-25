@@ -59,16 +59,50 @@ describe("useGPrefixNavigation", () => {
     expect(result.current.isActive).toBe(false);
   });
 
-  it("'G K' clears the prefix without navigating (already on Kanban)", () => {
+  it("'G B' clears the prefix without navigating (already on the Board)", () => {
+    const { result } = renderHook(() => useGPrefixNavigation({ push }, "/"));
+    act(() => {
+      result.current.handleKey(makeEvent("g"));
+    });
+    act(() => {
+      result.current.handleKey(makeEvent("b"));
+    });
+    expect(push).not.toHaveBeenCalled();
+    expect(result.current.isActive).toBe(false);
+  });
+
+  // The table holds real paths for every page; «already here» is a comparison
+  // against currentPath, not an entry hard-coded as null. That is what lets the
+  // same hook serve /map and /events instead of being copied per page.
+  it("the same key navigates or stays, depending on the page it is mounted on", () => {
+    const onMap = renderHook(() => useGPrefixNavigation({ push }, "/map"));
+    act(() => {
+      onMap.result.current.handleKey(makeEvent("g"));
+    });
+    act(() => {
+      onMap.result.current.handleKey(makeEvent("b"));
+    });
+    expect(push).toHaveBeenCalledWith("/");
+
+    push.mockClear();
+    act(() => {
+      onMap.result.current.handleKey(makeEvent("g"));
+    });
+    act(() => {
+      onMap.result.current.handleKey(makeEvent("m"));
+    });
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("without a currentPath every key navigates", () => {
     const { result } = renderHook(() => useGPrefixNavigation({ push }));
     act(() => {
       result.current.handleKey(makeEvent("g"));
     });
     act(() => {
-      result.current.handleKey(makeEvent("k"));
+      result.current.handleKey(makeEvent("b"));
     });
-    expect(push).not.toHaveBeenCalled();
-    expect(result.current.isActive).toBe(false);
+    expect(push).toHaveBeenCalledWith("/");
   });
 
   it("an unknown second key still clears the prefix", () => {

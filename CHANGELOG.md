@@ -128,6 +128,26 @@ will keep holding.
 
 ### Changed
 
+- **Ein Wort pro Sache – «Board», «Ereignis», «X fehlgeschlagen».** A consistency pass read every
+  German string in both KP apps – 3 245 here, 3 862 in KP Front – and the call sites behind them.
+  The main screen answered to four names («Board», «Kanban Board», «Kanban-Ansicht», «Zum Kanban»);
+  it is **Board**, and the navigation chord follows it: **G B** instead of G K. «Ereignis» is the
+  only word for an Ereignis – kanban and the user menu carried the same sentence in two languages,
+  «Kein Event ausgewählt» beside «Kein Ereignis ausgewählt». Errors read «X fehlgeschlagen», which
+  was a 48:46 split running down the middle of a single settings page. Progress is passive («wird
+  geladen …»), so the sync badge no longer reads «Synchronisiert» while it is still working – which
+  is what it says when it is done. Ellipses are «…» with a space, Check-in loses its capital I and
+  gains its hyphens. **Personal** stays the Stamm and **Mannschaft** the people on this Einsatz –
+  KP Front had those two swapped and moved to this reading. A new record is «erstellt», a list entry
+  «hinzugefügt»: Material, Person and Fahrzeug now say what Gruppe already said. French follows the
+  same rules – it had kept the «Erreur lors de …» / «Échec …» split the German just lost.
+
+- **Die G-Navigation gibt es noch einmal, nicht viermal.** Changing G K to G B meant editing four
+  copies of the same vim-artige Zustandsmaschine. They are one hook now, with the page it sits on
+  passed in instead of «already here» baked into the table. No behaviour change beyond the key
+  itself – but the next shortcut change costs one line rather than four, and /events lost sixty
+  lines that were pure duplication.
+
 - **Die Übungssteuerung is laid out like the evening it runs.** Personal einchecken became its
   own card instead of an afterthought in the generator, the Automatik moved into the generator
   card it actually steers, and every Inject says in a sentence what it does to the board — an

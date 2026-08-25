@@ -141,6 +141,6 @@ describe("useWhatsAppCopy", () => {
     });
 
     await waitFor(() => expect(toastError).toHaveBeenCalled());
-    expect(toastError.mock.calls[0]?.[0]).toBe("Fehler beim Kopieren");
+    expect(toastError.mock.calls[0]?.[0]).toBe("Kopieren fehlgeschlagen");
   });
 });

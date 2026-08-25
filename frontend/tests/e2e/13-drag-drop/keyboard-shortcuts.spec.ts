@@ -90,7 +90,7 @@ test.describe('Command palette (live)', () => {
   test('Cmd+K opens the palette with shortcut hints, Esc closes it', async ({ authenticatedPage }) => {
     await authenticatedPage.keyboard.press('Meta+k');
 
-    const input = authenticatedPage.getByPlaceholder('Befehl suchen...');
+    const input = authenticatedPage.getByPlaceholder('Befehl suchen …');
     await expect(input).toBeVisible({ timeout: 3000 });
     // Shortcut hints are folded into the palette entries
     await expect(
@@ -108,7 +108,7 @@ test.describe('Command palette (live)', () => {
   // shortcuts-help dialog it was written against is gone, and the palette replaced it.
   test('? opens the command palette', async ({ authenticatedPage }) => {
     await authenticatedPage.keyboard.press('?');
-    await expect(authenticatedPage.getByPlaceholder('Befehl suchen...')).toBeVisible({
+    await expect(authenticatedPage.getByPlaceholder('Befehl suchen …')).toBeVisible({
       timeout: 3000,
     });
   });
@@ -120,7 +120,7 @@ test.describe('Command palette (live)', () => {
     await searchInput.click();
     await authenticatedPage.keyboard.press('?');
 
-    await expect(authenticatedPage.getByPlaceholder('Befehl suchen...')).toHaveCount(0);
+    await expect(authenticatedPage.getByPlaceholder('Befehl suchen …')).toHaveCount(0);
     await expect(searchInput).toHaveValue('?');
   });
 });

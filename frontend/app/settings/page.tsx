@@ -138,7 +138,7 @@ import {
 } from '@/components/settings/setting-row';
 import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
 import { IntegrationsSection } from './integrations-section';
-import { useTileAvailability } from './use-tile-availability';
+import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
 import { BrandingSettings } from '@/components/settings/branding-settings';
 import { TelemetrySettings } from '@/components/settings/telemetry-settings';
 import { Skeleton } from '@/components/ui/skeleton';

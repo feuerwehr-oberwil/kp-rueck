@@ -112,7 +112,11 @@ export function NotificationCard({
   return (
     <div
       className={cn(
-        'rounded-lg border p-3 transition-all duration-200',
+        // No all-round `border`: it paints four grey sides, and the severity's
+        // `border-l-2` then recolours only the left — so at the rounded corners the
+        // grey hooked over the coloured stripe. The stripe is the whole signal; the
+        // background carries the rest.
+        'rounded-lg p-3 transition-all duration-200',
         styles.border,
         styles.bg,
         notification.dismissed && (compact ? 'opacity-50' : 'opacity-60'),

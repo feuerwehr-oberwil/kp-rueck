@@ -176,12 +176,12 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
     // Verify secondary items are present. "Statistiken" is gone from the list:
-    // `secondaryItems` is Einstellungen / Alarmeingang / Hilfe & Dokumentation.
+    // `secondaryItems` is Einstellungen / Alarmeingang / Hilfe.
     // Renamed: the entry is `nav.mobileBottomNav.diveraPool` = "Alarmeingang" (see
     // mobile-bottom-navigation.tsx). "Divera Notfälle" has not been rendered for a while.
     await expect(sheet.getByRole('button', { name: 'Einstellungen' })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Alarmeingang' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Hilfe & Dokumentation' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Hilfe' })).toBeVisible();
   });
 
   // Was "more sheet shows admin items for editors" and looked for an
@@ -200,7 +200,7 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
 
     await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
     // The link sheets were consolidated: the quick action is «Links & QR» now,
-    // not the old per-link «Check-In QR-Code» entry.
+    // not the old per-link «Check-in-QR-Code» entry.
     await expect(sheet.getByRole('button', { name: 'Links & QR' })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Fahrzeuge' })).toBeVisible();

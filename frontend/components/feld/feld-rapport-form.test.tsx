@@ -335,7 +335,7 @@ describe('the rapport is folded into blocks on /feld', () => {
     // the German catalogue carries them, next-intl renders the key path — the
     // patterns match either spelling on purpose, so this spec does not have to
     // be written twice.
-    expect(screen.getByRole('button', { name: /Personal/ })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: /Mannschaft/ })).toHaveTextContent(
       /1 Person|summary\.personnel/,
     )
     expect(screen.getByRole('button', { name: /Fahrzeuge/ })).toHaveTextContent(
@@ -386,7 +386,7 @@ describe('the crew count is reconciled against the board', () => {
     const load = vi.fn().mockResolvedValue(withCrew(false, 1))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await userEvent.click(await screen.findByRole('button', { name: /Personal/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Mannschaft/ }))
     expect(screen.getByText('vom Board: 1')).toBeVisible()
   })
 
@@ -394,7 +394,7 @@ describe('the crew count is reconciled against the board', () => {
     const load = vi.fn().mockResolvedValue(withCrew(true, 1))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await userEvent.click(await screen.findByRole('button', { name: /Personal/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Mannschaft/ }))
     expect(screen.queryByText(/vom Board/)).toBeNull()
   })
 })
