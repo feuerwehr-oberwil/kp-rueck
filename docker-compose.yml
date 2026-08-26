@@ -182,6 +182,9 @@ services:
       # frontend deliberately withholds it (publicBackendOrigin() in frontend/lib/env.ts) and
       # the socket stays on the app's own origin – where Caddy routes /socket.io to the backend.
       API_URL: http://backend:8000
+      # Runtime CARTO raster-basemap key. It is added to tile requests in the browser, but is
+      # neither committed nor baked into the shared frontend image.
+      CARTO_API_KEY: ${CARTO_API_KEY:-}
       NODE_ENV: production
     healthcheck:
       # 127.0.0.1, not localhost: Next binds IPv4 only (HOSTNAME=0.0.0.0) while `localhost`

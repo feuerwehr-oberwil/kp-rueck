@@ -53,6 +53,7 @@ The application will be available at `http://localhost:3000`
 ## Environment Variables
 
 - `NEXT_PUBLIC_API_URL` - Backend API URL (default: `http://localhost:8000`)
+- `CARTO_API_KEY` - Runtime browser key for CARTO Voyager and Dark Matter raster tiles
 
 ## Features
 
