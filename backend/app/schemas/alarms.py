@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # Slugs owned by built-in ingest paths; generic senders must pick their own.
 # "operator"/"intake" are incident sources (dashboard / public phone form),
@@ -94,3 +94,81 @@ class AlarmAck(BaseModel):
     created: bool
     emergency_id: UUID
     auto_attached_incident_id: UUID | None = None
+
+
+# --- FireHub (Tercero) adapter ------------------------------------------------------------
+# FireHub has no public REST API for our use case, but it fires a station-configured webhook
+# on the "Einsatzstart" and "Einsatzende" triggers. That is enough for the board: a start
+# becomes a pool alarm, an end is noted. The payload is a fixed nested shape (Tercero, confirmed
+# 2026-08), mapped onto the provider-neutral AlarmIn below. See docs/ALARM-INTEGRATIONS.md.
+
+
+class FireHubOperation(BaseModel):
+    """The ``operation`` object of a FireHub webhook.
+
+    Field names mirror FireHub's camelCase JSON via aliases. ``extra="ignore"`` so fields
+    FireHub may add later never break intake before we map them.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    # opsID is FireHub's stable operation identifier — it never changes, so it is our
+    # idempotency and start↔end linking key. opsNumber is only a human-facing reference and
+    # CAN change (Tercero confirmed: operations merged, or past ones backfilled), so it must
+    # never be used to identify or dedupe — only displayed.
+    ops_id: int = Field(alias="opsID")
+    ops_number: int | None = Field(default=None, alias="opsNumber")
+    category: str | None = None
+    title: str = Field(min_length=1, max_length=255)
+    street: str | None = None
+    # Tercero is adding `city` so `street` alone isn't ambiguous across multi-Gemeinde
+    # brigades; combined with street it makes the address reliably geocodable. Optional
+    # because it ships slightly after this adapter and older payloads omit it.
+    city: str | None = None
+    created: datetime | None = None
+    # FireHub sends no coordinates (only street + city). Declared optional so the day Tercero
+    # adds them they flow straight through; until then they stay None and street+city is
+    # geocoded downstream (or the pin is left unplaced).
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class FireHubTrigger(BaseModel):
+    """The ``trigger`` object: which lifecycle event fired the webhook (``start``/``end``)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    type: str | None = None
+    action: str = Field(min_length=1)
+    tech_name: str | None = Field(default=None, alias="techName")
+
+
+class FireHubWebhook(BaseModel):
+    """A FireHub Einsatzstart/Einsatzende webhook payload (``POST /api/firehub/webhook``)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    operation: FireHubOperation
+    status: str | None = None
+    trigger: FireHubTrigger
+
+    def to_alarm(self) -> "AlarmIn":
+        """Map onto the provider-neutral alarm the intake pipeline consumes.
+
+        ``category`` ("firealarm") is deliberately not carried into ``text`` or ``type``: it
+        is an English slug, and the German title ("Oberwil: Feueralarm") already carries the
+        keyword our type inference reads. Keeping it out avoids showing a stray English word
+        in the pool.
+        """
+        op = self.operation
+        address = ", ".join(part for part in (op.street, op.city) if part) or None
+        return AlarmIn(
+            source="firehub",
+            source_id=str(op.ops_id),
+            title=op.title,
+            address=address,
+            lat=op.lat,
+            lng=op.lng,
+            number=str(op.ops_number) if op.ops_number is not None else None,
+            started_at=op.created,
+        )

@@ -87,7 +87,7 @@
         "time": "21:14",
         "tag": "Allarme in arrivo",
         "h3": "Arrivano le segnalazioni.",
-        "p": "Dal modulo di segnalazione, per telefono o tramite l’interfaccia aperta del sistema di allertamento (per esempio Divera). L’ufficiale di picchetto la prende in carico con un clic – la segnalazione diventa un intervento sul tavolo."
+        "p": "Dal modulo di segnalazione, per telefono o tramite l’interfaccia aperta del sistema di allertamento (per esempio Divera o FireHub). L’ufficiale di picchetto la prende in carico con un clic – la segnalazione diventa un intervento sul tavolo."
       },
       {
         "time": "21:19",
@@ -229,7 +229,7 @@
         "h3": "Allarmi &amp; segnalazioni",
         "items": [
           "<strong>Interfaccia aperta</strong> – qualsiasi sistema di disposizione può aprire interventi",
-          "Può riprendere gli allarmi da Divera <span class=\"opt\">facoltativo</span>",
+          "Può riprendere gli allarmi da Divera o FireHub <span class=\"opt\">facoltativo</span>",
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
           "Gli arrivi finiscono nel serbatoio, presa in carico con un clic",
           "Allertamento della squadra direttamente dal tavolo <span class=\"opt\">facoltativo</span>",

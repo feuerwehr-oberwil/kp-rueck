@@ -30,6 +30,18 @@ will keep holding.
 
 ### Added
 
+- **FireHub (Tercero) alarms, without a second integration to learn.** A station on FireHub
+  points its «Einsatzstart»/«Einsatzende» webhooks at `POST /api/firehub/webhook` and gets the
+  same board every other intake path gives: a start lands the alarm in the pool and auto-attaches
+  it to the active Ereignis; an end is **noted in the Einsatztagebuch** (audit log) and never
+  moves the card — closing a Schadenplatz, and releasing its personnel and vehicles, stays the
+  operator's decision. It is a payload adapter over the existing provider-neutral intake, not a
+  new pipeline: no server-side key, no DB migration, deduped on the **stable `opsID`** (never the
+  volatile `opsNumber`), authenticated with the same `alarm_webhook_secret` as the generic
+  webhook — passed as `?secret=…` in the URL, because FireHub's schema and headers are fixed. The
+  address is composed from `street` + `city`; FireHub sends no coordinates yet, so the pin is
+  geocoded. Listed as a discoverable dispatch-system choice in the capability registry
+  (`GET /api/integrations`). See `docs/ALARM-INTEGRATIONS.md`.
 - **The field surface is one door for everyone in the field** (plan 26). `/feld` used to show a
   person only the Schadenplätze they were personally assigned to. That rule could not see the
   people it most needed to: a **driver** holds no assignment row at all — the *vehicle* is
