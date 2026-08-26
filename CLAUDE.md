@@ -233,11 +233,14 @@ API_V1_PREFIX=/api
 **Frontend** (`.env.local`):
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
+CARTO_API_KEY=<CARTO browser API key>
 ```
 
 `NEXT_PUBLIC_*` is inlined at BUILD time, so it is a development convenience only – published
 images are built without it. At runtime the server-side proxy route reads `API_URL`, and the
 browser falls back to same-origin paths (`/backend-api`, `/tiles`); see `frontend/lib/env.ts`.
+A runtime `CARTO_API_KEY` is handed to the browser so CARTO raster requests can include their
+required `?key=` query parameter; it is never baked into the shared image.
 A deployment `.env` for the compose stack is documented in `.env.example` / `docs/DEPLOYMENT.md`.
 
 ## Deployment

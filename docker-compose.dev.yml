@@ -106,6 +106,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       # Server-side API URL (for Next.js server)
       INTERNAL_API_URL: http://backend:8000
+      CARTO_API_KEY: ${CARTO_API_KEY:-}
     depends_on:
       - backend
     healthcheck:
