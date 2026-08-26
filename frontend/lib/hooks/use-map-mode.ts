@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { getTileBaseUrl } from '@/lib/env';
+import { getTileBaseUrl, withCartoApiKey } from '@/lib/env';
 
 export type MapMode = 'auto' | 'online' | 'offline';
 export type EffectiveMode = 'online' | 'offline';
@@ -27,6 +27,7 @@ export type MapStyle = 'osm' | 'topo' | 'carto-light' | 'carto-dark';
 interface TileConfig {
   url: string;
   attribution: string;
+  carto?: boolean;
 }
 
 const TILE_STYLES: Record<MapStyle, TileConfig> = {
@@ -40,10 +41,12 @@ const TILE_STYLES: Record<MapStyle, TileConfig> = {
   },
   'carto-light': {
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+    carto: true,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   },
   'carto-dark': {
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    carto: true,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   },
 };
@@ -55,6 +58,12 @@ const offlineTile = (): TileConfig => ({
   url: `${getTileBaseUrl()}/styles/basic-preview/512/{z}/{x}/{y}.png`,
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (Offline)',
 });
+
+/** Resolve the configured online style, including CARTO's runtime browser key when required. */
+export function onlineTileUrl(style: MapStyle): string {
+  const config = TILE_STYLES[style] || TILE_STYLES.osm;
+  return config.carto ? withCartoApiKey(config.url) : config.url;
+}
 
 interface MapModeState {
   preferredMode: MapMode;
@@ -132,7 +141,7 @@ export function useMapMode() {
     if (state.effectiveMode === 'offline') {
       return offlineTile().url;
     }
-    return TILE_STYLES[state.mapStyle]?.url || TILE_STYLES.osm.url;
+    return onlineTileUrl(state.mapStyle);
   }, [state.effectiveMode, state.mapStyle]);
 
   const getAttribution = useCallback((): string => {

@@ -143,15 +143,18 @@ name the domains whatever you like, custom domains included.
 1. **New → GitHub Repo →** `kp-rueck`, Settings → **Root Directory**: `/frontend`.
    [`frontend/railway.json`](../frontend/railway.json) supplies the rest (`node server.js`).
 
-2. **Variables – one, usually:**
+2. **Variables:**
 
    ```
    API_URL=https://<your-backend-domain>
+   CARTO_API_KEY=<your CARTO browser API key>
    ```
 
    `API_URL` is read **at runtime**, both by the server-side `/backend-api` proxy route and by
    the page that tells the browser where to open its WebSocket (§1.1). It is the only frontend
-   variable a normal deployment needs.
+   variable every deployment needs for the API. `CARTO_API_KEY` is read at runtime too and is
+   appended as `?key=` to the Voyager and Dark Matter raster requests; keep it in Railway's
+   service variables, not in source or a `NEXT_PUBLIC_*` build argument.
 
    > [!WARNING]
    > **Do not set `NEXT_PUBLIC_API_URL`.** It is inlined at *build* time and makes the browser
@@ -237,6 +240,7 @@ never take the board down with it. Same variable and cadence in KP Front.
 | Variable | Value | Notes |
 |---|---|---|
 | `API_URL` | `https://<backend>` | Read at **runtime** – by the `/backend-api` proxy *and* as the WebSocket origin handed to the browser (§1.1). **Required** |
+| `CARTO_API_KEY` | CARTO browser API key | Read at **runtime** and added only to CARTO raster tile requests. Required when the station selects Voyager or Dark Matter |
 | `NEXT_PUBLIC_WS_URL` | `wss://<backend>` | Optional override, needed by almost nobody since `API_URL` supersedes it (§1.2). Inlined at build time – changing it needs a redeploy |
 | `PORT` | `3000` | Railway sets this automatically |
 

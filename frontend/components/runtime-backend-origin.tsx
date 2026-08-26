@@ -1,9 +1,9 @@
 'use client'
 
-import { setRuntimeBackendOrigin } from '@/lib/env'
+import { setRuntimeBackendOrigin, setRuntimeCartoApiKey } from '@/lib/env'
 
 /**
- * Carries the server's runtime `API_URL` into the browser bundle.
+ * Carries server-side runtime configuration into the browser bundle.
  *
  * The WebSocket cannot go through the `/backend-api` proxy route (API routes speak HTTP,
  * not socket upgrades), so on a split-origin deployment the browser has to name the backend
@@ -12,14 +12,22 @@ import { setRuntimeBackendOrigin } from '@/lib/env'
  * a custom domain lost every guess and fell back to same-origin, where nothing listens: no
  * socket, no error, five-second polling. This is the missing channel.
  *
- * A prop rather than a `NEXT_PUBLIC_*` variable on purpose: the value must stay per
- * deployment, and the root layout renders dynamically on every request (next-intl reads the
- * `NEXT_LOCALE` cookie), so `process.env.API_URL` here is genuinely read at request time.
+ * Props rather than `NEXT_PUBLIC_*` variables on purpose: the values must stay per deployment,
+ * and the root layout renders dynamically on every request (next-intl reads the `NEXT_LOCALE`
+ * cookie), so `process.env` here is genuinely read at request time. The CARTO key is public to
+ * the tile client by design, but must not be committed or baked into the shared image.
  *
  * Set during render, not in an effect: effects run after the whole tree has rendered, and
  * `OperationsProvider` opens the socket in one of them.
  */
-export function RuntimeBackendOrigin({ origin }: { origin: string | null }) {
+export function RuntimeBackendOrigin({
+  origin,
+  cartoApiKey,
+}: {
+  origin: string | null
+  cartoApiKey: string | null
+}) {
   setRuntimeBackendOrigin(origin)
+  setRuntimeCartoApiKey(cartoApiKey)
   return null
 }

@@ -66,7 +66,10 @@ export default async function RootLayout({
             per request. Null on a deployment that sits behind one origin (compose/Caddy) or
             names the backend only inside a container network; getWsUrl() then falls back to
             the behaviour it always had. */}
-        <RuntimeBackendOrigin origin={publicBackendOrigin(process.env.API_URL)} />
+        <RuntimeBackendOrigin
+          origin={publicBackendOrigin(process.env.API_URL)}
+          cartoApiKey={process.env.CARTO_API_KEY?.trim() || null}
+        />
         <TopLoadingBar />
         {/* Catches what escapes the React tree (rejected promises, listeners) and posts
             it to this station's OWN server log. Opt-in forwarding is a separate decision
