@@ -199,9 +199,54 @@ curl -X POST "https://<backend>/api/alarms" \
 |-----|----------|-------|
 | Generischer Webhook | `POST /api/alarms` | Jedes System (Leitstelle, Alamos, eigenes Skript, …) |
 | DIVERA-Adapter | `POST /api/divera/webhook` | Natives DIVERA-24/7-Payload-Format |
+| FireHub-Adapter | `POST /api/firehub/webhook` | Natives FireHub-Payload (Tercero), Trigger «Einsatzstart»/«Einsatzende» |
 | Telefon/Schalter | `/alarm?token=…` (Intake-Formular) | Manuelle Erfassung ohne Login |
 
-Alle drei Wege führen in denselben Pool und dieselbe Auto-Anhängen-Logik.
+Alle Wege führen in denselben Pool und dieselbe Auto-Anhängen-Logik.
+
+### FireHub (Tercero)
+
+FireHub bietet für unseren Bedarf **keine** öffentliche REST-Schnittstelle, aber
+**frei definierbare Webhooks** auf die Trigger «Einsatzstart» und «Einsatzende». Die Wehr
+zeigt diese beiden Webhooks auf `POST /api/firehub/webhook`; serverseitig ist nichts zu
+konfigurieren. Das JSON-Schema ist bei FireHub **fix** (nicht pro Webhook anpassbar), die
+Ziel-URL dagegen frei – deshalb läuft die Authentifizierung über den **`?secret=…`-Query-
+Parameter in der URL** (derselbe Alarm-Webhook-Secret wie oben; ein eigener Header ist bei
+fixem Schema nicht möglich).
+
+Gesendetes Payload (Tercero, bestätigt 2026-08):
+
+```json
+{
+  "operation": {
+    "opsID": 1,          // stabiler Identifier – ändert sich NIE → Idempotenz + start↔end-Verknüpfung
+    "opsNumber": 1,      // nur Anzeige-Referenz ("E-1"); KANN sich ändern (Zusammenlegung/Nachtrag)
+    "category": "firealarm",
+    "title": "Oberwil: Feueralarm",
+    "street": "Teststrasse 112",
+    "city": "Oberwil",   // von Tercero neu ergänzt, damit die Strasse allein nicht mehrdeutig ist
+    "created": "2026-08-24T18:25:07.000Z"
+  },
+  "status": "OK",
+  "trigger": { "type": "operation", "action": "start", "techName": "operation_start" }
+}
+```
+
+- **`action: "start"`** → Alarm landet im Pool (dedupliziert über `opsID`) und hängt sich –
+  wie ein DIVERA-Alarm – automatisch ans aktive Ereignis an. Die Adresse wird aus
+  `street` + `city` zusammengesetzt.
+- **`action: "end"`** → wird **nur vermerkt**, nicht ausgeführt: es entsteht ein Eintrag im
+  Audit-Log (Einsatztagebuch), verknüpft mit dem Einsatz, falls der Alarm aufs Brett
+  übernommen wurde. Der Kartenstatus wird **nicht** geändert – das Schliessen einer
+  Schadenplatz-Karte (samt Freigabe von Personal/Fahrzeugen) bleibt die Entscheidung der
+  operierenden Person. Eine Wehr, die den Vermerk nicht will, verdrahtet den
+  Einsatzende-Webhook schlicht nicht. Ein `end` ohne bekannten `start` ist ein No-op.
+  (KP Front, das den Einsatzrapport führt, nutzt denselben `end`, um die Endzeit im
+  Rapport zu stempeln – siehe dortiges `ALARM-INTEGRATIONS.md`.)
+- **Grenzen heute:** FireHub sendet `street` + `city`, aber **keine Koordinaten** – der
+  Kartenpin wird also aus der Adresse geocodiert (Felder `lat`/`lng` sind bereits vorgesehen,
+  falls Tercero sie nachliefert). Personal-/Rückmeldedaten sind bei FireHub vorhanden, werden
+  aber (noch) nicht per Webhook mitgeschickt.
 
 ## Capability-Registry
 

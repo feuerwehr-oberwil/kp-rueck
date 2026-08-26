@@ -138,6 +138,19 @@ def integrations() -> IntegrationsResponse:
                 configured=divera,
                 capabilities=["webhook", "poll", "pool", "auto-attach"],
             ),
+            # FireHub needs no server-side key: the station points its webhook at us and
+            # authenticates with the shared alarm secret, so there is nothing in the
+            # environment to key `configured` off — it is a payload adapter over the generic
+            # inbound path (start → pool alarm, end → retire), always available once a
+            # webhook secret is set. Listed so the alarms domain reads as a choice of
+            # dispatch systems, not just Divera.
+            KnownProvider(
+                provider="firehub",
+                display_name="FireHub",
+                domain="alarms",
+                configured=False,
+                capabilities=["webhook", "pool", "auto-attach", "lifecycle"],
+            ),
             KnownProvider(
                 provider=provider.slug if provider else "divera",
                 display_name=provider.display_name if provider else "DIVERA 24/7",

@@ -3648,6 +3648,46 @@
         }
       }
     },
+    "/api/firehub/webhook": {
+      "post": {
+        "tags": [
+          "firehub"
+        ],
+        "summary": "Receive Firehub Webhook",
+        "description": "Receive a FireHub Einsatzstart/Einsatzende webhook.\n\n1. Validates the shared webhook secret (query param or X-Webhook-Secret header)\n2. On ``trigger.action == \"end\"``: records an audit note, without moving the card\n3. Otherwise (``start``): deduplicates by ``opsID``, stores the alarm, auto-attaches it\n   to the newest active event with auto-attach on, and broadcasts to all clients",
+        "operationId": "receive_firehub_webhook_api_firehub_webhook_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FireHubWebhook"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/exports/events/{event_id}/audit": {
       "post": {
         "tags": [
@@ -23610,6 +23650,174 @@
         "type": "object",
         "title": "FieldReportUpdate",
         "description": "The KP twin's payload: set **or clear** any of the three (decision 28).\n\nEvery field is optional and the handler acts only on the ones actually\npresent (``model_fields_set``), so ``null`` means \"clear this\" and absence\nmeans \"leave it alone\". Without that distinction an operator correcting the\npickup note would silently wipe the arrival time."
+      },
+      "FireHubOperation": {
+        "properties": {
+          "opsID": {
+            "type": "integer",
+            "title": "Opsid"
+          },
+          "opsNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opsnumber"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "street": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opsID",
+          "title"
+        ],
+        "title": "FireHubOperation",
+        "description": "The ``operation`` object of a FireHub webhook.\n\nField names mirror FireHub's camelCase JSON via aliases. ``extra=\"ignore\"`` so fields\nFireHub may add later never break intake before we map them."
+      },
+      "FireHubTrigger": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Action"
+          },
+          "techName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Techname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "FireHubTrigger",
+        "description": "The ``trigger`` object: which lifecycle event fired the webhook (``start``/``end``)."
+      },
+      "FireHubWebhook": {
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/FireHubOperation"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/FireHubTrigger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operation",
+          "trigger"
+        ],
+        "title": "FireHubWebhook",
+        "description": "A FireHub Einsatzstart/Einsatzende webhook payload (``POST /api/firehub/webhook``)."
       },
       "FunctionType": {
         "type": "string",

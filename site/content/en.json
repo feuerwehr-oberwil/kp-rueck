@@ -86,7 +86,7 @@
         "time": "21:14",
         "tag": "Alarm received",
         "h3": "The reports come in.",
-        "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera, for example). The duty officer takes one over with a click – the report becomes an incident on the board."
+        "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board."
       },
       {
         "time": "21:19",
@@ -228,7 +228,7 @@
         "h3": "Alarms &amp; reports",
         "items": [
           "<strong>Open interface</strong> – any dispatch system can open incidents",
-          "Can take alarms from Divera <span class=\"opt\">optional</span>",
+          "Can take alarms from Divera or FireHub <span class=\"opt\">optional</span>",
           "Reporting form by link or QR for telephone callers and walk-ins",
           "Arrivals land in the pool, taken over with one click",
           "Alerting the crew from the board itself <span class=\"opt\">optional</span>",
