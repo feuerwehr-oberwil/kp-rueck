@@ -17,6 +17,7 @@
  * by every request in the process, so storing per-request state here would be a leak.
  */
 let runtimeBackendOrigin: string | null = null
+let runtimeCartoApiKey: string | null = null
 
 /**
  * Reduce a configured backend URL to an origin the *browser* can actually open a
@@ -184,6 +185,25 @@ export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
 export function setRuntimeBackendOrigin(raw: string | null | undefined): void {
   if (typeof window === 'undefined') return
   runtimeBackendOrigin = publicBackendOrigin(raw)
+}
+
+/**
+ * Publish the runtime CARTO key to the browser.
+ *
+ * CARTO raster URLs require the key as a query parameter, so it is visible in tile requests by
+ * design. Keeping it in `CARTO_API_KEY` still prevents it being committed or baked into the
+ * shared frontend image, and lets each deployment rotate it without a rebuild.
+ */
+export function setRuntimeCartoApiKey(raw: string | null | undefined): void {
+  if (typeof window === 'undefined') return
+  runtimeCartoApiKey = raw?.trim() || null
+}
+
+/** Add the configured runtime key to one CARTO raster URL template. */
+export function withCartoApiKey(url: string): string {
+  if (!runtimeCartoApiKey) return url
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}key=${encodeURIComponent(runtimeCartoApiKey)}`
 }
 
 export function getApiUrl(): string {
