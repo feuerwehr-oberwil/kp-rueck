@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Stationslogo — the mark that heads the printed Einsatzbericht.
+ * Stationslogo — the mark that heads the printed Einsatzrapport.
  *
  * Deliberately not one of the SETTING_CONFIGS rows above it: the value is an image, so
  * it has its own three endpoints (GET bytes / PUT multipart / DELETE) and its own state

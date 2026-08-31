@@ -155,7 +155,7 @@
       {
         "alt": "Formulaire de reconnaissance : intervention, «&nbsp;je suis sur place&nbsp;» et dangers à cocher",
         "title": "Formulaire de reconnaissance",
-        "sub": "Sur le téléphone privé de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos"
+        "sub": "Sur le téléphone de la reconnaissance : s’annoncer sur place, cocher les dangers, joindre des photos"
       },
       {
         "alt": "Vue terrain : sa propre place sinistrée avec les annonces au PC, la situation et l’effectif",
@@ -217,7 +217,7 @@
         "items": [
           "<strong>Les colonnes sont les phases de l’intervention</strong> – les cartes se déplacent de gauche à droite",
           "Attribuer personnel, véhicules et matériel, avec avertissement en cas de double affectation",
-          "Le matériel resté sur place – quel moyen se trouve sur quelle intervention, et depuis quand",
+          "Le matériel sur les lieux : quel moyen est attribué à quelle intervention, et depuis quand",
           "Priorités, durées et délais visibles par intervention",
           "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression",
           "Enregistrement par code QR – qui arrive s’annonce lui-même",
@@ -233,7 +233,7 @@
           "Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent",
           "Réception dans un pool, reprise d’un clic",
           "Alarmer l’effectif depuis le tableau <span class=\"opt\">facultatif</span>",
-          "Annonces de reconnaissance avec photos, directement depuis le téléphone privé"
+          "Annonces de reconnaissance avec photos, directement depuis le téléphone de la reconnaissance"
         ]
       },
       {
@@ -308,11 +308,11 @@
       },
       {
         "q": "Combien cela coûte-t-il ?",
-        "a": "Rien. KP Rück est open source (AGPL) – <strong>pas de licence, pas d’abonnement,\n          pas de coût par appareil</strong>. Restent vos propres frais d’exploitation : un petit\n          serveur ou une machine à la caserne."
+        "a": "Le logiciel lui-même ne coûte rien. KP Rück est open source (AGPL) – <strong>pas de\n          licence, pas d’abonnement, pas de coût par appareil</strong>. Restent les coûts propres\n          à l’exploitation, à l’infrastructure et, le cas échéant, à une assistance externe."
       },
       {
         "q": "Que faut-il pour l’exploiter ?",
-        "a": "Moins qu’on ne le croit. Un petit mini-PC ou serveur à la caserne suffit, l’installation\n          prend quelques heures. Ensuite, le système tourne largement tout seul, et les mises à\n          jour tiennent en un geste. Il faut quelqu’un qui l’installe une fois – dans le corps, à\n          la commune, ou une connaissance de l’informatique. Et si vous n’avez personne :\n          écrivez-nous, nous aidons à l’installation."
+        "a": "Un petit mini-PC ou serveur à la caserne suffit. L’installation, les mises à jour et\n          les sauvegardes nécessitent une personne à l’aise avec Docker et la ligne de commande,\n          que ce soit au sein du corps, de la commune ou auprès d’un prestataire informatique. Le\n          guide et l’espace d’administration accompagnent la mise en place. Nous répondons\n          volontiers aux questions générales ; les données et l’exploitation restent sous la\n          responsabilité de chaque corps."
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",

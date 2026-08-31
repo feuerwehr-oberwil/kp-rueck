@@ -176,7 +176,7 @@ async def export_event_report(
     current_user: CurrentEditor,  # Only editors can export
 ) -> StreamingResponse:
     """
-    Generate a presentable PDF after-action report (Einsatzbericht) for an event.
+    Generate a presentable PDF after-action report (Einsatzrapport) for an event.
 
     Unlike the Excel audit export (built for billing), this is a formatted debrief
     /handover document: cover block, summary counts, an incident overview table and

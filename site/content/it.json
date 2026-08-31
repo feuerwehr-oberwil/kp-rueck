@@ -155,7 +155,7 @@
       {
         "alt": "Modulo di ricognizione: intervento, «sono sul posto» e pericoli da spuntare",
         "title": "Modulo di ricognizione",
-        "sub": "Sul telefono privato della ricognizione: annunciarsi sul posto, spuntare i pericoli, allegare foto"
+        "sub": "Sul telefono della ricognizione: annunciarsi sul posto, spuntare i pericoli, allegare foto"
       },
       {
         "alt": "Vista campo: il proprio luogo d’intervento con le segnalazioni al posto di comando, la situazione e la squadra",
@@ -217,7 +217,7 @@
         "items": [
           "<strong>Le colonne sono le fasi dell’intervento</strong> – le schede si spostano da sinistra a destra trascinandole",
           "Assegnare personale, veicoli e materiale, con avviso in caso di doppia assegnazione",
-          "Materiale rimasto sul posto – quale mezzo si trova a quale intervento, e da quando",
+          "Materiale sul luogo d’intervento: quale mezzo è assegnato a quale intervento, e da quando",
           "Priorità, tempi di percorrenza e scadenze visibili per ogni intervento",
           "Incarichi: più interventi come un solo itinerario per una squadra, ordine ottimizzato per distanza con un tasto",
           "Check-in con codice QR – chi arriva si annuncia da sé",
@@ -233,7 +233,7 @@
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
           "Gli arrivi finiscono nel serbatoio, presa in carico con un clic",
           "Allertamento della squadra direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
-          "Segnalazioni di ricognizione con foto, direttamente dal telefono privato della squadra"
+          "Segnalazioni di ricognizione con foto, direttamente dal telefono della ricognizione"
         ]
       },
       {
@@ -308,11 +308,11 @@
       },
       {
         "q": "Quanto costa?",
-        "a": "Niente. KP Rück è open source (AGPL) – <strong>nessuna licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Restano i vostri costi d’esercizio: un piccolo server, o un computer in rimessa."
+        "a": "Il software in sé non costa nulla. KP Rück è open source (AGPL) – <strong>nessuna licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Restano i costi propri per l’esercizio, l’infrastruttura ed eventualmente il supporto esterno."
       },
       {
         "q": "Che cosa serve per farlo girare?",
-        "a": "Meno di quanto molti pensino. Basta un piccolo mini-PC o un server in rimessa, e l’installazione richiede poche ore. Poi il sistema gira in gran parte da sé, e gli aggiornamenti sono un gesto solo. Serve qualcuno che lo imposti una volta – nel corpo, in Comune o un’informatica amica. E se non avete nessuno: scriveteci, vi aiutiamo a impostarlo."
+        "a": "Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti e i backup serve qualcuno con esperienza nell’uso di Docker e della riga di comando, che si trovi nel corpo, in Comune o presso un supporto informatico esterno. La guida e l’area amministrativa accompagnano la configurazione. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",

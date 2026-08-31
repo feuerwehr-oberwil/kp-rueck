@@ -42,7 +42,7 @@
       "Stützpunktfeuerwehren",
       "Berufsfeuerwehren"
     ],
-    "whatLabel": "Für was",
+    "whatLabel": "Wofür",
     "what": [
       "Alltagseinsätze",
       "Unwetterlagen",
@@ -82,9 +82,9 @@
     ]
   },
   "incident": {
-    "eyebrow": "Vom Alarm bis zum Bericht",
+    "eyebrow": "Vom Alarm bis zum Rapport",
     "h2": "Ein Ereignis, ein Board.",
-    "lede": "So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im\n        Einsatzbericht.",
+    "lede": "So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im\n        Einsatzrapport.",
     "entries": [
       {
         "time": "21:14",
@@ -119,7 +119,7 @@
       {
         "time": "06:40",
         "tag": "Bericht",
-        "h3": "Der Einsatzbericht schreibt sich mit.",
+        "h3": "Der Einsatzrapport schreibt sich mit.",
         "p": "Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.\n            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die\n            Nacht belegbar."
       }
     ]
@@ -127,7 +127,7 @@
   "shots": {
     "eyebrow": "Aus der Demo",
     "h2": "So sieht das aus.",
-    "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf\n        «Demo öffnen», und du stehst an demselben Board.",
+    "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klickt auf\n        «Demo öffnen», und ihr steht an demselben Board.",
     "items": [
       {
         "file": "display.webp",
@@ -175,7 +175,7 @@
         "h": 562,
         "alt": "Reko-Formular: Einsatz, «Ich bin vor Ort» und Gefahren zum Ankreuzen",
         "title": "Reko-Formular",
-        "sub": "Auf dem privaten Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen"
+        "sub": "Auf dem Handy der Reko: vor Ort melden, Gefahren ankreuzen, Fotos anhängen"
       },
       {
         "file": "feld.webp",
@@ -246,7 +246,7 @@
         "items": [
           "<strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts",
           "Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung",
-          "Material, das vor Ort geblieben ist – welches Mittel an welchem Einsatz steht, und seit wann",
+          "Material am Einsatzort: welches Mittel welchem Einsatz zugeteilt ist und seit wann",
           "Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar",
           "Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert",
           "QR-Check-in – wer eintrifft, meldet sich selbst an",
@@ -262,7 +262,7 @@
           "Meldeformular per Link oder QR für Telefon und Laufkundschaft",
           "Eingang im Pool, Übernahme mit einem Klick",
           "Ausalarmierung der Mannschaft aus dem Board heraus <span class=\"opt\">optional</span>",
-          "Reko-Meldungen mit Fotos, direkt vom privaten Handy der Reko"
+          "Reko-Meldungen mit Fotos, direkt vom Handy der Reko"
         ]
       },
       {
@@ -278,7 +278,7 @@
       {
         "h3": "Nachher &amp; Betrieb",
         "items": [
-          "<strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten",
+          "<strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten",
           "Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird",
           "Offene Rapporte als laufende Liste – welcher abgeschlossene Einsatz noch keinen hat",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten",
@@ -329,7 +329,7 @@
     "items": [
       {
         "q": "Warum umsteigen?",
-        "a": "Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger\n          Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig\n          dasselbe Lagebild – und der Einsatzbericht ist beim Einrücken schon da statt am\n          Wochenende danach."
+        "a": "Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger\n          Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig\n          dasselbe Lagebild – und der Einsatzrapport ist beim Einrücken schon da statt am\n          Wochenende danach."
       },
       {
         "q": "Wem gehören die Daten?",
@@ -337,11 +337,11 @@
       },
       {
         "q": "Was kostet das?",
-        "a": "Nichts. KP Rück ist Open Source (AGPL) – <strong>keine Lizenz, kein Abo, keine\n          Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Betriebskosten: ein kleiner\n          Server oder ein Rechner im Magazin."
+        "a": "Für die Software selbst nichts. KP Rück ist Open Source (AGPL) – <strong>keine\n          Lizenz, kein Abo, keine Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Kosten\n          für Betrieb, Infrastruktur und allenfalls externe Unterstützung."
       },
       {
         "q": "Was braucht es für den Betrieb?",
-        "a": "Weniger, als viele annehmen. Ein kleiner Mini-PC oder Server im Magazin reicht, die\n          Einrichtung dauert wenige Stunden. Danach läuft das System weitgehend von selbst, und\n          Updates sind ein Handgriff. Es braucht jemanden, der das einmal aufsetzt – in der Feuerwehr, in der\n          Gemeinde oder eine befreundete IT. Und wenn ihr niemanden habt: Meldet euch, wir\n          helfen beim Aufsetzen."
+        "a": "Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der\n          Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der\n          Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne;\n          Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
@@ -349,22 +349,22 @@
       },
       {
         "q": "Wie fangen wir an?",
-        "a": "Mit der <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der\n          Übungsmodus ist sauber vom Ernstfall getrennt. Und wenn es passt: Melde dich, wir\n          helfen beim Aufsetzen."
+        "a": "Mit der <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der\n          Übungsmodus ist sauber vom Ernstfall getrennt. Und wenn es passt: Meldet euch, wir\n          helfen beim Aufsetzen."
       }
     ]
   },
   "contact": {
     "eyebrow": "Kontakt",
-    "h2": "Sag uns, was du denkst.",
-    "p": "Willst du KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,\n          wie du es erwartest? Melde dich – wir lesen alles.",
+    "h2": "Sagt uns, was ihr denkt.",
+    "p": "Wollt ihr KP Rück bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,\n          wie ihr es erwartet? Meldet euch – wir lesen alles.",
     "alt": "Für Fragen und offene Ideen gibt es die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/discussions\" target=\"_blank\" rel=\"noopener\">GitHub-Diskussionen</a>.",
     "bug": {
       "t": "Fehler melden",
-      "s": "Was ist passiert, was hättest du erwartet? Screenshots ziehst du direkt ins Formular."
+      "s": "Was ist passiert, was hättet ihr erwartet? Screenshots zieht ihr direkt ins Formular."
     },
     "idea": {
       "t": "Etwas wünschen",
-      "s": "Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreib den Fall, nicht die Lösung."
+      "s": "Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreibt den Fall, nicht die Lösung."
     },
     "mail": {
       "t": "Direkt schreiben",
@@ -381,7 +381,7 @@
       "send": "Nachricht senden",
       "sending": "Wird gesendet …",
       "ok": "Danke – die Nachricht ist da. Wir melden uns.",
-      "error": "Das hat nicht geklappt. Schreib bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Das hat nicht geklappt. Schreibt bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch."
     }
   },
   "lightbox": {
