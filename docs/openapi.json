@@ -3728,7 +3728,7 @@
           "exports"
         ],
         "summary": "Export Event Report",
-        "description": "Generate a presentable PDF after-action report (Einsatzbericht) for an event.\n\nUnlike the Excel audit export (built for billing), this is a formatted debrief\n/handover document: cover block, summary counts, an incident overview table and\nper-incident detail sections (description, contact, flags, assignments, status\ntimeline, reko summaries).\n\nArgs:\n    event_id: UUID of the event to report on\n\nReturns:\n    StreamingResponse with a PDF file (``application/pdf``).\n\nRaises:\n    404: Event not found\n    500: Report generation failed",
+        "description": "Generate a presentable PDF after-action report (Einsatzrapport) for an event.\n\nUnlike the Excel audit export (built for billing), this is a formatted debrief\n/handover document: cover block, summary counts, an incident overview table and\nper-incident detail sections (description, contact, flags, assignments, status\ntimeline, reko summaries).\n\nArgs:\n    event_id: UUID of the event to report on\n\nReturns:\n    StreamingResponse with a PDF file (``application/pdf``).\n\nRaises:\n    404: Event not found\n    500: Report generation failed",
         "operationId": "export_event_report_api_exports_events__event_id__report_get",
         "parameters": [
           {
