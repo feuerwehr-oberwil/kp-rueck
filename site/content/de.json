@@ -82,9 +82,9 @@
     ]
   },
   "incident": {
-    "eyebrow": "Vom Alarm bis zum Bericht",
+    "eyebrow": "Vom Alarm bis zum Rapport",
     "h2": "Ein Ereignis, ein Board.",
-    "lede": "So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im\n        Einsatzbericht.",
+    "lede": "So sieht eine Unwetternacht im KP aus – was am Board passiert, steht nachher im\n        Einsatzrapport.",
     "entries": [
       {
         "time": "21:14",
@@ -119,7 +119,7 @@
       {
         "time": "06:40",
         "tag": "Bericht",
-        "h3": "Der Einsatzbericht schreibt sich mit.",
+        "h3": "Der Einsatzrapport schreibt sich mit.",
         "p": "Einsatztagebuch und Reaktionszeiten entstehen nebenbei und werden zum PDF.\n            Korrigiert wird mit neuen Einträgen, nicht mit dem Radiergummi – so bleibt die\n            Nacht belegbar."
       }
     ]
@@ -278,7 +278,7 @@
       {
         "h3": "Nachher &amp; Betrieb",
         "items": [
-          "<strong>Einsatzbericht als PDF</strong> mit Einsatztagebuch und Reaktionszeiten",
+          "<strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten",
           "Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird",
           "Offene Rapporte als laufende Liste – welcher abgeschlossene Einsatz noch keinen hat",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten",
@@ -329,7 +329,7 @@
     "items": [
       {
         "q": "Warum umsteigen?",
-        "a": "Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger\n          Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig\n          dasselbe Lagebild – und der Einsatzbericht ist beim Einrücken schon da statt am\n          Wochenende danach."
+        "a": "Keine Doppelbelegungen mehr. Keine Meldung, die im Gruppenchat untergeht. Weniger\n          Funkverkehr für Fragen, die ohnehin auf dem Board stehen. Alle sehen gleichzeitig\n          dasselbe Lagebild – und der Einsatzrapport ist beim Einrücken schon da statt am\n          Wochenende danach."
       },
       {
         "q": "Wem gehören die Daten?",

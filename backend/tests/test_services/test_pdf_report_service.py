@@ -155,7 +155,7 @@ class TestGoldenContent:
 
         assert pdf_bytes[:4] == b"%PDF"
         text = _extract_text(pdf_bytes)
-        assert "Einsatzbericht" in text
+        assert "Einsatzrapport" in text
         assert "Hochwasser" in text  # event name
         assert "Wohnungsbrand Hauptstrasse" in text  # incident title
         assert "Einsatz beendet" in text  # status label
@@ -1115,7 +1115,7 @@ class TestLetterhead:
         assert _page_image_count(with_logo) == 1
         assert _page_image_count(without) == 0
         # The title still renders next to it.
-        assert "Einsatzbericht" in _extract_text(with_logo)
+        assert "Einsatzrapport" in _extract_text(with_logo)
 
     @pytest.mark.parametrize("broken", [b"", b"not-an-image", b"\x89PNG\r\n\x1a\n truncated"])
     def test_unreadable_logo_renders_the_report_anyway(
@@ -1132,7 +1132,7 @@ class TestLetterhead:
         )
         pdf_bytes = build_event_report_pdf(data, "tester", logo=broken)
         assert pdf_bytes.startswith(b"%PDF")
-        assert "Einsatzbericht" in _extract_text(pdf_bytes)
+        assert "Einsatzrapport" in _extract_text(pdf_bytes)
 
 
 class TestFooterDate:

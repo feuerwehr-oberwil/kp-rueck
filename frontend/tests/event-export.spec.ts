@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
  * Rewritten wholesale. The previous version drove a UI that no longer exists: a
  * single "Event exportieren" button per card firing `POST /api/exports/events/{id}`
  * and receiving a ZIP, with a success toast reading "Export erfolgreich". The page
- * now offers one ⋯ "Aktionen" menu per row carrying the export formats — Einsatzbericht (PDF), which
+ * now offers one ⋯ "Aktionen" menu per row carrying the export formats — Einsatzrapport (PDF), which
  * is `GET …/report`, and Audit (XLSX), which is `POST …/audit` — and neither shows a
  * success toast, only a download. Nothing else in the suite covers either.
  *
@@ -46,7 +46,7 @@ test.describe('Event Export', () => {
     const card = await gotoEventsWith(authenticatedPage, `Export aktiv ${Date.now()}`);
     const menu = await openExportMenu(authenticatedPage, card);
 
-    await expect(menu.getByRole('menuitem', { name: 'Einsatzbericht (PDF)' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Einsatzrapport (PDF)' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Audit (XLSX)' })).toBeVisible();
   });
 
@@ -89,7 +89,7 @@ test.describe('Event Export', () => {
 
     const menu = await openExportMenu(authenticatedPage, card);
     const download = authenticatedPage.waitForEvent('download');
-    await menu.getByRole('menuitem', { name: 'Einsatzbericht (PDF)' }).click();
+    await menu.getByRole('menuitem', { name: 'Einsatzrapport (PDF)' }).click();
 
     await expect(await (await download).suggestedFilename()).toMatch(/^einsatzbericht-.*\.pdf$/);
     expect(request!.method).toBe('GET');
@@ -136,7 +136,7 @@ test.describe('Event Export', () => {
     );
 
     const menu = await openExportMenu(authenticatedPage, card);
-    await menu.getByRole('menuitem', { name: 'Einsatzbericht (PDF)' }).click();
+    await menu.getByRole('menuitem', { name: 'Einsatzrapport (PDF)' }).click();
 
     // An error toast, and the control released again. Deliberately NOT asserted
     // against `events.page.reportExportFailed` ("Bericht-Export fehlgeschlagen"):
@@ -162,7 +162,7 @@ test.describe('Event Export', () => {
     for (let i = 0; i < 2; i += 1) {
       const menu = await openExportMenu(authenticatedPage, card);
       const download = authenticatedPage.waitForEvent('download');
-      await menu.getByRole('menuitem', { name: 'Einsatzbericht (PDF)' }).click();
+      await menu.getByRole('menuitem', { name: 'Einsatzrapport (PDF)' }).click();
       await download;
       // The trigger goes disabled while a job runs; it has to come back.
       await expect(card.getByRole('button', { name: 'Aktionen' })).toBeEnabled();

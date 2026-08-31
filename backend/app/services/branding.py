@@ -1,7 +1,7 @@
 """Station branding — the logo that heads the printed exports.
 
 One image per installation, uploaded in Einstellungen → Allgemein and rendered as a
-letterhead on the Einsatzbericht. Deliberately **not** a file on disk: the reference
+letterhead on the Einsatzrapport. Deliberately **not** a file on disk: the reference
 deployment runs the backend from an image with no persistent volume (Railway, and a
 recreated compose container), so a logo written next to the code would quietly vanish
 on the next deploy and the report would silently lose its letterhead. The settings

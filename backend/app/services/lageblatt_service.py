@@ -63,7 +63,7 @@ EMPTY_ROWS = 10
 # padding, and doubles as handwriting space.
 ROW_HEIGHT = 9 * mm
 
-# Photos on the detail pages: smaller than the Einsatzbericht's — this is the
+# Photos on the detail pages: smaller than the Einsatzrapport's — this is the
 # dense operational sheet, so four to a row at postcard-thumb height, after the
 # textual details of each incident.
 _PHOTO_PER_ROW = 4

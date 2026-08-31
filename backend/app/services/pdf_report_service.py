@@ -1,4 +1,4 @@
-"""PDF after-action report (Einsatzbericht) builder.
+"""PDF after-action report (Einsatzrapport) builder.
 
 Pure, synchronous rendering: takes an :class:`EventReportData` (gathered by
 ``collect_event_report_data``) plus the generating user's name and returns the
@@ -50,7 +50,7 @@ from .photo_storage import ExportPhoto
 # ---------------------------------------------------------------------------
 
 LABELS: dict[str, str] = {
-    "report_title": "Einsatzbericht",
+    "report_title": "Einsatzrapport",
     "training_badge": "ÜBUNG",
     "event": "Ereignis",
     "period": "Zeitraum",
@@ -307,7 +307,7 @@ _LABEL_W = 40 * mm
 _META_LABEL_W = 28 * mm
 
 #: Letterhead bounds for the station logo. Tall enough to be recognised, short enough
-#: that "Einsatzbericht" stays the first thing read on page 1.
+#: that "Einsatzrapport" stays the first thing read on page 1.
 _LOGO_MAX_W = 45 * mm
 _LOGO_MAX_H = 18 * mm
 
@@ -822,7 +822,7 @@ def rapport_work_windows(data: EventReportData) -> dict[uuid.UUID, WorkWindow]:
     every transition of the event, so an export of forty Schadenplätze walks
     those two lists **once** instead of issuing three queries per row. This is
     the single implementation for all three outputs (Einsätze-xlsx, Lageblatt,
-    Einsatzbericht) – they must not be able to disagree about when a crew worked.
+    Einsatzrapport) – they must not be able to disagree about when a crew worked.
     """
     first_active: dict[uuid.UUID, datetime] = {}
     first_end: dict[uuid.UUID, datetime] = {}
@@ -1224,7 +1224,7 @@ def _logo_flowable(logo: bytes | None) -> Image | None:
     """The station logo scaled into the letterhead box, or ``None``.
 
     Never raises: an unreadable image costs the report its logo, never its existence –
-    an Einsatzbericht that fails to render because somebody uploaded a broken PNG would
+    an Einsatzrapport that fails to render because somebody uploaded a broken PNG would
     be a far worse bug than a missing crest.
     """
     if not logo:
@@ -1250,7 +1250,7 @@ def photo_grid(
 ) -> list[Any]:
     """Thumbnail rows for one incident's photos, captioned "Reko"/"Rapport" + upload time.
 
-    Shared by the Einsatzbericht and the Lageblatt (which passes its own smaller
+    Shared by the Einsatzrapport and the Lageblatt (which passes its own smaller
     sizes). Each row is a two-line table — images above, captions below — with
     ``splitByRow=0`` so a caption never strands on the next page (the whole row
     moves instead; a KeepTogether here would nest inside the callers' own
@@ -1315,7 +1315,7 @@ def _cover(
 ) -> list[Any]:
     """Build the cover/header flowables.
 
-    The event is the title; "Einsatzbericht" is the eyebrow above it. It used to be the
+    The event is the title; "Einsatzrapport" is the eyebrow above it. It used to be the
     other way round – the document *type* set 22 pt in red over the event name at 15 pt –
     which gave the loudest line on page 1 to the one word every copy of this file shares.
     """

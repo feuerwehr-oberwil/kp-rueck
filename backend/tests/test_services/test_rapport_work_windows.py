@@ -3,7 +3,7 @@
 The Schadenplatz-Rapport used to ask the crew for two timestamps. It stopped:
 the board already records the window three ways over, so
 ``rapport_work_windows`` reconstructs it and all three outputs — Einsätze-xlsx,
-Lageblatt, Einsatzbericht — read it from there.
+Lageblatt, Einsatzrapport — read it from there.
 
 These chains are the part that decays silently: a wrong level still produces a
 plausible-looking timestamp, so every level is exercised on its own.
