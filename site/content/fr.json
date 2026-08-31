@@ -87,7 +87,7 @@
         "time": "21:14",
         "tag": "Réception",
         "h3": "Les annonces arrivent.",
-        "p": "Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le\n            système d’alarme (p.&nbsp;ex. Divera). L’aide à la conduite reprend l’annonce d’un\n            clic – elle devient une intervention sur le tableau."
+        "p": "Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le\n            système d’alarme (p.&nbsp;ex. Divera ou FireHub). L’aide à la conduite reprend l’annonce d’un\n            clic – elle devient une intervention sur le tableau."
       },
       {
         "time": "21:19",
@@ -229,7 +229,7 @@
         "h3": "Alarme &amp; annonces",
         "items": [
           "<strong>Interface ouverte</strong> – n’importe quel système d’engagement peut ouvrir des interventions",
-          "Peut reprendre les alarmes de Divera <span class=\"opt\">facultatif</span>",
+          "Peut reprendre les alarmes de Divera ou FireHub <span class=\"opt\">facultatif</span>",
           "Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent",
           "Réception dans un pool, reprise d’un clic",
           "Alarmer l’effectif depuis le tableau <span class=\"opt\">facultatif</span>",

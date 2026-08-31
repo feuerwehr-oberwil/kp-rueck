@@ -90,7 +90,7 @@
         "time": "21:14",
         "tag": "Alarmeingang",
         "h3": "Die Meldungen kommen rein.",
-        "p": "Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem\n            Alarmierungssystem (z.&nbsp;B. Divera). Der AdFU übernimmt mit einem Klick –\n            aus der Meldung wird ein Einsatz auf dem Board."
+        "p": "Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem\n            Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick –\n            aus der Meldung wird ein Einsatz auf dem Board."
       },
       {
         "time": "21:19",
@@ -258,7 +258,7 @@
         "h3": "Alarm &amp; Meldungen",
         "items": [
           "<strong>Offene Schnittstelle</strong> – jedes Dispositionssystem kann Einsätze eröffnen",
-          "Kann Alarme aus Divera übernehmen <span class=\"opt\">optional</span>",
+          "Kann Alarme aus Divera oder FireHub übernehmen <span class=\"opt\">optional</span>",
           "Meldeformular per Link oder QR für Telefon und Laufkundschaft",
           "Eingang im Pool, Übernahme mit einem Klick",
           "Ausalarmierung der Mannschaft aus dem Board heraus <span class=\"opt\">optional</span>",
