@@ -182,7 +182,8 @@ asyncio_default_test_loop_scope = "session"
 addopts = [
     "--strict-markers",
 ]
-# Coverage: run explicitly with  pytest --cov=app --cov-report=term-missing --cov-fail-under=35
+# Coverage: run explicitly with  pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+# (the real figure is ~84 % — see [tool.coverage.run] below for why it used to read 35)
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
@@ -210,3 +211,10 @@ dev = [
     "bandit>=1.7.0",
     "pypdf>=6.15.0",
 ]
+
+[tool.coverage.run]
+# SQLAlchemy's async layer hops through greenlets, so every request handler body runs
+# inside one. Without this, coverage.py traces only the import-time lines and reports a
+# fiction — that is where the old `--cov-fail-under=35` note came from; measured properly
+# the suite sits at ~84 %. Keep `thread` alongside it for the background pollers.
+concurrency = ["greenlet", "thread"]
