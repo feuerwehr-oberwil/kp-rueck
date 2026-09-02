@@ -294,21 +294,6 @@ async def test_get_position_history_sends_device_and_time_range(monkeypatch: pyt
     assert len(result) == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "BUG: get_position_history() builds its 'from'/'to' query params as "
-        "`dt.isoformat() + 'Z'`. That is only valid for a naive datetime — every real "
-        "caller (_poll_trails uses `datetime.now(UTC)`) passes a tz-aware one, whose "
-        "isoformat() already ends in '+00:00', so the literal 'Z' is appended on top: "
-        "'2026-09-02T10:00:00+00:00Z'. That string is not valid ISO 8601 (double "
-        "timezone marker) and Python's own `datetime.fromisoformat` rejects it. Trail "
-        "polling (services/traccar_poller.py::_poll_trails) has been sending this to "
-        "Traccar on every tick since UTC-aware datetimes were adopted; whether the "
-        "server tolerates the trailing 'Z' or silently returns no rows is unverified "
-        "here, but the format is wrong either way."
-    ),
-)
 async def test_get_position_history_timestamps_are_valid_iso8601(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _configured_client(monkeypatch)
     captured: dict[str, str] = {}
@@ -326,8 +311,33 @@ async def test_get_position_history_timestamps_are_valid_iso8601(monkeypatch: py
     now = datetime.now(UTC)
     await client.get_position_history(1, now, now)
 
-    datetime.fromisoformat(captured["from"])
-    datetime.fromisoformat(captured["to"])
+    # The regression: `isoformat() + "Z"` on the tz-aware datetime every caller passes
+    # produced "…+00:00Z" — two timezone markers, which `fromisoformat` rejects and
+    # Traccar was asked for on every trail poll.
+    assert captured["from"].endswith("Z") and "+00:00" not in captured["from"]
+    assert datetime.fromisoformat(captured["from"]) == now
+    assert datetime.fromisoformat(captured["to"]) == now
+
+
+async def test_get_position_history_reads_a_naive_moment_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A naive datetime carries no offset, and the callers mean UTC when they pass one."""
+    client = _configured_client(monkeypatch)
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if (resp := _session_ok(request)) is not None:
+            return resp
+        if request.url.path.endswith("/api/positions"):
+            captured.update(request.url.params)
+            return httpx.Response(200, json=[])
+        raise AssertionError(f"unexpected request to {request.url}")
+
+    _mock_transport(monkeypatch, handler)
+
+    naive = datetime(2026, 9, 3, 8, 30, 0)
+    await client.get_position_history(1, naive, naive)
+
+    assert captured["from"] == "2026-09-03T08:30:00Z"
 
 
 # ============================================
