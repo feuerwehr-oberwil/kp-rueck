@@ -1,12 +1,24 @@
 """Traccar GPS tracking integration service."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from pydantic import BaseModel
 
 from app.config import settings
+
+
+def _iso_utc(moment: datetime) -> str:
+    """The ISO 8601 instant Traccar wants for a time range: UTC, with a trailing `Z`.
+
+    Every caller passes a tz-aware datetime (`_poll_trails` uses `datetime.now(UTC)`),
+    whose `isoformat()` already ends in `+00:00` — so the older `isoformat() + "Z"`
+    produced `…+00:00Z`, two timezone markers and not valid ISO 8601. A naive moment is
+    read as UTC, which is what the callers mean by one.
+    """
+    aware = moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
+    return aware.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class TraccarDevice(BaseModel):
@@ -120,8 +132,8 @@ class TraccarClient:
                 f"{self.base_url}/api/positions",
                 params={
                     "deviceId": device_id,
-                    "from": from_time.isoformat() + "Z",
-                    "to": to_time.isoformat() + "Z",
+                    "from": _iso_utc(from_time),
+                    "to": _iso_utc(to_time),
                 },
                 cookies=cookies,
                 timeout=15.0,
