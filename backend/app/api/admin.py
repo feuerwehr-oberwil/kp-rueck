@@ -470,7 +470,8 @@ async def seed_training_templates(
     Use this endpoint if automatic seeding failed during deployment.
 
     Args:
-        skip_geocoding: Legacy compatibility option; seeding never calls external address providers.
+        skip_geocoding: Also repair known legacy fallback addresses when True, preserving custom locations.
+            Seeding never calls external address providers.
         force_reseed: Delete existing data and reseed (useful for updating addresses)
     """
     if settings.demo_mode:

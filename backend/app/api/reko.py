@@ -292,6 +292,20 @@ async def update_report(
         write=True,
     )
 
+    if user is None:
+        # Form links resume their own report; only operators can amend another
+        # crew's row. Incident scope alone does not establish report ownership.
+        claims = decode_form_token(x_reko_token, str(existing.incident_id)) if x_reko_token else None
+        if (
+            claims is None
+            or existing.token != x_reko_token
+            or (
+                claims.field_binding is not None
+                and existing.submitted_by_personnel_id != claims.field_binding.personnel_id
+            )
+        ):
+            raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Bericht.")
+
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
 
@@ -730,12 +744,20 @@ async def delete_photo(
     if filename not in current_photos:
         raise HTTPException(status_code=404, detail="Photo not found in report")
 
-    # Delete from disk
-    photo_storage.delete_photo(incident_id, filename)
-
-    # Remove from report (even if file was already deleted from disk)
+    # Follow-up drafts inherit photos from earlier submissions. Unlinking one
+    # report must preserve the file while any other report still references it.
     report.photos_json = [p for p in current_photos if p != filename]
     await db.commit()
+    referenced = await db.scalar(
+        select(RekoReport.id)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.photos_json.contains([filename]),
+        )
+        .limit(1)
+    )
+    if referenced is None:
+        photo_storage.delete_photo(incident_id, filename)
 
     return {"success": True}
 

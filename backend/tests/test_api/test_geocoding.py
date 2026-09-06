@@ -15,7 +15,26 @@ from app.config import Settings, settings
 from app.models import FeldDeviceClaim, GeocodingDispatch
 from app.services import geocoding
 from app.services.tokens import generate_feld_token, validate_feld_token
-from tests.conftest import feld_device_token, feld_unlock_token
+from tests.conftest import TEST_PASSWORD, feld_device_token, feld_unlock_token
+
+
+def test_geocoding_openapi_documents_session_or_bound_device_authentication():
+    from app.main import app
+
+    spec = app.openapi()
+    expected = {
+        "GeocodingSessionCookie": ("cookie", "access_token"),
+        "GeocodingFieldHeader": ("header", "X-Feld-Token"),
+        "GeocodingFieldCookie": ("cookie", "feld-device-token"),
+    }
+    for name, (location, credential) in expected.items():
+        scheme = spec["components"]["securitySchemes"][name]
+        assert (scheme["type"], scheme["in"], scheme["name"]) == ("apiKey", location, credential)
+    for path in ("/api/geocoding/search", "/api/geocoding/reverse"):
+        operation = spec["paths"][path]["get"]
+        # Separate requirement objects mean OR; none permits anonymous access.
+        assert operation["security"] == [{name: []} for name in expected]
+        assert "401" in operation["responses"]
 
 
 @pytest.fixture
@@ -55,6 +74,32 @@ async def test_anonymous_and_early_field_stages_never_contact_provider(client, t
             )
         ).status_code == 401
     assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("path", "parameters"),
+    [("search", {"q": "Example"}), ("reverse", {"lat": 47, "lon": 7})],
+)
+async def test_valid_board_cookie_is_an_alternative_to_field_auth(
+    client, test_editor, db_session, provider, path, parameters
+):
+    test_editor.role = "viewer"
+    await db_session.commit()
+    login = await client.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
+    assert login.status_code == 200
+    response = await client.get(f"/api/geocoding/{path}", params=parameters, headers={"X-Feld-Token": "invalid"})
+    assert response.status_code == 200
+
+
+async def test_master_secret_is_not_an_alternative_to_browser_auth(client, provider, monkeypatch):
+    monkeypatch.setattr(settings, "master_token", "geocoding-contract-test-master")
+    response = await client.get(
+        "/api/geocoding/search",
+        params={"q": "Example"},
+        headers={"Authorization": "Bearer geocoding-contract-test-master"},
+    )
+    assert response.status_code == 401
+    assert provider[1] == []
 
 
 @pytest.mark.parametrize("credential_location", ["header", "cookie"])

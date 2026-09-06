@@ -508,7 +508,7 @@
           "admin"
         ],
         "summary": "Seed Training Templates",
-        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Legacy compatibility option; seeding never calls external address providers.\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
+        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Also repair known legacy fallback addresses when True, preserving custom locations.\n        Seeding never calls external address providers.\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
         "operationId": "seed_training_templates_api_admin_seed_training_post",
         "parameters": [
           {
@@ -3717,6 +3717,17 @@
         ],
         "summary": "Search Address",
         "operationId": "search_address_api_geocoding_search_get",
+        "security": [
+          {
+            "GeocodingSessionCookie": []
+          },
+          {
+            "GeocodingFieldHeader": []
+          },
+          {
+            "GeocodingFieldCookie": []
+          }
+        ],
         "parameters": [
           {
             "name": "q",
@@ -3773,6 +3784,9 @@
               }
             }
           },
+          "401": {
+            "description": "Missing, invalid, expired or revoked authentication."
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -3793,6 +3807,17 @@
         ],
         "summary": "Reverse Address",
         "operationId": "reverse_address_api_geocoding_reverse_get",
+        "security": [
+          {
+            "GeocodingSessionCookie": []
+          },
+          {
+            "GeocodingFieldHeader": []
+          },
+          {
+            "GeocodingFieldCookie": []
+          }
+        ],
         "parameters": [
           {
             "name": "lat",
@@ -3827,6 +3852,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked authentication."
           },
           "422": {
             "description": "Validation Error",
@@ -31509,6 +31537,26 @@
         ],
         "title": "WsTokenResponse",
         "description": "A short-lived Socket.IO connect token (sweep 27 §P3.4).\n\nFetched same-origin (the session cookie authenticates the request) right\nbefore `io(...)` and passed in the Socket.IO `auth` payload — the cookie\nitself never reaches the backend on a split-origin deployment."
+      }
+    },
+    "securitySchemes": {
+      "GeocodingSessionCookie": {
+        "type": "apiKey",
+        "description": "A valid signed-in board user's session cookie.",
+        "in": "cookie",
+        "name": "access_token"
+      },
+      "GeocodingFieldHeader": {
+        "type": "apiKey",
+        "description": "A live, bound field-device token; poster and picker tokens are not accepted.",
+        "in": "header",
+        "name": "X-Feld-Token"
+      },
+      "GeocodingFieldCookie": {
+        "type": "apiKey",
+        "description": "A live, bound field-device token; poster and picker tokens are not accepted.",
+        "in": "cookie",
+        "name": "feld-device-token"
       }
     }
   }

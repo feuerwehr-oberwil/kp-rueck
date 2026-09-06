@@ -1,6 +1,6 @@
 import { StrictMode } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
@@ -171,8 +171,8 @@ it("ignores suggestions from a superseded request", async () => {
   await user.type(screen.getByRole("combobox"), "New")
   expect(oldOptions.signal.aborted).toBe(true)
   await screen.findByText("New result")
-  completeOld?.([{ id: "old", formattedAddress: "Old result", lat: 46, lon: 7 }])
-  await waitFor(() => expect(screen.queryByText("Old result")).not.toBeInTheDocument())
+  await act(async () => { completeOld?.([{ id: "old", formattedAddress: "Old result", lat: 46, lon: 7 }]) })
+  expect(screen.queryByText("Old result")).not.toBeInTheDocument()
   expect(screen.getByText("New result")).toBeInTheDocument()
 })
 
@@ -186,7 +186,7 @@ it("preserves a manually selected pin while an earlier address lookup completes"
   const { rerender } = renderWithIntl(<LocationInput {...props} latitude={null} longitude={null} />)
   await waitFor(() => expect(geocodeAddress).toHaveBeenCalled())
   rerender(<LocationInput {...props} latitude={47} longitude={8} />)
-  complete?.({ lat: 46, lon: 7 })
-  await waitFor(() => expect(onCoordinatesChange).not.toHaveBeenCalled())
+  await act(async () => { complete?.({ lat: 46, lon: 7 }) })
+  expect(onCoordinatesChange).not.toHaveBeenCalled()
   geocodeAddress.mockResolvedValue(null)
 })

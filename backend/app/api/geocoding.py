@@ -2,7 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, Security
+from fastapi.security import APIKeyCookie, APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import get_current_user
@@ -13,11 +14,40 @@ from ..schemas.geocoding import AddressReverse, AddressSearch, AddressSuggestion
 from ..services.geocoding import GeocodingBusyError, GeocodingUnavailableError, geocoder
 from ..services.tokens import validate_feld_token
 
-router = APIRouter(prefix="/geocoding", tags=["geocoding"])
+router = APIRouter(
+    prefix="/geocoding",
+    tags=["geocoding"],
+    responses={401: {"description": "Missing, invalid, expired or revoked authentication."}},
+)
+
+session_cookie = APIKeyCookie(
+    name="access_token",
+    scheme_name="GeocodingSessionCookie",
+    description="A valid signed-in board user's session cookie.",
+    auto_error=False,
+)
+field_header = APIKeyHeader(
+    name="X-Feld-Token",
+    scheme_name="GeocodingFieldHeader",
+    description="A live, bound field-device token; poster and picker tokens are not accepted.",
+    auto_error=False,
+)
+field_cookie = APIKeyCookie(
+    name="feld-device-token",
+    scheme_name="GeocodingFieldCookie",
+    description="A live, bound field-device token; poster and picker tokens are not accepted.",
+    auto_error=False,
+)
 
 
-async def require_geocoding_access(request: Request, db: AsyncSession = Depends(get_db)) -> None:
-    field_token = request.headers.get("X-Feld-Token") or request.cookies.get("feld-device-token")
+async def require_geocoding_access(
+    request: Request,
+    access_token: Annotated[str | None, Security(session_cookie)],
+    field_token_header: Annotated[str | None, Security(field_header)],
+    field_token_cookie: Annotated[str | None, Security(field_cookie)],
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    field_token = field_token_header or field_token_cookie
     if field_token:
         claims = validate_feld_token(field_token)
         if (
@@ -29,7 +59,7 @@ async def require_geocoding_access(request: Request, db: AsyncSession = Depends(
         ):
             return
     # Explicitly omit Authorization: a shared integration/master secret is not a browser login.
-    await get_current_user(request, access_token=request.cookies.get("access_token"), authorization=None, db=db)
+    await get_current_user(request, access_token=access_token, authorization=None, db=db)
 
 
 @router.get("/search", response_model=list[AddressSuggestion], dependencies=[Depends(require_geocoding_access)])

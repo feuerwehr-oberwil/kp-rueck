@@ -41,22 +41,32 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 
 /** Bound retries and elapsed time; superseded searches cancel both fetch and retry waits. */
 async function lookup(path: string, params: URLSearchParams, callerSignal?: AbortSignal): Promise<unknown> {
-  const timeout = AbortSignal.timeout(10_000)
-  const signal = callerSignal ? AbortSignal.any([callerSignal, timeout]) : timeout
-  for (let attempt = 0; attempt < 3; attempt++) {
-    signal.throwIfAborted()
-    const response = await fetch(`${getApiUrl()}/api/geocoding/${path}?${params}`, {
-      credentials: 'include', headers: requestHeaders(), signal,
-    })
-    if (response.status === 429 && attempt < 2) {
-      const retry = Number(response.headers.get('Retry-After') ?? 2)
-      await pause(Math.min(3, Math.max(1, Number.isFinite(retry) ? retry : 2)) * 1000, signal)
-      continue
+  const controller = new AbortController()
+  const { signal } = controller
+  const abortFromCaller = () => controller.abort(callerSignal?.reason)
+  if (callerSignal?.aborted) abortFromCaller()
+  else callerSignal?.addEventListener('abort', abortFromCaller, { once: true })
+  // A single deadline covers fetch, response consumption, and every retry wait.
+  const timeout = setTimeout(() => controller.abort(new DOMException('Address lookup timed out', 'TimeoutError')), 10_000)
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      signal.throwIfAborted()
+      const response = await fetch(`${getApiUrl()}/api/geocoding/${path}?${params}`, {
+        credentials: 'include', headers: requestHeaders(), signal,
+      })
+      if (response.status === 429 && attempt < 2) {
+        const retry = Number(response.headers.get('Retry-After') ?? 2)
+        await pause(Math.min(3, Math.max(1, Number.isFinite(retry) ? retry : 2)) * 1000, signal)
+        continue
+      }
+      if (!response.ok) return null
+      return await response.json()
     }
-    if (!response.ok) return null
-    return response.json()
+    return null
+  } finally {
+    clearTimeout(timeout)
+    callerSignal?.removeEventListener('abort', abortFromCaller)
   }
-  return null
 }
 
 const DEFAULT_COUNTRY_CODES = 'ch'

@@ -33,6 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = originalFetch
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('searchAddress', () => {
@@ -135,5 +136,60 @@ describe('authenticated geocoding transport', () => {
     expect(await reverseGeocode(47, 8)).toBe('Testweg 1')
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }))
     expect(await reverseGeocode(47, 8)).toBeNull()
+  })
+})
+
+
+describe('compatible cancellation and deadline', () => {
+  it('works without AbortSignal static composition and releases its caller listener', async () => {
+    vi.spyOn(AbortSignal, 'any').mockImplementation(() => { throw new Error('unsupported') })
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => { throw new Error('unsupported') })
+    const caller = new AbortController()
+    const remove = vi.spyOn(caller.signal, 'removeEventListener')
+    expect(await searchAddress('Testweg', { signal: caller.signal })).toHaveLength(2)
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    expect(AbortSignal.any).not.toHaveBeenCalled()
+    expect(AbortSignal.timeout).not.toHaveBeenCalled()
+  })
+
+  it('does not fetch when the caller has already cancelled', async () => {
+    const caller = new AbortController()
+    caller.abort()
+    expect(await searchAddress('Testweg', { signal: caller.signal })).toEqual([])
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('cancels an in-flight request from the caller and clears its timer', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(fetch).mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+      }))
+      const caller = new AbortController()
+      const result = searchAddress('Testweg', { signal: caller.signal })
+      caller.abort()
+      expect(await result).toEqual([])
+      expect(vi.getTimerCount()).toBe(0)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('keeps its ten-second deadline while reading a slow response body', async () => {
+    vi.useFakeTimers()
+    try {
+      let requestSignal: AbortSignal | null | undefined
+      vi.mocked(fetch).mockImplementation(async (_url, init) => {
+        requestSignal = init?.signal
+        return { ok: true, status: 200, json: () => new Promise((_resolve, reject) => {
+          requestSignal?.addEventListener('abort', () => reject(requestSignal?.reason), { once: true })
+        }) } as Response
+      })
+      const result = searchAddress('Testweg')
+      await vi.advanceTimersByTimeAsync(9_999)
+      expect(requestSignal?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await result).toEqual([])
+      expect(requestSignal?.reason.name).toBe('TimeoutError')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally { vi.useRealTimers() }
   })
 })

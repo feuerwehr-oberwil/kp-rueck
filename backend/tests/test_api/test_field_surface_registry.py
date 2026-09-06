@@ -38,14 +38,17 @@ human opens without logging in; `/api/print/jobs` is agent-authenticated;
 (`serve_photo`), and this registry polices writes.
 """
 
+import io
 import uuid
 
 import pytest
 from httpx import AsyncClient
+from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.models import Event, Incident, Personnel, RekoReport
+from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_feld_token, generate_form_token
 from tests.conftest import feld_unlock_token
 
@@ -86,8 +89,8 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "PATCH /{report_id}": "both",
         "POST /generate-link": "both",
         "POST /{incident_id}/arrived": "token",
-        "POST /{incident_id}/photos": "token",
-        "DELETE /{incident_id}/photos/{filename}": "token",
+        "POST /{incident_id}/photos": "both",
+        "DELETE /{incident_id}/photos/{filename}": "both",
     },
     "feld": {
         "POST /generate-link": "session",
@@ -210,21 +213,6 @@ KNOWN_GAPS: dict[str, str] = {
         "POST /api/reko/{incident_id}/generate-link, which is editor-authed and hands "
         "out the identical token. Two doors, one credential, no second handler to keep "
         "in step."
-    ),
-    "POST /api/reko/{incident_id}/photos": (
-        "The board offers no photo upload on a Reko report and this stays token-only "
-        "on purpose (phase 2's call, re-affirmed in phase 4). A Reko report the KP "
-        "files is a radio message transcribed, and a radio call carries no photo — "
-        "there is nothing in the operator's hand to attach. Adding the session door "
-        "without a control would be a capability that exists in the backend and is "
-        "unreachable from the UI, which is the exact complaint §2.2 makes about PATCH. "
-        "A photo that reaches the KP by another route belongs on the Schadenplatz-"
-        "Rapport, which does have an editor upload."
-    ),
-    "DELETE /api/reko/{incident_id}/photos/{filename}": (
-        "The other half of the same decision: the board cannot attach a Reko photo, "
-        "so it has none of its own to remove. Deleting a crew's photo from the KP is "
-        "a moderation action nobody has asked for."
     ),
     "POST /api/feld/incidents/{incident_id}/message": (
         "NO BOARD TWIN — surfaced by this registry, not by the audit. A crew's "
@@ -409,12 +397,19 @@ class TestBothDoorsReallyOpen:
         test_event: Event,
         test_personnel: Personnel,
         test_incident: Incident,
+        tmp_path,
+        monkeypatch,
     ):
+        monkeypatch.setattr(photo_storage, "photos_dir", tmp_path)
+        image = io.BytesIO()
+        Image.new("RGB", (8, 8), "red").save(image, format="JPEG")
+        filename = f"{uuid.uuid4()}.jpg"
         report = RekoReport(
             id=uuid.uuid4(),
             incident_id=test_incident.id,
             token=generate_form_token(str(test_incident.id), "reko"),
             is_draft=True,
+            photos_json=[filename],
         )
         db_session.add(report)
         await db_session.commit()
@@ -437,6 +432,19 @@ class TestBothDoorsReallyOpen:
                 f"/api/reko/{report.id}",
                 {"json": {"summary_text": "Über Funk diktiert"}},
             ),
+            "POST /api/reko/{incident_id}/photos": (
+                "POST",
+                f"/api/reko/{test_incident.id}/photos",
+                {
+                    "params": {"report_id": str(report.id)},
+                    "files": {"file": ("photo.jpg", image.getvalue(), "image/jpeg")},
+                },
+            ),
+            "DELETE /api/reko/{incident_id}/photos/{filename}": (
+                "DELETE",
+                f"/api/reko/{test_incident.id}/photos/{filename}",
+                {"params": {"report_id": str(report.id)}},
+            ),
             "POST /api/reko/generate-link": (
                 "POST",
                 "/api/reko/generate-link",
@@ -457,7 +465,7 @@ class TestBothDoorsReallyOpen:
 
         for key, (method, url, kwargs) in probes.items():
             response = await editor_client.request(method, url, **kwargs)
-            assert response.status_code not in (401, 403), (
+            assert 200 <= response.status_code < 300, (
                 f"{key} is registered as 'both' but turned an editor session away "
                 f"with {response.status_code}: {response.text}"
             )

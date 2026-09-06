@@ -315,9 +315,13 @@ class WebSocketManager:
             await self._traccar_poller.stop_polling()
             logger.info("Stopped Traccar polling (no users connected)")
 
-    async def revalidate_sessions(self) -> None:
-        """Remove revoked/expired sessions and apply role changes before delivery."""
-        identities = dict(self.session_identities)
+    async def revalidate_sessions(self, sid: str | None = None) -> None:
+        """Recheck delivery recipients, or just the client sending a keepalive."""
+        if sid is None:
+            identities = dict(self.session_identities)
+        else:
+            identity = self.session_identities.get(sid)
+            identities = {sid: identity} if identity is not None else {}
         try:
             roles = await current_socket_roles(list(identities.values()))
         except Exception:
@@ -479,7 +483,7 @@ async def leave(sid: str, data: dict[str, Any]) -> None:
 @sio.event  # type: ignore[untyped-decorator]
 async def ping(sid: str) -> None:
     """Handle ping requests for connection keep-alive."""
-    await ws_manager.revalidate_sessions()
+    await ws_manager.revalidate_sessions(sid)
     if sid not in ws_manager.user_sessions:
         return
     ws_manager.update_activity(sid)  # Refresh activity on ping

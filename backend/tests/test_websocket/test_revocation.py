@@ -102,8 +102,12 @@ async def test_database_failure_closes_recipients(test_editor, monkeypatch):
 async def test_signed_token_for_missing_user_does_not_admit():
     from uuid import uuid4
 
-    token = create_access_token({"sub": str(uuid4()), "role": "admin"})
-    assert await connect("unknown", {"HTTP_COOKIE": f"access_token={token}"}) is False
+    from app.auth.socket_sessions import cookie_identity
+
+    token, _ = create_login_tokens({"sub": str(uuid4()), "role": "admin"})
+    cookie = f"access_token={token}"
+    assert cookie_identity(cookie) is not None
+    assert await connect("unknown", {"HTTP_COOKIE": cookie}) is False
 
 
 @pytest.mark.parametrize("child", [False, True])
@@ -237,3 +241,41 @@ def test_access_expiry_does_not_outlive_family():
     expiry = int(time.time()) + 60
     token = create_access_token({"sub": str(uuid4()), "family_jti": str(uuid4()), "family_exp": expiry})
     assert decode_token(token)["exp"] == expiry
+
+
+async def test_ping_revalidates_only_sender_then_delivery_rechecks_every_recipient(
+    db_session, test_editor, monkeypatch
+):
+    from app.auth.socket_sessions import current_socket_roles
+    from app.websocket_manager import ping
+
+    claims = await open_socket(test_editor)
+    other_access, _ = create_login_tokens({"sub": str(test_editor.id), "role": test_editor.role})
+    assert await connect("other", {"HTTP_COOKIE": f"access_token={other_access}"}) is True
+    await ws_manager.join_room("other", "operations")
+    checker = AsyncMock(wraps=current_socket_roles)
+    monkeypatch.setattr("app.websocket_manager.current_socket_roles", checker)
+    db_session.add(RevokedToken(jti=claims["jti"], expires_at=datetime.now(UTC) + timedelta(hours=1)))
+    await db_session.commit()
+
+    await ping("other")
+    checker.assert_awaited_once_with([ws_manager.session_identities["other"]])
+    assert "audit" in ws_manager.user_sessions  # Not scanned by another client's ping.
+    checker.reset_mock()
+    await ws_manager.broadcast_update("incident_update", {}, room="operations")
+    assert len(checker.await_args.args[0]) == 2
+    assert "audit" not in ws_manager.user_sessions
+    assert "other" in ws_manager.user_sessions
+
+
+async def test_ping_applies_sender_role_downgrade_without_scanning_other_clients(db_session, test_editor):
+    from app.websocket_manager import ping
+
+    await open_socket(test_editor)
+    assert await ws_manager.join_room("audit", "admin")
+    test_editor.role = "viewer"
+    await db_session.commit()
+    await ping("audit")
+    assert ws_manager.user_sessions["audit"]["role"] == "viewer"
+    assert "audit" not in ws_manager.active_connections["admin"]
+    sio.leave_room.assert_awaited_once_with("audit", "admin")

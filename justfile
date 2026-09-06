@@ -689,7 +689,7 @@ tiles-status:
             # only for the raster placeholder. The success branch below was therefore
             # unreachable: a finished 15-minute generation reported "no data set called
             # basel-landschaft". /index.json lists whatever is served under whatever name, and
-            # is the same source the app reads (frontend/app/settings/use-tile-availability.ts).
+            # is the same source the app reads (frontend/lib/hooks/use-tile-availability.ts).
             # Only ever one MBTiles is served – the container picks a single file – so the
             # bootstrap marker below cannot be shadowed by a second, real data set.
             TJ="$(curl -sfk -m 10 "${BASE}/index.json" 2>/dev/null || true)"

@@ -171,11 +171,11 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   // makes a reopen frame anything at all: Radix unmounts the dialog body, so the instance from
   // the last open is already removed. Left in state, the fit effect below — which re-runs
   // whenever the stop list changes, i.e. on every poll — would run against that dead instance,
-  // latch `fittedRef`, and the fresh instance arriving a moment later would never be fitted.
+  // latch the fit marker, and the fresh instance arriving a moment later would never be fitted.
   const [map, setMap] = useState<MlMap | null>(null)
   // The initial fit happens once per map instance, and only once there is something
   // to frame — the stops can still be loading when the map reports itself ready.
-  const fittedRef = useRef(false)
+  const fittedMapRef = useRef<MlMap | null>(null)
 
   // Remount the map (re-fit + re-centre) on each open; reset transient UI state.
   useEffect(() => {
@@ -184,7 +184,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
       return
     }
     setMapKey((k) => k + 1)
-    fittedRef.current = false
+    fittedMapRef.current = null
     setAddMode(false)
     setFocusStopId(focusIncidentId ?? null)
   }, [open, focusIncidentId])
@@ -208,8 +208,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
   // Frame the located stops once the map is up and the stops are in.
   useEffect(() => {
-    if (!map || fittedRef.current || locatedPositions.length === 0) return
-    fittedRef.current = true
+    if (!map || fittedMapRef.current === map || locatedPositions.length === 0) return
+    fittedMapRef.current = map
     fitTo(map, locatedPositions, FIT_OPTIONS)
   }, [map, locatedPositions])
 
@@ -279,6 +279,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
 
   // Group the map draws — mirrors the live persisted stop order.
   const displayGroup: IncidentGroup | undefined = group
+  const displayedGroups = useMemo(() => displayGroup ? [displayGroup] : [], [displayGroup])
 
   // The map. `mapKey` remounts it per open so it re-centres and re-fits; `center` is
   // therefore captured at that moment, while markers keep tracking live data.
@@ -315,7 +316,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
         )
       })}
       <GroupRoutes
-        groups={[displayGroup]}
+        groups={displayedGroups}
         operationsById={operationsById}
         onMarkerClick={setFocusStopId}
         highlightIncidentId={focusStopId}

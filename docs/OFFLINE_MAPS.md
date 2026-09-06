@@ -116,11 +116,11 @@ wrong thing or nothing at all.
 `HTTP_PORT` is what you set in `.env` (default 8080); with a `DOMAIN` set, the same paths work
 over HTTPS on your hostname.
 
-`v3` is **not** `TILES_NAME` and does not follow it. TileServer GL builds its own configuration
-when it finds an MBTiles in OpenMapTiles format – which is every set `just tiles-download`
-generates – and always calls that data set `v3`, whatever the file is named. A path built from
-`TILES_NAME` therefore answers 404 on exactly the installations that *do* have offline tiles.
-`/index.json` is the one listing that is right on either kind of installation.
+The `v3` examples describe the automatic OpenMapTiles configuration used by the reference
+stack after `just tiles-download`. `v3` is **not** `TILES_NAME`: the latter names the file,
+while the server configuration determines the data-source identifier. For custom MBTiles
+or a custom configuration, inspect `$BASE/index.json` and use the advertised identifiers
+and tile URLs; do not construct the endpoint from the filename.
 
 The rest of this page writes the address as `$BASE` and the container as `$TILESERVER`. Set both
 once and everything afterwards works on either stack:
@@ -360,10 +360,16 @@ Add additional MBTiles files for other regions:
 
 2. Restart tile server: `just tiles-restart`
 
-No config edit needed – with no config file, TileServer GL picks up every `.mbtiles` it finds in
-`/data` and serves it under its filename.
+Check `$BASE/index.json` after restarting to see which data sources and tile URLs the
+server actually exposes. A file's name does not guarantee its HTTP identifier. Multiple
+vector files may require an explicit server configuration and a style that references
+the intended sources; use the durable configuration approach above.
 
-**Note**: The frontend uses a single data source, the one named by `TILES_NAME`.
+**Frontend behavior**: The app discovers availability through `/index.json`, prefers a
+real vector entry over raster entries, and uses the server's `basic-preview` style for
+vector rendering. For raster data it uses the discovered identifier. It does not select
+a region using `TILES_NAME` or merge multiple regions automatically. For a wider area,
+generating one tileset covering the desired bounds is the simplest supported setup.
 
 ### Performance Tuning
 
