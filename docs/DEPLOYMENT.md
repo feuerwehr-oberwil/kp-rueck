@@ -406,18 +406,24 @@ just restore /var/backups/kp-rueck/daily/db-2026-07-30-033000.dump
 # 4. Restore photos using a one-off shell, WITHOUT starting migrations or the application.
 #    The backup sidecar mounts this volume read-only, so use the backend image's mount.
 docker compose run --rm -T --no-deps --entrypoint sh backend \
-  -ec 'stage=$(mktemp -d)
-    trap '\''rm -rf -- "$stage"'\'' EXIT
-    tar xzf - -C "$stage"
-    # Keep existing photos untouched until the archive has fully extracted.
-    find /mnt/data/photos -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
-    cp -a "$stage/." /mnt/data/photos/' \
+  -ec 'stage=$(mktemp -d /mnt/data/photos/.restore.XXXXXX)
+    mkdir "$stage/new" "$stage/previous"
+    tar xzf - -C "$stage/new"
+    # Extraction (including its disk-space demand) must finish before moving originals.
+    # Keep originals until all same-filesystem moves succeed; never copy over them.
+    find /mnt/data/photos -mindepth 1 -maxdepth 1 ! -path "$stage" \
+      -exec mv -t "$stage/previous" -- {} +
+    find "$stage/new" -mindepth 1 -maxdepth 1 \
+      -exec mv -t /mnt/data/photos -- {} +
+    rm -rf -- "$stage"' \
   < /var/backups/kp-rueck/daily/photos-2026-07-30-033000.tar.gz
 
 # 5. Bring everything back up. Migrations run on boot, so a dump from an OLDER version is
 #    upgraded automatically; a dump from a NEWER version is not – match or exceed its tag.
 docker compose up -d
 ```
+
+If the photo step fails, **do not restart the application**. Keep the `.restore.*` directory: original files remain either in their original location or under its `previous/` directory. Resolve the failure or restore into a fresh volume before continuing. A failed restore must not be treated as a completed one.
 
 Then check: log in, open an incident that had photos, and confirm the images load.
 
