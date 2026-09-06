@@ -14,6 +14,7 @@ import {
   type RekoFormData,
 } from '@/components/reko/reko-report-form'
 import { telHref } from '@/lib/phone'
+import { getApiUrl } from '@/lib/env'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 
 // The field page is the SHELL: the token, the incident header, the arrival
@@ -500,6 +501,7 @@ export default function RekoForm() {
         busy={isSaving}
         onSubmit={handleSubmit}
         photos={{
+          url: (filename) => `${getApiUrl()}/api/photos/${incidentId}/${encodeURIComponent(filename)}?${new URLSearchParams({ reko_token: token! })}`,
           upload: async (file, onProgress) =>
             (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
           remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),

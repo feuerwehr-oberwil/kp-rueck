@@ -1340,6 +1340,7 @@ async def test_field_derived_reko_token_closes_with_its_device(
         client.cookies.clear()
 
     responses = [
+        await client.get(f"/api/photos/{test_incident.id}/{filename}", params={"reko_token": form_token}),
         await client.get("/api/reko/form", params=form_params),
         await client.get(f"/api/reko/{report_id}", params={"token": form_token}),
         await client.post(
@@ -1409,6 +1410,20 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     )
     assert uploaded.status_code == 200, uploaded.text
     filename = uploaded.json()["filename"]
+    read_url = f"/api/photos/{test_incident.id}/{filename}"
+    own_photo = await client.get(read_url, params={"reko_token": first_token})
+    assert own_photo.status_code == 200, own_photo.text
+    assert own_photo.headers["cache-control"] == "private, no-store"
+    assert own_photo.headers.get_list("referrer-policy") == ["no-referrer"]
+    assert (await client.get(read_url, params={"token": first_token})).status_code == 401
+    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 404
+    wrong_incident = generate_form_token(str(uuid4()))
+    assert (await client.get(read_url, params={"reko_token": wrong_incident})).status_code == 400
+    rapport_filename = f"{uuid4()}.jpg"
+    (tmp_path / str(test_incident.id) / rapport_filename).write_bytes(image.getvalue())
+    assert (
+        await client.get(f"/api/photos/{test_incident.id}/{rapport_filename}", params={"reko_token": first_token})
+    ).status_code == 404
     assert (
         await client.patch(
             f"/api/reko/{first_id}",
@@ -1423,6 +1438,7 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     second_id = second.json()["id"]
     assert second_id != first_id
     assert second.json()["photos_json"] == [filename]  # Deliberate shared prefill.
+    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 200
     denied = await client.patch(f"/api/reko/{first_id}", headers=second_headers, json={"summary_text": "Forged"})
     assert denied.status_code == 403, denied.text
     own = await client.patch(f"/api/reko/{second_id}", headers=second_headers, json={"summary_text": "Follow-up crew"})
@@ -1436,6 +1452,11 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
         files={"file": ("photo.jpg", image.getvalue(), "image/jpeg")},
     )
     assert uploaded_second.status_code == 200, uploaded_second.text
+    assert (
+        await client.get(
+            f"/api/photos/{test_incident.id}/{uploaded_second.json()['filename']}", params={"reko_token": first_token}
+        )
+    ).status_code == 404
     deleted = await client.delete(f"{photo_url}/{filename}", params={"report_id": first_id}, headers=second_headers)
     assert deleted.status_code == 200, deleted.text
     original = await db_session.get(RekoReport, first_id)
@@ -1446,6 +1467,8 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     assert original.photos_json == [filename]
     assert follow_up.photos_json == [uploaded_second.json()["filename"]]
     assert photo_storage.get_photo_path(test_incident.id, filename) is not None
+    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 404
+    assert (await client.get(read_url, params={"reko_token": first_token})).status_code == 200
     assert (await client.delete(f"{photo_url}/{filename}", headers=second_headers)).status_code == 404
 
     # Operators retain their deliberate ability to amend any crew's report.

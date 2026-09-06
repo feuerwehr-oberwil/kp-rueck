@@ -608,6 +608,13 @@ async def _photo_report(
     return await crud.get_or_create_reko_report(db, incident_id, field_token, personnel_id)
 
 
+async def _lock_photo_report(db: AsyncSession, report: RekoReport) -> None:
+    """Serialize photo list changes with incident prefill and refresh stale rows."""
+    # Resolving a new draft may have committed, so always reacquire the lock.
+    await db.execute(select(Incident.id).where(Incident.id == report.incident_id).with_for_update())
+    await db.refresh(report)
+
+
 @router.post("/{incident_id}/photos", response_model=None)
 @limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_photo(
@@ -682,6 +689,8 @@ async def upload_photo(
         logger.warning("Reko photo upload failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
+    await _lock_photo_report(db, report)
+
     # Save photo
     filename = await photo_storage.save_photo(
         incident_id=incident_id,
@@ -739,6 +748,8 @@ async def delete_photo(
         logger.warning("Reko photo delete failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
+    await _lock_photo_report(db, report)
+
     # Check if photo exists in report
     current_photos = report.photos_json if report.photos_json else []
     if filename not in current_photos:
@@ -747,7 +758,7 @@ async def delete_photo(
     # Follow-up drafts inherit photos from earlier submissions. Unlinking one
     # report must preserve the file while any other report still references it.
     report.photos_json = [p for p in current_photos if p != filename]
-    await db.commit()
+    await db.flush()
     referenced = await db.scalar(
         select(RekoReport.id)
         .where(
@@ -756,6 +767,7 @@ async def delete_photo(
         )
         .limit(1)
     )
+    await db.commit()
     if referenced is None:
         photo_storage.delete_photo(incident_id, filename)
 
@@ -803,6 +815,7 @@ async def serve_photo(
     filename: str,
     request: Request,
     token: str | None = Query(None, description="Viewer share token, when there is no session"),
+    reko_token: str | None = Query(None, description="Reko form token, restricted to its report's photos"),
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
@@ -810,7 +823,7 @@ async def serve_photo(
     """
     Serve photo file with authentication and authorization.
 
-    SECURITY: two doors, and they are not equally wide.
+    Each credential grants a different photo scope.
 
     * A **session** reads any photo of any incident — an operator on the board
       already sees the whole event.
@@ -822,28 +835,45 @@ async def serve_photo(
       link has always carried for everything else on the display, and the
       narrowing above is what keeps it to that.
 
-    Everything that is not one of those two doors is a 404, never a 403: a share
-    link must not be usable to confirm that a photo of another event exists.
+    * A **Reko form token** (`?reko_token=`) reads only photos listed by its
+      exact report, including its draft and prefilled photos. Field-derived
+      tokens also require their device claim to remain live.
+
+    Files outside a valid token's scope return 404 so links cannot probe them.
 
     Args:
         incident_id: Incident UUID
         filename: Photo filename
         token: Viewer share token, checked before the session cookie
+        reko_token: Form credential, checked before either of the other doors
         db: Database session
 
     Returns:
         Image file with cache headers
 
     Raises:
-        HTTPException 401: If neither door opens
+        HTTPException 401: If no credential opens a door, or the device was revoked
         HTTPException 404: If the photo is not found, or out of the token's reach
     """
-    # Token first, session second — the same "one route, two doors" shape as
-    # _require_user_or_form_token. A token that does not validate falls through
-    # to the cookie rather than short-circuiting, so a stale token in a bookmark
-    # never locks out an operator who is logged in anyway.
-    viewer_event_id = validate_viewer_token(token) if token else None
-    current_user = None if viewer_event_id else await get_current_user(request, access_token, authorization, db)
+    # Form credentials fail closed. Viewer bookmarks retain their existing
+    # session fallback so a stale share link does not lock out an operator.
+    viewer_event_id = None
+    current_user = None
+    if reko_token is not None:
+        personnel_id = await _require_form_token(db, reko_token, incident_id)
+        report_query = select(RekoReport.id).where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.token == reko_token,
+            RekoReport.photos_json.contains([filename]),
+        )
+        if personnel_id is not None:
+            report_query = report_query.where(RekoReport.submitted_by_personnel_id == personnel_id)
+        if await db.scalar(report_query) is None:
+            raise HTTPException(status_code=404, detail="Photo not found")
+    else:
+        viewer_event_id = validate_viewer_token(token) if token else None
+        if viewer_event_id is None:
+            current_user = await get_current_user(request, access_token, authorization, db)
 
     # Verify incident exists
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
@@ -861,24 +891,28 @@ async def serve_photo(
         raise HTTPException(status_code=404, detail="Photo not found")
 
     # Log photo access for audit trail. `user=None` on the token door is the
-    # provenance itself: nobody was logged in, somebody held the share link.
+    # provenance itself: nobody was logged in, somebody held a scoped link.
     await log_action(
         db=db,
         action_type="view_photo",
         resource_type="reko_photo",
         resource_id=incident_id,
         user=current_user,
-        changes={"filename": filename, "via": "viewer_token" if viewer_event_id else "session"},
+        changes={
+            "filename": filename,
+            "via": "reko_token" if reko_token is not None else "viewer_token" if viewer_event_id else "session",
+        },
         request=request,
     )
     await db.commit()
 
-    # Return file with shorter cache (1 hour) for authenticated resources
+    # Field credentials are revocable; their photos must be reauthorized on reload.
     return FileResponse(
         file_path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "private, max-age=3600",  # 1 hour cache for authenticated users
+            "Cache-Control": "private, no-store" if reko_token is not None else "private, max-age=3600",
+            "Referrer-Policy": "no-referrer",
         },
     )
 

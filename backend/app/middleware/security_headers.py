@@ -38,18 +38,30 @@ class SecurityHeadersMiddleware:
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                # Credential-bearing image responses may opt into the stronger
+                # policy. Never let a route weaken the application default.
+                referrer_policy = (
+                    b"no-referrer"
+                    if any(
+                        name.lower() == b"referrer-policy" and value.lower() == b"no-referrer"
+                        for name, value in headers
+                    )
+                    else b"strict-origin-when-cross-origin"
+                )
+                headers = [(name, value) for name, value in headers if name.lower() != b"referrer-policy"]
                 extra_headers = [
                     (b"x-content-type-options", b"nosniff"),
                     (b"x-frame-options", b"DENY"),
                     (b"x-xss-protection", b"1; mode=block"),
-                    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+                    (b"referrer-policy", referrer_policy),
                     (b"permissions-policy", b"geolocation=(self), camera=(), microphone=()"),
                 ]
                 if self.is_production:
                     extra_headers.append((b"strict-transport-security", b"max-age=31536000; includeSubDomains"))
                 message = {
                     **message,
-                    "headers": list(message.get("headers", [])) + extra_headers,
+                    "headers": headers + extra_headers,
                 }
             await send(message)
 
