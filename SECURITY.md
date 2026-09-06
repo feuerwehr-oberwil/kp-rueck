@@ -71,6 +71,8 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   poster links still work: enter the Feld-Code again and select a person. All earlier Reko
   form links are rejected; create a new link from the board or the field surface. Reports,
   photos and their associations are preserved and remain accessible through the board.
+  Keep Reko form links and photo URLs private: both contain the form's read/write credential.
+  Share downloaded image files when only a photo should be shared.
 - **A bypass token exists and is off.** `MASTER_TOKEN` allows API access without a login, for
   scripted configuration. Empty by default, which disables it. If you set it, treat it as a
   password equivalent: it is not scoped to a user and does not attribute actions to one in the

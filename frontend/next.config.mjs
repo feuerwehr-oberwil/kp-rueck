@@ -72,6 +72,12 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Next applies configured headers after proxy response headers. Keep
+        // credential-bearing API images at least as strict as the backend.
+        source: '/backend-api/:path*',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
     ]
   },
 
