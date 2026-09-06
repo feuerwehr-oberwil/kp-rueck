@@ -146,12 +146,27 @@ export function PrintHubSheet({
   const [exporting, setExporting] = useState<EventExportKind | null>(null)
   /** The A4 sheet is ready for the printer — see `PrintView.onMapReady`. */
   const [printReady, setPrintReady] = useState(false)
-  const handlePrintReady = useCallback(() => setPrintReady(true), [])
+  const [mapFailed, setMapFailed] = useState(false)
+  const handlePrintReady = useCallback(() => {
+    setMapFailed(false)
+    setPrintReady(true)
+  }, [])
+  const handleMapLoading = useCallback(() => {
+    setMapFailed(false)
+    setPrintReady(false)
+  }, [])
+  const handleMapError = useCallback(() => {
+    setMapFailed(true)
+    setPrintReady(false)
+  }, [])
 
   // Closing unmounts the print view, so the next opening builds its map from
   // scratch and has to be waited for again.
   useEffect(() => {
-    if (!open) setPrintReady(false)
+    if (!open) {
+      setPrintReady(false)
+      setMapFailed(false)
+    }
   }, [open])
 
   // Fetch vehicles, drivers and the roll-call when the sheet opens — the A4
@@ -231,7 +246,10 @@ export function PrintHubSheet({
     // Switching the map on puts a fresh, empty map into the sheet — the print
     // button has to wait for it again, not inherit the readiness of the
     // map-less sheet it just replaced.
-    if (key === "includeMap" && value) setPrintReady(false)
+    if (key === "includeMap") {
+      setMapFailed(false)
+      if (value) setPrintReady(false)
+    }
     setPrintOptions((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -351,13 +369,16 @@ export function PrintHubSheet({
                     onClick={() => window.print()}
                     disabled={isLoading || !printReady}
                   >
-                    {printReady ? (
+                    {printReady || mapFailed ? (
                       <Printer className="size-3.5" />
                     ) : (
                       <Loader2 className="size-3.5 animate-spin" />
                     )}
-                    {printReady ? t("common.print") : t("map.loading")}
+                    {printReady || mapFailed ? t("common.print") : t("map.loading")}
                   </Button>
+                  {mapFailed && (
+                    <p role="alert" className="text-xs text-destructive">{t("map.loadFailed")}</p>
+                  )}
                 </div>
               }
             >
@@ -462,6 +483,8 @@ export function PrintHubSheet({
           auftraege={auftraege}
           materialOnSite={materialOnSite}
           onMapReady={handlePrintReady}
+          onMapError={handleMapError}
+          onMapLoading={handleMapLoading}
         />
       )}
     </>

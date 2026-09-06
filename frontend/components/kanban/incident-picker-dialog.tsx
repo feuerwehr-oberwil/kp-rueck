@@ -167,12 +167,13 @@ export function IncidentPickerDialog({
   // The LIVE map instance, or null whenever the map is not on screen. Clearing it is what
   // makes a reopen (or a trip through the Liste view) frame anything at all: the dialog body
   // is unmounted by Radix, so the previous instance is already removed. Left in state, the fit
-  // effect below would run against that dead instance, latch `fittedRef`, and the fresh
+  // effect below would run against that dead instance, latch the fit marker, and the fresh
   // instance arriving a moment later would never be fitted.
   const [map, setMap] = useState<MlMap | null>(null)
   // The initial fit runs once per map instance, and only once there is something to
   // frame — the candidates can still be filtering down when the map reports ready.
-  const fittedRef = useRef(false)
+  // Track the instance itself: filtering to zero candidates also unmounts the map.
+  const fittedMapRef = useRef<MlMap | null>(null)
   const { removeStop } = useGroups()
 
   // Remount the map (re-fit) each time the map view is (re-)opened.
@@ -182,7 +183,7 @@ export function IncidentPickerDialog({
       return
     }
     setMapKey((k) => k + 1)
-    fittedRef.current = false
+    fittedMapRef.current = null
   }, [open, view])
 
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g] as const)), [groups])
@@ -303,8 +304,8 @@ export function IncidentPickerDialog({
 
   // Frame the candidates once the map is up and there are markers to frame.
   useEffect(() => {
-    if (!map || fittedRef.current || allMapPositions.length === 0) return
-    fittedRef.current = true
+    if (!map || fittedMapRef.current === map || allMapPositions.length === 0) return
+    fittedMapRef.current = map
     fitTo(map, allMapPositions, FIT_OPTIONS)
   }, [map, allMapPositions])
 

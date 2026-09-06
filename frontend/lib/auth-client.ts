@@ -255,8 +255,17 @@ export async function startMicrosoftLogin(): Promise<string> {
   if (!response.ok) {
     throw new AuthError(translateOutsideReact('errors.microsoftLoginFailed'), AuthErrorType.SERVER_ERROR, response.status);
   }
-  const data: { authorization_url: string } = await response.json();
-  return data.authorization_url;
+  try {
+    const data: unknown = await response.json();
+    if (!data || typeof data !== 'object' || !('authorization_url' in data)
+      || typeof data.authorization_url !== 'string') throw new Error('Invalid login response');
+    const url = new URL(data.authorization_url);
+    if (url.protocol !== 'https:' || url.hostname !== 'login.microsoftonline.com'
+      || url.username || url.password) throw new Error('Invalid Microsoft authorization URL');
+    return url.href;
+  } catch {
+    throw new AuthError(translateOutsideReact('errors.microsoftLoginFailed'), AuthErrorType.SERVER_ERROR, response.status);
+  }
 }
 
 /** Redeem the code together with its one-use browser transaction state. */

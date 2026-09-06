@@ -79,6 +79,9 @@ on:
   # release.yml runs this whole gate against the tag before publishing images.
   workflow_call:
 
+permissions:
+  contents: read
+
 env:
   # The sibling product both cross-repo drift jobs compare against (telemetry-drift,
   # alarm-keyword-drift). THE ONE LINE A FORK CHANGES: point it at your own kp-front fork to

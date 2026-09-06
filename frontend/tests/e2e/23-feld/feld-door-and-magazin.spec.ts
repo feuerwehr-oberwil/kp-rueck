@@ -186,14 +186,14 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       // The door again — its heading carries the EVENT name now (the proof of
       // place), so the door is recognised by its code input, not by a title.
       await expect(feld.codeInput).toBeVisible({ timeout: FELD_TIMEOUT });
-      await expect(feld.codeInput).toBeVisible();
+      await expect(feld.codeInput).toHaveValue('');
+      await expect(phone.getByRole('heading', { name: fixture.eventName, exact: true })).toBeVisible();
 
-      // Nothing about the Ereignis has leaked to a device that only holds the
-      // link — not the roster, not a name, not an address.
+      // The public door context identifies the event. Personnel and incident
+      // details remain behind the code: no picker, crew name or incident address.
       await expect(feld.personSearch).toHaveCount(0);
       await expect(phone.getByText(fixture.crew!.name)).toHaveCount(0);
       await expect(phone.getByText(street(fixture.incident))).toHaveCount(0);
-      await expect(phone.getByText(fixture.eventName)).toHaveCount(0);
     } finally {
       await phone.context().close();
     }

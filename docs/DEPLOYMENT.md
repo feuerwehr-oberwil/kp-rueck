@@ -406,7 +406,12 @@ just restore /var/backups/kp-rueck/daily/db-2026-07-30-033000.dump
 # 4. Restore photos using a one-off shell, WITHOUT starting migrations or the application.
 #    The backup sidecar mounts this volume read-only, so use the backend image's mount.
 docker compose run --rm -T --no-deps --entrypoint sh backend \
-  -c 'find /mnt/data/photos -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar xzf - -C /mnt/data/photos' \
+  -ec 'stage=$(mktemp -d)
+    trap '\''rm -rf -- "$stage"'\'' EXIT
+    tar xzf - -C "$stage"
+    # Keep existing photos untouched until the archive has fully extracted.
+    find /mnt/data/photos -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+    cp -a "$stage/." /mnt/data/photos/' \
   < /var/backups/kp-rueck/daily/photos-2026-07-30-033000.tar.gz
 
 # 5. Bring everything back up. Migrations run on boot, so a dump from an OLDER version is

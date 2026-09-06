@@ -204,6 +204,7 @@ async def revoke_claim(db: AsyncSession, claim_id: uuid.UUID, event_id: uuid.UUI
             FeldDeviceClaim.id == claim_id,
             FeldDeviceClaim.event_id == event_id,
             FeldDeviceClaim.personnel_id == personnel_id,
+            FeldDeviceClaim.revoked_at.is_(None),
         )
         .values(revoked_at=datetime.now(UTC))
     )

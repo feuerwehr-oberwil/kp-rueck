@@ -343,8 +343,12 @@ async def get_ws_token(request: Request, current_user: CurrentUser) -> schemas.W
     access_token = None if auth_settings.is_auth_bypassed else request.cookies.get("access_token")
     if not access_token and not auth_settings.is_auth_bypassed:
         raise HTTPException(status_code=401, detail="Anmeldung erforderlich")
-    claims = decode_token(access_token) if access_token else {}
-    family = session_family(claims)
+    try:
+        claims = decode_token(access_token) if access_token else {}
+        family = session_family(claims)
+    except jwt.PyJWTError:
+        # The access token can expire while the auth dependency loads the user.
+        raise HTTPException(status_code=401, detail="Anmeldung erforderlich") from None
     if family is None and not auth_settings.is_auth_bypassed:
         # A current credential issued without a family needs a normal refresh
         # before socket admission. Pre-upgrade credentials already failed auth.

@@ -99,6 +99,9 @@ interface PrintableMapProps {
   /** Fired once the map has gone idle — tiles drawn, nothing left to fetch. The
    *  print button waits for it, because a canvas is printed as it stands. */
   onReady?: () => void
+  /** Reports a stalled map without allowing an incomplete canvas to print. */
+  onError?: () => void
+  onLoading?: () => void
 }
 
 /**
@@ -120,10 +123,12 @@ interface PrintableMapProps {
  * setting — this used to hardcode online OSM tiles and printed an empty frame on
  * an offline station.
  */
-export default function PrintableMap({ operations, numbering, onReady }: PrintableMapProps) {
+export default function PrintableMap({ operations, numbering, onReady, onError, onLoading }: PrintableMapProps) {
   const t = useTranslations("print.map")
   const [ready, setReady] = useState(false)
   const mapRef = useRef<MlMap | null>(null)
+  const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const detachRef = useRef<(() => void) | null>(null)
 
   // Located operations, in the order the list prints them — so the key below
   // reads 1, 2, 3 rather than in whatever order the board happened to hold.
@@ -139,6 +144,9 @@ export default function PrintableMap({ operations, numbering, onReady }: Printab
     () => mappableOperations.map((operation) => operation.coordinates),
     [mappableOperations],
   )
+
+  const geometryKey = points.map((point) => point.join(",")).sort().join(";")
+  const lastGeometryRef = useRef(geometryKey)
 
   const fit = useCallback(
     (map: MlMap) => {
@@ -157,32 +165,69 @@ export default function PrintableMap({ operations, numbering, onReady }: Printab
   const fitRef = useRef(fit)
   const onReadyRef = useRef(onReady)
   onReadyRef.current = onReady
+  const onErrorRef = useRef(onError)
+  onErrorRef.current = onError
+  const onLoadingRef = useRef(onLoading)
+  onLoadingRef.current = onLoading
+  const awaitIdle = useCallback(() => {
+    if (deadlineRef.current !== null) clearTimeout(deadlineRef.current)
+    setReady(false)
+    onLoadingRef.current?.()
+    deadlineRef.current = setTimeout(() => onErrorRef.current?.(), 20_000)
+  }, [])
 
   useEffect(() => {
     fitRef.current = fit
-    if (mapRef.current) fit(mapRef.current)
-  }, [fit])
+    const geometryChanged = lastGeometryRef.current !== geometryKey
+    lastGeometryRef.current = geometryKey
+    if (mapRef.current && geometryChanged) {
+      awaitIdle()
+      fit(mapRef.current)
+    }
+  }, [fit, geometryKey, awaitIdle])
 
   // Nothing to map means nothing to wait for: without this the print button, which
   // holds until the map reports in, would stay disabled forever on a board whose
   // incidents carry no coordinates.
   const hasMap = mappableOperations.length > 0
   useEffect(() => {
-    if (!hasMap) onReadyRef.current?.()
-  }, [hasMap])
+    if (!hasMap) {
+      onReadyRef.current?.()
+      return
+    }
+    // Start before onLoad: a stalled style or tile request may prevent load itself.
+    awaitIdle()
+    return () => {
+      if (deadlineRef.current !== null) clearTimeout(deadlineRef.current)
+      detachRef.current?.()
+      mapRef.current = null
+    }
+  }, [hasMap, awaitIdle])
 
   const handleLoad = useCallback((map: MlMap) => {
+    detachRef.current?.()
     mapRef.current = map
+    awaitIdle()
     fitRef.current(map)
     // `<BaseMap>`'s ResizeObserver calls `map.resize()`, which keeps the centre but not the
     // fit — so re-frame on every resize. This is what replaces the old dance of calling
     // `invalidateSize()` four times on a 0/100/300/500ms guess at when the box would settle.
-    map.on("resize", () => fitRef.current(map))
-    map.once("idle", () => {
+    const resize = () => {
+      awaitIdle()
+      fitRef.current(map)
+    }
+    const idle = () => {
+      if (deadlineRef.current !== null) clearTimeout(deadlineRef.current)
       setReady(true)
       onReadyRef.current?.()
-    })
-  }, [])
+    }
+    map.on("resize", resize)
+    map.on("idle", idle)
+    detachRef.current = () => {
+      map.off("resize", resize)
+      map.off("idle", idle)
+    }
+  }, [awaitIdle])
 
   if (!hasMap) {
     return (

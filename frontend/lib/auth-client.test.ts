@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchWsToken, microsoftLogin, startMicrosoftLogin } from './auth-client';
+import { AuthErrorType, fetchWsToken, microsoftLogin, startMicrosoftLogin } from './auth-client';
 
 vi.mock('./env', () => ({ getApiUrl: () => '/backend-api' }));
 vi.mock('./i18n-messages', () => ({ translateOutsideReact: () => 'Anmeldung fehlgeschlagen' }));
@@ -49,5 +49,19 @@ describe('Microsoft browser transaction', () => {
       method: 'POST', credentials: 'include',
       body: JSON.stringify({ code: 'authorization-code', state: 'transaction-state' }),
     }));
+  });
+});
+
+
+it.each([
+  'not JSON',
+  JSON.stringify({}),
+  JSON.stringify({ authorization_url: 7 }),
+  JSON.stringify({ authorization_url: 'javascript:alert(1)' }),
+  JSON.stringify({ authorization_url: 'https://other.example/authorize' }),
+])('normalizes an invalid Microsoft start response without returning a redirect', async (body) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+  await expect(startMicrosoftLogin()).rejects.toMatchObject({
+    name: 'AuthError', type: AuthErrorType.SERVER_ERROR, statusCode: 200,
   });
 });

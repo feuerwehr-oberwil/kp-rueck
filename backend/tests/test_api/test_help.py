@@ -161,14 +161,18 @@ async def test_export_pdf_missing_directory(authenticated_client: AsyncClient):
     """Test PDF export when help directory doesn't exist."""
     with patch.object(Path, "exists", return_value=False):
         response = await authenticated_client.post("/api/help/export-pdf")
-        # Should return error or handle gracefully
-        assert response.status_code in [200, 404, 500]
+        assert response.status_code == 200
+        assert response.json() == {"error": "Help content not found"}
 
-        if response.status_code == 200:
-            data = response.json() if response.headers.get("content-type") == "application/json" else {}
-            # May return error in JSON format
-            if "error" in data:
-                assert "not found" in data["error"].lower() or "directory" in data["error"].lower()
+
+async def test_export_pdf_keeps_exception_details_in_server_log(authenticated_client, caplog):
+    private_detail = "private-server-path/example.md"
+    with patch("reportlab.platypus.SimpleDocTemplate", side_effect=RuntimeError(private_detail)):
+        response = await authenticated_client.post("/api/help/export-pdf")
+    assert response.status_code == 200
+    assert response.json() == {"error": "Failed to generate PDF"}
+    assert private_detail not in response.text
+    assert private_detail in caplog.text
 
 
 @pytest.mark.asyncio

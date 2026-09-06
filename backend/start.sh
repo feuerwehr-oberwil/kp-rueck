@@ -79,6 +79,10 @@ snapshot_before_migrate() {
     # pg_dump speaks libpq; SQLAlchemy adds its driver suffix to the URL.
     local dump_url="${DATABASE_URL/+asyncpg/}"
     dump_url="${dump_url/+psycopg2/}"
+    if ! command -v psql >/dev/null 2>&1; then
+        snapshot_failure "psql is missing from this image"
+        return 1
+    fi
     local tables
     if ! tables="$(psql "$dump_url" -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null)"; then
         snapshot_failure "cannot determine whether the database is empty"

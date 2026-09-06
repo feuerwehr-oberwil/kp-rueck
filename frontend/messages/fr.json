@@ -2134,6 +2134,7 @@
     },
     "view": {
       "markerAria": "Intervention : {label}",
+      "trailTooltip": "{vehicle} – {minutes} dernières min.",
       "firestationFallback": "Sapeurs-pompiers",
       "crewSummary": "{vehicles, plural, one {# véhicule} other {# véhicules}}, {personnel, plural, one {# personne attribuée} other {# personnes attribuées}}",
       "magazin": "Caserne",
@@ -2634,6 +2635,7 @@
       "ortCol": "Lieu"
     },
     "map": {
+      "loadFailed": "Impossible de charger la carte. Imprimez sans carte ou réessayez plus tard.",
       "noCoordinates": "Aucune intervention avec des coordonnées",
       "loading": "Chargement de la carte …",
       "legendHigh": "Haute",

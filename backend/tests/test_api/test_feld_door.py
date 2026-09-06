@@ -641,6 +641,26 @@ async def test_logout_revokes_one_device_and_cannot_be_bypassed_by_reclaiming(
 
 
 @pytest.mark.asyncio
+async def test_late_logout_preserves_original_revocation_time(client, db_session, test_event, test_user):
+    from app.crud.feld import revoke_claim
+
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    token = await feld_device_token(db_session, test_event.id, person.id)
+    claims = validate_feld_token(token)
+    row = await db_session.get(FeldDeviceClaim, claims.claim_id)
+    assert (await client.post(f"/api/feld/logout?token={token}")).status_code == 204
+    await db_session.refresh(row)
+    original = row.revoked_at
+    assert original is not None
+    assert (await client.post(f"/api/feld/logout?token={token}")).status_code == 401
+    # A second request may already have passed admission before the first logout
+    # committed. Its delayed write must still retain the first timestamp.
+    await revoke_claim(db_session, claims.claim_id, test_event.id, person.id)
+    await db_session.refresh(row)
+    assert row.revoked_at == original
+
+
+@pytest.mark.asyncio
 @pytest.mark.api
 async def test_expired_and_legacy_picker_credentials_cannot_claim(
     client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User

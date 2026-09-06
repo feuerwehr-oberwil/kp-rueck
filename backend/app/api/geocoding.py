@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import get_current_user
 from ..crud.feld import claim_is_live
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.geocoding import AddressReverse, AddressSearch, AddressSuggestion, ReversedAddress
 from ..services.geocoding import GeocodingBusyError, GeocodingUnavailableError, geocoder
 from ..services.tokens import validate_feld_token
@@ -32,7 +33,9 @@ async def require_geocoding_access(request: Request, db: AsyncSession = Depends(
 
 
 @router.get("/search", response_model=list[AddressSuggestion], dependencies=[Depends(require_geocoding_access)])
+@limiter.limit(RateLimits.FELD)
 async def search_address(
+    request: Request,
     query: Annotated[AddressSearch, Query()],
     response: Response,
     db: AsyncSession = Depends(get_db),
@@ -49,7 +52,9 @@ async def search_address(
 
 
 @router.get("/reverse", response_model=ReversedAddress, dependencies=[Depends(require_geocoding_access)])
+@limiter.limit(RateLimits.FELD)
 async def reverse_address(
+    request: Request,
     point: Annotated[AddressReverse, Query()],
     response: Response,
     db: AsyncSession = Depends(get_db),

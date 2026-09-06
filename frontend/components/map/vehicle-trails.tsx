@@ -9,6 +9,7 @@ import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { MAP_COLORS } from "@/lib/map-colors"
 import { vis, type FeatureCollectionData } from "@/lib/map-view"
 import { cn } from "@/lib/utils"
+import { useTranslations } from "next-intl"
 
 /** One GeoJSON source holds every trail; the colour rides along per feature. */
 export const TRAIL_SOURCE_ID = "vehicle-trails"
@@ -87,6 +88,7 @@ export function VehicleTrails({
   minutes = 30,
   pollInterval = 30000,
 }: VehicleTrailsProps) {
+  const t = useTranslations("map.view")
   const [trails, setTrails] = useState<ApiVehicleTrail[]>([])
   const [hover, setHover] = useState<TrailHover | null>(null)
   const { current: map } = useMap()
@@ -228,7 +230,7 @@ export function VehicleTrails({
             "[&_.maplibregl-popup-content]:shadow-md",
           )}
         >
-          <span className="text-xs">{hover.name} – letzte {minutes} Min.</span>
+          <span className="text-xs">{t("trailTooltip", { vehicle: hover.name, minutes })}</span>
         </Popup>
       )}
     </>

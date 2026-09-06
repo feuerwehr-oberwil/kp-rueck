@@ -283,3 +283,21 @@ async def test_provider_failures_are_bounded_and_do_not_leak_query(editor_client
     assert response.status_code == 503
     assert "Private example" not in response.text
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("path,parameters", [("search", {"q": "Example"}), ("reverse", {"lat": 47, "lon": 7})])
+async def test_per_client_limit_applies_even_without_provider_dispatch(editor_client, monkeypatch, path, parameters):
+    from app.middleware.rate_limit import RateLimits, limiter
+
+    monkeypatch.setattr(settings, "geocoding_provider", "disabled")
+    limiter.reset()
+    limiter.enabled = True
+    try:
+        for _ in range(int(RateLimits.FELD.split("/")[0])):
+            assert (await editor_client.get(f"/api/geocoding/{path}", params=parameters)).status_code == 200
+        blocked = await editor_client.get(f"/api/geocoding/{path}", params=parameters)
+        assert blocked.status_code == 429
+        assert "Retry-After" in blocked.headers
+    finally:
+        limiter.enabled = False
+        limiter.reset()

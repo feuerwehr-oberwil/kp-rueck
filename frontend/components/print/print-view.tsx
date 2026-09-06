@@ -69,6 +69,8 @@ interface PrintViewProps {
    *  stands, so printing before that would put an empty frame on the paper.
    *  Must be stable (`useCallback`) — it is an effect dependency. */
   onMapReady?: () => void
+  onMapError?: () => void
+  onMapLoading?: () => void
 }
 
 // Reko danger types with a print.view.danger.* label (others fall back to the raw key).
@@ -162,6 +164,8 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       auftraege,
       materialOnSite,
       onMapReady,
+      onMapError,
+      onMapLoading,
     },
     ref
   ) => {
@@ -332,6 +336,8 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
               operations={filteredOperations}
               numbering={numbering}
               onReady={onMapReady}
+              onError={onMapError}
+              onLoading={onMapLoading}
             />
           </div>
         )}

@@ -955,6 +955,8 @@ async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool 
     Args:
         skip_geocoding: Legacy compatibility option. Seeding always uses bundled
                        sample locations and never queries an external provider.
+                       True also repairs the known legacy fallback location when
+                       seeding locations, while preserving custom locations.
         seed_locations: If False, seed only the emergency templates and leave the
                        training locations alone. Production passes False: the
                        fallback list is a set of real streets in one specific town,

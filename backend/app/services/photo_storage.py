@@ -387,9 +387,9 @@ class PhotoStorageService:
         Returns:
             True if deleted, False if file didn't exist
         """
-        file_path = self.photos_dir / str(incident_id) / filename
+        file_path = self.get_photo_path(incident_id, filename)
 
-        if file_path.exists():
+        if file_path is not None:
             file_path.unlink()
 
             # Clean up empty incident directory

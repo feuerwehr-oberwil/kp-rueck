@@ -1250,6 +1250,7 @@
     },
     "view": {
       "markerAria": "Einsatz: {label}",
+      "trailTooltip": "{vehicle} – letzte {minutes} Min.",
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
@@ -2562,6 +2563,7 @@
       "ortCol": "Ort"
     },
     "map": {
+      "loadFailed": "Karte konnte nicht geladen werden. Ohne Karte drucken oder später erneut versuchen.",
       "noCoordinates": "Keine Einsätze mit Koordinaten vorhanden",
       "loading": "Karte wird geladen …",
       "legendHigh": "Hoch",

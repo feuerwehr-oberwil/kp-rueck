@@ -35,6 +35,7 @@ import { VehicleTrails } from "./map/vehicle-trails"
 import { Maximize, Truck, Users } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
+import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -867,6 +868,7 @@ export default function MapView({
   const incidents = incidentsOverride ?? contextIncidents
   const [firestationName, setFirestationName] = useState<string>(() => t('view.firestationFallback'))
   const [firestationCoords, setFirestationCoords] = useState<LatLngPoint>(DEFAULT_CENTER_LATLNG)
+  const [firestationSettingsReady, setFirestationSettingsReady] = useState(false)
   // Magazin/homebase from the GPS settings (gps.station_lat/lng) — null until configured
   const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
   // The live map, handed over by <BaseMap> once it has loaded (and again after a GL recovery
@@ -940,6 +942,8 @@ export default function MapView({
         setVehicles(vehicleList)
       } catch (error) {
         console.error("Failed to load firestation settings:", error)
+      } finally {
+        setFirestationSettingsReady(true)
       }
     }
 
@@ -1189,6 +1193,7 @@ export default function MapView({
     return { longitude, latitude, zoom: 13 }
   })
 
+  useInitialStationView(map, firestationCoords, tokenMode || firestationSettingsReady, mappableIncidents.length > 0)
   useFitBoundsOnce(map, mappableIncidents)
   usePanToSelected(map, selectedIncidentId ?? null, mappableIncidents, panTrigger)
   usePanToVehicle(map, focusVehicleName, focusVehicleTrigger, mappedVehiclePositions)

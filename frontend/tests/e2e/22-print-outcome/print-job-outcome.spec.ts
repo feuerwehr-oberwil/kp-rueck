@@ -69,7 +69,7 @@ test.describe('Print job outcome reaches the operator', () => {
     await card.click({ button: 'right' });
 
     const queued = page.waitForResponse(
-      (res) => res.url().includes('/api/print/assignment/') && res.request().method() === 'POST'
+      (res) => res.url().includes('/api/print/assignment/') && res.request().method() === 'POST' && res.status() === 201
     );
     await page.getByRole('menuitem', { name: 'Einsatzzettel drucken' }).click();
     const job = await (await queued).json();
