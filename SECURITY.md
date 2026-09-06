@@ -82,6 +82,8 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   CORS origin. Online maps receive browser requests; address lookup goes through the backend
   to the configured provider. Integrations also exchange data. See [`PRIVACY.md`](PRIVACY.md)
   for those separate flows.
+  Use HTTPS outside a trusted LAN, including internet-facing `NEXT_PUBLIC_API_URL` overrides
+  in source builds. Plain HTTP exposes credentials and incident data to network observers.
 - **Address lookup** requires a current board login or a live, person-bound field claim.
   The provider is configured by the operator; callers cannot choose an upstream URL.
   Requests share a database-backed dispatch budget across backend workers, have time and

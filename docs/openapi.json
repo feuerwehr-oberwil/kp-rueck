@@ -14208,7 +14208,7 @@
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos listed by its\n  exact report, including its draft and prefilled photos. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
+        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos listed by its\n  exact report, including its draft and prefilled photos. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -14303,10 +14303,22 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
+          },
+          "400": {
+            "description": "Invalid or expired Reko form credential."
+          },
+          "401": {
+            "description": "Authentication required, invalid session, or revoked field device."
+          },
+          "404": {
+            "description": "Photo not found or outside the supplied token's scope."
           },
           "422": {
             "description": "Validation Error",

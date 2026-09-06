@@ -809,7 +809,16 @@ async def _viewer_token_may_see_photo(
     return any(filename in (photos or []) for photos in result.scalars())
 
 
-@photos_router.get("/{incident_id}/{filename}")
+@photos_router.get(
+    "/{incident_id}/{filename}",
+    response_class=FileResponse,
+    responses={
+        200: {"content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}},
+        400: {"description": "Invalid or expired Reko form credential."},
+        401: {"description": "Authentication required, invalid session, or revoked field device."},
+        404: {"description": "Photo not found or outside the supplied token's scope."},
+    },
+)
 async def serve_photo(
     incident_id: uuid.UUID,
     filename: str,
@@ -852,6 +861,7 @@ async def serve_photo(
         Image file with cache headers
 
     Raises:
+        HTTPException 400: If the Reko form credential is invalid or expired
         HTTPException 401: If no credential opens a door, or the device was revoked
         HTTPException 404: If the photo is not found, or out of the token's reach
     """
