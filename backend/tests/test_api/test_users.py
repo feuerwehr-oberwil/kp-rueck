@@ -854,6 +854,7 @@ async def test_concurrent_resets_increment_version_without_losing_an_invalidatio
 
     from app.auth.security import create_login_tokens, verify_password
     from app.database import get_db
+    from app.middleware.audit import _inflight_audit_tasks
 
     admin_id, target_id = uuid.uuid4(), uuid.uuid4()
     passwords = ("FirstConcurrentPassword123", "SecondConcurrentPassword123")
@@ -871,6 +872,9 @@ async def test_concurrent_resets_increment_version_without_losing_an_invalidatio
             return await super().execute(statement, *args, **kwargs)
 
     sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    prior_audit_tasks = set(_inflight_audit_tasks)
+    async with sessions() as db:
+        prior_audit_ids = set(await db.scalars(select(AuditLog.id)))
     request_sessions = async_sessionmaker(test_engine, class_=ConcurrentSession, expire_on_commit=False)
     async with sessions() as db:
         db.add_all(
@@ -905,8 +909,12 @@ async def test_concurrent_resets_increment_version_without_losing_an_invalidatio
             assert target.session_version == 2
             assert any(verify_password(password, target.password_hash) for password in passwords)
     finally:
+        # The independent requests also commit anonymous API audit rows. Drain
+        # their tasks and remove only new IDs; other tests are sequential within
+        # this worker and every earlier committed audit row must remain intact.
+        await asyncio.gather(*(_inflight_audit_tasks - prior_audit_tasks))
         async with sessions() as db:
-            await db.execute(delete(AuditLog).where(AuditLog.user_id.in_([admin_id, target_id])))
+            await db.execute(delete(AuditLog).where(AuditLog.id.not_in(prior_audit_ids)))
             await db.execute(delete(User).where(User.id.in_([admin_id, target_id])))
             await db.commit()
 
@@ -920,10 +928,14 @@ async def test_password_login_overlapping_reset_cannot_inherit_new_epoch(test_en
 
     from app.auth.security import create_login_tokens, decode_token
     from app.database import get_db
+    from app.middleware.audit import _inflight_audit_tasks
 
     admin_id, target_id = uuid.uuid4(), uuid.uuid4()
     target_name = f"login-race-{target_id}"
     sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    prior_audit_tasks = set(_inflight_audit_tasks)
+    async with sessions() as db:
+        prior_audit_ids = set(await db.scalars(select(AuditLog.id)))
     verified = asyncio.Event()
     release_login = asyncio.Event()
     async with sessions() as db:
@@ -974,7 +986,11 @@ async def test_password_login_overlapping_reset_cannot_inherit_new_epoch(test_en
         if login_task is not None and not login_task.done():
             login_task.cancel()
             await asyncio.gather(login_task, return_exceptions=True)
+        # The independent requests also commit anonymous API audit rows. Drain
+        # their tasks and remove only new IDs; other tests are sequential within
+        # this worker and every earlier committed audit row must remain intact.
+        await asyncio.gather(*(_inflight_audit_tasks - prior_audit_tasks))
         async with sessions() as db:
-            await db.execute(delete(AuditLog).where(AuditLog.user_id.in_([admin_id, target_id])))
+            await db.execute(delete(AuditLog).where(AuditLog.id.not_in(prior_audit_ids)))
             await db.execute(delete(User).where(User.id.in_([admin_id, target_id])))
             await db.commit()
