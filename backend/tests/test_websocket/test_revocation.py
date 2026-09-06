@@ -279,3 +279,83 @@ async def test_ping_applies_sender_role_downgrade_without_scanning_other_clients
     assert ws_manager.user_sessions["audit"]["role"] == "viewer"
     assert "audit" not in ws_manager.active_connections["admin"]
     sio.leave_room.assert_awaited_once_with("audit", "admin")
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_admin_password_reset_revokes_all_target_sessions_and_sockets(admin_client, test_editor, legacy):
+    """Real cookies, refresh, child socket mint, reset and delivery share the user's epoch."""
+    import jwt
+    from httpx import ASGITransport, AsyncClient
+
+    from app.auth.config import auth_settings
+    from app.main import app
+    from tests.conftest import TEST_PASSWORD
+
+    new_password = "NewUserPassword123"
+    async with (
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as target,
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as second,
+    ):
+        for client in (target, second):
+            assert (
+                await client.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
+            ).status_code == 200
+        if legacy:
+            # A correctly signed credential from before the counter migration is
+            # accepted at epoch zero, then retired by this user's first reset.
+            for cookie in ("access_token", "refresh_token"):
+                payload = decode_token(target.cookies[cookie])
+                del payload["user_session_version"]
+                target.cookies.delete(cookie)
+                target.cookies.set(
+                    cookie,
+                    jwt.encode(payload, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM),
+                    domain="test.local",
+                )
+        access = target.cookies["access_token"]
+        refresh = target.cookies["refresh_token"]
+        assert (await target.get("/api/auth/me")).status_code == 200
+        ws_response = await target.get("/api/auth/ws-token")
+        assert ws_response.status_code == 200
+        child = ws_response.json()["token"]
+        assert decode_token(child)["user_session_version"] == 0
+        assert await connect("reset-cookie", {"HTTP_COOKIE": f"access_token={access}"}) is True
+        assert await connect("reset-child", {}, {"token": child}) is True
+        await ws_manager.join_room("reset-cookie", "operations")
+        await ws_manager.join_room("reset-child", "operations")
+        assert (await target.post("/api/auth/refresh")).status_code == 200
+        assert decode_token(target.cookies["access_token"])["user_session_version"] == 0
+
+        reset = await admin_client.post(
+            f"/api/users/{test_editor.id}/reset-password", json={"new_password": new_password}
+        )
+        assert reset.status_code == 204, reset.text
+        for client in (target, second):
+            assert (await client.get("/api/auth/me")).status_code == 401
+            assert (await client.post("/api/auth/refresh")).status_code == 401
+        target.cookies.clear()
+        target.cookies.set("access_token", access, domain="test.local")
+        target.cookies.set("refresh_token", refresh, domain="test.local")
+        assert (await target.get("/api/auth/me")).status_code == 401
+        assert (await target.get("/api/auth/ws-token")).status_code == 401
+        assert (await target.post("/api/auth/refresh")).status_code == 401
+        sio.emit.reset_mock()
+        await ws_manager.broadcast_update("incident_update", {"private": "after reset"}, room="operations")
+        assert "reset-cookie" not in ws_manager.user_sessions
+        assert "reset-child" not in ws_manager.user_sessions
+        assert not any(call.args[0] == "incident_update" for call in sio.emit.await_args_list)
+        assert await connect("replay-cookie", {"HTTP_COOKIE": f"access_token={access}"}) is False
+        assert await connect("replay-child", {}, {"token": child}) is False
+        assert (await admin_client.get("/api/auth/me")).status_code == 200  # Another user's session remains valid.
+        assert (
+            await target.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
+        ).status_code == 401
+        assert (
+            await target.post("/api/auth/login", data={"username": test_editor.username, "password": new_password})
+        ).status_code == 200
+        for cookie in ("access_token", "refresh_token"):
+            assert decode_token(target.cookies[cookie])["user_session_version"] == 1
+        assert (await target.post("/api/auth/refresh")).status_code == 200
+        new_child = (await target.get("/api/auth/ws-token")).json()["token"]
+        assert decode_token(new_child)["user_session_version"] == 1
+        assert await connect("new-password", {}, {"token": new_child}) is True

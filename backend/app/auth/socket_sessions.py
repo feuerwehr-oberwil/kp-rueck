@@ -23,6 +23,7 @@ class SocketIdentity:
     session_jti: str
     expires_at: float
     family_jti: str
+    user_session_version: int = 0
 
 
 def socket_identity(token: str, credential_kind: str) -> SocketIdentity | None:
@@ -45,7 +46,14 @@ def socket_identity(token: str, credential_kind: str) -> SocketIdentity | None:
             return None
         if expiry <= time.time():
             return None
-        return SocketIdentity(user_id, jti, session_jti, min(float(expiry), family.expires_at), family.jti)
+        return SocketIdentity(
+            user_id,
+            jti,
+            session_jti,
+            min(float(expiry), family.expires_at),
+            family.jti,
+            payload["user_session_version"],
+        )
     except (jwt.PyJWTError, KeyError, TypeError, ValueError, AttributeError):
         return None
 
@@ -66,11 +74,12 @@ async def current_socket_roles(identities: list[SocketIdentity]) -> dict[SocketI
     if not live:
         return {}
     async with async_session_maker() as db:
-        users = dict(
-            (await db.execute(select(User.id, User.role).where(User.id.in_({i.user_id for i in live}), User.is_active)))
-            .tuples()
-            .all()
+        rows = await db.execute(
+            select(User.id, User.role, User.session_version).where(
+                User.id.in_({i.user_id for i in live}), User.is_active
+            )
         )
+        users = {user_id: (role, version) for user_id, role, version in rows.tuples()}
         revoked = set(
             (
                 await db.scalars(
@@ -81,9 +90,11 @@ async def current_socket_roles(identities: list[SocketIdentity]) -> dict[SocketI
             ).all()
         )
     if auth_settings.is_auth_bypassed:
-        users[UUID(int=0)] = "admin"
+        users[UUID(int=0)] = ("admin", 0)
     return {
-        identity: users[identity.user_id]
+        identity: users[identity.user_id][0]
         for identity in live
-        if identity.user_id in users and not ({identity.jti, identity.session_jti, identity.family_jti} & revoked)
+        if identity.user_id in users
+        and identity.user_session_version == users[identity.user_id][1]
+        and not ({identity.jti, identity.session_jti, identity.family_jti} & revoked)
     }

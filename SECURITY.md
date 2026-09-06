@@ -45,6 +45,9 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   access tokens from the same login. This security upgrade performs a one-time credential
   reset: earlier access, refresh and socket tokens are rejected, so users must sign in again.
   Later routine upgrades retain the credential version and do not repeat the reset.
+  An admin password reset or account deactivation revokes that account's existing access,
+  refresh and socket sessions. Rotating `VIEWER_PASSWORD` through a redeploy does the same
+  for the viewer account; restarting with the same password preserves its sessions.
 - **Brute-force protection:** login failures are counted **per username**, not per IP, so
   several operators behind one command-post NAT cannot exhaust each other's budget while an
   attacker still faces a lockout. Tunable via `LOGIN_MAX_FAILED_ATTEMPTS`,

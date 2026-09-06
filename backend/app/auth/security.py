@@ -128,6 +128,7 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
             "jti": str(uuid.uuid4()),  # JWT ID (for revocation tracking if needed)
             "type": "access",
             "auth_version": AUTH_CREDENTIAL_VERSION,
+            "user_session_version": to_encode.get("user_session_version", 0),
         }
     )
 
@@ -156,6 +157,7 @@ def create_refresh_token(data: dict[str, Any]) -> str:
             "jti": str(uuid.uuid4()),
             "type": "refresh",
             "auth_version": AUTH_CREDENTIAL_VERSION,
+            "user_session_version": to_encode.get("user_session_version", 0),
         }
     )
 
@@ -165,7 +167,9 @@ def create_refresh_token(data: dict[str, Any]) -> str:
 
 def create_login_tokens(data: dict[str, Any]) -> tuple[str, str]:
     """Issue both credentials under one revocable login family (local and SSO)."""
-    refresh_token = create_refresh_token({"sub": data["sub"]})
+    refresh_token = create_refresh_token(
+        {"sub": data["sub"], "user_session_version": data.get("user_session_version", 0)}
+    )
     refresh = decode_token(refresh_token)
     access_token = create_access_token({**data, "family_jti": refresh["jti"], "family_exp": refresh["exp"]})
     return access_token, refresh_token
@@ -185,6 +189,7 @@ def create_ws_token(
     session_expires_at: float | None = None,
     family_jti: str | None = None,
     family_expires_at: float | None = None,
+    user_session_version: int = 0,
 ) -> str:
     """A short-lived token for the Socket.IO connect (sweep 27 §P3.4).
 
@@ -207,6 +212,7 @@ def create_ws_token(
             "role": role,
             "type": "ws",
             "auth_version": AUTH_CREDENTIAL_VERSION,
+            "user_session_version": user_session_version,
             "exp": handshake_expiry,
             "iat": datetime.now(UTC),
             "jti": jti,
@@ -243,6 +249,12 @@ def decode_token(token: str, *, allow_expired: bool = False) -> dict[str, Any]:
         version = payload.get("auth_version")
         if type(version) is not int or version != AUTH_CREDENTIAL_VERSION:
             raise jwt.InvalidTokenError("Login credential predates the security upgrade; sign in again")
+        # Existing signed credentials represent the pre-reset epoch. A reset
+        # increments only that user's database value and retires every old login.
+        session_version = payload.get("user_session_version", 0)
+        if type(session_version) is not int or session_version < 0:
+            raise jwt.InvalidTokenError("Invalid user session version")
+        payload["user_session_version"] = session_version
         return payload
     except jwt.PyJWTError as e:
         raise jwt.InvalidTokenError(f"Token validation failed: {e!s}") from e

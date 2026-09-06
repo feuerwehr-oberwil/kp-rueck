@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.auth import _is_on_editor_allowlist
 from app.auth.config import auth_settings
+from app.auth.security import decode_token
 from app.config import settings
 from app.models import MicrosoftLoginTransaction, User
 from app.services.microsoft_auth import consume_login, start_login, validate_and_decode_id_token
@@ -235,6 +236,7 @@ class TestMicrosoftProvisioning:
                 password_hash=None,
                 role="editor",
                 is_active=True,
+                session_version=3,
             )
         )
         await db_session.commit()
@@ -243,6 +245,13 @@ class TestMicrosoftProvisioning:
 
         assert response.status_code == 200
         assert response.json()["role"] == "editor"
+        for cookie in ("access_token", "refresh_token"):
+            assert decode_token(client.cookies[cookie])["user_session_version"] == 3
+        assert (await client.post("/api/auth/refresh")).status_code == 200
+        assert decode_token(client.cookies["access_token"])["user_session_version"] == 3
+        child = await client.get("/api/auth/ws-token")
+        assert child.status_code == 200
+        assert decode_token(child.json()["token"])["user_session_version"] == 3
 
     async def test_existing_viewer_is_not_auto_promoted(
         self, client: AsyncClient, db_session: AsyncSession, microsoft_auth_configured, monkeypatch

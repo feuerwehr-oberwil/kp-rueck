@@ -459,3 +459,35 @@ def test_token_expiration_timing():
 
     # Should match configured expiration (allow 0.1 minute tolerance)
     assert abs(actual_minutes - auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES) < 0.1
+
+
+@pytest.mark.parametrize("session_version", [None, True, False, -1, "0", 1.5, [], {}])
+@pytest.mark.parametrize("credential_kind", ["access", "refresh", "ws"])
+def test_malformed_user_session_version_is_rejected(session_version, credential_kind):
+    token = jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "type": credential_kind,
+            "auth_version": AUTH_CREDENTIAL_VERSION,
+            "user_session_version": session_version,
+            "exp": datetime.now(UTC) + timedelta(minutes=1),
+        },
+        auth_settings.SECRET_KEY,
+        algorithm=auth_settings.ALGORITHM,
+    )
+    with pytest.raises(jwt.InvalidTokenError, match="Invalid user session version"):
+        decode_token(token)
+
+
+def test_signed_pre_counter_token_represents_only_initial_user_version():
+    token = jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "type": "access",
+            "auth_version": AUTH_CREDENTIAL_VERSION,
+            "exp": datetime.now(UTC) + timedelta(minutes=1),
+        },
+        auth_settings.SECRET_KEY,
+        algorithm=auth_settings.ALGORITHM,
+    )
+    assert decode_token(token)["user_session_version"] == 0

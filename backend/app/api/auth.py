@@ -120,6 +120,7 @@ async def login(
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
+            "user_session_version": user.session_version,
         }
     )
 
@@ -202,12 +203,16 @@ async def refresh_token(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzerkonto ist deaktiviert")
 
+    if payload["user_session_version"] != user.session_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Anmeldung wurde widerrufen")
+
     # Create new access token
     access_token = create_access_token(
         data={
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
+            "user_session_version": payload["user_session_version"],
             "family_jti": jti,
             "family_exp": payload["exp"],
         }
@@ -361,6 +366,7 @@ async def get_ws_token(request: Request, current_user: CurrentUser) -> schemas.W
             session_expires_at=claims.get("exp"),
             family_jti=family.jti if family else None,
             family_expires_at=family.expires_at if family else None,
+            user_session_version=claims.get("user_session_version", 0),
         ),
         expires_in=WS_TOKEN_EXPIRE_SECONDS,
     )
@@ -555,6 +561,7 @@ async def microsoft_login(
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
+            "user_session_version": user.session_version,
         }
     )
 
