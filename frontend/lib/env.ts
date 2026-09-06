@@ -1,11 +1,8 @@
 /**
  * Runtime environment configuration
  *
- * Uses NEXT_PUBLIC_API_URL for production deployments.
- * Falls back to localhost:8000 for local development.
- *
- * Note: NEXT_PUBLIC_* vars are inlined at build time by Next.js.
- * The Dockerfile must pass them as build args for production builds.
+ * Published images use same-origin HTTP and runtime WebSocket configuration.
+ * NEXT_PUBLIC_* values are build-time overrides for source builds/development.
  */
 
 /**
@@ -131,7 +128,6 @@ export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
       'https://*.railway.app',
       ...backendOrigins,
       'https://*.tile.openstreetmap.org',
-      'https://nominatim.openstreetmap.org',
       'https://*.basemaps.cartocdn.com',
       'https://server.arcgisonline.com',
       'http://localhost:8080',
@@ -163,10 +159,16 @@ export function buildContentSecurityPolicy(env: CspEnvironment = {}): string {
         'http://localhost:8080',
       ]),
     ].join(' ')}`,
-    // Fonts: self + data URIs
-    "font-src 'self' data:",
+    // Fonts: self + data URIs + the tile server (MapLibre glyph ranges live under /fonts)
+    "font-src 'self' data: http://localhost:8080",
     // Connect: self + API + WebSocket + map tiles + local tile server
     `connect-src ${connectSrc.join(' ')}`,
+    // Workers: MapLibre compiles its tile worker into a blob: URL and spawns it from there.
+    // Without this the map never initialises – `default-src 'self'` refuses the blob, and the
+    // only symptom is an empty canvas. `child-src` says the same thing for engines that
+    // predate `worker-src`.
+    "worker-src 'self' blob:",
+    "child-src blob:",
     // Frame ancestors: prevent clickjacking
     "frame-ancestors 'none'",
     // Form actions: only to self
@@ -190,20 +192,24 @@ export function setRuntimeBackendOrigin(raw: string | null | undefined): void {
 /**
  * Publish the runtime CARTO key to the browser.
  *
- * CARTO raster URLs require the key as a query parameter, so it is visible in tile requests by
- * design. Keeping it in `CARTO_API_KEY` still prevents it being committed or baked into the
- * shared frontend image, and lets each deployment rotate it without a rebuild.
+ * CARTO raster URLs require the key as a `?key=` query parameter, so this value is visible in
+ * tile requests by design. Keeping it in `CARTO_API_KEY` still prevents it being committed or
+ * baked into the shared frontend image, and lets each deployment rotate it without a rebuild.
  */
 export function setRuntimeCartoApiKey(raw: string | null | undefined): void {
   if (typeof window === 'undefined') return
   runtimeCartoApiKey = raw?.trim() || null
 }
 
-/** Add the configured runtime key to one CARTO raster URL template. */
-export function withCartoApiKey(url: string): string {
-  if (!runtimeCartoApiKey) return url
-  const separator = url.includes('?') ? '&' : '?'
-  return `${url}${separator}key=${encodeURIComponent(runtimeCartoApiKey)}`
+export function getCartoApiKey(): string | null {
+  return runtimeCartoApiKey
+}
+
+/** Only the local development server talks directly to the published dev ports. */
+function isLocalDevServer(): boolean {
+  if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') return false
+  const { hostname, port } = window.location
+  return (hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000'
 }
 
 export function getApiUrl(): string {
@@ -213,15 +219,7 @@ export function getApiUrl(): string {
     return envUrl
   }
 
-  // Client-side: for non-localhost domains, use proxy
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      return '/backend-api'
-    }
-  }
-
-  return 'http://localhost:8000'
+  return isLocalDevServer() ? 'http://localhost:8000' : '/backend-api'
 }
 
 /**
@@ -232,14 +230,15 @@ export function getApiUrl(): string {
  * tileserver), so the browser needs no second host – and no CSP exception, since 'self'
  * already covers it.
  *
- * The discriminator is the DEV SERVER'S PORT, not the hostname. It used to be the hostname,
+ * The discriminator is a non-production build on the DEV SERVER'S PORT, not just the hostname.
+ * It used to be the hostname,
  * which quietly broke the single most ordinary self-host setup there is: a station running
  * the compose stack on one box and opening `http://localhost:8080` on that same box. There,
  * `localhost` sent the browser to `http://localhost:8080/styles/…` – which is Caddy, which
  * routes anything that isn't /api, /socket.io or /tiles to the FRONTEND. Offline tiles 404'd
  * and the map went blank, while the identical stack reached by LAN IP worked. Port 3000 is
  * the Next dev server in `docker-compose.dev.yml` and in `pnpm dev`; nothing else in this
- * project serves the app there.
+ * project defaults to that port. A production build on :3000 still uses its own origin.
  */
 export function getTileBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_TILE_URL
@@ -247,15 +246,7 @@ export function getTileBaseUrl(): string {
     return envUrl
   }
 
-  if (typeof window !== 'undefined') {
-    const { hostname, port } = window.location
-    const isDevServer = (hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000'
-    return isDevServer ? 'http://localhost:8080' : '/tiles'
-  }
-
-  // Server-side render: same-origin is the only answer that is right on a deployment, and
-  // harmless in development (the map is a client component and re-resolves in the browser).
-  return '/tiles'
+  return isLocalDevServer() ? 'http://localhost:8080' : '/tiles'
 }
 
 /**
@@ -300,7 +291,7 @@ export function getWsUrl(): string {
   // Runtime fallback for deployments with no build-time env var.
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    if (!isLocalDevServer()) {
       // Railway runs the frontend and backend as two services on two hostnames with no
       // shared proxy in front, so the socket has to be addressed directly by convention:
       // X.up.railway.app → X-api.up.railway.app.

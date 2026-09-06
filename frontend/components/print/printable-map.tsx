@@ -1,26 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useTranslations } from "next-intl"
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
-import L from "leaflet"
-import "leaflet/dist/leaflet.css"
+import type { Map as MlMap } from "maplibre-gl"
+import { Marker } from "react-map-gl/maplibre"
+import { BaseMap } from "@/components/map/base-map"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
-import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import { isLocated } from "@/lib/utils/route-geo"
+import { fitTo, type LatLngPoint } from "@/lib/map-view"
 
 /**
  * Printed size of the map, in millimetres — deliberately NOT a percentage and
  * NOT pixels.
  *
- * Leaflet lays its tile grid out once, against the container size it sees while
- * the print view sits hidden off-screen. If that size differs from the size the
+ * The tile grid is laid out against the container size the map sees while the
+ * print view sits hidden off-screen. If that size differs from the size the
  * same container has on paper (it did: the off-screen `.print-only` box is
  * 210mm wide with a 16px padding, the printed page is 190mm with a 5mm one),
- * the grid is clipped and the fitted bounds no longer centre what was fitted —
- * which is why the old print showed a region with none of its markers on it.
- * One fixed millimetre size for both media removes the discrepancy entirely.
+ * the fitted bounds no longer centre what was fitted — which is why the old
+ * print showed a region with none of its markers on it. One fixed millimetre
+ * size for both media removes the discrepancy entirely.
  *
  * 178mm × 196mm fits inside the printable width (190mm page box less the
  * 5mm `.print-view` padding = 180mm) and leaves room on the page for the
@@ -31,74 +32,63 @@ import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 const MAP_WIDTH = "178mm"
 const MAP_HEIGHT = "196mm"
 
+/** Screen pixels kept clear around the fitted incidents, so no pin sits on the frame. */
+const FIT_PADDING = 40
+
+/**
+ * Deepest zoom the fit is allowed to reach.
+ *
+ * On a full page the fit is limited by the spread of the incidents, not by the
+ * container — a village-sized Lage may zoom in far enough for street names,
+ * which is the whole point of the big map.
+ */
+const FIT_MAX_ZOOM = 15
+
+/** Opening zoom before the first `fitBounds`, which lands on `load`; never actually seen. */
+const INITIAL_ZOOM = 12
+
+const MARKER_SIZE = 22
+
+/**
+ * Paper is always light, and the chrome of a live map is not part of a printout.
+ *
+ * The canvas filter covers the ONE surface where dark mode is still a CSS filter: the
+ * offline VECTOR style, whose 47 layers leave no single layer to paint (see
+ * `VECTOR_CANVAS_FILTER` in `base-map.tsx`). Every raster basemap is dimmed by GL paint
+ * instead, which no CSS rule can undo — that one is pinned to day by `forceDayPaint`
+ * below. Without both halves a dark-themed operator prints a black rectangle.
+ *
+ * The attribution control is a ⓘ button that opens on click: on paper it is a dot in the
+ * corner that says nothing, so it is hidden here.
+ *
+ * Scoped to `.print-map` and kept in this component on purpose – `globals.css` no
+ * longer carries any print rules for the map.
+ */
+const PRINT_MAP_CSS = `
+.print-map .maplibregl-canvas {
+  filter: saturate(0.3) brightness(1.05) contrast(0.95) !important;
+}
+.print-map .maplibregl-ctrl-bottom-right {
+  display: none !important;
+}
+`
+
 /** Marker: priority colour, plus the number the incident carries in the list. */
-function createMarkerIcon(priority: string, label: string): L.DivIcon {
+function markerStyle(priority: string): CSSProperties {
   const color =
     PRIORITY_MARKER_COLORS[priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
-  const size = 22
 
-  const html = `
-    <div style="
-      width: ${size}px;
-      height: ${size}px;
-      background-color: ${color};
-      border: 2px solid white;
-      border-radius: 50%;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-      color: white;
-      font: 700 12px/${size - 4}px system-ui, sans-serif;
-      text-align: center;
-    ">${label}</div>
-  `
-
-  return L.divIcon({
-    html,
-    className: "print-marker",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  })
-}
-
-// Component to auto-fit map bounds to show all operations
-function FitBounds({ operations }: { operations: LocatedOperation[] }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (operations.length === 0) return
-
-    const validOps = operations.filter(isLocated)
-
-    if (validOps.length === 0) return
-
-    const bounds = L.latLngBounds(
-      validOps.map((op) => [op.coordinates[0], op.coordinates[1]] as [number, number])
-    )
-
-    // Function to fit bounds with proper sizing.
-    // maxZoom 15 (was 14): on a full page the fit is limited by the spread of
-    // the incidents, not by the container — a village-sized Lage may zoom in
-    // far enough for street names, which is the whole point of the big map.
-    const fitMapBounds = () => {
-      map.invalidateSize()
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: false })
-    }
-
-    // Try immediately
-    fitMapBounds()
-
-    // Also try after a short delay to ensure container is sized
-    const timer1 = setTimeout(fitMapBounds, 100)
-    const timer2 = setTimeout(fitMapBounds, 300)
-    const timer3 = setTimeout(fitMapBounds, 500)
-
-    return () => {
-      clearTimeout(timer1)
-      clearTimeout(timer2)
-      clearTimeout(timer3)
-    }
-  }, [map, operations])
-
-  return null
+  return {
+    width: MARKER_SIZE,
+    height: MARKER_SIZE,
+    backgroundColor: color,
+    border: "2px solid white",
+    borderRadius: "50%",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
+    color: "white",
+    font: `700 12px/${MARKER_SIZE - 4}px system-ui, sans-serif`,
+    textAlign: "center",
+  }
 }
 
 interface PrintableMapProps {
@@ -106,44 +96,95 @@ interface PrintableMapProps {
   /** incident id → the number it carries in the printed incident list, so a pin
    *  can be looked up in the list and vice versa. */
   numbering: Map<string, number>
+  /** Fired once the map has gone idle — tiles drawn, nothing left to fetch. The
+   *  print button waits for it, because a canvas is printed as it stands. */
+  onReady?: () => void
 }
 
 /**
  * Full-page map of the located incidents for the A4 status print.
  *
- * Colours print exactly (`printColorAdjust`) and the size is fixed in mm –
- * see MAP_WIDTH/MAP_HEIGHT above. The old `print-map-container` class is gone
- * on purpose: its `@media print` rule in globals.css pinned the height to
- * 250px with `!important`, which is what kept the map postage-stamp sized.
+ * A dedicated, non-interactive `<BaseMap>` instance with `preserveDrawingBuffer`
+ * — the only surface that sets it. Without it the WebGL back buffer is discarded
+ * after every frame and the browser's print snapshot of the canvas comes out
+ * blank; with it the canvas prints exactly what is on screen, and the numbered
+ * pins stay real DOM elements so they print as crisp vector text rather than as
+ * part of a rasterised capture.
+ *
+ * Colours print exactly (`printColorAdjust`) and the size is fixed in mm – see
+ * MAP_WIDTH/MAP_HEIGHT above. The old `print-map-container` class is gone on
+ * purpose (and so is its rule in globals.css): its `@media print` block pinned
+ * the height to 250px with `!important`, which kept the map postage-stamp sized.
+ *
+ * The basemap comes from `<BaseMap>`, which means from the station's `map_mode`
+ * setting — this used to hardcode online OSM tiles and printed an empty frame on
+ * an offline station.
  */
-export default function PrintableMap({ operations, numbering }: PrintableMapProps) {
+export default function PrintableMap({ operations, numbering, onReady }: PrintableMapProps) {
   const t = useTranslations("print.map")
-  const [isReady, setIsReady] = useState(false)
+  const [ready, setReady] = useState(false)
+  const mapRef = useRef<MlMap | null>(null)
 
   // Located operations, in the order the list prints them — so the key below
   // reads 1, 2, 3 rather than in whatever order the board happened to hold.
-  const mappableOperations = operations
-    .filter(isLocated)
-    .sort((a, b) => (numbering.get(a.id) ?? 0) - (numbering.get(b.id) ?? 0))
+  const mappableOperations = useMemo(
+    () =>
+      operations
+        .filter(isLocated)
+        .sort((a, b) => (numbering.get(a.id) ?? 0) - (numbering.get(b.id) ?? 0)),
+    [operations, numbering],
+  )
 
-  // Default center (Basel region)
-  const defaultCenter: [number, number] = [47.51637699933488, 7.561800450458299]
+  const points = useMemo<LatLngPoint[]>(
+    () => mappableOperations.map((operation) => operation.coordinates),
+    [mappableOperations],
+  )
 
-  // Calculate center from operations if available
-  const center: [number, number] = mappableOperations.length > 0
-    ? [
-        mappableOperations.reduce((sum, op) => sum + op.coordinates[0], 0) / mappableOperations.length,
-        mappableOperations.reduce((sum, op) => sum + op.coordinates[1], 0) / mappableOperations.length,
-      ]
-    : defaultCenter
+  const fit = useCallback(
+    (map: MlMap) => {
+      try {
+        fitTo(map, points, { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, animate: false })
+      } catch {
+        /* the instance is already torn down – a GL recovery remount brings a new one */
+      }
+    },
+    [points],
+  )
+
+  // The resize handler must always run the CURRENT fit, and `onReady` must not
+  // re-arm the load handler — both live behind refs so `handleLoad` can stay
+  // subscribed for the lifetime of the map instance.
+  const fitRef = useRef(fit)
+  const onReadyRef = useRef(onReady)
+  onReadyRef.current = onReady
 
   useEffect(() => {
-    // Small delay to ensure Leaflet CSS is loaded
-    const timer = setTimeout(() => setIsReady(true), 100)
-    return () => clearTimeout(timer)
+    fitRef.current = fit
+    if (mapRef.current) fit(mapRef.current)
+  }, [fit])
+
+  // Nothing to map means nothing to wait for: without this the print button, which
+  // holds until the map reports in, would stay disabled forever on a board whose
+  // incidents carry no coordinates.
+  const hasMap = mappableOperations.length > 0
+  useEffect(() => {
+    if (!hasMap) onReadyRef.current?.()
+  }, [hasMap])
+
+  const handleLoad = useCallback((map: MlMap) => {
+    mapRef.current = map
+    fitRef.current(map)
+    // `<BaseMap>`'s ResizeObserver calls `map.resize()`, which keeps the centre but not the
+    // fit — so re-frame on every resize. This is what replaces the old dance of calling
+    // `invalidateSize()` four times on a 0/100/300/500ms guess at when the box would settle.
+    map.on("resize", () => fitRef.current(map))
+    map.once("idle", () => {
+      setReady(true)
+      onReadyRef.current?.()
+    })
   }, [])
 
-  if (mappableOperations.length === 0) {
+  if (!hasMap) {
     return (
       <div className="h-[250px] bg-gray-100 flex items-center justify-center text-gray-500 text-sm border border-gray-300">
         {t("noCoordinates")}
@@ -151,46 +192,46 @@ export default function PrintableMap({ operations, numbering }: PrintableMapProp
     )
   }
 
-  if (!isReady) {
-    return (
-      <div style={{ height: MAP_HEIGHT, width: MAP_WIDTH }} className="bg-gray-100 flex items-center justify-center text-gray-500 text-sm">
-        {t("loading")}
-      </div>
-    )
+  const center = {
+    longitude:
+      mappableOperations.reduce((sum, op) => sum + op.coordinates[1], 0) / mappableOperations.length,
+    latitude:
+      mappableOperations.reduce((sum, op) => sum + op.coordinates[0], 0) / mappableOperations.length,
   }
 
   return (
     // `printColorAdjust` is inherited, so one declaration here keeps the tiles
     // and the coloured markers from being stripped by the print pipeline.
     <div style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
-      <div className="border border-gray-300" style={{ height: MAP_HEIGHT, width: MAP_WIDTH }}>
-        <MapContainer
-          center={center}
-          zoom={12}
-          style={{ height: "100%", width: "100%", background: "white" }}
-          zoomControl={false}
-          attributionControl={false}
-          dragging={false}
-          scrollWheelZoom={false}
-          doubleClickZoom={false}
-          touchZoom={false}
+      <style>{PRINT_MAP_CSS}</style>
+      <div
+        className="print-map border border-gray-300"
+        style={{ height: MAP_HEIGHT, width: MAP_WIDTH }}
+        data-testid="printable-map"
+        data-map-ready={ready ? "true" : "false"}
+      >
+        <BaseMap
+          initialViewState={{ ...center, zoom: INITIAL_ZOOM }}
+          interactive={false}
+          // Print only: the back buffer has to survive the frame for the browser to
+          // be able to put the canvas on paper. It costs memory, hence nowhere else.
+          preserveDrawingBuffer
+          // Paper is light in every theme – see PRINT_MAP_CSS.
+          forceDayPaint
+          onLoad={handleLoad}
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          {/* Operation Markers */}
           {mappableOperations.map((operation) => (
             <Marker
               key={operation.id}
-              position={[operation.coordinates[0], operation.coordinates[1]]}
-              icon={createMarkerIcon(operation.priority, String(numbering.get(operation.id) ?? "•"))}
-            />
+              longitude={operation.coordinates[1]}
+              latitude={operation.coordinates[0]}
+            >
+              <div style={markerStyle(operation.priority)}>
+                {numbering.get(operation.id) ?? "•"}
+              </div>
+            </Marker>
           ))}
-
-          {/* Auto-fit bounds */}
-          <FitBounds operations={mappableOperations} />
-        </MapContainer>
+        </BaseMap>
       </div>
 
       {/* Legend */}

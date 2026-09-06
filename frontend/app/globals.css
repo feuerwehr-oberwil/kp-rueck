@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -669,7 +668,7 @@
 /* Emergency Print Styles */
 
 /* Hide print-only content on screen - use positioning instead of display:none
-   so Leaflet maps can calculate their dimensions properly */
+   so the print map can measure its container and lay out its tiles */
 .print-only {
   position: fixed !important;
   left: -9999px !important;
@@ -679,6 +678,16 @@
 }
 
 @media print {
+  /* Paper is white, whatever the operator's theme is. `body` keeps its
+     `--background` token otherwise, and in dark mode that token gets painted
+     around the sheet as a black frame – visible on screen in the preview and
+     on paper wherever the printer honours background colours. */
+  html,
+  body {
+    background: white !important;
+    color-scheme: light;
+  }
+
   /* Hide everything on the page */
   body * {
     visibility: hidden;
@@ -766,30 +775,6 @@
   .print-a4-only {
     display: table-header-group !important;
   }
-
-  /* Print map styles */
-  .print-map-container {
-    height: 250px !important;
-    width: 100% !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .print-map-container .leaflet-container {
-    height: 100% !important;
-    width: 100% !important;
-    background: white !important;
-  }
-
-  .print-map-container .leaflet-tile-pane {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .print-marker {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
 }
 
 /* High-priority incident pulse animation */
@@ -813,77 +798,17 @@
   }
 }
 
-/* Desaturate map tiles so incident markers stand out */
-.leaflet-tile-pane {
-  filter: saturate(0.3) brightness(1.05) contrast(0.95);
-}
-
-.dark .leaflet-tile-pane {
-  filter: saturate(0) brightness(0.6) contrast(1.1);
-}
-
-/* Leaflet's image markers keep the size Leaflet gave them.
-   `Icon._setIconStyles` writes the size and the anchor together — an inline
-   25x41 with a matching -12px/-41px offset — and Leaflet puts `role="button"`
-   on every keyboard-reachable marker. That made the mobile touch-target floor
-   in @layer base (`[role="button"] { min-width/height: 44px }`) apply to the
-   pin: on a phone it grew to 44x44, lost its aspect ratio and no longer pointed
-   at the spot it marks, because the anchor was still the one for 25x41. A
-   marker is not a tap target that can be enlarged on its own.
-   Unlayered on purpose — that is what beats the @layer base rule.
-   `img` only: the div-based incident markers keep the sizing map-view.tsx
-   gives them (and the scale-down right below). */
-.leaflet-container .leaflet-marker-pane img {
-  min-width: 0;
-  min-height: 0;
-}
-
 /* Incident markers are sized in JS (24/32px) for wall monitors. On small
-   screens that reads as oversized, so scale the inner svg down. Scaling the
-   svg (not the .custom-marker wrapper, which Leaflet transforms for
-   positioning) keeps the center anchor correct. */
+   screens that reads as oversized, so scale the inner svg down. The transform
+   stays on the svg and off the .custom-marker wrapper: MapLibre positions a
+   marker by writing a transform onto its ROOT element (the wrapper is our own
+   box inside that root), so `transform-origin: center` here is measured against
+   the pin itself and the centre anchor stays put. */
 @media (max-width: 640px) {
   .custom-marker svg {
     transform: scale(0.62);
     transform-origin: center;
   }
-}
-
-/* Permanent incident labels. Two labels are allowed to overlap (each stays on
-   its own marker), so they have to occlude each other cleanly: Leaflet renders
-   every tooltip at opacity .9 and the address underneath showed through, which
-   left both unreadable. Opaque — the .9 is inline, hence !important. */
-.leaflet-tooltip.incident-label {
-  opacity: 1 !important;
-}
-
-/* All tooltips share one Leaflet pane, so without a z-index the DOM order
-   decides which of two overlapping labels wins — which meant the one being
-   pointed at could end up underneath. Whatever is hovered (and swelling into
-   the full detail card) always comes to the front. */
-.leaflet-tooltip.incident-label--hovered {
-  z-index: 1000;
-}
-
-/* Same for the selected incident (map click, list, Reko-Modus): whatever the
-   operator just picked out has to be readable, not half under a neighbour.
-   Below the hovered one — the pointer wins over the older selection. */
-.leaflet-tooltip.incident-label--selected {
-  z-index: 900;
-}
-
-/* A label stacked under another at the same address is no longer level with its
-   marker, so its arrow would point at empty map. Drop the arrow and draw a leader
-   line back to the marker instead — the label has to name its own dot. */
-.leaflet-tooltip.incident-label--stepped::before {
-  display: none;
-}
-
-.leaflet-tooltip .incident-label__leader {
-  position: absolute;
-  overflow: visible;
-  pointer-events: none;
-  opacity: 0.75;
 }
 
 .priority-high-pulse {

@@ -21,13 +21,14 @@ Bundled fonts (shipped in the production build)
 Map tiles & geodata
 ================================================================================
 
-KP Rück renders its incident map with Leaflet. Tiles come from one of two places depending
-on the deployment's map mode (see docs/OFFLINE_MAPS.md):
+KP Rück renders its incident map with MapLibre GL JS. Tiles come from one of two places
+depending on the deployment's map mode (see docs/OFFLINE_MAPS.md):
 
 - Online mode — OpenStreetMap raster tiles, fetched by the browser at runtime.
     © OpenStreetMap contributors, ODbL. https://www.openstreetmap.org/copyright
 - Offline mode — vector tiles served by a self-hosted TileServer GL container, generated
-    with planetiler (Apache-2.0) from Geofabrik OpenStreetMap extracts.
+    with planetiler (Apache-2.0) from Geofabrik OpenStreetMap extracts, and rendered in
+    the browser from the tile server's own style document.
     Geofabrik extracts: https://download.geofabrik.de/ — the underlying data is
     © OpenStreetMap contributors, ODbL.
 
@@ -46,9 +47,9 @@ part of this repository. It is seeded or entered into a deployment by the operat
 Key open-source libraries
 ================================================================================
 
-Frontend: Next.js (MIT), React (MIT), Radix UI (MIT), Leaflet (BSD-2-Clause),
-          lucide-react (ISC), Pragmatic drag-and-drop (Apache-2.0), next-intl (MIT),
-          Tailwind CSS (MIT), Zod (MIT), date-fns (MIT), cmdk (MIT).
+Frontend: Next.js (MIT), React (MIT), Radix UI (MIT), MapLibre GL JS (BSD-3-Clause),
+          react-map-gl (MIT), lucide-react (ISC), Pragmatic drag-and-drop (Apache-2.0),
+          next-intl (MIT), Tailwind CSS (MIT), Zod (MIT), date-fns (MIT), cmdk (MIT).
 Backend:  FastAPI (MIT), Starlette (BSD-3-Clause), SQLAlchemy (MIT), Pydantic (MIT),
           Alembic (MIT), uvicorn (BSD-3-Clause), PyJWT (MIT), bcrypt (Apache-2.0),
           Pillow (MIT-CMU), ReportLab (BSD), openpyxl (MIT), APScheduler (MIT),

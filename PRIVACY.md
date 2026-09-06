@@ -1,17 +1,43 @@
 # Privacy
 
-KP Rück is self-hosted. Your incidents, your roster, your vehicles and materials, your audit
-trail and your Divera data live on **your** server and are never transmitted anywhere by this
-software. There is no cloud account, no licence check, no usage beacon, and no "phone home" on
-start-up.
+KP Rück stores incidents, roster, vehicles, materials and audit records on **your** server.
+Online map and address services and integrations can receive data when those features are
+used, as described below. There is no licence check or usage beacon.
 
-This document covers the one exception: the two channels through which a station can *choose* to
-send something to the maintainer. Both are off or manual by default. If you never touch them,
-nothing about your installation ever reaches us — you can verify that with `tcpdump`, and
-several of the tests in this repository exist to prove it stays true.
+The error-reporting sections describe two channels through which a station can *choose* to
+send a report to the maintainer. Both are off or manual by default. Disabling telemetry does
+not disable the separate online services below.
 
 Separately, and unrelated to any installation, the project's public website has a contact form.
 That is a website, not the app — see [The project website](#the-project-website) at the end.
+
+## Online services and integrations
+
+- **Address lookup:** the browser sends search text or selected coordinates to your backend.
+  By default (`GEOCODING_PROVIDER=swisstopo`), the backend queries `api3.geo.admin.ch` for Swiss
+  locations. With `nominatim`, it queries the self-hosted or permitted service you configure in
+  `GEOCODING_NOMINATIM_URL`. That service receives the query or coordinates, the backend's public
+  IP address and normal HTTP metadata. The backend does not forward browser cookies, login
+  tokens or the device's IP address. Queries can reveal an incident location; do not include
+  names, notes or other confidential text in address searches.
+  Set `GEOCODING_PROVIDER=disabled` to turn off these online suggestions and reverse lookups.
+  Manual address text, coordinates and map placement remain available. This setting does not
+  disable online map tiles or other integrations.
+- **Address lookup retention:** successful responses and their query keys use a bounded
+  five-minute memory cache per backend process. The lookup service does not store queries in
+  the database; its shared request budget stores only the next permitted request time.
+  The configured provider and your hosting or proxy logs have their own retention policies.
+- **Training samples:** seeding uses bundled sample locations without contacting an address
+  provider. Production startup does not add these sample locations to a station's database.
+- **Online maps:** the selected tile provider receives tile coordinates and request metadata.
+  Tile coordinates identify the area being viewed. Locally hosted offline tiles avoid these
+  external map requests when used without an online layer.
+- **Configured integrations:** Microsoft sign-in, dispatch, tracking, synchronization and
+  printing exchange the information needed for their functions with the configured systems.
+  Their recipients and retention depend on the station's configuration.
+
+The telemetry exclusions below apply to error reports sent to the maintainer. They are not
+a claim that operational features never communicate with third parties.
 
 ## The short version
 
@@ -43,7 +69,7 @@ A manual report adds the text the operator typed. A background error report adds
 type, a scrubbed message, a stack reduced to function names and module basenames, and the route
 shape.
 
-## What is never sent
+## What error-report telemetry excludes
 
 Not "we try not to send" — these are constructed out of the payload and asserted by tests
 (`backend/tests/test_telemetry_scrub.py`):
@@ -105,8 +131,8 @@ are swept after 14 days (yours to change).
 
 ## Your choices
 
-- **Never send anything.** Do nothing. This is the default state of a fresh install and of every
-  instance that upgrades into this version.
+- **Send no error reports.** Leave automatic reporting off and do not submit a manual report.
+  This does not disable online maps, address lookup or configured integrations.
 - **Enforce it centrally.** Set `KP_TELEMETRY_ENABLED=0` in your compose file. This outranks the
   settings page, so no later click can turn it on.
 - **Point it at yourself.** Set `KP_TELEMETRY_DSN` to your own GlitchTip and the same machinery

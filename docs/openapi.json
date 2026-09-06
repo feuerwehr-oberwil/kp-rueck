@@ -508,7 +508,7 @@
           "admin"
         ],
         "summary": "Seed Training Templates",
-        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Skip geocoding and use demo fallback coordinates (faster)\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
+        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Legacy compatibility option; seeding never calls external address providers.\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
         "operationId": "seed_training_templates_api_admin_seed_training_post",
         "parameters": [
           {
@@ -931,6 +931,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MicrosoftAuthConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft-start": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Microsoft Start",
+        "description": "Start a browser-bound Microsoft login with state, PKCE and an OIDC nonce.",
+        "operationId": "microsoft_start_api_auth_microsoft_start_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MicrosoftLoginStartResponse"
                 }
               }
             }
@@ -3672,6 +3694,137 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/geocoding/search": {
+      "get": {
+        "tags": [
+          "geocoding"
+        ],
+        "summary": "Search Address",
+        "operationId": "search_address_api_geocoding_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "countrycodes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 60,
+              "default": "ch",
+              "title": "Countrycodes"
+            }
+          },
+          {
+            "name": "viewbox",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Viewbox"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AddressSuggestion"
+                  },
+                  "title": "Response Search Address Api Geocoding Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/geocoding/reverse": {
+      "get": {
+        "tags": [
+          "geocoding"
+        ],
+        "summary": "Reverse Address",
+        "operationId": "reverse_address_api_geocoding_reverse_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lon"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReversedAddress"
+                }
               }
             }
           },
@@ -12794,7 +12947,7 @@
           "feld"
         ],
         "summary": "Unlock Feld",
-        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns the picker in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns a single-use, five-minute picker grant in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
         "operationId": "unlock_feld_api_feld_unlock_post",
         "parameters": [
           {
@@ -12884,6 +13037,47 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/logout": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Logout Feld",
+        "description": "Revoke this phone's credential before the browser forgets it.",
+        "operationId": "logout_feld_api_feld_logout_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Field credential is invalid, expired or already revoked"
           },
           "422": {
             "description": "Validation Error",
@@ -19348,6 +19542,44 @@
         "title": "AddStopsRequest",
         "description": "Attach existing incidents to an Auftrag as stops (appended to the end)."
       },
+      "AddressSuggestion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "formattedAddress": {
+            "type": "string",
+            "title": "Formattedaddress"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "lat",
+          "lon",
+          "formattedAddress",
+          "attribution"
+        ],
+        "title": "AddressSuggestion"
+      },
       "AlarmAck": {
         "properties": {
           "status": {
@@ -23769,7 +24001,10 @@
           },
           "action": {
             "type": "string",
-            "minLength": 1,
+            "enum": [
+              "start",
+              "end"
+            ],
             "title": "Action"
           },
           "techName": {
@@ -26484,15 +26719,39 @@
         "properties": {
           "code": {
             "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
             "title": "Code"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "State"
           }
         },
         "type": "object",
         "required": [
-          "code"
+          "code",
+          "state"
         ],
         "title": "MicrosoftLoginRequest",
         "description": "Schema for Microsoft login callback."
+      },
+      "MicrosoftLoginStartResponse": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url"
+        ],
+        "title": "MicrosoftLoginStartResponse",
+        "description": "The server-generated authorization URL; browser proof stays in an HttpOnly cookie."
       },
       "NotificationResponse": {
         "properties": {
@@ -29467,6 +29726,23 @@
         ],
         "title": "RestlisteUnit",
         "description": "One material unit still standing at an address — an Abholliste line.\n\nAddress · unit · since when, which is exactly the sheet somebody takes along\nthe next morning (decision 25). Material left on site is a **different day's**\njob and stays separate from the Trupp-Abholung flag.\n\nTwo kinds of line, one list (§18.35). Most rows are a **tracked unit**: an\nopen material assignment, with the ids the board can act on. The rest are\nentries from \"Weiteres gebrauchtes Material\" — improvised or borrowed things\nthe board never had, carrying a name and nothing else. Both are a device\nstanding at an address, so both belong on the sheet somebody drives out with;\nonly the first can be released, which is what ``tracked`` says."
+      },
+      "ReversedAddress": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "title": "ReversedAddress"
       },
       "SchadenplatzRapport": {
         "properties": {

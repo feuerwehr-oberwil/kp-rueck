@@ -18,8 +18,8 @@ test-results
 # Misc
 .DS_Store
 *.pem
-.env
-.env*.local
+.env*
+.local
 
 # Debug
 npm-debug.log*

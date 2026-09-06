@@ -9,24 +9,35 @@
  * - Any other forms that need location input
  *
  * Changes to this modal automatically affect all forms using LocationInput.
- * Key optimizations to maintain:
- * - Memoized MapView to prevent constant re-renders
- * - Memoized center, tileUrl, and attribution
- * - useCallback for handleMapClick
- * - Map key for controlled remounting
+ *
+ * The map is `<BaseMap>` (MapLibre, plan 28). Everything that used to be wired up here – tile URL,
+ * attribution, the auto→offline fallback, the dialog-sizing dance – belongs to the base map now, so
+ * this file is down to what is actually its own: where the map opens, the pin, and what the pin is
+ * called. `initialViewState` is read once per map instance, and a reopened picker has to frame the
+ * incident it was opened on — which it does for free: Radix unmounts the dialog body on close, so
+ * every open builds a new map anyway.
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useTranslations } from "next-intl"
+import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { MapPin, Check } from "lucide-react"
 import { reverseGeocode } from "@/lib/geocoding"
-import { useMapMode } from "@/lib/hooks/use-map-mode"
-import type { LeafletMouseEvent } from "leaflet"
+import { BaseMap } from "@/components/map/base-map"
+import { DEFAULT_CENTER_LATLNG, type LatLngPoint } from "@/lib/map-view"
 
-// Leaflet coordinate type (lat, lng tuple)
-type LatLngExpression = [number, number]
+/** `[lat, lon]`, the order every caller of this picker speaks. MapLibre wants them the other way. */
+type LatLon = LatLngPoint
+
+/**
+ * The blue of Leaflet's default marker pin.
+ *
+ * MapLibre's own default is teal; hard-coding the old blue keeps a picker that has always shown a
+ * blue pin showing a blue pin. Not a status colour – the picked point carries no state.
+ */
+const PIN_COLOR = "#2a81cb"
 
 interface MapPickerModalProps {
   open: boolean
@@ -50,25 +61,6 @@ interface MapPickerModalProps {
   onLocationSelect: (lat: number, lon: number, address: string | null) => void
 }
 
-// Component to handle map clicks
-function MapClickHandler({
-  onLocationClick,
-}: {
-  onLocationClick: (lat: number, lon: number) => void
-}) {
-  if (typeof window === 'undefined') return null
-
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useMapEvents } = require('react-leaflet')
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useMapEvents({
-    click: (e: LeafletMouseEvent) => {
-      onLocationClick(e.latlng.lat, e.latlng.lng)
-    },
-  })
-  return null
-}
-
 export function MapPickerModal({
   open,
   onOpenChange,
@@ -82,50 +74,22 @@ export function MapPickerModal({
   const [selectedLon, setSelectedLon] = useState<number | null>(initialLon ?? null)
   const [isGeocoding, setIsGeocoding] = useState(false)
   const [geocodedAddress, setGeocodedAddress] = useState<string | null>(null)
-  const [isClient, setIsClient] = useState(false)
-  const [mapKey, setMapKey] = useState(0) // Key to force map remount only when needed
   // Has the operator dropped a pin of their own? Until they do, the address the
   // caller handed in still describes what the marker is sitting on.
   const [pinMoved, setPinMoved] = useState(false)
 
-  // Map mode management
-  const { getTileUrl, getAttribution, handleTileError } = useMapMode()
-
-  // Only render map on client side
-  useEffect(() => {
-    setIsClient(true)
-
-    // Fix Leaflet default icon issue with Next.js
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const L = require('leaflet')
-      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
-      L.Icon.Default.mergeOptions({
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        iconUrl: require('leaflet/dist/images/marker-icon.png').default.src,
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png').default.src,
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        shadowUrl: require('leaflet/dist/images/marker-shadow.png').default.src,
-      })
-    }
-  }, [])
-
-  // Default center (Basel-Landschaft)
-  const defaultCenter: LatLngExpression = [47.51637699933488, 7.561800450458299]
-
   // Memoize center to prevent unnecessary re-renders.
   // Use loose `!= null` so we accept both `null` (explicit no-value) and
   // `undefined` (prop omitted) — strict `!== null` made undefined fall
-  // through and Leaflet threw "Invalid LatLng object: (undefined, undefined)".
-  const center: LatLngExpression = useMemo(() => {
+  // through and the map was asked to open on (undefined, undefined).
+  const center: LatLon = useMemo(() => {
     if (selectedLat != null && selectedLon != null) {
-      return [selectedLat, selectedLon] as LatLngExpression
+      return [selectedLat, selectedLon]
     }
     if (initialLat != null && initialLon != null) {
-      return [initialLat, initialLon] as LatLngExpression
+      return [initialLat, initialLon]
     }
-    return defaultCenter
+    return DEFAULT_CENTER_LATLNG
   }, [selectedLat, selectedLon, initialLat, initialLon])
 
   // Reset state when modal opens with new initial values
@@ -135,45 +99,35 @@ export function MapPickerModal({
       setSelectedLon(initialLon ?? null)
       setGeocodedAddress(null)
       setPinMoved(false)
-      // Increment key to force map remount on open
-      setMapKey((prev) => prev + 1)
     }
   }, [open, initialLat, initialLon])
 
-  // Reverse geocode when location is selected.
-  //
-  // `lookupSeq` makes the LATEST request the only one that may write. Two quick
-  // pin drops fire two un-abortable lookups, and if the first resolves last it
-  // used to name the pin after the place the operator had already moved away
-  // from — and `.finally` cleared «Suche…» while the real request was still out.
-  const lookupSeq = useRef(0)
+  // Cancel obsolete pin lookups, including retries, when the pin moves or the dialog closes.
   useEffect(() => {
-    if (Number.isFinite(selectedLat) && Number.isFinite(selectedLon)) {
-      const seq = ++lookupSeq.current
-      setIsGeocoding(true)
-      reverseGeocode(selectedLat as number, selectedLon as number)
-        .then((address) => {
-          if (seq !== lookupSeq.current) return
-          setGeocodedAddress(address)
-        })
-        .catch((error) => {
-          if (seq !== lookupSeq.current) return
-          console.error('Reverse geocoding failed:', error)
-          setGeocodedAddress(null)
-        })
-        .finally(() => {
-          if (seq !== lookupSeq.current) return
-          setIsGeocoding(false)
-        })
+    if (!open || selectedLat === null || selectedLon === null ||
+      !Number.isFinite(selectedLat) || !Number.isFinite(selectedLon)) {
+      setIsGeocoding(false)
+      return
     }
-  }, [selectedLat, selectedLon])
+    const controller = new AbortController()
+    setIsGeocoding(true)
+    reverseGeocode(selectedLat, selectedLon, controller.signal)
+      .then((address) => {
+        if (!controller.signal.aborted) setGeocodedAddress(address)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsGeocoding(false)
+      })
+    return () => controller.abort()
+  }, [open, selectedLat, selectedLon])
 
-  const handleMapClick = useCallback((lat: number, lon: number) => {
+  const handleMapClick = useCallback((event: MapLayerMouseEvent) => {
+    const { lat, lng } = event.lngLat
     // Defensive: a malformed click event (undefined/NaN) would otherwise
-    // poison selectedLat/Lon and crash Leaflet's L.latLng() constructor.
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
+    // poison selectedLat/Lon and put the marker nowhere.
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
     setSelectedLat(lat)
-    setSelectedLon(lon)
+    setSelectedLon(lng)
     // From here on the caller's address describes somewhere else — and so does
     // the address the geocoder found for the PREVIOUS pin. Dropping it is what
     // stops «Bestätigen», pressed before the new lookup returns, from writing
@@ -182,10 +136,10 @@ export function MapPickerModal({
     setGeocodedAddress(null)
   }, [])
 
-  // Guard for any spot that hands coords to Leaflet — accepts only finite
+  // Guard for any spot that hands coords to the map — accepts only finite
   // numbers, rejects null / undefined / NaN. Returning a narrowed tuple lets
   // TS infer `number` (not `number | null`) at every consumer site.
-  const validPin: [number, number] | null = useMemo(
+  const validPin: LatLon | null = useMemo(
     () =>
       Number.isFinite(selectedLat) && Number.isFinite(selectedLon)
         ? [selectedLat as number, selectedLon as number]
@@ -193,6 +147,13 @@ export function MapPickerModal({
     [selectedLat, selectedLon],
   )
   const hasValidPin = validPin !== null
+
+  // Read once per map instance (i.e. once per open), which is why dropping a pin does not
+  // re-frame the map — same as the Leaflet `MapContainer` this replaces.
+  const initialViewState = useMemo(
+    () => ({ longitude: center[1], latitude: center[0], zoom: hasValidPin ? 16 : 13 }),
+    [center, hasValidPin],
+  )
 
   /**
    * What this pin is called, best answer first.
@@ -226,50 +187,6 @@ export function MapPickerModal({
     }
   }
 
-  // Memoize tile URL and attribution to prevent map refreshes
-  const tileUrl = useMemo(() => getTileUrl(), [getTileUrl])
-  const attribution = useMemo(() => getAttribution(), [getAttribution])
-
-  // Client-side map component - memoized to prevent constant re-renders
-  const MapView = useMemo(() => {
-    if (!isClient) {
-      return (
-        <div className="h-[400px] rounded-lg overflow-hidden border flex items-center justify-center bg-muted">
-          <div className="text-muted-foreground">{t('mapPicker.loading')}</div>
-        </div>
-      )
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { MapContainer, TileLayer, Marker } = require('react-leaflet')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('leaflet/dist/leaflet.css')
-
-    return (
-      <div className="h-[400px] rounded-lg overflow-hidden border">
-        <MapContainer
-          key={mapKey}
-          center={center}
-          zoom={hasValidPin ? 16 : 13}
-          className="w-full h-full"
-          zoomControl={true}
-        >
-          <TileLayer
-            attribution={attribution}
-            url={tileUrl}
-            eventHandlers={{
-              tileerror: handleTileError,
-            }}
-          />
-
-          <MapClickHandler onLocationClick={handleMapClick} />
-
-          {validPin && <Marker position={validPin} />}
-        </MapContainer>
-      </div>
-    )
-  }, [isClient, mapKey, center, validPin, tileUrl, attribution, handleTileError, handleMapClick])
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl modal-h-tall flex flex-col">
@@ -284,8 +201,18 @@ export function MapPickerModal({
         </DialogHeader>
 
         <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
-          {/* Map */}
-          {MapView}
+          {/* Map. Both importers load this modal through `dynamic(ssr: false)`, so there is no
+              server render to guard against — the canvas always has a browser under it. */}
+          <div className="h-[400px] rounded-lg overflow-hidden border">
+            <BaseMap initialViewState={initialViewState} onClick={handleMapClick}>
+              {/* Leaflet's zoom buttons, kept – the picker is the one map that always had them.
+                  No compass: the base map disables rotation, so it would be a dead control. */}
+              <NavigationControl position="top-left" showCompass={false} />
+              {validPin && (
+                <Marker longitude={validPin[1]} latitude={validPin[0]} color={PIN_COLOR} />
+              )}
+            </BaseMap>
+          </div>
 
           {/* Selected location info */}
           {validPin && (

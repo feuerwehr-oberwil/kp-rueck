@@ -2,7 +2,7 @@
 set -e
 
 echo "Starting KP Rück Backend..."
-echo "Environment: PORT=${PORT}, DATABASE_URL=${DATABASE_URL:0:30}..."
+echo "Port: ${PORT:-8000}"
 
 # Set up photo storage directory
 PHOTOS_DIR="${PHOTOS_DIR:-data/photos}"
@@ -27,79 +27,116 @@ echo "Photos directory ready: ${PHOTOS_DIR}"
 # the old one is already gone. Without a dump taken a second earlier there is no way back to
 # the schema that worked — and the schema that worked is where the incident record lives.
 #
-# Deliberately BEST-EFFORT, not blocking: a station whose board is down because its backup
-# directory is full is worse off than one running on an unsnapshotted migration. So every
-# failure here warns loudly, leaves a marker file, and lets the boot continue.
-#
-# This is not the nightly backup (scripts/backup.sh) and does not replace it: no photos, kept
-# on the same host, and it only fires when there is actually a migration to run.
+# A nonempty database must have a verified snapshot before its schema changes. A failed
+# backup stops this boot, so the previous release can still run against the unchanged DB.
+# PREMIGRATION_BACKUP=false is an explicit operator override after arranging another backup.
+# This is not the nightly backup: no photos, same host, and only pending migrations trigger it.
 PREMIGRATION_DIR="${PREMIGRATION_BACKUP_DIR:-/mnt/data/backups}"
 PREMIGRATION_KEEP="${PREMIGRATION_BACKUP_KEEP:-5}"
 
+snapshot_failure() {
+    echo "ERROR: pre-migration snapshot failed: $1. Migration NOT started." >&2
+    echo "ERROR: fix the backup, or explicitly set PREMIGRATION_BACKUP=false after arranging a verified backup." >&2
+    if [ -d "$PREMIGRATION_DIR" ] && [ -w "$PREMIGRATION_DIR" ]; then
+        date -Iseconds > "$PREMIGRATION_DIR/SNAPSHOT-FAILED" 2>/dev/null || true
+    fi
+    return 1
+}
+
 snapshot_before_migrate() {
-    if [ "${PREMIGRATION_BACKUP:-true}" != "true" ]; then
+    if [ "${PREMIGRATION_BACKUP:-true}" = "false" ]; then
         echo "Pre-migration snapshot disabled (PREMIGRATION_BACKUP=false)"
         return 0
     fi
+    if [ "${PREMIGRATION_BACKUP:-true}" != "true" ]; then
+        snapshot_failure "PREMIGRATION_BACKUP must be true or false"
+        return 1
+    fi
 
-    # Nothing to migrate → nothing to snapshot. This is what keeps a plain restart cheap; only
-    # a deploy that actually changes the schema pays for a dump.
-    local current heads
-    current="$(uv run alembic current 2>/dev/null | grep -oE '^[0-9a-f]{6,}' | head -n1 || true)"
-    heads="$(uv run alembic heads 2>/dev/null | grep -oE '^[0-9a-f]{6,}' | head -n1 || true)"
+    # Do not hide a failed status query in a pipeline: that can mean an unreachable DB or
+    # an older image which cannot read the installed revision. Neither is permission to migrate.
+    local current_output heads_output current heads
+    if ! current_output="$(uv run alembic current 2>/dev/null)"; then
+        snapshot_failure "cannot read the installed Alembic revision (check connectivity and release compatibility)"
+        return 1
+    fi
+    if ! heads_output="$(uv run alembic heads 2>/dev/null)"; then
+        snapshot_failure "cannot read this image's Alembic heads"
+        return 1
+    fi
+    # Compare the complete revision sets, including non-hex and multiple revision names.
+    current="$(printf '%s\n' "$current_output" | sed -nE 's/^([A-Za-z0-9_.-]+)( \(.*\))?$/\1/p' | sort)"
+    heads="$(printf '%s\n' "$heads_output" | sed -nE 's/^([A-Za-z0-9_.-]+)( \(.*\))?$/\1/p' | sort)"
+    if [ -z "$heads" ]; then
+        snapshot_failure "this image reports no migration head"
+        return 1
+    fi
     if [ -n "$current" ] && [ "$current" = "$heads" ]; then
-        echo "Schema already at head ($current) - no pre-migration snapshot needed"
-        return 0
-    fi
-    echo "Pending migration ($current -> $heads) - taking a snapshot first"
-
-    if ! mkdir -p "$PREMIGRATION_DIR" 2>/dev/null || [ ! -w "$PREMIGRATION_DIR" ]; then
-        echo "WARNING: pre-migration snapshot SKIPPED - $PREMIGRATION_DIR is not writable." >&2
-        echo "WARNING: the migration below runs with no way back. Fix the volume mount." >&2
+        echo "Schema already at head - no pre-migration snapshot needed"
         return 0
     fi
 
-    if ! command -v pg_dump >/dev/null 2>&1; then
-        echo "WARNING: pre-migration snapshot SKIPPED - pg_dump is not in this image." >&2
-        return 0
-    fi
-
-    # pg_dump speaks libpq, SQLAlchemy speaks +asyncpg. Strip the driver suffix.
+    # pg_dump speaks libpq; SQLAlchemy adds its driver suffix to the URL.
     local dump_url="${DATABASE_URL/+asyncpg/}"
     dump_url="${dump_url/+psycopg2/}"
-
-    # The mismatch that bites in practice: Debian bookworm's `postgresql-client` is 15, and
-    # production runs Postgres 17.x, where pg_dump 15 refuses with "server version mismatch".
-    # The Dockerfile pins the PGDG client for that reason; check anyway, because the SERVER is
-    # the part a station can upgrade without touching this image.
-    local server client
-    server="$(psql "$dump_url" -Atqc 'SHOW server_version' 2>/dev/null | cut -d. -f1 || true)"
-    client="$(pg_dump --version | awk '{print $3}' | cut -d. -f1)"
-    if [ -n "$server" ] && [ "$client" -lt "$server" ]; then
-        echo "WARNING: pre-migration snapshot SKIPPED - pg_dump $client cannot dump a Postgres $server server." >&2
-        echo "WARNING: rebuild the backend image with postgresql-client-$server. Migrating WITHOUT a snapshot." >&2
+    local tables
+    if ! tables="$(psql "$dump_url" -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null)"; then
+        snapshot_failure "cannot determine whether the database is empty"
+        return 1
+    fi
+    if [ "$tables" = "0" ]; then
+        echo "Fresh empty database - no pre-migration snapshot needed"
         return 0
+    fi
+    case "$tables" in ''|*[!0-9]*) snapshot_failure "invalid database table count"; return 1 ;; esac
+
+    echo "Pending migration - taking a snapshot first"
+    case "$PREMIGRATION_KEEP" in ''|*[!0-9]*) snapshot_failure "PREMIGRATION_BACKUP_KEEP must be a positive integer"; return 1 ;; esac
+    if [ "$PREMIGRATION_KEEP" -lt 1 ]; then
+        snapshot_failure "PREMIGRATION_BACKUP_KEEP must keep at least one snapshot"
+        return 1
+    fi
+    if ! mkdir -p "$PREMIGRATION_DIR" 2>/dev/null || [ ! -w "$PREMIGRATION_DIR" ]; then
+        snapshot_failure "backup directory is not writable"
+        return 1
+    fi
+    if ! command -v pg_dump >/dev/null 2>&1 || ! command -v pg_restore >/dev/null 2>&1; then
+        snapshot_failure "pg_dump/pg_restore is missing from this image"
+        return 1
+    fi
+
+    local server client
+    if ! server="$(psql "$dump_url" -Atqc 'SHOW server_version' 2>/dev/null)"; then
+        snapshot_failure "cannot read the PostgreSQL server version"
+        return 1
+    fi
+    server="${server%%.*}"
+    client="$(pg_dump --version | awk '{print $3}' | cut -d. -f1)"
+    case "$server:$client" in *[!0-9:]*|:*|*:) snapshot_failure "invalid PostgreSQL version"; return 1 ;; esac
+    if [ "$client" -lt "$server" ]; then
+        snapshot_failure "pg_dump $client is older than PostgreSQL $server; install a matching client"
+        return 1
     fi
 
     local target
-    target="$PREMIGRATION_DIR/premigration-$(date +%F-%H%M%S).dump"
-    # -Fc so pg_restore can list it and pull single tables out; see scripts/backup.sh.
-    if pg_dump -Fc --no-owner --no-privileges -f "$target.part" "$dump_url" \
+    target="$PREMIGRATION_DIR/premigration-$(date +%F-%H%M%S)-$$.dump"
+    # Private, custom-format archive, checked before it counts as a snapshot.
+    if (umask 077; pg_dump -Fc --no-owner --no-privileges -f "$target.part" "$dump_url") \
        && [ -s "$target.part" ] \
        && pg_restore --list "$target.part" >/dev/null 2>&1; then
         mv "$target.part" "$target"
+        rm -f "$PREMIGRATION_DIR/SNAPSHOT-FAILED"
         echo "Pre-migration snapshot: $target ($(wc -c < "$target" | tr -d ' ') bytes, verified readable)"
-        # Keep the newest few. These are insurance for the deploy happening right now, not an
-        # archive — the archive is scripts/backup.sh. Sorted by NAME (the stamp is in it), for
-        # the same reason as scripts/backup.sh's prune(): mtimes lie after a copy.
         find "$PREMIGRATION_DIR" -maxdepth 1 -name 'premigration-*.dump' -type f 2>/dev/null \
             | sort -r | tail -n +"$((PREMIGRATION_KEEP + 1))" \
-            | while read -r old; do rm -f -- "$old"; done
+            | while IFS= read -r old; do
+                rm -f -- "$old" || echo "WARNING: could not prune old snapshot: $old" >&2
+              done
+        return 0
     else
         rm -f "$target.part"
-        echo "WARNING: pre-migration snapshot FAILED - migrating anyway, with no way back." >&2
-        echo "WARNING: check disk space on $PREMIGRATION_DIR and the database credentials." >&2
-        date -Iseconds > "$PREMIGRATION_DIR/SNAPSHOT-FAILED" 2>/dev/null || true
+        snapshot_failure "dump creation or archive verification failed"
+        return 1
     fi
 }
 

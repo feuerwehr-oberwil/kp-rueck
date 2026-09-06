@@ -143,6 +143,10 @@ services:
       # Same reason as the production stack: without this the container always looks for
       # basel-landschaft.mbtiles regardless of TILES_NAME. See docker-compose.yml.
       - TILES_NAME=${TILES_NAME:-basel-landschaft}
+      # Deliberately NO TILES_PUBLIC_URL here. The dev stack publishes this port directly, so
+      # the browser talks to http://localhost:8080 and the host-derived absolute URLs the
+      # tileserver writes into style.json are already correct. The production stack sits
+      # behind Caddy under /tiles and needs the prefix – see docker-compose.yml.
     networks:
       - kprueck-network
     # Automatically creates minimal tiles on first run

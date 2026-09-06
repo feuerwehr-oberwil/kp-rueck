@@ -1,10 +1,7 @@
 """Seed training emergency templates and locations."""
 
 import asyncio
-import random
 from uuid import uuid4
-
-import httpx
 
 from app.database import async_session_maker
 from app.models import EmergencyTemplate, TrainingLocation
@@ -909,7 +906,7 @@ print(f"Defined {len(EMERGENCY_TEMPLATES)} emergency templates")
 
 
 def get_training_area_bounds() -> dict:
-    """Bounding box the dev/demo reverse-geocoder draws random points from."""
+    """Bounding box containing the bundled dev/demo locations."""
     return {
         "min_lat": 47.508,
         "max_lat": 47.522,
@@ -951,133 +948,13 @@ FALLBACK_TRAINING_LOCATIONS = [
 LEGACY_FALLBACK_COORDINATES = (47.5596, 7.5886)
 
 
-async def reverse_geocode_random_point(client: httpx.AsyncClient) -> dict | None:
-    """
-    Generate a random coordinate within the training area and find the real address
-    at that location using Nominatim reverse geocoding.
-
-    Returns:
-        Dict with street, house_number, building_type, latitude, longitude if successful
-        None if no valid address found
-    """
-    # Generate random coordinate within training area bounds
-    lat = random.uniform(TRAINING_AREA_BOUNDS["min_lat"], TRAINING_AREA_BOUNDS["max_lat"])
-    lon = random.uniform(TRAINING_AREA_BOUNDS["min_lon"], TRAINING_AREA_BOUNDS["max_lon"])
-
-    try:
-        # Use Nominatim reverse geocoding to find address at this coordinate
-        response = await client.get(
-            "https://nominatim.openstreetmap.org/reverse",
-            params={
-                "lat": lat,
-                "lon": lon,
-                "format": "json",
-                "addressdetails": 1,
-                "zoom": 18,  # Building level
-            },
-            headers={"User-Agent": "KP-Rueck-Training-System/1.0"},
-            timeout=5.0,
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            address = data.get("address", {})
-
-            # Extract address components
-            street = address.get("road")
-            house_number = address.get("house_number")
-
-            # Verify we got a valid address with street and house number
-            if street and house_number:
-                # Use the actual coordinates returned by Nominatim (more accurate)
-                actual_lat = float(data["lat"])
-                actual_lon = float(data["lon"])
-
-                # Determine building type from OSM data
-                building_type = "residential"
-                if "amenity" in address or "shop" in address or "office" in address:
-                    building_type = "commercial"
-                elif any(word in street.lower() for word in ["haupt", "bahn", "schul", "main", "station"]):
-                    building_type = "mixed"
-
-                return {
-                    "street": street,
-                    "house_number": house_number,
-                    "building_type": building_type,
-                    "latitude": actual_lat,
-                    "longitude": actual_lon,
-                }
-    except Exception:  # noqa: S110 — geocoding a seed address is best-effort; None is handled
-        pass
-
-    return None
-
-
-async def fetch_real_addresses_reverse_geocode(target_count: int = 50) -> list[tuple[str, str, str, float, float]]:
-    """
-    Generate real addresses by randomly sampling coordinates within the training area
-    and using reverse geocoding to find actual addresses.
-
-    This approach guarantees real addresses because we're asking "what address is here"
-    rather than "does this address exist".
-
-    Returns:
-        List of tuples: (street_name, house_number, building_type, latitude, longitude)
-    """
-    print("\n🗺️  Generating real addresses via reverse geocoding...")
-    print(f"   Randomly sampling {target_count} points within training area boundaries")
-
-    addresses = []
-    seen = set()
-    attempts = 0
-    max_attempts = target_count * 10  # Try up to 10x the target to account for duplicates
-
-    async with httpx.AsyncClient() as client:
-        while len(addresses) < target_count and attempts < max_attempts:
-            attempts += 1
-
-            # Get address at random point
-            result = await reverse_geocode_random_point(client)
-
-            if result:
-                # Create unique key
-                key = f"{result['street']}_{result['house_number']}"
-
-                # Skip if we've already found this address
-                if key in seen:
-                    continue
-
-                seen.add(key)
-                addresses.append(
-                    (
-                        result["street"],
-                        result["house_number"],
-                        result["building_type"],
-                        result["latitude"],
-                        result["longitude"],
-                    )
-                )
-
-                print(f"      ✓ {result['street']} {result['house_number']} ({len(addresses)}/{target_count})")
-
-            # Rate limit: 1 request per second for Nominatim
-            await asyncio.sleep(1.1)
-
-        print(f"   ✅ Found {len(addresses)} unique real addresses (took {attempts} attempts)")
-
-        # Shuffle for variety
-        random.shuffle(addresses)
-
-        return addresses
-
-
 async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool = True):
     """
     Seed emergency templates and training locations.
 
     Args:
-        skip_geocoding: If True, use the bundled fallback list instead of reverse
-                       geocoding. Avoids slow, rate-limited OSM API calls at boot.
+        skip_geocoding: Legacy compatibility option. Seeding always uses bundled
+                       sample locations and never queries an external provider.
         seed_locations: If False, seed only the emergency templates and leave the
                        training locations alone. Production passes False: the
                        fallback list is a set of real streets in one specific town,
@@ -1122,8 +999,7 @@ async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool 
             print("⏭️  Training locations not seeded — add your own, or drop pins on the map.")
             return
 
-        # Training locations: only seed when none exist — reverse geocoding is
-        # slow and rate-limited, so it must never re-run on every deploy.
+        # Training locations: preserve existing station-specific locations.
         location_count = await session.scalar(select(func.count()).select_from(TrainingLocation))
         if location_count and location_count > 0:
             # The original no-geocoding fallback labelled a coordinate in
@@ -1168,25 +1044,13 @@ async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool 
                     print(f"✅ Replaced legacy fallback with {len(FALLBACK_TRAINING_LOCATIONS)} Oberwil locations")
                     return
 
-            print(f"\n⏭️  Training locations already exist ({location_count} found). Skipping geocoding.")
+            print(f"\n⏭️  Training locations already exist ({location_count} found). Keeping them.")
             return
 
-        # Seed training locations using reverse geocoding
-        target_count = 50
-        addresses = []
-
-        if skip_geocoding:
-            print("\n⚠️  Skip geocoding enabled - using verified Oberwil fallback locations")
-            addresses = FALLBACK_TRAINING_LOCATIONS
-        else:
-            # Use reverse geocoding to find real addresses
-            addresses = await fetch_real_addresses_reverse_geocode(target_count)
-
-            if not addresses:
-                print("\n⚠️  Reverse geocoding failed - using verified Oberwil fallback locations")
-                addresses = FALLBACK_TRAINING_LOCATIONS
-
-        print(f"\n📍 Seeding {len(addresses)} real addresses...")
+        # Sample data is deterministic and local. The former optional random
+        # reverse-geocoding loop bypassed the installation's provider choice.
+        addresses = FALLBACK_TRAINING_LOCATIONS
+        print(f"\n📍 Seeding {len(addresses)} bundled sample addresses...")
 
         city, postal_code = get_training_city_info()
         for street, house_number, building_type, lat, lon in addresses:
@@ -1210,7 +1074,7 @@ async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool 
         print("SEEDING COMPLETE")
         print("=" * 60)
         print(f"✅ Emergency Templates: {len(EMERGENCY_TEMPLATES)}")
-        print(f"✅ Training Locations:  {len(addresses)} (reverse geocoded)")
+        print(f"✅ Training Locations:  {len(addresses)} (bundled samples)")
         print("=" * 60)
 
 

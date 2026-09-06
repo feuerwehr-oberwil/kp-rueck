@@ -78,6 +78,23 @@ describe('self-hosted behind one origin (the docker-compose stack)', () => {
   })
 })
 
+describe('production builds on arbitrary ports', () => {
+  it.each([
+    ['http://localhost:3000/', 'ws://localhost:3000'],
+    ['http://127.0.0.1:8080/', 'ws://127.0.0.1:8080'],
+    ['http://192.168.1.50:8080/', 'ws://192.168.1.50:8080'],
+    ['https://localhost/', 'wss://localhost'],
+  ])('uses the deployment origin at %s', (pageUrl, socketUrl) => {
+    noBuildTimeEnv()
+    vi.stubEnv('NODE_ENV', 'production')
+    setRuntimeBackendOrigin('http://backend:8000')
+    servedFrom(pageUrl)
+    expect(getApiUrl()).toBe('/backend-api')
+    expect(getWsUrl()).toBe(socketUrl)
+    expect(getTileBaseUrl()).toBe('/tiles')
+  })
+})
+
 describe('Railway (frontend and backend on separate hostnames)', () => {
   it('addresses the backend service by naming convention', () => {
     noBuildTimeEnv()
@@ -174,6 +191,8 @@ describe('local development', () => {
     // fine. Only the dev server's port 3000 means "talk to the tileserver container direct".
     noBuildTimeEnv()
     servedFrom('http://localhost:8080/')
+    expect(getApiUrl()).toBe('/backend-api')
+    expect(getWsUrl()).toBe('ws://localhost:8080')
     expect(getTileBaseUrl()).toBe('/tiles')
   })
 })
@@ -210,7 +229,7 @@ describe('the Content-Security-Policy header', () => {
     expect(sources).toContain('wss://*.railway.app')
     expect(sources).toContain('ws://localhost:*')
     expect(sources).toContain('http://localhost:8080')
-    expect(sources).toContain('https://nominatim.openstreetmap.org')
+    expect(sources).not.toContain('https://nominatim.openstreetmap.org')
     expect(sources).toContain('https://*.tile.openstreetmap.org')
     expect(sources).toContain('https://*.basemaps.cartocdn.com')
     expect(sources).toContain('https://server.arcgisonline.com')
@@ -268,7 +287,7 @@ describe('the Content-Security-Policy header', () => {
     expect(directive(csp, 'default-src')).toBe("default-src 'self'")
     expect(directive(csp, 'script-src')).toBe("script-src 'self' 'unsafe-inline'")
     expect(directive(csp, 'style-src')).toBe("style-src 'self' 'unsafe-inline'")
-    expect(directive(csp, 'font-src')).toBe("font-src 'self' data:")
+    expect(directive(csp, 'font-src')).toBe("font-src 'self' data: http://localhost:8080")
     expect(directive(csp, 'frame-ancestors')).toBe("frame-ancestors 'none'")
     expect(directive(csp, 'form-action')).toBe("form-action 'self'")
     expect(directive(csp, 'base-uri')).toBe("base-uri 'self'")
@@ -286,6 +305,14 @@ describe('the Content-Security-Policy header', () => {
     )
     // And only the http half – a wss origin in img-src would be noise.
     expect(directive(csp, 'img-src')).not.toContain('wss://')
+  })
+
+  it('lets MapLibre spawn its tile worker from a blob URL', () => {
+    // Without these the GL map never initialises: `default-src 'self'` refuses the blob: worker
+    // and the only symptom in the field is an empty canvas – no error the operator can report.
+    const csp = buildContentSecurityPolicy({ isProduction: true })
+    expect(directive(csp, 'worker-src')).toBe("worker-src 'self' blob:")
+    expect(directive(csp, 'child-src')).toBe('child-src blob:')
   })
 
   it('adds unsafe-eval only outside production, for the dev hot reload', () => {

@@ -40,7 +40,11 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   have it; without it, local accounts are the only path.
 - **Sessions:** short-lived JWT access tokens + refresh tokens delivered as **httpOnly cookies**
   (Secure by default; `AUTH_COOKIE_SECURE=false` exists only for plain-HTTP LAN deployments),
-  with a server-side blocklist for revocation.
+  with a server-side blocklist for revocation. Access and socket credentials issued or renewed
+  by this version share their refresh token's session family, so logout also revokes earlier
+  access tokens from the same login. This security upgrade performs a one-time credential
+  reset: earlier access, refresh and socket tokens are rejected, so users must sign in again.
+  Later routine upgrades retain the credential version and do not repeat the reset.
 - **Brute-force protection:** login failures are counted **per username**, not per IP, so
   several operators behind one command-post NAT cannot exhaust each other's budget while an
   attacker still faces a lockout. Tunable via `LOGIN_MAX_FAILED_ATTEMPTS`,
@@ -50,28 +54,47 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
   `SSO_EDITOR_ALLOWLIST` – any tenant member can reach the login, so membership alone provisions
   a viewer and nothing more.
 - **Live updates require a login.** The Socket.IO connection is rejected without a valid session
-  cookie (`WS_REQUIRE_AUTH`, default on since 0.2; it defaulted **off** before that, so anything
+  cookie or a session-bound handshake token (`WS_REQUIRE_AUTH`, default on since 0.2; it defaulted **off** before that, so anything
   able to reach `/socket.io` could subscribe to live incident broadcasts). The CORS origin
   whitelist is not the control here – CORS is enforced by browsers, and a script that omits
-  `Origin` is not a browser. Turning it off degrades the board to ~5s polling rather than
-  breaking it.
+  `Origin` is not a browser. Delivery rechecks account status, current role, session expiry
+  and revocation. Keep `WS_REQUIRE_AUTH=true`; disabling it permits anonymous live updates.
+  If a socket cannot connect, the browser falls back to polling.
+- **Microsoft login transactions** are bound to a short-lived browser cookie, consumed once,
+  and protected with PKCE and an ID-token nonce. Username prefixes never link an external
+  identity to an existing account. An exact email match links to the existing local account;
+  unmatched accounts receive the role described above. Administrators control the local email
+  address and the configured Entra tenant's account lifecycle.
+- **Field credentials** have separate poster, five-minute single-use person-picker and
+  person-bound device stages. Device logout revokes newly issued Reko child credentials too.
+  The upgrade migration revokes existing device and person-picker claims once. Printed
+  poster links still work: enter the Feld-Code again and select a person. All earlier Reko
+  form links are rejected; create a new link from the board or the field surface. Reports,
+  photos and their associations are preserved and remain accessible through the board.
 - **A bypass token exists and is off.** `MASTER_TOKEN` allows API access without a login, for
   scripted configuration. Empty by default, which disables it. If you set it, treat it as a
   password equivalent: it is not scoped to a user and does not attribute actions to one in the
   audit trail.
 - **Single-tenant:** one deployment = one station. Everything is served through one origin
   (Caddy in front of frontend, backend and tileserver); `CORS_ORIGINS` is the single allowed
-  CORS origin. The backend is also the only component that reaches external services (Divera,
-  Traccar), so the browser never talks to a third party.
+  CORS origin. Online maps receive browser requests; address lookup goes through the backend
+  to the configured provider. Integrations also exchange data. See [`PRIVACY.md`](PRIVACY.md)
+  for those separate flows.
+- **Address lookup** requires a current board login or a live, person-bound field claim.
+  The provider is configured by the operator; callers cannot choose an upstream URL.
+  Requests share a database-backed dispatch budget across backend workers, have time and
+  response-size limits, and do not follow redirects. The default is swisstopo; a self-hosted
+  or permitted Nominatim service is optional. The public `nominatim.openstreetmap.org` endpoint
+  is rejected as a configuration value. Set `GEOCODING_PROVIDER=disabled` to disable lookup.
 - **Fail-closed integrations:** the generic alarm webhook and the print-agent endpoints reject
   everything until their shared secret is set. The alarm webhook secret can be set in the
   environment (which wins) or, left blank, is generated into the database on first boot.
 - **The audit trail is kept, not expired.** `AUDIT_RETENTION_DAYS` defaults to `0` – keep
   everything. Before 0.2 it defaulted to 90 days and swept silently, so a deployment older than
   three months had already lost the trail for its earliest operations.
-- **Secrets in env only:** `SECRET_KEY`, `AUTH_SECRET_KEY`, `POSTGRES_PASSWORD` and integration
-  credentials live in environment variables and **never** in the repo. The database stores
-  integration *selection and behaviour*, never credentials. Self-hosters **must set strong,
+- **Deployment secrets:** `SECRET_KEY`, `AUTH_SECRET_KEY` and `POSTGRES_PASSWORD` belong in
+  environment configuration, never in the repo. Some integration secrets can also be stored
+  in the database, so database backups need the same protection. Self-hosters **must set strong,
   stable `SECRET_KEY` and `AUTH_SECRET_KEY` values** (≥32 chars, e.g. `openssl rand -hex 32`) –
   rotating either invalidates every session.
 - **One credential *is* in the repo, deliberately:** the telemetry DSN in
@@ -87,8 +110,8 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
 Stated deliberately, because a security policy that only lists strengths is not useful:
 
 - External identity is **Microsoft Entra only**; there is no generic OIDC path.
-- Static analysis (`mypy`, `bandit`) runs in CI but is **advisory, not blocking** – see the note
-  at the top of [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for the current counts.
+- CI blocks on Bandit, dependency advisories and the clean mypy package subset. The remaining
+  mypy check is advisory – see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Out of scope
 
@@ -102,16 +125,15 @@ Stated deliberately, because a security policy that only lists strengths is not 
 KP Rück holds operational incident data and a personnel roster. **Self-hosters are the data
 controllers** for their deployment:
 
-- Each station runs its own isolated instance and database – all of your station's data stays in
-  your DB (a strong story for cantonal data-protection / DSG compliance).
+- Each station runs its own instance and database. Review the external data flows in
+  [`PRIVACY.md`](PRIVACY.md) when configuring online features and integrations.
 - Keep the secrets and the database/photo volume secure and backed up (see
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §6).
 - **Per-station data is not in this repo** – rosters, branding and credentials live outside it
   and must never be committed.
-- **Nothing leaves your instance unless you switch it on.** There is no cloud account,
-  licence check or usage beacon. Two opt-in channels exist for reporting problems to the
-  maintainer – both off or manual by default, both showing you the exact payload first.
-  [`PRIVACY.md`](PRIVACY.md) documents what they send, what they can never send, how to
-  verify that from your own log and database, and how to disable them centrally.
+- **Online services and error reports are separate controls.** Address lookup uses swisstopo
+  by default and online maps contact their selected tile provider. There is no licence check
+  or usage beacon. The two channels for reporting problems to the maintainer are off or manual
+  by default. [`PRIVACY.md`](PRIVACY.md) describes each data flow and how to disable it.
 - If you process personal or operational data, follow your canton's data-protection (DSG)
   guidance.

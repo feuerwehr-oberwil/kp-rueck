@@ -386,9 +386,13 @@ doctor:
     if ! command -v curl > /dev/null 2>&1; then
         warn "curl is not installed – skipping."
     else
-        TJ="$(curl -sfk -m 10 "$PROBE/tiles/data/${TILES_NAME}.json" 2>/dev/null)"
-        [ -z "$TJ" ] && TJ="$(curl -sf -m 10 "http://localhost:$PORT/tiles/data/${TILES_NAME}.json" 2>/dev/null)"
-        if [ -z "$TJ" ]; then
+        # /index.json, not /tiles/data/${TILES_NAME}.json – see the same probe in
+        # `tiles-status` for why: TileServer GL serves an OpenMapTiles set under the name
+        # `v3`, so a path built from the filename 404s on exactly the deployments that DO
+        # have offline tiles, and this check reported them as "tile server does not answer".
+        TJ="$(curl -sfk -m 10 "$PROBE/tiles/index.json" 2>/dev/null)"
+        [ -z "$TJ" ] && TJ="$(curl -sf -m 10 "http://localhost:$PORT/tiles/index.json" 2>/dev/null)"
+        if [ -z "$TJ" ] || [ "$TJ" = "[]" ]; then
             warn "The tile server does not answer – the map falls back to online OSM."
             echo "     Offline maps are optional. To look: just tiles-status"
         elif printf '%s' "$TJ" | grep -qi 'Bootstrap MBTiles'; then
@@ -675,24 +679,33 @@ tiles-status:
         fi
         if [ -n "$BASE" ]; then
             echo -e "\033[1;32m✓ Tile server is responding ($BASE)\033[0m"
-            # A 200 here is not enough: the container generates a placeholder MBTiles on first
-            # run, so the endpoint exists even with no map data behind it. Same marker
+            # A 200 on /health is not enough: the container generates a placeholder MBTiles on
+            # first run, so the endpoint exists even with no map data behind it. Same marker
             # `just doctor` looks for (scripts/init-tileserver.sh writes the name).
-            TJ="$(curl -sfk -m 10 "${BASE}/data/${TILES_NAME}.json" 2>/dev/null || true)"
-            if [ -n "$TJ" ] && ! printf '%s' "$TJ" | grep -qi 'Bootstrap MBTiles'; then
+            #
+            # Asked of /index.json, NOT of /data/${TILES_NAME}.json. TileServer GL renames the
+            # data set to `v3` whenever the MBTiles is in OpenMapTiles format – which is every
+            # set `just tiles-download` generates – so a path built from the filename exists
+            # only for the raster placeholder. The success branch below was therefore
+            # unreachable: a finished 15-minute generation reported "no data set called
+            # basel-landschaft". /index.json lists whatever is served under whatever name, and
+            # is the same source the app reads (frontend/app/settings/use-tile-availability.ts).
+            # Only ever one MBTiles is served – the container picks a single file – so the
+            # bootstrap marker below cannot be shadowed by a second, real data set.
+            TJ="$(curl -sfk -m 10 "${BASE}/index.json" 2>/dev/null || true)"
+            if [ -z "$TJ" ] || [ "$TJ" = "[]" ]; then
+                echo -e "\033[1;33m⚠️  The tile server is serving no data set at all\033[0m"
+                echo "Run 'just tiles-download', or look at what is on the volume"
+            elif printf '%s' "$TJ" | grep -qi 'Bootstrap MBTiles'; then
+                echo -e "\033[1;33m⚠️  Only minimal bootstrap tiles (no offline data)\033[0m"
+                echo "Run 'just tiles-download' for full offline capability"
+            else
                 echo -e "\033[1;32m✓ Offline tiles are loaded (${TILES_NAME})\033[0m"
                 echo ""
                 echo "Tile endpoints:"
-                echo "  - UI:    $BASE"
-                echo "  - Tiles: ${BASE}/styles/basic-preview/512/{z}/{x}/{y}.png"
-            elif [ -z "$TJ" ]; then
-                # Distinct from the bootstrap case: the server is fine, it just holds nothing
-                # under this name – which is what a mismatched TILES_NAME looks like.
-                echo -e "\033[1;33m⚠️  The tile server has no data set called ${TILES_NAME}\033[0m"
-                echo "Run 'just tiles-download', or check TILES_NAME against the file on the volume"
-            else
-                echo -e "\033[1;33m⚠️  Only minimal bootstrap tiles (no offline data)\033[0m"
-                echo "Run 'just tiles-download' for full offline capability"
+                echo "  - UI:     $BASE"
+                echo "  - Raster: ${BASE}/styles/basic-preview/512/{z}/{x}/{y}.png"
+                echo "  - Vector: ${BASE}/styles/basic-preview/style.json"
             fi
         else
             echo -e "\033[1;31m✗ Tile server is not responding\033[0m"

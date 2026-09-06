@@ -1,6 +1,7 @@
 """FastAPI dependency injection for authentication."""
 
 import logging
+import time
 import uuid
 from datetime import UTC
 from typing import Annotated
@@ -14,7 +15,7 @@ from ..config import settings as app_settings
 from ..database import get_db
 from ..models import User
 from .config import auth_settings
-from .security import decode_token
+from .security import decode_token, session_family
 from .token_blocklist import token_blocklist
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,10 @@ async def get_current_user(
         jti = payload.get("jti")
         if jti and await token_blocklist.is_revoked(jti):
             logger.debug("Token has been revoked")
+            raise credentials_exception
+
+        family = session_family(payload)
+        if family is not None and (family.expires_at <= time.time() or await token_blocklist.is_revoked(family.jti)):
             raise credentials_exception
 
         # Extract user ID

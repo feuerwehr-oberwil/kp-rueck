@@ -18,10 +18,12 @@ from app.services.tokens import (
     generate_alarm_token,
     generate_checkin_token,
     generate_feld_token,
+    generate_form_token,
     generate_viewer_token,
     validate_alarm_token,
     validate_checkin_token,
     validate_feld_token,
+    validate_form_token,
     validate_viewer_token,
 )
 
@@ -38,6 +40,20 @@ OTHER_VALIDATORS = {
 }
 
 
+@pytest.mark.parametrize("version", [None, 0, 2, "1", True])
+def test_old_or_invalid_reko_version_cannot_reopen_a_form(version):
+    incident_id = str(uuid4())
+    current = generate_form_token(incident_id)
+    assert validate_form_token(current, incident_id)
+    payload = jwt.decode(current, get_settings().secret_key, algorithms=["HS256"])
+    if version is None:
+        del payload["form_version"]
+    else:
+        payload["form_version"] = version
+    old = jwt.encode(payload, get_settings().secret_key, algorithm="HS256")
+    assert not validate_form_token(old, incident_id)
+
+
 class TestFeldToken:
     """generate_feld_token / validate_feld_token (plan 25, §2)."""
 
@@ -51,10 +67,32 @@ class TestFeldToken:
 
     def test_person_binding_survives_the_roundtrip(self):
         event_id, personnel_id = uuid4(), uuid4()
-        claims = validate_feld_token(generate_feld_token(event_id, personnel_id=personnel_id))
+        claims = validate_feld_token(
+            generate_feld_token(event_id, personnel_id=personnel_id, unlocked=True, claim_id=uuid4())
+        )
         assert claims is not None
         assert claims.event_id == event_id
         assert claims.personnel_id == personnel_id
+
+    @pytest.mark.parametrize(
+        "extra",
+        [
+            {"unlocked": True},  # legacy stateless picker credential
+            {"personnel_id": str(uuid4())},
+            {"unlocked": True, "personnel_id": str(uuid4())},
+            {"unlocked": "true", "unlock_id": str(uuid4())},
+            {"unlocked": True, "unlock_id": str(uuid4()), "claim_id": str(uuid4())},
+            {"unlocked": True, "personnel_id": "", "claim_id": str(uuid4())},
+            {"unlocked": True, "unlock_id": 123},
+        ],
+    )
+    def test_incomplete_or_mixed_stages_are_rejected(self, extra):
+        payload = {"type": "feld", "event_id": str(uuid4()), "exp": datetime.now(UTC) + timedelta(hours=1), **extra}
+        assert validate_feld_token(jwt.encode(payload, get_settings().secret_key, algorithm="HS256")) is None
+
+    def test_expiration_is_required(self):
+        payload = {"type": "feld", "event_id": str(uuid4())}
+        assert validate_feld_token(jwt.encode(payload, get_settings().secret_key, algorithm="HS256")) is None
 
     def test_unreadable_person_binding_is_rejected_not_widened(self):
         """A broken binding must fail shut — never fall back to event-wide."""

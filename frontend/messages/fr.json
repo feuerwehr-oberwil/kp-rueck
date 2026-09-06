@@ -2141,13 +2141,15 @@
       "clickToExpand": "Cliquer pour agrandir",
       "clickToNavigate": "Cliquer pour naviguer vers l’intervention",
       "retry": "Réessayer",
-      "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner"
+      "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner",
+      "glLost": "L’affichage de la carte a été interrompu par le navigateur."
     },
     "legend": {
       "show": "Afficher la légende",
       "hide": "Masquer la légende",
       "title": "Légende",
       "priority": "Priorité",
+      "noIncidents": "Aucune intervention",
       "statusFrame": "Statut (cadre)",
       "statusOpen": "Ouverte",
       "statusActive": "En cours",
@@ -2185,7 +2187,6 @@
       "supportedFormats": "Formats pris en charge : décimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), URL Google Maps"
     },
     "mapPicker": {
-      "loading": "Chargement de la carte …",
       "title": "Choisir le lieu d’intervention sur la carte",
       "description": "Clique sur la carte pour marquer le lieu d’intervention",
       "searchingAddress": "Recherche de l’adresse …",

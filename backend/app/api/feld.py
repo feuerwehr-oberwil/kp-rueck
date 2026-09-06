@@ -47,7 +47,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,25 +91,32 @@ FELD_LINK_VALID_HOURS = 720  # 30 days
 
 async def require_feld_claims(
     token: str = Query(..., description="Access token from the generated /feld link"),
+    db: AsyncSession = Depends(get_db),
 ) -> FeldTokenClaims:
     """Step 1: the token must be a valid, unexpired `feld` token.
 
-    Yields the claims, not just the event — a person-bound token has to reach
-    step 2, and a dependency that threw the binding away would silently make
-    every personal link event-wide again.
+    Validate stored grants even on context/picker/exchange endpoints. Revoked
+    credentials must not regain access through a weaker stage of the door.
     """
     claims = validate_feld_token(token)
     if claims is None:
         raise HTTPException(status_code=401, detail="Ungültiger oder abgelaufener Zugriffscode")
+    if claims.personnel_id is not None and (
+        claims.claim_id is None
+        or not await crud.claim_is_live(db, claims.claim_id, claims.event_id, claims.personnel_id)
+    ):
+        raise HTTPException(status_code=401, detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.")
+    if claims.unlock_id is not None and not await crud.unlock_is_live(db, claims.unlock_id, claims.event_id):
+        raise HTTPException(status_code=401, detail="Bitte den Code neu eingeben.")
     return claims
 
 
 FeldClaims = Annotated[FeldTokenClaims, Depends(require_feld_claims)]
 
 
-async def _load_event(db: AsyncSession, event_id: uuid.UUID) -> Event:
+async def _load_event(db: AsyncSession, event_id: uuid.UUID, *, lock: bool = False) -> Event:
     """The event the token names, or 404."""
-    event = await events_crud.get_event_by_id(db, event_id)
+    event = await crud.lock_event(db, event_id) if lock else await events_crud.get_event_by_id(db, event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="Ereignis nicht gefunden")
     return event
@@ -136,14 +143,14 @@ async def require_feld_person(
     # Since decision 18 the binding is mandatory, not optional: a token that
     # names no person may not act as one. An unbound token used to be able to
     # write as any crew in the event — that was the whole hole this closes.
-    if claims.personnel_id is None or claims.personnel_id != personnel_id:
+    if not claims.unlocked or claims.personnel_id is None or claims.personnel_id != personnel_id:
         raise HTTPException(
             status_code=403,
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
         )
     # The claim is the recall a JWT cannot do by itself: once the KP has pressed
     # "alle Geräte abmelden", this is where the revoked device finds out.
-    if claims.claim_id is None or not await crud.claim_is_live(db, claims.claim_id, claims.event_id):
+    if claims.claim_id is None or not await crud.claim_is_live(db, claims.claim_id, claims.event_id, personnel_id):
         raise HTTPException(
             status_code=401,
             detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.",
@@ -323,7 +330,7 @@ async def unlock_feld(
     asked for the code before rendering would be bypassed by anyone who kept the
     URL — the point is that the *link* stops being sufficient.
 
-    Returns the picker in the same response, because the only thing the caller
+    Returns a single-use, five-minute picker grant in the same response, because the only thing the caller
     can do next is find their own name, and a second round trip on a phone in
     the rain buys nothing.
 
@@ -337,7 +344,9 @@ async def unlock_feld(
     split-origin deployments do not). An expired link token never reaches here —
     it is the 401 from ``require_feld_claims``.
     """
-    event = await _load_event(db, claims.event_id)
+    if claims.unlocked or claims.personnel_id is not None or claims.claim_id is not None:
+        raise HTTPException(status_code=403, detail="Bitte den QR-Code erneut öffnen")
+    event = await _load_event(db, claims.event_id, lock=True)
     scope = str(event.id)
     ip = client_ip(request) or "unknown"
 
@@ -379,8 +388,11 @@ async def unlock_feld(
     # must not be carrying that against the next phone on the same Wi-Fi.
     await feld_code_throttle.record_success(ip, scope)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
+    unlock = await crud.create_unlock(db, event.id)
     return schemas.FeldUnlockResponse(
-        token=generate_feld_token(claims.event_id, unlocked=True),
+        token=generate_feld_token(
+            claims.event_id, unlocked=True, unlock_id=unlock.id, expires_minutes=crud.FELD_UNLOCK_MINUTES
+        ),
         personnel=[schemas.FeldPersonnel(**p) for p in personnel],
         event_id=event.id,
         event_name=event.name,
@@ -405,9 +417,14 @@ async def claim_feld_person(
     arbitrary UUID gets the same 403 as claiming a stranger, so the endpoint is
     not an oracle for which personnel ids exist.
     """
-    if not claims.unlocked:
+    if (
+        not claims.unlocked
+        or claims.personnel_id is not None
+        or claims.claim_id is not None
+        or claims.unlock_id is None
+    ):
         raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
-    event = await _load_event(db, claims.event_id)
+    event = await _load_event(db, claims.event_id, lock=True)
 
     # Anybody on the roster may name themselves. Requiring work first refused
     # exactly the people the page now exists for — somebody who has just
@@ -422,6 +439,8 @@ async def claim_feld_person(
             detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
         )
 
+    if not await crud.consume_unlock(db, claims.unlock_id, event.id):
+        raise HTTPException(status_code=401, detail="Bitte den Code neu eingeben.")
     claim = await crud.create_claim(db, event.id, payload.personnel_id)
     return schemas.FeldClaimResponse(
         token=generate_feld_token(
@@ -432,6 +451,21 @@ async def claim_feld_person(
         ),
         personnel_id=payload.personnel_id,
     )
+
+
+@router.post(
+    "/logout",
+    status_code=204,
+    response_class=Response,
+    responses={401: {"description": "Field credential is invalid, expired or already revoked"}},
+)
+@limiter.limit(RateLimits.FELD)
+async def logout_feld(request: Request, claims: FeldClaims, db: AsyncSession = Depends(get_db)) -> Response:
+    """Revoke this phone's credential before the browser forgets it."""
+    if claims.personnel_id is None or claims.claim_id is None:
+        raise HTTPException(status_code=403, detail="Dieses Gerät ist nicht angemeldet")
+    await crud.revoke_claim(db, claims.claim_id, claims.event_id, claims.personnel_id)
+    return Response(status_code=204)
 
 
 @router.get("/personnel", response_model=schemas.FeldPersonnelListResponse)
@@ -455,7 +489,12 @@ async def list_feld_personnel(
     Since plan 26 this includes drivers and Magazin people, who hold no
     assignment of their own and were therefore invisible to the old query.
     """
-    if not claims.unlocked:
+    if (
+        not claims.unlocked
+        or claims.personnel_id is not None
+        or claims.claim_id is not None
+        or claims.unlock_id is None
+    ):
         raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
@@ -907,7 +946,17 @@ async def mint_reko_link(
     files a Schadenplatz-Rapport instead.
     """
     incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=(crud.SOURCE_REKO,))
-    token = generate_form_token(str(incident.id), "reko")
+    from ..services.tokens import FormTokenBinding
+
+    # _authorized_incident already requires this live device claim. Keep its
+    # provenance in the child credential so device logout also closes the form.
+    if claims.claim_id is None:
+        raise HTTPException(status_code=401, detail="Ungültiger Zugriffscode")
+    token = generate_form_token(
+        str(incident.id),
+        "reko",
+        field_binding=FormTokenBinding(claims.claim_id, claims.event_id, person.id),
+    )
     return {
         "incident_id": str(incident.id),
         "token": token,

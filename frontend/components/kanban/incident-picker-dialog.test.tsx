@@ -5,10 +5,9 @@
  * route's badge) — there is no toggle hiding them any more. Only completed
  * incidents stay behind the "Abgeschlossene" filter, with an on-screen count.
  *
- * Leaflet cannot be mounted (or mocked — the dialog pulls it in via runtime
- * require(), which vi.mock does not intercept) under jsdom, so the fixtures are
- * deliberately UNLOCATED: the default Karte view renders its empty state and the
- * assertions cover the list, where the visibility rules live.
+ * The map needs WebGL, which jsdom does not have, so the fixtures are deliberately
+ * UNLOCATED: the default Karte view renders its empty state (no `<BaseMap>` is
+ * mounted at all) and the assertions cover the list, where the visibility rules live.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest"
@@ -20,12 +19,15 @@ import de from "@/messages/de.json"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { IncidentGroup } from "@/lib/contexts/groups-context"
 
+// The dialog no longer talks to this hook itself – `<BaseMap>` does. Kept stubbed so
+// nothing in that import chain reaches the API client if the map ever does mount.
 vi.mock("@/lib/hooks/use-map-mode", () => ({
   useMapMode: () => ({
-    getTileUrl: () => "https://tiles.example/{z}/{x}/{y}.png",
-    getAttribution: () => "",
+    isOnline: true,
+    getOnlineRasterBasemap: () => ({ tiles: [], tileSize: 256, maxzoom: 19, attribution: "" }),
     handleTileError: () => {},
   }),
+  offlineBasemapFor: () => null,
 }))
 
 const removeStop = vi.hoisted(() => vi.fn(async () => true))
@@ -46,7 +48,7 @@ const makeOp = (id: string, overrides: Partial<Operation> = {}): Operation =>
     notes: "",
     status: "incoming",
     groupId: null,
-    coordinates: null, // unlocated on purpose — keeps leaflet out of jsdom
+    coordinates: null, // unlocated on purpose – keeps the GL map out of jsdom
     ...overrides,
   }) as unknown as Operation
 

@@ -55,3 +55,26 @@ describe('apiClient network failures', () => {
     await expect(apiClient.updateIncident('some-id', { priority: 'high' })).resolves.toEqual(body)
   })
 })
+
+describe('field device logout', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it.each([204, 401])('accepts %s without expiring an interactive user session', async (status) => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status }))
+    vi.stubGlobal('fetch', fetch)
+    const dispatch = vi.spyOn(window, 'dispatchEvent')
+    await expect(apiClient.logoutFeld('a/b?c')).resolves.toBeUndefined()
+    expect(fetch).toHaveBeenCalledWith('http://test-backend/api/feld/logout?token=a%2Fb%3Fc', expect.objectContaining({ method: 'POST' }))
+    expect(dispatch.mock.calls.some(([event]) => event.type === 'kp:session-expired')).toBe(false)
+  })
+
+  it('rejects a lost connection so the page keeps its credential', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Load failed')))
+    await expect(apiClient.logoutFeld('bound-token')).rejects.toBeInstanceOf(NetworkError)
+  })
+
+  it('does not treat a server failure as revocation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
+    await expect(apiClient.logoutFeld('bound-token')).rejects.toMatchObject({ status: 503 })
+  })
+})

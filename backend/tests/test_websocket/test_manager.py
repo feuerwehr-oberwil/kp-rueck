@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.auth.security import create_access_token
+from app.auth.security import create_access_token, create_login_tokens
 from app.websocket_manager import (
     CLEANUP_INTERVAL_SECONDS,
     STALE_SESSION_TIMEOUT_SECONDS,
@@ -612,12 +612,12 @@ class TestWsRequireAuth:
         assert "strict_sid_1" not in ws_manager.user_sessions
 
     @pytest.mark.asyncio
-    async def test_accepts_authenticated_when_strict(self, monkeypatch):
+    async def test_accepts_authenticated_when_strict(self, monkeypatch, test_editor):
         from app.websocket_manager import connect as connect_handler
         from app.websocket_manager import settings
 
         monkeypatch.setattr(settings, "ws_require_auth", True)
-        token = create_access_token(data={"sub": "u", "role": "editor"})
+        token, _ = create_login_tokens(data={"sub": str(test_editor.id), "role": "editor"})
         environ = {"HTTP_COOKIE": f"access_token={token}"}
 
         with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):
@@ -682,13 +682,15 @@ class TestConnectWithAuthPayload:
     """The connect handler accepts EITHER credential under strict mode."""
 
     @pytest.mark.asyncio
-    async def test_strict_mode_accepts_a_ws_token_without_any_cookie(self, monkeypatch):
+    async def test_strict_mode_accepts_a_ws_token_without_any_cookie(self, monkeypatch, test_editor, db_session):
         from app.auth.security import create_ws_token
         from app.websocket_manager import connect as connect_handler
         from app.websocket_manager import settings
 
         monkeypatch.setattr(settings, "ws_require_auth", True)
-        token = create_ws_token(uuid.uuid4(), "viewer")
+        test_editor.role = "viewer"
+        await db_session.commit()
+        token = create_ws_token(test_editor.id, "viewer")
 
         with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):
             # No HTTP_COOKIE at all — the split-origin case.
@@ -713,13 +715,13 @@ class TestConnectWithAuthPayload:
         assert "ws_auth_sid_2" not in ws_manager.user_sessions
 
     @pytest.mark.asyncio
-    async def test_the_cookie_path_is_unchanged(self, monkeypatch):
+    async def test_the_cookie_path_is_unchanged(self, monkeypatch, test_editor):
         """Same-origin deployments keep working with the cookie alone."""
         from app.websocket_manager import connect as connect_handler
         from app.websocket_manager import settings
 
         monkeypatch.setattr(settings, "ws_require_auth", True)
-        token = create_access_token(data={"sub": "u", "role": "editor"})
+        token, _ = create_login_tokens(data={"sub": str(test_editor.id), "role": "editor"})
         environ = {"HTTP_COOKIE": f"access_token={token}"}
 
         with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock):

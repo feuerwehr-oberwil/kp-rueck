@@ -4,6 +4,7 @@
  */
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { PROXY_TIMEOUT_MS, ProxyRequestError, readProxyBody } from '@/lib/proxy-body'
 
 // Force Node.js runtime for reliable cookie handling
 export const runtime = 'nodejs'
@@ -41,28 +42,14 @@ async function proxyRequest(request: NextRequest) {
   const targetPath = url.pathname.replace('/backend-api', '')
   const targetUrl = `${backendUrl}${targetPath}${url.search}`
 
-  // Get cookies from the request
-  const cookieStore = await cookies()
-  const accessToken = cookieStore.get('access_token')?.value
-  const refreshToken = cookieStore.get('refresh_token')?.value
-
-  // Fallback to raw header if cookies() doesn't work
-  const rawCookie = request.headers.get('cookie')
-
-  // Debug: Log cookie *presence* only (never values) for all requests
-  debug(`[API Proxy] ${request.method} ${targetPath} | cookies(): access=${!!accessToken} refresh=${!!refreshToken} | raw: ${!!rawCookie}`)
-
   // Build headers
   const headers = new Headers()
 
-  // Forward cookies - try cookies() first, then raw header
-  if (accessToken || refreshToken) {
-    const cookieParts: string[] = []
-    if (accessToken) cookieParts.push(`access_token=${accessToken}`)
-    if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
-    headers.set('Cookie', cookieParts.join('; '))
-  } else if (rawCookie) {
-    headers.set('Cookie', rawCookie)
+  // Preserve every cookie, including SSO browser proof alongside existing sessions.
+  const cookieHeader = request.headers.get('cookie')
+    ?? (await cookies()).getAll().map(({ name, value }) => `${name}=${value}`).join('; ')
+  if (cookieHeader) {
+    headers.set('Cookie', cookieHeader)
   } else {
     debug(`[API Proxy] WARNING: No cookies found for ${targetPath}`)
   }
@@ -81,6 +68,11 @@ async function proxyRequest(request: NextRequest) {
     'cookie',
     'connection',
     'content-length',
+    'transfer-encoding',
+    'keep-alive',
+    'te',
+    'trailer',
+    'upgrade',
     'x-forwarded-for',
     'x-forwarded-host',
     'x-forwarded-proto',
@@ -92,13 +84,25 @@ async function proxyRequest(request: NextRequest) {
     }
   })
 
+  const controller = new AbortController()
+  const abort = () => controller.abort(request.signal.reason)
+  request.signal.addEventListener('abort', abort, { once: true })
+  if (request.signal.aborted) abort()
+  const timeout = setTimeout(() => {
+    controller.abort(new DOMException('Proxy timed out', 'TimeoutError'))
+    request.signal.removeEventListener('abort', abort)
+  }, PROXY_TIMEOUT_MS)
+  const cleanup = () => {
+    clearTimeout(timeout)
+    request.signal.removeEventListener('abort', abort)
+  }
+  let releaseBody = () => {}
+  let streaming = false
+
   try {
-    // Get request body for non-GET requests
-    // Use arrayBuffer() to preserve binary data (text() corrupts file uploads)
-    let body: ArrayBuffer | undefined
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      body = await request.arrayBuffer()
-    }
+    const buffered = await readProxyBody(request, controller.signal)
+    releaseBody = buffered.release
+    const body = buffered.body
 
     // Follow redirects manually to preserve method, cookies, and enforce HTTPS
     let response = await fetch(targetUrl, {
@@ -106,6 +110,7 @@ async function proxyRequest(request: NextRequest) {
       headers,
       body,
       redirect: 'manual',
+      signal: controller.signal,
     })
 
     // Follow up to 3 redirects (handles FastAPI trailing-slash + HTTP→HTTPS chains)
@@ -122,12 +127,20 @@ async function proxyRequest(request: NextRequest) {
       if (targetUrl.startsWith('https://')) {
         location = location.replace(/^http:\/\//, 'https://')
       }
-      debug(`[API Proxy] Following ${response.status} redirect to: ${location}`)
-      response = await fetch(location, {
+      // Never forward credentials/body to a different origin through a redirect.
+      const redirectUrl = new URL(location, targetUrl)
+      if (redirectUrl.origin !== new URL(targetUrl).origin) {
+        await response.body?.cancel()
+        throw new ProxyRequestError(502, 'Invalid backend redirect')
+      }
+      await response.body?.cancel()
+      debug(`[API Proxy] Following ${response.status} redirect`)
+      response = await fetch(redirectUrl, {
         method: request.method,
         headers,
         body,
         redirect: 'manual',
+        signal: controller.signal,
       })
       redirectCount++
     }
@@ -149,10 +162,11 @@ async function proxyRequest(request: NextRequest) {
       responseHeaders.append('Set-Cookie', cookie)
     })
 
-    // Forward other headers
+    // fetch decompresses upstream bodies. Their wire length no longer describes the
+    // stream we return; let Next/Caddy frame it instead of truncating the decoded body.
     response.headers.forEach((value, key) => {
       const lowerKey = key.toLowerCase()
-      if (!['content-encoding', 'transfer-encoding', 'set-cookie'].includes(lowerKey)) {
+      if (!['content-encoding', 'content-length', 'transfer-encoding', 'set-cookie'].includes(lowerKey)) {
         responseHeaders.set(key, value)
       }
     })
@@ -160,14 +174,50 @@ async function proxyRequest(request: NextRequest) {
     // Prevent caching
     responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate')
 
-    return new NextResponse(response.body, {
+    // Keep cancellation/deadline active while downloads stream to the caller.
+    const reader = response.body?.getReader()
+    const responseBody = reader ? new ReadableStream<Uint8Array>({
+      async pull(stream) {
+        try {
+          const { done, value } = await reader.read()
+          if (done) {
+            cleanup()
+            stream.close()
+          } else {
+            stream.enqueue(value)
+          }
+        } catch (error) {
+          cleanup()
+          stream.error(error)
+        }
+      },
+      async cancel(reason) {
+        controller.abort(reason)
+        cleanup()
+        await reader.cancel(reason)
+      },
+    }) : null
+    const result = new NextResponse(responseBody, {
       status: response.status,
       statusText: response.statusText,
       headers: responseHeaders,
     })
+    streaming = responseBody !== null
+    return result
   } catch (error) {
-    console.error('[API Proxy] Error:', error)
+    if (error instanceof ProxyRequestError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+    if (controller.signal.aborted) {
+      const status = request.signal.aborted ? 499 : 504
+      return NextResponse.json({ error: status === 499 ? 'Request cancelled' : 'Backend timed out' }, { status })
+    }
+    // Errors can contain a URL with a share token; do not log the exception object.
+    console.error('[API Proxy] Backend request failed')
     return NextResponse.json({ error: 'Proxy failed' }, { status: 502 })
+  } finally {
+    releaseBody()
+    if (!streaming) cleanup()
   }
 }
 
@@ -176,7 +226,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  debug('[API Proxy] POST handler called:', request.url)
   return proxyRequest(request)
 }
 

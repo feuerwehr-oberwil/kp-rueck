@@ -17,14 +17,73 @@ that is the stated, accepted trust assumption of a brigade (decision 2).
 
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func as sa_func
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import execute_dml
-from ...models import Event, FeldDeviceClaim
+from ...models import Event, FeldDeviceClaim, FeldUnlockClaim
+
+FELD_UNLOCK_MINUTES = 5
+
+
+async def lock_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
+    """Serialize credential exchanges and revocation for one event."""
+    result = await db.execute(
+        select(Event).where(Event.id == event_id).with_for_update().execution_options(populate_existing=True)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_unlock(db: AsyncSession, event_id: uuid.UUID) -> FeldUnlockClaim:
+    """Record the short-lived picker grant after the current code was checked."""
+    grant = FeldUnlockClaim(event_id=event_id, expires_at=datetime.now(UTC) + timedelta(minutes=FELD_UNLOCK_MINUTES))
+    db.add(grant)
+    await db.commit()
+    await db.refresh(grant)
+    return grant
+
+
+async def unlock_is_live(db: AsyncSession, unlock_id: uuid.UUID, event_id: uuid.UUID) -> bool:
+    """A picker grant is usable only until consumption, revocation or expiry."""
+    result = await db.execute(
+        select(FeldUnlockClaim.id).where(
+            FeldUnlockClaim.id == unlock_id,
+            FeldUnlockClaim.event_id == event_id,
+            FeldUnlockClaim.consumed_at.is_(None),
+            FeldUnlockClaim.revoked_at.is_(None),
+            FeldUnlockClaim.expires_at > datetime.now(UTC),
+        )
+    )
+    return result.first() is not None
+
+
+async def consume_unlock(db: AsyncSession, unlock_id: uuid.UUID, event_id: uuid.UUID) -> bool:
+    """Consume once in the same transaction that creates the device claim."""
+    result = await db.execute(
+        update(FeldUnlockClaim)
+        .where(
+            FeldUnlockClaim.id == unlock_id,
+            FeldUnlockClaim.event_id == event_id,
+            FeldUnlockClaim.consumed_at.is_(None),
+            FeldUnlockClaim.revoked_at.is_(None),
+            FeldUnlockClaim.expires_at > datetime.now(UTC),
+        )
+        .values(consumed_at=datetime.now(UTC))
+        .returning(FeldUnlockClaim.id)
+    )
+    return result.first() is not None
+
+
+async def _revoke_unlocks(db: AsyncSession, event_id: uuid.UUID) -> None:
+    """Invalidate outstanding code exchanges without affecting bound phones."""
+    await db.execute(
+        update(FeldUnlockClaim)
+        .where(FeldUnlockClaim.event_id == event_id, FeldUnlockClaim.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
 
 
 def generate_code() -> str:
@@ -50,11 +109,14 @@ def code_matches(event: Event, code: str) -> bool:
 async def regenerate_code(db: AsyncSession, event: Event) -> str:
     """A fresh code for an event whose old one got around.
 
-    Deliberately does **not** touch existing claims: everyone already in the
-    field keeps working, and only new devices need the new digits (decision 30).
-    Throwing people out is ``revoke_all_claims`` and nothing else.
+    Existing bound phones keep working. Outstanding picker grants are revoked
+    so somebody who has not finished naming themselves must enter the new code.
     """
-    event.feld_code = generate_code()
+    await lock_event(db, event.id)
+    old_code = event.feld_code
+    while event.feld_code == old_code:
+        event.feld_code = generate_code()
+    await _revoke_unlocks(db, event.id)
     await db.commit()
     await db.refresh(event)
     return event.feld_code
@@ -62,6 +124,9 @@ async def regenerate_code(db: AsyncSession, event: Event) -> str:
 
 async def create_claim(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> FeldDeviceClaim:
     """Record the device that just named itself, and return its row."""
+    # Board-issued Reko links use this helper too, so they share the ordering
+    # with logout-all even though they do not go through the picker exchange.
+    await lock_event(db, event_id)
     claim = FeldDeviceClaim(event_id=event_id, personnel_id=personnel_id)
     db.add(claim)
     await db.commit()
@@ -69,18 +134,20 @@ async def create_claim(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid
     return claim
 
 
-async def claim_is_live(db: AsyncSession, claim_id: uuid.UUID, event_id: uuid.UUID) -> bool:
+async def claim_is_live(db: AsyncSession, claim_id: uuid.UUID, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:
     """Is the claim behind this bound token still good?
 
     Checked on every bound request — this is the recall a JWT cannot do by
-    itself. The ``event_id`` is part of the lookup so a claim from one Ereignis
-    can never authorise a request against another.
+    itself. Both event and person must match the stored claim; a signed token
+    may not reuse another person's otherwise-live claim row.
     """
     result = await db.execute(
         select(FeldDeviceClaim.id)
         .where(
             FeldDeviceClaim.id == claim_id,
             FeldDeviceClaim.event_id == event_id,
+            FeldDeviceClaim.personnel_id == personnel_id,
+            FeldDeviceClaim.revoked_at.is_(None),
             FeldDeviceClaim.revoked_at.is_(None),
         )
         .limit(1)
@@ -107,13 +174,15 @@ async def live_device_count(db: AsyncSession, event_id: uuid.UUID) -> int:
 
 
 async def revoke_all_claims(db: AsyncSession, event_id: uuid.UUID) -> int:
-    """The emergency brake: every bound token for this event stops working.
+    """The emergency brake: bound tokens and outstanding picker grants stop working.
 
     For a lost phone, or a code that ended up somewhere public. Everyone in the
     field re-enters the code — which is why this is a separate, counted,
     explicitly confirmed action and not a side effect of regenerating the code.
     Returns how many devices were affected, so the UI can say so.
     """
+    await lock_event(db, event_id)
+    await _revoke_unlocks(db, event_id)
     result = await execute_dml(
         db,
         update(FeldDeviceClaim)
@@ -125,6 +194,20 @@ async def revoke_all_claims(db: AsyncSession, event_id: uuid.UUID) -> int:
     )
     await db.commit()
     return int(result.rowcount or 0)
+
+
+async def revoke_claim(db: AsyncSession, claim_id: uuid.UUID, event_id: uuid.UUID, personnel_id: uuid.UUID) -> None:
+    """Log out one phone without changing any other device's access."""
+    await db.execute(
+        update(FeldDeviceClaim)
+        .where(
+            FeldDeviceClaim.id == claim_id,
+            FeldDeviceClaim.event_id == event_id,
+            FeldDeviceClaim.personnel_id == personnel_id,
+        )
+        .values(revoked_at=datetime.now(UTC))
+    )
+    await db.commit()
 
 
 async def is_checked_in(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:

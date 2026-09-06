@@ -32,6 +32,7 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 
 # (path, regex matching the version line, replacement template with {v})
 VERSION_FILES = [
+    (".env.example", r"(?m)^KP_RUECK_TAG=.*$", "KP_RUECK_TAG={v}"),
     ("frontend/package.json", r'"version":\s*"[^"]+"', '"version": "{v}"'),
     ("backend/pyproject.toml", r'(?m)^version = "[^"]+"', 'version = "{v}"'),
     ("backend/app/config.py", r'(?m)^(\s*version: str = )"[^"]+"', r'\g<1>"{v}"'),

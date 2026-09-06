@@ -48,6 +48,7 @@ logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.photo_storage import photo_storage
 from ..services.tokens import (
+    decode_form_token,
     generate_feld_token,
     generate_form_token,
     validate_form_token,
@@ -57,6 +58,32 @@ from ..services.tokens import (
 router = APIRouter(prefix="/reko", tags=["reko"])
 
 
+async def _require_form_token(
+    db: AsyncSession,
+    token: str,
+    incident_id: uuid.UUID,
+    personnel_id: uuid.UUID | None = None,
+) -> uuid.UUID | None:
+    """Validate form scope and the live field device behind any derived credential."""
+    claims = decode_form_token(token, str(incident_id))
+    if claims is None:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    binding = claims.field_binding
+    if binding is None:
+        # Standalone board-issued links have no field device to revoke.
+        return personnel_id
+    from ..crud.feld import claim_is_live
+
+    if not await claim_is_live(db, binding.claim_id, binding.event_id, binding.personnel_id):
+        raise HTTPException(status_code=401, detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.")
+    incident = await db.get(Incident, incident_id)
+    if incident is None or incident.event_id != binding.event_id:
+        raise HTTPException(status_code=401, detail="Ungültiger Zugriffscode")
+    if personnel_id is not None and personnel_id != binding.personnel_id:
+        raise HTTPException(status_code=403, detail="Der Zugriffscode gehört zu einer anderen Person.")
+    return binding.personnel_id
+
+
 async def _require_user_or_form_token(
     request: Request,
     incident_id: uuid.UUID,
@@ -64,8 +91,10 @@ async def _require_user_or_form_token(
     access_token: str | None,
     authorization: str | None,
     db: AsyncSession,
+    *,
+    write: bool = False,
 ) -> User | None:
-    """Allow a valid reko form token for this incident OR any logged-in user.
+    """Allow a scoped form token or a session with the required read/write role.
 
     Field crews open reko links without an account; operators view/edit
     reports from the cookie-authenticated board. Raises 401 otherwise.
@@ -75,8 +104,12 @@ async def _require_user_or_form_token(
     door instead of re-derived by every handler (plan 26 §5.1).
     """
     if reko_token and validate_form_token(reko_token, str(incident_id)):
+        await _require_form_token(db, reko_token, incident_id)
         return None
-    return await get_current_user(request, access_token, authorization, db)
+    user = await get_current_user(request, access_token, authorization, db)
+    if write and user.role not in ("editor", "admin"):
+        raise HTTPException(status_code=403, detail="Editor-Berechtigung erforderlich")
+    return user
 
 
 @router.get("/form", response_model=schemas.RekoReportResponse)
@@ -98,6 +131,7 @@ async def get_reko_form(
 
     Returns existing draft or creates new one.
     """
+    personnel_id = await _require_form_token(db, token, incident_id, personnel_id)
     try:
         report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
 
@@ -157,7 +191,13 @@ async def submit_reko_report(
         raise HTTPException(status_code=400, detail="Invalid token")
 
     user = await _require_user_or_form_token(
-        request, report_data.incident_id, field_token, access_token, authorization, db
+        request,
+        report_data.incident_id,
+        field_token,
+        access_token,
+        authorization,
+        db,
+        write=True,
     )
 
     # Get or create report. The token resolves the reporting *person*; the board
@@ -167,7 +207,8 @@ async def submit_reko_report(
         if user is not None:
             report = await crud.get_or_create_kp_reko_report(db, report_data.incident_id, user)
         elif field_token is not None:
-            report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token)
+            personnel_id = await _require_form_token(db, field_token, report_data.incident_id)
+            report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token, personnel_id)
         else:
             # Unreachable — the helper returns None only when a token opened the
             # door — but it is what narrows the token for the type checker.
@@ -242,7 +283,13 @@ async def update_report(
         raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
 
     user = await _require_user_or_form_token(
-        request, existing.incident_id, x_reko_token, access_token, authorization, db
+        request,
+        existing.incident_id,
+        x_reko_token,
+        access_token,
+        authorization,
+        db,
+        write=True,
     )
 
     try:
@@ -365,6 +412,7 @@ async def mark_reko_arrived(
 
     Returns the updated reko report with arrived_at timestamp.
     """
+    await _require_form_token(db, token, incident_id)
     try:
         report = await crud.mark_reko_arrived(db, incident_id, token)
 
@@ -542,7 +590,8 @@ async def _photo_report(
     if field_token is None:
         # Unreachable: the door helper returns None only for a valid token.
         raise HTTPException(status_code=401, detail=ErrorMessages.INVALID_REQUEST)
-    return await crud.get_or_create_reko_report(db, incident_id, field_token)
+    personnel_id = await _require_form_token(db, field_token, incident_id)
+    return await crud.get_or_create_reko_report(db, incident_id, field_token, personnel_id)
 
 
 @router.post("/{incident_id}/photos", response_model=None)
@@ -586,7 +635,9 @@ async def upload_photo(
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
         raise HTTPException(status_code=400, detail="Invalid token")
 
-    user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, authorization, db)
+    user = await _require_user_or_form_token(
+        request, incident_id, x_reko_token, access_token, authorization, db, write=True
+    )
 
     # Demo mode: limit file size to 1MB and total photos to 15
     if settings.demo_mode:
@@ -664,7 +715,9 @@ async def delete_photo(
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
         raise HTTPException(status_code=400, detail="Invalid token")
 
-    user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, authorization, db)
+    user = await _require_user_or_form_token(
+        request, incident_id, x_reko_token, access_token, authorization, db, write=True
+    )
 
     try:
         report = await _photo_report(db, incident_id, user, x_reko_token, report_id)

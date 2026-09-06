@@ -10,8 +10,8 @@ library, so the number answers one question: *how much attention does this updat
 | Bump | What it means for you |
 | --- | --- |
 | **MAJOR** | Operator action required – a breaking config change, a migration that can't be rolled back, a new mandatory env var, a Postgres major. Read the notes before updating. |
-| **MINOR** | New features. Migrations run automatically on boot; `docker compose pull && docker compose up -d` is enough. |
-| **PATCH** | Fixes only. Always safe to take. |
+| **MINOR** | New features. Install the complete matching release and follow its upgrade notes; migrations run on boot. |
+| **PATCH** | Fixes only. Review the deployment notes and keep a current backup. |
 
 All four images (backend, frontend, tileserver, print-agent) are released **together** under one
 version – a station runs the set, not a mix. Prod and the demo deploy continuously from `main`,
@@ -27,6 +27,14 @@ will keep holding.
 `0.1.0` is the initial published release; the running history before it is in the git log.
 
 ## [Unreleased]
+
+### Security and deployment
+
+- **One-time credential reset on upgrade.** Existing login sessions, field device/picker credentials and Reko form links are invalidated. Sign in again, enter the field code again, and regenerate old Reko links. Printed posters, event codes, reports and photos remain intact. Later routine upgrades do not repeat this reset.
+- **Authentication and field access hardened.** Microsoft login uses browser-bound single-use state, PKCE and nonce verification; username fallback is removed. Logout and account changes apply to socket delivery. Field claims cannot be replayed or switched to another person, and viewer accounts cannot mutate Reko reports or photos.
+- **Address search uses an authenticated configurable backend provider.** Swisstopo is the default, with a shared request budget and bounded cache. Operators can disable lookup or configure a permitted Nominatim instance. Public Nominatim autocomplete is rejected; training seeding no longer makes external address requests. See `PRIVACY.md` for data-sharing details.
+- **Self-hosting starts the installed release.** Launchers require matching exact version pins; upgrades use complete release files and all matching images. A failed pre-migration snapshot blocks an upgrade. Review `docs/DEPLOYMENT.md` before updating an existing installation.
+- **Production safeguards.** Proxy requests have bounded size and duration, runtime secrets and backups are excluded from images, credential-bearing query strings are removed from application access logs, and production dependency/security checks run in CI.
 
 ### Added
 
@@ -272,6 +280,30 @@ will keep holding.
   chain: done steps carry their time, the one owed step is the one red button, and «Kommt ihr
   selbst zurück?» sits directly under the beendet line.
 
+- **The map runs on MapLibre GL.** Every map surface – the Lagekarte, the wall display, the
+  Routen-Editor, the Einsatz picker, the Standort picker and the printed sheet – draws through
+  one shared base map on the GPU instead of Leaflet's DOM tiles. What that buys the operator is
+  the thing a magnet board never had to explain: zoom is **continuous**. The wheel no longer
+  jumps a whole tile level and drops the street the KP was looking at half a screen away.
+  Everything else is deliberately unchanged on day one – the same markers, the same permanent
+  labels with their leader lines, the same collapsed vehicle stacks, the same hover cards. It
+  also puts KP Rück on the same map engine as KP Front, so a fix found in one app applies to
+  the other. Leaflet is gone from the frontend entirely.
+
+- **Offline maps draw the vector tiles they always were.** The MBTiles a station downloads are
+  vector; until now they were rendered to PNG by the tile server and shipped as pictures. The
+  map reads them directly, which is why an offline station now gets crisp labels at any zoom
+  rather than a blurred screenshot of the level below. A station whose tileset is genuinely
+  raster – including the empty bootstrap stub on a fresh box – keeps the old path.
+
+  ⚠️ **If you use offline maps, update your checkout, not just the images.** The tile server now
+  needs `TILES_PUBLIC_URL=/tiles/`, which is in the tracked `docker-compose.yml` – so a station
+  that only runs `docker compose pull && docker compose up -d` gets containers that never see it,
+  and the offline map draws nothing at all (online maps are unaffected). `git pull` – or
+  `git checkout` of the tag you are running – before the two commands, as [`docs/DEPLOYMENT.md`
+  §4](docs/DEPLOYMENT.md) now says. **No tile re-download is needed:** the MBTiles you already
+  have are the vector tiles this reads.
+
 ### Removed
 
 - **`/reko-dashboard` is gone.** ⚠️ Its links now 404. It was the same page as the field surface
@@ -351,6 +383,18 @@ will keep holding.
   record *why* somebody is on an incident, and only a working crew owes a Rapport. Ending an
   Einsatz and requesting an Abholung are limited the same way; arriving and sending a Meldung are
   not, because a Reko trupp does both.
+
+- **The printed map came out blank on an offline station.** It asked OpenStreetMap for its tiles
+  directly, ignoring the station's Karten-Modus – so exactly the station that cannot reach the
+  internet printed a sheet with markers on an empty frame. The print map now takes its basemap
+  from the same setting as every other map. While there: printing from dark mode framed the whole
+  sheet in black, because the page background was never forced back to white for paper.
+
+- **A map that loses its GL context comes back on its own.** A driver hiccup, a suspended laptop
+  or a browser reclaiming graphics memory used to leave a permanently blank rectangle where the
+  Lagekarte was, with no hint that anything had happened – and on the wall display nobody is
+  standing there to press reload. The map now rebuilds itself and resumes the view the operator
+  was on, rather than re-framing them somewhere else.
 
 
 ## [0.6.0] – 2026-08-16

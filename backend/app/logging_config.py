@@ -17,6 +17,17 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+class AccessLogPrivacyFilter(logging.Filter):
+    """Exclude query credentials from Uvicorn logs, even when access logging is enabled."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple) and len(record.args) == 5:
+            client, method, target, version, status = record.args
+            if isinstance(target, str):
+                record.args = (client, method, target.partition("?")[0], version, status)
+        return True
+
+
 class JSONFormatter(logging.Formatter):
     """JSON formatter for structured logging in production."""
 
@@ -97,6 +108,7 @@ def setup_logging(
     # Reduce noise from third-party libraries
     logging.getLogger("uvicorn").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").addFilter(AccessLogPrivacyFilter())
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 

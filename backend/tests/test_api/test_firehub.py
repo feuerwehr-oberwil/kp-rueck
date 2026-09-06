@@ -90,6 +90,21 @@ async def test_firehub_rejects_wrong_secret(client: AsyncClient, webhook_secret:
 # Einsatzstart --------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("action", ["pause", "restart", "unknown"])
+async def test_unknown_action_cannot_create_an_alarm(client, db_session, webhook_secret, action):
+    response = await _post(client, firehub_payload(action=action))
+    assert response.status_code == 422
+    assert (await db_session.scalars(select(DiveraEmergency))).all() == []
+    assert (await db_session.scalars(select(Incident))).all() == []
+
+
+async def test_lifecycle_actions_remain_case_insensitive(client, db_session, webhook_secret):
+    response = await _post(client, firehub_payload(action="END", opsID=9999))
+    assert response.status_code == 200
+    assert response.json()["action"] == "end"
+    assert (await db_session.scalars(select(DiveraEmergency))).all() == []
+
+
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_firehub_start_creates_pool_alarm_with_mapping(

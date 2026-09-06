@@ -33,6 +33,7 @@ from .api.events import router as events_router
 from .api.exports import router as exports_router
 from .api.feld import router as feld_router
 from .api.firehub import router as firehub_router
+from .api.geocoding import router as geocoding_router
 from .api.groups import router as groups_router
 from .api.health import router as health_router
 from .api.help import router as help_router
@@ -532,6 +533,7 @@ app.include_router(diag_router, prefix=settings.api_v1_prefix)
 app.include_router(divera_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
 app.include_router(firehub_router, prefix=settings.api_v1_prefix)
+app.include_router(geocoding_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)
 app.include_router(help_router, prefix=settings.api_v1_prefix)
 app.include_router(incidents_router, prefix=settings.api_v1_prefix)

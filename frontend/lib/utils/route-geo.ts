@@ -1,7 +1,7 @@
 /**
- * Leaflet-free geo helpers shared by the Auftrag routing hook and the
+ * Pure geo helpers shared by the Auftrag routing hook and the
  * `group-routes.tsx` overlay. Kept in its own module so `use-route-planning.ts`
- * (which runs in SSR-reachable client components) never pulls in leaflet.
+ * (which runs in SSR-reachable client components) never pulls in the map engine.
  */
 
 import type { Operation } from "@/lib/contexts/operations-context"

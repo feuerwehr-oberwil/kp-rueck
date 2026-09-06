@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { searchAddress } from './geocoding'
+import { reverseGeocode, searchAddress } from './geocoding'
 
 /**
  * Address search used to bias towards whichever of sixteen hardcoded Basel-Landschaft
@@ -12,15 +12,15 @@ import { searchAddress } from './geocoding'
 
 const originalFetch = globalThis.fetch
 
-/** Nominatim rows, deliberately returned far-then-near to prove the sort runs. */
+/** Normalized rows, deliberately returned far-then-near to prove the sort runs. */
 const NOMINATIM_ROWS = [
-  { display_name: 'Far', lat: '47.9000', lon: '8.0000', address: { road: 'Fernweg', house_number: '1' } },
-  { display_name: 'Near', lat: '47.5100', lon: '7.5550', address: { road: 'Nahweg', house_number: '2' } },
+  { id: 'far', display_name: 'Far', lat: 47.9, lon: 8, formattedAddress: 'Fernweg 1' },
+  { id: 'near', display_name: 'Near', lat: 47.51, lon: 7.555, formattedAddress: 'Nahweg 2' },
 ]
 
 function paramsOfLastCall(): URLSearchParams {
   const [url] = vi.mocked(fetch).mock.calls[0]
-  return new URL(String(url)).searchParams
+  return new URL(String(url), 'http://localhost').searchParams
 }
 
 beforeEach(() => {
@@ -75,5 +75,65 @@ describe('searchAddress', () => {
     await searchAddress('Hauptstrasse', { countryCodes: 'de,at' })
 
     expect(paramsOfLastCall().get('countrycodes')).toBe('de,at')
+  })
+})
+
+
+describe('authenticated geocoding transport', () => {
+  it('uses the backend and includes login cookies', async () => {
+    await searchAddress('Testweg')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/api/geocoding/search?')
+    expect(String(url)).not.toContain('nominatim')
+    expect(init?.credentials).toBe('include')
+  })
+
+  it('forwards field credentials only in a header', async () => {
+    document.cookie = 'feld-device-token=test-bound-device; path=/'
+    try {
+      await searchAddress('Testweg')
+      const [url, init] = vi.mocked(fetch).mock.calls[0]
+      expect(new Headers(init?.headers).get('X-Feld-Token')).toBe('test-bound-device')
+      expect(String(url)).not.toContain('test-bound-device')
+    } finally {
+      document.cookie = 'feld-device-token=; Max-Age=0; path=/'
+    }
+  })
+
+  it('rejects malformed coordinates from a provider', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify([{ ...NOMINATIM_ROWS[0], lat: 999 }])))
+    expect(await searchAddress('Testweg')).toEqual([])
+  })
+
+  it('cancels a superseded search during rate-limit backoff', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 429, headers: { 'Retry-After': '2' } }))
+      const controller = new AbortController()
+      const result = searchAddress('Testweg', { signal: controller.signal })
+      await vi.advanceTimersByTimeAsync(0)
+      controller.abort()
+      expect(await result).toEqual([])
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(fetch).toHaveBeenCalledTimes(1)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('retries busy responses a bounded number of times', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 429, headers: { 'Retry-After': '2' } }))
+      const result = searchAddress('Testweg')
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(await result).toEqual([])
+      expect(fetch).toHaveBeenCalledTimes(3)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('normalizes reverse results and handles provider unavailability', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ address: 'Testweg 1' })))
+    expect(await reverseGeocode(47, 8)).toBe('Testweg 1')
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }))
+    expect(await reverseGeocode(47, 8)).toBeNull()
   })
 })

@@ -31,11 +31,10 @@ const nextConfig = {
     } : false,
   },
 
-  // Optimize images and static assets
+  // Photos are already resized by the backend; all Image consumers use direct URLs.
+  // Disable the otherwise unused public /_next/image processing endpoint as well.
   images: {
-    formats: ['image/avif', 'image/webp'],
-    dangerouslyAllowSVG: true,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    unoptimized: true,
   },
 
   // Experimental features for better performance

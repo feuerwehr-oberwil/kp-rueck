@@ -5,8 +5,9 @@
 #   cp .env.example .env    # fill in the required secrets
 #   docker compose up -d    # pulls the published images, migrates + seeds on boot
 #
-# Updating:  docker compose pull && docker compose up -d
-# Pinning:   set KP_RUECK_TAG=0.1.0 in .env (default: latest). Rollback = pin the older tag.
+# Updating:  install the complete matching release first; see docs/DEPLOYMENT.md section 4.
+# Pinning:   KP_RUECK_TAG must be the exact release version from the matching .env.example.
+# Rollback: restore the matching database/photos and release files; see docs/DEPLOYMENT.md.
 #
 # Everything is served through Caddy on ONE origin, which is what makes the published frontend
 # image generic: the browser talks only to its own host, and Caddy fans out to the backend
@@ -52,7 +53,7 @@ services:
     # No published ports: reachable only inside the compose network.
 
   backend:
-    image: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:${KP_RUECK_TAG:-latest}
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./backend, dockerfile: Dockerfile }
     restart: unless-stopped
@@ -158,7 +159,7 @@ services:
     networks: [kprueck]
 
   frontend:
-    image: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:${KP_RUECK_TAG:-latest}
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./frontend, dockerfile: Dockerfile, target: runner }
     restart: unless-stopped
@@ -197,7 +198,7 @@ services:
     networks: [kprueck]
 
   tileserver:
-    image: ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver:${KP_RUECK_TAG:-latest}
+    image: ghcr.io/feuerwehr-oberwil/kp-rueck-tileserver:${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ., dockerfile: ./tileserver/Dockerfile }
     restart: unless-stopped
@@ -218,6 +219,12 @@ services:
       # scripts/download-tiles.sh and scripts/init-tileserver.sh, and do not rename it on a
       # volume that already holds tiles.
       - TILES_NAME=${TILES_NAME:-basel-landschaft}
+      # Where the browser reaches this tileserver: behind Caddy that is /tiles on the app's
+      # own origin. TileServer GL stamps this prefix into the style.json it serves (vector
+      # source, glyphs, sprite), which Caddy's `handle_path /tiles/*` would otherwise strip
+      # out of existence. Root-relative on purpose – no station hostname in the image.
+      # See scripts/init-tileserver.sh and deploy/Caddyfile.
+      - TILES_PUBLIC_URL=${TILES_PUBLIC_URL:-/tiles/}
     volumes:
       # Bootstrap tiles are generated on first run; drop real MBTiles in here for full
       # offline coverage (see docs/OFFLINE_MAPS.md).
@@ -329,7 +336,7 @@ services:
     # kp-rueck-print-agent name is still published for this release so nothing breaks on
     # update. To print from both systems, mount a config with a `backends` list instead of
     # the single-backend variables below – see tools/print-agent/README.md.
-    image: ghcr.io/feuerwehr-oberwil/kp-print-agent:${KP_RUECK_TAG:-latest}
+    image: ghcr.io/feuerwehr-oberwil/kp-print-agent:${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}
     # Build from source instead: comment out `image:` and uncomment
     # build: { context: ./tools/print-agent, dockerfile: Dockerfile }
     restart: unless-stopped

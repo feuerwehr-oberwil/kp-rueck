@@ -4,7 +4,7 @@
 # The contract with the operator: no terminal knowledge, no .env editing, no passwords on disk.
 # This writes an .env of pure entropy plus LAN defaults (the /setup wizard handles the account
 # passwords in the browser), starts the production compose stack and waits for it. Running it
-# again IS the update path: pull + up -d. It never overwrites an existing .env – same guard
+# again starts the installed release; upgrades require the complete matching release files. It never overwrites an existing .env – same guard
 # philosophy as scripts/init-env.sh.
 #
 # Operator-facing output is German; comments stay English like the rest of the repo.
@@ -37,6 +37,13 @@ Say "KP Rück wird gestartet …"
 
 if (-not (Test-Path (Join-Path $RepoRoot 'docker-compose.yml'))) {
     Fail "Dieser Ordner ist unvollständig – bitte das heruntergeladene ZIP komplett entpacken und «Start-KP-Rueck.bat» im entpackten Ordner erneut doppelklicken."
+}
+
+try {
+    $ReleaseVersion = (Get-Content (Join-Path $RepoRoot 'frontend/package.json') -Raw -ErrorAction Stop | ConvertFrom-Json).version
+} catch { Fail "Release-Version fehlt. Bitte das vollständige ZIP eines veröffentlichten Releases verwenden." }
+if ($ReleaseVersion -notmatch '^\d+\.\d+\.\d+$') {
+    Fail "Release-Version ungültig. Bitte das vollständige ZIP eines veröffentlichten Releases verwenden."
 }
 
 # --- Docker ------------------------------------------------------------------------------
@@ -123,7 +130,7 @@ AUTH_SECRET_KEY=$(New-HexSecret)
 DOMAIN=
 HTTP_PORT=$Port
 CORS_ORIGINS=$cors
-KP_RUECK_TAG=latest
+KP_RUECK_TAG=$ReleaseVersion
 COMPOSE_PROFILES=backup
 "@
     # UTF-8 WITHOUT BOM and LF endings: docker compose reads this file, and a BOM would glue
@@ -148,19 +155,22 @@ $Url = "http://localhost:$Port"
 $envDomain = ($envLines | Where-Object { $_ -match '^DOMAIN=.+\S' } | Select-Object -Last 1)
 if ($envDomain -match '^DOMAIN=(\S+)') { $Url = "https://$($Matches[1])" }
 
-# --- Pull + start ------------------------------------------------------------------------
-# Pull first: a re-run of this file IS the documented update path. A failed pull is not fatal –
-# without internet the already-downloaded images still start the board.
-Say "Neueste Version wird geladen (beim ersten Mal einige hundert MB) …"
-docker compose pull
-if ($LASTEXITCODE -ne 0) {
-    Warn2 "Der Download hat nicht geklappt (kein Internet?) – es wird mit der vorhandenen Version gestartet."
+# Read .env as data only. A moving tag or mismatched release must never silently upgrade
+# or downgrade an existing installation. Keep the existing Compose project and secrets.
+$tagLine = ($envLines | Where-Object { $_ -match '^KP_RUECK_TAG=' } | Select-Object -Last 1)
+$installedTag = if ($tagLine) { $tagLine.Substring('KP_RUECK_TAG='.Length) } else { '' }
+if ($installedTag -notmatch '^\d+\.\d+\.\d+$') {
+    Fail "KP_RUECK_TAG in .env muss eine feste Version X.Y.Z sein. Bitte die installierte Version prüfen, das vollständige passende Release verwenden und dessen Version eintragen. Anleitung: docs/DEPLOYMENT.md Abschnitt 4."
 }
-
-Say "Das Board wird gestartet …"
-docker compose up -d
+if ($installedTag -ne $ReleaseVersion) {
+    Fail "Die Dateien gehören zu Release $ReleaseVersion, .env wählt $installedTag. Bitte das vollständige passende Release verwenden; bei einem geplanten Update zuerst Backup und Anleitung in docs/DEPLOYMENT.md Abschnitt 4 beachten."
+}
+# Shell variables otherwise take precedence over .env in Compose.
+$env:KP_RUECK_TAG = $ReleaseVersion
+Say "Release $ReleaseVersion wird gestartet (fehlende Images werden geladen) …"
+docker compose up -d --pull missing --no-build
 if ($LASTEXITCODE -ne 0) {
-    Fail "Der Start ist fehlgeschlagen. Häufigste Ursache: Port $Port oder 443 ist auf diesem Computer schon belegt – das andere Programm beenden und diese Datei erneut doppelklicken."
+    Fail "Der Start ist fehlgeschlagen. Bitte prüfen: Images für Release $ReleaseVersion verfügbar, Internet beim ersten Start und Ports $Port/443 frei. Details: docs/DEPLOYMENT.md."
 }
 
 # --- Wait until it answers ---------------------------------------------------------------
@@ -191,7 +201,7 @@ Write-Host ""
 if ($LanIp) {
     Write-Host "  Andere Geräte im gleichen Netz erreichen das Board unter http://${LanIp}:$Port"
 }
-Write-Host "  Update einspielen: einfach diese Datei erneut doppelklicken – sie lädt die neueste"
-Write-Host "  Version und startet das Board damit neu. Daten bleiben dabei erhalten."
+Write-Host "  Erneut doppelklicken startet dieses Release. Updates erfolgen bewusst mit dem"
+Write-Host "  vollständigen neuen Release und Backup: docs/DEPLOYMENT.md Abschnitt 4."
 Write-Host ""
 exit 0

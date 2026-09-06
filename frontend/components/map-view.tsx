@@ -1,12 +1,25 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Tooltip } from "react-leaflet"
-import L, { LatLngExpression } from "leaflet"
-import "leaflet/dist/leaflet.css"
+/**
+ * MapView — the Lagekarte, on MapLibre (plan 28, phase C).
+ *
+ * Serves both `/map` (the operating surface) and `/display/map` (the token wall display, which
+ * feeds its data in through the `*Override` props and makes no authenticated call of its own).
+ *
+ * Everything that used to be a Leaflet `divIcon` HTML string is a real React component here, and
+ * everything a Leaflet child component did with `useMap()` is a hook driven by the map instance
+ * `<BaseMap>` hands over on load. The basemap itself — mode, style, offline fallback, dark look,
+ * resize, GL recovery — belongs to `<BaseMap>`; this file only contributes content.
+ */
+
+import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSProperties, type ReactNode } from "react"
+import type { Map as MlMap } from "maplibre-gl"
+import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { useIncidents, type Operation } from "@/lib/contexts/operations-context"
 import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
+import { BaseMap } from "./map/base-map"
+import { MapTooltip } from "./map/map-tooltip"
 import { GroupRoutes } from "./map/group-routes"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
@@ -16,104 +29,19 @@ import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanba
 import { AssignmentLines } from "./map/assignment-lines"
 import { OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
+import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
-import { useMapMode } from "@/lib/hooks/use-map-mode"
 import { Maximize, Truck, Users } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
-import { translateOutsideReact } from "@/lib/i18n-messages"
-
-// Fix Leaflet default icon issue with Next.js
-import icon from "leaflet/dist/images/marker-icon.png"
-import iconShadow from "leaflet/dist/images/marker-shadow.png"
-
-const DefaultIcon = L.icon({
-  iconUrl: icon.src,
-  shadowUrl: iconShadow.src,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-})
-
-L.Marker.prototype.options.icon = DefaultIcon
 
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
 
-// Create priority-based marker icon with status-based border styling
-function createIncidentIcon(incident: Incident, isHighlighted: boolean = false, accentColor?: string | null): L.DivIcon {
-  // When a "Färben nach" dimension is active, the marker fill is overridden with
-  // that group's colour; otherwise it falls back to the priority colour.
-  const priorityColor =
-    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
-  const fillColor = accentColor || priorityColor
-  const size = isHighlighted ? 32 : 24
-  const pulse = isHighlighted ? 'animation: pulse 2s ease-in-out infinite;' : ''
-
-  // Get status group styling
-  const statusGroup = STATUS_TO_GROUP[incident.status as IncidentStatus] || 'open'
-  const borderStyle = STATUS_GROUP_BORDER_STYLE[statusGroup]
-
-  // SVG-based marker with status border ring
-  const borderRadius = size / 2
-  const innerRadius = borderRadius - 3 // Leave space for border
-  const strokeWidth = 2.5
-  const borderOffset = strokeWidth / 2
-
-  // D8: tabbable + screen-reader-friendly marker. The Enter/Space →
-  // click delegation lives on the map container (see useEffect below).
-  const a11yLabel = (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())) || incident.title
-  const html = `
-    <style>
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.72; }
-      }
-    </style>
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" tabindex="0" role="button" aria-label="${translateOutsideReact('map.view.markerAria', { label: a11yLabel })}" style="${pulse} transition: all 0.2s ease; opacity: ${borderStyle.opacity}; outline: none;">
-      <!-- Drop shadow filter -->
-      <defs>
-        <filter id="shadow-${incident.id}" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="${isHighlighted ? 2 : 1}" stdDeviation="${isHighlighted ? 2 : 1}" flood-opacity="${isHighlighted ? 0.4 : 0.25}"/>
-        </filter>
-      </defs>
-
-      <!-- Priority fill circle with white border -->
-      <circle
-        cx="${borderRadius}"
-        cy="${borderRadius}"
-        r="${innerRadius}"
-        fill="${fillColor}"
-        stroke="${isHighlighted ? MAP_COLORS.info : 'white'}"
-        stroke-width="3"
-        filter="url(#shadow-${incident.id})"
-      />
-
-      <!-- Status border ring (outer) -->
-      <circle
-        cx="${borderRadius}"
-        cy="${borderRadius}"
-        r="${borderRadius - borderOffset}"
-        fill="none"
-        stroke="${STATUS_BORDER_COLOR}"
-        stroke-width="${strokeWidth}"
-        stroke-dasharray="${borderStyle.dasharray}"
-      />
-    </svg>
-  `
-
-  return L.divIcon({
-    html,
-    className: "custom-marker",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
-  })
-}
-
-// Permanent incident labels: one line of the 11px label plus Leaflet's padding,
-// and the tooltip's own horizontal offset from the marker. The leader line has
-// to bridge that offset plus Leaflet's 6px arrow margin on a right-hand tooltip.
+// Permanent incident labels: the bubble sits to the RIGHT of the dot, its near edge this far
+// from it — Leaflet's own `offset` (14) plus the 6px arrow margin it added on top. The leader
+// line of a stepped label bridges exactly that distance back to the dot.
 const LABEL_HEIGHT = 32
 const LABEL_ANCHOR_X = 14
 const LABEL_LEADER_DX = LABEL_ANCHOR_X + 6
@@ -123,268 +51,597 @@ const LABEL_HOVER_CLOSE_MS = 200
 
 // Pill dimensions for vehicle markers (used by icon + tooltip offset).
 const VEHICLE_PILL_HEIGHT = 24
-const VEHICLE_PILL_GAP = 3
 function vehiclePillWidth(name: string): number {
   // 13px bold caps ≈ 8px/char + 16px horizontal padding. Floor at 28px.
   return Math.max(28, name.length * 8 + 16)
 }
 
-// Render a vehicle pill (used inside marker HTML).
-function vehiclePillHtml(vehicle: ApiVehiclePosition): string {
-  const isOnline = vehicle.status === 'online'
-  const width = vehiclePillWidth(vehicle.device_name)
-  return `
-    <div style="
-      width: ${width}px;
-      height: ${VEHICLE_PILL_HEIGHT}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: ${isOnline ? MAP_COLORS.info : MAP_COLORS.offline};
-      color: white;
-      border: 2px solid white;
-      border-radius: 4px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1;
-      white-space: nowrap;
-      padding: 0 8px;
-      box-sizing: border-box;
-    ">${vehicle.device_name}</div>
-  `
+// Leaflet's tooltip look, as a shared gap: the arrow's 6px margin sat on top of every `offset`.
+const TOOLTIP_ARROW = 6
+
+/**
+ * Above this speed a vehicle counts as MOVING – the floor for the km/h line in the hover
+ * tooltip, and for the heading arrow beside the pill.
+ *
+ * A parked tracker still reports a metre of GPS jitter per fix, which arrives as a fraction of a
+ * km/h with whatever `course` the noise happened to point at. Rendering that would make the
+ * whole depot twitch.
+ */
+const MOVING_SPEED_KMH = 1
+
+// Stable empties: the route overlay must stay MOUNTED even with nothing to draw, or react-map-gl
+// re-appends its source on the next `styledata` and lands it on top of everything (plan 28).
+const NO_GROUPS: IncidentGroup[] = []
+const NO_OPERATIONS = new Map<string, Operation>()
+
+// --- Marker visuals ---------------------------------------------------------
+
+/**
+ * One incident's dot: priority (or «Färben nach») fill, white ring, and an outer ring whose
+ * DASH STYLE — solid / dashed / dotted — carries the status group. Never colour alone.
+ */
+function IncidentPin({
+  incident,
+  highlighted,
+  accentColor,
+  onActivate,
+}: {
+  incident: Incident
+  highlighted: boolean
+  accentColor?: string | null
+  onActivate: () => void
+}) {
+  const t = useTranslations('map')
+  // When a "Färben nach" dimension is active, the marker fill is overridden with
+  // that group's colour; otherwise it falls back to the priority colour.
+  const priorityColor =
+    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? MAP_COLORS.offline
+  const fillColor = accentColor || priorityColor
+  const size = highlighted ? 32 : 24
+
+  const statusGroup = STATUS_TO_GROUP[incident.status as IncidentStatus] || 'open'
+  const borderStyle = STATUS_GROUP_BORDER_STYLE[statusGroup]
+
+  const borderRadius = size / 2
+  const innerRadius = borderRadius - 3 // Leave space for border
+  const strokeWidth = 2.5
+  const borderOffset = strokeWidth / 2
+
+  // D8: tabbable + screen-reader-friendly marker. Enter/Space activate it directly now —
+  // under Leaflet the icon was an HTML string, so the key had to be caught on the map wrapper
+  // and re-dispatched as a synthetic click.
+  const a11yLabel =
+    (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
+    || incident.title
+  const shadowId = `marker-shadow-${incident.id}`
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      tabIndex={0}
+      role="button"
+      aria-label={t('view.markerAria', { label: a11yLabel })}
+      // The pulse used to be a `@keyframes` block injected into every single icon's HTML.
+      className={highlighted ? "animate-pulse" : undefined}
+      style={{ display: "block", transition: "all 0.2s ease", opacity: borderStyle.opacity, outline: "none" }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return
+        event.preventDefault()
+        onActivate()
+      }}
+    >
+      <defs>
+        <filter id={shadowId} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow
+            dx="0"
+            dy={highlighted ? 2 : 1}
+            stdDeviation={highlighted ? 2 : 1}
+            floodOpacity={highlighted ? 0.4 : 0.25}
+          />
+        </filter>
+      </defs>
+
+      {/* Priority fill circle with white border */}
+      <circle
+        cx={borderRadius}
+        cy={borderRadius}
+        r={innerRadius}
+        fill={fillColor}
+        stroke={highlighted ? MAP_COLORS.info : "white"}
+        strokeWidth={3}
+        filter={`url(#${shadowId})`}
+      />
+
+      {/* Status border ring (outer) */}
+      <circle
+        cx={borderRadius}
+        cy={borderRadius}
+        r={borderRadius - borderOffset}
+        fill="none"
+        stroke={STATUS_BORDER_COLOR}
+        strokeWidth={strokeWidth}
+        strokeDasharray={borderStyle.dasharray}
+      />
+    </svg>
+  )
 }
 
-// Stack one or more vehicle pills vertically into a single divIcon.
-// When N vehicles share a GPS coord they fan out top→bottom so every
-// label stays legible; the stack gets wrapped in a subtle bordered
-// container so it reads as "these are all parked together".
-const VEHICLE_STACK_PADDING = 4
-const VEHICLE_STACK_BORDER = 1
+/** The incident dot as a map marker. A component for readability only – the hover state lives in
+ *  the parent, so hovering one marker re-renders them all. Fine at a board's handful of pins. */
+function IncidentMarker({
+  incident,
+  highlighted,
+  accentColor,
+  zIndex,
+  onSelect,
+  onHoverStart,
+  onHoverEnd,
+}: {
+  incident: Incident
+  highlighted: boolean
+  accentColor?: string | null
+  zIndex: number
+  onSelect: () => void
+  onHoverStart: () => void
+  onHoverEnd: () => void
+}) {
+  const size = highlighted ? 32 : 24
+  return (
+    <Marker
+      longitude={incident.location_lng!}
+      latitude={incident.location_lat!}
+      style={{ zIndex }}
+      // A click on a DOM marker also reaches the map canvas under it (Leaflet swallowed it),
+      // where it would count as an empty-map click and add a route stop.
+      onClick={(event) => {
+        event.originalEvent.stopPropagation()
+        onSelect()
+      }}
+    >
+      {/* `.custom-marker` is what the small-screen scale-down in globals.css hangs on. */}
+      <div
+        className="custom-marker"
+        style={{ position: "relative", width: size, height: size }}
+        onMouseEnter={onHoverStart}
+        onMouseLeave={onHoverEnd}
+      >
+        <IncidentPin
+          incident={incident}
+          highlighted={highlighted}
+          accentColor={accentColor}
+          onActivate={onSelect}
+        />
+      </div>
+    </Marker>
+  )
+}
 
-// Scale vehicle markers down at lower zoom levels so a 5-pill stack
-// doesn't dominate the town. Full size only when fully zoomed in
-// (zoom ≥ 15); at default Lagekarte zoom (13) the stack sits at ~0.68;
-// floored at 0.35 when fully zoomed out.
+/** Shared pill chrome for the vehicle + Magazin markers. */
+function pillStyle(background: string, width: number | string): CSSProperties {
+  return {
+    width,
+    height: VEHICLE_PILL_HEIGHT,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background,
+    color: "white",
+    border: "2px solid white",
+    borderRadius: 4,
+    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1,
+    whiteSpace: "nowrap",
+    padding: "0 8px",
+    boxSizing: "border-box",
+  }
+}
+
+/**
+ * Scale vehicle markers down at lower zoom levels so a stack of them doesn't dominate the town.
+ * Full size only when fully zoomed in (zoom ≥ 15); at default Lagekarte zoom (13) they sit at
+ * ~0.68, floored at 0.35 when fully zoomed out.
+ */
 function vehicleStackScale(zoom: number): number {
   if (zoom >= 15) return 1
   if (zoom <= 11) return 0.35
   return 0.35 + ((zoom - 11) / 4) * 0.65
 }
 
-function createVehicleStackIcon(
-  vehicles: ApiVehiclePosition[],
-  scale = 1,
-  /** Collapsed-cluster label («5 Fahrzeuge»). When set and more than one
-   *  vehicle shares the spot, the marker is ONE counting pill instead of a
-   *  stack — five idle vehicles at the depot used to blanket the village.
-   *  The hover tooltip on the marker still lists every vehicle by name. */
-  groupLabel?: string,
-): L.DivIcon {
-  if (vehicles.length > 1 && groupLabel) {
-    const allOnline = vehicles.some((v) => v.status === 'online')
-    const naturalWidth = vehiclePillWidth(groupLabel)
-    const width = naturalWidth * scale
-    const totalHeight = VEHICLE_PILL_HEIGHT * scale
-    const html = `
-      <div style="
-        width: ${naturalWidth}px;
-        height: ${VEHICLE_PILL_HEIGHT}px;
-        transform: scale(${scale});
-        transform-origin: 0 0;
-      "><div style="
-        width: ${naturalWidth}px;
-        height: ${VEHICLE_PILL_HEIGHT}px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-color: ${allOnline ? MAP_COLORS.info : MAP_COLORS.offline};
-        color: white;
-        border: 2px solid white;
-        border-radius: 4px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 1;
-        white-space: nowrap;
-        padding: 0 8px;
-        box-sizing: border-box;
-      ">${groupLabel}</div></div>
-    `
-    return L.divIcon({
-      html,
-      className: "vehicle-marker",
-      iconSize: [width, totalHeight],
-      iconAnchor: [width / 2, totalHeight / 2],
-      popupAnchor: [0, -totalHeight / 2],
-    })
-  }
+// Clearance between the pill's edge and the tip of the heading arrow.
+const HEADING_ARROW_GAP = 4
 
-  const widths = vehicles.map((v) => vehiclePillWidth(v.device_name))
-  const pillsWidth = Math.max(...widths)
-  const pillsHeight =
-    vehicles.length * VEHICLE_PILL_HEIGHT + (vehicles.length - 1) * VEHICLE_PILL_GAP
+/**
+ * Which way a moving vehicle is pointing: a small white triangle just outside the pill's edge,
+ * rotated to the GPS `course` (0 = north, clockwise — Traccar's convention, and CSS's).
+ *
+ * A DOM element, not a MapLibre symbol layer: a style reload — which is exactly what the
+ * auto→offline tile fallback does — drops every image registered on the GL map, and an
+ * SDF/icon arrow would silently vanish with it. No counter-rotation is needed either, the board's
+ * maps are north-up (`dragRotate` off, bearing pinned at 0).
+ *
+ * It sits at the pill's EDGE along the heading rather than on a fixed circle: the pill is a wide
+ * rectangle, so a constant radius would park an eastbound arrow in the middle of the name.
+ */
+function HeadingArrow({ course, pillWidth }: { course: number; pillWidth: number }) {
+  const radians = (course * Math.PI) / 180
+  const sin = Math.abs(Math.sin(radians))
+  const cos = Math.abs(Math.cos(radians))
+  // Where the heading ray leaves the pill rectangle, measured from its centre.
+  const distance =
+    Math.min(
+      sin === 0 ? Infinity : pillWidth / 2 / sin,
+      cos === 0 ? Infinity : VEHICLE_PILL_HEIGHT / 2 / cos,
+    ) + HEADING_ARROW_GAP
 
-  const grouped = vehicles.length > 1
-  const chrome = grouped ? (VEHICLE_STACK_PADDING + VEHICLE_STACK_BORDER) * 2 : 0
-  const naturalWidth = pillsWidth + chrome
-  const naturalHeight = pillsHeight + chrome
-  const width = naturalWidth * scale
-  const totalHeight = naturalHeight * scale
-
-  const innerStack = `
-    <div style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: ${VEHICLE_PILL_GAP}px;
-    ">${vehicles.map(vehiclePillHtml).join("")}</div>
-  `
-
-  const inner = grouped
-    ? `
-      <div style="
-        padding: ${VEHICLE_STACK_PADDING}px;
-        background: rgba(255, 255, 255, 0.92);
-        border: ${VEHICLE_STACK_BORDER}px solid rgba(0, 0, 0, 0.2);
-        border-radius: 6px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-        box-sizing: border-box;
-      ">${innerStack}</div>
-    `
-    : innerStack
-
-  // transform-origin top-left keeps the scaled box anchored to (0,0)
-  // so iconAnchor math works against scaled dimensions.
-  const html = `
-    <div style="
-      width: ${naturalWidth}px;
-      height: ${naturalHeight}px;
-      transform: scale(${scale});
-      transform-origin: 0 0;
-    ">${inner}</div>
-  `
-
-  return L.divIcon({
-    html,
-    className: "vehicle-marker",
-    iconSize: [width, totalHeight],
-    iconAnchor: [width / 2, totalHeight / 2],
-    popupAnchor: [0, -totalHeight / 2],
-  })
-}
-
-// Create firestation marker icon (no label — operators know where they are)
-function createFirestationIcon(): L.DivIcon {
-  const html = `
-    <div style="
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #dc2626;
-      color: white;
-      border: 2px solid white;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      font-size: 14px;
-    ">⌂</div>
-  `
-
-  return L.divIcon({
-    html,
-    className: "firestation-marker",
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
-  })
-}
-
-// Magazin (GPS-Heimatbasis) marker — a little home icon styled like the
-// vehicle pills so it reads as "where the vehicles live". Only rendered
-// when gps.station_lat/lng are configured (Settings → GPS).
-function createMagazinIcon(): L.DivIcon {
-  const html = `
-    <div style="
-      width: 24px;
-      height: ${VEHICLE_PILL_HEIGHT}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: ${MAP_COLORS.info};
-      color: white;
-      border: 2px solid white;
-      border-radius: 4px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      font-size: 14px;
-      line-height: 1;
-    ">⌂</div>
-  `
-
-  return L.divIcon({
-    html,
-    className: "magazin-marker",
-    iconSize: [24, VEHICLE_PILL_HEIGHT],
-    iconAnchor: [12, VEHICLE_PILL_HEIGHT / 2],
-    popupAnchor: [0, -VEHICLE_PILL_HEIGHT / 2],
-  })
-}
-
-// Routenplanung: forward empty-map clicks to the caller (add-stop mode). Only
-// mounted while planning + "Stop hinzufügen" is active; marker clicks don't
-// reach here (Leaflet stops their propagation to the map).
-function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (e) => onClick(e.latlng.lat, e.latlng.lng),
-  })
-  return null
-}
-
-// Component that tracks zoom level for conditional label rendering
-function ZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
-  const map = useMap()
-
-  useEffect(() => {
-    onZoomChange(map.getZoom())
-    const handler = () => onZoomChange(map.getZoom())
-    map.on("zoomend", handler)
-    return () => { map.off("zoomend", handler) }
-  }, [map, onZoomChange])
-
-  return null
-}
-
-// Component to auto-fit map bounds to show all incidents. Fits exactly once —
-// the first time a locatable incident exists — but keeps watching until then:
-// on a cold cache the incidents arrive well after the map mounts, and a
-// mount-only effect would leave the operator at the default zoom forever.
-function FitBounds({ incidents }: { incidents: Incident[] }) {
-  const map = useMap()
-  const hasInitializedRef = useRef(false)
-
-  useEffect(() => {
-    if (hasInitializedRef.current) return
-
-    const validIncidents = incidents.filter(
-      (inc) => inc.location_lat !== null && inc.location_lng !== null
-    )
-
-    if (validIncidents.length === 0) return
-
-    const bounds = L.latLngBounds(
-      validIncidents.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number])
-    )
-
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
-    hasInitializedRef.current = true
-  }, [map, incidents])
-
-  return null
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: 0,
+        height: 0,
+        // A CSS border triangle, pointing up at `rotate(0)` — i.e. north.
+        borderLeft: "5px solid transparent",
+        borderRight: "5px solid transparent",
+        borderBottom: "6px solid #fff",
+        filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))",
+        // Centre on the pill, turn to the heading, then step out along it.
+        transform: `translate(-50%, -50%) rotate(${course}deg) translateY(-${distance}px)`,
+        pointerEvents: "none",
+      }}
+    />
+  )
 }
 
 /**
- * The band a focused incident is readable in — see `PanToSelected`.
+ * One GPS spot: a single vehicle's pill, or — when several share it — ONE counting pill
+ * («5 Fahrzeuge»). Five idle vehicles at the depot used to blanket the village; the hover
+ * tooltip still lists every one of them by name.
+ */
+function VehicleClusterMarker({
+  vehicles,
+  centroid,
+  scale,
+  groupLabel,
+  nameFor,
+}: {
+  vehicles: ApiVehiclePosition[]
+  centroid: [number, number]
+  scale: number
+  /** Set only when more than one vehicle shares the spot. */
+  groupLabel?: string
+  nameFor: (vehicle: ApiVehiclePosition) => string
+}) {
+  const t = useTranslations('map')
+  const [hovered, setHovered] = useState(false)
+  const label = groupLabel ?? vehicles[0].device_name
+  const online = vehicles.some((vehicle) => vehicle.status === 'online')
+  // Heading is a single vehicle's property. A counting pill speaks for several vehicles that may
+  // well be driving in different directions, so it never wears an arrow.
+  const single = vehicles.length === 1 && !groupLabel ? vehicles[0] : null
+  const heading =
+    single &&
+    single.course !== null &&
+    Number.isFinite(single.course) &&
+    single.speed !== null &&
+    single.speed > MOVING_SPEED_KMH
+      ? single.course
+      : null
+
+  return (
+    <Marker
+      longitude={centroid[1]}
+      latitude={centroid[0]}
+      style={{ zIndex: Z.vehicle }}
+      onClick={(event) => event.originalEvent.stopPropagation()}
+    >
+      {/* `transform: scale` leaves the LAYOUT box at its natural size, so the marker keeps
+          centring the same point the unscaled pill was centred on. */}
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div style={{ transform: `scale(${scale})` }}>
+          <div
+            style={{
+              ...pillStyle(online ? MAP_COLORS.info : MAP_COLORS.offline, vehiclePillWidth(label)),
+              // Anchors the heading arrow to the pill itself, whatever the label's width.
+              position: "relative",
+            }}
+          >
+            {label}
+            {heading !== null && <HeadingArrow course={heading} pillWidth={vehiclePillWidth(label)} />}
+          </div>
+        </div>
+        {hovered && (
+          <MapTooltip side="top" gap={TOOLTIP_ARROW + (VEHICLE_PILL_HEIGHT * scale) / 2 + 4}>
+            <div className="text-sm space-y-1">
+              {vehicles.map((vehicle) => (
+                <div key={vehicle.device_id}>
+                  <div className="font-semibold">{nameFor(vehicle)}</div>
+                  {vehicle.speed !== null && vehicle.speed > MOVING_SPEED_KMH && (
+                    <div className="text-xs text-muted-foreground">{Math.round(vehicle.speed)} km/h</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    {vehicle.status === 'online' ? t('common.online') : t('common.offline')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </MapTooltip>
+        )}
+      </div>
+    </Marker>
+  )
+}
+
+/** A round marker carrying a single glyph — the firestation and the Magazin/GPS homebase. */
+function GlyphMarker({
+  coordinates,
+  label,
+  style,
+  gap,
+}: {
+  coordinates: LatLngPoint
+  label: string
+  style: CSSProperties
+  /** Anchor → tooltip edge. Half the glyph's height plus Leaflet's arrow margin. */
+  gap: number
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <Marker
+      longitude={coordinates[1]}
+      latitude={coordinates[0]}
+      style={{ zIndex: Z.station }}
+      onClick={(event) => event.originalEvent.stopPropagation()}
+    >
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div style={style}>⌂</div>
+        {hovered && (
+          <MapTooltip side="top" gap={gap}>
+            <span>{label}</span>
+          </MapTooltip>
+        )}
+      </div>
+    </Marker>
+  )
+}
+
+const FIRESTATION_STYLE: CSSProperties = {
+  width: 24,
+  height: 24,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#dc2626",
+  color: "white",
+  border: "2px solid white",
+  borderRadius: "50%",
+  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
+  fontSize: 14,
+}
+
+// Magazin (GPS-Heimatbasis) — a little home icon styled like the vehicle pills so it reads as
+// "where the vehicles live". Only rendered when gps.station_lat/lng are set (Settings → GPS).
+const MAGAZIN_STYLE: CSSProperties = { ...pillStyle(MAP_COLORS.info, 24), fontSize: 14 }
+
+// --- Permanent labels -------------------------------------------------------
+
+/**
+ * Leaflet's tooltip bubble, rebuilt as a marker child.
+ *
+ * MapLibre has no tooltip of its own, and `<MapTooltip>` (which reproduces the same look for the
+ * hover bubbles) is deliberately inert: a label is CLICKABLE, opaque, and may carry a leader line
+ * instead of an arrow — so it gets its own chrome here.
+ */
+const LABEL_BUBBLE: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  padding: 6,
+  background: "#fff",
+  border: "1px solid #fff",
+  borderRadius: 3,
+  color: "#222",
+  whiteSpace: "nowrap",
+  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
+  cursor: "pointer",
+}
+
+/** The 6px triangle on the bubble's left edge, pointing back at the dot. */
+const LABEL_ARROW: CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  left: -12,
+  marginTop: -6,
+  border: "6px solid transparent",
+  borderRightColor: "#fff",
+  pointerEvents: "none",
+}
+
+/**
+ * Vertical offset per label. Empty for all but one case: a label sits at its own
+ * dot, full stop.
+ *
+ * The exception is several incidents at exactly the same address. Their markers
+ * are one dot on the screen, so their labels stack downwards from it — the only
+ * place a leader line is needed, and a short one.
+ *
+ * Labels of *different* addresses may overlap. Keeping them apart was worse:
+ * resolving every collision walked addresses hundreds of pixels away from their
+ * markers with leader lines crossing half the town, and the address you then
+ * read next to a dot was somebody else's. Whichever label is pointed at comes
+ * to the front (see IncidentLabel).
+ */
+function stackSharedAddresses(incidents: Incident[]): Map<string, number> {
+  const STEP = LABEL_HEIGHT + 2
+  const offsets = new Map<string, number>()
+  const seen = new Map<string, number>()
+  for (const incident of incidents) {
+    // 6 decimals ≈ 10cm: the same address, not merely the same neighbourhood.
+    const spot = `${incident.location_lat!.toFixed(6)}:${incident.location_lng!.toFixed(6)}`
+    const index = seen.get(spot) ?? 0
+    seen.set(spot, index + 1)
+    if (index > 0) offsets.set(incident.id, index * STEP)
+  }
+  return offsets
+}
+
+/**
+ * Leader line for a label that had to step aside. Drawn inside the bubble, from its left edge
+ * (which stays vertically centred on the label, even when it swells into the hover card) back to
+ * the marker — so the address always names its own dot, never the nearest one.
+ */
+function LabelLeader({ dy }: { dy: number }) {
+  const height = Math.abs(dy)
+  return (
+    <svg
+      width={LABEL_LEADER_DX}
+      height={height}
+      style={{
+        position: "absolute",
+        overflow: "visible",
+        pointerEvents: "none",
+        opacity: 0.75,
+        left: -LABEL_LEADER_DX,
+        top: dy > 0 ? `calc(50% - ${height}px)` : "50%",
+      }}
+      aria-hidden="true"
+    >
+      {/* White underlay first: a 1px grey hairline disappears into a busy map. */}
+      {["#ffffff", "#4b5563"].map((stroke, i) => (
+        <line
+          key={stroke}
+          x1={0}
+          y1={dy > 0 ? 0 : height}
+          x2={LABEL_LEADER_DX}
+          y2={dy > 0 ? height : 0}
+          stroke={stroke}
+          strokeWidth={i === 0 ? 3 : 1}
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+  )
+}
+
+/**
+ * One incident's permanent map label — its own DOM marker at the incident's coordinates.
+ *
+ * Under Leaflet this was a tooltip instance that had to be mutated by hand (react-leaflet builds
+ * a `<Tooltip>` once and ignores every later prop change), plus a DOM re-append to bring the
+ * hovered one to the front. Here the step, the hover state and the stacking are all just props.
+ *
+ * The bubble hangs off a zero-sized wrapper, so the wrapper's origin IS the incident's anchor
+ * point and the offsets read like Leaflet's did.
+ */
+function IncidentLabel({
+  latitude,
+  longitude,
+  dy,
+  hovered,
+  selected,
+  onSelect,
+  onHoverStart,
+  onHoverEnd,
+  children,
+}: {
+  latitude: number
+  longitude: number
+  /** Downward step for a label sharing its address with another (see stackSharedAddresses). */
+  dy: number
+  hovered: boolean
+  /** Selected on the map or highlighted from the list/Reko — the label belongs
+   *  in front of its neighbours then too, not only under the pointer. */
+  selected: boolean
+  onSelect: () => void
+  onHoverStart: () => void
+  onHoverEnd: () => void
+  children: ReactNode
+}) {
+  return (
+    <Marker
+      longitude={longitude}
+      latitude={latitude}
+      style={{ zIndex: hovered ? Z.labelHovered : selected ? Z.labelSelected : Z.label }}
+      // The label is as tappable as the dot (selection, Reko-Modus assignment, …) — and, like
+      // every marker here, must not let the click through to the map underneath.
+      onClick={(event) => {
+        event.originalEvent.stopPropagation()
+        onSelect()
+      }}
+    >
+      <div style={{ position: "relative", width: 0, height: 0 }}>
+        <div
+          style={{ ...LABEL_BUBBLE, transform: `translate(${LABEL_LEADER_DX}px, calc(-50% + ${dy}px))` }}
+          onMouseEnter={onHoverStart}
+          onMouseLeave={onHoverEnd}
+        >
+          {/* A stepped label is no longer level with its marker, so its arrow would point at
+              empty map — the leader line takes over that job. */}
+          {dy === 0 ? <span style={LABEL_ARROW} /> : <LabelLeader dy={dy} />}
+          {children}
+        </div>
+      </div>
+    </Marker>
+  )
+}
+
+// --- Map controls -----------------------------------------------------------
+
+/** Every located incident as a `[lat, lng]` point — what `fitTo` frames. */
+function locatedPoints(incidents: Incident[]): LatLngPoint[] {
+  return incidents
+    .filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
+    .map((inc) => [inc.location_lat!, inc.location_lng!] as LatLngPoint)
+}
+
+/** Leaflet's `padding: [x, y]`, in MapLibre's per-edge shape. */
+const pad = (value: number) => ({ top: value, bottom: value, left: value, right: value })
+
+/** Live zoom level, so the vehicle pills can shrink when the operator zooms out. */
+function useMapZoom(map: MlMap | null, fallback: number): number {
+  const [zoom, setZoom] = useState(fallback)
+  useEffect(() => {
+    if (!map) return
+    const handler = () => setZoom(map.getZoom())
+    handler()
+    map.on("zoomend", handler)
+    return () => { map.off("zoomend", handler) }
+  }, [map])
+  return zoom
+}
+
+/**
+ * Auto-fit to every incident. Fits exactly once — the first time a locatable incident exists —
+ * but keeps watching until then: on a cold cache the incidents arrive well after the map mounts,
+ * and a mount-only effect would leave the operator at the default zoom forever.
+ */
+function useFitBoundsOnce(map: MlMap | null, incidents: Incident[]) {
+  const done = useRef(false)
+  useEffect(() => {
+    if (!map) return
+    const points = locatedPoints(incidents)
+    if (done.current || points.length === 0) return
+    fitTo(map, points, { padding: pad(50), maxZoom: 15, duration: 0 })
+    done.current = true
+  }, [map, incidents])
+}
+
+/**
+ * The band a focused incident is readable in — see `usePanToSelected`.
  *
  * Below 13 a marker sits somewhere in the Baselbiet with no street to read it
  * against; above 17 the map is one building and the operator loses the
@@ -393,137 +650,86 @@ function FitBounds({ incidents }: { incidents: Incident[] }) {
 const MIN_FOCUS_ZOOM = 13
 const MAX_FOCUS_ZOOM = 17
 
-// Component to pan/zoom to selected incident
-function PanToSelected({ selectedIncidentId, incidents, trigger }: { selectedIncidentId: string | null; incidents: Incident[]; trigger?: number }) {
-  const map = useMap()
+/** Pan to the selected incident, KEEPING the operator's zoom. */
+function usePanToSelected(
+  map: MlMap | null,
+  selectedIncidentId: string | null,
+  incidents: Incident[],
+  trigger: number,
+) {
+  // The incidents are read, not depended on: a poll tick must not re-fly the map.
   const incidentsRef = useRef(incidents)
-
-  // Update ref when incidents change, but don't trigger effect
-  useEffect(() => {
-    incidentsRef.current = incidents
-  }, [incidents])
+  useEffect(() => { incidentsRef.current = incidents }, [incidents])
 
   useEffect(() => {
-    if (!selectedIncidentId) return
-
+    if (!map || !selectedIncidentId) return
     const incident = incidentsRef.current.find((inc) => inc.id === selectedIncidentId)
     if (!incident || !incident.location_lat || !incident.location_lng) return
 
-    // Pan to the selected marker, KEEPING the operator's zoom.
-    //
-    // This used to fly to 16 every time, so clicking down a list of incidents
-    // zoomed in, out, in again — the operator set a working scale and every
-    // click threw it away. The zoom is only touched when it is outside the band
-    // where a marker is actually readable: too far out to see which street, or
-    // so far in that the next incident is off-screen.
-    const zoom = map.getZoom()
-    const clamped = Math.min(Math.max(zoom, MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
-    map.flyTo([incident.location_lat, incident.location_lng], clamped, {
-      duration: 0.8,
-    })
-  }, [selectedIncidentId, map, trigger]) // Only trigger on selection or trigger change, not incidents
-
-  return null
+    // This used to fly to 16 every time, so clicking down a list of incidents zoomed in, out, in
+    // again — the operator set a working scale and every click threw it away. The zoom is only
+    // touched when it is outside the band where a marker is actually readable.
+    const clamped = Math.min(Math.max(map.getZoom(), MIN_FOCUS_ZOOM), MAX_FOCUS_ZOOM)
+    map.flyTo({ center: [incident.location_lng, incident.location_lat], zoom: clamped, duration: 800 })
+  }, [map, selectedIncidentId, trigger])
 }
 
-// Component to zoom in on a specific vehicle by name (keyboard shortcuts 1-5)
-function PanToVehicle({
-  vehicleName,
-  trigger,
-  positions,
-}: {
-  vehicleName: string | null
-  trigger?: number
-  positions: ApiVehiclePosition[]
-}) {
-  const map = useMap()
+/** Zoom in on a specific vehicle by name (keyboard shortcuts 1-5). */
+function usePanToVehicle(
+  map: MlMap | null,
+  vehicleName: string | null,
+  trigger: number,
+  positions: ApiVehiclePosition[],
+) {
   const positionsRef = useRef(positions)
+  useEffect(() => { positionsRef.current = positions }, [positions])
 
   useEffect(() => {
-    positionsRef.current = positions
-  }, [positions])
-
-  useEffect(() => {
-    if (!vehicleName || !trigger) return
-
+    if (!map || !vehicleName || !trigger) return
     const vp = positionsRef.current.find(
       (p) => p.device_name.toLowerCase() === vehicleName.toLowerCase()
     )
     if (!vp) return
-
-    map.flyTo([vp.latitude, vp.longitude], 17, { duration: 0.8 })
-  }, [vehicleName, trigger, map])
-
-  return null
+    map.flyTo({ center: [vp.longitude, vp.latitude], zoom: 17, duration: 800 })
+  }, [map, vehicleName, trigger])
 }
 
-// Component to reset zoom to show all incidents and handle map resize
-function ResetZoom({ trigger, incidents }: { trigger: number; incidents: Incident[] }) {
-  const map = useMap()
+/** Reset zoom to show all incidents (the `z` shortcut / panel resize). */
+function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[]) {
   const incidentsRef = useRef(incidents)
-
-  // Update ref when incidents change, but don't trigger effect
-  useEffect(() => {
-    incidentsRef.current = incidents
-  }, [incidents])
+  useEffect(() => { incidentsRef.current = incidents }, [incidents])
 
   useEffect(() => {
-    if (trigger === 0) return
-
-    // Always invalidate size when trigger changes (handles panel resize)
-    setTimeout(() => {
-      map.invalidateSize()
-    }, 100)
-
-    const currentIncidents = incidentsRef.current
-    if (currentIncidents.length === 0) return
-
-    const validIncidents = currentIncidents.filter(
-      (inc) => inc.location_lat !== null && inc.location_lng !== null
-    )
-
-    if (validIncidents.length === 0) return
-
-    const bounds = L.latLngBounds(
-      validIncidents.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number])
-    )
-
-    // Delay to ensure size is invalidated first
-    setTimeout(() => {
-      map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 })
-    }, 200)
-  }, [trigger, map]) // Only trigger on explicit trigger change, not incidents
-
-  return null
+    if (!map || trigger === 0) return
+    // The trigger also fires on a panel resize. `<BaseMap>` watches the container itself, so this
+    // is only a belt-and-braces nudge — it replaces Leaflet's `invalidateSize()` double-timeout.
+    map.resize()
+    fitTo(map, locatedPoints(incidentsRef.current), { padding: pad(50), maxZoom: 15, duration: 800 })
+  }, [map, trigger])
 }
 
 /**
  * «Alle Einsätze einpassen» — the one map control that was missing.
  *
- * The map auto-fits ONCE on mount (see FitBounds) and then never again, so the moment a new
- * incident comes in outside the current view, or somebody pans away, getting back to «show me
- * everything» meant pinching around until it looked right. The fit itself already existed for
- * the panel-resize path; it just had no button.
+ * The map auto-fits ONCE on mount (see useFitBoundsOnce) and then never again, so the moment a
+ * new incident comes in outside the current view, or somebody pans away, getting back to «show me
+ * everything» meant pinching around until it looked right.
  *
- * Rendered inside MapContainer so it can reach the map, but positioned over it like the legend.
- * Pointer events are stopped so pressing it never doubles as a map drag.
+ * Positioned over the map like the legend. Pointer events are stopped so pressing it never
+ * doubles as a map drag.
  */
-function FitAllButton({ incidents }: { incidents: Incident[] }) {
+function FitAllButton({ map, incidents }: { map: MlMap | null; incidents: Incident[] }) {
   const t = useTranslations('map')
-  const map = useMap()
-  const withCoords = incidents.filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
-  if (withCoords.length === 0) return null
+  const points = locatedPoints(incidents)
+  if (!map || points.length === 0) return null
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation()
-        const bounds = L.latLngBounds(
-          withCoords.map((inc) => [inc.location_lat!, inc.location_lng!] as [number, number]),
-        )
         // padding keeps a marker's label off the edge; maxZoom stops a single incident from
         // slamming to street level, which loses all context
-        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 16, duration: 0.6 })
+        fitTo(map, points, { padding: pad(60), maxZoom: 16, duration: 600 })
       }}
       onDoubleClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
@@ -577,161 +783,6 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
         </ul>
       )}
     </div>
-  )
-}
-
-/**
- * Vertical offset per label. Empty for all but one case: a label sits at its own
- * dot, full stop.
- *
- * The exception is several incidents at exactly the same address. Their markers
- * are one dot on the screen, so their labels stack downwards from it — the only
- * place a leader line is needed, and a short one.
- *
- * Labels of *different* addresses may overlap. Keeping them apart was worse:
- * resolving every collision walked addresses hundreds of pixels away from their
- * markers with leader lines crossing half the town, and the address you then
- * read next to a dot was somebody else's. Whichever label is pointed at comes
- * to the front (see IncidentLabel).
- */
-function stackSharedAddresses(incidents: Incident[]): Map<string, number> {
-  const STEP = LABEL_HEIGHT + 2
-  const offsets = new Map<string, number>()
-  const seen = new Map<string, number>()
-  for (const incident of incidents) {
-    // 6 decimals ≈ 10cm: the same address, not merely the same neighbourhood.
-    const spot = `${incident.location_lat!.toFixed(6)}:${incident.location_lng!.toFixed(6)}`
-    const index = seen.get(spot) ?? 0
-    seen.set(spot, index + 1)
-    if (index > 0) offsets.set(incident.id, index * STEP)
-  }
-  return offsets
-}
-
-/**
- * One incident's permanent map label.
- *
- * react-leaflet builds a Tooltip once and ignores every later prop change, so
- * both the step a label takes (the zoom re-shuffles which labels collide) and
- * the hovered state have to be pushed onto the live Leaflet instance by hand —
- * otherwise the bubble keeps a stale place while its leader line already points
- * elsewhere, and the detail card stays behind its neighbours.
- *
- * Hover is bound with native mouseenter/mouseleave on the bubble: Leaflet's own
- * mouseover/mouseout fire again for every child node, so swapping the address
- * for the card instantly "left" it and the label only flickered.
- */
-function IncidentLabel({
-  incidentId,
-  offset,
-  hovered,
-  selected,
-  onHoverStart,
-  onHoverEnd,
-  children,
-}: {
-  incidentId: string
-  offset: [number, number]
-  hovered: boolean
-  /** Selected on the map or highlighted from the list/Reko — the label belongs
-   *  in front of its neighbours then too, not only under the pointer. */
-  selected: boolean
-  onHoverStart: (incidentId: string) => void
-  onHoverEnd: (incidentId: string) => void
-  children: ReactNode
-}) {
-  const tooltipRef = useRef<L.Tooltip | null>(null)
-  const [dx, dy] = offset
-
-  useEffect(() => {
-    const tooltip = tooltipRef.current
-    if (!tooltip) return
-    tooltip.options.offset = new L.Point(dx, dy)
-    // A stepped label's arrow would point at empty map — the leader line takes
-    // over that job (see LabelLeader).
-    tooltip.getElement()?.classList.toggle("incident-label--stepped", dy !== 0)
-    tooltip.update()
-  }, [dx, dy])
-
-  useEffect(() => {
-    const bubble = tooltipRef.current?.getElement()
-    if (!bubble) return
-    bubble.classList.toggle("incident-label--hovered", hovered)
-    // The card is the thing being read: it belongs in front of every
-    // neighbouring address, whatever the DOM order happens to be.
-    if (hovered) bubble.parentNode?.appendChild(bubble)
-  }, [hovered])
-
-  useEffect(() => {
-    const bubble = tooltipRef.current?.getElement()
-    if (!bubble) return
-    bubble.classList.toggle("incident-label--selected", selected)
-    if (selected) bubble.parentNode?.appendChild(bubble)
-  }, [selected])
-
-  useEffect(() => {
-    const bubble = tooltipRef.current?.getElement()
-    if (!bubble) return
-    const enter = () => onHoverStart(incidentId)
-    const leave = () => onHoverEnd(incidentId)
-    bubble.addEventListener("mouseenter", enter)
-    bubble.addEventListener("mouseleave", leave)
-    return () => {
-      bubble.removeEventListener("mouseenter", enter)
-      bubble.removeEventListener("mouseleave", leave)
-    }
-  }, [incidentId, onHoverStart, onHoverEnd])
-
-  return (
-    <Tooltip
-      ref={tooltipRef}
-      direction="right"
-      offset={offset}
-      permanent={true}
-      // Forward clicks to the marker so the label is as tappable as the dot
-      // (selection, Reko-Modus assignment, …).
-      interactive={true}
-      className="incident-label"
-    >
-      {children}
-    </Tooltip>
-  )
-}
-
-/**
- * Leader line for a label that had to step aside. Drawn inside the tooltip, from
- * its left edge (which Leaflet keeps vertically centred on the anchor point,
- * even when the label swells into the hover card) back to the marker — so the
- * address always names its own dot, never the nearest one.
- */
-function LabelLeader({ dy }: { dy: number }) {
-  if (dy === 0) return null
-  const height = Math.abs(dy)
-  return (
-    <svg
-      className="incident-label__leader"
-      width={LABEL_LEADER_DX}
-      height={height}
-      style={{
-        left: -LABEL_LEADER_DX,
-        top: dy > 0 ? `calc(50% - ${height}px)` : "50%",
-      }}
-      aria-hidden="true"
-    >
-      {/* White underlay first: a 1px grey hairline disappears into a busy map. */}
-      {["#ffffff", "#4b5563"].map((stroke, i) => (
-        <line
-          key={stroke}
-          x1={0}
-          y1={dy > 0 ? 0 : height}
-          x2={LABEL_LEADER_DX}
-          y2={dy > 0 ? height : 0}
-          stroke={stroke}
-          strokeWidth={i === 0 ? 3 : 1}
-          strokeLinecap="round"
-        />
-      ))}
-    </svg>
   )
 }
 
@@ -815,13 +866,14 @@ export default function MapView({
   const { incidents: contextIncidents } = useIncidents()
   const incidents = incidentsOverride ?? contextIncidents
   const [firestationName, setFirestationName] = useState<string>(() => t('view.firestationFallback'))
-  const [firestationCoords, setFirestationCoords] = useState<[number, number]>([
-    47.51637699933488, 7.561800450458299,
-  ])
+  const [firestationCoords, setFirestationCoords] = useState<LatLngPoint>(DEFAULT_CENTER_LATLNG)
   // Magazin/homebase from the GPS settings (gps.station_lat/lng) — null until configured
   const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
+  // The live map, handed over by <BaseMap> once it has loaded (and again after a GL recovery
+  // remount). Everything that used to be a react-leaflet child with `useMap()` hangs off it.
+  const [map, setMap] = useState<MlMap | null>(null)
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
-  const [mapZoom, setMapZoom] = useState<number>(13)
+  const mapZoom = useMapZoom(map, 13)
   // Hovered incident → its label swaps to the rich detail card.
   const [hoveredIncidentId, setHoveredIncidentId] = useState<string | null>(null)
   // Leaving a label does not close its card at once. The grace period rides out
@@ -849,12 +901,6 @@ export default function MapView({
   const [traccarConfigured, setTraccarConfigured] = useState<boolean>(false)
   // KP Rück vehicles for mapping Traccar device names → vehicle names
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
-  // Map mode management
-  const {
-    handleTileError,
-    getTileUrl,
-    getAttribution,
-  } = useMapMode()
 
   // Token mode: feed vehicles + positions from the override props (no auth fetch).
   useEffect(() => {
@@ -1016,10 +1062,10 @@ export default function MapView({
     onGpsAvailabilityChange?.(gpsAvailable)
   }, [gpsAvailable, onGpsAvailabilityChange])
 
-  // Cluster vehicles that share (roughly) the same GPS coord so their
-  // labels stack vertically instead of piling on top of each other.
+  // Cluster vehicles that share (roughly) the same GPS coord so they collapse into one
+  // counting pill instead of piling on top of each other.
   // Epsilon ≈ 0.0005° ≈ ~50m, which is well below firestation-yard scale.
-  // Vehicles inside a cluster are sorted by `display_order` so the stack
+  // Vehicles inside a cluster are sorted by `display_order` so the hover list
   // matches the order shown in the kanban / vehicle sheet / settings.
   const vehicleClusters = useMemo(() => {
     const EPSILON = 0.0005
@@ -1103,21 +1149,21 @@ export default function MapView({
       const color = colorAccent(group.id, "auftrag", groups)
       for (const stopId of group.stopIds) accents.set(stopId, color)
     }
-    return accents
+    // Aufträge without stops colour nothing – then there is nothing to fall back to.
+    return accents.size > 0 ? accents : undefined
   }, [showGroupRoutes, groups])
   const effectiveMarkerAccents = markerAccents ?? routeAccents
+  // The legend must describe what the markers actually wear: the route colours
+  // only when they are the fallback in use, never over a chosen «Färben nach».
+  const legendShowsRoutes = markerAccents === undefined && routeAccents !== undefined
   // Every label hangs on its own marker; only incidents sharing one address
   // stack (see stackSharedAddresses). Overlapping labels are left overlapping,
   // and hovering brings the one being pointed at to the front — the map's job
   // is to say where an incident is, and an address parked next to a stranger's
   // dot does the opposite.
   const labelOffsets = useMemo(() => {
-    const offsets = new Map<string, [number, number]>()
-    if (!showLabels) return offsets
-    for (const [id, dy] of stackSharedAddresses(mappableIncidents)) {
-      offsets.set(id, [LABEL_ANCHOR_X, dy])
-    }
-    return offsets
+    if (!showLabels) return new Map<string, number>()
+    return stackSharedAddresses(mappableIncidents)
   }, [showLabels, mappableIncidents])
 
   // …and the legend says so, listing the routes by name. A legend that still
@@ -1129,242 +1175,54 @@ export default function MapView({
       .map((group) => ({ key: group.id, label: group.name, color: colorAccent(group.id, "auftrag", groups) }))
   }, [routeAccents, groups])
 
-  // Calculate center point (average of all incidents or firestation)
-  const center: LatLngExpression = useMemo(() => {
-    if (mappableIncidents.length > 0) {
-      const avgLat =
-        mappableIncidents.reduce((sum, inc) => sum + (inc.location_lat || 0), 0) /
-        mappableIncidents.length
-      const avgLng =
-        mappableIncidents.reduce((sum, inc) => sum + (inc.location_lng || 0), 0) /
-        mappableIncidents.length
-      return [avgLat, avgLng]
-    }
-    return firestationCoords
-  }, [mappableIncidents, firestationCoords])
+  // The opening view: the average of the located incidents, or the firestation. Read ONCE (as
+  // Leaflet's `center` was — `MapContainer` ignored every later change) and then owned by
+  // `useFitBoundsOnce`, which frames the incidents the moment the first one arrives.
+  const [initialViewState] = useState(() => {
+    const located = mappableIncidents.filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
+    const [latitude, longitude] = located.length > 0
+      ? [
+          located.reduce((sum, inc) => sum + inc.location_lat!, 0) / located.length,
+          located.reduce((sum, inc) => sum + inc.location_lng!, 0) / located.length,
+        ]
+      : firestationCoords
+    return { longitude, latitude, zoom: 13 }
+  })
 
-  // Zoom to selected incident
-  useEffect(() => {
-    if (selectedIncidentId) {
-      const incident = mappableIncidents.find((inc) => inc.id === selectedIncidentId)
-      if (incident && incident.location_lat && incident.location_lng) {
-        // Note: We need access to the map instance here
-        // This is handled by the parent component passing the selectedIncidentId
-      }
-    }
-  }, [selectedIncidentId, mappableIncidents])
+  useFitBoundsOnce(map, mappableIncidents)
+  usePanToSelected(map, selectedIncidentId ?? null, mappableIncidents, panTrigger)
+  usePanToVehicle(map, focusVehicleName, focusVehicleTrigger, mappedVehiclePositions)
+  useResetZoom(map, resetZoomTrigger, mappableIncidents)
 
-  // D8: delegate Enter/Space on a focused marker to its click handler.
-  // Leaflet doesn't expose a per-marker keypress hook; this listener
-  // intercepts at the map-wrapper level and dispatches a synthetic click
-  // when the focused element is a marker icon.
-  const mapWrapperRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const wrapper = mapWrapperRef.current
-    if (!wrapper) return
-    const handler = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" && event.key !== " ") return
-      const target = event.target as HTMLElement | null
-      if (!target?.closest?.(".leaflet-marker-icon")) return
-      const marker = target.closest(".leaflet-marker-icon") as HTMLElement
-      event.preventDefault()
-      marker.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
-    }
-    wrapper.addEventListener("keydown", handler)
-    return () => wrapper.removeEventListener("keydown", handler)
-  }, [])
+  // Routenplanung: an empty-map click adds a stop. Every marker stops its own click from
+  // reaching the canvas, so only genuinely empty map arrives here.
+  const handleMapClick = useCallback(
+    (event: MapLayerMouseEvent) => onMapClick?.(event.lngLat.lat, event.lngLat.lng),
+    [onMapClick],
+  )
+
+  const vehicleNameFor = useCallback(
+    (vehicle: ApiVehiclePosition) => deviceNameToVehicleName.get(vehicle.device_name) || vehicle.device_name,
+    [deviceNameToVehicleName],
+  )
+
+  const vehicleScale = vehicleStackScale(mapZoom)
 
   return (
     <div
-      ref={mapWrapperRef}
       className="relative w-full h-full rounded-lg overflow-hidden"
       role="region"
       aria-label={t('view.mapAria')}
     >
-      <MapContainer
-        center={center}
-        zoom={13}
-        className="w-full h-full z-0"
-        zoomControl={true}
-        keyboard
-        keyboardPanDelta={80}
+      <BaseMap
+        initialViewState={initialViewState}
+        onLoad={setMap}
+        onClick={onMapClick ? handleMapClick : undefined}
       >
-        <TileLayer
-          key={getTileUrl()}
-          attribution={getAttribution()}
-          url={getTileUrl()}
-          eventHandlers={{
-            tileerror: handleTileError,
-          }}
-        />
+        {/* Leaflet's `zoomControl` — <BaseMap> deliberately ships none of its own. */}
+        <NavigationControl position="top-left" showCompass={false} />
 
-        {/* Firestation marker */}
-        <Marker
-          position={firestationCoords}
-          icon={createFirestationIcon()}
-          zIndexOffset={-100}
-        >
-          <Tooltip direction="top" offset={[0, -12]}>
-            <span>{firestationName}</span>
-          </Tooltip>
-        </Marker>
-
-        {/* Magazin (GPS-Heimatbasis) marker */}
-        {magazinCoords && (
-          <Marker
-            position={magazinCoords}
-            icon={createMagazinIcon()}
-            zIndexOffset={-100}
-          >
-            <Tooltip direction="top" offset={[0, -VEHICLE_PILL_HEIGHT / 2]}>
-              <span>{t('view.magazin')}</span>
-            </Tooltip>
-          </Marker>
-        )}
-
-        {/* Incident Markers */}
-        {mappableIncidents.map((incident) => {
-          const isHighlighted =
-            selectedIncidentId === incident.id || (highlightIncidentIds?.has(incident.id) ?? false)
-          const shortAddress = (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())) || incident.title
-          // Split, not summed: a bare "(3)" hid whether that was three people,
-          // three vehicles or a mix — an icon each answers it without a click.
-          const vehicleCount = incident.assigned_vehicles.length
-          const personnelCount = ("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0
-          return (
-            <Marker
-              key={incident.id}
-              position={[incident.location_lat!, incident.location_lng!]}
-              icon={createIncidentIcon(incident, isHighlighted, effectiveMarkerAccents?.get(incident.id) ?? null)}
-              // Two markers a few metres apart overlap; the one being pointed at
-              // (or selected) belongs on top, not wherever the DOM order put it.
-              zIndexOffset={hoveredIncidentId === incident.id ? 600 : isHighlighted ? 300 : 0}
-              eventHandlers={{
-                click: () => onMarkerClick?.(incident.id),
-                mouseover: () => handleHoverStart(incident.id),
-                mouseout: () => handleHoverEnd(incident.id),
-              }}
-            >
-              {(() => {
-                // Hover shows the full picture (type, status, crew, reko, …)
-                // via the Operation lookup; the permanent label stays short.
-                // Token/display mode has no operations — labels stay short there.
-                // A CLICK pins the same card: selecting a marker holds the
-                // detail open until the marker is clicked again (deselect).
-                const pinned = selectedIncidentId === incident.id
-                const hovered = hoveredIncidentId === incident.id || pinned
-                const hoverOperation =
-                  hovered && !hoverCardsDisabled ? operationsById?.get(incident.id) : undefined
-                const offset = labelOffsets.get(incident.id) ?? [LABEL_ANCHOR_X, 0]
-                // An Auftrag stop owns no resources of its own — they ride on
-                // the route — so resolve them here too, not just on the numbered
-                // route pins. Same incident, same answer, whichever you hover.
-                const hoverGroup = hoverOperation?.groupId
-                  ? groups?.find((g) => g.id === hoverOperation.groupId)
-                  : undefined
-                if (showLabels) {
-                  return (
-                    <IncidentLabel
-                      incidentId={incident.id}
-                      offset={offset}
-                      hovered={hovered}
-                      selected={isHighlighted}
-                      onHoverStart={handleHoverStart}
-                      onHoverEnd={handleHoverEnd}
-                    >
-                      <LabelLeader dy={offset[1]} />
-                      {hoverOperation ? (
-                        <OperationHoverCard
-                          operation={hoverOperation}
-                          routeName={hoverGroup?.name}
-                          routeResources={hoverGroup && groupResourcesFor?.(hoverGroup.id)}
-                        />
-                      ) : (
-                        <>
-                          <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
-                          {(vehicleCount > 0 || personnelCount > 0) && (
-                            <span
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '5px', fontSize: '10px', color: '#6b7280' }}
-                              title={t('view.crewSummary', { vehicles: vehicleCount, personnel: personnelCount })}
-                            >
-                              {vehicleCount > 0 && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                  <Truck style={{ width: '10px', height: '10px' }} aria-hidden />
-                                  {vehicleCount}
-                                </span>
-                              )}
-                              {personnelCount > 0 && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                  <Users style={{ width: '10px', height: '10px' }} aria-hidden />
-                                  {personnelCount}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </IncidentLabel>
-                  )
-                }
-                // Labels hidden: no permanent label, but hovering still reveals
-                // the detail card when we can resolve the operation.
-                return hoverOperation ? (
-                  <IncidentLabel
-                    incidentId={incident.id}
-                    offset={[LABEL_ANCHOR_X, 0]}
-                    hovered={true}
-                    selected={isHighlighted}
-                    onHoverStart={handleHoverStart}
-                    onHoverEnd={handleHoverEnd}
-                  >
-                    <OperationHoverCard operation={hoverOperation} />
-                  </IncidentLabel>
-                ) : null
-              })()}
-            </Marker>
-          )
-        })}
-
-        {/* Vehicle GPS Markers — a shared spot collapses to ONE counting pill
-            («5 Fahrzeuge»); the hover tooltip lists them all by name. */}
-        {vehicleClusters.map((cluster, idx) => {
-          const grouped = cluster.vehicles.length > 1
-          const scale = vehicleStackScale(mapZoom)
-          const totalHeight = VEHICLE_PILL_HEIGHT * scale
-          return (
-            <Marker
-              key={`vehicle-cluster-${idx}-${cluster.vehicles.map(v => v.device_id).join('-')}`}
-              position={cluster.centroid}
-              icon={createVehicleStackIcon(
-                cluster.vehicles,
-                scale,
-                grouped ? t('page.vehicleCluster', { count: cluster.vehicles.length }) : undefined,
-              )}
-            >
-              <Tooltip permanent={false} direction="top" offset={[0, -totalHeight / 2 - 4]}>
-                <div className="text-sm space-y-1">
-                  {cluster.vehicles.map((vehicle) => (
-                    <div key={vehicle.device_id}>
-                      <div className="font-semibold">
-                        {deviceNameToVehicleName.get(vehicle.device_name) || vehicle.device_name}
-                      </div>
-                      {vehicle.speed !== null && vehicle.speed > 1 && (
-                        <div className="text-xs text-muted-foreground">
-                          {Math.round(vehicle.speed)} km/h
-                        </div>
-                      )}
-                      <div className="text-xs text-muted-foreground">
-                        {vehicle.status === 'online' ? t('common.online') : t('common.offline')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Tooltip>
-            </Marker>
-          )
-        })}
-
-        {/* Assignment lines (vehicle GPS → incident) */}
+        {/* Overlay layers, bottom to top — the mount order IS the draw order. */}
         <AssignmentLines
           incidents={incidents}
           vehiclePositions={mappedVehiclePositions}
@@ -1378,40 +1236,158 @@ export default function MapView({
           groupResourcesFor={groupResourcesFor}
         />
 
-        {/* Auftrag (incident group) route polylines + numbered stop markers */}
-        {showGroupRoutes && groups && visibleRouteOperations && (
-          <GroupRoutes
-            groups={groups}
-            operationsById={visibleRouteOperations}
-            focusGroupId={focusGroupId}
-            onMarkerClick={onGroupStopMarkerClick}
-            highlightIncidentId={highlightGroupStopId}
-            groupResourcesFor={groupResourcesFor}
-          />
-        )}
-
-        {/* Routenplanung: empty-map click adds a stop (only when a handler is set) */}
-        {onMapClick && <MapClickHandler onClick={onMapClick} />}
+        {/* Auftrag (incident group) route polylines + numbered stop markers. Always mounted,
+            fed an empty list when the overlay is off, so its source keeps its place in the
+            layer order. */}
+        <GroupRoutes
+          groups={showGroupRoutes && groups ? groups : NO_GROUPS}
+          operationsById={visibleRouteOperations ?? NO_OPERATIONS}
+          focusGroupId={focusGroupId}
+          onMarkerClick={onGroupStopMarkerClick}
+          highlightIncidentId={highlightGroupStopId}
+          groupResourcesFor={groupResourcesFor}
+        />
 
         {/* Vehicle breadcrumb trails */}
         <VehicleTrails enabled={traccarConfigured} />
 
-        {/* Auto-fit bounds to show all incidents */}
-        <FitBounds incidents={mappableIncidents} />
+        {/* Firestation marker (no label — operators know where they are) */}
+        <GlyphMarker
+          coordinates={firestationCoords}
+          label={firestationName}
+          style={FIRESTATION_STYLE}
+          gap={TOOLTIP_ARROW + 12}
+        />
 
-        {/* Pan to selected incident */}
-        <PanToSelected selectedIncidentId={selectedIncidentId ?? null} incidents={mappableIncidents} trigger={panTrigger} />
+        {/* Magazin (GPS-Heimatbasis) marker */}
+        {magazinCoords && (
+          <GlyphMarker
+            coordinates={magazinCoords}
+            label={t('view.magazin')}
+            style={MAGAZIN_STYLE}
+            gap={TOOLTIP_ARROW + VEHICLE_PILL_HEIGHT / 2}
+          />
+        )}
 
-        {/* Zoom to a vehicle by name (keyboard shortcuts 1-5) */}
-        <PanToVehicle vehicleName={focusVehicleName} trigger={focusVehicleTrigger} positions={mappedVehiclePositions} />
+        {/* Vehicle GPS markers — a shared spot collapses to ONE counting pill
+            («5 Fahrzeuge»); the hover tooltip lists them all by name. */}
+        {vehicleClusters.map((cluster) => (
+          <VehicleClusterMarker
+            key={`vehicle-cluster-${cluster.vehicles.map((v) => v.device_id).join('-')}`}
+            vehicles={cluster.vehicles}
+            centroid={cluster.centroid}
+            scale={vehicleScale}
+            groupLabel={
+              cluster.vehicles.length > 1
+                ? t('page.vehicleCluster', { count: cluster.vehicles.length })
+                : undefined
+            }
+            nameFor={vehicleNameFor}
+          />
+        ))}
 
-        {/* Reset zoom on trigger */}
-        <ResetZoom trigger={resetZoomTrigger} incidents={mappableIncidents} />
-        <FitAllButton incidents={mappableIncidents} />
+        {/* Incident markers + their permanent labels */}
+        {mappableIncidents.map((incident) => {
+          const isHighlighted =
+            selectedIncidentId === incident.id || (highlightIncidentIds?.has(incident.id) ?? false)
+          // Hover shows the full picture (type, status, crew, reko, …) via the Operation lookup;
+          // the permanent label stays short. Token/display mode has no operations — labels stay
+          // short there. A CLICK pins the same card: selecting a marker holds the detail open
+          // until the marker is clicked again (deselect).
+          const pinned = selectedIncidentId === incident.id
+          const hovered = hoveredIncidentId === incident.id || pinned
+          const hoverOperation =
+            hovered && !hoverCardsDisabled ? operationsById?.get(incident.id) : undefined
+          // An Auftrag stop owns no resources of its own — they ride on the route — so resolve
+          // them here too, not just on the numbered route pins. Same incident, same answer,
+          // whichever you hover.
+          const hoverGroup = hoverOperation?.groupId
+            ? groups?.find((g) => g.id === hoverOperation.groupId)
+            : undefined
+          const dy = labelOffsets.get(incident.id) ?? 0
+          const shortAddress =
+            (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
+            || incident.title
+          // Split, not summed: a bare "(3)" hid whether that was three people,
+          // three vehicles or a mix — an icon each answers it without a click.
+          const vehicleCount = incident.assigned_vehicles.length
+          const personnelCount = ("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0
+          const select = () => onMarkerClick?.(incident.id)
+          const hoverStart = () => handleHoverStart(incident.id)
+          const hoverEnd = () => handleHoverEnd(incident.id)
 
-        {/* Track zoom so vehicle clusters can shrink at low zoom */}
-        <ZoomWatcher onZoomChange={setMapZoom} />
-      </MapContainer>
+          return (
+            <Fragment key={incident.id}>
+              <IncidentMarker
+                incident={incident}
+                highlighted={isHighlighted}
+                accentColor={effectiveMarkerAccents?.get(incident.id) ?? null}
+                // Two markers a few metres apart overlap; the one being pointed at (or
+                // selected) belongs on top, not wherever the DOM order put it.
+                zIndex={
+                  hoveredIncidentId === incident.id
+                    ? Z.incidentHovered
+                    : isHighlighted
+                      ? Z.incidentHighlighted
+                      : Z.incident
+                }
+                onSelect={select}
+                onHoverStart={hoverStart}
+                onHoverEnd={hoverEnd}
+              />
+
+              {/* Labels hidden: no permanent label, but hovering still reveals the detail card
+                  when we can resolve the operation. */}
+              {(showLabels || hoverOperation) && (
+                <IncidentLabel
+                  latitude={incident.location_lat!}
+                  longitude={incident.location_lng!}
+                  dy={showLabels ? dy : 0}
+                  hovered={hovered}
+                  selected={isHighlighted}
+                  onSelect={select}
+                  onHoverStart={hoverStart}
+                  onHoverEnd={hoverEnd}
+                >
+                  {hoverOperation ? (
+                    <OperationHoverCard
+                      operation={hoverOperation}
+                      routeName={hoverGroup?.name}
+                      routeResources={hoverGroup && groupResourcesFor?.(hoverGroup.id)}
+                    />
+                  ) : (
+                    <>
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
+                      {(vehicleCount > 0 || personnelCount > 0) && (
+                        <span
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '5px', fontSize: '10px', color: '#6b7280' }}
+                          title={t('view.crewSummary', { vehicles: vehicleCount, personnel: personnelCount })}
+                        >
+                          {vehicleCount > 0 && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                              <Truck style={{ width: '10px', height: '10px' }} aria-hidden />
+                              {vehicleCount}
+                            </span>
+                          )}
+                          {personnelCount > 0 && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                              <Users style={{ width: '10px', height: '10px' }} aria-hidden />
+                              {personnelCount}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </IncidentLabel>
+              )}
+            </Fragment>
+          )
+        })}
+      </BaseMap>
+
+      {/* Fit-all sits over the map, not inside it — the map's own children are markers. */}
+      <FitAllButton map={map} incidents={mappableIncidents} />
 
       {/* Warning for incidents without location */}
       <MissingLocationsWarning
@@ -1423,8 +1399,8 @@ export default function MapView({
       {/* An empty position list means no GPS is set up (or nothing is reporting) — the vehicle
           and assignment-line sections then describe marks that cannot appear, so they go. */}
       <MapLegend
-        colorBy={routeAccents ? "auftrag" : colorBy}
-        colorGroups={routeAccents ? routeColorGroups : colorGroups}
+        colorBy={legendShowsRoutes ? "auftrag" : colorBy}
+        colorGroups={legendShowsRoutes ? routeColorGroups : colorGroups}
         showVehicles={mappedVehiclePositions.length > 0}
         showAssignments={showAssignmentLines && mappedVehiclePositions.length > 0}
       />

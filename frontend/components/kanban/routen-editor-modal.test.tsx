@@ -1,10 +1,9 @@
 /**
  * Routen-Editor tests.
  *
- * Rendering the full RoutenEditorModal is impractical in jsdom — it require()s
- * leaflet, react-leaflet, leaflet CSS and images behind an `isClient` guard, none
- * of which mount under jsdom. Per the plan, the modal's substance is tested where
- * it actually lives:
+ * Rendering the full RoutenEditorModal is impractical in jsdom — it mounts a
+ * MapLibre map, which needs a WebGL context jsdom does not have. Per the plan, the
+ * modal's substance is tested where it actually lives:
  *   1. "Reihenfolge optimieren" — the pure greedy nearest-neighbour in
  *      `useRoutePlanning.optimize` (+ `route-geo`), driven through the hook.
  *   2. Reorder-persist + the resource drop contract — via `RouteStopList`, the

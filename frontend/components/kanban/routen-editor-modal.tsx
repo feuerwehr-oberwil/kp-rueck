@@ -3,7 +3,7 @@
 /**
  * RoutenEditorModal — map-first editor for a single Auftrag (incident group).
  *
- * A Dialog with an embedded Leaflet map (numbered markers + route polyline via the
+ * A Dialog with an embedded MapLibre map (numbered markers + route line via the
  * shared `group-routes.tsx`) beside an ordered, drag-reorderable stop list. Lets the
  * operator:
  *  - toggle "Stop hinzufügen" and click the map to append a reverse-geocoded stop,
@@ -18,96 +18,115 @@
  * hidden: grey = «Offen» (click adds it as a stop), route-coloured + muted =
  * already on another Auftrag (passive, the tooltip names the route).
  *
- * SSR-safe: leaflet is only pulled in behind an `isClient` guard (the require()
- * pattern established by map-picker-modal.tsx), so nothing leaflet touches the
- * server render of the page that mounts this modal.
+ * The map is the shared `<BaseMap>`, which owns the basemap, the offline fallback
+ * and the dialog-resize handling — so nothing here re-measures the container.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { MapPin, MousePointerClick, MapPinned } from "lucide-react"
+import type { Map as MlMap } from "maplibre-gl"
+import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { useMapMode } from "@/lib/hooks/use-map-mode"
+import { BaseMap } from "@/components/map/base-map"
+import { MapTooltip } from "@/components/map/map-tooltip"
+import { GroupRoutes } from "@/components/map/group-routes"
 import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
 import { useGroups } from "@/lib/contexts/groups-context"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { colorAccent } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { RouteStopList, RouteOptimizeMenu } from "../map/route-stop-list"
-
-// Basel-Landschaft fallback centre (matches map-picker-modal).
-const DEFAULT_CENTER: [number, number] = [47.51637699933488, 7.561800450458299]
 
 // Stable empty set — optimize now persists immediately, so no stop is ever in a
 // pending "changed" preview state.
 const EMPTY_CHANGED: Set<string> = new Set()
 
-// --- Leaflet child helpers (client-only; mirror map-picker-modal) -------------
+// --- Map helpers -------------------------------------------------------------
 
-function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
-  if (typeof window === "undefined") return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useMapEvents } = require("react-leaflet")
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useMapEvents({
-    click: (e: { latlng: { lat: number; lng: number } }) => onClick(e.latlng.lat, e.latlng.lng),
-  })
-  return null
-}
+/** How this dialog frames its stops — a lone stop gets a fixed scale instead of a zero-size box. */
+const FIT_OPTIONS = { padding: 48, maxZoom: 16, duration: 0, singleZoom: 15 } as const
 
-function FitBounds({ positions }: { positions: [number, number][] }) {
-  if (typeof window === "undefined") return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useMap } = require("react-leaflet")
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const L = require("leaflet")
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const map = useMap()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const doneRef = useRef(false)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (doneRef.current || positions.length === 0) return
-    doneRef.current = true
-    if (positions.length === 1) {
-      map.setView(positions[0], 15)
-      return
-    }
-    map.fitBounds(L.latLngBounds(positions), { padding: [48, 48], maxZoom: 16 })
-  }, [map, positions, L])
-  return null
-}
+/**
+ * One context pin: an incident of the event that is NOT a stop of this route.
+ *
+ * Its own component because it owns its hover state — hovering one pin must not
+ * re-render the other few dozen. Small dot, deliberately unlike the 26px numbered
+ * sequence markers: solid grey = «Offen» (nobody's yet), dashed + muted route
+ * colour = already on another Auftrag (mirrors the incident picker's pin language).
+ */
+function ContextPin({
+  op,
+  fill,
+  dashed = false,
+  dimmed = false,
+  clickable,
+  title,
+  subtitle,
+  hint,
+  onSelect,
+}: {
+  op: LocatedOperation
+  fill: string
+  dashed?: boolean
+  dimmed?: boolean
+  clickable: boolean
+  title: string
+  subtitle: string
+  hint?: string
+  onSelect: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  const [lat, lng] = op.coordinates
 
-// A map mounted inside a Radix Dialog / CSS-grid track measures 0×0 before the
-// dialog finishes its open transition, so Leaflet lays out narrow/tall. Force a
-// re-measure on mount and whenever the container resizes.
-function InvalidateSize() {
-  if (typeof window === "undefined") return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useMap } = require("react-leaflet")
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const map = useMap()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    const fix = () => map.invalidateSize()
-    // A couple of deferred passes cover the dialog's mount + open animation.
-    const t1 = window.setTimeout(fix, 60)
-    const t2 = window.setTimeout(fix, 250)
-    const container: HTMLElement = map.getContainer()
-    const ro = new ResizeObserver(fix)
-    ro.observe(container)
-    return () => {
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
-      ro.disconnect()
-    }
-  }, [map])
-  return null
+  return (
+    <Marker
+      longitude={lng}
+      latitude={lat}
+      // Below the numbered stops (100/300), so a route's own pins always win.
+      style={{ zIndex: hovered ? 90 : 50 }}
+      // The click would otherwise bubble on to the map and add a second, geocoded
+      // stop at the same spot while "Stop hinzufügen" is armed.
+      onClick={(event) => {
+        event.originalEvent.stopPropagation()
+        if (clickable) onSelect()
+      }}
+    >
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: "50%",
+            background: fill,
+            border: `2px ${dashed ? "dashed" : "solid"} white`,
+            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.3)",
+            opacity: dimmed ? 0.45 : 0.9,
+            cursor: "pointer",
+          }}
+        />
+        {hovered && (
+          <MapTooltip side="top" gap={16}>
+            <div className="text-xs leading-tight">
+              <div className="font-medium">{title}</div>
+              <div className="text-muted-foreground">{subtitle}</div>
+              {hint && <div className="text-muted-foreground">{hint}</div>}
+            </div>
+          </MapTooltip>
+        )}
+      </div>
+    </Marker>
+  )
 }
 
 // -----------------------------------------------------------------------------
@@ -136,8 +155,6 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     vehicleStart,
   } = useRoutePlanning(groupId)
 
-  const { getTileUrl, getAttribution, handleTileError } = useMapMode()
-
   // All routes + the add-by-incident-id path (the same `addStops` the "+ Stop"
   // picker persists through) — used for the map's context pins below.
   const { groups, addStops } = useGroups()
@@ -147,45 +164,38 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   // interaction and close the dialog on.
   const { dragGuardProps } = useDialogDragGuard(open)
 
-  const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0)
   const [addMode, setAddMode] = useState(false)
   const [focusStopId, setFocusStopId] = useState<string | null>(focusIncidentId ?? null)
-
-  // Client-only leaflet setup (default icon fix), mirroring map-picker-modal.
-  useEffect(() => {
-    setIsClient(true)
-    if (typeof window !== "undefined") {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const L = require("leaflet")
-      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
-      L.Icon.Default.mergeOptions({
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        iconUrl: require("leaflet/dist/images/marker-icon.png").default.src,
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png").default.src,
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        shadowUrl: require("leaflet/dist/images/marker-shadow.png").default.src,
-      })
-    }
-  }, [])
+  // The LIVE map instance, or null while the dialog is closed. Clearing it on close is what
+  // makes a reopen frame anything at all: Radix unmounts the dialog body, so the instance from
+  // the last open is already removed. Left in state, the fit effect below — which re-runs
+  // whenever the stop list changes, i.e. on every poll — would run against that dead instance,
+  // latch `fittedRef`, and the fresh instance arriving a moment later would never be fitted.
+  const [map, setMap] = useState<MlMap | null>(null)
+  // The initial fit happens once per map instance, and only once there is something
+  // to frame — the stops can still be loading when the map reports itself ready.
+  const fittedRef = useRef(false)
 
   // Remount the map (re-fit + re-centre) on each open; reset transient UI state.
   useEffect(() => {
-    if (open) {
-      setMapKey((k) => k + 1)
-      setAddMode(false)
-      setFocusStopId(focusIncidentId ?? null)
+    if (!open) {
+      setMap(null)
+      return
     }
+    setMapKey((k) => k + 1)
+    fittedRef.current = false
+    setAddMode(false)
+    setFocusStopId(focusIncidentId ?? null)
   }, [open, focusIncidentId])
 
-  const locatedPositions = useMemo<[number, number][]>(
+  const locatedPositions = useMemo<LatLngPoint[]>(
     () => orderedStops.map((s) => s.op).filter(isLocated).map((op) => op.coordinates),
     [orderedStops],
   )
 
   // Centre: the focused stop when given, else the located-stop centroid, else default.
-  const center = useMemo<[number, number]>(() => {
+  const center = useMemo<LatLngPoint>(() => {
     const focused = focusStopId ? operationsById.get(focusStopId) : undefined
     if (isLocated(focused)) return focused.coordinates
     if (locatedPositions.length > 0) {
@@ -193,13 +203,20 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
       const lng = locatedPositions.reduce((s, p) => s + p[1], 0) / locatedPositions.length
       return [lat, lng]
     }
-    return DEFAULT_CENTER
+    return DEFAULT_CENTER_LATLNG
   }, [focusStopId, operationsById, locatedPositions])
 
+  // Frame the located stops once the map is up and the stops are in.
+  useEffect(() => {
+    if (!map || fittedRef.current || locatedPositions.length === 0) return
+    fittedRef.current = true
+    fitTo(map, locatedPositions, FIT_OPTIONS)
+  }, [map, locatedPositions])
+
   const handleMapClick = useCallback(
-    (lat: number, lng: number) => {
+    (event: MapLayerMouseEvent) => {
       if (!canEdit || !addMode) return
-      void addStopAtLatLng(lat, lng)
+      void addStopAtLatLng(event.lngLat.lat, event.lngLat.lng)
     },
     [canEdit, addMode, addStopAtLatLng],
   )
@@ -263,94 +280,48 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
   // Group the map draws — mirrors the live persisted stop order.
   const displayGroup: IncidentGroup | undefined = group
 
-  const mapNode = useMemo(() => {
-    if (!isClient || !displayGroup) {
-      return (
-        <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">
-          {t("mapLoading")}
-        </div>
-      )
-    }
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { MapContainer, TileLayer, Marker, Tooltip } = require("react-leaflet")
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require("leaflet/dist/leaflet.css")
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const L = require("leaflet")
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { GroupRoutes } = require("../map/group-routes")
-
-    // Small dot, deliberately unlike the 26px numbered sequence markers: solid
-    // grey = «Offen» (nobody's yet), dashed + muted route colour = already on
-    // another Auftrag (mirrors the incident picker's pin language).
-    const contextPinIcon = (fill: string, opts: { dashed?: boolean; dimmed?: boolean } = {}) =>
-      L.divIcon({
-        html: `<div style="width:16px;height:16px;border-radius:50%;background:${fill};border:2px ${opts.dashed ? "dashed" : "solid"} white;box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:${opts.dimmed ? 0.45 : 0.9};"></div>`,
-        className: "routen-editor-context-marker",
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      })
-
-    return (
-      <MapContainer key={mapKey} center={center} zoom={14} className="h-full w-full" zoomControl>
-        <TileLayer attribution={getAttribution()} url={getTileUrl()} eventHandlers={{ tileerror: handleTileError }} />
-        {/* Context pins first (default z), so numbered stops always sit on top. */}
-        {contextPins.map(({ op, otherRoute }) => {
-          const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
-          const clickable = !otherRoute && canEdit
-          return (
-            <Marker
-              key={op.id}
-              position={op.coordinates}
-              icon={
-                otherRoute
-                  ? contextPinIcon(colorAccent(otherRoute.id, "auftrag", groups), { dashed: true, dimmed: true })
-                  : contextPinIcon("#64748b")
-              }
-              eventHandlers={clickable ? { click: () => void handleOpenPinClick(op.id) } : undefined}
-            >
-              <Tooltip direction="top" offset={[0, -10]}>
-                <div className="text-xs leading-tight">
-                  <div className="font-medium">{location || getIncidentTypeLabel(op.incidentType)}</div>
-                  <div className="text-muted-foreground">
-                    {otherRoute ? t("contextInRoute", { name: otherRoute.name }) : t("contextOpen")}
-                  </div>
-                  {clickable && <div className="text-muted-foreground">{t("contextClickToAdd")}</div>}
-                </div>
-              </Tooltip>
-            </Marker>
-          )
-        })}
-        <GroupRoutes
-          groups={[displayGroup]}
-          operationsById={operationsById}
-          onMarkerClick={(id: string) => setFocusStopId(id)}
-          highlightIncidentId={focusStopId}
-        />
-        <MapClickHandler onClick={handleMapClick} />
-        <FitBounds positions={locatedPositions} />
-        <InvalidateSize />
-      </MapContainer>
-    )
-    // center/locatedPositions are captured per mapKey remount; excluded on purpose
-    // so live data changes update markers without remounting the container.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isClient,
-    mapKey,
-    displayGroup,
-    operationsById,
-    contextPins,
-    groups,
-    canEdit,
-    handleOpenPinClick,
-    focusStopId,
-    handleMapClick,
-    getAttribution,
-    getTileUrl,
-    handleTileError,
-    t,
-  ])
+  // The map. `mapKey` remounts it per open so it re-centres and re-fits; `center` is
+  // therefore captured at that moment, while markers keep tracking live data.
+  const mapNode = !displayGroup ? (
+    <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">
+      {t("mapLoading")}
+    </div>
+  ) : (
+    <BaseMap
+      key={mapKey}
+      initialViewState={{ longitude: center[1], latitude: center[0], zoom: 14 }}
+      onClick={handleMapClick}
+      onLoad={setMap}
+    >
+      <NavigationControl position="top-left" showCompass={false} />
+      {/* Context pins carry a lower z-index than the numbered stops, so a route's
+          own stops always sit on top. */}
+      {contextPins.map(({ op, otherRoute }) => {
+        const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
+        const clickable = !otherRoute && canEdit
+        return (
+          <ContextPin
+            key={op.id}
+            op={op}
+            fill={otherRoute ? colorAccent(otherRoute.id, "auftrag", groups) : "#64748b"}
+            dashed={!!otherRoute}
+            dimmed={!!otherRoute}
+            clickable={clickable}
+            title={location || getIncidentTypeLabel(op.incidentType)}
+            subtitle={otherRoute ? t("contextInRoute", { name: otherRoute.name }) : t("contextOpen")}
+            hint={clickable ? t("contextClickToAdd") : undefined}
+            onSelect={() => void handleOpenPinClick(op.id)}
+          />
+        )
+      })}
+      <GroupRoutes
+        groups={[displayGroup]}
+        operationsById={operationsById}
+        onMarkerClick={setFocusStopId}
+        highlightIncidentId={focusStopId}
+      />
+    </BaseMap>
+  )
 
   const startOptions = [
     { value: "magazin" as const, label: t("startMagazin"), disabled: !magazinCoords },
@@ -378,8 +349,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             width as a wide landscape rectangle. Both columns stretch to the same
             height so the list scrolls inside the map's height. */}
         <div className="flex h-[520px] modal-h-compact gap-5 overflow-hidden">
-          {/* Map column — FIXED width. Leaflet kept collapsing a flexible (flex-1)
-              map track to near-zero, so the map is the fixed column now and the
+          {/* Map column — FIXED width. A flexible (flex-1) map track kept collapsing
+              to near-zero, so the map is the fixed column now and the
               list flexes/truncates instead. The map can never be squeezed. The
               parent DialogContent uses sm:max-w-[1080px] (overriding the base
               sm:max-w-lg) so this 600px map + the list always fit inside. */}

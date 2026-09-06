@@ -48,6 +48,9 @@ RUN chmod +x start.sh start-dev.sh entrypoint.sh && \
 
 # Set environment variable for uv cache
 ENV UV_CACHE_DIR=/home/appuser/.cache/uv
+# Dependencies are frozen into the image. Startup must never resolve packages or fetch
+# development tools, including when the station boots without an internet connection.
+ENV UV_NO_SYNC=true
 
 # Expose port (Railway will set PORT env var)
 EXPOSE ${PORT:-8000}

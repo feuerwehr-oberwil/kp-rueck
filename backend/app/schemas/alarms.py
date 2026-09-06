@@ -8,7 +8,7 @@ same pool and share the same auto-attach and inference logic.
 
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -139,8 +139,14 @@ class FireHubTrigger(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     type: str | None = None
-    action: str = Field(min_length=1)
+    action: Literal["start", "end"]
     tech_name: str | None = Field(default=None, alias="techName")
+
+    @field_validator("action", mode="before")
+    @classmethod
+    def normalize_action(cls, value: object) -> object:
+        """Keep case-insensitive lifecycle input without treating unknown events as starts."""
+        return value.lower() if isinstance(value, str) else value
 
 
 class FireHubWebhook(BaseModel):

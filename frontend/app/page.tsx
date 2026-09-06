@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import dynamic from "next/dynamic"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
@@ -38,12 +39,10 @@ import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { RapportBacklogSheet, selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { MaterialOnSitePanel, selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
-import { RoutenEditorModal } from "@/components/kanban/routen-editor-modal"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
-import { IncidentPickerDialog } from "@/components/kanban/incident-picker-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
@@ -108,6 +107,23 @@ import { cn } from "@/lib/utils"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { isStringArray } from "@/lib/utils/safe-storage"
 import type { LucideIcon } from "lucide-react"
+
+/**
+ * The two Auftrag dialogs that carry a map, loaded on their own chunk.
+ *
+ * Both are mounted (closed) for the whole life of the board, so a static import put
+ * `maplibre-gl` — the single biggest dependency the app has — into the board's first-load
+ * bundle, for two dialogs most shifts never open. `ssr: false` because a GL canvas needs a
+ * browser; the chunk is fetched right after hydration, so the first open is not held up by it.
+ */
+const RoutenEditorModal = dynamic(
+  () => import("@/components/kanban/routen-editor-modal").then((mod) => mod.RoutenEditorModal),
+  { ssr: false },
+)
+const IncidentPickerDialog = dynamic(
+  () => import("@/components/kanban/incident-picker-dialog").then((mod) => mod.IncidentPickerDialog),
+  { ssr: false },
+)
 
 /**
  * Per-device layout memory. Folding a sidebar away is a deliberate act; walking

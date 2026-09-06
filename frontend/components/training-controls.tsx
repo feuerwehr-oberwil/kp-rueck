@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { useEvent } from '@/lib/contexts/event-context';
 import { useOperations } from '@/lib/contexts/operations-context';
@@ -30,7 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MapPickerModal } from '@/components/location/map-picker-modal';
+
+// Dynamically import MapPickerModal to avoid SSR issues – MapLibre GL needs a browser.
+// Also keeps the whole GL engine out of this page's chunk until the picker is opened.
+const MapPickerModal = dynamic(
+  () => import('@/components/location/map-picker-modal').then((mod) => mod.MapPickerModal),
+  { ssr: false }
+);
 
 // Toast line "Titel @ Adresse" with the home town stripped; the address part is
 // dropped entirely when it was only the home town.

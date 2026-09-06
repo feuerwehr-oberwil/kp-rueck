@@ -2,10 +2,10 @@
 
 /**
  * OperationHoverCard — rich hover content for map markers (incident markers and
- * Auftrag route stops). Renders inside a Leaflet tooltip, which lives outside
- * the app's styled tree and always has a white bubble — so everything is inline
- * styles with fixed colours: a fixed width for predictable wrapping, fixed
- * grays instead of theme variables.
+ * Auftrag route stops). Renders inside a map hover bubble (`MapTooltip`, or the
+ * incident label on `/map`), which is always white regardless of theme – so
+ * everything is inline styles with fixed colours: a fixed width for predictable
+ * wrapping, fixed grays instead of theme variables.
  */
 
 import type { CSSProperties } from "react"
@@ -117,7 +117,7 @@ export function OperationHoverCard({
         </p>
       )}
       {/* The same time every other surface shows. Spelled out rather than left to
-          the mode icon: a Leaflet tooltip has pointer-events off, so there is no
+          the mode icon: a map hover bubble has pointer-events off, so there is no
           hovering the chip to find out what the number means. */}
       <p style={ROW}>
         <span style={MUTED}>{tTime(`modes.${timeMode}`)}: </span>

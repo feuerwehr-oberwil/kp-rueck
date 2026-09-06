@@ -10,7 +10,7 @@ This document describes the components that make up KP Rück, how they communica
 graph TB
     subgraph clients["Clients (Browser)"]
         dashboard["Dashboard<br/><small>Kanban Board</small>"]
-        mapview["Map View<br/><small>Leaflet + OSM</small>"]
+        mapview["Map View<br/><small>MapLibre GL + OSM</small>"]
         settings["Settings<br/><small>Configuration UI</small>"]
         public["Public Pages<br/><small>Check-In / Viewer / Feld / Alarm / Reko</small>"]
     end
@@ -517,7 +517,7 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 | **Frontend framework** | Next.js 15 App Router | React 19, great DX – used as an all-client app: every page is `'use client'`, because the board is a live surface |
 | **State management** | React Context | Sufficient for this scale, no external state library needed |
 | **UI components** | shadcn/ui + Tailwind CSS 4 | Composable, accessible, easy to customize |
-| **Map tiles** | Leaflet + self-hosted TileServer GL | Offline-capable, free OSM data, no vendor lock-in |
+| **Map tiles** | MapLibre GL + self-hosted TileServer GL | Offline-capable (vector tiles), free OSM data, no vendor lock-in |
 | **Thermal printing** | Separate agent (Python) | Decoupled from web server, runs on dedicated hardware (Pi) |
 | **Package managers** | pnpm + uv | Fast, disk-efficient, modern |
 | **Auth** | JWT (stateless) + token blocklist | Simple, works across deployments, no session store needed |

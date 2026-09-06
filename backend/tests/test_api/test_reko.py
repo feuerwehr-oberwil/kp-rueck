@@ -10,16 +10,22 @@ Tests cover:
 - Permission enforcement for authenticated endpoints
 """
 
+import io
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import jwt
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, Personnel, RekoReport, User
-from app.services.tokens import generate_form_token
+from app.config import get_settings
+from app.models import Event, Incident, IncidentAssignment, Personnel, RekoReport, User
+from app.services.photo_storage import photo_storage
+from app.services.tokens import generate_feld_token, generate_form_token
+from tests.conftest import TEST_PASSWORD
 
 # ============================================
 # Fixtures
@@ -103,6 +109,36 @@ async def test_reko_report(db_session: AsyncSession, test_incident: Incident) ->
 # ============================================
 # Get Form Tests (Token-based, no auth)
 # ============================================
+
+
+@pytest.mark.asyncio
+async def test_old_form_link_is_reset_without_losing_board_report(
+    client, db_session, test_incident, test_reko_report, test_editor
+):
+    payload = jwt.decode(test_reko_report.token, get_settings().secret_key, algorithms=["HS256"])
+    del payload["form_version"]
+    old = jwt.encode(payload, get_settings().secret_key, algorithm="HS256")
+    test_reko_report.token = old
+    test_reko_report.photos_json = ["historical-photo.jpg"]
+    await db_session.commit()
+    assert (await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={old}")).status_code == 400
+    assert (await client.get(f"/api/reko/{test_reko_report.id}?token={old}")).status_code == 401
+    assert (
+        await client.patch(
+            f"/api/reko/{test_reko_report.id}", json={"summary_text": "overwrite"}, headers={"X-Reko-Token": old}
+        )
+    ).status_code == 401
+    assert (
+        await client.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
+    ).status_code == 200
+    board = await client.get(f"/api/reko/{test_reko_report.id}")
+    assert board.status_code == 200
+    assert board.json()["summary_text"] == "Test report summary"
+    assert board.json()["photos_json"] == ["historical-photo.jpg"]
+    await db_session.refresh(test_reko_report)
+    assert test_reko_report.token == old
+    current = generate_form_token(str(test_incident.id))
+    assert (await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={current}")).status_code == 200
 
 
 @pytest.mark.asyncio
@@ -1204,3 +1240,119 @@ async def test_generate_link_custom_form_type(editor_client: AsyncClient, test_i
     data = response.json()
     assert "token" in data
     assert data["incident_id"] == str(test_incident.id)
+
+
+@pytest.mark.parametrize("action", ["create", "patch", "upload", "delete"])
+async def test_real_viewer_session_cannot_mutate_reko(
+    client,
+    db_session,
+    test_editor,
+    test_incident,
+    test_reko_report,
+    action,
+):
+    """Exercise the actual cookie/JWT dependency chain, not a mocked viewer dependency."""
+    test_editor.role = "viewer"
+    await db_session.commit()
+    login = await client.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
+    assert login.status_code == 200
+    if action == "create":
+        response = await client.post(
+            "/api/reko/", json={"incident_id": str(test_incident.id), "summary_text": "forged"}
+        )
+    elif action == "patch":
+        response = await client.patch(f"/api/reko/{test_reko_report.id}", json={"summary_text": "forged"})
+    elif action == "upload":
+        response = await client.post(
+            f"/api/reko/{test_incident.id}/photos", files={"file": ("photo.jpg", b"photo", "image/jpeg")}
+        )
+    else:
+        response = await client.delete(f"/api/reko/{test_incident.id}/photos/{uuid4()}.jpg")
+    assert response.status_code == 403, response.text
+    await db_session.refresh(test_reko_report)
+    assert test_reko_report.summary_text == "Test report summary"
+
+
+@pytest.mark.parametrize("revoke", ["device", "all"])
+async def test_field_derived_reko_token_closes_with_its_device(
+    client,
+    db_session,
+    test_event,
+    test_incident,
+    test_personnel,
+    test_editor,
+    tmp_path,
+    monkeypatch,
+    revoke,
+):
+    """Full HTTP chain: code, claim, child token, report/photo, logout, rejected replay."""
+    monkeypatch.setattr(photo_storage, "photos_dir", tmp_path)
+    db_session.add(
+        IncidentAssignment(
+            incident_id=test_incident.id,
+            resource_type="personnel",
+            resource_id=test_personnel.id,
+            purpose="reko",
+        )
+    )
+    await db_session.commit()
+    unlocked = await client.post(
+        f"/api/feld/unlock?token={generate_feld_token(test_event.id)}",
+        json={"code": test_event.feld_code},
+    )
+    assert unlocked.status_code == 200, unlocked.text
+    claimed = await client.post(
+        f"/api/feld/claim?token={unlocked.json()['token']}",
+        json={"personnel_id": str(test_personnel.id)},
+    )
+    assert claimed.status_code == 200, claimed.text
+    device_token = claimed.json()["token"]
+    minted = await client.post(
+        f"/api/feld/incidents/{test_incident.id}/reko-link?token={device_token}&personnel_id={test_personnel.id}",
+    )
+    assert minted.status_code == 200, minted.text
+    form_token = minted.json()["token"]
+    form_params = {"incident_id": str(test_incident.id), "token": form_token}
+    form = await client.get("/api/reko/form", params=form_params)
+    assert form.status_code == 200, form.text
+    assert form.json()["submitted_by_personnel_id"] == str(test_personnel.id)
+    report_id = form.json()["id"]
+    forged = await client.get("/api/reko/form", params={**form_params, "personnel_id": str(uuid4())})
+    assert forged.status_code == 403
+    image = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(image, format="JPEG")
+    photo_url = f"/api/reko/{test_incident.id}/photos"
+    headers = {"X-Reko-Token": form_token}
+    photo = await client.post(photo_url, headers=headers, files={"file": ("photo.jpg", image.getvalue(), "image/jpeg")})
+    assert photo.status_code == 200, photo.text
+    filename = photo.json()["filename"]
+    photo_path = tmp_path / str(test_incident.id) / filename
+    assert photo_path.exists()
+
+    if revoke == "device":
+        logged_out = await client.post(f"/api/feld/logout?token={device_token}")
+        assert logged_out.status_code == 204
+    else:
+        login = await client.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
+        assert login.status_code == 200
+        logged_out = await client.post("/api/feld/access/revoke-devices", params={"event_id": str(test_event.id)})
+        assert logged_out.status_code == 200, logged_out.text
+        client.cookies.clear()
+
+    responses = [
+        await client.get("/api/reko/form", params=form_params),
+        await client.get(f"/api/reko/{report_id}", params={"token": form_token}),
+        await client.post(
+            "/api/reko/", json={"incident_id": str(test_incident.id), "token": form_token, "summary_text": "forged"}
+        ),
+        await client.patch(f"/api/reko/{report_id}", headers=headers, json={"summary_text": "forged"}),
+        await client.post(f"/api/reko/{test_incident.id}/arrived", params={"token": form_token}),
+        await client.post(photo_url, headers=headers, files={"file": ("photo.jpg", image.getvalue(), "image/jpeg")}),
+        await client.delete(f"{photo_url}/{filename}", headers=headers),
+    ]
+    assert [response.status_code for response in responses] == [401] * len(responses), [r.text for r in responses]
+    assert photo_path.exists()
+    # A separate board-issued form credential remains a supported workflow.
+    standalone = generate_form_token(str(test_incident.id))
+    response = await client.get("/api/reko/form", params={"incident_id": str(test_incident.id), "token": standalone})
+    assert response.status_code == 200

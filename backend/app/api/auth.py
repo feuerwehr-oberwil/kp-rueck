@@ -1,5 +1,6 @@
 """Authentication API endpoints."""
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -18,9 +19,10 @@ from ..auth.login_throttle import login_throttle
 from ..auth.security import (
     WS_TOKEN_EXPIRE_SECONDS,
     create_access_token,
-    create_refresh_token,
+    create_login_tokens,
     create_ws_token,
     decode_token,
+    session_family,
     verify_password,
 )
 from ..auth.token_blocklist import token_blocklist
@@ -113,15 +115,13 @@ async def login(
     await login_throttle.record_success(client_ip, form_data.username)
 
     # Create tokens
-    access_token = create_access_token(
+    access_token, refresh_token = create_login_tokens(
         data={
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
         }
     )
-
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     # Set httpOnly cookies - explicitly set path="/" to ensure cookies are sent on all paths
     # In production, set AUTH_COOKIE_DOMAIN to share cookies across subdomains
@@ -185,12 +185,12 @@ async def refresh_token(
 
         # Check if refresh token has been revoked (logout)
         jti = payload.get("jti")
-        if jti and await token_blocklist.is_revoked(jti):
+        if not isinstance(jti, str) or not jti or await token_blocklist.is_revoked(jti):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token wurde widerrufen")
 
         user_id = uuid.UUID(payload.get("sub"))
 
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, ValueError, TypeError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiger Refresh-Token") from None
 
     # Load user
@@ -199,6 +199,8 @@ async def refresh_token(
 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzer nicht gefunden")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzerkonto ist deaktiviert")
 
     # Create new access token
     access_token = create_access_token(
@@ -206,6 +208,8 @@ async def refresh_token(
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
+            "family_jti": jti,
+            "family_exp": payload["exp"],
         }
     )
 
@@ -257,27 +261,36 @@ async def logout(
     # Revoke access token by adding JTI to blocklist
     if access_token:
         try:
-            payload = decode_token(access_token)
+            # Even an expired access credential can identify a still-live
+            # refresh family. Verify its signature, then revoke that family.
+            payload = decode_token(access_token, allow_expired=True)
+            if payload.get("type") != "access":
+                raise jwt.InvalidTokenError("Invalid access token type")
             jti = payload.get("jti")
             exp = payload.get("exp")
             if jti and exp:
                 # Convert exp timestamp to datetime
                 expires_at = datetime.fromtimestamp(exp, tz=UTC)
                 await token_blocklist.revoke(jti, expires_at)
-        except jwt.PyJWTError:
+            family = session_family(payload)
+            if family is not None:
+                await token_blocklist.revoke(family.jti, datetime.fromtimestamp(family.expires_at, tz=UTC))
+        except (jwt.PyJWTError, ValueError, TypeError):
             # Token already invalid, no need to revoke
             pass
 
     # Revoke refresh token by adding JTI to blocklist
     if refresh_token:
         try:
-            payload = decode_token(refresh_token)
+            payload = decode_token(refresh_token, allow_expired=True)
+            if payload.get("type") != "refresh":
+                raise jwt.InvalidTokenError("Invalid refresh token type")
             jti = payload.get("jti")
             exp = payload.get("exp")
             if jti and exp:
                 expires_at = datetime.fromtimestamp(exp, tz=UTC)
                 await token_blocklist.revoke(jti, expires_at)
-        except jwt.PyJWTError:
+        except (jwt.PyJWTError, ValueError, TypeError):
             # Token already invalid, no need to revoke
             pass
 
@@ -313,7 +326,7 @@ async def get_current_user_info(current_user: CurrentUser) -> User:
 
 
 @router.get("/ws-token", response_model=schemas.WsTokenResponse)
-async def get_ws_token(current_user: CurrentUser) -> schemas.WsTokenResponse:
+async def get_ws_token(request: Request, current_user: CurrentUser) -> schemas.WsTokenResponse:
     """A short-lived token for the Socket.IO connect (sweep 27 §P3.4).
 
     The socket's own auth reads the `access_token` cookie, which never reaches
@@ -327,8 +340,24 @@ async def get_ws_token(current_user: CurrentUser) -> schemas.WsTokenResponse:
     connection attempt, requires a valid session, and grants nothing but a
     60-second connect.
     """
+    access_token = None if auth_settings.is_auth_bypassed else request.cookies.get("access_token")
+    if not access_token and not auth_settings.is_auth_bypassed:
+        raise HTTPException(status_code=401, detail="Anmeldung erforderlich")
+    claims = decode_token(access_token) if access_token else {}
+    family = session_family(claims)
+    if family is None and not auth_settings.is_auth_bypassed:
+        # A current credential issued without a family needs a normal refresh
+        # before socket admission. Pre-upgrade credentials already failed auth.
+        raise HTTPException(status_code=409, detail="session_refresh_required")
     return schemas.WsTokenResponse(
-        token=create_ws_token(current_user.id, current_user.role),
+        token=create_ws_token(
+            current_user.id,
+            current_user.role,
+            session_jti=claims.get("jti"),
+            session_expires_at=claims.get("exp"),
+            family_jti=family.jti if family else None,
+            family_expires_at=family.expires_at if family else None,
+        ),
         expires_in=WS_TOKEN_EXPIRE_SECONDS,
     )
 
@@ -362,6 +391,35 @@ def _is_on_editor_allowlist(email: str) -> bool:
     return email.lower().strip() in allowlist
 
 
+@router.post("/microsoft-start", response_model=schemas.MicrosoftLoginStartResponse)
+@limiter.limit(RateLimits.LOGIN)
+async def microsoft_start(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.MicrosoftLoginStartResponse:
+    """Start a browser-bound Microsoft login with state, PKCE and an OIDC nonce."""
+    if not settings.microsoft_auth_enabled:
+        raise HTTPException(status_code=400, detail="Microsoft-Anmeldung ist nicht konfiguriert")
+    from ..services.microsoft_auth import LOGIN_COOKIE, LOGIN_TRANSACTION_SECONDS, start_login
+
+    transaction = await start_login(db)
+    # Host-only and /: the frontend proxy and the direct /api route share this
+    # browser proof. Lax permits Microsoft's top-level callback; LAN HTTP follows
+    # the existing auth cookie TLS decision without requiring Web Crypto.
+    response.set_cookie(
+        LOGIN_COOKIE,
+        transaction.browser_secret,
+        max_age=LOGIN_TRANSACTION_SECONDS,
+        path="/",
+        httponly=True,
+        secure=auth_settings.cookie_secure,
+        samesite="lax",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return schemas.MicrosoftLoginStartResponse(authorization_url=transaction.authorization_url)
+
+
 @router.post("/microsoft-login", response_model=schemas.UserResponse)
 @limiter.limit(RateLimits.LOGIN)
 async def microsoft_login(
@@ -386,11 +444,26 @@ async def microsoft_login(
             detail="Microsoft-Anmeldung ist nicht konfiguriert",
         )
 
-    from ..services.microsoft_auth import exchange_code_for_tokens, validate_and_decode_id_token
+    from ..services.microsoft_auth import (
+        LOGIN_COOKIE,
+        consume_login,
+        exchange_code_for_tokens,
+        validate_and_decode_id_token,
+    )
+
+    try:
+        transaction = await consume_login(db, body.state, request.cookies.get(LOGIN_COOKIE))
+    except ValueError:
+        raise HTTPException(
+            status_code=401,
+            detail="Anmeldung abgelaufen oder ungültig. Bitte erneut starten.",
+        ) from None
+    response.delete_cookie(LOGIN_COOKIE, path="/", secure=auth_settings.cookie_secure, httponly=True, samesite="lax")
+    response.headers["Cache-Control"] = "no-store"
 
     # 1. Exchange auth code for tokens
     try:
-        token_response = await exchange_code_for_tokens(body.code)
+        token_response = await exchange_code_for_tokens(body.code, transaction.code_verifier)
     except ValueError as e:
         logger.warning("Microsoft token exchange failed: %s", e)
         raise HTTPException(
@@ -406,7 +479,7 @@ async def microsoft_login(
 
     # 2. Validate & decode ID token
     try:
-        claims = validate_and_decode_id_token(token_response["id_token"])
+        claims = await asyncio.to_thread(validate_and_decode_id_token, token_response["id_token"], transaction.nonce)
     except Exception as e:
         logger.warning("Microsoft ID token validation failed: %s", e)
         raise HTTPException(
@@ -432,14 +505,13 @@ async def microsoft_login(
     user = result.scalar_one_or_none()
 
     if not user:
-        # Second try: link existing user by username (migration path)
+        # A matching email prefix proves no relationship to a local account.
+        # Refuse collisions until an administrator establishes the identity.
         result = await db.execute(select(User).where(User.username == username))
-        user = result.scalar_one_or_none()
-        if user and not user.email:
-            user.email = email
-            if display_name and not user.display_name:
-                user.display_name = display_name
-            logger.info("Linked email %s to existing user %s", email, username)
+        if result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=409, detail="Dieses Microsoft-Konto muss durch einen Administrator verknüpft werden."
+            )
 
     if not user:
         # Create new user from Microsoft login. Any tenant member can reach
@@ -474,15 +546,13 @@ async def microsoft_login(
         user.display_name = display_name
 
     # 5. Issue app JWT tokens
-    access_token = create_access_token(
+    access_token, refresh_token = create_login_tokens(
         data={
             "sub": str(user.id),
             "username": user.username,
             "role": user.role,
         }
     )
-
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     # Set httpOnly cookies
     cookie_kwargs: _CookieKwargs = {

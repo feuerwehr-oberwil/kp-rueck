@@ -29,6 +29,11 @@ jobs:
     name: Publish images + GitHub Release
     needs: gate
     runs-on: ubuntu-latest
+    # Avoid interleaved promotion from two tag workflows. Registry tags across repositories
+    # still cannot move atomically; operators use a complete release's exact version.
+    concurrency:
+      group: release-publication
+      cancel-in-progress: false
     permissions:
       contents: write   # create the GitHub Release
       packages: write   # push to GHCR
@@ -44,10 +49,9 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          case "$version" in
-            [0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"; exit 1 ;;
-          esac
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"; exit 1
+          fi
           pkg=$(python3 -c 'import json;print(json.load(open("frontend/package.json"))["version"])')
           if [ "$pkg" != "$version" ]; then
             echo "tag says $version but frontend/package.json says $pkg – run 'just release $version' first"
@@ -64,6 +68,13 @@ jobs:
           else
             echo "latest=false" >> "$GITHUB_OUTPUT"
             echo "::notice::$GITHUB_REF_NAME is older than $newest – not moving 'latest'"
+          fi
+
+          newest_minor=$(git tag -l "v${version%.*}.*" | sort -V | tail -1)
+          if [ "$newest_minor" = "$GITHUB_REF_NAME" ]; then
+            echo "promote_minor=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "promote_minor=false" >> "$GITHUB_OUTPUT"
           fi
 
       # Fails the release if the version has no notes, rather than publishing an empty one.
@@ -89,22 +100,12 @@ jobs:
         id: tags
         env:
           VERSION: ${{ steps.v.outputs.version }}
-          MINOR: ${{ steps.v.outputs.minor }}
-          LATEST: ${{ steps.v.outputs.latest }}
         run: |
           set -euo pipefail
 
-          emit() {  # $1 = output key, $2 = image repo
-            tags="${2}:${VERSION}"$'\n'"${2}:${MINOR}"
-            if [ "$LATEST" = "true" ]; then
-              tags="$tags"$'\n'"${2}:latest"
-            fi
-            {
-              echo "${1}<<TAGS_EOF"
-              echo "$tags"
-              echo "TAGS_EOF"
-            } >> "$GITHUB_OUTPUT"
-          }
+          # Publish immutable version tags first. A failed later build must not advance
+          # latest/minor for any service. The GitHub Release is created only for a full set.
+          emit() { echo "${1}=${2}:${VERSION}" >> "$GITHUB_OUTPUT"; }
 
           for svc in backend frontend tileserver; do
             emit "$svc" "ghcr.io/feuerwehr-oberwil/kp-rueck-${svc}"
@@ -119,6 +120,7 @@ jobs:
           emit "print_agent_legacy" "ghcr.io/feuerwehr-oberwil/kp-rueck-print-agent"
 
       - name: Push backend image
+        id: backend
         uses: docker/build-push-action@v7
         with:
           context: ./backend
@@ -137,6 +139,7 @@ jobs:
       # to one station. The browser calls /backend-api on its own origin and the Next server
       # forwards to API_URL, which is set at RUNTIME by docker-compose.
       - name: Push frontend image
+        id: frontend
         uses: docker/build-push-action@v7
         with:
           context: ./frontend
@@ -156,6 +159,7 @@ jobs:
             org.opencontainers.image.description=KP Rück frontend – Next.js dashboard
 
       - name: Push tileserver image
+        id: tileserver
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -175,6 +179,7 @@ jobs:
       # One build, pushed under both names. The agent is shared between the two systems, so it
       # lives here but is not a "kp-rueck" component — see tools/print-agent/README.md.
       - name: Push print-agent image
+        id: print_agent
         uses: docker/build-push-action@v7
         with:
           context: ./tools/print-agent
@@ -191,16 +196,57 @@ jobs:
             org.opencontainers.image.licenses=AGPL-3.0-or-later
             org.opencontainers.image.description=KP print agent – one relay for KP Front (PDF/CUPS) and KP Rück (ESC/POS)
 
+      # Build outputs identify the exact manifests just published, even if a registry tag
+      # changes later. This step runs only after every immutable image build succeeded.
+      # There is no cross-repository transaction: interrupted promotion can still leave moving
+      # tags mixed, which is why installation/updates must select an exact released version.
+      - name: Promote moving tags for the complete image set
+        env:
+          MINOR: ${{ steps.v.outputs.minor }}
+          LATEST: ${{ steps.v.outputs.latest }}
+          PROMOTE_MINOR: ${{ steps.v.outputs.promote_minor }}
+          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
+          FRONTEND_DIGEST: ${{ steps.frontend.outputs.digest }}
+          TILESERVER_DIGEST: ${{ steps.tileserver.outputs.digest }}
+          PRINT_AGENT_DIGEST: ${{ steps.print_agent.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # Check the complete digest set before changing even the first moving tag.
+          verify() {
+            [[ "$2" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Missing image digest for $1"; exit 1; }
+            docker buildx imagetools inspect "ghcr.io/feuerwehr-oberwil/$1@$2" >/dev/null
+          }
+          verify kp-rueck-backend "$BACKEND_DIGEST"
+          verify kp-rueck-frontend "$FRONTEND_DIGEST"
+          verify kp-rueck-tileserver "$TILESERVER_DIGEST"
+          verify kp-print-agent "$PRINT_AGENT_DIGEST"
+          verify kp-rueck-print-agent "$PRINT_AGENT_DIGEST"
+          promote() {
+            local image="ghcr.io/feuerwehr-oberwil/$1" digest="$2"
+            local tags=()
+            if [ "$PROMOTE_MINOR" = true ]; then tags+=(--tag "$image:$MINOR"); fi
+            if [ "$LATEST" = true ]; then tags+=(--tag "$image:latest"); fi
+            if [ "${#tags[@]}" -gt 0 ]; then
+              docker buildx imagetools create "${tags[@]}" "$image@$digest"
+            fi
+          }
+          promote kp-rueck-backend "$BACKEND_DIGEST"
+          promote kp-rueck-frontend "$FRONTEND_DIGEST"
+          promote kp-rueck-tileserver "$TILESERVER_DIGEST"
+          promote kp-print-agent "$PRINT_AGENT_DIGEST"
+          promote kp-rueck-print-agent "$PRINT_AGENT_DIGEST"
+
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.v.outputs.version }}
+          LATEST: ${{ steps.v.outputs.latest }}
         run: |
           set -euo pipefail
           {
             echo "**Images** (all at \`${VERSION}\`): \`kp-rueck-backend\`, \`kp-rueck-frontend\`, \`kp-rueck-tileserver\`, \`kp-print-agent\` under \`ghcr.io/${{ github.repository_owner }}/\`."
             echo
-            echo "**Update:** \`docker compose pull && docker compose up -d\` · **New deployment:** [docs/DEPLOYMENT.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/docs/DEPLOYMENT.md)"
+            echo "**Update:** select this release's deployment files and set \`KP_RUECK_TAG=${VERSION}\` before pulling the complete image set. **New deployment:** [docs/DEPLOYMENT.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/docs/DEPLOYMENT.md)"
             echo
             echo "Migrations run automatically on boot."
             echo
@@ -211,4 +257,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file BODY.md \
+            --latest="$LATEST" \
             --verify-tag

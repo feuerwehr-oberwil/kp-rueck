@@ -50,7 +50,7 @@ event, one operator at the board**, not scaled down from a dispatch center.
 
 - **Board:** drag-and-drop Kanban with persisted card order and real-time sync (WebSocket, with
   a polling fallback).
-- **Map:** Leaflet incident markers, optional [Traccar](https://www.traccar.org/) vehicle GPS
+- **Map:** MapLibre GL incident markers, optional [Traccar](https://www.traccar.org/) vehicle GPS
   with GPS-driven status automation, distance labels, and offline tiles.
 - **Resources:** personnel, vehicles, and materials with assignment conflict warnings.
 - **Aufträge:** group several incidents into one ordered route for a squad – the storm case,
@@ -115,14 +115,14 @@ including the one step that does want a bigger machine, are in
 [Docker Desktop](https://www.docker.com/products/docker-desktop/), and double-click
 `deploy/Start KP Rück.command` (macOS) or `deploy/Start-KP-Rueck.bat` (Windows). It generates
 the secrets, starts the stack and opens the browser – the first visit sets the admin password
-and station name at `/setup`, and double-clicking again later is the update. Details, including
+and station name at `/setup`. Double-clicking again starts that installed release. Details, including
 the one-time Gatekeeper/SmartScreen click, are in
 [docs/SETUP.md](docs/SETUP.md#der-schnellste-weg-double-click). Prefer a terminal, a domain
 with HTTPS, or your own port? That is the path below.
 
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git && cd kp-rueck
-git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main
+git checkout vX.Y.Z   # choose a published release from the releases page; replace X.Y.Z
 just init     # three decisions, generates the secrets, writes a complete .env
 just up       # pulls ghcr.io/feuerwehr-oberwil/kp-rueck-*, migrates on boot, prints the URL
 ```
@@ -143,9 +143,11 @@ containers, health, tiles, last backup and running version. `just down` stops th
 deleting anything.
 
 Everything is served through one origin (Caddy in front of frontend, backend and tileserver),
-with automatic HTTPS when you set `DOMAIN`. Updating is
-`docker compose pull && docker compose up -d`; pin a version with `KP_RUECK_TAG` in `.env` and
-follow the [releases](https://github.com/feuerwehr-oberwil/kp-rueck/releases) –
+with automatic HTTPS when you set `DOMAIN`. Fresh installs pin the exact downloaded release.
+Updates are explicit: back up, install the complete matching release files in the existing
+installation folder, and change `KP_RUECK_TAG` deliberately. Follow
+[the update procedure](docs/DEPLOYMENT.md#4-updating) and the
+[releases](https://github.com/feuerwehr-oberwil/kp-rueck/releases) –
 [CHANGELOG.md](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
 All four images (backend, frontend, tileserver, print-agent) are released **together** under one
 version: a station runs the set, not a mix.
@@ -216,10 +218,15 @@ flowchart TB
 
 ## Integrations
 
-Every external service is proxied by the backend (the browser never calls a third party) and is
-**optional** – the app runs fully without any of them. Which providers are active is reported at
-`GET /api/integrations`, so the UI adapts instead of hard-coding vendors. Secrets are
-environment-only; the database stores selection and behaviour, never credentials.
+The operational integrations below are **optional**. Which providers are active is reported at
+`GET /api/integrations`, so the UI adapts instead of hard-coding vendors. Configure secrets through
+the documented environment variables or integration setup; database backups can contain
+integration credentials and need the same protection.
+
+Address lookup is configured separately: the backend uses **swisstopo** for Swiss locations by
+default, with `disabled` and a self-hosted or permitted `nominatim` service as alternatives.
+Online map tiles still load from the browser. See [address lookup configuration](docs/DEPLOYMENT.md#address-lookup)
+and [privacy](PRIVACY.md#online-services-and-integrations) before choosing external providers.
 
 | Connector | Direction | Works with today | Adding another |
 |-----------|-----------|------------------|----------------|
