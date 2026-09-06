@@ -13,6 +13,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
+import type { Map as MlMap } from "maplibre-gl"
+import { Marker, NavigationControl, useMap } from "react-map-gl/maplibre"
 import {
   Dialog,
   DialogContent,
@@ -27,65 +29,106 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { useMapMode } from "@/lib/hooks/use-map-mode"
-import { isLocated } from "@/lib/utils/route-geo"
+import { BaseMap } from "@/components/map/base-map"
+import { MapTooltip, type MapTooltipSide } from "@/components/map/map-tooltip"
+import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 
-// Basel-Landschaft fallback centre (matches map-picker / routen-editor modals).
-const DEFAULT_CENTER: [number, number] = [47.51637699933488, 7.561800450458299]
+/**
+ * How this dialog frames its candidates.
+ *
+ * Generous padding on purpose: a marker hard against the frame has nowhere to put its label, and
+ * the dialog's map clips at its border. A lone candidate gets a fixed scale rather than a
+ * zero-size box.
+ */
+const FIT_OPTIONS = {
+  padding: { top: 80, bottom: 80, left: 64, right: 64 },
+  maxZoom: 15,
+  duration: 0,
+  singleZoom: 14,
+} as const
 
-// Fit the map to all rendered markers once per remount (client-only; mirrors the
-// routen-editor-modal helper — leaflet stays behind an isClient guard).
-function FitBounds({ positions }: { positions: [number, number][] }) {
-  if (typeof window === "undefined") return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useMap } = require("react-leaflet")
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const L = require("leaflet")
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const map = useMap()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const doneRef = useRef(false)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (doneRef.current || positions.length === 0) return
-    doneRef.current = true
-    if (positions.length === 1) {
-      map.setView(positions[0], 14)
-      return
-    }
-    // Generous padding on purpose: a marker hard against the frame has nowhere
-    // to put its label, and the dialog's map clips at its border.
-    map.fitBounds(L.latLngBounds(positions), { padding: [64, 80], maxZoom: 15 })
-  }, [map, positions, L])
-  return null
-}
+/**
+ * One selectable candidate pin, with the label Leaflet's `direction="auto"` drew.
+ *
+ * MapLibre has no auto-flipping tooltip, so this reproduces Leaflet's rule exactly:
+ * a marker in the left half of the container labels to the RIGHT, one in the right
+ * half labels to the LEFT — always towards the middle of the map, because the
+ * container clips and an outward label was simply cut off. The side is resolved on
+ * hover, when the projection is current and the label is about to be shown.
+ */
+function CandidatePin({
+  op,
+  fill,
+  selected,
+  dashed,
+  title,
+  subtitle,
+  notes,
+  onToggle,
+}: {
+  op: LocatedOperation
+  fill: string
+  selected: boolean
+  dashed: boolean
+  title: string
+  subtitle?: string
+  notes?: string
+  onToggle: () => void
+}) {
+  const { current: map } = useMap()
+  const [side, setSide] = useState<MapTooltipSide>("right")
+  const [hovered, setHovered] = useState(false)
+  const [lat, lng] = op.coordinates
+  const size = selected ? 26 : 20
 
-// A map mounted inside a Radix Dialog measures 0×0 until the open transition
-// settles, so Leaflet lays out blank/narrow. Force a re-measure on mount and on
-// container resize (this is what made the "+ Stop" Karte view render blank).
-function InvalidateSize() {
-  if (typeof window === "undefined") return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useMap } = require("react-leaflet")
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const map = useMap()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    const fix = () => map.invalidateSize()
-    const t1 = window.setTimeout(fix, 60)
-    const t2 = window.setTimeout(fix, 250)
-    const container: HTMLElement = map.getContainer()
-    const ro = new ResizeObserver(fix)
-    ro.observe(container)
-    return () => {
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
-      ro.disconnect()
-    }
-  }, [map])
-  return null
+  const show = () => {
+    if (map) setSide(map.project([lng, lat]).x < map.getContainer().clientWidth / 2 ? "right" : "left")
+    setHovered(true)
+  }
+
+  return (
+    <Marker
+      longitude={lng}
+      latitude={lat}
+      // The selected pin is the bigger one; keep it (and whatever is hovered) on top.
+      style={{ zIndex: hovered ? 300 : selected ? 200 : 100 }}
+      onClick={(event) => {
+        // Without this the click reaches the map itself as well.
+        event.originalEvent.stopPropagation()
+        onToggle()
+      }}
+    >
+      <div style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={() => setHovered(false)}>
+        <div
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            background: fill,
+            border: `2px ${dashed ? "dashed" : "solid"} white`,
+            boxShadow: selected
+              ? "0 0 0 3px rgba(239, 68, 68, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35)"
+              : "0 1px 4px rgba(0, 0, 0, 0.3)",
+            cursor: "pointer",
+          }}
+        />
+        {hovered && (
+          <MapTooltip side={side}>
+            <div className="text-xs leading-tight">
+              {/* Match the stop-row hover: address primary, type secondary,
+                  Meldung below. Type falls back to primary when no address. */}
+              <div className="font-medium">{title}</div>
+              {subtitle && <div className="text-muted-foreground">{subtitle}</div>}
+              {notes && <div className="mt-0.5 max-w-[220px] whitespace-pre-wrap">{notes}</div>}
+            </div>
+          </MapTooltip>
+        )}
+      </div>
+    </Marker>
+  )
 }
 
 interface IncidentPickerDialogProps {
@@ -120,15 +163,27 @@ export function IncidentPickerDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Karte is the default view — located incidents are easier to pick spatially.
   const [view, setView] = useState<"list" | "map">("map")
-  const [isClient, setIsClient] = useState(false)
   const [mapKey, setMapKey] = useState(0)
-  const { getTileUrl, getAttribution, handleTileError } = useMapMode()
+  // The LIVE map instance, or null whenever the map is not on screen. Clearing it is what
+  // makes a reopen (or a trip through the Liste view) frame anything at all: the dialog body
+  // is unmounted by Radix, so the previous instance is already removed. Left in state, the fit
+  // effect below would run against that dead instance, latch the fit marker, and the fresh
+  // instance arriving a moment later would never be fitted.
+  const [map, setMap] = useState<MlMap | null>(null)
+  // The initial fit runs once per map instance, and only once there is something to
+  // frame — the candidates can still be filtering down when the map reports ready.
+  // Track the instance itself: filtering to zero candidates also unmounts the map.
+  const fittedMapRef = useRef<MlMap | null>(null)
   const { removeStop } = useGroups()
 
-  useEffect(() => setIsClient(true), [])
   // Remount the map (re-fit) each time the map view is (re-)opened.
   useEffect(() => {
-    if (open && view === "map") setMapKey((k) => k + 1)
+    if (!open || view !== "map") {
+      setMap(null)
+      return
+    }
+    setMapKey((k) => k + 1)
+    fittedMapRef.current = null
   }, [open, view])
 
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g] as const)), [groups])
@@ -196,12 +251,12 @@ export function IncidentPickerDialog({
 
   // Map markers: all located candidates (selectable — members render pre-checked).
   const locatedCandidates = useMemo(() => candidates.filter(isLocated), [candidates])
-  const allMapPositions = useMemo<[number, number][]>(
+  const allMapPositions = useMemo<LatLngPoint[]>(
     () => locatedCandidates.map((op) => op.coordinates),
     [locatedCandidates],
   )
-  const mapCenter = useMemo<[number, number]>(() => {
-    if (allMapPositions.length === 0) return DEFAULT_CENTER
+  const mapCenter = useMemo<LatLngPoint>(() => {
+    if (allMapPositions.length === 0) return DEFAULT_CENTER_LATLNG
     const lat = allMapPositions.reduce((s, p) => s + p[0], 0) / allMapPositions.length
     const lng = allMapPositions.reduce((s, p) => s + p[1], 0) / allMapPositions.length
     return [lat, lng]
@@ -217,10 +272,9 @@ export function IncidentPickerDialog({
     onOpenChange(next)
   }
 
-  // useCallback, not a plain function: `toggle` is a dependency of the map
-  // useMemo below, and a fresh identity every render would rebuild the whole
-  // Leaflet map on each keystroke in the search box. The updater form reads the
-  // previous Set, so the only dependency is the (stable) state setter — [].
+  // useCallback, not a plain function: the list rows and every map pin take it as a
+  // handler, and the updater form reads the previous Set — so the only dependency is
+  // the (stable) state setter, [], and a keystroke in the search box changes nothing.
   const toggle = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -248,96 +302,44 @@ export function IncidentPickerDialog({
     handleOpenChange(false)
   }
 
-  // Client-only leaflet map: located candidates as selectable pins + the target
-  // route's own stops as distinct dimmed context pins. Clicking a candidate pin
-  // toggles its selection (same set the list checkboxes drive).
-  const mapNode = useMemo(() => {
-    if (!isClient) {
-      return (
-        <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">
-          {t("mapLoading")}
-        </div>
-      )
-    }
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { MapContainer, TileLayer, Marker, Tooltip } = require("react-leaflet")
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require("leaflet/dist/leaflet.css")
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const L = require("leaflet")
+  // Frame the candidates once the map is up and there are markers to frame.
+  useEffect(() => {
+    if (!map || fittedMapRef.current === map || allMapPositions.length === 0) return
+    fittedMapRef.current = map
+    fitTo(map, allMapPositions, FIT_OPTIONS)
+  }, [map, allMapPositions])
 
-    const pinIcon = (fill: string, opts: { selected?: boolean; dimmed?: boolean; dashed?: boolean } = {}) => {
-      const size = opts.selected ? 26 : 20
-      const ring = opts.selected
-        ? "box-shadow: 0 0 0 3px rgba(239,68,68,0.35), 0 2px 5px rgba(0,0,0,0.35);"
-        : "box-shadow: 0 1px 4px rgba(0,0,0,0.3);"
-      const border = opts.dashed ? "border: 2px dashed white;" : "border: 2px solid white;"
-      return L.divIcon({
-        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${fill};${border}${ring}opacity:${opts.dimmed ? 0.45 : 1};"></div>`,
-        className: "incident-picker-marker",
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-      })
-    }
-
-    return (
-      <MapContainer key={mapKey} center={mapCenter} zoom={13} className="h-full w-full" zoomControl>
-        <TileLayer attribution={getAttribution()} url={getTileUrl()} eventHandlers={{ tileerror: handleTileError }} />
-        <InvalidateSize />
-        <FitBounds positions={allMapPositions} />
-        {/* Selectable candidates — members of the target route render pre-checked. */}
-        {locatedCandidates.map((op) => {
-          const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
-          const isChecked = selected.has(op.id)
-          const fill = isChecked ? "#ef4444" : otherGroup?.color ?? "#64748b"
-          const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
-          return (
-            <Marker
-              key={op.id}
-              position={op.coordinates}
-              icon={pinIcon(fill, { selected: isChecked, dashed: !!otherGroup && !isChecked })}
-              eventHandlers={{ click: () => toggle(op.id) }}
-            >
-              {/* «auto» flips the label to the side of the marker that faces the
-                  middle of the map, so a pin near the frame labels inwards
-                  instead of writing over the border (the container clips, so an
-                  outward label was simply cut off). */}
-              <Tooltip direction="auto" offset={[0, 0]} className="stop-picker-label">
-                <div className="text-xs leading-tight">
-                  {/* Match the stop-row hover: address primary, type secondary,
-                      Meldung below. Type falls back to primary when no address. */}
-                  <div className="font-medium">
-                    {location || getIncidentTypeLabel(op.incidentType)}
-                    {otherGroup ? ` · ${otherGroup.name}` : ""}
-                  </div>
-                  {location && (
-                    <div className="text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>
-                  )}
-                  {op.notes && (
-                    <div className="mt-0.5 max-w-[220px] whitespace-pre-wrap">{op.notes}</div>
-                  )}
-                </div>
-              </Tooltip>
-            </Marker>
-          )
-        })}
-      </MapContainer>
-    )
-  }, [
-    isClient,
-    mapKey,
-    mapCenter,
-    allMapPositions,
-    locatedCandidates,
-    selected,
-    groupById,
-    targetGroupId,
-    getTileUrl,
-    getAttribution,
-    handleTileError,
-    toggle,
-    t,
-  ])
+  // The map: located candidates as selectable pins. Clicking one toggles its
+  // selection (the same set the list checkboxes drive). `mapKey` remounts the map
+  // per open, so `mapCenter` is captured then while the pins track live state.
+  const mapNode = (
+    <BaseMap
+      key={mapKey}
+      initialViewState={{ longitude: mapCenter[1], latitude: mapCenter[0], zoom: 13 }}
+      onLoad={setMap}
+    >
+      <NavigationControl position="top-left" showCompass={false} />
+      {/* Selectable candidates — members of the target route render pre-checked. */}
+      {locatedCandidates.map((op) => {
+        const otherGroup = op.groupId && op.groupId !== targetGroupId ? groupById.get(op.groupId) : undefined
+        const isChecked = selected.has(op.id)
+        const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
+        return (
+          <CandidatePin
+            key={op.id}
+            op={op}
+            fill={isChecked ? "#ef4444" : otherGroup?.color ?? "#64748b"}
+            selected={isChecked}
+            dashed={!!otherGroup && !isChecked}
+            title={`${location || getIncidentTypeLabel(op.incidentType)}${otherGroup ? ` · ${otherGroup.name}` : ""}`}
+            subtitle={location ? getIncidentTypeLabel(op.incidentType) : undefined}
+            notes={op.notes || undefined}
+            onToggle={() => toggle(op.id)}
+          />
+        )
+      })}
+    </BaseMap>
+  )
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -417,7 +419,7 @@ export function IncidentPickerDialog({
           // Same 440px body as the list view, split between map and legend, so
           // toggling Liste ⇄ Karte still never resizes the dialog. The map keeps
           // a definite height (flex-1 inside a fixed-height parent), which is
-          // what Leaflet needs to lay out at all.
+          // what the map canvas needs to lay out at all.
           <div className="flex h-[440px] flex-col gap-2">
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
               {locatedCandidates.length === 0 ? (

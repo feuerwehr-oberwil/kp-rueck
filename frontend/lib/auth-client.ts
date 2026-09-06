@@ -196,9 +196,15 @@ export async function logout(): Promise<void> {
  */
 export async function fetchWsToken(): Promise<string | null> {
   try {
-    const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/ws-token`, {
+    let response = await fetchWithTimeout(`${getApiUrl()}/api/auth/ws-token`, {
       credentials: 'include',
     }, 5000);
+    // Upgrade a pre-family session once, without forcing an interactive login.
+    if (response.status === 409 && await refreshToken()) {
+      response = await fetchWithTimeout(`${getApiUrl()}/api/auth/ws-token`, {
+        credentials: 'include',
+      }, 5000);
+    }
     if (!response.ok) return null;
     const data: unknown = await response.json();
     const token = (data as { token?: unknown }).token;
@@ -241,12 +247,34 @@ export async function getMicrosoftAuthConfig(): Promise<MicrosoftAuthConfig | nu
  * Login with Microsoft authorization code
  * Exchanges the code with the backend, which handles token exchange with Microsoft
  */
-export async function microsoftLogin(code: string): Promise<User> {
+export async function startMicrosoftLogin(): Promise<string> {
+  const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/microsoft-start`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new AuthError(translateOutsideReact('errors.microsoftLoginFailed'), AuthErrorType.SERVER_ERROR, response.status);
+  }
+  try {
+    const data: unknown = await response.json();
+    if (!data || typeof data !== 'object' || !('authorization_url' in data)
+      || typeof data.authorization_url !== 'string') throw new Error('Invalid login response');
+    const url = new URL(data.authorization_url);
+    if (url.protocol !== 'https:' || url.hostname !== 'login.microsoftonline.com'
+      || url.username || url.password) throw new Error('Invalid Microsoft authorization URL');
+    return url.href;
+  } catch {
+    throw new AuthError(translateOutsideReact('errors.microsoftLoginFailed'), AuthErrorType.SERVER_ERROR, response.status);
+  }
+}
+
+/** Redeem the code together with its one-use browser transaction state. */
+export async function microsoftLogin(code: string, state: string): Promise<User> {
   try {
     const response = await fetchWithTimeout(`${getApiUrl()}/api/auth/microsoft-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, state }),
       credentials: 'include',
     });
 

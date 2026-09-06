@@ -5,7 +5,7 @@
 # The contract with the operator: no terminal knowledge, no .env editing, no passwords on disk.
 # This writes an .env of pure entropy plus LAN defaults (the /setup wizard handles the account
 # passwords in the browser), starts the production compose stack and waits for it. Running it
-# again IS the update path: pull + up -d. It never overwrites an existing .env – same guard
+# again starts the installed release; upgrades require the complete matching release files. It never overwrites an existing .env – same guard
 # philosophy as scripts/init-env.sh.
 #
 # Operator-facing output is German (the double-click audience); comments stay English like the
@@ -36,6 +36,10 @@ printf '\n'
 say "KP Rück wird gestartet …"
 
 [ -f "$REPO_ROOT/docker-compose.yml" ] || fail "Dieser Ordner ist unvollständig – bitte das heruntergeladene ZIP komplett entpacken und die Datei «Start KP Rück» im entpackten Ordner erneut doppelklicken."
+
+# The release package supplies the version; never infer an upgrade from a moving image tag.
+RELEASE_VERSION="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' frontend/package.json 2>/dev/null)"
+[[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Release-Version fehlt. Bitte das vollständige ZIP eines veröffentlichten Releases verwenden."
 
 # ── Docker ────────────────────────────────────────────────────────────────────────────────
 # Any working `docker` is fine – Docker Desktop and OrbStack both count. Only when the daemon
@@ -111,7 +115,7 @@ AUTH_SECRET_KEY=$(rand_hex)
 DOMAIN=
 HTTP_PORT=${PORT}
 CORS_ORIGINS=${CORS}
-KP_RUECK_TAG=latest
+KP_RUECK_TAG=${RELEASE_VERSION}
 COMPOSE_PROFILES=backup
 EOF
     chmod 600 .env
@@ -127,16 +131,16 @@ URL="http://localhost:${PORT}"
 ENV_DOMAIN="$(sed -n 's/^DOMAIN=//p' .env | tail -n1 | tr -d '\r')"
 [ -n "$ENV_DOMAIN" ] && URL="https://${ENV_DOMAIN}"
 
-# ── Pull + start ─────────────────────────────────────────────────────────────────────────
-# Pull first: a re-run of this file IS the documented update path. A failed pull is not fatal –
-# without internet the already-downloaded images still start the board.
-say "Neueste Version wird geladen (beim ersten Mal einige hundert MB) …"
-if ! docker compose pull; then
-    warn "Der Download hat nicht geklappt (kein Internet?) – es wird mit der vorhandenen Version gestartet."
-fi
+# Validate data without sourcing .env as shell code. Existing moving tags require an
+# explicit operator choice; silently replacing them could downgrade a running station.
+ENV_TAG="$(sed -n 's/^KP_RUECK_TAG=//p' .env | tail -n1 | tr -d '\r')"
+[[ "$ENV_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "KP_RUECK_TAG in .env muss eine feste Version X.Y.Z sein. Bitte die installierte Version prüfen, das vollständige passende Release verwenden und dessen Version eintragen. Anleitung: docs/DEPLOYMENT.md Abschnitt 4."
+[ "$ENV_TAG" = "$RELEASE_VERSION" ] || fail "Die Dateien gehören zu Release ${RELEASE_VERSION}, .env wählt ${ENV_TAG}. Bitte das vollständige passende Release verwenden; bei einem geplanten Update zuerst Backup und Anleitung in docs/DEPLOYMENT.md Abschnitt 4 beachten."
+# Shell variables otherwise take precedence over .env in Compose.
+export KP_RUECK_TAG="$RELEASE_VERSION"
 
-say "Das Board wird gestartet …"
-docker compose up -d || fail "Der Start ist fehlgeschlagen. Häufigste Ursache: Port ${PORT} oder 443 ist auf diesem Mac schon belegt – das andere Programm beenden und diese Datei erneut doppelklicken."
+say "Release ${RELEASE_VERSION} wird gestartet (fehlende Images werden geladen) …"
+docker compose up -d --pull missing --no-build || fail "Der Start ist fehlgeschlagen. Bitte prüfen: Images für Release ${RELEASE_VERSION} verfügbar, Internet beim ersten Start und Ports ${PORT}/443 frei. Details: docs/DEPLOYMENT.md."
 
 # ── Wait until it answers ────────────────────────────────────────────────────────────────
 # First boot runs migrations and seeding before anything answers – 2–3 minutes is normal.
@@ -160,8 +164,8 @@ printf '\n'
 if [ -n "${LAN_IP:-}" ]; then
     printf '  Andere Geräte im gleichen Netz erreichen das Board unter http://%s:%s\n' "$LAN_IP" "$PORT"
 fi
-printf '  Update einspielen: einfach diese Datei erneut doppelklicken – sie lädt die neueste\n'
-printf '  Version und startet das Board damit neu. Daten bleiben dabei erhalten.\n'
+printf '  Erneut doppelklicken startet dieses Release. Updates erfolgen bewusst mit dem\n'
+printf '  vollständigen neuen Release und Backup: docs/DEPLOYMENT.md Abschnitt 4.\n'
 printf '\n'
 read -r -p "Enter drücken, um dieses Fenster zu schliessen … " _ || true
 exit 0

@@ -103,13 +103,35 @@ backend, `/tiles` to the tileserver, and everything else to the frontend. That i
 the published frontend image generic – the browser only ever talks to its own host, so no
 station's URL is baked into the image at build time. Cross-origin requests are therefore not part of normal operation – but `CORS_ORIGINS` must still match the URL the browser actually uses, or the API refuses the browser's calls (see [`SETUP.md`](SETUP.md) §7).
 
+### Address lookup
+
+The backend handles address suggestions and reverse lookup for logged-in board users and
+claimed field devices. Configure it in `.env` for Compose, or in the backend service's
+environment on a managed host:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GEOCODING_PROVIDER` | `swisstopo` | Swiss locations via `api3.geo.admin.ch`; `disabled` turns these lookups off; `nominatim` selects the service below. |
+| `GEOCODING_NOMINATIM_URL` | empty | With `nominatim`, the base URL of a service you operate or one whose usage terms permit this application. |
+
+Use a base URL such as `https://geocoder.example.ch`, without `/search`, `/reverse`, embedded
+credentials, query parameters or a fragment. The public `nominatim.openstreetmap.org` service
+is rejected, and the backend does not follow redirects. Apply environment changes by recreating
+the backend during your normal maintenance window. No frontend rebuild is required.
+
+The provider receives search text or coordinates and the backend's public IP address; browser
+login and field credentials stay at your backend. Lookups share a small request budget across
+workers and a five-minute cache per worker. When lookup is busy, unavailable or disabled,
+operators can still enter an address or coordinates and place a point on the map. Online map
+tiles are a separate setting. See [privacy](../PRIVACY.md#online-services-and-integrations).
+
 ## 2. Quick start
 
 ```bash
 # 1. Clone it, and KEEP the clone – docker-compose.yml mounts ./deploy/Caddyfile and ./scripts
 #    out of it. A tagged release is the safe choice, not main.
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git && cd kp-rueck
-git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release; pick an older tag if you prefer
+git checkout vX.Y.Z   # choose a published release from the releases page; replace X.Y.Z
 
 # 2. Configure. `just init` asks three questions (two passwords, do you have a domain) and
 #    writes a complete .env – secrets generated, DOMAIN/HTTP_PORT/CORS_ORIGINS derived.
@@ -150,44 +172,108 @@ Real editors come from SSO or are created by the admin.
 
 ## 3. Which version am I running?
 
-`KP_RUECK_TAG` in `.env` selects the images. All four services share one tag – a station runs a
-matched set, never a mix.
+`KP_RUECK_TAG=X.Y.Z` in `.env` selects the exact version of all four application images.
+Fresh launchers and `just init` derive that pin from the complete release's
+`frontend/package.json`; `.env.example` carries the same version. The launchers refuse a missing,
+moving (`latest` or `X.Y`), or mismatched pin. Normal starts reuse cached images and download only
+missing ones. They do not upgrade the installation.
 
-| Value | Follows | For |
-| --- | --- | --- |
-| `X.Y.Z` (a full version) | nothing – exactly this build | production stations that update deliberately |
-| `X.Y` (a series) | patch releases in that series | stations that want fixes but not features |
-| `latest` (default) | every release | evaluation, demo instances |
-
-Which versions exist is the [releases page](https://github.com/feuerwehr-oberwil/kp-rueck/releases);
-`latest` is the newest *release*, never `main`.
+Choose a **published release** from the [releases page](https://github.com/feuerwehr-oberwil/kp-rueck/releases).
+A tag or `main` source ZIP alone is not proof that its image builds have finished. Moving tags
+remain available in the registry for technical use, but do not keep local Compose/deploy files
+in sync and are not the station launcher update path.
 
 ## 4. Updating
 
+An upgrade consists of the **complete release files plus all matching images**, with a verified
+backup first. Never update images alone while keeping old Compose, Caddy or scripts files.
+
+1. Read the target release notes and choose a published `X.Y.Z`. Schedule downtime, stop new
+   operational writes, and take and verify a database **and photos** backup (§6). Keep a private
+   copy of `.env` and the complete old release for recovery.
+2. Preserve the **existing installation directory and Compose project identity**. Docker volume
+   names depend on that project. Do not start the newly unzipped version in a differently named
+   folder. Keep any existing `COMPOSE_PROJECT_NAME` or explicit `-p` choice unchanged; a deployment
+   using `-p` must continue using that same option rather than switching to a plain launcher.
+3. Install all files from the target release into that existing directory, including
+   `docker-compose.yml`, `deploy/`, `scripts/` and `frontend/package.json`. Keep `.env`, backups,
+   local data and operator configuration. Review custom Compose overrides against the new release.
+   For a Git checkout, fetch tags and explicitly `git checkout vX.Y.Z` after preserving local
+   customizations. Do not use `git pull` on `main` as an operational upgrade.
+4. Edit **only** `KP_RUECK_TAG=X.Y.Z` in the existing `.env` to match the target release. Keep its
+   secrets and other settings; do not replace it with `.env.example` or regenerate it. Ensure an
+   exported `KP_RUECK_TAG` does not override this pin if using Compose directly.
+5. Download the complete image set before restarting: `docker compose pull` from that directory.
+   If it fails, resolve the download first; do not start a partly available upgrade. Then run
+   `docker compose up -d --pull never --no-build` (or the matching launcher after a successful
+   pull). Verify health, login, an incident with photos, board updates and printing if enabled.
+
+**Existing installation with `latest`, `X.Y`, or no pin:** the launcher stops without changing
+`.env` or the running stack. First identify the actual running application version (the image label
+`org.opencontainers.image.version` on each running application container) and obtain that complete published
+release. Set its exact `KP_RUECK_TAG` to keep running it, or deliberately follow the upgrade steps
+above for a newer release. Never replace a moving tag with the version from an arbitrary source
+folder: that could downgrade a newer database. Rollback after a migration requires the restore
+procedure below. This read-only command lists names, image references and release labels without
+needing Compose to parse the old `.env`:
+
 ```bash
-docker compose pull
-docker compose up -d
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Label "org.opencontainers.image.version"}}'
 ```
-Pinned to a version? Edit `KP_RUECK_TAG` first, then run the two commands. Release notes:
-<https://github.com/feuerwehr-oberwil/kp-rueck/releases>.
 
 **What the version number tells you** (full table at the top of [`../CHANGELOG.md`](../CHANGELOG.md)):
-a **PATCH** bump is fixes only and always safe; a **MINOR** bump adds features and migrates
-automatically; a **MAJOR** bump needs you to read the notes first, because something requires
-operator action.
+a **PATCH** bump contains fixes; a **MINOR** bump adds features and migrates automatically;
+a **MAJOR** bump requires operator action. Read the release notes and take a verified backup
+before any operational upgrade; version numbering is not a recovery guarantee.
 
-- Database migrations run **automatically on boot** (`start.sh` → `alembic upgrade head`), and a
-  **snapshot is taken first** whenever there is actually a migration pending: `pg_dump -Fc` into
-  the `premigration` volume (`/mnt/data/backups` in the container), newest 5 kept. It is
-  deliberately best-effort – if it cannot be written the boot logs `WARNING: … migrating anyway,
-  with no way back` and continues, because a board that is down is worse than a migration without
-  a snapshot. Watch for that line in `docker compose logs backend` after an update. Turn it off
-  with `PREMIGRATION_BACKUP=false`; it is not a substitute for §6 and holds no photos.
-- **Rollback:** set `KP_RUECK_TAG` to the previous version and re-run the two commands.
-  Migrations are kept backward-safe within a minor series.
+**One-time security reset:** when upgrading from a release without versioned credentials,
+operators must sign in again, field devices must re-enter the Feld-Code and select a person,
+and existing Reko form links must be replaced. Printed field poster links still work. The
+migration preserves accounts, reports, photos and claim history; no signing-secret rotation
+is required. Routine restarts and later upgrades do not repeat the reset.
+
+- Database migrations run **automatically on boot** (`start.sh` → `alembic upgrade head`). A
+  nonempty database with pending migrations requires a readable `pg_dump -Fc` snapshot in the
+  `premigration` volume (`/mnt/data/backups`), newest 5 kept. Failure to determine the revision,
+  write the dump or verify the archive **stops the boot before migrating**. Fix the cause and
+  retry; a restart already at the known head and a fresh empty database need no snapshot.
+  `PREMIGRATION_BACKUP=false` is an explicit technical-operator override after arranging another
+  verified backup. The snapshot contains no photos and does not replace §6.
+- **Rollback after a migration needs a matching database restore.** Changing only the image tag
+  is insufficient: an older image cannot resolve a revision introduced by a newer image, even
+  when that migration only added columns. Use the procedure below.
 - **Postgres major upgrades** (e.g. 16→17) are *not* automatic – a 16 data volume won't be read
   by a 17 server. Stay on `postgres:16` for the life of the volume; to move majors, take a dump,
   start a fresh volume on the new major, and restore.
+
+### 4.1 Recovering the previous release
+
+Before upgrading, stop application writers and take a database **and photo** backup (§6), then
+keep the previous complete release folder and a protected copy of its `.env`. Record the exact
+image version and database revision alongside that backup. Leave the PostgreSQL major version
+unchanged during an application upgrade.
+
+If the new release cannot be used:
+
+1. Stop `backend`, `frontend`, `backup` and `print-agent`. Keep the database running. Preserve
+   the failed release's database and photos separately if they contain writes you need later.
+2. Select the previous release's **deployment files and exact image tag**. Keep the same Compose
+   project name, database/photo volumes and original secrets; a new folder name otherwise
+   selects different default volumes.
+3. Follow §6.1 to restore the matching pre-upgrade database and photo pair while the application
+   stays stopped. The old database revision must belong to that previous release's migration
+   tree. Do not start the old backend against the newer database or guess an Alembic downgrade.
+4. Start that complete release and verify login, one incident with photos, board updates and an
+   export before returning to operational use.
+
+**Restoring discards writes made after the chosen backup**, including incidents, assignments,
+reports and photo changes. Reconcile any needed later records from the separately preserved copy
+with a technical operator. The automatic pre-migration database dump alone has no matching photo
+snapshot and is not a complete rollback backup.
+
+Release publication first builds all exact-version images, then promotes moving tags. Promotion
+across separate image repositories is **not atomic**; a registry failure can interrupt it. Use
+the exact version of a completed GitHub Release for a matched installation.
 
 ## 5. Building from source instead
 
@@ -304,8 +390,8 @@ night – costs a brigade more than it returns.
 Restoring replaces everything. Do it on a **fresh stack** first – see the drill below.
 
 ```bash
-# 1. Stop the app, leave the database running (it is the thing being restored INTO).
-docker compose stop backend frontend
+# 1. Stop application writers and background jobs; keep only the database running.
+docker compose stop backend frontend backup print-agent
 
 # 2. Drop and recreate the database, so the restore starts from nothing rather than
 #    merging into whatever is there. (restore.sh refuses a database that still has tables –
@@ -317,16 +403,27 @@ docker compose exec -T db psql -U kprueck -d postgres \
 #    dump's client before it writes anything.
 just restore /var/backups/kp-rueck/daily/db-2026-07-30-033000.dump
 
-# 4. Restore the photos into the volume, through the backend container that mounts it writable
-#    (the backup sidecar mounts it read-only on purpose).
-docker compose start backend
-docker compose exec -T backend sh -c 'rm -rf /mnt/data/photos/* && tar xzf - -C /mnt/data/photos' \
+# 4. Restore photos using a one-off shell, WITHOUT starting migrations or the application.
+#    The backup sidecar mounts this volume read-only, so use the backend image's mount.
+docker compose run --rm -T --no-deps --entrypoint sh backend \
+  -ec 'stage=$(mktemp -d /mnt/data/photos/.restore.XXXXXX)
+    mkdir "$stage/new" "$stage/previous"
+    tar xzf - -C "$stage/new"
+    # Extraction (including its disk-space demand) must finish before moving originals.
+    # Keep originals until all same-filesystem moves succeed; never copy over them.
+    find /mnt/data/photos -mindepth 1 -maxdepth 1 ! -path "$stage" \
+      -exec mv -t "$stage/previous" -- {} +
+    find "$stage/new" -mindepth 1 -maxdepth 1 \
+      -exec mv -t /mnt/data/photos -- {} +
+    rm -rf -- "$stage"' \
   < /var/backups/kp-rueck/daily/photos-2026-07-30-033000.tar.gz
 
 # 5. Bring everything back up. Migrations run on boot, so a dump from an OLDER version is
 #    upgraded automatically; a dump from a NEWER version is not – match or exceed its tag.
 docker compose up -d
 ```
+
+If the photo step fails, **do not restart the application**. Keep the `.restore.*` directory: original files remain either in their original location or under its `previous/` directory. Resolve the failure or restore into a fresh volume before continuing. A failed restore must not be treated as a completed one.
 
 Then check: log in, open an incident that had photos, and confirm the images load.
 
@@ -371,6 +468,13 @@ For step 4 by eye plus a number: `scripts/db-fingerprint.sh` prints an exact row
 table, a few real values and the schema revision. Run it against the station and against the
 restored copy and `diff` the two – identical output means identical data, which "the restore
 finished without errors" does not.
+
+For a repeatable **synthetic** recovery check on a development machine with PostgreSQL tools,
+run `bash scripts/check-recovery.sh`. It creates its own temporary PostgreSQL cluster on a
+private Unix socket (no TCP listener), uses the real backup/restore scripts, applies a newer
+schema and later writes, then checks the old revision, original rows and photo bytes after
+restoration. It neither reads a deployment `.env` nor contacts an existing database. This
+checks the recovery mechanism, not compatibility of a particular pair of application images.
 
 **What CI already does for you, and what it cannot.** The `restore-drill` workflow runs this
 whole cycle every Monday – seed, dump with the real `scripts/backup.sh`, restore into a fresh

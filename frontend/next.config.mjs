@@ -31,11 +31,10 @@ const nextConfig = {
     } : false,
   },
 
-  // Optimize images and static assets
+  // Photos are already resized by the backend; all Image consumers use direct URLs.
+  // Disable the otherwise unused public /_next/image processing endpoint as well.
   images: {
-    formats: ['image/avif', 'image/webp'],
-    dangerouslyAllowSVG: true,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    unoptimized: true,
   },
 
   // Experimental features for better performance
@@ -72,6 +71,12 @@ const nextConfig = {
             value: 'camera=(self), microphone=(), geolocation=(self), payment=()',
           },
         ],
+      },
+      {
+        // Next applies configured headers after proxy response headers. Keep
+        // credential-bearing API images at least as strict as the backend.
+        source: '/backend-api/:path*',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
       },
     ]
   },

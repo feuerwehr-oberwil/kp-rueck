@@ -4,6 +4,7 @@ Help Documentation API
 Provides endpoints for help documentation, including PDF export.
 """
 
+import logging
 import re
 from io import BytesIO
 from pathlib import Path
@@ -16,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from app.auth.dependencies import CurrentUser
 
 router = APIRouter(prefix="/help", tags=["help"])
+logger = logging.getLogger(__name__)
 
 
 # response_model=None: the return annotation exists for mypy only. Without it FastAPI would
@@ -84,7 +86,8 @@ async def export_help_pdf(current_user: CurrentUser) -> StreamingResponse | dict
         help_dir = Path(__file__).parent.parent.parent.parent / "frontend" / "content" / "help"
 
         if not help_dir.exists():
-            return {"error": f"Help content directory not found: {help_dir}"}
+            logger.error("Help content directory not found: %s", help_dir)
+            return {"error": "Help content not found"}
 
         # Order of topics (updated 2025-10-30)
         topic_order = [
@@ -171,8 +174,9 @@ async def export_help_pdf(current_user: CurrentUser) -> StreamingResponse | dict
             },
         )
 
-    except Exception as e:
-        return {"error": f"Failed to generate PDF: {e!s}"}
+    except Exception:
+        logger.exception("Help PDF export failed")
+        return {"error": "Failed to generate PDF"}
 
 
 @router.get("/topics", response_model=None)

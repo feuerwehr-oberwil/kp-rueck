@@ -50,6 +50,7 @@ export default function MicrosoftCallbackPage() {
     hasRun.current = true;
 
     const code = searchParams.get('code');
+    const state = searchParams.get('state');
     const errorParam = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
 
@@ -63,9 +64,16 @@ export default function MicrosoftCallbackPage() {
       return;
     }
 
-    microsoftLogin(code)
-      .then(() => {
-        window.location.href = '/';
+    if (!state) {
+      setError(t('microsoftLoginFailed'));
+      return;
+    }
+
+    // Remove credentials from the browser history before redeeming them.
+    window.history.replaceState(null, '', window.location.pathname);
+    microsoftLogin(code, state)
+      .then((user) => {
+        window.location.href = user.role === 'viewer' ? '/display/board' : '/';
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : t('microsoftLoginFailed'));

@@ -17,6 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
 
 import {
@@ -46,6 +47,7 @@ import { getActiveLocale } from '@/lib/i18n-messages'
 import { rapportApplies } from '@/lib/rapport-visibility'
 import { sortByName } from '@/lib/roster-order'
 import { navigationUrl } from '@/lib/navigation'
+import { ApiError } from '@/lib/api/types/common'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 
@@ -142,7 +144,7 @@ function clearCookie(name: string) {
 }
 
 /**
- * Reads a person-bound link token WITHOUT verifying it.
+ * Recognizes a bound or one-use picker credential WITHOUT verifying it.
  *
  * The board's direct Reko link carries a *bound* feld token (the strength the
  * code exchange mints — plan 26, decision 18), so the person it was sent to
@@ -151,11 +153,11 @@ function clearCookie(name: string) {
  * signature on every request, so a forged payload buys an empty list, never
  * access.
  */
-function decodeBoundFeldToken(token: string): { personnelId: string } | null {
+function decodeFeldCredential(token: string): { personnelId: string | null } | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    if (payload?.type === 'feld' && payload.unlocked && payload.personnel_id && payload.claim_id) {
-      return { personnelId: String(payload.personnel_id) }
+    if (payload?.type === 'feld' && payload.unlocked) {
+      return { personnelId: payload.personnel_id && payload.claim_id ? String(payload.personnel_id) : null }
     }
   } catch {
     // Not a readable JWT — the poster-token path below handles it.
@@ -577,8 +579,8 @@ function FeldSurface() {
    *
    * Two callers, and they are the same event from opposite ends — the crew
    * handing the phone on ("nicht ich"), and the KP logging every device out
-   * from the board. Either way this device is nobody until it types the code
-   * again, which is exactly what the bound token was for.
+   * from the board. A poster can start a new code exchange; a bound link or
+   * one-use picker credential cannot, so those require a fresh QR/link.
    */
   const forgetDevice = useCallback(() => {
     setDeviceToken(null)
@@ -589,6 +591,8 @@ function FeldSurface() {
     setSelectedIncidentId(null)
     setSearchTerm('')
     setViewMode('code')
+    setCodeInput('')
+    setCodeError(linkToken && decodeFeldCredential(linkToken) ? { kind: 'expired' } : null)
     clearCookie(TOKEN_COOKIE)
     clearCookie(PERSON_COOKIE)
     clearCookie(INCIDENT_COOKIE)
@@ -599,7 +603,7 @@ function FeldSurface() {
     // slip, that slip still names the Schadenplatz — so the preselect gets
     // another turn for the next person.
     preselectApplied.current = false
-  }, [])
+  }, [linkToken])
 
   /**
    * Step 2 of the door: trade the link token plus the four digits for an
@@ -728,7 +732,7 @@ function FeldSurface() {
       // 401 means this device was logged out from the board ("alle Geräte
       // abmelden"). The credential is gone, so the honest move is back to the
       // code — not an empty list that looks like "you have nothing to do".
-      if (err instanceof Error && err.message.includes('401')) {
+      if ((err instanceof ApiError && err.status === 401) || (err instanceof Error && err.message.includes('401'))) {
         forgetDevice()
         return
       }
@@ -736,7 +740,7 @@ function FeldSurface() {
       // failure a stale list must NOT survive. Everything else keeps its rows
       // on a silent poll, because a cellar losing one request must not blank
       // the Schadenplatz somebody is standing at.
-      if (err instanceof Error && err.message.includes('403')) {
+      if ((err instanceof ApiError && err.status === 403) || (err instanceof Error && err.message.includes('403'))) {
         setAssignments([])
         return
       }
@@ -759,8 +763,14 @@ function FeldSurface() {
     // whoever just opened it was sent it by name, so it outranks whatever this
     // device remembered — same rule as the slip preselect outranking the
     // incident memory. Adopting it is idempotent; no server call happens here.
-    const bound = decodeBoundFeldToken(linkToken)
-    if (bound) {
+    const bound = decodeFeldCredential(linkToken)
+    if (bound && !bound.personnelId) {
+      setCodeError({ kind: 'expired' })
+      setViewMode('code')
+      setLoading(false)
+      return
+    }
+    if (bound?.personnelId) {
       setDeviceToken(linkToken)
       writeCookie(TOKEN_COOKIE, linkToken)
       writeCookie(PERSON_COOKIE, bound.personnelId)
@@ -808,6 +818,12 @@ function FeldSurface() {
       await loadAssignments(person.personnel_id, { token: claim.token })
     } catch (err) {
       console.error('Feld claim failed:', err)
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        // A refused picker may already have been consumed (e.g. its response was lost).
+        // Start a fresh exchange; never offer a second identity using that credential.
+        forgetDevice()
+        return
+      }
       // A dropped connection is not a bad code. Saying «Ungültiger Code, bitte
       // QR-Code erneut scannen» to somebody standing in a cellar sends them
       // back to a poster in the vehicle hall for nothing — and the screen it
@@ -815,7 +831,7 @@ function FeldSurface() {
       setError(err instanceof NetworkError ? t('claim.offline') : t('invalidCode'))
       setErrorRecoverable(true)
     }
-  }, [token, loadAssignments, t])
+  }, [token, loadAssignments, forgetDevice, t])
 
   /**
    * Open a Schadenplatz and remember it, so a reload comes back HERE.
@@ -960,10 +976,16 @@ function FeldSurface() {
     }
   }, [token, selectedPerson, attendanceBusy])
 
-  /** "Nicht ich" — the phone is being handed on. Switching person means a new
-   *  bound token, and a new bound token means the code again: the binding would
-   *  be a polite request rather than a rule if it could be shrugged off here. */
-  const handleNotMe = () => forgetDevice()
+  /** Revoke on the server first; a lost connection must not leave a silently live credential. */
+  const handleNotMe = async () => {
+    if (!token) return
+    try {
+      await apiClient.logoutFeld(token)
+      forgetDevice()
+    } catch {
+      toast.error(t('access.failed'))
+    }
+  }
 
   const filteredPersonnel = useMemo(() => {
     // The board's Anwesenheit and the /check-in tablet order the same roster with

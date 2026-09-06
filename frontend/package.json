@@ -45,16 +45,16 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.4.0",
-    "leaflet": "^1.9.4",
     "lucide-react": "^0.454.0",
-    "next": "15.5.21",
+    "maplibre-gl": "^4.7.1",
+    "next": "15.5.25",
     "next-intl": "^4.13.7",
     "next-themes": "^0.4.6",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.85.0",
-    "react-leaflet": "^5.0.0",
+    "react-map-gl": "^7.1.7",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
@@ -71,7 +71,6 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.5",
-    "@types/leaflet": "^1.9.22",
     "@types/node": "^22.19.19",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
@@ -93,7 +92,7 @@
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.12.0",
+  "packageManager": "pnpm@9.15.4",
   "pnpm": {
     "// overrides": "Transitive advisories our direct deps still pin. Each target is bounded to the same major as the vulnerable version, so this closes the CVE without a breaking upgrade. Drop an entry once the parent ships a fixed range on its own.",
     "overrides": {
@@ -104,7 +103,7 @@
       "nanoid@3": ">=3.3.18 <4",
       "undici@7": ">=7.28.0 <8",
       "ws@8": ">=8.21.0 <9",
-      "sharp": ">=0.35.0 <1"
+      "sharp": ">=0.35.4 <1"
     }
   }
 }

@@ -377,7 +377,7 @@ class TestPhotoStorageService:
     def test_delete_photo_success(self, photo_service, temp_photos_dir):
         """Test successful photo deletion."""
         incident_id = uuid.uuid4()
-        filename = "test.jpg"
+        filename = f"{uuid.uuid4()}.jpg"
 
         # Create photo file
         incident_dir = temp_photos_dir / str(incident_id)
@@ -393,7 +393,7 @@ class TestPhotoStorageService:
     def test_delete_photo_cleans_up_empty_directory(self, photo_service, temp_photos_dir):
         """Test that empty incident directory is removed after deleting last photo."""
         incident_id = uuid.uuid4()
-        filename = "test.jpg"
+        filename = f"{uuid.uuid4()}.jpg"
 
         # Create photo file
         incident_dir = temp_photos_dir / str(incident_id)
@@ -415,13 +415,13 @@ class TestPhotoStorageService:
         incident_dir = temp_photos_dir / str(incident_id)
         incident_dir.mkdir()
 
-        file1 = incident_dir / "photo1.jpg"
-        file2 = incident_dir / "photo2.jpg"
+        file1 = incident_dir / f"{uuid.uuid4()}.jpg"
+        file2 = incident_dir / f"{uuid.uuid4()}.jpg"
         file1.write_bytes(b"photo 1")
         file2.write_bytes(b"photo 2")
 
         # Delete one photo
-        photo_service.delete_photo(incident_id, "photo1.jpg")
+        photo_service.delete_photo(incident_id, file1.name)
 
         # Verify directory still exists
         assert incident_dir.exists()
@@ -431,10 +431,36 @@ class TestPhotoStorageService:
     def test_delete_photo_not_exists(self, photo_service):
         """Test deleting non-existent photo."""
         incident_id = uuid.uuid4()
-        filename = "nonexistent.jpg"
+        filename = f"{uuid.uuid4()}.jpg"
 
         result = photo_service.delete_photo(incident_id, filename)
         assert result is False
+
+
+@pytest.mark.parametrize("filename", ["../../keep.jpg", "..\\keep.jpg", None])
+def test_delete_photo_rejects_traversal_without_relying_on_report_membership(photo_service, temp_photos_dir, filename):
+    outside = temp_photos_dir.parent / "keep.jpg"
+    outside.write_bytes(b"must survive")
+    if filename is None:
+        filename = str(outside)
+    with pytest.raises(HTTPException) as exc:
+        photo_service.delete_photo(uuid.uuid4(), filename)
+    assert exc.value.status_code == 400
+    assert outside.read_bytes() == b"must survive"
+
+
+def test_delete_photo_rejects_symlink_directory_escape(photo_service, temp_photos_dir):
+    outside = temp_photos_dir.parent / "outside"
+    outside.mkdir()
+    filename = f"{uuid.uuid4()}.jpg"
+    target = outside / filename
+    target.write_bytes(b"must survive")
+    incident_id = uuid.uuid4()
+    (temp_photos_dir / str(incident_id)).symlink_to(outside, target_is_directory=True)
+    with pytest.raises(HTTPException) as exc:
+        photo_service.delete_photo(incident_id, filename)
+    assert exc.value.status_code == 400
+    assert target.read_bytes() == b"must survive"
 
 
 class TestPhotoStorageConfiguration:

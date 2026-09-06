@@ -1,6 +1,6 @@
 import { StrictMode } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
@@ -38,7 +38,7 @@ describe("LocationInput", () => {
       </StrictMode>,
     )
 
-    await waitFor(() => expect(geocodeAddress).toHaveBeenCalledWith("Nebenstrasse 2"))
+    await waitFor(() => expect(geocodeAddress).toHaveBeenCalledWith("Nebenstrasse 2", expect.objectContaining({ signal: expect.any(AbortSignal) })))
   })
 
   // The field the operator aims at is the field they type into, and it shows
@@ -153,4 +153,40 @@ describe("LocationInput", () => {
     expect(onAddressChange).toHaveBeenCalledWith("Löchlimattstrasse, 4104 Oberwil")
     expect(onCoordinatesChange).toHaveBeenCalledWith(47.516659, 7.56234)
   })
+})
+
+
+it("ignores suggestions from a superseded request", async () => {
+  let completeOld: ((value: { id: string; formattedAddress: string; lat: number; lon: number }[]) => void) | undefined
+  searchAddress.mockReset()
+  searchAddress.mockImplementationOnce(() => new Promise(resolve => { completeOld = resolve }))
+  searchAddress.mockResolvedValue([{ id: "new", formattedAddress: "New result", lat: 47, lon: 8 }])
+  const user = userEvent.setup()
+  renderWithIntl(<LocationInput address={null} latitude={null} longitude={null}
+    onAddressChange={vi.fn()} onCoordinatesChange={vi.fn()} geocodeInitialAddress={false} />)
+  await user.type(screen.getByRole("combobox"), "Old")
+  await waitFor(() => expect(searchAddress).toHaveBeenCalledTimes(1))
+  const oldOptions = searchAddress.mock.calls[0][1]
+  await user.clear(screen.getByRole("combobox"))
+  await user.type(screen.getByRole("combobox"), "New")
+  expect(oldOptions.signal.aborted).toBe(true)
+  await screen.findByText("New result")
+  await act(async () => { completeOld?.([{ id: "old", formattedAddress: "Old result", lat: 46, lon: 7 }]) })
+  expect(screen.queryByText("Old result")).not.toBeInTheDocument()
+  expect(screen.getByText("New result")).toBeInTheDocument()
+})
+
+
+it("preserves a manually selected pin while an earlier address lookup completes", async () => {
+  let complete: ((value: { lat: number; lon: number }) => void) | undefined
+  geocodeAddress.mockReset()
+  geocodeAddress.mockImplementation(() => new Promise(resolve => { complete = resolve }))
+  const onCoordinatesChange = vi.fn()
+  const props = { address: "Testweg", onAddressChange: vi.fn(), onCoordinatesChange }
+  const { rerender } = renderWithIntl(<LocationInput {...props} latitude={null} longitude={null} />)
+  await waitFor(() => expect(geocodeAddress).toHaveBeenCalled())
+  rerender(<LocationInput {...props} latitude={47} longitude={8} />)
+  await act(async () => { complete?.({ lat: 46, lon: 7 }) })
+  expect(onCoordinatesChange).not.toHaveBeenCalled()
+  geocodeAddress.mockResolvedValue(null)
 })

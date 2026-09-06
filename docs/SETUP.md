@@ -26,8 +26,12 @@ path with **no terminal, no `git`, and no `.env` editing**:
    opens the browser. The board boots **unclaimed**: the first visit sets the admin password
    and the station name at `/setup` – no password ever lives in a file.
 
-Double-clicking the same file again is also the **update path**: it pulls the newest images and
-restarts the board, keeping all data. It never overwrites an existing `.env`.
+Double-clicking the same file again **starts the installed release** and downloads only missing
+images. It never overwrites an existing `.env`. Updates require a deliberate move to a complete
+matching release, including Compose and `deploy/` files: follow
+[`DEPLOYMENT.md` §4](DEPLOYMENT.md#4-updating). Use a published release ZIP, not the `main` branch
+ZIP: work in progress may name images that have not been published yet. Keep the installation
+folder name and location stable so Compose keeps using the same project and volumes.
 
 Two honest warnings about first launch: on macOS, Gatekeeper refuses a downloaded `.command`
 on plain double-click – **right-click → Open** once, and it runs normally from then on. On
@@ -75,7 +79,7 @@ If you chose Railway, follow that guide now and rejoin at §2 below.
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-rueck.git
 cd kp-rueck
-git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main – see §6
+git checkout vX.Y.Z   # choose a published release from the releases page; replace X.Y.Z
 ```
 
 **Keep the whole clone, and run every command from inside it.** This used to say you only needed
@@ -443,6 +447,19 @@ The neighbouring settings – **Einsatzgebiet (Ort)**, **Funkrufname**, **Karten
 Vehicles and personnel can also be created and edited individually afterwards; the Excel path is
 for the bulk of it, and for the yearly tidy-up.
 
+### Choose address lookup
+
+Address suggestions and reverse lookup use swisstopo for Swiss locations by default. Requests
+go through your backend; the provider receives the search text or selected coordinates.
+Set `GEOCODING_PROVIDER=disabled` in the installation's `.env` if these lookups should stay off.
+Manual address entry, coordinates and map placement still work. Online map tiles are configured
+separately.
+
+For another region or a service you operate, choose `GEOCODING_PROVIDER=nominatim` and set
+`GEOCODING_NOMINATIM_URL` to a self-hosted or permitted Nominatim base URL. The public OSM
+Nominatim endpoint is not accepted. See [deployment configuration](DEPLOYMENT.md#address-lookup)
+for the values and [privacy](../PRIVACY.md#online-services-and-integrations) for the data flow.
+
 ## 4. Offline map tiles (do this before you need them)
 
 > **Docker Compose only.** Offline tiles need a reverse proxy routing `/tiles` to the
@@ -605,13 +622,11 @@ AUDIT_RETENTION_DAYS=3650   # e.g. a ten-year policy
 > 0.1.x, the trail for anything older than 90 days is already gone – worth knowing before someone
 > asks you for it.
 
-Pin your version while you are here – **on Compose**; a Railway deployment builds from a branch
-of your fork instead, so there you pin by choosing what you merge into it. A full version
-(`KP_RUECK_TAG=X.Y.Z`) follows nothing, the
-series (`X.Y`) follows patch fixes, `latest` follows everything. A station that updates
-deliberately wants one of the first two; which versions exist is the
-[releases page](https://github.com/feuerwehr-oberwil/kp-rueck/releases). What a bump costs you is
-the table at the top of [`CHANGELOG.md`](../CHANGELOG.md).
+Compose installs pin `KP_RUECK_TAG=X.Y.Z` to the exact version of the downloaded release.
+Launchers refuse moving tags (`latest` or `X.Y`) and mismatched release files; they never choose
+an upgrade or downgrade for an existing station. Follow [`DEPLOYMENT.md` §4](DEPLOYMENT.md#4-updating)
+to upgrade or convert an older moving-tag installation. Railway builds from your chosen branch,
+so its version is determined by what you merge instead. Read the release notes before upgrading.
 
 ---
 

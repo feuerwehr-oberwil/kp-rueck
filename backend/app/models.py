@@ -51,6 +51,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -64,6 +65,40 @@ class User(Base):
     setting_updates: Mapped[list["Setting"]] = relationship("Setting", back_populates="updater")
 
     __table_args__ = (CheckConstraint("role IN ('admin', 'editor', 'viewer')", name="valid_user_role"),)
+
+
+class MicrosoftLoginTransaction(Base):
+    """One-use browser-bound OAuth exchanges, shared across application instances."""
+
+    __tablename__ = "microsoft_login_transactions"
+
+    state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    browser_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_verifier: Mapped[str] = mapped_column(String(128), nullable=False)
+    nonce: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class FeldUnlockClaim(Base):
+    """Short-lived, one-use permission to bind a field device after entering its code."""
+
+    __tablename__ = "feld_unlock_claims"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GeocodingDispatch(Base):
+    """One shared upstream request budget; contains no address or coordinate data."""
+
+    __tablename__ = "geocoding_dispatch"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    next_request_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (CheckConstraint("id = 1", name="geocoding_dispatch_singleton"),)
 
 
 class RevokedToken(Base):
@@ -1043,7 +1078,7 @@ class RekoReport(Base):
     incident_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
     )
-    token: Mapped[str] = mapped_column(String(500), nullable=False)
+    token: Mapped[str] = mapped_column(String(1024), nullable=False)
     arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

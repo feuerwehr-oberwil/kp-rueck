@@ -3,13 +3,20 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MicrosoftLoginRequest(BaseModel):
     """Schema for Microsoft login callback."""
 
-    code: str
+    code: str = Field(min_length=1, max_length=8192)
+    state: str = Field(min_length=43, max_length=43, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+class MicrosoftLoginStartResponse(BaseModel):
+    """The server-generated authorization URL; browser proof stays in an HttpOnly cookie."""
+
+    authorization_url: str
 
 
 class MicrosoftAuthConfig(BaseModel):

@@ -147,7 +147,7 @@ test.describe('Help Documentation Screenshot Capture', () => {
     await page.waitForTimeout(2000); // Wait for map to load
 
     // Wait for map container
-    await page.waitForSelector('.leaflet-container', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="base-map"]', { timeout: 10000 });
 
     await page.screenshot({
       path: path.join(screenshotDir, 'map-view.png'),

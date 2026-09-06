@@ -102,9 +102,9 @@ function getSnapshot(): IncidentTimeMode {
 
 /**
  * Nothing on the Next server ever calls `initialise` or `setIncidentTimeMode`,
- * so the module value there is always the default and hydration matches. In the
- * browser this branch is only reached by static renders (Leaflet tooltips),
- * where returning the live mode is exactly what we want.
+ * so the module value there is always the default and hydration matches. Returning
+ * the live module value is also the right answer anywhere else this branch is
+ * reached, so it is simply the same read as `getSnapshot`.
  */
 function getServerSnapshot(): IncidentTimeMode {
   return mode

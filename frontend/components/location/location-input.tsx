@@ -28,7 +28,7 @@ import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
 import { apiClient } from "@/lib/api-client"
 
-// Dynamically import MapPickerModal to avoid SSR issues with Leaflet
+// Dynamically import MapPickerModal to avoid SSR issues – MapLibre GL needs a browser
 const MapPickerModal = dynamic(
   () => import("./map-picker-modal").then((mod) => mod.MapPickerModal),
   { ssr: false }
@@ -182,30 +182,36 @@ export function LocationInput({
       clearTimeout(searchTimeoutRef.current)
     }
 
-    if (addressSearchQuery.length < 3) {
+    if (!editing || disabled || addressSearchQuery.trim().length < 3) {
+      setIsSearching(false)
       setAddressResults([])
       setActiveIndex(-1)
       return
     }
 
+    const controller = new AbortController()
     setIsSearching(true)
+    setAddressResults([])
     setActiveIndex(-1)
     searchTimeoutRef.current = setTimeout(async () => {
       // Pass the station's coordinates to prioritize results near it
       const results = await searchAddress(addressSearchQuery, {
         stationCenter: stationCenter || undefined,
         countryCodes: countryCodes || undefined,
+        signal: controller.signal,
       })
+      if (controller.signal.aborted) return
       setAddressResults(results)
       setIsSearching(false)
     }, 300) // Debounce 300ms
 
     return () => {
+      controller.abort()
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [addressSearchQuery, stationCenter, countryCodes])
+  }, [addressSearchQuery, stationCenter, countryCodes, editing, disabled])
 
   // Geocode address when it changes (if no coordinates set yet)
   useEffect(() => {
@@ -215,11 +221,21 @@ export function LocationInput({
 
     const current = geocodeInputsRef.current
     if (current.address && current.address.trim().length > 0 && (current.latitude === null || current.longitude === null)) {
-      geocodeAddress(current.address).then((coords) => {
-        if (coords) current.onCoordinatesChange(coords.lat, coords.lon)
+      const controller = new AbortController()
+      geocodeAddress(current.address, {
+        stationCenter: stationCenter || undefined,
+        countryCodes: countryCodes || undefined,
+        signal: controller.signal,
+      }).then((coords) => {
+        const latest = geocodeInputsRef.current
+        if (!controller.signal.aborted && coords && latest.address === current.address &&
+          latest.latitude === current.latitude && latest.longitude === current.longitude) {
+          latest.onCoordinatesChange(coords.lat, coords.lon)
+        }
       })
+      return () => controller.abort()
     }
-  }, [address, disabled, geocodeInitialAddress])
+  }, [address, latitude, longitude, disabled, geocodeInitialAddress, stationCenter, countryCodes])
 
   const handleAddressSelect = (result: SearchResult) => {
     onAddressChange(result.formattedAddress)
@@ -582,6 +598,11 @@ export function LocationInput({
                           </div>
                         </button>
                       ))}
+                      {addressResults[0]?.attribution && (
+                        <div className="px-3 py-1 text-xs text-muted-foreground">
+                          {addressResults[0].attribution}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

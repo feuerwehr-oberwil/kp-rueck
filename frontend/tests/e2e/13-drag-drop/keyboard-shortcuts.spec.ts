@@ -14,35 +14,10 @@ import { setupBoard } from '../../helpers/api.helper';
  * skipping the events/main POMs (which have drifted from the live UI).
  */
 
-const SELECTED_EVENT_KEY = 'kp-rueck-selected-event';
-
 test.describe('Kanban shortcuts (live)', () => {
-  let eventId: string;
-
-  test.beforeEach(async ({ authenticatedPage, request }) => {
-    // Create a test event via the API (auth cookie carries over from fixture).
-    const cookies = await authenticatedPage.context().cookies();
-    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-    const apiBase = 'http://localhost:8000';
-
-    const eventResp = await request.post(`${apiBase}/api/events/`, {
-      headers: { 'Content-Type': 'application/json', cookie: cookieHeader },
-      data: { name: `KbShortcuts ${Date.now()}`, training_flag: true },
-    });
-    expect(eventResp.ok()).toBeTruthy();
-    const event = await eventResp.json();
-    eventId = event.id;
-
-    // Seed localStorage so the EventContext picks up the selection on mount.
-    await authenticatedPage.goto('/');
-    await authenticatedPage.evaluate(
-      ([key, id]) => window.localStorage.setItem(key, id),
-      [SELECTED_EVENT_KEY, eventId] as const,
-    );
-    await authenticatedPage.reload();
-    await authenticatedPage.waitForLoadState('networkidle');
-    // Give the kanban shell a beat to mount + register the keyboard handler.
-    await authenticatedPage.waitForTimeout(800);
+  test.beforeEach(async ({ authenticatedPage }) => {
+    // A live board keeps polling; readiness is the rendered board, never network silence.
+    await setupBoard(authenticatedPage, 'KbShortcuts', { count: 0 });
   });
 
   test('N opens the new-emergency modal', async ({ authenticatedPage }) => {

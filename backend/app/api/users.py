@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -20,6 +20,14 @@ from ..services.audit import log_action
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _hash_user_password(password: str) -> str:
+    """Translate password policy failures without exposing supplied credentials."""
+    try:
+        return hash_password(password)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Passwort erfüllt die Passwortanforderungen nicht.") from None
 
 
 @router.get("/", response_model=list[schemas.UserResponse])
@@ -86,7 +94,7 @@ async def create_user(
     # Create user
     user = User(
         username=user_data.username,
-        password_hash=hash_password(user_data.password),
+        password_hash=_hash_user_password(user_data.password),
         role=user_data.role,
         display_name=user_data.display_name or user_data.username,
         is_active=True,
@@ -131,7 +139,7 @@ async def update_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
     user = result.scalar_one_or_none()
 
     if not user:
@@ -156,6 +164,9 @@ async def update_user(
     # Validate role if provided
     if user_data.role and user_data.role not in ("admin", "editor", "viewer"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ungültige Rolle. Erlaubt: admin, editor")
+
+    if user.is_active and user_data.is_active is False:
+        await db.execute(update(User).where(User.id == user_id).values(session_version=User.session_version + 1))
 
     # Track changes for audit log
     changes: dict[str, dict[str, Any]] = {}
@@ -208,8 +219,14 @@ async def reset_user_password(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
 
-    # Update password
-    user.password_hash = hash_password(password_data.new_password)
+    # Hash before mutation. The database increment prevents concurrent resets
+    # from losing an invalidation, and commits atomically with the new password.
+    password_hash = _hash_user_password(password_data.new_password)
+    await db.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(password_hash=password_hash, session_version=User.session_version + 1)
+    )
 
     await log_action(
         db=db,
@@ -245,7 +262,7 @@ async def delete_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
     user = result.scalar_one_or_none()
 
     if not user:
@@ -275,7 +292,9 @@ async def delete_user(
         await db.commit()
         logger.info("User %s permanently deleted by admin %s", username, current_user.username)
     else:
-        # Soft delete (deactivate)
+        # A later reactivation must not resurrect credentials from before deactivation.
+        if user.is_active:
+            await db.execute(update(User).where(User.id == user_id).values(session_version=User.session_version + 1))
         user.is_active = False
         await log_action(
             db=db,

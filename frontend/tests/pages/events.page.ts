@@ -65,15 +65,14 @@ export class EventsPage extends BasePage {
   }
 
   /**
-   * Open the archive disclosure if it is present and still collapsed.
-   * Archived rows are hidden until it is opened.
+   * Wait for the archive refresh, then open its disclosure if still collapsed.
+   * Callers have archived an event; its rows stay hidden until this is opened.
    */
   async openArchiveDisclosure() {
     const disclosure = this.archivedEventsSection;
-    if (await disclosure.isVisible().catch(() => false)) {
-      const expanded = await disclosure.locator('svg.rotate-90').isVisible().catch(() => false);
-      if (!expanded) await disclosure.click();
-    }
+    await expect(disclosure).toBeVisible();
+    const expanded = await disclosure.locator('svg.rotate-90').isVisible();
+    if (!expanded) await disclosure.click();
   }
 
   /**

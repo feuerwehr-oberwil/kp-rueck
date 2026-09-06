@@ -28,7 +28,7 @@ test.describe('Authentication', () => {
     await expect(loginPage.loginButton).toBeVisible();
 
     // Verify branding
-    await expect(page.locator('text=KP Rück')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'KP Rück', exact: true })).toBeVisible();
   });
 
   test('should login with valid credentials', { tag: '@smoke' }, async ({ page, loginPage }) => {

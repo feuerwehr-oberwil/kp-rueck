@@ -717,6 +717,31 @@ async def test_ws_token_requires_a_session(client: AsyncClient):
     assert response.status_code == 401
 
 
+async def test_ws_token_expiring_after_dependency_returns_401(authenticated_editor_client, monkeypatch):
+    import jwt
+
+    def expired_during_user_lookup(token):
+        raise jwt.ExpiredSignatureError("expired during database lookup")
+
+    # The dependency uses auth.security's decoder; only the handler's second
+    # verification fails, reproducing expiry during the intervening DB lookup.
+    monkeypatch.setattr("app.api.auth.decode_token", expired_during_user_lookup)
+    response = await authenticated_editor_client.get("/api/auth/ws-token")
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Anmeldung erforderlich"}
+
+
+async def test_dev_bypass_ignores_stale_cookie_for_socket_token(client: AsyncClient, monkeypatch):
+    from app.auth.config import auth_settings
+    from app.auth.security import decode_token
+
+    monkeypatch.setattr(auth_settings, "BYPASS_AUTH_DEV", True)
+    client.cookies.set("access_token", "malformed-old-cookie")
+    response = await client.get("/api/auth/ws-token")
+    assert response.status_code == 200
+    assert decode_token(response.json()["token"])["sub"] == "00000000-0000-0000-0000-000000000000"
+
+
 @pytest.mark.asyncio
 async def test_ws_token_is_short_lived_and_carries_the_role(
     authenticated_editor_client: AsyncClient,

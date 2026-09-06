@@ -9,12 +9,13 @@
  * rather than opening it.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFeldAssignment, ApiFeldPersonnel } from '@/lib/api/types'
+import { ApiError } from '@/lib/api/types/common'
 
 const searchParams = vi.hoisted(() => new URLSearchParams())
 const routerPush = vi.hoisted(() => vi.fn())
@@ -24,6 +25,10 @@ const unlockFeld = vi.hoisted(() => vi.fn())
 const claimFeldPerson = vi.hoisted(() => vi.fn())
 const mintFeldRekoLink = vi.hoisted(() => vi.fn())
 const getFeldMaterial = vi.hoisted(() => vi.fn())
+const logoutFeld = vi.hoisted(() => vi.fn())
+const toastError = vi.hoisted(() => vi.fn())
+
+vi.mock('sonner', () => ({ toast: { error: toastError } }))
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
@@ -39,6 +44,7 @@ vi.mock('@/lib/api-client', () => ({
     claimFeldPerson,
     mintFeldRekoLink,
     getFeldMaterial,
+    logoutFeld,
     // The door's proof-of-place fetch; null = render without the proof.
     getFeldContext: vi.fn().mockResolvedValue(null),
   },
@@ -129,6 +135,113 @@ const forgetDevice = () => {
   document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
   document.cookie = 'feld-selected-incident=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
 }
+
+/** Device forgetting is server-side revocation, not just deleting a browser cookie. */
+describe('/feld handing the phone to someone else', () => {
+  const boundLink = [
+    btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })),
+    btoa(JSON.stringify({ type: 'feld', unlocked: true, personnel_id: 'p-1', claim_id: 'c-1' })),
+    'signature',
+  ].join('.')
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.history.replaceState(null, '', '/feld')
+    forgetDevice()
+    for (const name of ['feld-device-token', 'feld-selected-person', 'feld-selected-incident']) {
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
+    }
+    document.cookie = 'feld-device-token=bound-token;path=/feld'
+    document.cookie = 'feld-selected-person=p-1;path=/feld'
+    setParams({ token: 'poster-token' })
+    logoutFeld.mockResolvedValue(undefined)
+    getFeldAssignments.mockResolvedValue({
+      personnel_id: 'p-1', personnel_name: 'Muster Hans', personnel_role: 'Offizier',
+      event_id: 'e-1', event_name: 'Sturm', assignments: [assignment()], message_chips: [],
+    })
+  })
+
+  afterEach(() => {
+    forgetDevice()
+    for (const name of ['feld-device-token', 'feld-selected-person', 'feld-selected-incident']) {
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
+    }
+    window.history.replaceState(null, '', '/')
+  })
+
+  async function confirmLogout() {
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Nicht ich' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Nicht ich' }))
+  }
+
+  it('waits for server revocation before clearing the phone and returning to the poster code', async () => {
+    let finish!: () => void
+    logoutFeld.mockReturnValue(new Promise<void>(resolve => { finish = resolve }))
+    renderWithIntl(<FeldPage />)
+    await confirmLogout()
+    expect(logoutFeld).toHaveBeenCalledWith('bound-token')
+    expect(document.cookie).toContain('feld-device-token=bound-token')
+    expect(screen.queryByRole('heading', { name: 'Code eingeben' })).not.toBeInTheDocument()
+    await act(async () => finish())
+    expect(await screen.findByRole('heading', { name: 'Code eingeben' })).toBeInTheDocument()
+    expect(document.cookie).not.toContain('feld-device-token=')
+    expect(claimFeldPerson).not.toHaveBeenCalled()
+  })
+
+  it('keeps the device and its assignments when the server cannot confirm revocation', async () => {
+    logoutFeld.mockRejectedValue(new Error('offline'))
+    renderWithIntl(<FeldPage />)
+    await confirmLogout()
+    expect(toastError).toHaveBeenCalledWith('Hat nicht geklappt. Nochmals versuchen.')
+    expect(document.cookie).toContain('feld-device-token=bound-token')
+    expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Code eingeben' })).not.toBeInTheDocument()
+  })
+
+  it('requires a fresh link after revoking a bound QR credential', async () => {
+    setParams({ token: boundLink })
+    renderWithIntl(<FeldPage />)
+    await confirmLogout()
+    expect(logoutFeld).toHaveBeenCalledWith(boundLink)
+    expect(await screen.findByRole('heading', { name: 'Link abgelaufen' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(unlockFeld).not.toHaveBeenCalled()
+    expect(claimFeldPerson).not.toHaveBeenCalled()
+  })
+
+  it('does not present a code or picker for a one-use picker URL credential', async () => {
+    const picker = ['header', btoa(JSON.stringify({ type: 'feld', unlocked: true })), 'signature'].join('.')
+    setParams({ token: picker })
+    renderWithIntl(<FeldPage />)
+    expect(await screen.findByRole('heading', { name: 'Link abgelaufen' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(unlockFeld).not.toHaveBeenCalled()
+    expect(claimFeldPerson).not.toHaveBeenCalled()
+  })
+
+  it('requires a new code exchange when the server refuses a consumed picker', async () => {
+    document.cookie = 'feld-device-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    document.cookie = 'feld-selected-person=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld'
+    unlockFeld.mockResolvedValue({ token: 'picker-token', personnel: [PERSON], event_name: 'Sturm' })
+    claimFeldPerson.mockRejectedValue(new ApiError('Ungültiger Zugriffscode', 401))
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+    await user.type(await screen.findByRole('textbox'), '4713')
+    await user.click(await screen.findByText('Muster Hans'))
+    expect(await screen.findByRole('heading', { name: 'Code eingeben' })).toBeInTheDocument()
+    expect(screen.queryByText('Muster Hans')).not.toBeInTheDocument()
+    expect(claimFeldPerson).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns a revoked bound link to the rescan prompt using the real API status', async () => {
+    setParams({ token: boundLink })
+    getFeldAssignments.mockRejectedValue(new ApiError('Ungültiger Zugriffscode', 401))
+    renderWithIntl(<FeldPage />)
+    expect(await screen.findByRole('heading', { name: 'Link abgelaufen' })).toBeInTheDocument()
+    expect(document.cookie).not.toContain('feld-device-token=')
+  })
+})
 
 describe('/feld preselect from the Einsatzzettel QR', () => {
   beforeEach(() => {

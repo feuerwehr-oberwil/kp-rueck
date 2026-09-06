@@ -11,6 +11,12 @@
 {$DOMAIN} {
 	encode zstd gzip
 
+	# 25 MiB Excel imports and 10 MiB photos fit, including multipart overhead.
+	# The Next proxy independently enforces this for deployments without Caddy.
+	request_body {
+		max_size 32MiB
+	}
+
 	# Live board updates (Socket.IO). Must reach the backend directly — a WebSocket upgrade
 	# can't go through the Next.js /backend-api proxy route, which is HTTP-only.
 	handle /socket.io/* {
@@ -30,6 +36,12 @@
 
 	# Offline map tiles. The frontend requests /tiles/... on its own origin (lib/env.ts
 	# getTileBaseUrl) so no second host and no CSP exception are needed.
+	#
+	# The prefix is stripped here because TileServer GL serves everything at the root
+	# (/styles, /data, /fonts). The URLs it writes back INTO the style.json are a separate
+	# problem, solved on the other side: the tileserver runs with TILES_PUBLIC_URL=/tiles/
+	# (docker-compose.yml → scripts/init-tileserver.sh), so its vector source, glyph and
+	# sprite self-references point back through this route instead of at the bare root.
 	handle_path /tiles/* {
 		reverse_proxy tileserver:8080
 	}

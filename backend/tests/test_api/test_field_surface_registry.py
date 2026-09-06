@@ -38,15 +38,19 @@ human opens without logging in; `/api/print/jobs` is agent-authenticated;
 (`serve_photo`), and this registry polices writes.
 """
 
+import io
 import uuid
 
 import pytest
 from httpx import AsyncClient
+from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.models import Event, Incident, Personnel, RekoReport
-from app.services.tokens import generate_form_token
+from app.services.photo_storage import photo_storage
+from app.services.tokens import generate_feld_token, generate_form_token
+from tests.conftest import feld_unlock_token
 
 DOORS = ("token", "session", "both")
 
@@ -85,8 +89,8 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "PATCH /{report_id}": "both",
         "POST /generate-link": "both",
         "POST /{incident_id}/arrived": "token",
-        "POST /{incident_id}/photos": "token",
-        "DELETE /{incident_id}/photos/{filename}": "token",
+        "POST /{incident_id}/photos": "both",
+        "DELETE /{incident_id}/photos/{filename}": "both",
     },
     "feld": {
         "POST /generate-link": "session",
@@ -95,6 +99,7 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         # see KNOWN_GAPS for why neither has a board twin.
         "POST /unlock": "token",
         "POST /claim": "token",
+        "POST /logout": "token",
         # The board's two knobs on that door. Editor-only: the code is a
         # credential, and logging every crew out mid-storm is not a field action.
         "POST /access/regenerate": "session",
@@ -183,12 +188,10 @@ EXTERNAL_TWINS: dict[str, str] = {
 # which is the point — the decision gets made once, in review, in writing.
 KNOWN_GAPS: dict[str, str] = {
     "POST /api/feld/unlock": (
-        "NOT A STATE WRITE — this is authentication, and the rule §1 states does not "
-        "reach it. The endpoint exchanges a link token plus the Feld-Code for an "
-        "unlocked token and writes nothing at all; there is no database state for an "
-        "editor to reproduce from the board. It is a POST because it carries a secret "
-        "in a body rather than a query string. The board's authority over this door is "
-        "the code itself: POST /api/feld/access/regenerate, which is session-only."
+        "Authentication: a link token plus the Feld-Code creates a five-minute, "
+        "single-use picker grant. This database row is a credential, not operational "
+        "board state. The editor controls admission through the code and can invalidate "
+        "outstanding grants with POST /api/feld/access/regenerate or revoke-devices."
     ),
     "POST /api/feld/claim": (
         "Authentication again (decision 18): the device names its person and receives a "
@@ -196,7 +199,13 @@ KNOWN_GAPS: dict[str, str] = {
         "makes revocation possible — but that row is a credential, not board state, and "
         "an editor minting one on somebody's behalf is precisely the capability the "
         "binding exists to remove. The board's twin is the other direction: "
-        "POST /api/feld/access/revoke-devices takes claims away, and nothing hands them out."
+        "POST /api/feld/access/revoke-devices takes claims away."
+    ),
+    "POST /api/feld/logout": (
+        "Authentication: only a live person-bound device token can revoke its own "
+        "claim. A poster, picker grant, or editor session cannot select another device "
+        "through this route. The board's revoke-devices control revokes every device "
+        "in the event; it is deliberately broader than an individual phone's logout."
     ),
     "POST /api/feld/incidents/{incident_id}/reko-link": (
         "Mints a short-lived form token so the Reko form can mount inside /feld; it "
@@ -204,21 +213,6 @@ KNOWN_GAPS: dict[str, str] = {
         "POST /api/reko/{incident_id}/generate-link, which is editor-authed and hands "
         "out the identical token. Two doors, one credential, no second handler to keep "
         "in step."
-    ),
-    "POST /api/reko/{incident_id}/photos": (
-        "The board offers no photo upload on a Reko report and this stays token-only "
-        "on purpose (phase 2's call, re-affirmed in phase 4). A Reko report the KP "
-        "files is a radio message transcribed, and a radio call carries no photo — "
-        "there is nothing in the operator's hand to attach. Adding the session door "
-        "without a control would be a capability that exists in the backend and is "
-        "unreachable from the UI, which is the exact complaint §2.2 makes about PATCH. "
-        "A photo that reaches the KP by another route belongs on the Schadenplatz-"
-        "Rapport, which does have an editor upload."
-    ),
-    "DELETE /api/reko/{incident_id}/photos/{filename}": (
-        "The other half of the same decision: the board cannot attach a Reko photo, "
-        "so it has none of its own to remove. Deleting a crew's photo from the KP is "
-        "a moderation action nobody has asked for."
     ),
     "POST /api/feld/incidents/{incident_id}/message": (
         "NO BOARD TWIN — surfaced by this registry, not by the audit. A crew's "
@@ -378,6 +372,20 @@ class TestSessionOnlyRoutesAreTypedOut:
         assert "POST /api/personnel/check-in/event/{event_id}/out-all" in session_routes
 
 
+@pytest.mark.asyncio
+async def test_individual_logout_requires_a_bound_device_credential(editor_client: AsyncClient, test_event: Event):
+    """Session authority and earlier admission stages cannot stand in for a device."""
+    missing_token = await editor_client.post("/api/feld/logout")
+    assert missing_token.status_code == 422
+    assert missing_token.json()["detail"][0]["loc"] == ["query", "token"]
+    poster = generate_feld_token(test_event.id)
+    picker = await feld_unlock_token(editor_client, test_event)
+    for token in (poster, picker):
+        assert (await editor_client.post("/api/feld/logout", params={"token": token})).status_code == 403
+    # Rejecting a picker must not consume/revoke its still-valid admission grant.
+    assert (await editor_client.get("/api/feld/personnel", params={"token": picker})).status_code == 200
+
+
 class TestBothDoorsReallyOpen:
     """`both` is asserted against the app, not taken on trust."""
 
@@ -389,12 +397,19 @@ class TestBothDoorsReallyOpen:
         test_event: Event,
         test_personnel: Personnel,
         test_incident: Incident,
+        tmp_path,
+        monkeypatch,
     ):
+        monkeypatch.setattr(photo_storage, "photos_dir", tmp_path)
+        image = io.BytesIO()
+        Image.new("RGB", (8, 8), "red").save(image, format="JPEG")
+        filename = f"{uuid.uuid4()}.jpg"
         report = RekoReport(
             id=uuid.uuid4(),
             incident_id=test_incident.id,
             token=generate_form_token(str(test_incident.id), "reko"),
             is_draft=True,
+            photos_json=[filename],
         )
         db_session.add(report)
         await db_session.commit()
@@ -417,6 +432,19 @@ class TestBothDoorsReallyOpen:
                 f"/api/reko/{report.id}",
                 {"json": {"summary_text": "Über Funk diktiert"}},
             ),
+            "POST /api/reko/{incident_id}/photos": (
+                "POST",
+                f"/api/reko/{test_incident.id}/photos",
+                {
+                    "params": {"report_id": str(report.id)},
+                    "files": {"file": ("photo.jpg", image.getvalue(), "image/jpeg")},
+                },
+            ),
+            "DELETE /api/reko/{incident_id}/photos/{filename}": (
+                "DELETE",
+                f"/api/reko/{test_incident.id}/photos/{filename}",
+                {"params": {"report_id": str(report.id)}},
+            ),
             "POST /api/reko/generate-link": (
                 "POST",
                 "/api/reko/generate-link",
@@ -437,7 +465,7 @@ class TestBothDoorsReallyOpen:
 
         for key, (method, url, kwargs) in probes.items():
             response = await editor_client.request(method, url, **kwargs)
-            assert response.status_code not in (401, 403), (
+            assert 200 <= response.status_code < 300, (
                 f"{key} is registered as 'both' but turned an editor session away "
                 f"with {response.status_code}: {response.text}"
             )

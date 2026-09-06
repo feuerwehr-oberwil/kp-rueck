@@ -120,7 +120,7 @@ Tactical firefighting operations dashboard for managing personnel, materials, an
 
 **Key Features:**
 - Kanban-style operations board with drag-and-drop status management
-- Interactive map view with operation locations (Leaflet + OpenStreetMap)
+- Interactive map view with operation locations (MapLibre GL – vector tiles offline, raster OSM online)
 - Real-time data sync via WebSockets (Socket.IO) with polling fallback (~5s interval)
 - Personnel, vehicle, and material resource tracking
 - Training mode vs. live operations (same database, filtered by flag)
@@ -138,7 +138,7 @@ kp-rueck/
 │   │   └── layout.tsx               # Root layout with providers
 │   ├── components/
 │   │   ├── ui/                      # shadcn/ui components
-│   │   └── map-view.tsx             # Leaflet map integration
+│   │   └── map-view.tsx             # MapLibre GL map integration
 │   └── lib/
 │       ├── contexts/                # React contexts
 │       │   └── operations-context.tsx  # State management + API sync

@@ -64,7 +64,7 @@ import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 
-// Dynamically import map to avoid SSR issues with Leaflet
+// Dynamically import map to avoid SSR issues – MapLibre GL needs a browser (WebGL, workers)
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
   loading: () => (
@@ -913,9 +913,9 @@ export default function MapPage() {
           setColorByPersisted(colorDim)
         }
       }
-      // Arrow keys to pan map (placeholder - would need to integrate with Leaflet map)
-      // Note: Actual map panning would require access to the Leaflet map instance
-      // For now, this is documented but not fully implemented
+      // Arrow keys to pan the map are not wired up from this page: it has no handle on the
+      // map instance. MapLibre's own keyboard handler pans once the canvas has focus, which
+      // covers the case for now.
     }
 
     window.addEventListener('keydown', handleKeyPress)

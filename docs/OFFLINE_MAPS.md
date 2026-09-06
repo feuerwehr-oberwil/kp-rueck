@@ -108,13 +108,19 @@ wrong thing or nothing at all.
 | Health check | `http://localhost:8080/health` | `http://localhost:${HTTP_PORT:-8080}/tiles/health` |
 | Tile server UI | `http://localhost:8080/` | `http://localhost:${HTTP_PORT:-8080}/tiles/` |
 | Raster tiles | `http://localhost:8080/styles/basic-preview/512/{z}/{x}/{y}.png` | `http://localhost:${HTTP_PORT:-8080}/tiles/styles/basic-preview/512/{z}/{x}/{y}.png` |
-| Vector tiles | `http://localhost:8080/data/basel-landschaft/{z}/{x}/{y}.pbf` | `http://localhost:${HTTP_PORT:-8080}/tiles/data/basel-landschaft/{z}/{x}/{y}.pbf` |
-| Tile JSON | `http://localhost:8080/data/basel-landschaft.json` | `http://localhost:${HTTP_PORT:-8080}/tiles/data/basel-landschaft.json` |
+| Vector tiles | `http://localhost:8080/data/v3/{z}/{x}/{y}.pbf` | `http://localhost:${HTTP_PORT:-8080}/tiles/data/v3/{z}/{x}/{y}.pbf` |
+| Vector style | `http://localhost:8080/styles/basic-preview/style.json` | `http://localhost:${HTTP_PORT:-8080}/tiles/styles/basic-preview/style.json` |
+| Tile JSON | `http://localhost:8080/data/v3.json` | `http://localhost:${HTTP_PORT:-8080}/tiles/data/v3.json` |
 | Container name | `kprueck-tileserver-dev` | `kp-rueck-tileserver-1` |
 
 `HTTP_PORT` is what you set in `.env` (default 8080); with a `DOMAIN` set, the same paths work
-over HTTPS on your hostname. `basel-landschaft` is `TILES_NAME` – substitute yours if you
-changed it.
+over HTTPS on your hostname.
+
+The `v3` examples describe the automatic OpenMapTiles configuration used by the reference
+stack after `just tiles-download`. `v3` is **not** `TILES_NAME`: the latter names the file,
+while the server configuration determines the data-source identifier. For custom MBTiles
+or a custom configuration, inspect `$BASE/index.json` and use the advertised identifiers
+and tile URLs; do not construct the endpoint from the filename.
 
 The rest of this page writes the address as `$BASE` and the container as `$TILESERVER`. Set both
 once and everything afterwards works on either stack:
@@ -159,7 +165,7 @@ You should see:
 
 ```bash
 # Get a sample tile (zoom 10, Basel area)
-curl "$BASE/data/basel-landschaft/10/533/357.pbf"
+curl "$BASE/data/v3/10/533/358.pbf"
 
 # Should return binary data (PBF format)
 ```
@@ -183,17 +189,28 @@ tile server on the development port and finds Caddy instead.
 The tile server provides the following endpoints. Paths are relative to `$BASE` – see
 [Which stack are you on?](#which-stack-are-you-on) for what that is on your deployment.
 
-### Raster Tiles (for Leaflet)
+### Raster Tiles (server-rendered PNG)
 ```
 $BASE/styles/basic-preview/512/{z}/{x}/{y}.png
 ```
 
-This is the one the map actually requests (`frontend/lib/hooks/use-map-mode.ts`).
+TileServer GL renders the vector tiles to PNG on request. The app falls back to this
+endpoint when the installed tileset is raster rather than vector
+(`frontend/lib/hooks/use-map-mode.ts`).
 
 ### Vector Tiles (PBF)
 ```
-$BASE/data/basel-landschaft/{z}/{x}/{y}.pbf
+$BASE/data/v3/{z}/{x}/{y}.pbf
 ```
+
+### Vector Style (for MapLibre GL)
+```
+$BASE/styles/basic-preview/style.json
+```
+
+The style names its own vector source, glyphs and sprite. Behind a reverse proxy those
+self-references have to carry the proxy's path prefix, which is what `TILES_PUBLIC_URL`
+(`/tiles/` in `docker-compose.yml`) puts there – see `scripts/init-tileserver.sh`.
 
 ### Health Check
 ```
@@ -202,7 +219,12 @@ $BASE/health
 
 ### Tile JSON (metadata)
 ```
-$BASE/data/basel-landschaft.json
+$BASE/data/v3.json
+```
+
+### Directory of everything served
+```
+$BASE/index.json
 ```
 
 ## Updating Tiles
@@ -283,7 +305,7 @@ curl "$BASE/health"
 **Verify bounding box**:
 ```bash
 # Check tile metadata
-curl "$BASE/data/basel-landschaft.json" | jq .bounds
+curl "$BASE/data/v3.json" | jq .bounds
 ```
 
 Expected bounds (Basel-Landschaft):
@@ -338,10 +360,16 @@ Add additional MBTiles files for other regions:
 
 2. Restart tile server: `just tiles-restart`
 
-No config edit needed – with no config file, TileServer GL picks up every `.mbtiles` it finds in
-`/data` and serves it under its filename.
+Check `$BASE/index.json` after restarting to see which data sources and tile URLs the
+server actually exposes. A file's name does not guarantee its HTTP identifier. Multiple
+vector files may require an explicit server configuration and a style that references
+the intended sources; use the durable configuration approach above.
 
-**Note**: The frontend uses a single data source, the one named by `TILES_NAME`.
+**Frontend behavior**: The app discovers availability through `/index.json`, prefers a
+real vector entry over raster entries, and uses the server's `basic-preview` style for
+vector rendering. For raster data it uses the discovered identifier. It does not select
+a region using `TILES_NAME` or merge multiple regions automatically. For a wider area,
+generating one tileset covering the desired bounds is the simplest supported setup.
 
 ### Performance Tuning
 

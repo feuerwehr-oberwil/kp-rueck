@@ -14,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<User>;
-  microsoftLogin: (code: string) => Promise<void>;
+  microsoftLogin: (code: string, state: string) => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isEditor: boolean;  // true for both editor and admin roles
@@ -112,8 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return loggedInUser;
   };
 
-  const microsoftLogin = async (code: string) => {
-    const loggedInUser = await apiMicrosoftLogin(code);
+  const microsoftLogin = async (code: string, state: string) => {
+    const loggedInUser = await apiMicrosoftLogin(code, state);
     setUser(loggedInUser);
   };
 

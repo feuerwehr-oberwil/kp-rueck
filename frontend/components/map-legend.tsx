@@ -71,9 +71,12 @@ export function MapLegend({
 }) {
   const t = useTranslations('map')
   // For priority the markers use the built-in priority colours (static legend
-  // below). For reko/vehicle/type the fill encodes that dimension, so swap the
-  // Priorität section for the active grouping's colours.
-  const coloring = colorBy !== "priority" && colorGroups.length > 0
+  // below). For reko/vehicle/type/auftrag the fill encodes that dimension, so
+  // swap the Priorität section for the active grouping's colours. The heading
+  // follows the chosen dimension even while no incident is on the map yet –
+  // a legend that says «Priorität» under a menu that says «Reko-Person» reads
+  // as the switch having failed.
+  const coloring = colorBy !== "priority"
 
   const isMobile = useIsMobile()
   const [open, setOpen] = useState<boolean | null>(null)
@@ -129,12 +132,16 @@ export function MapLegend({
         </p>
         <div className="space-y-1.5">
           {coloring ? (
-            colorGroups.map((g) => (
-              <div key={g.key} className="flex items-center gap-2">
-                <LegendMarker fillColor={g.color} dasharray="none" />
-                <span className="text-xs">{g.label}</span>
-              </div>
-            ))
+            colorGroups.length > 0 ? (
+              colorGroups.map((g) => (
+                <div key={g.key} className="flex items-center gap-2">
+                  <LegendMarker fillColor={g.color} dasharray="none" />
+                  <span className="text-xs">{g.label}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('legend.noIncidents')}</p>
+            )
           ) : (
             <>
               <div className="flex items-center gap-2">

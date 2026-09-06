@@ -15,7 +15,7 @@
  * for this device.
  *
  * `readOnly` renders the value and its tooltip without the menu — for places a
- * dropdown cannot or should not go: inside a Leaflet tooltip, on the wall
+ * dropdown cannot or should not go: inside a map hover bubble, on the wall
  * display nobody can click, and inside a drag source where a menu would fight
  * the drag.
  */

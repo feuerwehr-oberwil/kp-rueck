@@ -4,7 +4,7 @@ name: CI
 #
 # BLOCKING (a red one of these must stop a merge; these are the checks required on main):
 #   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
-#   frontend-typecheck, frontend-unit-tests, frontend-build, images, e2e-smoke
+#   frontend-typecheck, frontend-unit-tests, frontend-security, frontend-build, images, e2e-smoke
 #   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
 #   plus telemetry-drift, alarm-keyword-drift, roster-schema-drift and alarm-contract-drift —
 #   the ONLY checks that compare anything against kp-front; the in-repo hash tests cannot see
@@ -78,6 +78,9 @@ on:
     branches: [main]
   # release.yml runs this whole gate against the tag before publishing images.
   workflow_call:
+
+permissions:
+  contents: read
 
 env:
   # The sibling product both cross-repo drift jobs compare against (telemetry-drift,
@@ -558,6 +561,28 @@ jobs:
       - name: Security scan with Bandit
         run: uv tool run --python ${{ env.PYTHON_VERSION }} bandit -r app -ll -ii -x app/tests
 
+      - name: Audit locked production dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o /tmp/backend-requirements.txt
+          uv tool run --python ${{ env.PYTHON_VERSION }} pip-audit \
+            --strict --disable-pip --no-deps -r /tmp/backend-requirements.txt
+
+  frontend-security:
+    name: Frontend Dependency Security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: pnpm audit --prod --audit-level moderate
+
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -964,6 +989,13 @@ jobs:
       - name: Validate compose config
         run: docker compose config -q
 
+      - name: Seed synthetic private files to exercise image exclusions
+        run: |
+          mkdir -p backend/data/photos backend/backups
+          printf 'synthetic upload, never ship\n' > backend/data/photos/image-exclusion-sentinel.jpg
+          printf 'synthetic backup, never ship\n' > backend/backups/image-exclusion-sentinel.dump
+          printf 'synthetic environment, never ship\n' > backend/.env.production
+
       - name: Build backend image
         uses: docker/build-push-action@v7
         with:
@@ -972,6 +1004,14 @@ jobs:
           tags: ghcr.io/feuerwehr-oberwil/kp-rueck-backend:ci
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
+
+      - name: Verify backend image excludes private runtime files
+        run: |
+          docker run --rm --entrypoint sh ghcr.io/feuerwehr-oberwil/kp-rueck-backend:ci -ec '
+            test ! -e /app/data/photos/image-exclusion-sentinel.jpg
+            test ! -e /app/backups/image-exclusion-sentinel.dump
+            test ! -e /app/.env.production
+          '
 
       # Built WITHOUT NEXT_PUBLIC_API_URL on purpose: the published image must not carry any
       # one station's API URL. The browser calls /backend-api on its own origin instead.
@@ -1017,6 +1057,9 @@ jobs:
           # Backend through the Next.js proxy — the path a browser takes when the image
           # carries no baked-in API URL. This is the whole generic-image premise.
           curl -fsSL http://localhost:8080/backend-api/health
+          # This app does not use Next image optimization. Keep its decoder endpoint closed.
+          code=$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/_next/image?url=%2Ffavicon.ico&w=64&q=75')
+          test "$code" = "404" || { echo "image optimizer unexpectedly enabled: HTTP $code"; exit 1; }
           # The app itself renders. Written to a file first: `curl | grep -q` exits on the
           # first match, curl dies of SIGPIPE, and pipefail turns a PASS into a failure.
           curl -fsS http://localhost:8080/ -o /tmp/index.html

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   SheetHeader,
   SheetTitle,
@@ -144,6 +144,30 @@ export function PrintHubSheet({
   const [attendance, setAttendance] = useState<ApiPersonnelListItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [exporting, setExporting] = useState<EventExportKind | null>(null)
+  /** The A4 sheet is ready for the printer — see `PrintView.onMapReady`. */
+  const [printReady, setPrintReady] = useState(false)
+  const [mapFailed, setMapFailed] = useState(false)
+  const handlePrintReady = useCallback(() => {
+    setMapFailed(false)
+    setPrintReady(true)
+  }, [])
+  const handleMapLoading = useCallback(() => {
+    setMapFailed(false)
+    setPrintReady(false)
+  }, [])
+  const handleMapError = useCallback(() => {
+    setMapFailed(true)
+    setPrintReady(false)
+  }, [])
+
+  // Closing unmounts the print view, so the next opening builds its map from
+  // scratch and has to be waited for again.
+  useEffect(() => {
+    if (!open) {
+      setPrintReady(false)
+      setMapFailed(false)
+    }
+  }, [open])
 
   // Fetch vehicles, drivers and the roll-call when the sheet opens — the A4
   // view prints them. The roll-call is the only list that knows who has already
@@ -218,8 +242,16 @@ export function PrintHubSheet({
 
   const updateThermoOption = (key: keyof ThermoPrintOptions, value: boolean) =>
     setThermoOptions((prev) => ({ ...prev, [key]: value }))
-  const updatePrintOption = (key: keyof PrintOptions, value: boolean) =>
+  const updatePrintOption = (key: keyof PrintOptions, value: boolean) => {
+    // Switching the map on puts a fresh, empty map into the sheet — the print
+    // button has to wait for it again, not inherit the readiness of the
+    // map-less sheet it just replaced.
+    if (key === "includeMap") {
+      setMapFailed(false)
+      if (value) setPrintReady(false)
+    }
     setPrintOptions((prev) => ({ ...prev, [key]: value }))
+  }
 
   const handleExport = async (kind: EventExportKind) => {
     if (!selectedEvent || exporting) return
@@ -328,15 +360,25 @@ export function PrintHubSheet({
                     {printOptions.includeMaterials &&
                       `, ${t("optionsModal.summaryMaterials", { count: materials.length })}`}
                   </p>
+                  {/* Held until the sheet is drawn: the map is a WebGL canvas and
+                      goes onto paper exactly as it stands at the moment of the
+                      print call, so an early click prints an empty frame. */}
                   <Button
                     size="sm"
                     className="w-full max-w-[260px]"
                     onClick={() => window.print()}
-                    disabled={isLoading}
+                    disabled={isLoading || !printReady}
                   >
-                    <Printer className="size-3.5" />
-                    {t("common.print")}
+                    {printReady || mapFailed ? (
+                      <Printer className="size-3.5" />
+                    ) : (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    )}
+                    {printReady || mapFailed ? t("common.print") : t("map.loading")}
                   </Button>
+                  {mapFailed && (
+                    <p role="alert" className="text-xs text-destructive">{t("map.loadFailed")}</p>
+                  )}
                 </div>
               }
             >
@@ -440,6 +482,9 @@ export function PrintHubSheet({
           eventFunctions={eventFunctions}
           auftraege={auftraege}
           materialOnSite={materialOnSite}
+          onMapReady={handlePrintReady}
+          onMapError={handleMapError}
+          onMapLoading={handleMapLoading}
         />
       )}
     </>

@@ -8,6 +8,7 @@ import pytest
 
 from app.auth.config import auth_settings
 from app.auth.security import (
+    AUTH_CREDENTIAL_VERSION,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -344,13 +345,31 @@ def test_decode_token_wrong_algorithm():
 def test_decode_token_no_expiration():
     """Test decoding a token without expiration claim."""
     # Manually create token without exp claim
-    data = {"sub": str(uuid.uuid4())}
+    data = {"sub": str(uuid.uuid4()), "auth_version": AUTH_CREDENTIAL_VERSION}
     token_without_exp = jwt.encode(data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
     # PyJWT allows this (exp is optional in JWT spec)
     # but our tokens should always have exp
     payload = decode_token(token_without_exp)
     assert "sub" in payload
+
+
+@pytest.mark.parametrize("version", [None, 0, 2, "1", True])
+@pytest.mark.parametrize("credential_kind", ["access", "refresh", "ws"])
+def test_pre_upgrade_and_invalid_versions_are_rejected(version, credential_kind):
+    payload = {
+        "sub": str(uuid.uuid4()),
+        "type": credential_kind,
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+    }
+    if version is not None:
+        payload["auth_version"] = version
+    token = jwt.encode(payload, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
+    with pytest.raises(jwt.InvalidTokenError, match="security upgrade"):
+        decode_token(token)
+    # Logout may inspect expiry, but this must never bypass the version gate.
+    with pytest.raises(jwt.InvalidTokenError, match="security upgrade"):
+        decode_token(token, allow_expired=True)
 
 
 # ============================================
@@ -440,3 +459,35 @@ def test_token_expiration_timing():
 
     # Should match configured expiration (allow 0.1 minute tolerance)
     assert abs(actual_minutes - auth_settings.ACCESS_TOKEN_EXPIRE_MINUTES) < 0.1
+
+
+@pytest.mark.parametrize("session_version", [None, True, False, -1, "0", 1.5, [], {}])
+@pytest.mark.parametrize("credential_kind", ["access", "refresh", "ws"])
+def test_malformed_user_session_version_is_rejected(session_version, credential_kind):
+    token = jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "type": credential_kind,
+            "auth_version": AUTH_CREDENTIAL_VERSION,
+            "user_session_version": session_version,
+            "exp": datetime.now(UTC) + timedelta(minutes=1),
+        },
+        auth_settings.SECRET_KEY,
+        algorithm=auth_settings.ALGORITHM,
+    )
+    with pytest.raises(jwt.InvalidTokenError, match="Invalid user session version"):
+        decode_token(token)
+
+
+def test_signed_pre_counter_token_represents_only_initial_user_version():
+    token = jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "type": "access",
+            "auth_version": AUTH_CREDENTIAL_VERSION,
+            "exp": datetime.now(UTC) + timedelta(minutes=1),
+        },
+        auth_settings.SECRET_KEY,
+        algorithm=auth_settings.ALGORITHM,
+    )
+    assert decode_token(token)["user_session_version"] == 0

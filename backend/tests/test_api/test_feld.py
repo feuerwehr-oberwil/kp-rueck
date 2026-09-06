@@ -44,7 +44,7 @@ from app.services.tokens import (
     generate_form_token,
     generate_viewer_token,
 )
-from tests.conftest import feld_device_token
+from tests.conftest import feld_device_token, feld_unlock_token
 
 # Every endpoint that is scoped to one person: (method, path, personnel_id is a
 # query param, json body). A new phase adds a row here instead of quietly
@@ -222,11 +222,8 @@ class TestTokenGate:
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_unknown_event(self, client: AsyncClient):
-        # Unlocked, because since plan 26 the code gate runs BEFORE the event is
-        # looked up — so a bare link token gets 403 here and never learns
-        # whether the event exists. That ordering is deliberate; this test is
-        # about the 404 behind it.
-        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(uuid4(), unlocked=True)}")
+        # A valid poster still reports a deleted/unknown event at the context door.
+        response = await client.get(f"/api/feld/context?token={generate_feld_token(uuid4())}")
         assert response.status_code == 404
 
 
@@ -262,7 +259,7 @@ class TestPersonnelList:
         await _assign(db_session, incident, assigned)
         await _assign(db_session, incident, released, released=True)
 
-        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id, unlocked=True)}")
+        response = await client.get(f"/api/feld/personnel?token={await feld_unlock_token(client, test_event)}")
         assert response.status_code == 200
         body = response.json()
         names = [p["name"] for p in body["personnel"]]
@@ -303,7 +300,7 @@ class TestPersonnelList:
         await _assign(db_session, await _make_incident(db_session, test_event, test_user, "A"), mine)
         await _assign(db_session, await _make_incident(db_session, other_event, test_user, "B"), theirs)
 
-        response = await client.get(f"/api/feld/personnel?token={generate_feld_token(test_event.id, unlocked=True)}")
+        response = await client.get(f"/api/feld/personnel?token={await feld_unlock_token(client, test_event)}")
         assert response.status_code == 200
         by_name = {p["name"]: p for p in response.json()["personnel"]}
 
@@ -364,7 +361,7 @@ class TestAuthorizationStepTwo:
         response = await _call(
             client,
             spec,
-            token=generate_feld_token(test_event.id, unlocked=True),
+            token=await feld_unlock_token(client, test_event),
             personnel_id=uuid4(),
             incident_id=incident.id,
         )
@@ -960,7 +957,7 @@ class TestNeverWritesAssignments:
         before = (assignment.id, assignment.assigned_at, assignment.unassigned_at, assignment.is_leader)
 
         token = await feld_device_token(db_session, test_event.id, person.id)
-        picker_token = generate_feld_token(test_event.id, unlocked=True)
+        picker_token = await feld_unlock_token(client, test_event)
         assert (await client.get(f"/api/feld/personnel?token={picker_token}")).status_code == 200
         for spec in PERSON_SCOPED_ENDPOINTS:
             response = await _call(client, spec, token=token, personnel_id=person.id, incident_id=incident.id)

@@ -1,31 +1,61 @@
 "use client"
 
 /**
- * GroupRoutes — shared react-leaflet overlay for Auftrag (incident group) routes.
+ * GroupRoutes — shared MapLibre overlay for Auftrag (incident group) routes.
  *
  * Presentational only: given a set of groups + an operation lookup, it draws, per
- * group with ≥2 located stops, a solid `<Polyline>` through the stops in
- * `groupPosition` order (coloured by the route's own `colorAccent`, deliberately
- * distinct from the animated red GPS ant-trail in `assignment-lines.tsx`) plus
- * numbered sequence markers on every located stop.
+ * group with ≥2 located stops, a solid line through the stops in `groupPosition`
+ * order (coloured by the route's own `colorAccent`, deliberately distinct from the
+ * animated red GPS ant-trail in `assignment-lines.tsx`) plus numbered sequence
+ * markers on every located stop.
  *
- * Reused by the Routen-Editor modal (Phase 2) and the `/map` page (Phase 3). Must
- * only ever be rendered as a child of a react-leaflet `<MapContainer>` on the
- * client — it statically imports leaflet, so keep it out of any SSR path (the modal
- * loads it behind an `isClient` guard, map-view is dynamically imported ssr:false).
+ * All routes share ONE GeoJSON source/line layer — the colour and the dimming ride
+ * on each feature's properties, so a board with a dozen Aufträge is still one layer
+ * on the GPU. The numbered pins stay DOM `<Marker>`s: they are small, interactive
+ * and carry a rich hover card, which is what DOM markers are for.
+ *
+ * Reused by the Routen-Editor modal and the `/map` page. Must be rendered as a child
+ * of the shared `<BaseMap>` (react-map-gl's `<Map>`), never on its own.
  */
 
-import { Fragment, useMemo } from "react"
-import { Marker, Polyline, Tooltip } from "react-leaflet"
-import L from "leaflet"
+import { useMemo, useState } from "react"
+import type { CSSProperties } from "react"
+import { Layer, Marker, Source, type LineLayer } from "react-map-gl/maplibre"
+import { Z, type FeatureCollectionData } from "@/lib/map-view"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { OperationHoverCard } from "./operation-hover-card"
+import { MapTooltip } from "./map-tooltip"
 import { colorAccent, toStopMirrorStatus, type StopMirrorStatus } from "@/lib/kanban-utils"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "@/lib/types/incidents"
 
 const NEUTRAL_BORDER_COLOR = "#374151" // gray-700 — same neutral marker outline the incident markers use
+
+/** The one source/layer pair every route line lives in. Exported so a surface can order around it. */
+export const GROUP_ROUTES_SOURCE_ID = "group-routes"
+export const GROUP_ROUTES_LINE_LAYER_ID = "group-routes-line"
+
+// Anchor → tooltip edge: Leaflet's 6px arrow margin plus the old `offset={[0, -14]}`.
+const STOP_TOOLTIP_GAP = 20
+
+const ROUTE_WIDTH_PX = 4
+
+/**
+ * The route line.
+ *
+ * `line-width` interpolates by zoom – ~60 % of the old fixed 4 px at z11, ~130 % at z16. A fixed
+ * pixel width was a Leaflet constraint, and a storm board with a dozen Aufträge zoomed out to the
+ * whole Gemeinde was a thicket of equally fat lines, while a route zoomed in to one street drew
+ * thinner than the numbered pins it connects. Linear between the two stops leaves the board's
+ * default zoom 13 at ~90 %, so the familiar look barely moves. Colour and opacity stay
+ * data-driven, which is what keeps every Auftrag in this one layer.
+ */
+const ROUTE_PAINT: LineLayer["paint"] = {
+  "line-color": ["get", "color"],
+  "line-opacity": ["get", "opacity"],
+  "line-width": ["interpolate", ["linear"], ["zoom"], 11, ROUTE_WIDTH_PX * 0.6, 16, ROUTE_WIDTH_PX * 1.3],
+}
 
 // Route stops mirror the four board columns; collapse each onto the incident
 // status group so the marker's neutral outline can carry the exact same
@@ -52,45 +82,34 @@ function borderStyleForDasharray(dasharray: string): "solid" | "dashed" | "dotte
 // through its STYLE — solid / dashed / dotted — matching the incident markers'
 // `Rahmen` convention (STATUS_GROUP_BORDER_STYLE), NOT via any status colour.
 // `dimmed` softens non-focused groups when the caller focuses one.
-function sequenceMarkerIcon(
-  seq: number,
+function sequencePinStyle(
   routeColor: string,
   mirrorStatus: StopMirrorStatus,
   highlighted: boolean,
   dimmed: boolean,
-): L.DivIcon {
+): CSSProperties {
   const size = highlighted ? 30 : 26
   const { dasharray, opacity: statusOpacity } = STATUS_GROUP_BORDER_STYLE[MIRROR_STATUS_GROUP[mirrorStatus]]
-  const borderStyle = borderStyleForDasharray(dasharray)
-  const opacity = (dimmed ? 0.4 : 1) * statusOpacity
-  const html = `
-    <div style="
-      width: ${size}px;
-      height: ${size}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: ${routeColor};
-      color: white;
-      border: 2px solid white;
-      outline: 2px ${borderStyle} ${NEUTRAL_BORDER_COLOR};
-      outline-offset: 1px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-      border-radius: 50%;
-      font-size: ${highlighted ? 14 : 12}px;
-      font-weight: 700;
-      line-height: 1;
-      opacity: ${opacity};
-      transition: all 0.2s ease;
-    ">${seq}</div>
-  `
-  return L.divIcon({
-    html,
-    className: "route-sequence-marker",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
-  })
+  return {
+    width: size,
+    height: size,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: routeColor,
+    color: "white",
+    border: "2px solid white",
+    outline: `2px ${borderStyleForDasharray(dasharray)} ${NEUTRAL_BORDER_COLOR}`,
+    outlineOffset: 1,
+    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
+    borderRadius: "50%",
+    fontSize: highlighted ? 14 : 12,
+    fontWeight: 700,
+    lineHeight: 1,
+    opacity: (dimmed ? 0.4 : 1) * statusOpacity,
+    transition: "all 0.2s ease",
+    cursor: "pointer",
+  }
 }
 
 interface RouteRenderItem {
@@ -99,6 +118,58 @@ interface RouteRenderItem {
   dimmed: boolean
   /** Located stops in group order, with their 1-based sequence badge. */
   points: { id: string; op: LocatedOperation; seq: number }[]
+}
+
+/** One numbered stop. Its own component so hovering one pin re-renders only that pin. */
+function RouteStopMarker({
+  op,
+  seq,
+  color,
+  highlighted,
+  dimmed,
+  routeName,
+  routeResources,
+  onClick,
+}: {
+  op: LocatedOperation
+  seq: number
+  color: string
+  highlighted: boolean
+  dimmed: boolean
+  routeName: string
+  routeResources?: GroupResources
+  onClick?: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  const [lat, lng] = op.coordinates
+
+  return (
+    <Marker
+      longitude={lng}
+      latitude={lat}
+      style={{ zIndex: hovered ? Z.routeStopHovered : highlighted ? Z.routeStopHighlighted : Z.routeStop }}
+      // A click on a DOM marker bubbles to the map's own canvas container, where it would
+      // fire a map click as well (Leaflet swallowed it) — so every pin stops it, whether
+      // or not the caller wants the click.
+      onClick={(event) => {
+        event.originalEvent.stopPropagation()
+        onClick?.()
+      }}
+    >
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <div style={sequencePinStyle(color, toStopMirrorStatus(op), highlighted, dimmed)}>{seq}</div>
+        {hovered && (
+          <MapTooltip side="top" gap={STOP_TOOLTIP_GAP}>
+            <OperationHoverCard operation={op} seq={seq} routeName={routeName} routeResources={routeResources} />
+          </MapTooltip>
+        )}
+      </div>
+    </Marker>
+  )
 }
 
 interface GroupRoutesProps {
@@ -147,45 +218,54 @@ export function GroupRoutes({
     })
   }, [groups, operationsById, focusGroupId])
 
+  // One LineString per route with ≥2 located stops. Colour and opacity travel as
+  // feature properties and are read back by the layer's `['get', …]` paint, so all
+  // routes share a single layer instead of one per Auftrag.
+  const lines = useMemo<FeatureCollectionData>(
+    () => ({
+      type: "FeatureCollection",
+      features: items
+        .filter(({ points }) => points.length >= 2)
+        .map(({ group, color, dimmed, points }) => ({
+          type: "Feature",
+          id: group.id,
+          properties: { color, opacity: dimmed ? 0.3 : 0.85 },
+          geometry: {
+            type: "LineString",
+            // GeoJSON is [lng, lat]; an Operation's coordinates are [lat, lng].
+            coordinates: points.map(({ op }) => [op.coordinates[1], op.coordinates[0]]),
+          },
+        })),
+    }),
+    [items],
+  )
+
   return (
     <>
-      {items.map(({ group, color, dimmed, points }) => {
-        const line = points.map(({ op }) => op.coordinates)
-        return (
-          <Fragment key={group.id}>
-            {line.length >= 2 && (
-              <Polyline
-                positions={line}
-                pathOptions={{
-                  color,
-                  weight: 4,
-                  opacity: dimmed ? 0.3 : 0.85,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              />
-            )}
-            {points.map(({ id, op, seq }) => (
-              <Marker
-                key={id}
-                position={op.coordinates}
-                icon={sequenceMarkerIcon(seq, color, toStopMirrorStatus(op), highlightIncidentId === id, dimmed)}
-                zIndexOffset={highlightIncidentId === id ? 300 : 100}
-                eventHandlers={onMarkerClick ? { click: () => onMarkerClick(id) } : undefined}
-              >
-                <Tooltip direction="top" offset={[0, -14]}>
-                  <OperationHoverCard
-                    operation={op}
-                    seq={seq}
-                    routeName={group.name}
-                    routeResources={groupResourcesFor?.(group.id)}
-                  />
-                </Tooltip>
-              </Marker>
-            ))}
-          </Fragment>
-        )
-      })}
+      <Source id={GROUP_ROUTES_SOURCE_ID} type="geojson" data={lines}>
+        <Layer
+          id={GROUP_ROUTES_LINE_LAYER_ID}
+          type="line"
+          layout={{ "line-cap": "round", "line-join": "round" }}
+          paint={ROUTE_PAINT}
+        />
+      </Source>
+
+      {items.map(({ group, color, dimmed, points }) =>
+        points.map(({ id, op, seq }) => (
+          <RouteStopMarker
+            key={id}
+            op={op}
+            seq={seq}
+            color={color}
+            highlighted={highlightIncidentId === id}
+            dimmed={dimmed}
+            routeName={group.name}
+            routeResources={groupResourcesFor?.(group.id)}
+            onClick={onMarkerClick ? () => onMarkerClick(id) : undefined}
+          />
+        )),
+      )}
     </>
   )
 }

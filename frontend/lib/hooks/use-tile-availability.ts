@@ -21,6 +21,15 @@ import { getTileBaseUrl } from '@/lib/env'
 /** Kennzeichen, das `scripts/init-tileserver.sh` der leeren Startdatei mitgibt. */
 const BOOTSTRAP_MARKER = 'bootstrap mbtiles'
 
+/**
+ * Welche Art Kacheln liegt da – und damit: wie stellt MapLibre sie dar?
+ *
+ * `vector` sind OpenMapTiles-Vektorkacheln (`format: "pbf"`), die über das Stil-Dokument des
+ * Kachel-Servers gerendert werden; `raster` sind fertige Bildkacheln, die als XYZ-Quelle
+ * eingebunden werden. Der Regelfall nach `just tiles-download` ist `vector`.
+ */
+export type TileFormat = 'vector' | 'raster'
+
 export type TileAvailability =
   /** Antwort steht noch aus. */
   | { status: 'checking' }
@@ -33,6 +42,9 @@ export type TileAvailability =
   /** Echte Kacheln für ein Gebiet. */
   | {
       status: 'installed'
+      format: TileFormat
+      /** Der Pfadabschnitt unter `/data/…`, mit dem `raster` adressiert wird. */
+      id: string | null
       name: string
       minzoom: number | null
       maxzoom: number | null
@@ -44,6 +56,7 @@ interface TileJsonEntry {
   id?: unknown
   name?: unknown
   description?: unknown
+  format?: unknown
   minzoom?: unknown
   maxzoom?: unknown
 }
@@ -51,30 +64,41 @@ interface TileJsonEntry {
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null)
 const asNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null)
 
-function classify(entries: TileJsonEntry[]): TileAvailability {
+const isBootstrap = (entry: TileJsonEntry): boolean =>
+  (asString(entry.description) ?? '').toLowerCase().includes(BOOTSTRAP_MARKER)
+
+const installed = (entry: TileJsonEntry, format: TileFormat): TileAvailability => ({
+  status: 'installed',
+  format,
+  id: asString(entry.id),
+  name: asString(entry.name) ?? asString(entry.id) ?? '',
+  minzoom: asNumber(entry.minzoom),
+  maxzoom: asNumber(entry.maxzoom),
+  checkedAt: new Date(),
+})
+
+export function classify(entries: TileJsonEntry[]): TileAvailability {
   if (entries.length === 0) return { status: 'missing' }
 
-  const checkedAt = new Date()
   // Eine echte Kachelmenge schlägt die Startdatei: Wer nach dem Download eine zweite
   // Region dazulegt, soll nicht wegen der alten leeren Datei als «nicht installiert» gelten.
-  const real = entries.find(
-    (entry) => !(asString(entry.description) ?? '').toLowerCase().includes(BOOTSTRAP_MARKER),
-  )
-  if (real) {
-    return {
-      status: 'installed',
-      name: asString(real.name) ?? asString(real.id) ?? '',
-      minzoom: asNumber(real.minzoom),
-      maxzoom: asNumber(real.maxzoom),
-      checkedAt,
-    }
-  }
+  const real = entries.filter((entry) => !isBootstrap(entry))
+
+  // Vektor gewinnt vor Raster. Mit echten Kacheln listet der Server ZWEI Einträge: den Stil
+  // («Basic preview», `format: "png"` – serverseitig aus den Vektorkacheln gerendert) und die
+  // Daten selbst («OpenMapTiles», `format: "pbf"`). Der erste Eintrag ist also der Stil, nicht
+  // die Datenquelle – wer ihn nimmt, hält Vektorkacheln für Raster.
+  const vector = real.find((entry) => asString(entry.format) === 'pbf')
+  if (vector) return installed(vector, 'vector')
+
+  const raster = real[0]
+  if (raster) return installed(raster, 'raster')
 
   const first = entries[0]
   return {
     status: 'bootstrap',
     name: asString(first.name) ?? asString(first.id) ?? '',
-    checkedAt,
+    checkedAt: new Date(),
   }
 }
 

@@ -2,11 +2,11 @@ import { PRIORITY_COLORS } from "./priority"
 /**
  * Named map-marker colors.
  *
- * Leaflet builds markers by injecting SVG strings into a `divIcon`, which
- * means the colors live inside template-literal strings — CSS custom
- * properties don't resolve in that context. Rather than scatter raw hex
- * values across half a dozen files, we keep them here and reference by
- * name. The values mirror the semantic tokens in app/globals.css
+ * Markers, hover bubbles and GL paint properties all take literal colors:
+ * a MapLibre `line-color` is a style value, not a stylesheet, and the DOM
+ * markers draw inline SVG outside the app's themed tree. Rather than
+ * scatter raw hex values across half a dozen files, we keep them here and
+ * reference by name. The values mirror the semantic tokens in app/globals.css
  * (`--destructive`, `--warning`, `--success`, `--info`); if those tokens
  * ever change, change these too.
  */

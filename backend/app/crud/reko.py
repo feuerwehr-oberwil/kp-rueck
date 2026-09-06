@@ -50,8 +50,9 @@ async def get_or_create_reko_report(
     if not validate_form_token(token, str(incident_id)):
         raise ValueError("Invalid token")
 
-    # Check if incident exists
-    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    # Serialize prefill with photo unlinking for this incident. Otherwise a
+    # draft can commit a copied filename after its last existing reference is deleted.
+    incident_result = await db.execute(select(Incident).where(Incident.id == incident_id).with_for_update())
     if not incident_result.scalar_one_or_none():
         raise ValueError("Incident not found")
 

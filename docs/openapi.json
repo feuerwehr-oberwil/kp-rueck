@@ -508,7 +508,7 @@
           "admin"
         ],
         "summary": "Seed Training Templates",
-        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Skip geocoding and use demo fallback coordinates (faster)\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
+        "description": "Manually seed training emergency templates and locations.\nUse this endpoint if automatic seeding failed during deployment.\n\nArgs:\n    skip_geocoding: Also repair known legacy fallback addresses when True, preserving custom locations.\n        Seeding never calls external address providers.\n    force_reseed: Delete existing data and reseed (useful for updating addresses)",
         "operationId": "seed_training_templates_api_admin_seed_training_post",
         "parameters": [
           {
@@ -931,6 +931,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MicrosoftAuthConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft-start": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Microsoft Start",
+        "description": "Start a browser-bound Microsoft login with state, PKCE and an OIDC nonce.",
+        "operationId": "microsoft_start_api_auth_microsoft_start_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MicrosoftLoginStartResponse"
                 }
               }
             }
@@ -3674,6 +3696,165 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/geocoding/search": {
+      "get": {
+        "tags": [
+          "geocoding"
+        ],
+        "summary": "Search Address",
+        "operationId": "search_address_api_geocoding_search_get",
+        "security": [
+          {
+            "GeocodingSessionCookie": []
+          },
+          {
+            "GeocodingFieldHeader": []
+          },
+          {
+            "GeocodingFieldCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "countrycodes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 60,
+              "default": "ch",
+              "title": "Countrycodes"
+            }
+          },
+          {
+            "name": "viewbox",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Viewbox"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AddressSuggestion"
+                  },
+                  "title": "Response Search Address Api Geocoding Search Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked authentication."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/geocoding/reverse": {
+      "get": {
+        "tags": [
+          "geocoding"
+        ],
+        "summary": "Reverse Address",
+        "operationId": "reverse_address_api_geocoding_reverse_get",
+        "security": [
+          {
+            "GeocodingSessionCookie": []
+          },
+          {
+            "GeocodingFieldHeader": []
+          },
+          {
+            "GeocodingFieldCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lon"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReversedAddress"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked authentication."
           },
           "422": {
             "description": "Validation Error",
@@ -12794,7 +12975,7 @@
           "feld"
         ],
         "summary": "Unlock Feld",
-        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns the picker in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns a single-use, five-minute picker grant in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
         "operationId": "unlock_feld_api_feld_unlock_post",
         "parameters": [
           {
@@ -12884,6 +13065,47 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feld/logout": {
+      "post": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Logout Feld",
+        "description": "Revoke this phone's credential before the browser forgets it.",
+        "operationId": "logout_feld_api_feld_logout_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Field credential is invalid, expired or already revoked"
           },
           "422": {
             "description": "Validation Error",
@@ -13986,7 +14208,7 @@
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nSECURITY: two doors, and they are not equally wide.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\nEverything that is not one of those two doors is a 404, never a 403: a share\nlink must not be usable to confirm that a photo of another event exists.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 401: If neither door opens\n    HTTPException 404: If the photo is not found, or out of the token's reach",
+        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos listed by its\n  exact report, including its draft and prefilled photos. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -14027,6 +14249,24 @@
             "description": "Viewer share token, when there is no session"
           },
           {
+            "name": "reko_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Reko form token, restricted to its report's photos",
+              "title": "Reko Token"
+            },
+            "description": "Reko form token, restricted to its report's photos"
+          },
+          {
             "name": "authorization",
             "in": "header",
             "required": false,
@@ -14063,10 +14303,22 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
+          },
+          "400": {
+            "description": "Invalid or expired Reko form credential."
+          },
+          "401": {
+            "description": "Authentication required, invalid session, or revoked field device."
+          },
+          "404": {
+            "description": "Photo not found or outside the supplied token's scope."
           },
           "422": {
             "description": "Validation Error",
@@ -19348,6 +19600,44 @@
         "title": "AddStopsRequest",
         "description": "Attach existing incidents to an Auftrag as stops (appended to the end)."
       },
+      "AddressSuggestion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "formattedAddress": {
+            "type": "string",
+            "title": "Formattedaddress"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "lat",
+          "lon",
+          "formattedAddress",
+          "attribution"
+        ],
+        "title": "AddressSuggestion"
+      },
       "AlarmAck": {
         "properties": {
           "status": {
@@ -23769,7 +24059,10 @@
           },
           "action": {
             "type": "string",
-            "minLength": 1,
+            "enum": [
+              "start",
+              "end"
+            ],
             "title": "Action"
           },
           "techName": {
@@ -26484,15 +26777,39 @@
         "properties": {
           "code": {
             "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
             "title": "Code"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "State"
           }
         },
         "type": "object",
         "required": [
-          "code"
+          "code",
+          "state"
         ],
         "title": "MicrosoftLoginRequest",
         "description": "Schema for Microsoft login callback."
+      },
+      "MicrosoftLoginStartResponse": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url"
+        ],
+        "title": "MicrosoftLoginStartResponse",
+        "description": "The server-generated authorization URL; browser proof stays in an HttpOnly cookie."
       },
       "NotificationResponse": {
         "properties": {
@@ -29468,6 +29785,23 @@
         "title": "RestlisteUnit",
         "description": "One material unit still standing at an address — an Abholliste line.\n\nAddress · unit · since when, which is exactly the sheet somebody takes along\nthe next morning (decision 25). Material left on site is a **different day's**\njob and stays separate from the Trupp-Abholung flag.\n\nTwo kinds of line, one list (§18.35). Most rows are a **tracked unit**: an\nopen material assignment, with the ids the board can act on. The rest are\nentries from \"Weiteres gebrauchtes Material\" — improvised or borrowed things\nthe board never had, carrying a name and nothing else. Both are a device\nstanding at an address, so both belong on the sheet somebody drives out with;\nonly the first can be released, which is what ``tracked`` says."
       },
+      "ReversedAddress": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "title": "ReversedAddress"
+      },
       "SchadenplatzRapport": {
         "properties": {
           "incident_id": {
@@ -31233,6 +31567,26 @@
         ],
         "title": "WsTokenResponse",
         "description": "A short-lived Socket.IO connect token (sweep 27 §P3.4).\n\nFetched same-origin (the session cookie authenticates the request) right\nbefore `io(...)` and passed in the Socket.IO `auth` payload — the cookie\nitself never reaches the backend on a split-origin deployment."
+      }
+    },
+    "securitySchemes": {
+      "GeocodingSessionCookie": {
+        "type": "apiKey",
+        "description": "A valid signed-in board user's session cookie.",
+        "in": "cookie",
+        "name": "access_token"
+      },
+      "GeocodingFieldHeader": {
+        "type": "apiKey",
+        "description": "A live, bound field-device token; poster and picker tokens are not accepted.",
+        "in": "header",
+        "name": "X-Feld-Token"
+      },
+      "GeocodingFieldCookie": {
+        "type": "apiKey",
+        "description": "A live, bound field-device token; poster and picker tokens are not accepted.",
+        "in": "cookie",
+        "name": "feld-device-token"
       }
     }
   }

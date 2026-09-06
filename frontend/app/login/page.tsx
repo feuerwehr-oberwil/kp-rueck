@@ -13,7 +13,7 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useEvent, apiEventToEvent } from '@/lib/contexts/event-context';
 import { apiClient } from '@/lib/api-client';
-import { getMicrosoftAuthConfig, MicrosoftAuthConfig } from '@/lib/auth-client';
+import { getMicrosoftAuthConfig, startMicrosoftLogin, MicrosoftAuthConfig } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -142,18 +142,16 @@ export default function LoginPage() {
     }
   };
 
-  const handleMicrosoftLogin = () => {
+  const handleMicrosoftLogin = async () => {
     if (!msConfig) return;
-
-    const params = new URLSearchParams({
-      client_id: msConfig.client_id,
-      response_type: 'code',
-      redirect_uri: msConfig.redirect_uri,
-      scope: 'openid profile email',
-      response_mode: 'query',
-    });
-
-    window.location.href = `https://login.microsoftonline.com/${msConfig.tenant_id}/oauth2/v2.0/authorize?${params.toString()}`;
+    setError('');
+    setLoading(true);
+    try {
+      window.location.href = await startMicrosoftLogin();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('loginFailed'));
+      setLoading(false);
+    }
   };
 
   return (

@@ -13,6 +13,7 @@ import socketio
 
 from app.environment import is_production_environment
 
+from .auth.socket_sessions import SocketIdentity, cookie_identity, current_socket_roles, socket_identity
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -156,6 +157,7 @@ class WebSocketManager:
             "admin": set(),  # Admin users for system-wide updates
         }
         self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
+        self.session_identities: dict[str, SocketIdentity] = {}
         self._cleanup_task: asyncio.Task[None] | None = None
         # Any, not the real class: the whole point of the lazy import below is that this
         # module must not import the pollers at definition time (circular dependency).
@@ -189,6 +191,7 @@ class WebSocketManager:
 
     async def _remove_stale_sessions(self) -> None:
         """Remove sessions that haven't had activity within the timeout period."""
+        await self.revalidate_sessions()
         current_time = time.time()
         stale_sids = []
 
@@ -214,14 +217,16 @@ class WebSocketManager:
         if sid in self.user_sessions:
             self.user_sessions[sid]["last_activity"] = time.time()
 
-    async def connect(self, sid: str, environ: dict[str, Any], role: str | None = None) -> None:
+    async def connect(
+        self, sid: str, environ: dict[str, Any], role: str | None = None, identity: SocketIdentity | None = None
+    ) -> None:
         """Handle new WebSocket connection.
 
-        ``role`` is the already-resolved role from the connect handler (cookie
-        OR auth-payload token); when omitted it is derived from the cookie
-        alone, which keeps the existing direct callers and tests working.
+        The network handler supplies a database-verified role and identity.
+        Direct callers without credentials are anonymous, never cookie-authorized.
         """
-        role = role or get_role_from_environ(environ)
+        if identity is not None:
+            self.session_identities[sid] = identity
         if role is None:
             # Logged so post-launch logs show whether strict mode (WS_REQUIRE_AUTH) is feasible
             logger.info(f"Client {sid} connected unauthenticated (origin: {environ.get('HTTP_ORIGIN', 'unknown')})")
@@ -248,6 +253,7 @@ class WebSocketManager:
             sids.discard(sid)
         # Remove session info
         self.user_sessions.pop(sid, None)
+        self.session_identities.pop(sid, None)
 
         # Stop pollers when last user disconnects
         await self._maybe_stop_divera_polling()
@@ -309,8 +315,43 @@ class WebSocketManager:
             await self._traccar_poller.stop_polling()
             logger.info("Stopped Traccar polling (no users connected)")
 
+    async def revalidate_sessions(self, sid: str | None = None) -> None:
+        """Recheck delivery recipients, or just the client sending a keepalive."""
+        if sid is None:
+            identities = dict(self.session_identities)
+        else:
+            identity = self.session_identities.get(sid)
+            identities = {sid: identity} if identity is not None else {}
+        try:
+            roles = await current_socket_roles(list(identities.values()))
+        except Exception:
+            logger.warning("Socket authorization unavailable; closing authenticated sessions")
+            roles = {}
+        for sid, identity in identities.items():
+            role = roles.get(identity)
+            if role is None:
+                try:
+                    await self.disconnect(sid)
+                    await sio.disconnect(sid)
+                except Exception:
+                    # Application membership is removed before transport/poller cleanup.
+                    # Delivery uses that membership, even if transport cleanup fails.
+                    logger.warning("Failed to close revoked socket %s", sid)
+            elif sid in self.user_sessions:
+                self.user_sessions[sid]["role"] = role
+                if role not in ADMIN_ROOM_ROLES and sid in self.active_connections["admin"]:
+                    self.active_connections["admin"].discard(sid)
+                    self.user_sessions[sid]["rooms"].discard("admin")
+                    try:
+                        await sio.leave_room(sid, "admin")
+                    except Exception:
+                        logger.warning("Failed to remove socket %s from transport admin room", sid)
+
     async def join_room(self, sid: str, room: str) -> bool:
         """Add a client to a room for targeted updates."""
+        await self.revalidate_sessions()
+        if sid not in self.user_sessions:
+            return False
         if room not in self.active_connections:
             return False
         if room == "admin":
@@ -337,18 +378,23 @@ class WebSocketManager:
     async def broadcast_update(self, event: str, data: Any, room: str | None = None) -> None:
         """Broadcast an update to all connected clients or specific room."""
         try:
-            if room:
-                await sio.emit(event, data, room=room)
-                logger.info(f"Broadcasted {event} to room {room}")
-            else:
-                await sio.emit(event, data)
-                logger.info(f"Broadcasted {event} to all clients")
+            await self.revalidate_sessions()
+            # Transport rooms can retain a revoked SID when disconnect fails. Address
+            # only recipients still present in the revalidated application membership.
+            candidates = self.active_connections.get(room, set()) if room else self.user_sessions
+            recipients = [sid for sid in candidates if sid in self.user_sessions]
+            if recipients:
+                await sio.emit(event, data, to=recipients)
+            logger.debug("Broadcasted %s to %s recipients", event, len(recipients))
         except Exception as e:
             logger.error(f"Error broadcasting {event}: {e}")
 
     async def send_to_client(self, sid: str, event: str, data: Any) -> None:
         """Send a message to a specific client."""
         try:
+            await self.revalidate_sessions()
+            if sid not in self.user_sessions:
+                return
             await sio.emit(event, data, to=sid)
             logger.info(f"Sent {event} to client {sid}")
         except Exception as e:
@@ -379,13 +425,27 @@ async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None
     cookie (same-origin deployments, unchanged) or a short-lived `ws` token in
     the Socket.IO `auth` payload (split-origin, where the cookie never arrives).
     """
-    role = resolve_connect_role(environ, auth)
+    identities = []
+    cookie = cookie_identity(environ.get("HTTP_COOKIE", ""))
+    if cookie:
+        identities.append(cookie)
+    if auth and isinstance(auth.get("token"), str):
+        handshake = socket_identity(auth["token"], "ws")
+        if handshake:
+            identities.append(handshake)
+    try:
+        roles = await current_socket_roles(identities)
+    except Exception:
+        logger.warning("Socket authorization unavailable; rejecting connection")
+        return False
+    identity = next((candidate for candidate in identities if candidate in roles), None)
+    role = roles.get(identity) if identity else None
     if settings.ws_require_auth and role is None:
         logger.info(
             f"Rejected unauthenticated WebSocket connect: {sid} (origin: {environ.get('HTTP_ORIGIN', 'unknown')})"
         )
         return False
-    await ws_manager.connect(sid, environ, role=role)
+    await ws_manager.connect(sid, environ, role=role, identity=identity)
     await sio.emit("connected", {"message": "Connected to KP Rück WebSocket"}, to=sid)
     return True
 
@@ -423,6 +483,9 @@ async def leave(sid: str, data: dict[str, Any]) -> None:
 @sio.event  # type: ignore[untyped-decorator]
 async def ping(sid: str) -> None:
     """Handle ping requests for connection keep-alive."""
+    await ws_manager.revalidate_sessions(sid)
+    if sid not in ws_manager.user_sessions:
+        return
     ws_manager.update_activity(sid)  # Refresh activity on ping
     await sio.emit("pong", {"timestamp": time.time()}, to=sid)
 

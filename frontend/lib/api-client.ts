@@ -2291,6 +2291,25 @@ class ApiClient {
     throw new FeldUnlockError({ kind: 'wrong', attemptsLeft: field('attempts_left') })
   }
 
+  /** Revoke this field device before deleting its local credential. A 401 is already revoked.
+   * Uses its own fetch so a field-only 401 cannot sign out the interactive app's user. */
+  async logoutFeld(token: string): Promise<void> {
+    let response: Response
+    try {
+      response = await fetch(`${this.getBaseUrl()}/api/feld/logout?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        credentials: 'include',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch {
+      markRestUnreachable(true)
+      throw new NetworkError()
+    }
+    markRestReachable()
+    if (response.ok || response.status === 401) return
+    throw new ApiError(translateOutsideReact('feld.access.failed'), response.status)
+  }
+
   /** Step 3: this device is that person from now on. */
   async claimFeldPerson(token: string, personnelId: string): Promise<ApiFeldClaimResponse> {
     return this.request<ApiFeldClaimResponse>(`/api/feld/claim?token=${encodeURIComponent(token)}`, {

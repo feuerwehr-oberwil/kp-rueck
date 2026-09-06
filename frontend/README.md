@@ -9,7 +9,7 @@ Next.js frontend for the KP Rück firefighting operations dashboard.
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
 - **@dnd-kit** - Drag and drop functionality
-- **Leaflet** - Map visualization
+- **MapLibre GL** - Map visualization (vector tiles offline, raster XYZ online)
 
 ## Setup
 
@@ -72,7 +72,7 @@ The application will be available at `http://localhost:3000`
   - `layout.tsx` - Root layout with providers
 - `components/` - Reusable UI components
   - `ui/` - shadcn/ui components
-  - `map-view.tsx` - Leaflet map component
+  - `map-view.tsx` - MapLibre GL map component
 - `lib/` - Utilities and business logic
   - `contexts/` - React contexts
     - `operations-context.tsx` - State management with API sync

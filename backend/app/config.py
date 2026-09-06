@@ -1,5 +1,8 @@
 """Application configuration using pydantic-settings."""
 
+from typing import Literal
+from urllib.parse import urlsplit
+
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -214,6 +217,32 @@ class Settings(BaseSettings):
     # HTTP instead of using the socket. If some client of yours genuinely cannot log in, set
     # WS_REQUIRE_AUTH=false – the board degrades to ~5s polling rather than going blank.
     ws_require_auth: bool = True
+
+    # Geocoding
+    # Online address suggestions are mediated by the backend; no public Nominatim autocomplete.
+    geocoding_provider: Literal["disabled", "swisstopo", "nominatim"] = "swisstopo"
+    geocoding_nominatim_url: str = ""
+
+    @field_validator("geocoding_nominatim_url")
+    @classmethod
+    def validate_geocoder_url(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        if not value:
+            return value
+        parsed = urlsplit(value)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not host
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or host == "nominatim.openstreetmap.org"
+            or host.endswith(".nominatim.openstreetmap.org")
+        ):
+            raise ValueError("Configure a self-hosted or permitted Nominatim base URL without credentials or query")
+        return value
 
     # Photo Storage
     photos_dir: str = "data/photos"  # Directory for photo uploads (use /mnt/data/photos on Railway)

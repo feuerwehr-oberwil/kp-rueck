@@ -407,7 +407,7 @@ export function stopStatusBorderClass(status: StopMirrorStatus): string {
 
 /** Collapse an incident's full status onto one of the four route-stop mirror
  *  columns (Offen / Disponiert / Einsatz / Beendet). Pure counterpart to the
- *  `toMirrorStatus` used by the stop-list UI, kept here so leaflet overlays can
+ *  `toMirrorStatus` used by the stop-list UI, kept here so the map overlays can
  *  colour markers without importing the drag-heavy route-stop-list module. */
 export function toStopMirrorStatus(op: Operation | undefined): StopMirrorStatus {
   if (!op) return "incoming"

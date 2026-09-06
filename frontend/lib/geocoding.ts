@@ -1,135 +1,72 @@
-/**
- * Geocoding utilities using OpenStreetMap Nominatim API
- * Free service, no API keys required
- */
+/** Address lookup through the authenticated, operator-configured backend. */
+import { z } from 'zod'
+import { getApiUrl } from './env'
 
-export interface GeocodingResult {
-  display_name: string
-  lat: string
-  lon: string
-  address?: {
-    road?: string
-    house_number?: string
-    postcode?: string
-    city?: string
-    town?: string
-    village?: string
-    municipality?: string
-    state?: string
-    country?: string
-  }
-  importance?: number
-}
-
-export interface SearchResult {
-  id: string
-  display_name: string
-  lat: number
-  lon: number
-  formattedAddress: string
-}
-
-const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org'
-const USER_AGENT = 'KP-Rueck/1.0' // Required by Nominatim usage policy
-
-/**
- * Format a Nominatim result into a concise, natural address
- * Example: "Löchlimattstrasse 1, 4104 Oberwil" (not the full OSM display_name)
- * ALWAYS returns a short, clean address - never the full display_name
- */
-function formatNaturalAddress(result: GeocodingResult): string {
-  const addr = result.address
-
-  // Try to build from structured address data first
-  if (addr) {
-    const parts: string[] = []
-
-    // Street and house number
-    if (addr.road && addr.house_number) {
-      parts.push(`${addr.road} ${addr.house_number}`)
-    } else if (addr.road) {
-      parts.push(addr.road)
-    }
-
-    // City with postcode
-    const city = addr.city || addr.town || addr.village || addr.municipality
-    if (city && addr.postcode) {
-      parts.push(`${addr.postcode} ${city}`)
-    } else if (city) {
-      parts.push(city)
-    }
-
-    // If we got meaningful parts, return them (max 2 parts)
-    if (parts.length > 0) {
-      return parts.slice(0, 2).join(', ')
-    }
-  }
-
-  // Fallback: aggressively truncate display_name
-  return truncateDisplayName(result.display_name)
-}
-
-/**
- * Aggressively truncate OSM display_name to ONLY street + city
- * Example: "1, Löchlimattstrasse, Im Goldbrunnen, Oberwil, Bezirk Arlesheim, Basel-Landschaft, 4104, Switzerland"
- * Becomes: "Löchlimattstrasse, Oberwil"
- */
-function truncateDisplayName(displayName: string): string {
-  const parts = displayName.split(',').map(p => p.trim())
-
-  // If already short, return as-is
-  if (parts.length <= 2) {
-    return displayName
-  }
-
-  // Extract meaningful parts:
-  // Usually OSM format: [house_number, street, district/area, city, region, postcode, country]
-  // We want: street + city only
-
-  let streetPart = parts[0]
-  let cityPart = parts[parts.length - 3] || parts[parts.length - 2]
-
-  // Skip house number if it's the first part (just digits)
-  if (streetPart.match(/^\d+$/)) {
-    streetPart = parts[1] || streetPart
-  }
-
-  // Find the actual city (avoid "Bezirk X" or regions)
-  for (let i = parts.length - 4; i >= 2 && i < parts.length - 1; i++) {
-    const part = parts[i]
-    // Skip if it looks like a region/district (contains "Bezirk" or is too long)
-    if (!part.includes('Bezirk') && !part.includes('Landschaft') && part.length < 30) {
-      cityPart = part
-      break
-    }
-  }
-
-  // Clean result
-  const result = `${streetPart}, ${cityPart}`
-
-  // Final safety: if still too long (>60 chars), truncate hard
-  if (result.length > 60) {
-    return result.substring(0, 57) + '...'
-  }
-
-  return result
-}
+const suggestionSchema = z.object({
+  id: z.string(),
+  display_name: z.string(),
+  lat: z.number().finite().min(-90).max(90),
+  lon: z.number().finite().min(-180).max(180),
+  formattedAddress: z.string(),
+  attribution: z.string().optional(),
+})
+export type SearchResult = z.infer<typeof suggestionSchema>
 
 interface SearchOptions {
-  /**
-   * Station center as [lon, lat] — results are biased towards it and sorted by
-   * distance from it. Comes from the firestation_latitude/firestation_longitude
-   * settings, so every station biases towards its own area.
-   */
   stationCenter?: [number, number]
-  /** Custom viewbox to prioritize [minLon, minLat, maxLon, maxLat] */
   viewbox?: [number, number, number, number]
-  /**
-   * ISO 3166-1 alpha-2 codes Nominatim restricts to, comma-separated. Defaults
-   * to Switzerland because that is where the stations running this are; a
-   * deployment across the border overrides it rather than patching this file.
-   */
   countryCodes?: string
+  signal?: AbortSignal
+}
+
+/** Field cookies are scoped to /feld; forward the bound device credential in a header. */
+function requestHeaders(): Headers {
+  const headers = new Headers()
+  if (typeof document !== 'undefined') {
+    const token = document.cookie.split(';').map(part => part.trim())
+      .find(part => part.startsWith('feld-device-token='))?.slice('feld-device-token='.length)
+    if (token) headers.set('X-Feld-Token', token)
+  }
+  return headers
+}
+
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    signal.throwIfAborted()
+    const abort = () => { clearTimeout(timer); reject(signal.reason) }
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve() }, ms)
+    signal.addEventListener('abort', abort, { once: true })
+  })
+}
+
+/** Bound retries and elapsed time; superseded searches cancel both fetch and retry waits. */
+async function lookup(path: string, params: URLSearchParams, callerSignal?: AbortSignal): Promise<unknown> {
+  const controller = new AbortController()
+  const { signal } = controller
+  const abortFromCaller = () => controller.abort(callerSignal?.reason)
+  if (callerSignal?.aborted) abortFromCaller()
+  else callerSignal?.addEventListener('abort', abortFromCaller, { once: true })
+  // A single deadline covers fetch, response consumption, and every retry wait.
+  const timeout = setTimeout(() => controller.abort(new DOMException('Address lookup timed out', 'TimeoutError')), 10_000)
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      signal.throwIfAborted()
+      const response = await fetch(`${getApiUrl()}/api/geocoding/${path}?${params}`, {
+        credentials: 'include', headers: requestHeaders(), signal,
+      })
+      if (response.status === 429 && attempt < 2) {
+        const retry = Number(response.headers.get('Retry-After') ?? 2)
+        await pause(Math.min(3, Math.max(1, Number.isFinite(retry) ? retry : 2)) * 1000, signal)
+        continue
+      }
+      if (!response.ok) return null
+      return await response.json()
+    }
+    return null
+  } finally {
+    clearTimeout(timeout)
+    callerSignal?.removeEventListener('abort', abortFromCaller)
+  }
 }
 
 const DEFAULT_COUNTRY_CODES = 'ch'
@@ -173,113 +110,39 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c
 }
 
-/**
- * Search for addresses using Nominatim
- * Returns natural formatted addresses prioritizing Basel-Landschaft region
- * Optionally prioritizes results near a home city
- */
+/** Search results retain the configured station's distance ordering. */
 export async function searchAddress(query: string, options?: SearchOptions): Promise<SearchResult[]> {
-  if (!query || query.trim().length < 3) {
-    return []
-  }
-
-  // Determine viewbox based on options. With no station coordinates configured
-  // there is nothing honest to bias towards, so the search stays unweighted
-  // rather than pulling every station's results towards one region.
-  let viewbox: string | null = null
-  if (options?.viewbox) {
-    viewbox = options.viewbox.join(',')
-  } else if (options?.stationCenter) {
-    viewbox = getViewboxForCenter(options.stationCenter)
-  }
-
+  const trimmed = query.trim()
+  if (trimmed.length < 3 || trimmed.length > 200) return []
+  const params = new URLSearchParams({ q: trimmed, countrycodes: options?.countryCodes || DEFAULT_COUNTRY_CODES })
+  const viewbox = options?.viewbox?.join(',') ?? (options?.stationCenter ? getViewboxForCenter(options.stationCenter) : null)
+  if (viewbox) params.set('viewbox', viewbox)
   try {
-    const params = new URLSearchParams({
-      q: query,
-      format: 'json',
-      addressdetails: '1',
-      limit: '10',
-      countrycodes: options?.countryCodes || DEFAULT_COUNTRY_CODES,
-    })
-    if (viewbox) {
-      params.set('viewbox', viewbox)
-      params.set('bounded', '0') // Don't strictly limit to viewbox, but prioritize it
-    }
-
-    const response = await fetch(`${NOMINATIM_BASE_URL}/search?${params}`, {
-      headers: {
-        'User-Agent': USER_AGENT,
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Nominatim search failed: ${response.statusText}`)
-    }
-
-    const results: GeocodingResult[] = await response.json()
-
-    // Map results to SearchResult format
-    let searchResults = results.map((result, index) => ({
-      id: `${result.lat}-${result.lon}-${index}`,
-      display_name: result.display_name,
-      lat: parseFloat(result.lat),
-      lon: parseFloat(result.lon),
-      formattedAddress: formatNaturalAddress(result),
-    }))
-
-    // Sort results by proximity to the station, when we know where it is
+    const parsed = suggestionSchema.array().max(10).safeParse(await lookup('search', params, options?.signal))
+    if (!parsed.success) return []
     if (options?.stationCenter) {
-      const [centerLon, centerLat] = options.stationCenter
-      searchResults = searchResults.sort((a, b) => {
-        const distA = calculateDistance(a.lat, a.lon, centerLat, centerLon)
-        const distB = calculateDistance(b.lat, b.lon, centerLat, centerLon)
-        return distA - distB
-      })
+      const [lon, lat] = options.stationCenter
+      parsed.data.sort((a, b) => calculateDistance(a.lat, a.lon, lat, lon) - calculateDistance(b.lat, b.lon, lat, lon))
     }
-
-    return searchResults
-  } catch (error) {
-    console.error('Geocoding search error:', error)
+    return parsed.data
+  } catch {
+    // Unavailable providers and cancelled searches leave manual location entry usable.
     return []
   }
 }
 
-/**
- * Forward geocoding: Convert address to coordinates
- * Returns the best match
- */
-export async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
-  const results = await searchAddress(address)
+export async function geocodeAddress(address: string, options?: SearchOptions): Promise<{ lat: number; lon: number } | null> {
+  const results = await searchAddress(address, options)
   return results.length > 0 ? { lat: results[0].lat, lon: results[0].lon } : null
 }
 
-/**
- * Reverse geocoding: Convert coordinates to address
- */
-export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+export async function reverseGeocode(lat: number, lon: number, signal?: AbortSignal): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null
   try {
-    const params = new URLSearchParams({
-      lat: lat.toString(),
-      lon: lon.toString(),
-      format: 'json',
-      addressdetails: '1',
-      zoom: '18', // Street level detail
-    })
-
-    const response = await fetch(`${NOMINATIM_BASE_URL}/reverse?${params}`, {
-      headers: {
-        'User-Agent': USER_AGENT,
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Nominatim reverse geocoding failed: ${response.statusText}`)
-    }
-
-    const result: GeocodingResult = await response.json()
-    return formatNaturalAddress(result)
-  } catch (error) {
-    console.error('Reverse geocoding error:', error)
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lon) })
+    const parsed = z.object({ address: z.string().nullable() }).safeParse(await lookup('reverse', params, signal))
+    return parsed.success ? parsed.data.address : null
+  } catch {
     return null
   }
 }

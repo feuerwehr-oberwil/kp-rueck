@@ -1250,6 +1250,7 @@
     },
     "view": {
       "markerAria": "Einsatz: {label}",
+      "trailTooltip": "{vehicle} – letzte {minutes} Min.",
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
@@ -1257,13 +1258,15 @@
       "clickToExpand": "Klicken zum Erweitern",
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Erneut versuchen",
-      "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren"
+      "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
+      "glLost": "Die Kartendarstellung wurde vom Browser beendet."
     },
     "legend": {
       "show": "Legende anzeigen",
       "hide": "Legende ausblenden",
       "title": "Legende",
       "priority": "Priorität",
+      "noIncidents": "Keine Einsätze",
       "statusFrame": "Status (Rahmen)",
       "statusOpen": "Offen",
       "statusActive": "Aktiv",
@@ -1301,7 +1304,6 @@
       "supportedFormats": "Unterstützte Formate: Dezimal (47.5164, 7.5618), Swiss LV95 (2621234, 1260789), DMS (47°31'2.96\"N), Google Maps URL"
     },
     "mapPicker": {
-      "loading": "Karte wird geladen …",
       "title": "Einsatzort auf Karte wählen",
       "description": "Klicke auf die Karte, um den Einsatzort zu markieren",
       "searchingAddress": "Adresse wird gesucht …",
@@ -2561,6 +2563,7 @@
       "ortCol": "Ort"
     },
     "map": {
+      "loadFailed": "Karte konnte nicht geladen werden. Ohne Karte drucken oder später erneut versuchen.",
       "noCoordinates": "Keine Einsätze mit Koordinaten vorhanden",
       "loading": "Karte wird geladen …",
       "legendHigh": "Hoch",

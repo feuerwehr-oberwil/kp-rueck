@@ -49,3 +49,26 @@ def test_changelog_documents_the_current_version():
     """A released version must have notes; an in-progress bump must not be tagged yet."""
     changelog = (ROOT / "CHANGELOG.md").read_text()
     assert f"## [{settings.version}]" in changelog, f"CHANGELOG.md has no section for {settings.version}"
+
+
+def test_install_template_pins_the_complete_release():
+    template = (ROOT / ".env.example").read_text()
+    assert re.search(r"(?m)^KP_RUECK_TAG=(.*)$", template).group(1) == settings.version
+    compose = (ROOT / "docker-compose.yml").read_text()
+    assert "KP_RUECK_TAG:-latest" not in compose
+    assert compose.count("${KP_RUECK_TAG:?set exact release version KP_RUECK_TAG in .env}") == 4
+
+
+def test_release_bump_updates_install_pin(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("release_script", ROOT / "scripts/release.py")
+    release = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(release)
+    for relative, _, _ in release.VERSION_FILES:
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text((ROOT / relative).read_text())
+    release.ROOT = tmp_path
+    release.bump_files("8.9.10", settings.version)
+    assert "KP_RUECK_TAG=8.9.10\n" in (tmp_path / ".env.example").read_text()

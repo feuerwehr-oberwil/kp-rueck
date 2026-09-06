@@ -4,8 +4,8 @@
  * useRoutePlanning — shared Auftrag (incident group) routing logic for both the
  * Routen-Editor modal (Phase 2) and the `/map` Routenplanung mode (Phase 3).
  *
- * Leaflet-free by design (only pure geo helpers), so it can live in any client
- * component without dragging leaflet into an SSR path.
+ * Map-engine-free by design (only pure geo helpers), so it can live in any client
+ * component without dragging MapLibre into an SSR path.
  *
  * Exposes, for one group:
  * - `group`, `stopIds`, `orderedStops` (id + resolved Operation in group order)

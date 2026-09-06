@@ -23,11 +23,12 @@ import asyncio
 import os
 from uuid import UUID, uuid4
 
-import bcrypt
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models
+from .auth.config import auth_settings
+from .auth.security import hash_password, verify_password
 from .database import async_session_maker
 
 
@@ -41,17 +42,22 @@ async def ensure_viewer_account() -> None:
     # shortened after the first boot was accepted silently – against what .env.example
     # promises. Refuse it, but do NOT raise: this runs on every boot, and taking the whole
     # board down over the read-only kiosk password is the worse failure of the two.
-    if len(viewer_password) < 12:
+    minimum_length = max(12, auth_settings.MIN_PASSWORD_LENGTH)
+    if len(viewer_password) < minimum_length:
         print(
-            f"VIEWER_PASSWORD is {len(viewer_password)} characters – at least 12 are required. "
+            f"VIEWER_PASSWORD is {len(viewer_password)} characters – at least {minimum_length} are required. "
             "Leaving the viewer account unchanged; fix it in .env and restart."
         )
         return
 
-    password_hash = bcrypt.hashpw(viewer_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    if len(viewer_password) > auth_settings.MAX_PASSWORD_LENGTH or len(viewer_password.encode("utf-8")) > 72:
+        print(
+            "VIEWER_PASSWORD exceeds the configured length or bcrypt byte limit. Leaving the viewer account unchanged."
+        )
+        return
 
     async with async_session_maker() as db:
-        result = await db.execute(select(models.User).where(models.User.username == "viewer"))
+        result = await db.execute(select(models.User).where(models.User.username == "viewer").with_for_update())
         viewer = result.scalar_one_or_none()
 
         if viewer is None:
@@ -59,7 +65,7 @@ async def ensure_viewer_account() -> None:
                 models.User(
                     id=uuid4(),
                     username="viewer",
-                    password_hash=password_hash,
+                    password_hash=hash_password(viewer_password),
                     role="viewer",
                     display_name="Betrachter",
                     is_active=True,
@@ -67,12 +73,25 @@ async def ensure_viewer_account() -> None:
             )
             print("Created read-only viewer account from VIEWER_PASSWORD")
         else:
-            # Env var is the source of truth – keep the account read-only + active
-            # and sync its password so it can be rotated via a redeploy.
-            viewer.password_hash = password_hash
+            # A salted hash changes even for the same password. Compare the
+            # password itself so ordinary restarts preserve existing sessions.
+            try:
+                unchanged = viewer.password_hash is not None and verify_password(viewer_password, viewer.password_hash)
+            except ValueError:
+                unchanged = False  # Replace an unusable legacy hash.
+            if not unchanged:
+                await db.execute(
+                    update(models.User)
+                    .where(models.User.id == viewer.id)
+                    .values(
+                        password_hash=hash_password(viewer_password),
+                        session_version=models.User.session_version + 1,
+                    )
+                )
+            # The environment remains authoritative for role and active state.
             viewer.role = "viewer"
             viewer.is_active = True
-            print("Synced viewer account password/role from VIEWER_PASSWORD")
+            print("Synced viewer account from VIEWER_PASSWORD" + (" (password unchanged)" if unchanged else ""))
 
         await db.commit()
 

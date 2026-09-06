@@ -395,21 +395,13 @@ class TestCreateUser:
         assert result.scalar_one_or_none() is None
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "BUG: the password policy is enforced inside hash_password(), which raises "
-            "ValueError, not HTTPException. A password shorter than MIN_PASSWORD_LENGTH "
-            "therefore escapes as an unhandled exception (500 'Interner Serverfehler') "
-            "instead of a 4xx the admin form could show. Same for reset-password."
-        ),
-    )
     async def test_short_password_is_a_client_error(self, admin_client: AsyncClient):
         response = await admin_client.post(
             "/api/users/",
             json={"username": "kurzes_passwort", "password": "kurz", "role": "editor"},
         )
-        assert response.status_code < 500
+        assert response.status_code == 400
+        assert "kurz" not in response.text
 
 
 # ============================================
@@ -664,16 +656,6 @@ class TestResetPassword:
         assert unchanged is not None and unchanged.password_hash == old_hash
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "SECURITY: a password reset does not revoke the target's existing tokens. "
-            "The reason an admin resets a password is usually that the account is "
-            "compromised, but a stolen access cookie keeps working until it expires "
-            "(8 h) — nothing puts its jti in the blocklist. Fix belongs in "
-            "api/users.py::reset_user_password, not in this test."
-        ),
-    )
     async def test_reset_ends_the_targets_open_session(self, admin_client: AsyncClient, target_user: User):
         async with logged_in("ziel_benutzer", TEST_PASSWORD) as their_session:
             assert (await their_session.get("/api/auth/me")).status_code == 200
@@ -824,3 +806,191 @@ class TestDeleteUser:
         entries = await user_audit_entries(db_session, deleted_id)
         assert [e.action_type for e in entries] == ["delete"]
         assert entries[0].changes_json == {"username": "ziel_benutzer", "action": "permanently_deleted"}
+
+
+@pytest.mark.parametrize("password", ["kurz", "a" * 73, "ä" * 37])
+async def test_invalid_reset_preserves_password_version_and_active_session(
+    admin_client, target_user, db_session, password
+):
+    user_id = target_user.id
+    old_hash = target_user.password_hash
+    old_version = target_user.session_version
+    async with logged_in(target_user.username, TEST_PASSWORD) as target_session:
+        response = await admin_client.post(f"/api/users/{user_id}/reset-password", json={"new_password": password})
+        assert response.status_code == 400
+        assert password not in response.text
+        stored = await stored_user(db_session, user_id)
+        assert stored.password_hash == old_hash
+        assert stored.session_version == old_version
+        assert (await target_session.get("/api/auth/me")).status_code == 200
+        assert (await target_session.post("/api/auth/refresh")).status_code == 200
+
+
+@pytest.mark.parametrize("soft_delete", [False, True])
+async def test_reactivation_does_not_restore_previous_sessions(admin_client, target_user, db_session, soft_delete):
+    user_id = target_user.id
+    async with logged_in(target_user.username, TEST_PASSWORD) as target_session:
+        if soft_delete:
+            disabled = await admin_client.delete(f"/api/users/{user_id}")
+        else:
+            disabled = await admin_client.put(f"/api/users/{user_id}", json={"is_active": False})
+        assert disabled.status_code in (200, 204)
+        stored = await stored_user(db_session, user_id)
+        assert stored.session_version == 1
+        assert (await admin_client.put(f"/api/users/{user_id}", json={"is_active": False})).status_code == 200
+        stored = await stored_user(db_session, user_id)
+        assert stored.session_version == 1  # Repeating deactivation is not another transition.
+        assert (await admin_client.put(f"/api/users/{user_id}", json={"is_active": True})).status_code == 200
+        assert (await target_session.get("/api/auth/me")).status_code == 401
+        assert (await target_session.post("/api/auth/refresh")).status_code == 401
+
+
+async def test_concurrent_resets_increment_version_without_losing_an_invalidation(test_engine, monkeypatch):
+    """Two HTTP requests read epoch zero, then their independent transactions both advance it."""
+    import asyncio
+
+    from sqlalchemy import Update, delete
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.auth.security import create_login_tokens, verify_password
+    from app.database import get_db
+    from app.middleware.audit import _inflight_audit_tasks
+
+    admin_id, target_id = uuid.uuid4(), uuid.uuid4()
+    passwords = ("FirstConcurrentPassword123", "SecondConcurrentPassword123")
+    ready = asyncio.Event()
+    arrivals = 0
+
+    class ConcurrentSession(AsyncSession):
+        async def execute(self, statement, *args, **kwargs):
+            nonlocal arrivals
+            if isinstance(statement, Update) and statement.table.name == "users":
+                arrivals += 1
+                if arrivals == 2:
+                    ready.set()
+                await asyncio.wait_for(ready.wait(), timeout=5)
+            return await super().execute(statement, *args, **kwargs)
+
+    sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    prior_audit_tasks = set(_inflight_audit_tasks)
+    async with sessions() as db:
+        prior_audit_ids = set(await db.scalars(select(AuditLog.id)))
+    request_sessions = async_sessionmaker(test_engine, class_=ConcurrentSession, expire_on_commit=False)
+    async with sessions() as db:
+        db.add_all(
+            [
+                User(id=admin_id, username=f"reset-admin-{admin_id}", password_hash=None, role="admin"),
+                User(id=target_id, username=f"reset-target-{target_id}", password_hash=None, role="editor"),
+            ]
+        )
+        await db.commit()
+
+    async def request_db():
+        async with request_sessions() as db:
+            yield db
+
+    monkeypatch.setitem(app.dependency_overrides, get_db, request_db)
+    access, _ = create_login_tokens({"sub": str(admin_id), "role": "admin"})
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.cookies.set("access_token", access)
+            responses = await asyncio.wait_for(
+                asyncio.gather(
+                    *(
+                        client.post(f"/api/users/{target_id}/reset-password", json={"new_password": password})
+                        for password in passwords
+                    )
+                ),
+                timeout=10,
+            )
+            assert [response.status_code for response in responses] == [204, 204]
+        async with sessions() as db:
+            target = await db.get(User, target_id)
+            assert target.session_version == 2
+            assert any(verify_password(password, target.password_hash) for password in passwords)
+    finally:
+        # The independent requests also commit anonymous API audit rows. Drain
+        # their tasks and remove only new IDs; other tests are sequential within
+        # this worker and every earlier committed audit row must remain intact.
+        await asyncio.gather(*(_inflight_audit_tasks - prior_audit_tasks))
+        async with sessions() as db:
+            await db.execute(delete(AuditLog).where(AuditLog.id.not_in(prior_audit_ids)))
+            await db.execute(delete(User).where(User.id.in_([admin_id, target_id])))
+            await db.commit()
+
+
+async def test_password_login_overlapping_reset_cannot_inherit_new_epoch(test_engine, monkeypatch):
+    """A password verified before a concurrent reset can only mint the old, revoked epoch."""
+    import asyncio
+
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.auth.security import create_login_tokens, decode_token
+    from app.database import get_db
+    from app.middleware.audit import _inflight_audit_tasks
+
+    admin_id, target_id = uuid.uuid4(), uuid.uuid4()
+    target_name = f"login-race-{target_id}"
+    sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    prior_audit_tasks = set(_inflight_audit_tasks)
+    async with sessions() as db:
+        prior_audit_ids = set(await db.scalars(select(AuditLog.id)))
+    verified = asyncio.Event()
+    release_login = asyncio.Event()
+    async with sessions() as db:
+        db.add_all(
+            [
+                User(id=admin_id, username=f"race-admin-{admin_id}", password_hash=None, role="admin"),
+                User(id=target_id, username=target_name, password_hash=hash_password(TEST_PASSWORD), role="editor"),
+            ]
+        )
+        await db.commit()
+
+    async def request_db():
+        async with sessions() as db:
+            yield db
+
+    original_success = login_throttle.record_success
+
+    async def pause_verified_login(client_ip, username):
+        if username == target_name:
+            verified.set()
+            await release_login.wait()
+        await original_success(client_ip, username)
+
+    monkeypatch.setitem(app.dependency_overrides, get_db, request_db)
+    monkeypatch.setattr(login_throttle, "record_success", pause_verified_login)
+    access, _ = create_login_tokens({"sub": str(admin_id), "role": "admin"})
+    login_task = None
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            client.cookies.set("access_token", access, domain="test.local")
+            login_task = asyncio.create_task(
+                client.post("/api/auth/login", data={"username": target_name, "password": TEST_PASSWORD})
+            )
+            await asyncio.wait_for(verified.wait(), timeout=5)
+            reset = await client.post(f"/api/users/{target_id}/reset-password", json={"new_password": NEW_PASSWORD})
+            assert reset.status_code == 204
+            release_login.set()
+            login = await asyncio.wait_for(login_task, timeout=5)
+            assert login.status_code == 200
+            for cookie in ("access_token", "refresh_token"):
+                assert decode_token(login.cookies[cookie])["user_session_version"] == 0
+            assert (await client.get("/api/auth/me")).status_code == 401
+            assert (await client.post("/api/auth/refresh")).status_code == 401
+        async with sessions() as db:
+            assert (await db.get(User, target_id)).session_version == 1
+    finally:
+        release_login.set()
+        if login_task is not None and not login_task.done():
+            login_task.cancel()
+            await asyncio.gather(login_task, return_exceptions=True)
+        # The independent requests also commit anonymous API audit rows. Drain
+        # their tasks and remove only new IDs; other tests are sequential within
+        # this worker and every earlier committed audit row must remain intact.
+        await asyncio.gather(*(_inflight_audit_tasks - prior_audit_tasks))
+        async with sessions() as db:
+            await db.execute(delete(AuditLog).where(AuditLog.id.not_in(prior_audit_ids)))
+            await db.execute(delete(User).where(User.id.in_([admin_id, target_id])))
+            await db.commit()

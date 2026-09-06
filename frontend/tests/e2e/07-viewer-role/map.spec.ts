@@ -34,7 +34,7 @@ test.describe('Viewer role — map', () => {
     authenticatedPage,
     viewerPage,
   }) => {
-    await expect(authenticatedPage.locator('.leaflet-container')).toBeVisible({
+    await expect(authenticatedPage.locator('[data-testid="base-map"]')).toBeVisible({
       timeout: 20_000,
     });
     expect(new URL(authenticatedPage.url()).pathname).toBe('/map');
@@ -56,7 +56,7 @@ test.describe('Viewer role — map', () => {
       authenticatedPage.getByRole('button', { name: 'Reko-Modus' }),
     ).toBeVisible();
 
-    await expect(viewerPage.locator('.leaflet-container')).toBeVisible({
+    await expect(viewerPage.locator('[data-testid="base-map"]')).toBeVisible({
       timeout: 20_000,
     });
     await expect(viewerPage.getByRole('button', { name: 'Routenplanung' })).toHaveCount(0);
@@ -87,7 +87,7 @@ test.describe('Viewer role — map', () => {
     // board hands an incident over to the map — so it is the one URL that could
     // plausibly be a second door. It opens for an editor and not for a viewer.
     await authenticatedPage.goto(`/map?highlight=${fixture.eventId}`);
-    await expect(authenticatedPage.locator('.leaflet-container')).toBeVisible({
+    await expect(authenticatedPage.locator('[data-testid="base-map"]')).toBeVisible({
       timeout: 20_000,
     });
     expect(new URL(authenticatedPage.url()).pathname).toBe('/map');

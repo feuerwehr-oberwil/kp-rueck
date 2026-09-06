@@ -1,10 +1,8 @@
 /**
  * Routen-Editor tests.
  *
- * Rendering the full RoutenEditorModal is impractical in jsdom — it require()s
- * leaflet, react-leaflet, leaflet CSS and images behind an `isClient` guard, none
- * of which mount under jsdom. Per the plan, the modal's substance is tested where
- * it actually lives:
+ * A mocked map checks replacement-instance fitting without WebGL. The modal's
+ * route-planning substance is tested where it actually lives:
  *   1. "Reihenfolge optimieren" — the pure greedy nearest-neighbour in
  *      `useRoutePlanning.optimize` (+ `route-geo`), driven through the hook.
  *   2. Reorder-persist + the resource drop contract — via `RouteStopList`, the
@@ -13,6 +11,7 @@
  * drop-target callbacks deterministically instead of simulating a jsdom drag.
  */
 
+import { useEffect, useState } from "react"
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { renderHook, render, waitFor, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -20,6 +19,15 @@ import { NextIntlClientProvider } from "next-intl"
 import de from "@/messages/de.json"
 
 import type { Operation } from "@/lib/contexts/operations-context"
+
+const maps = vi.hoisted(() => [] as { fitBounds: ReturnType<typeof vi.fn>; jumpTo: ReturnType<typeof vi.fn> }[])
+vi.mock("@/components/map/base-map", () => ({
+  BaseMap: function FakeBaseMap({ onLoad }: { onLoad: (map: unknown) => void }) {
+    const [map] = useState(() => ({ fitBounds: vi.fn(), jumpTo: vi.fn() }))
+    useEffect(() => { maps.push(map); onLoad(map) }, [map, onLoad])
+    return <div data-testid="route-editor-map" />
+  },
+}))
 
 // --- Fixtures ---------------------------------------------------------------
 
@@ -103,6 +111,7 @@ vi.mock("@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box", () => ({
 }))
 
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { RoutenEditorModal } from "./routen-editor-modal"
 import { RouteStopList } from "@/components/map/route-stop-list"
 
 beforeEach(() => {
@@ -258,4 +267,25 @@ describe("StopStatusControl — terminal completion", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Abgeschlossen" }))
     expect(onSetStatus).not.toHaveBeenCalled()
   })
+})
+
+
+it("fits a replacement map after the groups provider clears and reloads", async () => {
+  const group = { id: "g1", name: "Synthetic route", stopIds: ["A", "B"], mode: "squad" }
+  rp.groups = [group]
+  rp.operations = [makeOp("A"), makeOp("B")]
+  maps.length = 0
+  const modal = () => <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Zurich">
+    <RoutenEditorModal open onOpenChange={vi.fn()} groupId="g1" canEdit={false} />
+  </NextIntlClientProvider>
+  const { rerender } = render(modal())
+  await waitFor(() => expect(maps.at(-1)?.fitBounds).toHaveBeenCalledOnce())
+  const first = maps.at(-1)
+  rp.groups = []
+  rerender(modal())
+  expect(screen.queryByTestId("route-editor-map")).not.toBeInTheDocument()
+  rp.groups = [group]
+  rerender(modal())
+  await waitFor(() => expect(maps.at(-1)).not.toBe(first))
+  expect(maps.at(-1)?.fitBounds).toHaveBeenCalledOnce()
 })

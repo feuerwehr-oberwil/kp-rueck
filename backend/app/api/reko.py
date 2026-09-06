@@ -48,6 +48,7 @@ logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.photo_storage import photo_storage
 from ..services.tokens import (
+    decode_form_token,
     generate_feld_token,
     generate_form_token,
     validate_form_token,
@@ -57,6 +58,32 @@ from ..services.tokens import (
 router = APIRouter(prefix="/reko", tags=["reko"])
 
 
+async def _require_form_token(
+    db: AsyncSession,
+    token: str,
+    incident_id: uuid.UUID,
+    personnel_id: uuid.UUID | None = None,
+) -> uuid.UUID | None:
+    """Validate form scope and the live field device behind any derived credential."""
+    claims = decode_form_token(token, str(incident_id))
+    if claims is None:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    binding = claims.field_binding
+    if binding is None:
+        # Standalone board-issued links have no field device to revoke.
+        return personnel_id
+    from ..crud.feld import claim_is_live
+
+    if not await claim_is_live(db, binding.claim_id, binding.event_id, binding.personnel_id):
+        raise HTTPException(status_code=401, detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.")
+    incident = await db.get(Incident, incident_id)
+    if incident is None or incident.event_id != binding.event_id:
+        raise HTTPException(status_code=401, detail="Ungültiger Zugriffscode")
+    if personnel_id is not None and personnel_id != binding.personnel_id:
+        raise HTTPException(status_code=403, detail="Der Zugriffscode gehört zu einer anderen Person.")
+    return binding.personnel_id
+
+
 async def _require_user_or_form_token(
     request: Request,
     incident_id: uuid.UUID,
@@ -64,8 +91,10 @@ async def _require_user_or_form_token(
     access_token: str | None,
     authorization: str | None,
     db: AsyncSession,
+    *,
+    write: bool = False,
 ) -> User | None:
-    """Allow a valid reko form token for this incident OR any logged-in user.
+    """Allow a scoped form token or a session with the required read/write role.
 
     Field crews open reko links without an account; operators view/edit
     reports from the cookie-authenticated board. Raises 401 otherwise.
@@ -75,8 +104,12 @@ async def _require_user_or_form_token(
     door instead of re-derived by every handler (plan 26 §5.1).
     """
     if reko_token and validate_form_token(reko_token, str(incident_id)):
+        await _require_form_token(db, reko_token, incident_id)
         return None
-    return await get_current_user(request, access_token, authorization, db)
+    user = await get_current_user(request, access_token, authorization, db)
+    if write and user.role not in ("editor", "admin"):
+        raise HTTPException(status_code=403, detail="Editor-Berechtigung erforderlich")
+    return user
 
 
 @router.get("/form", response_model=schemas.RekoReportResponse)
@@ -98,6 +131,7 @@ async def get_reko_form(
 
     Returns existing draft or creates new one.
     """
+    personnel_id = await _require_form_token(db, token, incident_id, personnel_id)
     try:
         report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
 
@@ -157,7 +191,13 @@ async def submit_reko_report(
         raise HTTPException(status_code=400, detail="Invalid token")
 
     user = await _require_user_or_form_token(
-        request, report_data.incident_id, field_token, access_token, authorization, db
+        request,
+        report_data.incident_id,
+        field_token,
+        access_token,
+        authorization,
+        db,
+        write=True,
     )
 
     # Get or create report. The token resolves the reporting *person*; the board
@@ -167,7 +207,8 @@ async def submit_reko_report(
         if user is not None:
             report = await crud.get_or_create_kp_reko_report(db, report_data.incident_id, user)
         elif field_token is not None:
-            report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token)
+            personnel_id = await _require_form_token(db, field_token, report_data.incident_id)
+            report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token, personnel_id)
         else:
             # Unreachable — the helper returns None only when a token opened the
             # door — but it is what narrows the token for the type checker.
@@ -242,8 +283,28 @@ async def update_report(
         raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
 
     user = await _require_user_or_form_token(
-        request, existing.incident_id, x_reko_token, access_token, authorization, db
+        request,
+        existing.incident_id,
+        x_reko_token,
+        access_token,
+        authorization,
+        db,
+        write=True,
     )
+
+    if user is None:
+        # Form links resume their own report; only operators can amend another
+        # crew's row. Incident scope alone does not establish report ownership.
+        claims = decode_form_token(x_reko_token, str(existing.incident_id)) if x_reko_token else None
+        if (
+            claims is None
+            or existing.token != x_reko_token
+            or (
+                claims.field_binding is not None
+                and existing.submitted_by_personnel_id != claims.field_binding.personnel_id
+            )
+        ):
+            raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Bericht.")
 
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
@@ -365,6 +426,7 @@ async def mark_reko_arrived(
 
     Returns the updated reko report with arrived_at timestamp.
     """
+    await _require_form_token(db, token, incident_id)
     try:
         report = await crud.mark_reko_arrived(db, incident_id, token)
 
@@ -542,7 +604,15 @@ async def _photo_report(
     if field_token is None:
         # Unreachable: the door helper returns None only for a valid token.
         raise HTTPException(status_code=401, detail=ErrorMessages.INVALID_REQUEST)
-    return await crud.get_or_create_reko_report(db, incident_id, field_token)
+    personnel_id = await _require_form_token(db, field_token, incident_id)
+    return await crud.get_or_create_reko_report(db, incident_id, field_token, personnel_id)
+
+
+async def _lock_photo_report(db: AsyncSession, report: RekoReport) -> None:
+    """Serialize photo list changes with incident prefill and refresh stale rows."""
+    # Resolving a new draft may have committed, so always reacquire the lock.
+    await db.execute(select(Incident.id).where(Incident.id == report.incident_id).with_for_update())
+    await db.refresh(report)
 
 
 @router.post("/{incident_id}/photos", response_model=None)
@@ -586,7 +656,9 @@ async def upload_photo(
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
         raise HTTPException(status_code=400, detail="Invalid token")
 
-    user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, authorization, db)
+    user = await _require_user_or_form_token(
+        request, incident_id, x_reko_token, access_token, authorization, db, write=True
+    )
 
     # Demo mode: limit file size to 1MB and total photos to 15
     if settings.demo_mode:
@@ -616,6 +688,8 @@ async def upload_photo(
     except ValueError as e:
         logger.warning("Reko photo upload failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+
+    await _lock_photo_report(db, report)
 
     # Save photo
     filename = await photo_storage.save_photo(
@@ -664,7 +738,9 @@ async def delete_photo(
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
         raise HTTPException(status_code=400, detail="Invalid token")
 
-    user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, authorization, db)
+    user = await _require_user_or_form_token(
+        request, incident_id, x_reko_token, access_token, authorization, db, write=True
+    )
 
     try:
         report = await _photo_report(db, incident_id, user, x_reko_token, report_id)
@@ -672,17 +748,28 @@ async def delete_photo(
         logger.warning("Reko photo delete failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
+    await _lock_photo_report(db, report)
+
     # Check if photo exists in report
     current_photos = report.photos_json if report.photos_json else []
     if filename not in current_photos:
         raise HTTPException(status_code=404, detail="Photo not found in report")
 
-    # Delete from disk
-    photo_storage.delete_photo(incident_id, filename)
-
-    # Remove from report (even if file was already deleted from disk)
+    # Follow-up drafts inherit photos from earlier submissions. Unlinking one
+    # report must preserve the file while any other report still references it.
     report.photos_json = [p for p in current_photos if p != filename]
+    await db.flush()
+    referenced = await db.scalar(
+        select(RekoReport.id)
+        .where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.photos_json.contains([filename]),
+        )
+        .limit(1)
+    )
     await db.commit()
+    if referenced is None:
+        photo_storage.delete_photo(incident_id, filename)
 
     return {"success": True}
 
@@ -722,12 +809,22 @@ async def _viewer_token_may_see_photo(
     return any(filename in (photos or []) for photos in result.scalars())
 
 
-@photos_router.get("/{incident_id}/{filename}")
+@photos_router.get(
+    "/{incident_id}/{filename}",
+    response_class=FileResponse,
+    responses={
+        200: {"content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}},
+        400: {"description": "Invalid or expired Reko form credential."},
+        401: {"description": "Authentication required, invalid session, or revoked field device."},
+        404: {"description": "Photo not found or outside the supplied token's scope."},
+    },
+)
 async def serve_photo(
     incident_id: uuid.UUID,
     filename: str,
     request: Request,
     token: str | None = Query(None, description="Viewer share token, when there is no session"),
+    reko_token: str | None = Query(None, description="Reko form token, restricted to its report's photos"),
     access_token: str | None = Cookie(None),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
@@ -735,7 +832,7 @@ async def serve_photo(
     """
     Serve photo file with authentication and authorization.
 
-    SECURITY: two doors, and they are not equally wide.
+    Each credential grants a different photo scope.
 
     * A **session** reads any photo of any incident — an operator on the board
       already sees the whole event.
@@ -747,28 +844,46 @@ async def serve_photo(
       link has always carried for everything else on the display, and the
       narrowing above is what keeps it to that.
 
-    Everything that is not one of those two doors is a 404, never a 403: a share
-    link must not be usable to confirm that a photo of another event exists.
+    * A **Reko form token** (`?reko_token=`) reads only photos listed by its
+      exact report, including its draft and prefilled photos. Field-derived
+      tokens also require their device claim to remain live.
+
+    Files outside a valid token's scope return 404 so links cannot probe them.
 
     Args:
         incident_id: Incident UUID
         filename: Photo filename
         token: Viewer share token, checked before the session cookie
+        reko_token: Form credential, checked before either of the other doors
         db: Database session
 
     Returns:
         Image file with cache headers
 
     Raises:
-        HTTPException 401: If neither door opens
+        HTTPException 400: If the Reko form credential is invalid or expired
+        HTTPException 401: If no credential opens a door, or the device was revoked
         HTTPException 404: If the photo is not found, or out of the token's reach
     """
-    # Token first, session second — the same "one route, two doors" shape as
-    # _require_user_or_form_token. A token that does not validate falls through
-    # to the cookie rather than short-circuiting, so a stale token in a bookmark
-    # never locks out an operator who is logged in anyway.
-    viewer_event_id = validate_viewer_token(token) if token else None
-    current_user = None if viewer_event_id else await get_current_user(request, access_token, authorization, db)
+    # Form credentials fail closed. Viewer bookmarks retain their existing
+    # session fallback so a stale share link does not lock out an operator.
+    viewer_event_id = None
+    current_user = None
+    if reko_token is not None:
+        personnel_id = await _require_form_token(db, reko_token, incident_id)
+        report_query = select(RekoReport.id).where(
+            RekoReport.incident_id == incident_id,
+            RekoReport.token == reko_token,
+            RekoReport.photos_json.contains([filename]),
+        )
+        if personnel_id is not None:
+            report_query = report_query.where(RekoReport.submitted_by_personnel_id == personnel_id)
+        if await db.scalar(report_query) is None:
+            raise HTTPException(status_code=404, detail="Photo not found")
+    else:
+        viewer_event_id = validate_viewer_token(token) if token else None
+        if viewer_event_id is None:
+            current_user = await get_current_user(request, access_token, authorization, db)
 
     # Verify incident exists
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
@@ -786,24 +901,28 @@ async def serve_photo(
         raise HTTPException(status_code=404, detail="Photo not found")
 
     # Log photo access for audit trail. `user=None` on the token door is the
-    # provenance itself: nobody was logged in, somebody held the share link.
+    # provenance itself: nobody was logged in, somebody held a scoped link.
     await log_action(
         db=db,
         action_type="view_photo",
         resource_type="reko_photo",
         resource_id=incident_id,
         user=current_user,
-        changes={"filename": filename, "via": "viewer_token" if viewer_event_id else "session"},
+        changes={
+            "filename": filename,
+            "via": "reko_token" if reko_token is not None else "viewer_token" if viewer_event_id else "session",
+        },
         request=request,
     )
     await db.commit()
 
-    # Return file with shorter cache (1 hour) for authenticated resources
+    # Field credentials are revocable; their photos must be reauthorized on reload.
     return FileResponse(
         file_path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "private, max-age=3600",  # 1 hour cache for authenticated users
+            "Cache-Control": "private, no-store" if reko_token is not None else "private, max-age=3600",
+            "Referrer-Policy": "no-referrer",
         },
     )
 

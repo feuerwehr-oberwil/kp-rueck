@@ -343,6 +343,15 @@ async def _bind_audit_logging_to_test_db(test_engine, monkeypatch):
 # ============================================
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def _bind_socket_authorization_to_test_db(db_session, monkeypatch):
+    """Socket delivery checks use the test transaction, never a local deployment's DB."""
+    monkeypatch.setattr(
+        "app.auth.socket_sessions.async_session_maker",
+        async_sessionmaker(bind=db_session.bind, expire_on_commit=False, join_transaction_mode="create_savepoint"),
+    )
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client with test database override."""
@@ -628,3 +637,14 @@ async def feld_device_token(db: AsyncSession, event_id: UUID, personnel_id: UUID
     await db.commit()
     await db.refresh(claim)
     return generate_feld_token(event_id, personnel_id=personnel_id, unlocked=True, claim_id=claim.id)
+
+
+async def feld_unlock_token(client: AsyncClient, event: Event) -> str:
+    """Obtain a real picker credential through the public code exchange."""
+    from app.services.tokens import generate_feld_token
+
+    response = await client.post(
+        f"/api/feld/unlock?token={generate_feld_token(event.id)}", json={"code": event.feld_code}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["token"]

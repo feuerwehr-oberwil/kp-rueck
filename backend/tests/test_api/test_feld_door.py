@@ -7,24 +7,31 @@ locked vehicle hall, indefensible for an Einsatzzettel that leaves in a vehicle
 and stays valid for thirty days.
 """
 
+import asyncio
+import runpy
 import uuid
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.models import (
     Event,
     EventSpecialFunction,
     FeldDeviceClaim,
+    FeldUnlockClaim,
     Incident,
     IncidentAssignment,
     Personnel,
     User,
 )
 from app.services.tokens import generate_feld_token, validate_feld_token, validate_form_token
-from tests.conftest import feld_device_token
+from tests.conftest import feld_device_token, feld_unlock_token
 
 
 async def _person_on_an_incident(db: AsyncSession, event: Event, user: User) -> Personnel:
@@ -44,6 +51,54 @@ async def _person_on_an_incident(db: AsyncSession, event: Event, user: User) -> 
     db.add(IncidentAssignment(incident_id=incident.id, resource_type="personnel", resource_id=person.id))
     await db.commit()
     return person
+
+
+@pytest.mark.asyncio
+async def test_security_upgrade_revokes_devices_and_pickers_but_keeps_poster(client, db_session, test_event, test_user):
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    poster = generate_feld_token(test_event.id)
+    old_picker = await feld_unlock_token(client, test_event)
+    bound = await client.post(
+        f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
+        json={"personnel_id": str(person.id)},
+    )
+    assert bound.status_code == 200
+    old_device = bound.json()["token"]
+    old_claim = validate_feld_token(old_device).claim_id
+    pending_claim = validate_feld_token(old_picker).unlock_id
+    already_revoked = FeldDeviceClaim(
+        event_id=test_event.id, personnel_id=person.id, revoked_at=datetime.now(UTC) - timedelta(days=1)
+    )
+    db_session.add(already_revoked)
+    await db_session.commit()
+    prior_timestamp = already_revoked.revoked_at
+
+    migration = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "alembic/versions/e5b8a90c31d2_reset_legacy_field_credentials.py")
+    )
+
+    def upgrade(connection):
+        with Operations.context(MigrationContext.configure(connection)):
+            migration["upgrade"]()
+
+    await (await db_session.connection()).run_sync(upgrade)
+    await db_session.commit()
+    await db_session.refresh(already_revoked)
+    assert already_revoked.revoked_at == prior_timestamp
+    assert (await db_session.get(FeldDeviceClaim, old_claim)).revoked_at is not None
+    assert (await db_session.get(FeldUnlockClaim, pending_claim)).revoked_at is not None
+    assert (await client.get(f"/api/feld/assignments/{person.id}?token={old_device}")).status_code == 401
+    assert (
+        await client.post(f"/api/feld/claim?token={old_picker}", json={"personnel_id": str(person.id)})
+    ).status_code == 401
+    unlock = await client.post(f"/api/feld/unlock?token={poster}", json={"code": test_event.feld_code})
+    assert unlock.status_code == 200
+    new_claim = await client.post(
+        f"/api/feld/claim?token={unlock.json()['token']}", json={"personnel_id": str(person.id)}
+    )
+    assert new_claim.status_code == 200
+    new_device = new_claim.json()["token"]
+    assert (await client.get(f"/api/feld/assignments/{person.id}?token={new_device}")).status_code == 200
 
 
 class TestUnlock:
@@ -112,7 +167,7 @@ class TestClaim:
         person = await _person_on_an_incident(db_session, test_event, test_user)
 
         response = await client.post(
-            f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
+            f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
             json={"personnel_id": str(person.id)},
         )
 
@@ -158,7 +213,7 @@ class TestClaim:
         await db_session.commit()
 
         response = await client.post(
-            f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
+            f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
             json={"personnel_id": str(newcomer.id)},
         )
         assert response.status_code == 200
@@ -178,7 +233,7 @@ class TestClaim:
         await _person_on_an_incident(db_session, test_event, test_user)
 
         response = await client.post(
-            f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
+            f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
             json={"personnel_id": str(uuid.uuid4())},
         )
         assert response.status_code == 403
@@ -199,7 +254,7 @@ class TestRevocation:
     ):
         person = await _person_on_an_incident(db_session, test_event, test_user)
         claimed = await client.post(
-            f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
+            f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
             json={"personnel_id": str(person.id)},
         )
         token = claimed.json()["token"]
@@ -233,7 +288,7 @@ class TestRevocation:
         """
         person = await _person_on_an_incident(db_session, test_event, test_user)
         claimed = await client.post(
-            f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
+            f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
             json={"personnel_id": str(person.id)},
         )
         token = claimed.json()["token"]
@@ -277,7 +332,7 @@ class TestAccessStateIsEditorOnly:
     ):
         person = await _person_on_an_incident(db_session, test_event, test_user)
         await client.post(
-            f"/api/feld/claim?token={generate_feld_token(test_event.id, unlocked=True)}",
+            f"/api/feld/claim?token={await feld_unlock_token(client, test_event)}",
             json={"personnel_id": str(person.id)},
         )
 
@@ -519,3 +574,164 @@ class TestCodeThrottle:
         assert blocked.status_code == 429
         assert int(blocked.headers["Retry-After"]) > 0
         await feld_code_throttle.reset()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_bound_and_spent_tokens_cannot_reenter_the_picker_or_claim_another_person(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    other = Personnel(id=uuid.uuid4(), name="Andere Person", role="Feuerwehrmann", status="available")
+    db_session.add(other)
+    await db_session.commit()
+    picker = await feld_unlock_token(client, test_event)
+    response = await client.post(f"/api/feld/claim?token={picker}", json={"personnel_id": str(person.id)})
+    assert response.status_code == 200
+    bound = response.json()["token"]
+    for token, refused in ((picker, 401), (bound, 403)):
+        assert (await client.get(f"/api/feld/personnel?token={token}")).status_code == refused
+        assert (
+            await client.post(f"/api/feld/claim?token={token}", json={"personnel_id": str(other.id)})
+        ).status_code == refused
+        assert (
+            await client.post(f"/api/feld/unlock?token={token}", json={"code": test_event.feld_code})
+        ).status_code == refused
+    assert (await client.get(f"/api/feld/assignments/{person.id}?token={bound}")).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("action", ["regenerate", "revoke-devices"])
+async def test_code_rotation_and_logout_all_invalidate_outstanding_picker_grants(
+    client: AsyncClient,
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_user: User,
+    action: str,
+):
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    picker = await feld_unlock_token(client, test_event)
+    assert (await editor_client.post(f"/api/feld/access/{action}?event_id={test_event.id}")).status_code == 200
+    assert (await client.get(f"/api/feld/personnel?token={picker}")).status_code == 401
+    assert (
+        await client.post(f"/api/feld/claim?token={picker}", json={"personnel_id": str(person.id)})
+    ).status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_logout_revokes_one_device_and_cannot_be_bypassed_by_reclaiming(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    tokens = []
+    for _ in range(2):
+        picker = await feld_unlock_token(client, test_event)
+        response = await client.post(f"/api/feld/claim?token={picker}", json={"personnel_id": str(person.id)})
+        tokens.append(response.json()["token"])
+    assert (await client.post(f"/api/feld/logout?token={tokens[0]}")).status_code == 204
+    for path in ("context", "personnel", f"assignments/{person.id}"):
+        assert (await client.get(f"/api/feld/{path}?token={tokens[0]}")).status_code == 401
+    assert (
+        await client.post(f"/api/feld/claim?token={tokens[0]}", json={"personnel_id": str(person.id)})
+    ).status_code == 401
+    assert (await client.get(f"/api/feld/assignments/{person.id}?token={tokens[1]}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_late_logout_preserves_original_revocation_time(client, db_session, test_event, test_user):
+    from app.crud.feld import revoke_claim
+
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    token = await feld_device_token(db_session, test_event.id, person.id)
+    claims = validate_feld_token(token)
+    row = await db_session.get(FeldDeviceClaim, claims.claim_id)
+    assert (await client.post(f"/api/feld/logout?token={token}")).status_code == 204
+    await db_session.refresh(row)
+    original = row.revoked_at
+    assert original is not None
+    assert (await client.post(f"/api/feld/logout?token={token}")).status_code == 401
+    # A second request may already have passed admission before the first logout
+    # committed. Its delayed write must still retain the first timestamp.
+    await revoke_claim(db_session, claims.claim_id, test_event.id, person.id)
+    await db_session.refresh(row)
+    assert row.revoked_at == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_expired_and_legacy_picker_credentials_cannot_claim(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    picker = await feld_unlock_token(client, test_event)
+    claims = validate_feld_token(picker)
+    assert claims is not None
+    grant = await db_session.get(FeldUnlockClaim, claims.unlock_id)
+    assert grant is not None
+    grant.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    await db_session.commit()
+    for token in (picker, generate_feld_token(test_event.id, unlocked=True)):
+        assert (await client.get(f"/api/feld/personnel?token={token}")).status_code == 401
+        assert (
+            await client.post(f"/api/feld/claim?token={token}", json={"personnel_id": str(person.id)})
+        ).status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_claim_row_must_match_the_person_named_in_the_signed_token(
+    client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+):
+    person = await _person_on_an_incident(db_session, test_event, test_user)
+    original = await feld_device_token(db_session, test_event.id, person.id)
+    claims = validate_feld_token(original)
+    assert claims is not None
+    token = generate_feld_token(test_event.id, personnel_id=uuid.uuid4(), unlocked=True, claim_id=claims.claim_id)
+    assert (await client.get(f"/api/feld/context?token={token}")).status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_concurrent_claim_requests_can_consume_a_picker_grant_only_once(test_engine: AsyncEngine, monkeypatch):
+    """Use separate database transactions, as two real HTTP requests do."""
+    from app.database import get_db
+    from app.main import app
+    from app.middleware.audit import _inflight_audit_tasks
+
+    sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    event = Event(id=uuid.uuid4(), name="Concurrent field exchange")
+    person = Personnel(id=uuid.uuid4(), name="Concurrent Person", role="Feuerwehrmann", status="available")
+    async with sessions() as db:
+        db.add_all([event, person])
+        await db.commit()
+
+    async def request_session():
+        async with sessions() as db:
+            yield db
+
+    monkeypatch.setitem(app.dependency_overrides, get_db, request_session)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            picker = await feld_unlock_token(client, event)
+            responses = await asyncio.gather(
+                *[
+                    client.post(f"/api/feld/claim?token={picker}", json={"personnel_id": str(person.id)})
+                    for _ in range(2)
+                ]
+            )
+            assert sorted(response.status_code for response in responses) == [200, 401]
+        async with sessions() as db:
+            claims = (
+                (await db.execute(select(FeldDeviceClaim).where(FeldDeviceClaim.event_id == event.id))).scalars().all()
+            )
+            assert len(claims) == 1
+    finally:
+        if _inflight_audit_tasks:
+            await asyncio.gather(*list(_inflight_audit_tasks))
+        async with sessions() as db:
+            await db.execute(delete(Event).where(Event.id == event.id))
+            await db.execute(delete(Personnel).where(Personnel.id == person.id))
+            await db.commit()

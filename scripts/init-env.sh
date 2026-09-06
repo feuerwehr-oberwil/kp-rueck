@@ -406,7 +406,7 @@ EOF
     printf '  %-22s %s\n' "HTTP_PORT"        "$http_port"
     printf '  %-22s %s\n' "HTTPS_PORT"       "$https_port"
     printf '  %-22s %s\n' "CORS_ORIGINS"     "${cors:-(unset)}"
-    printf '  %-22s %s\n' "KP_RUECK_TAG"     "${tag:-latest}"
+    printf '  %-22s %s\n' "KP_RUECK_TAG"     "${tag:-(unset – exact release required)}"
     printf '  %-22s %s\n' "COMPOSE_PROFILES" "${profiles:-(none – the nightly backup is OFF)}"
     printf '  %-22s %s\n' "Board URL"        "$url"
 
@@ -694,9 +694,13 @@ fi
 printf '\n'
 say "Writing $ENV_FILE"
 
+RELEASE_VERSION="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' "$REPO_ROOT/frontend/package.json")"
+[[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Missing exact release version in frontend/package.json. Use a complete published release."
+
 cp "$TEMPLATE" "$ENV_FILE"
 PARTIAL=1
 
+set_key KP_RUECK_TAG "$RELEASE_VERSION"
 set_key POSTGRES_PASSWORD "$(rand_hex)"
 set_key SECRET_KEY "$(rand_hex)"
 set_key AUTH_SECRET_KEY "$(rand_hex)"

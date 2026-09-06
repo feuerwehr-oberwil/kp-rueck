@@ -12,8 +12,14 @@ dist/
 build/
 
 # Environment
-.env
-.env.local
+.env*
+
+# Runtime uploads and local operational data never belong in an image.
+data/
+backups/
+.local/
+*.dump
+*.sql
 
 # IDE
 .vscode
@@ -28,6 +34,8 @@ README.md
 
 # Testing
 .pytest_cache
+.mypy_cache
+.ruff_cache
 .coverage
 htmlcov/
 

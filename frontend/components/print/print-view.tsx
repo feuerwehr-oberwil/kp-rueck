@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef } from "react"
+import { forwardRef, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import type { Operation, Person, Material } from "@/lib/contexts/operations-context"
 import type { ApiPersonnelListItem, ApiVehicle } from "@/lib/api-client"
@@ -20,7 +20,7 @@ import {
 } from "@/components/kanban/material-on-site-panel"
 import dynamic from "next/dynamic"
 
-// Dynamically import Leaflet components (no SSR)
+// Dynamically import the map (no SSR – MapLibre GL needs a browser)
 const PrintableMapInner = dynamic(() => import("./printable-map"), {
   ssr: false,
   loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">{translateOutsideReact("print.view.mapLoading")}</div>,
@@ -64,6 +64,13 @@ interface PrintViewProps {
   auftraege?: Map<string, PrintAuftrag>
   /** material id → the Schadenplatz it is still standing at (`/restliste`). */
   materialOnSite?: ReadonlyMap<string, MaterialOnSiteLocation>
+  /** Fired once the sheet is safe to send to the printer: the map has drawn its
+   *  tiles, or there is no map on this sheet at all. A WebGL canvas prints as it
+   *  stands, so printing before that would put an empty frame on the paper.
+   *  Must be stable (`useCallback`) — it is an effect dependency. */
+  onMapReady?: () => void
+  onMapError?: () => void
+  onMapLoading?: () => void
 }
 
 // Reko danger types with a print.view.danger.* label (others fall back to the raw key).
@@ -156,6 +163,9 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       eventFunctions,
       auftraege,
       materialOnSite,
+      onMapReady,
+      onMapError,
+      onMapLoading,
     },
     ref
   ) => {
@@ -166,6 +176,13 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
     const filteredOperations = options.includeCompleted
       ? operations
       : operations.filter((op) => op.status !== "complete")
+
+    // Whether this sheet carries a map at all. When it does not, nobody will
+    // report in, so the readiness the print button waits for is announced here.
+    const showMap = options.includeMap && filteredOperations.length > 0
+    useEffect(() => {
+      if (!showMap) onMapReady?.()
+    }, [showMap, onMapReady])
 
     // Group operations by status
     const operationsByStatus = filteredOperations.reduce(
@@ -305,7 +322,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             via a utility class so it cannot be lost to a purge, and the heading
             sits inside the same break-inside-avoid block as the map so it can
             never be orphaned at the foot of the page before it. */}
-        {options.includeMap && filteredOperations.length > 0 && (
+        {showMap && (
           <div
             className="mb-4 page-break-inside-avoid"
             // Nothing to map = no map = no reason to spend a sheet of paper on
@@ -315,7 +332,13 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
             <h2 className="font-bold border-b border-black mb-2 text-sm">
               {t("mapOverview")}
             </h2>
-            <PrintableMapInner operations={filteredOperations} numbering={numbering} />
+            <PrintableMapInner
+              operations={filteredOperations}
+              numbering={numbering}
+              onReady={onMapReady}
+              onError={onMapError}
+              onLoading={onMapLoading}
+            />
           </div>
         )}
 

@@ -369,6 +369,7 @@ async def test_revoked_token_is_rejected(db_session: AsyncSession, mock_request)
     import jwt
 
     from app.auth.config import auth_settings
+    from app.auth.security import AUTH_CREDENTIAL_VERSION
     from app.auth.token_blocklist import token_blocklist
 
     # Create test user
@@ -386,6 +387,7 @@ async def test_revoked_token_is_rejected(db_session: AsyncSession, mock_request)
         "iat": datetime.now(UTC),
         "jti": jti,
         "type": "access",
+        "auth_version": AUTH_CREDENTIAL_VERSION,
     }
     access_token = jwt.encode(token_data, auth_settings.SECRET_KEY, algorithm=auth_settings.ALGORITHM)
 
