@@ -163,7 +163,9 @@ On a LAN with no domain, leave `DOMAIN` empty: Caddy serves plain HTTP on `HTTP_
 `AUTH_COOKIE_SECURE` – the backend reads that same origin, sees plain `http://`, and sends the
 login cookie without the `Secure` flag that browsers would otherwise refuse to return. It logs a
 warning saying so, which is correct: this is only acceptable on a network you trust, never on an
-internet-facing deployment.
+internet-facing deployment. Even in the Gerätehaus, prefer HTTPS where you can – a trusted LAN
+is not a substitute for transport encryption, and plain HTTP shows credentials and incident data
+to anyone else on the same network.
 
 **Production hardening is automatic** under compose: the stack sets `ENVIRONMENT=production`,
 which makes the secrets mandatory (no per-restart `SECRET_KEY`), forbids the development auth

@@ -117,6 +117,11 @@ the latest tagged release and update promptly – see [`docs/DEPLOYMENT.md`](doc
 Stated deliberately, because a security policy that only lists strengths is not useful:
 
 - External identity is **Microsoft Entra only**; there is no generic OIDC path.
+- **The CSP allows inline scripts.** The frontend's Content-Security-Policy (built in
+  [`frontend/lib/env.ts`](frontend/lib/env.ts)) uses `default-src 'self'` with per-resource-type
+  source lists, but production `script-src` still requires `'unsafe-inline'` because Next.js
+  hydrates the page through inline scripts; `'unsafe-eval'` is development-only. A nonce-based
+  strict CSP is possible future hardening.
 - CI blocks on Bandit, dependency advisories and the clean mypy package subset. The remaining
   mypy check is advisory – see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
