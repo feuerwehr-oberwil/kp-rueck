@@ -501,7 +501,11 @@
       "exportEinsaetze": "Interventions (XLSX)",
       "reportExportFailed": "Échec de l’export du rapport d’intervention",
       "auditExportFailed": "Échec de l’export de l’audit",
-      "einsaetzeExportFailed": "Échec de l’export des interventions"
+      "einsaetzeExportFailed": "Échec de l’export des interventions",
+      "createFailed": "Échec de la création de l’événement",
+      "archiveFailed": "Échec de l’archivage",
+      "unarchiveFailed": "Échec de la restauration",
+      "deleteFailed": "Échec de la suppression"
     },
     "createDialog": {
       "title": "Créer un nouvel événement",

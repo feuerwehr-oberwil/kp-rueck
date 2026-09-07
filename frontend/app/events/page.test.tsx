@@ -9,14 +9,16 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Event } from '@/lib/types/incidents'
 
 const archiveEvent = vi.hoisted(() => vi.fn())
 const deleteEvent = vi.hoisted(() => vi.fn())
+const createEvent = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -31,7 +33,7 @@ vi.mock('@/lib/contexts/event-context', () => ({
     events: EVENTS,
     selectedEvent: null,
     setSelectedEvent: vi.fn(),
-    createEvent: vi.fn(),
+    createEvent,
     archiveEvent,
     unarchiveEvent: vi.fn(),
     deleteEvent,
@@ -159,6 +161,60 @@ describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
     expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeDisabled()
     // Esc darf den laufenden Vorgang nicht aus dem Blickfeld nehmen.
     await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog')).toBeVisible()
+  })
+})
+
+/**
+ * Ein Fehlschlag, der nur in der Konsole landet, sieht am KP wie Erfolg aus –
+ * der Dialog bleibt zwar offen, aber niemand erfährt warum. Die vier
+ * Mutationen der Seite melden sich deshalb wie die Exporte: deutscher Titel
+ * («X fehlgeschlagen»), technisches Detail als description.
+ */
+describe('Ereignisse — Fehlschläge sind sichtbar', () => {
+  beforeEach(() => {
+    createEvent.mockReset()
+    deleteEvent.mockReset()
+    vi.mocked(toast.error).mockReset()
+  })
+
+  // Gleiche Radix-FocusScope-Begründung wie oben: die Dialoge bleiben offen.
+  afterEach(async () => {
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  it('zeigt «Ereignis erstellen fehlgeschlagen» und lässt den Dialog offen', async () => {
+    createEvent.mockRejectedValue(new Error('backend down'))
+    const user = userEvent.setup()
+    renderWithIntl(<EventsPage />)
+
+    await user.click(screen.getAllByRole('button', { name: 'Neues Ereignis' })[0])
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Sturm West')
+    await user.click(within(dialog).getByRole('button', { name: 'Erstellen' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Ereignis erstellen fehlgeschlagen', {
+        description: 'backend down',
+      })
+    )
+    // Offen bleiben heisst: der eingetippte Name ist nicht weg.
+    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(within(dialog).getByRole('textbox')).toHaveValue('Sturm West')
+  })
+
+  it('zeigt «Löschen fehlgeschlagen» und lässt den Dialog offen', async () => {
+    deleteEvent.mockRejectedValue(new Error('nicht erreichbar'))
+    const { user, dialog } = await openDialog('Löschen')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Dauerhaft löschen' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Löschen fehlgeschlagen', {
+        description: 'nicht erreichbar',
+      })
+    )
     expect(screen.getByRole('dialog')).toBeVisible()
   })
 })

@@ -213,6 +213,11 @@ export default function EventsPage() {
       router.push('/')
     } catch (error) {
       console.error('Failed to create event:', error)
+      // Same shape as the export failures below: German first, raw detail second.
+      // The dialog stays open, so the name is not lost with the request.
+      toast.error(t('page.createFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      })
     } finally {
       setIsCreating(false)
     }
@@ -242,6 +247,9 @@ export default function EventsPage() {
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to archive event:', error)
+      toast.error(t('page.archiveFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      })
     } finally {
       setIsArchiving(false)
     }
@@ -252,6 +260,9 @@ export default function EventsPage() {
       await unarchiveEvent(event.id)
     } catch (error) {
       console.error('Failed to unarchive event:', error)
+      toast.error(t('page.unarchiveFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      })
     }
   }
 
@@ -264,6 +275,9 @@ export default function EventsPage() {
       setTargetEvent(null)
     } catch (error) {
       console.error('Failed to delete event:', error)
+      toast.error(t('page.deleteFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      })
     } finally {
       setIsDeleting(false)
     }

@@ -2191,7 +2191,11 @@
       "exportEinsaetze": "Einsätze (XLSX)",
       "reportExportFailed": "Einsatzrapport-Export fehlgeschlagen",
       "auditExportFailed": "Audit-Export fehlgeschlagen",
-      "einsaetzeExportFailed": "Einsätze-Export fehlgeschlagen"
+      "einsaetzeExportFailed": "Einsätze-Export fehlgeschlagen",
+      "createFailed": "Ereignis erstellen fehlgeschlagen",
+      "archiveFailed": "Archivieren fehlgeschlagen",
+      "unarchiveFailed": "Wiederherstellen fehlgeschlagen",
+      "deleteFailed": "Löschen fehlgeschlagen"
     },
     "createDialog": {
       "title": "Neues Ereignis erstellen",
