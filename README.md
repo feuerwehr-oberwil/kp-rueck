@@ -14,7 +14,9 @@ follow along read-only on any screen. KP Rück owns its own incident state, map,
 (Divera, Traccar, a thermal printer) add data but are not required to operate it.
 
 Originally developed by [Feuerwehr Oberwil BL](https://www.feuerwehr-oberwil.ch/) and designed
-to be adaptable for any fire department.
+to be adaptable for other communal militia fire departments facing the same shape of work:
+many damage sites spread across a municipality during a storm or flood. It is not built for
+industrial fire brigades or permanently staffed dispatch centres.
 
 | Operations Board | Interactive Map |
 |:---:|:---:|
@@ -40,8 +42,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
 - **Training that mirrors reality.** A full training mode with auto-generated incidents and
   simulated GPS drives runs on the same database, filtered by a flag – never mixed with live
   work.
-- **Keeps working when the network doesn't.** Offline map tiles, a paper Lageblatt fallback,
-  automatic thermal snapshots, and a documented outage SOP.
+- **Prepared for network failure.** Offline map tiles, a paper Lageblatt fallback, automatic
+  thermal snapshots, and a documented outage SOP – not offline editing: when the connection
+  goes, you go to paper.
 - **Defensible records.** An append-only audit log and an after-action PDF (Einsatztagebuch,
   Reaktionszeiten) back every operation.
 - **Open and self-hostable.** One AGPL-licensed deployment per station, no per-seat licence.
