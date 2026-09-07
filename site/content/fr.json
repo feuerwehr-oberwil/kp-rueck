@@ -216,11 +216,13 @@
         "h3": "Tableau &amp; engagement",
         "items": [
           "<strong>Les colonnes sont les phases de l’intervention</strong> – les cartes se déplacent de gauche à droite",
-          "Attribuer personnel, véhicules et matériel, avec avertissement en cas de double affectation",
+          "Attribuer personnel, véhicules et matériel – KP Rück avertit en cas de double affectation et rend visibles les conflits de ressources",
           "Le matériel sur les lieux : quel moyen est attribué à quelle intervention, et depuis quand",
           "Priorités, durées et délais visibles par intervention",
           "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression",
+          "Les missions récurrentes, comme le barrage d’une zone ou l’enlèvement de bois après une tempête, peuvent être préparées et mises à disposition directement lors d’un événement",
           "Enregistrement par code QR – qui arrive s’annonce lui-même",
+          "Fiche d’engagement avec code QR pour les équipes et les conducteurs, remise directement au PC",
           "Vue projecteur pour le mur du PC – les mêmes cartes d’intervention que sur le tableau, sans les éléments de commande",
           "Palette de commandes et raccourcis clavier pour aller vite"
         ]
@@ -233,7 +235,8 @@
           "Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent",
           "Réception dans un pool, reprise d’un clic",
           "Alarmer l’effectif depuis le tableau <span class=\"opt\">facultatif</span>",
-          "Annonces de reconnaissance avec photos, directement depuis le téléphone de la reconnaissance"
+          "Annonces de reconnaissance avec photos, directement depuis le téléphone de la reconnaissance",
+          "Vue terrain pour les équipes : voir leurs propres places sinistrées, annoncer leur arrivée et la fin de l’intervention, demander une récupération et transmettre au PC des annonces et des rapports avec photos"
         ]
       },
       {
@@ -249,9 +252,9 @@
       {
         "h3": "Après &amp; exploitation",
         "items": [
-          "<strong>Rapport d’intervention en PDF</strong> avec journal d’intervention et temps de réaction",
+          "<strong>Rapport d’intervention en PDF</strong> avec journal d’intervention et temps de réaction – il se construit pendant l’intervention et est déjà largement préparé au retour à la caserne",
           "Un procès-verbal continu qui ne fait que s’allonger et n’est jamais écrasé",
-          "Les rapports encore ouverts en liste courante – quelle intervention terminée n’en a pas encore",
+          "Liste des éléments en suspens : les rapports ouverts, les récupérations en attente et le matériel encore présent sur une place sinistrée restent visibles jusqu’à la clôture",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, parc de véhicules, listes de matériel, types d’intervention et priorités",
           "Import et export en Excel",
           "Impression thermique à la caserne via un agent d’impression dédié <span class=\"opt\">facultatif</span>",

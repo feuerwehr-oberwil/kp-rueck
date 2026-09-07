@@ -216,11 +216,13 @@
         "h3": "Tavolo &amp; assegnazione",
         "items": [
           "<strong>Le colonne sono le fasi dell’intervento</strong> – le schede si spostano da sinistra a destra trascinandole",
-          "Assegnare personale, veicoli e materiale, con avviso in caso di doppia assegnazione",
+          "Assegnare personale, veicoli e materiale – KP Rück avvisa in caso di doppia assegnazione e rende visibili i conflitti tra le risorse",
           "Materiale sul luogo d’intervento: quale mezzo è assegnato a quale intervento, e da quando",
           "Priorità, tempi di percorrenza e scadenze visibili per ogni intervento",
           "Incarichi: più interventi come un solo itinerario per una squadra, ordine ottimizzato per distanza con un tasto",
+          "Gli incarichi ricorrenti, come gli sbarramenti o la rimozione di alberi dopo un temporale, possono essere preparati e messi direttamente a disposizione durante un evento",
           "Check-in con codice QR – chi arriva si annuncia da sé",
+          "Scheda d’intervento con codice QR per squadre e conducenti, consegnata direttamente al posto di comando",
           "Vista proiettore per la parete del posto di comando – le stesse schede del tavolo, solo senza comandi",
           "Palette dei comandi e scorciatoie da tastiera per chi va veloce"
         ]
@@ -233,7 +235,8 @@
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
           "Gli arrivi finiscono nel serbatoio, presa in carico con un clic",
           "Allertamento della squadra direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
-          "Segnalazioni di ricognizione con foto, direttamente dal telefono della ricognizione"
+          "Segnalazioni di ricognizione con foto, direttamente dal telefono della ricognizione",
+          "Vista sul campo per le squadre: visualizzare i propri luoghi d’intervento, segnalare l’arrivo e la fine dell’intervento, richiedere il recupero e trasmettere al posto di comando segnalazioni e rapporti con foto"
         ]
       },
       {
@@ -249,9 +252,9 @@
       {
         "h3": "Dopo &amp; esercizio",
         "items": [
-          "<strong>Rapporto d’intervento in PDF</strong> con diario d’intervento e tempi di reazione",
+          "<strong>Rapporto d’intervento in PDF</strong> con diario d’intervento e tempi di reazione – si forma durante l’intervento ed è già in gran parte preparato al rientro in caserma",
           "Un protocollo continuo che viene solo integrato e mai sovrascritto",
-          "Rapporti aperti come elenco corrente – quale intervento concluso non ne ha ancora uno",
+          "Elenco delle attività aperte: rapporti mancanti, recuperi in sospeso e materiale ancora presente sul luogo d’intervento restano visibili fino alla chiusura",
           "<strong>Area amministrativa propria</strong> per ogni corpo: squadra, parco veicoli, elenchi del materiale, tipi d’intervento e priorità",
           "Importazione ed esportazione in Excel",
           "Stampa termica in rimessa tramite un agente di stampa proprio <span class=\"opt\">facoltativo</span>",

@@ -245,11 +245,13 @@
         "h3": "Board &amp; Disposition",
         "items": [
           "<strong>Spalten sind Einsatzphasen</strong> – Karten wandern per Drag-and-Drop von links nach rechts",
-          "Personal, Fahrzeuge und Material zuteilen, mit Warnung bei Doppelbelegung",
+          "Personal, Fahrzeuge und Material zuteilen – KP Rück warnt bei Doppelbelegungen und macht Ressourcenkonflikte sichtbar",
           "Material am Einsatzort: welches Mittel welchem Einsatz zugeteilt ist und seit wann",
           "Prioritäten, Laufzeiten und Fristen pro Einsatz sichtbar",
           "Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert",
+          "Wiederkehrende Aufträge wie Absperren oder Sturmholz können vorbereitet und bei einem Ereignis direkt bereitgestellt werden",
           "QR-Check-in – wer eintrifft, meldet sich selbst an",
+          "Einsatzzettel mit QR-Code für Trupps und Fahrer, direkt am KP ausgegeben",
           "Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente",
           "Befehlspalette und Tastaturkürzel für die schnelle Hand"
         ]
@@ -262,7 +264,8 @@
           "Meldeformular per Link oder QR für Telefon und Laufkundschaft",
           "Eingang im Pool, Übernahme mit einem Klick",
           "Ausalarmierung der Mannschaft aus dem Board heraus <span class=\"opt\">optional</span>",
-          "Reko-Meldungen mit Fotos, direkt vom Handy der Reko"
+          "Reko-Meldungen mit Fotos, direkt vom Handy der Reko",
+          "Feldansicht für Trupps: eigene Schadenplätze sehen, Ankunft und Einsatzende melden, Abholung anfordern sowie Rückmeldungen und Rapporte mit Fotos an den KP übermitteln"
         ]
       },
       {
@@ -278,9 +281,9 @@
       {
         "h3": "Nachher &amp; Betrieb",
         "items": [
-          "<strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten",
+          "<strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten – entsteht während des Einsatzes und ist beim Einrücken bereits weitgehend vorbereitet",
           "Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird",
-          "Offene Rapporte als laufende Liste – welcher abgeschlossene Einsatz noch keinen hat",
+          "Restliste: Offene Rapporte, ausstehende Abholungen und Material, das noch am Schadenplatz liegt, bleiben bis zum Abschluss sichtbar",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten",
           "Import und Export als Excel",
           "Thermodruck im Magazin über einen eigenen Druck-Agenten <span class=\"opt\">optional</span>",
