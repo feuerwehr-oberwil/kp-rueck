@@ -28,6 +28,8 @@ will keep holding.
 
 ## [Unreleased]
 
+## [0.7.0] – 2026-09-07
+
 ### Security and deployment
 
 - **One-time credential reset on upgrade.** Existing login sessions, field device/picker credentials and Reko form links are invalidated. Sign in again, enter the field code again, and regenerate old Reko links. Printed posters, event codes, reports and photos remain intact. Later routine upgrades do not repeat this reset.
@@ -2260,7 +2262,8 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.3.0...v0.4.0
