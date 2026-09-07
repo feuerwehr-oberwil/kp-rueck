@@ -15,7 +15,7 @@ interface EventContextType {
   error: string | null
   refreshEvents: () => Promise<void>
   createEvent: (name: string, trainingFlag: boolean, autoAttachDivera?: boolean) => Promise<Event>
-  archiveEvent: (eventId: string) => Promise<void>
+  archiveEvent: (eventId: string, options?: { checkoutAttendees?: boolean }) => Promise<void>
   unarchiveEvent: (eventId: string) => Promise<void>
   deleteEvent: (eventId: string) => Promise<void>
 }
@@ -123,8 +123,8 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     return event
   }, [refreshEvents])
 
-  const archiveEvent = useCallback(async (eventId: string) => {
-    await apiClient.archiveEvent(eventId)
+  const archiveEvent = useCallback(async (eventId: string, options?: { checkoutAttendees?: boolean }) => {
+    await apiClient.archiveEvent(eventId, options)
     if (selectedEvent?.id === eventId) {
       setSelectedEvent(null)
     }

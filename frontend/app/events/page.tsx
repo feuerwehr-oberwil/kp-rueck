@@ -8,6 +8,7 @@ import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
 import { apiClient } from '@/lib/api-client'
+import type { ApiEventRestliste } from '@/lib/api/types/feld'
 import type { Event } from '@/lib/types/incidents'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
@@ -159,6 +160,22 @@ export default function EventsPage() {
       .catch(() => setPrinterEnabled(false))
   }, [])
 
+  // The archive dialog's open-items check (field test 07.09.): what would
+  // closing this Ereignis cut off? Fetched when the dialog opens; null while
+  // loading or on failure — a failed check must never block archiving, so the
+  // dialog then simply behaves like the plain confirmation it used to be.
+  const [archiveRestliste, setArchiveRestliste] = useState<ApiEventRestliste | null>(null)
+  const [archiveCheckout, setArchiveCheckout] = useState(true)
+
+  useEffect(() => {
+    if (!showArchiveDialog || !targetEvent) return
+    setArchiveRestliste(null)
+    setArchiveCheckout(true)
+    apiClient.getEventRestliste(targetEvent.id)
+      .then(setArchiveRestliste)
+      .catch(() => setArchiveRestliste(null))
+  }, [showArchiveDialog, targetEvent])
+
   // Separate active and archived events
   const { activeEvents, archivedEvents } = useMemo(() => {
     const active = events.filter(e => !e.archived_at)
@@ -242,7 +259,9 @@ export default function EventsPage() {
     if (!targetEvent || isArchiving) return
     setIsArchiving(true)
     try {
-      await archiveEvent(targetEvent.id)
+      await archiveEvent(targetEvent.id, {
+        checkoutAttendees: archiveCheckout && (archiveRestliste?.attendees_present ?? 0) > 0,
+      })
       setShowArchiveDialog(false)
       setTargetEvent(null)
     } catch (error) {
@@ -683,14 +702,101 @@ export default function EventsPage() {
           </DialogContent>
         </Dialog>
 
-      {/* Archive Confirmation Dialog */}
+      {/* Archive confirmation with the open-items check (field test 07.09.):
+          what would closing this Ereignis cut off — Einsätze short of
+          Abschluss, open Abholungen, material still out, people never checked
+          out — each with the way to resolve it, before «Trotzdem archivieren». */}
       <Dialog open={showArchiveDialog} onOpenChange={(open) => { if (!open && isArchiving) return; setShowArchiveDialog(open) }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('archiveDialog.title')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p>{t('archiveDialog.question', { name: targetEvent?.name ?? '' })}</p>
+            {(() => {
+              if (!archiveRestliste) return null
+              const openIncidents = archiveRestliste.open_incidents
+              const openPickups = archiveRestliste.open_pickups
+              const materialOnSite = archiveRestliste.material_on_site
+              const attendees = archiveRestliste.attendees_present
+              const summarize = (names: string[]) =>
+                names.slice(0, 3).join(', ') +
+                (names.length > 3 ? ` ${t('archiveDialog.moreItems', { count: names.length - 3 })}` : '')
+              const rows: { key: string; label: string; detail: string; action?: { label: string; onClick: () => void } }[] = []
+              if (openIncidents.length > 0) {
+                rows.push({
+                  key: 'incidents',
+                  label: t('archiveDialog.openIncidents', { count: openIncidents.length }),
+                  detail: summarize(openIncidents.map((i) => i.title)),
+                  action: {
+                    label: t('archiveDialog.showOnBoard'),
+                    onClick: () => {
+                      if (!targetEvent) return
+                      setSelectedEvent(targetEvent)
+                      setShowArchiveDialog(false)
+                      router.push('/')
+                    },
+                  },
+                })
+              }
+              if (openPickups.length > 0) {
+                rows.push({
+                  key: 'pickups',
+                  label: t('archiveDialog.openPickups', { count: openPickups.length }),
+                  detail: summarize(openPickups.map((i) => i.title)),
+                })
+              }
+              if (materialOnSite.length > 0) {
+                rows.push({
+                  key: 'material',
+                  label: t('archiveDialog.materialOnSite', { count: materialOnSite.length }),
+                  detail: summarize(materialOnSite.map((u) => u.name)),
+                })
+              }
+              if (attendees > 0) {
+                rows.push({
+                  key: 'attendees',
+                  label: t('archiveDialog.attendeesPresent', { count: attendees }),
+                  detail: t('archiveDialog.attendeesDetail'),
+                })
+              }
+              if (rows.length === 0) return null
+              return (
+                <>
+                  <div className="divide-y overflow-hidden rounded-lg border">
+                    {rows.map((row) => (
+                      <div key={row.key} className="flex items-baseline gap-2.5 bg-muted/40 p-3 text-sm">
+                        <span className="size-2 shrink-0 self-center rounded-full bg-amber-500" aria-hidden />
+                        <span className="min-w-0 flex-1">
+                          <span className="font-semibold">{row.label}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{row.detail}</span>
+                        </span>
+                        {row.action && (
+                          <button
+                            type="button"
+                            className="whitespace-nowrap text-xs underline underline-offset-2 hover:text-foreground/80"
+                            onClick={row.action.onClick}
+                          >
+                            {row.action.label}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {attendees > 0 && (
+                    <label className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 accent-primary"
+                        checked={archiveCheckout}
+                        onChange={(e) => setArchiveCheckout(e.target.checked)}
+                      />
+                      <span>{t('archiveDialog.autoCheckout')}</span>
+                    </label>
+                  )}
+                </>
+              )
+            })()}
             <p className="text-sm text-muted-foreground">
               {t('archiveDialog.note')}
             </p>
@@ -701,7 +807,13 @@ export default function EventsPage() {
             </Button>
             <Button variant="destructive" onClick={handleArchive} disabled={isArchiving}>
               {isArchiving && <Loader2 className="size-4 animate-spin" />}
-              {t('archiveDialog.confirm')}
+              {archiveRestliste &&
+              (archiveRestliste.open_incidents.length > 0 ||
+                archiveRestliste.open_pickups.length > 0 ||
+                archiveRestliste.material_on_site.length > 0 ||
+                archiveRestliste.attendees_present > 0)
+                ? t('archiveDialog.confirmAnyway')
+                : t('archiveDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

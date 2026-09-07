@@ -171,6 +171,37 @@ class TestRestliste:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_archive_dialog_counts(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+        test_personnel,
+    ):
+        """The two fields the archive dialog reads (field test 07.09.): every
+        incident short of «Abschluss», and who is still checked in."""
+        from app.models import EventAttendance
+
+        open_incident = await _incident(db_session, test_event, test_user, "Offen")
+        closed = await _incident(db_session, test_event, test_user, "Zu")
+        closed.status = "complete"
+        db_session.add(
+            EventAttendance(
+                event_id=test_event.id,
+                personnel_id=test_personnel.id,
+                checked_in=True,
+                checked_in_at=datetime.now(UTC),
+            )
+        )
+        await db_session.commit()
+
+        body = (await editor_client.get(f"/api/events/{test_event.id}/restliste")).json()
+        assert [row["incident_id"] for row in body["open_incidents"]] == [str(open_incident.id)]
+        assert body["attendees_present"] == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_the_three_counts_against_a_deliberate_mix(
         self,
         editor_client: AsyncClient,

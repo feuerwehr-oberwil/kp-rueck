@@ -679,8 +679,11 @@ class ApiClient {
     })
   }
 
-  async archiveEvent(eventId: string): Promise<ApiEvent> {
-    return this.request<ApiEvent>(`/api/events/${eventId}/archive`, {
+  async archiveEvent(eventId: string, options?: { checkoutAttendees?: boolean }): Promise<ApiEvent> {
+    // The archive dialog's «automatisch abmelden»: everyone still checked in
+    // gets Abmeldezeit = Ereignisende, server-side in the same request.
+    const query = options?.checkoutAttendees ? '?checkout_attendees=true' : ''
+    return this.request<ApiEvent>(`/api/events/${eventId}/archive${query}`, {
       method: 'POST',
     })
   }

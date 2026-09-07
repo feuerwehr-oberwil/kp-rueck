@@ -378,6 +378,36 @@ async def test_archive_event_success(editor_client: AsyncClient, test_event: Eve
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_archive_with_checkout_attendees_stamps_the_ereignisende(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_personnel
+):
+    """`?checkout_attendees=true` sends everyone still present home, with
+    Abmeldezeit = archived_at — the archive dialog's «automatisch abmelden»
+    (field test 07.09.). Somebody who already left keeps their own clock.
+    """
+    from app.models import EventAttendance
+
+    still_here = EventAttendance(
+        event_id=test_event.id,
+        personnel_id=test_personnel.id,
+        checked_in=True,
+        checked_in_at=datetime(2026, 9, 7, 6, 0, tzinfo=UTC),
+    )
+    db_session.add(still_here)
+    await db_session.commit()
+
+    response = await editor_client.post(f"/api/events/{test_event.id}/archive?checkout_attendees=true")
+    assert response.status_code == 200
+    archived_at = response.json()["archived_at"]
+
+    await db_session.refresh(still_here)
+    assert still_here.checked_in is False
+    assert still_here.checked_out_at is not None
+    assert still_here.checked_out_at.isoformat().replace("+00:00", "Z") == archived_at.replace("+00:00", "Z")
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_archive_event_is_idempotent(editor_client: AsyncClient, db_session: AsyncSession, test_event: Event):
     """Archiving twice must not move `archived_at`.
 

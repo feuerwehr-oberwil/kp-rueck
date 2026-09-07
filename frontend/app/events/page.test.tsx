@@ -49,6 +49,8 @@ vi.mock('@/lib/api-client', () => ({
       missing_rapport: [],
       material_on_site: [],
       open_pickups: [],
+      open_incidents: [],
+      attendees_present: 0,
       incident_total: 0,
     }),
   },
@@ -147,7 +149,8 @@ describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
     await user.dblClick(within(dialog).getByRole('button', { name: 'Archivieren' }))
 
     expect(archiveEvent).toHaveBeenCalledTimes(1)
-    expect(archiveEvent).toHaveBeenCalledWith('evt-active')
+    // No open attendance in the mocked Restliste, so the sweep stays off.
+    expect(archiveEvent).toHaveBeenCalledWith('evt-active', { checkoutAttendees: false })
   })
 
   it('sperrt beide Wege aus dem Löschdialog, solange der Request läuft', async () => {

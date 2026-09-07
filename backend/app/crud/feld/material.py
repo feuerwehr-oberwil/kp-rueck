@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
+    EventAttendance,
     Incident,
     IncidentAssignment,
     Material,
@@ -201,12 +202,31 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                 }
             )
 
+    # For the archive dialog (field test 07.09.): incidents short of «Abschluss»
+    # and the people still checked in — what closing the Ereignis would cut off.
+    open_incidents = [
+        {
+            "incident_id": incident.id,
+            "title": incident.title,
+            "location_address": incident.location_address,
+            "status": incident.status,
+        }
+        for incident in incidents
+        if incident.status != "complete"
+    ]
+    attendees_result = await db.execute(
+        select(EventAttendance.id).where(EventAttendance.event_id == event_id, EventAttendance.checked_in)
+    )
+    attendees_present = len(attendees_result.scalars().all())
+
     return {
         "event_id": event_id,
         "incident_total": len(rapport_relevant),
         "missing_rapport": missing_rapport,
         "material_on_site": material_on_site,
         "open_pickups": open_pickups,
+        "open_incidents": open_incidents,
+        "attendees_present": attendees_present,
     }
 
 

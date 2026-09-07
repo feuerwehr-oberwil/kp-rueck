@@ -421,6 +421,7 @@ async def check_out_all_personnel(
     event_id: uuid.UUID,
     current_user: User,
     request: Request | None = None,
+    at: datetime | None = None,
 ) -> list[schemas.PersonnelCheckInResponse]:
     """
     Send everyone who is still present at this Ereignis home ("Alle abmelden").
@@ -438,10 +439,13 @@ async def check_out_all_personnel(
     own audit entry — a single row saying "someone checked out 34 people" is not a
     roll-call. All of it commits once, so the Ereignis never ends half-closed.
 
+    ``at``: the departure clock to stamp — the archive flow passes the event's
+    ``archived_at`` so «Abmeldezeit = Ereignisende» holds to the second.
+
     Returns:
         The people who were checked out, in name order — empty when nobody was present.
     """
-    now = datetime.now(UTC)
+    now = at or datetime.now(UTC)
 
     result = await db.execute(
         select(EventAttendance, Personnel)

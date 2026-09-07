@@ -4,15 +4,17 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import events as crud
 from ..crud import feld as feld_crud
+from ..crud import personnel_checkin as checkin_crud
 from ..database import get_db
 from ..utils.errors import ErrorMessages
+from ..websocket_manager import broadcast_personnel_update
 
 logger = logging.getLogger(__name__)
 
@@ -162,13 +164,37 @@ async def update_event(
 @router.post("/{event_id}/archive", response_model=schemas.EventResponse)
 async def archive_event(
     event_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
+    checkout_attendees: bool = Query(
+        False,
+        description="Also check out everyone still present; Abmeldezeit = archived_at (Ereignisende).",
+    ),
 ) -> schemas.EventResponse:
-    """Archive an event (soft delete, editor only)."""
+    """Archive an event (soft delete, editor only).
+
+    ``checkout_attendees`` is the archive dialog's «automatisch abmelden»
+    checkbox (field test 07.09.): a closed Ereignis with 19 people still
+    «angemeldet» counts them as present forever. Idempotent like the archive
+    itself — a re-archive finds nobody left to check out.
+    """
     event = await crud.archive_event(db, event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+
+    if checkout_attendees:
+        checked_out = await checkin_crud.check_out_all_personnel(
+            db=db, event_id=event_id, current_user=current_user, request=request, at=event.archived_at
+        )
+        if checked_out:
+            # One broadcast for the sweep, same as POST /event/{id}/out-all.
+            background_tasks.add_task(
+                broadcast_personnel_update,
+                {"event_id": str(event_id), "checked_out": len(checked_out)},
+                "update",
+            )
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {

@@ -856,6 +856,11 @@ class EventRestliste(BaseModel):
     missing_rapport: list[RestlisteIncident] = []
     material_on_site: list[RestlisteUnit] = []
     open_pickups: list[RestlisteIncident] = []
+    # For the archive dialog (field test 07.09.): every incident that has not
+    # reached «Abschluss», and how many people are still checked in — the two
+    # open items the three lists above do not carry.
+    open_incidents: list[RestlisteIncident] = []
+    attendees_present: int = 0
 
 
 class RapportPhotosResponse(BaseModel):

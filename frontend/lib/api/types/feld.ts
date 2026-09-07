@@ -556,6 +556,10 @@ export interface ApiEventRestliste {
   missing_rapport: ApiRestlisteIncident[]
   material_on_site: ApiRestlisteUnit[]
   open_pickups: ApiRestlisteIncident[]
+  /** Archive dialog (07.09.): incidents short of «Abschluss». */
+  open_incidents: ApiRestlisteIncident[]
+  /** …and how many people are still checked in. */
+  attendees_present: number
 }
 
 /**

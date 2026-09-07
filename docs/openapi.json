@@ -3524,7 +3524,7 @@
           "events"
         ],
         "summary": "Archive Event",
-        "description": "Archive an event (soft delete, editor only).",
+        "description": "Archive an event (soft delete, editor only).\n\n``checkout_attendees`` is the archive dialog's «automatisch abmelden»\ncheckbox (field test 07.09.): a closed Ereignis with 19 people still\n«angemeldet» counts them as present forever. Idempotent like the archive\nitself — a re-archive finds nobody left to check out.",
         "operationId": "archive_event_api_events__event_id__archive_post",
         "parameters": [
           {
@@ -3536,6 +3536,18 @@
               "format": "uuid",
               "title": "Event Id"
             }
+          },
+          {
+            "name": "checkout_attendees",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also check out everyone still present; Abmeldezeit = archived_at (Ereignisende).",
+              "default": false,
+              "title": "Checkout Attendees"
+            },
+            "description": "Also check out everyone still present; Abmeldezeit = archived_at (Ereignisende)."
           },
           {
             "name": "authorization",
@@ -22000,6 +22012,19 @@
             "type": "array",
             "title": "Open Pickups",
             "default": []
+          },
+          "open_incidents": {
+            "items": {
+              "$ref": "#/components/schemas/RestlisteIncident"
+            },
+            "type": "array",
+            "title": "Open Incidents",
+            "default": []
+          },
+          "attendees_present": {
+            "type": "integer",
+            "title": "Attendees Present",
+            "default": 0
           }
         },
         "type": "object",
