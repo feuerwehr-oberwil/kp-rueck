@@ -51,7 +51,9 @@ from .photo_storage import ExportPhoto
 # ---------------------------------------------------------------------------
 
 LABELS: dict[str, str] = {
-    "report_title": "Einsatzrapport",
+    # «Gesamtereignis» because per-incident sheets exist too — this eyebrow has
+    # to say which scope the reader is holding (field test 07.09.).
+    "report_title": "Einsatzrapport Gesamtereignis",
     "training_badge": "ÜBUNG",
     "event": "Ereignis",
     # Begin and end as two rows, not one folded «Zeitraum» (field test 07.09.):
@@ -64,7 +66,6 @@ LABELS: dict[str, str] = {
     # «PDF erstellt», not «Erstellt am» — names WHAT was created at that clock,
     # so it cannot be misread as the event's own timestamp.
     "generated_at": "PDF erstellt",
-    "generated_by": "Erstellt von",
     # Placeholder for the defensive paths only – a checklist row that carries no name
     # at all. Fields the event simply has no answer for are not printed (see
     # `_maybe_field`): a line reading "Kontakt: –" tells a reader nothing that the
@@ -126,6 +127,22 @@ LABELS: dict[str, str] = {
     "journal_divera_alarm_plain": "Divera-Alarm ausgelöst",
     "journal_incident_deleted": "Einsatz gelöscht",
     "journal_incident_restored": "Einsatz wiederhergestellt",
+    # Resource overviews (field test 07.09.): who/what was where, first to
+    # last, without opening every incident block. One row per assignment.
+    "vehicle_overview_title": "Fahrzeug-Übersicht",
+    "vehicle_overview_hint": "Jede Zuteilung eines Fahrzeugs zu einem Einsatz, in zeitlicher Reihenfolge.",
+    "material_overview_title": "Material-Übersicht",
+    "material_overview_hint": (
+        "Jede Zuteilung von Material zu einem Einsatz. "
+        "«Noch am Schadenplatz» = beim Abschluss nicht zurückgemeldet (siehe Abholung)."
+    ),
+    "overview_col_vehicle": "Fahrzeug",
+    "overview_col_material": "Material",
+    #: An open assignment on a live incident vs. one the incident's completion
+    #: left standing at the address.
+    "overview_still_active": "im Einsatz",
+    "overview_left_on_site": "noch am Schadenplatz",
+    "overview_auftrag_ref": "Auftrag «{name}» (Nr {stops})",
     # Incident overview table
     "incident_list_title": "Einsatzübersicht",
     "incident_list_hint": "Alle Einsätze des Ereignisses, in der Reihenfolge des Eingangs.",
@@ -1221,6 +1238,46 @@ def _p(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(str(text)), style)
 
 
+# Web addresses and e-mails inside free text. Deliberately conservative: a
+# false positive turns prose into a dead link, a miss just stays text.
+_LINK_RE = re.compile(r"(https?://[^\s<>()]+|www\.[^\s<>()]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)")
+
+
+def _tel_href(number: str) -> str:
+    """``tel:`` target for a Swiss-formatted number: digits and ``+`` only."""
+    return "tel:" + re.sub(r"[^\d+]", "", number)
+
+
+def _link_markup(href: str, text: str) -> str:
+    """One live link: underlined, ink-coloured — the accent colours stay reserved."""
+    return f'<a href="{escape(href, {chr(34): "&quot;"})}"><u>{escape(text)}</u></a>'
+
+
+def _linkify(text: str) -> str:
+    """Escaped Paragraph markup with URLs and e-mails as live PDF links.
+
+    On paper nothing changes; in a viewer the reader can tap what the field
+    test asked for («www. Tel. @ mit Hyperlink»). Phone numbers are NOT
+    guessed out of prose — the structured ``contact_phone`` carries the
+    ``tel:`` link, free-text digits stay text.
+    """
+    parts: list[str] = []
+    last = 0
+    for match in _LINK_RE.finditer(text):
+        parts.append(escape(text[last : match.start()]))
+        token = match.group(0)
+        if token.startswith(("http://", "https://")):
+            href = token
+        elif token.startswith("www."):
+            href = f"https://{token}"
+        else:
+            href = f"mailto:{token}"
+        parts.append(_link_markup(href, token))
+        last = match.end()
+    parts.append(escape(text[last:]))
+    return "".join(parts)
+
+
 def _widths(*fixed: float, flex: int = -1) -> list[float]:
     """Column widths where ONE column takes whatever is left of the content width.
 
@@ -1323,7 +1380,6 @@ def photo_grid(
 
 def _cover(
     data: EventReportData,
-    generated_by: str,
     styles: dict[str, ParagraphStyle],
     logo: bytes | None = None,
 ) -> list[Any]:
@@ -1366,13 +1422,13 @@ def _cover(
 
     flow.append(_rule(color=_INK, thickness=1.0, space_after=5))
 
-    # No Funkrufname row (field test 07.09.): it says nothing about THIS event,
-    # and the KP-Front rapport does not carry it either.
+    # No Funkrufname row and no «Erstellt von» (field test 07.09.): neither says
+    # anything about THIS event — KP-Front prints neither, and who exported is
+    # the audit log's answer. `generated_by` stays in the PDF's author metadata.
     meta_lines = [
         (LABELS["event_begin"], _fmt_dt(event.created_at)),
         (LABELS["event_end"], _fmt_dt(event.archived_at) if event.archived_at else LABELS["event_end_ongoing"]),
         (LABELS["generated_at"], _fmt_dt(datetime.now(UTC))),
-        (LABELS["generated_by"], _text(generated_by)),
     ]
     for label, value in meta_lines:
         if not value:
@@ -1845,6 +1901,99 @@ def _incident_overview_table(data: EventReportData, styles: dict[str, ParagraphS
     return table
 
 
+def _resource_overview_table(
+    data: EventReportData, styles: dict[str, ParagraphStyle], res_type: str
+) -> LongTable | None:
+    """One row per vehicle/material assignment: which Einsatz, from when, how it
+    ended — «Bis» holds the release clock, «im Einsatz» while it is still out,
+    or «noch am Schadenplatz» when the incident closed over an open assignment
+    (the Abholliste case). Auftrag rows name the route and its stop numbers.
+    ``None`` when nothing of the kind was ever assigned — no empty section.
+    """
+    resource_map: Mapping[uuid.UUID, Any] = data.vehicle_map if res_type == "vehicle" else data.material_map
+    index = {inc.id: i for i, inc in enumerate(data.incidents, start=1)}
+
+    def until_cell(unassigned_at: datetime | None, done: bool) -> str:
+        if unassigned_at:
+            return _fmt_dt(unassigned_at)
+        return LABELS["overview_left_on_site"] if done else LABELS["overview_still_active"]
+
+    entries: list[tuple[str, datetime, str, str, str]] = []
+    for a in data.assignments:
+        if a.resource_type != res_type or a.resource_id not in resource_map:
+            continue
+        inc = data.incident_map.get(a.incident_id)
+        if inc is None:
+            continue
+        nr = index.get(inc.id)
+        label = f"{nr} – {_text(inc.title)}" if nr else _text(inc.title)
+        done = inc.status == "complete" or inc.completed_at is not None
+        entries.append(
+            (
+                resource_map[a.resource_id].name,
+                _as_utc(a.assigned_at),
+                label,
+                _fmt_dt(a.assigned_at),
+                until_cell(a.unassigned_at, done),
+            )
+        )
+    for ga in data.group_assignments:
+        if ga.resource_type != res_type or ga.resource_id not in resource_map:
+            continue
+        group = data.group_map.get(ga.incident_group_id)
+        if group is None:
+            continue
+        stops = sorted((i for i in data.incidents if i.group_id == group.id), key=lambda i: i.group_position)
+        stop_numbers = ", ".join(str(index[s.id]) for s in stops if s.id in index)
+        done = bool(stops) and all(s.status == "complete" or s.completed_at is not None for s in stops)
+        entries.append(
+            (
+                resource_map[ga.resource_id].name,
+                _as_utc(ga.assigned_at),
+                LABELS["overview_auftrag_ref"].format(name=group.name, stops=stop_numbers or "–"),
+                _fmt_dt(ga.assigned_at),
+                until_cell(ga.unassigned_at, done),
+            )
+        )
+    if not entries:
+        return None
+    entries.sort(key=lambda e: (e[0], e[1]))
+
+    resource_label = LABELS["overview_col_vehicle"] if res_type == "vehicle" else LABELS["overview_col_material"]
+    rows = [
+        [
+            _p(resource_label, styles["cell_header"]),
+            _p(LABELS["col_incident"], styles["cell_header"]),
+            _p(LABELS["col_from"], styles["cell_header"]),
+            _p(LABELS["col_to"], styles["cell_header"]),
+        ]
+    ]
+    rows.extend(
+        [_p(name, styles["cell"]), _p(label, styles["cell"]), _p(von, styles["cell"]), _p(bis, styles["cell"])]
+        for name, _sort, label, von, bis in entries
+    )
+
+    # The 25mm clock column from the other tables; «noch am Schadenplatz» gets
+    # 32mm so it stays one line, and the Einsatz label absorbs the rest.
+    table = LongTable(rows, colWidths=_widths(32 * mm, 25 * mm, 32 * mm, flex=1), repeatRows=1, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, _GRID),
+                ("GRID", (0, 0), (-1, -1), 0.5, _GRID),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _ZEBRA]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
 def _label_value_row(
     label: str,
     value: Any,
@@ -1948,8 +2097,19 @@ def _incident_detail(
         )
     ]
 
-    block.extend(_maybe_field(LABELS["description"], inc.description, styles))
-    block.extend(_maybe_field(LABELS["contact"], inc.contact, styles))
+    # Free text with live links; the Kontakt row also carries the reporter's
+    # number as a tap-to-call tel: link (it used to not print at all).
+    description = _text(inc.description)
+    if description:
+        block.append(_label_value_row(LABELS["description"], Paragraph(_linkify(description), styles["body"]), styles))
+    contact_parts = []
+    if _text(inc.contact):
+        contact_parts.append(_linkify(_text(inc.contact)))
+    if _text(inc.contact_phone):
+        phone = _text(inc.contact_phone)
+        contact_parts.append(_link_markup(_tel_href(phone), phone))
+    if contact_parts:
+        block.append(_label_value_row(LABELS["contact"], Paragraph(" · ".join(contact_parts), styles["body"]), styles))
 
     # Flags. Zu Fuss is NOT one of them: it is how the squad moves, so it lives
     # under «Mittel» with the vehicles — where the Lageblatt already files it.
@@ -2145,7 +2305,12 @@ def _rapport_block(
     if report.owner_name:
         flow.append(_field(LABELS["rapport_owner"], report.owner_name, styles))
     if report.owner_phone:
-        flow.append(_field(LABELS["rapport_owner_phone"], report.owner_phone, styles))
+        phone = _text(report.owner_phone)
+        flow.append(
+            _label_value_row(
+                LABELS["rapport_owner_phone"], Paragraph(_link_markup(_tel_href(phone), phone), styles["body"]), styles
+            )
+        )
 
     if inc.pickup_needed:
         note = f" ({inc.pickup_note})" if inc.pickup_note else ""
@@ -2249,7 +2414,7 @@ def build_event_report_pdf(
 
     Args:
         data: Fully-loaded event data from ``collect_event_report_data``.
-        generated_by: Username of the person generating the report (meta block).
+        generated_by: Username of the exporting user — PDF author metadata + audit, no cover row.
         home_city: Configured home city; locations equal to it are hidden.
         station_name: The organization (``firestation_name`` setting) for the running
             footer — with only the logo carrying it, a black-and-white copy of the
@@ -2284,7 +2449,7 @@ def build_event_report_pdf(
     )
 
     story: list[Any] = []
-    story.extend(_cover(data, generated_by, styles, logo))
+    story.extend(_cover(data, styles, logo))
     story.append(Spacer(1, 10))
 
     # Summary
@@ -2310,6 +2475,19 @@ def build_event_report_pdf(
         story.extend(_section(LABELS["incident_list_title"], styles, LABELS["incident_list_hint"]))
         story.append(_incident_overview_table(data, styles, home_city))
         story.append(Spacer(1, 12))
+
+        # Fahrzeug-/Material-Übersicht: what was where, without opening every
+        # incident block (field test 07.09.). Skipped entirely when the event
+        # never assigned that kind of resource.
+        for res_type, title_key, hint_key in (
+            ("vehicle", "vehicle_overview_title", "vehicle_overview_hint"),
+            ("material", "material_overview_title", "material_overview_hint"),
+        ):
+            overview = _resource_overview_table(data, styles, res_type)
+            if overview is not None:
+                story.extend(_section(LABELS[title_key], styles, LABELS[hint_key]))
+                story.append(overview)
+                story.append(Spacer(1, 12))
 
         # Reaction times (debrief metrics)
         story.extend(_section(LABELS["reaction_title"], styles, LABELS["reaction_hint"]))

@@ -380,7 +380,9 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         # captured in the command post, and that is the station's word for it.
         ("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source or "", "KP")),
         ("Meldung", inc.description or "–"),
-        ("Kontakt", inc.contact or "–"),
+        # Name AND number: on the paper fallback the phone is the whole point
+        # of the row — it is what the KP dials when the screens are dead.
+        ("Kontakt", " · ".join(p for p in (inc.contact, inc.contact_phone) if p) or "–"),
         ("Merkmale", ", ".join(flags) or "–"),
     ]
 

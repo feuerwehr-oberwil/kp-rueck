@@ -161,7 +161,9 @@ class TestGoldenContent:
         assert "Einsatz beendet" in text  # status label
         assert "Seite 1 von" in text  # footer
         assert "Max Mustermann" in text  # assigned crew
-        assert "fixture_editor" in text  # generated_by
+        # «Erstellt von» left the cover (field test 07.09.) — the exporting user
+        # lives in the PDF author metadata and the audit log, not on the page.
+        assert "fixture_editor" not in text
 
     def test_returns_bytes_starting_with_pdf_magic(self, simple_event: Event):
         data = EventReportData(
