@@ -803,8 +803,11 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                 resource_id=author_p.id,
                 assigned_by=editor_id,
                 # Sent out shortly before arriving on site — not the seed's own
-                # clock, which put the assignment AFTER the release.
-                assigned_at=ago(arrived_min + 10),
+                # clock, which put the assignment AFTER the release. Clamped to
+                # after the incident's own creation: a fast reko (arrival minutes
+                # after intake) otherwise printed «zugeteilt» BEFORE «Einsatz
+                # erstellt» in the Einsatztagebuch.
+                assigned_at=max(ago(arrived_min + 10), incidents[title].created_at + timedelta(minutes=1)),
                 unassigned_at=None if status == "reko_done" else ago(submitted_min - 2),
             )
         )
