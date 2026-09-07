@@ -857,7 +857,7 @@ release version:
 #   → CI gate → four GHCR images + GitHub Release.
 # Commit the version bump and tag it
 release-tag version:
-    git add frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py tools/print-agent/pyproject.toml docs/openapi.json CHANGELOG.md
+    git add .env.example frontend/package.json backend/pyproject.toml backend/uv.lock backend/app/config.py tools/print-agent/pyproject.toml docs/openapi.json CHANGELOG.md
     git commit -m "chore(release): v{{version}}"
     git tag -a v{{version}} -m "v{{version}}"
     @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"
