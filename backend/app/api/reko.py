@@ -672,9 +672,12 @@ async def upload_photo(
         # Reset file position for photo_storage
         await file.seek(0)
 
-        # Count total photos across all reports
+        # Count total photos across all reports. `photos_json` is JSONB, so this
+        # must be jsonb_array_length — `array_length` only exists for real
+        # Postgres arrays, and calling it here 500'd EVERY demo photo upload
+        # (field test 07.09.: «Interner Serverfehler», egal welches Format).
         total_photos_result = await db.execute(
-            select(sa_func.coalesce(sa_func.array_length(RekoReport.photos_json, 1), 0))
+            select(sa_func.coalesce(sa_func.jsonb_array_length(RekoReport.photos_json), 0))
         )
         total_photos = sum(r[0] for r in total_photos_result)
         if total_photos >= 15:

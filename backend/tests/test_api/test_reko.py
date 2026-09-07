@@ -1139,6 +1139,32 @@ async def test_upload_photo_updates_report(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_upload_photo_works_in_demo_mode(
+    client: AsyncClient, monkeypatch, test_incident: Incident, valid_token: str
+):
+    """The demo quota guard must run its SQL against the real schema.
+
+    `photos_json` is JSONB, and the guard once counted it with `array_length`
+    (arrays only) — which 500'd EVERY demo photo upload while all tests passed,
+    because none of them took the demo branch (field test 07.09.).
+    """
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "demo_mode", True)
+    await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
+
+    with patch("app.api.reko.photo_storage") as mock_storage:
+        mock_storage.save_photo = AsyncMock(return_value="demo-photo.jpg")
+        response = await client.post(
+            f"/api/reko/{test_incident.id}/photos",
+            files={"file": ("test.jpg", b"fake image content", "image/jpeg")},
+            headers={"X-Reko-Token": valid_token},
+        )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_delete_photo_updates_report(
     client: AsyncClient, db_session: AsyncSession, test_incident: Incident, valid_token: str
 ):
