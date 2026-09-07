@@ -46,6 +46,9 @@ DEFAULT_SETTINGS = {
     # on stay switched on — see crud/incidents.py for why the second trigger ("active") went.
     "printer.auto_anfahrt": "true",
     "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
+    # Kommandant's name, pre-printed next to the «Kommandant» signature line on the
+    # Einsatzrapport (same idea as KP-Front's setting). Empty = just the label.
+    "kommandant_name": "",
     # Station identity + map preferences.
     #
     # These are WRITTEN by the seed and READ all over the frontend, but were missing from

@@ -151,7 +151,7 @@ class TestGoldenContent:
             vehicle_map={vehicle.id: vehicle},
         )
 
-        pdf_bytes = build_event_report_pdf(data, generated_by="fixture_editor", funkrufname="Omega")
+        pdf_bytes = build_event_report_pdf(data, generated_by="fixture_editor")
 
         assert pdf_bytes[:4] == b"%PDF"
         text = _extract_text(pdf_bytes)
@@ -160,7 +160,6 @@ class TestGoldenContent:
         assert "Wohnungsbrand Hauptstrasse" in text  # incident title
         assert "Einsatz beendet" in text  # status label
         assert "Seite 1 von" in text  # footer
-        assert "Omega" in text  # funkrufname
         assert "Max Mustermann" in text  # assigned crew
         assert "fixture_editor" in text  # generated_by
 
@@ -421,7 +420,7 @@ class TestCollectAndBuild:
         assert isinstance(data, EventReportData)
         assert len(data.incidents) == 1
 
-        pdf_bytes = build_event_report_pdf(data, generated_by="fixture_editor", funkrufname="Omega")
+        pdf_bytes = build_event_report_pdf(data, generated_by="fixture_editor")
         assert pdf_bytes.startswith(b"%PDF")
         text = _extract_text(pdf_bytes)
         assert "DB Wohnungsbrand" in text
@@ -452,7 +451,8 @@ class TestCollectAndBuild:
         data = await collect_event_report_data(db_session, archived.id)
         pdf_bytes = build_event_report_pdf(data, generated_by="u")
         text = _extract_text(pdf_bytes)
-        assert "Zeitraum" in text
+        assert "Ereignisbeginn" in text
+        assert "Ereignisende" in text
         assert "laufend" not in text  # archived -> concrete end date, not "laufend"
 
 

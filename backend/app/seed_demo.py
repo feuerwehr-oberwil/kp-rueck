@@ -1066,6 +1066,9 @@ async def seed_demo_database() -> None:
 
             demo_settings = [
                 ("firestation_name", "Feuerwehr Oberwil"),
+                # An Offizier from the demo roster, so the rapport's signature
+                # section shows the pre-printed Kommandant line in action.
+                ("kommandant_name", "Ackermann Reto"),
                 ("firestation_latitude", "47.51637699933488"),
                 ("firestation_longitude", "7.561800450458299"),
                 ("home_city", "Oberwil, BL"),

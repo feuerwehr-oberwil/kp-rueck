@@ -10,6 +10,7 @@ All user-facing strings live in the module-level :data:`LABELS` dict (German,
 Swiss spelling) so plan 06 (i18n) can localise later by swapping the dict.
 """
 
+import math
 import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -53,13 +54,16 @@ LABELS: dict[str, str] = {
     "report_title": "Einsatzrapport",
     "training_badge": "ÜBUNG",
     "event": "Ereignis",
-    "period": "Zeitraum",
-    # A range says "bis"; an event that is still running says "seit" and names one
-    # clock, because there is no second one to name yet.
+    # Begin and end as two rows, not one folded «Zeitraum» (field test 07.09.):
+    # the cover keeps event time and export time apart, and a running event says
+    # so explicitly instead of leaving the end implicit in a «seit».
+    "event_begin": "Ereignisbeginn",
+    "event_end": "Ereignisende",
+    "event_end_ongoing": "laufend",
     "period_range": "{start} bis {end}",
-    "period_ongoing": "seit {start}",
-    "funkrufname": "Funkrufname",
-    "generated_at": "Erstellt am",
+    # «PDF erstellt», not «Erstellt am» — names WHAT was created at that clock,
+    # so it cannot be misread as the event's own timestamp.
+    "generated_at": "PDF erstellt",
     "generated_by": "Erstellt von",
     # Placeholder for the defensive paths only – a checklist row that carries no name
     # at all. Fields the event simply has no answer for are not printed (see
@@ -81,6 +85,10 @@ LABELS: dict[str, str] = {
     # Anwesenheit (roll-call with An-/Abmeldezeit)
     "attendance_title": "Anwesenheit",
     "attendance_hint": "Personen mit Anmeldung zu diesem Ereignis, in der Reihenfolge der Mannschaftsliste. Dauer in hh:mm.",
+    #: Totals over the roster, same words as the KP-Front rapport. The rounded
+    #: figure only exists once the event is closed — see `_attendance_totals_line`.
+    "attendance_totals": "{present} Anwesende · Einsatzstunden {raw} · gerundet {rounded}",
+    "attendance_present_only": "{present} Anwesende",
     #: The end of an open attendance: somebody who arrived and never checked out. The
     #: report says so instead of leaving the cell blank – blank reads as "no data",
     #: and the whole point of the column is that the difference is visible.
@@ -1316,7 +1324,6 @@ def photo_grid(
 def _cover(
     data: EventReportData,
     generated_by: str,
-    funkrufname: str,
     styles: dict[str, ParagraphStyle],
     logo: bytes | None = None,
 ) -> list[Any]:
@@ -1359,15 +1366,11 @@ def _cover(
 
     flow.append(_rule(color=_INK, thickness=1.0, space_after=5))
 
-    period_start = _fmt_dt(event.created_at)
-    period = (
-        LABELS["period_range"].format(start=period_start, end=_fmt_dt(event.archived_at))
-        if event.archived_at
-        else LABELS["period_ongoing"].format(start=period_start)
-    )
+    # No Funkrufname row (field test 07.09.): it says nothing about THIS event,
+    # and the KP-Front rapport does not carry it either.
     meta_lines = [
-        (LABELS["period"], period),
-        (LABELS["funkrufname"], _text(funkrufname)),
+        (LABELS["event_begin"], _fmt_dt(event.created_at)),
+        (LABELS["event_end"], _fmt_dt(event.archived_at) if event.archived_at else LABELS["event_end_ongoing"]),
         (LABELS["generated_at"], _fmt_dt(datetime.now(UTC))),
         (LABELS["generated_by"], _text(generated_by)),
     ]
@@ -1457,6 +1460,45 @@ def _fmt_duration(seconds: float | None) -> str:
         return ""
     minutes = int(seconds // 60)
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+# Einsatzstunden rounding — the SAME rule as KP-Front's rapport (its
+# lib/attendanceHours.ts, deliberately: one station, one Sold arithmetic):
+# per person, UP to the next 30-minute block once 5 minutes past the previous
+# one, then summed. Rounding the sum instead would give the same Einsatz a
+# different answer depending on how many people came. The rule itself is not
+# printed — it belongs in the Weisung; the raw figure beside the rounded one
+# is what keeps the rounded one checkable.
+_HOURS_STEP_MIN = 30
+_HOURS_GRACE_MIN = 5
+
+
+def _rounded_minutes(minutes: int) -> int:
+    if minutes <= _HOURS_GRACE_MIN:
+        return 0
+    return _HOURS_STEP_MIN * math.ceil((minutes - _HOURS_GRACE_MIN) / _HOURS_STEP_MIN)
+
+
+def _attendance_totals_line(data: EventReportData) -> str:
+    """«19 Anwesende · Einsatzstunden 74:26 · gerundet 72:30» — or, on a RUNNING
+    event, the headcount alone: an open attendance has no honest duration until
+    the event's end supplies the missing checkout (KP-Front's print path draws
+    the same line, and hours of an unfinished event are not billable anyway)."""
+    present = len(data.attendance)
+    if data.event.archived_at is None:
+        return LABELS["attendance_present_only"].format(present=present)
+    raw = 0
+    rounded = 0
+    for record in data.attendance:
+        if record.checked_in_at is None:
+            continue
+        left = record.checked_out_at or data.event.archived_at
+        minutes = int(max(0.0, (_as_utc(left) - _as_utc(record.checked_in_at)).total_seconds()) // 60)
+        raw += minutes
+        rounded += _rounded_minutes(minutes)
+    return LABELS["attendance_totals"].format(
+        present=present, raw=_fmt_duration(raw * 60), rounded=_fmt_duration(rounded * 60)
+    )
 
 
 def _attendance_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> LongTable:
@@ -2128,12 +2170,15 @@ def _section(title: str, styles: dict[str, ParagraphStyle], description: str = "
     return flow
 
 
-def _signature_block(styles: dict[str, ParagraphStyle]) -> list[Any]:
+def _signature_block(styles: dict[str, ParagraphStyle], kommandant: str = "") -> list[Any]:
     """Ort/Datum plus a signature line for Einsatzleiter and Kommandant.
 
     Same two roles, same order as the KP-Front Einsatzrapport, so a station files both
     documents for one night the same way. Dotted leaders rather than solid rules: the
     convention already says "write here" on every other form in the building.
+
+    ``kommandant``: the configured name, pre-printed on the Kommandant line the way
+    KP-Front does it — empty prints just the label.
 
     The four columns are measured, not chosen. Fixed 26 mm label columns left a 9 mm hole
     between "Ort, Datum:" and the line it belongs to, and made the gutter between the two
@@ -2152,8 +2197,15 @@ def _signature_block(styles: dict[str, ParagraphStyle]) -> list[Any]:
     role_w = max(stringWidth(f"{r}:", font, size) for r in roles) + pad
     line_w = (_CONTENT_W - date_w - role_w - gutter) / 2
 
-    def row(role: str) -> Table:
-        cells = [_p(date_label, styles["label_col"]), "", _p(f"{role}:", styles["label_col"]), ""]
+    def row(role: str, name: str = "") -> Table:
+        # A configured name sits ON the line (the dotted leader stays underneath —
+        # the signature itself still goes there); an empty name leaves the line bare.
+        cells = [
+            _p(date_label, styles["label_col"]),
+            "",
+            _p(f"{role}:", styles["label_col"]),
+            _p(name, styles["body"]) if name else "",
+        ]
         table = Table([cells], colWidths=[date_w, line_w, role_w + gutter, line_w], hAlign="LEFT")
         table.setStyle(
             TableStyle(
@@ -2178,7 +2230,7 @@ def _signature_block(styles: dict[str, ParagraphStyle]) -> list[Any]:
             [
                 *_section(LABELS["signatures_title"], styles),
                 row(LABELS["signature_incident_leader"]),
-                row(LABELS["signature_commander"]),
+                row(LABELS["signature_commander"], _text(kommandant)),
             ]
         )
     ]
@@ -2187,18 +2239,22 @@ def _signature_block(styles: dict[str, ParagraphStyle]) -> list[Any]:
 def build_event_report_pdf(
     data: EventReportData,
     generated_by: str,
-    funkrufname: str = "",
     home_city: str = "",
     logo: bytes | None = None,
     photos: Mapping[uuid.UUID, Sequence[ExportPhoto]] | None = None,
+    station_name: str = "",
+    kommandant: str = "",
 ) -> bytes:
     """Render the after-action report PDF.
 
     Args:
         data: Fully-loaded event data from ``collect_event_report_data``.
         generated_by: Username of the person generating the report (meta block).
-        funkrufname: Radio callsign from settings (``get_setting_value``).
         home_city: Configured home city; locations equal to it are hidden.
+        station_name: The organization (``firestation_name`` setting) for the running
+            footer — with only the logo carrying it, a black-and-white copy of the
+            report named no Feuerwehr at all (field test 07.09.).
+        kommandant: Configured Kommandant name, pre-printed on the signature line.
         logo: Station logo as PNG/JPEG bytes (``services.branding.get_report_logo``).
             ``None`` – or anything unreadable – simply renders no letterhead.
         photos: Pre-loaded Reko/Rapport photos per incident id (the caller reads the
@@ -2228,7 +2284,7 @@ def build_event_report_pdf(
     )
 
     story: list[Any] = []
-    story.extend(_cover(data, generated_by, funkrufname, styles, logo))
+    story.extend(_cover(data, generated_by, styles, logo))
     story.append(Spacer(1, 10))
 
     # Summary
@@ -2242,6 +2298,8 @@ def build_event_report_pdf(
     # every report it ever files.
     if data.attendance:
         story.extend(_section(LABELS["attendance_title"], styles, LABELS["attendance_hint"]))
+        story.append(_p(_attendance_totals_line(data), styles["body"]))
+        story.append(Spacer(1, 4))
         story.append(_attendance_table(data, styles))
         story.append(Spacer(1, 12))
 
@@ -2284,11 +2342,14 @@ def build_event_report_pdf(
                 block = [*details_heading, *block]
             story.extend(block)
 
-    story.extend(_signature_block(styles))
+    story.extend(_signature_block(styles, kommandant))
 
+    # The organization leads the footer: the logo is the only other place it
+    # appears, and a photocopy loses the logo before it loses 8pt text.
+    footer_left = f"{station_name}  ·  {event.name}" if _text(station_name) else event.name
     doc.build(
         story,
-        canvasmaker=_make_canvas_factory(footer_left=event.name, footer_date=footer_date),
+        canvasmaker=_make_canvas_factory(footer_left=footer_left, footer_date=footer_date),
     )
 
     return buffer.getvalue()

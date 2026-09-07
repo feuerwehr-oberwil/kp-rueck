@@ -1482,6 +1482,10 @@
             "label": "Funkrufname",
             "description": "Funkrufname der Einheit für die Funkdurchsage (z. B. Omega, Gamma)"
           },
+          "kommandant_name": {
+            "label": "Kommandant",
+            "description": "Name des Kommandanten – wird auf dem Einsatzrapport neben der Unterschriftszeile «Kommandant» vorgedruckt. Leer = nur die Beschriftung."
+          },
           "map_mode": {
             "label": "Karten-Modus",
             "description": "Auto (Online mit Offline-Fallback), Online oder Offline",

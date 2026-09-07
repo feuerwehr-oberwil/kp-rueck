@@ -258,6 +258,12 @@ const SETTING_CONFIGS: SettingConfig[] = [
     key: 'funkrufname',
     type: 'text',
   },
+  // Pre-printed next to the «Kommandant» signature line on the Einsatzrapport
+  // (mirrors KP Front). Empty = the line stays blank.
+  {
+    key: 'kommandant_name',
+    type: 'text',
+  },
   // Station identity. All three have been PATCHable through the generic settings
   // endpoint since 0.4.0 (they are in the backend's DEFAULT_SETTINGS allowlist) –
   // what was missing is only this, the surface docs/SETUP.md already told operators

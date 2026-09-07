@@ -204,18 +204,20 @@ async def export_event_report(
         # Gather data (async, DB-bound) then render the PDF off the event loop
         # (reportlab is synchronous and CPU-bound).
         data = await collect_event_report_data(db, event_id)
-        funkrufname = await get_setting_value(db, "funkrufname", "")
         home_city = await get_setting_value(db, "home_city", "")
+        station_name = await get_setting_value(db, "firestation_name", "")
+        kommandant = await get_setting_value(db, "kommandant_name", "")
         logo = await get_report_logo(db)
         photos = await asyncio.to_thread(_collect_report_photos, data)
         pdf_bytes = await asyncio.to_thread(
             build_event_report_pdf,
             data,
             current_user.username,
-            funkrufname,
             home_city,
             logo,
             photos,
+            station_name,
+            kommandant,
         )
 
         # Audit-log the export (same pattern as the Excel export).
@@ -282,9 +284,10 @@ async def export_event_lageblatt(
     try:
         data = await collect_event_report_data(db, event_id)
         home_city = await get_setting_value(db, "home_city", "")
+        station_name = await get_setting_value(db, "firestation_name", "")
         logo = await get_report_logo(db)
         photos = await asyncio.to_thread(_collect_report_photos, data)
-        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city, photos, logo)
+        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city, photos, logo, station_name)
 
         date_str = datetime.now(UTC).strftime("%Y-%m-%d-%H%M")
         filename = f"lageblatt-{slugify_event_name(event.name)}-{date_str}.pdf"

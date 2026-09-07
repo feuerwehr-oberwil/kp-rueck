@@ -356,7 +356,11 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
 
     coords = "–"
     if inc.location_lat is not None and inc.location_lng is not None:
-        coords = f"{float(inc.location_lat):.5f}, {float(inc.location_lng):.5f}"
+        # Decimal degrees with hemisphere («47.51080° N, 7.55480° E») — the
+        # professional notation the field test asked for; the bare pair read
+        # like debugger output.
+        lat, lng = float(inc.location_lat), float(inc.location_lng)
+        coords = f"{abs(lat):.5f}° {'N' if lat >= 0 else 'S'}, {abs(lng):.5f}° {'E' if lng >= 0 else 'W'}"
 
     flags = []
     if inc.nachbarhilfe:
@@ -372,7 +376,9 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         ("Adresse", inc.location_address or "–"),
         ("Koordinaten", coords),
         ("Eingang", _dt_full(inc.created_at)),
-        ("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source or "", "Operator")),
+        # «KP», not «Operator» (field test 07.09.): a board-created incident was
+        # captured in the command post, and that is the station's word for it.
+        ("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source or "", "KP")),
         ("Meldung", inc.description or "–"),
         ("Kontakt", inc.contact or "–"),
         ("Merkmale", ", ".join(flags) or "–"),
@@ -540,6 +546,7 @@ def build_lageblatt_pdf(
     home_city: str = "",
     photos: Mapping[uuid.UUID, Sequence[ExportPhoto]] | None = None,
     logo: bytes | None = None,
+    station_name: str = "",
 ) -> bytes:
     """Render the Lageblatt PDF and return it as bytes.
 
@@ -548,6 +555,8 @@ def build_lageblatt_pdf(
     ``logo``: station logo bytes (``services.branding.get_report_logo``) — same
     letterhead as the Einsatzrapport, so the two sheets a station files for one
     night carry the same mark.
+    ``station_name``: the organization (``firestation_name`` setting) for the
+    footer line — the logo must not be the only thing naming the Feuerwehr.
     """
     now_local = datetime.now(LOCAL_TZ)
     buffer = BytesIO()
@@ -673,10 +682,13 @@ def build_lageblatt_pdf(
     footer_style = ParagraphStyle(
         "lageblatt_footer", fontName="Helvetica", fontSize=6.5, leading=8, textColor=colors.grey
     )
+    footer_text = "KP Rück – Lageblatt (angelehnt an Führungsformular Elementarschaden FWI BL/BS)"
+    if station_name.strip():
+        footer_text = f"{station_name.strip()} · {footer_text}"
     story.append(Spacer(1, 2 * mm))
     story.append(
         Paragraph(
-            "KP Rück – Lageblatt (angelehnt an Führungsformular Elementarschaden FWI BL/BS)",
+            escape(footer_text),
             footer_style,
         )
     )

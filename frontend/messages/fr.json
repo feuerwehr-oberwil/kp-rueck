@@ -2978,6 +2978,10 @@
             "label": "Indicatif radio",
             "description": "Indicatif radio de l’unité pour le message radio (p. ex. Omega, Gamma)"
           },
+          "kommandant_name": {
+            "label": "Commandant",
+            "description": "Nom du commandant – préimprimé sur le rapport d’intervention à côté de la ligne de signature «Commandant». Vide = seulement le libellé."
+          },
           "map_mode": {
             "label": "Mode de carte",
             "description": "Auto (en ligne avec repli hors ligne), en ligne ou hors ligne",
