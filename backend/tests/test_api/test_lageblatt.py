@@ -64,12 +64,14 @@ class TestLageblattService:
     async def test_row_content_and_local_time(self, db_session, test_event: Event, test_incident: Incident):
         """The built PDF contains the incident and empty continuation rows."""
         from app.services.audit_export_service import collect_event_report_data
-        from app.services.lageblatt_service import EMPTY_ROWS, build_lageblatt_pdf
+        from app.services.lageblatt_service import MIN_EMPTY_ROWS, build_lageblatt_pdf
 
         data = await collect_event_report_data(db_session, test_event.id)
         pdf = build_lageblatt_pdf(data, home_city="Oberwil")
         assert pdf[:4] == b"%PDF"
-        assert EMPTY_ROWS >= 5
+        # The handwriting grid guarantees at least this much writing space —
+        # less than that on the last page and it claims a fresh full page.
+        assert MIN_EMPTY_ROWS >= 2
 
 
 class TestLageblattRapportRows:

@@ -20,6 +20,8 @@ from ..models import (
     EventAttendance,
     Incident,
     IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
     Material,
     Personnel,
     RekoReport,
@@ -61,7 +63,13 @@ class EventReportData:
     # check-out can create an attendance row for somebody who never came, and a
     # departure without an arrival is not evidence of presence.
     attendance: list[EventAttendance] = field(default_factory=list)
+    # Aufträge (incident groups) with their route-level assignments: a stop's
+    # crew rides on the group, not on the incident, so a report that only reads
+    # IncidentAssignment prints an empty «Wer/Womit» for every Auftrag stop.
+    incident_groups: list[IncidentGroup] = field(default_factory=list)
+    group_assignments: list[IncidentGroupAssignment] = field(default_factory=list)
     incident_map: dict[uuid.UUID, Incident] = field(default_factory=dict)
+    group_map: dict[uuid.UUID, IncidentGroup] = field(default_factory=dict)
     personnel_map: dict[uuid.UUID, Personnel] = field(default_factory=dict)
     vehicle_map: dict[uuid.UUID, Vehicle] = field(default_factory=dict)
     material_map: dict[uuid.UUID, Material] = field(default_factory=dict)
@@ -125,11 +133,29 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
     else:
         assignments = []
 
+    # ========== 4b. Aufträge and their route-level assignments ==========
+    # Loaded event-wide (not via incident ids): an Auftrag with resources but no
+    # stops yet is still part of the event's picture.
+    groups_result = await db.execute(
+        select(IncidentGroup).where(IncidentGroup.event_id == event_id).where(IncidentGroup.deleted_at.is_(None))
+    )
+    incident_groups = list(groups_result.scalars().all())
+    group_map = {g.id: g for g in incident_groups}
+    group_assignments: list[IncidentGroupAssignment] = []
+    if incident_groups:
+        ga_result = await db.execute(
+            select(IncidentGroupAssignment)
+            .where(IncidentGroupAssignment.incident_group_id.in_(group_map.keys()))
+            .order_by(IncidentGroupAssignment.assigned_at)
+        )
+        group_assignments = list(ga_result.scalars().all())
+
     # ========== 5. Extract unique resource IDs and batch load ==========
-    personnel_ids = {a.resource_id for a in assignments if a.resource_type == "personnel"}
-    vehicle_ids = {a.resource_id for a in assignments if a.resource_type == "vehicle"}
-    material_ids = {a.resource_id for a in assignments if a.resource_type == "material"}
-    user_ids = {a.assigned_by for a in assignments if a.assigned_by}
+    resource_rows: list[IncidentAssignment | IncidentGroupAssignment] = [*assignments, *group_assignments]
+    personnel_ids = {a.resource_id for a in resource_rows if a.resource_type == "personnel"}
+    vehicle_ids = {a.resource_id for a in resource_rows if a.resource_type == "vehicle"}
+    material_ids = {a.resource_id for a in resource_rows if a.resource_type == "material"}
+    user_ids = {a.assigned_by for a in resource_rows if a.assigned_by}
 
     # Also get user IDs from incidents (created_by)
     user_ids.update(inc.created_by for inc in incidents if inc.created_by)
@@ -249,7 +275,10 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         audit_entries=audit_entries,
         schadenplatz_reports=schadenplatz_reports,
         attendance=attendance,
+        incident_groups=incident_groups,
+        group_assignments=group_assignments,
         incident_map=incident_map,
+        group_map=group_map,
         personnel_map=personnel_map,
         vehicle_map=vehicle_map,
         material_map=material_map,

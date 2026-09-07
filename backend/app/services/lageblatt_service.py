@@ -26,26 +26,39 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
+    Flowable,
     KeepTogether,
     LongTable,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
+    Table,
     TableStyle,
 )
 
-from ..models import Incident, Material, Personnel, RekoReport, StatusTransition, Vehicle
+from ..models import (
+    Incident,
+    IncidentAssignment,
+    IncidentGroupAssignment,
+    Material,
+    Personnel,
+    RekoReport,
+    StatusTransition,
+    Vehicle,
+)
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
 from .pdf_report_service import (
     LOCAL_TZ,
+    POWER_LABELS,
     PRIORITY_LABELS,
     STATUS_LABELS,
     TYPE_LABELS,
     WorkWindow,
     extra_material_left_on_site_names,
     format_location_for_display,
+    logo_flowable,
     material_left_on_site_names,
     photo_grid,
     rapport_by_incident,
@@ -56,11 +69,16 @@ from .pdf_report_service import (
 )
 from .photo_storage import ExportPhoto
 
-# The handwriting continuation area: empty grid rows appended after the data.
-EMPTY_ROWS = 10
+# The handwriting continuation area fills the rest of the page below the data
+# (field test 07.09.: «gleich ganze Seite füllen»). When less than this many
+# empty rows would fit, the grid claims a fresh full page instead — a sheet
+# that offers one squeezed line is not a fallback anyone can write on.
+MIN_EMPTY_ROWS = 2
 
-# One uniform height for every data/empty row: fits three 6pt lines plus
-# padding, and doubles as handwriting space.
+# MINIMUM height for a data row and fixed height for an empty one: fits three
+# 6pt lines plus padding, and doubles as handwriting space. Data rows may grow
+# beyond it — a fixed height let a long Rückmeldung paint into the row below
+# (field test 07.09.).
 ROW_HEIGHT = 9 * mm
 
 # Photos on the detail pages: smaller than the Einsatzrapport's — this is the
@@ -76,8 +94,12 @@ _PRIORITY_SHORT = {"high": "H", "medium": "M", "low": "T"}
 
 # Swiss fire service rank order (highest first) and compact display prefixes.
 # role_sort_order in the DB is not reliably populated, so rank by name.
-_ROLE_RANK = {"offiziere": 0, "wachtmeister": 1, "korporal": 2, "mannschaft": 3}
-_ROLE_ABBR = {"offiziere": "Of", "wachtmeister": "Wm", "korporal": "Kpl", "mannschaft": ""}
+# «offizier» singular — the canonical spelling everywhere else in the app
+# (crud/assignments._RANK_FALLBACK, both seeds). The plural key here silently
+# ranked every Offizier LAST, so «Wer» named the Wachtmeister of a squad an
+# Offizier was leading (field test 07.09.).
+_ROLE_RANK = {"offizier": 0, "wachtmeister": 1, "korporal": 2, "mannschaft": 3}
+_ROLE_ABBR = {"offizier": "Of", "wachtmeister": "Wm", "korporal": "Kpl", "mannschaft": ""}
 
 _CELL = ParagraphStyle(
     "lageblatt_cell",
@@ -99,6 +121,17 @@ def _time(dt: datetime | None) -> str:
     return dt.astimezone(LOCAL_TZ).strftime("%H:%M")
 
 
+def _dt_cell(dt: datetime | None) -> str:
+    """Full date + clock for the table's Zeit cells, wrapping after the date.
+
+    A bare clock was ambiguous the moment a storm ran past midnight (field
+    test 07.09.); the space lets the narrow column break it onto two lines.
+    """
+    if dt is None:
+        return ""
+    return dt.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M")
+
+
 def _dt_full(dt: datetime | None) -> str:
     if dt is None:
         return "–"
@@ -116,6 +149,46 @@ def _p(text: str, bold: bool = False) -> Paragraph:
     return Paragraph(escape(text), _CELL_BOLD if bold else _CELL)
 
 
+class _HandwritingGrid(Flowable):  # type: ignore[misc]  # reportlab ships no stubs — Flowable is Any
+    """Empty continuation rows filling whatever the page has left under the table.
+
+    ``wrap`` sizes the grid to the available height (minus a reserve for the
+    footer line). Fewer than :data:`MIN_EMPTY_ROWS` would fit → it reports a
+    height larger than available, which makes platypus move it to a fresh page
+    and re-``wrap`` it against the full frame — a whole page of empty rows.
+    """
+
+    def __init__(self, col_widths: Sequence[float], footer_reserve: float) -> None:
+        super().__init__()
+        self._col_widths = list(col_widths)
+        self._footer_reserve = footer_reserve
+        self._rows = 0
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:  # noqa: N803 (reportlab API)
+        rows = int((availHeight - self._footer_reserve) // ROW_HEIGHT)
+        if rows < MIN_EMPTY_ROWS:
+            return availWidth, availHeight + 1
+        self._rows = rows
+        self.width = sum(self._col_widths)
+        self.height = rows * ROW_HEIGHT
+        return self.width, self.height
+
+    def draw(self) -> None:
+        canvas = self.canv
+        canvas.saveState()
+        canvas.setStrokeColor(_BORDER)
+        canvas.setLineWidth(0.5)
+        xs = [0.0]
+        for width in self._col_widths:
+            xs.append(xs[-1] + width)
+        top = self._rows * ROW_HEIGHT
+        for row in range(self._rows + 1):
+            canvas.line(0, row * ROW_HEIGHT, xs[-1], row * ROW_HEIGHT)
+        for x in xs:
+            canvas.line(x, 0, x, top)
+        canvas.restoreState()
+
+
 def _first_reko(data: EventReportData, incident_id: uuid.UUID) -> RekoReport | None:
     reports = [r for r in data.reko_reports if r.incident_id == incident_id and not r.is_draft]
     reports.sort(key=lambda r: r.submitted_at)
@@ -128,11 +201,23 @@ def _first_transition_to(data: EventReportData, incident_id: uuid.UUID, statuses
     return hits[0] if hits else None
 
 
-def _active_resources(
-    data: EventReportData, incident_id: uuid.UUID
-) -> tuple[list[Personnel], list[Vehicle], list[Material]]:
-    """(crew Personnel, vehicles Vehicle, materials Material) actively assigned."""
-    active = [a for a in data.assignments if a.incident_id == incident_id and a.unassigned_at is None]
+def _active_resources(data: EventReportData, inc: Incident) -> tuple[list[Personnel], list[Vehicle], list[Material]]:
+    """(crew Personnel, vehicles Vehicle, materials Material) actively assigned.
+
+    An Auftrag stop's squad rides on the group, not on the incident — so each
+    kind falls back to the route-level assignments when the incident has none
+    of its own (field test 07.09.: the Sturmholz stops printed an empty «Wer»).
+    """
+    active: list[IncidentAssignment | IncidentGroupAssignment] = [
+        a for a in data.assignments if a.incident_id == inc.id and a.unassigned_at is None
+    ]
+    if inc.group_id is not None:
+        group_active = [
+            a for a in data.group_assignments if a.incident_group_id == inc.group_id and a.unassigned_at is None
+        ]
+        for res_type in ("personnel", "vehicle", "material"):
+            if not any(a.resource_type == res_type for a in active):
+                active.extend(a for a in group_active if a.resource_type == res_type)
     crew = [
         data.personnel_map[a.resource_id]
         for a in active
@@ -202,41 +287,71 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
         reko_by = data.personnel_map[reko.submitted_by_personnel_id].name
     dispo = _first_transition_to(data, inc.id, {"enroute", "active"})
     done = inc.status in ("returning", "complete") or inc.completed_at is not None
-    crew, vehicles, _materials = _active_resources(data, inc.id)
+    crew, vehicles, _materials = _active_resources(data, inc)
 
     return [
         _p(str(index), bold=True),
         _p(_PRIORITY_SHORT.get(inc.priority, "")),
-        _p(_time(inc.created_at)),
+        _p(_dt_cell(inc.created_at)),
         _p(_clip(format_location_for_display(inc.location_address, home_city), 50)),
         _p(_clip(inc.title, 65)),
-        _p(_time(reko.submitted_at) if reko else ""),
+        _p(_dt_cell(reko.submitted_at) if reko else ""),
         _p(_clip(reko_by, 22)),
-        _p(_clip(reko.summary_text if reko else "", 80)),
-        _p(_time(dispo.timestamp) if dispo else ""),
+        # Generous: rows grow with their content now, and the operator asked for
+        # the full Rückmeldung over a truncated one. The clip only guards against
+        # a novel-length summary eating the sheet — the detail pages carry it all.
+        _p(_clip(reko.summary_text if reko else "", 220)),
+        _p(_dt_cell(dispo.timestamp) if dispo else ""),
         _p(_clip(_crew_compact(crew), 24)),
         _p(_clip(", ".join(_mittel(inc, vehicles)), 22)),
         _p("✓" if done else ""),
     ]
 
 
-def _json_true_keys(payload: Any) -> str:
-    """Compact rendering for dangers/effort JSON: list truthy entries."""
+# German labels for the reko form's dangers JSON (frontend reko.dangerLabels —
+# same words the crew ticked). An unmapped key prints as-is rather than vanishing.
+_DANGER_LABELS = {
+    "fire": "Feuer",
+    "fire_danger": "Brandgefahr",
+    "explosion": "Explosionsgefahr",
+    "collapse": "Einsturzgefahr",
+    "chemical": "Gefahrstoffe",
+    "electrical": "Elektrische Gefahr",
+}
+
+
+def _dangers_text(payload: Any) -> str:
+    """Gefahren line in the crew's words — the raw keys («collapse») printed on a
+    sheet that non-technical readers work from (field test 07.09.)."""
+    if not isinstance(payload, dict):
+        return ""
+    parts = [_DANGER_LABELS.get(key, str(key)) for key, value in payload.items() if value is True]
+    if payload.get("other_notes"):
+        parts.append(str(payload["other_notes"]))
+    return ", ".join(parts)
+
+
+def _effort_text(payload: Any) -> str:
+    """Aufwand line from the reko form's effort JSON, in German prose instead of
+    «personnel_count: 4, vehicles_needed: ['Pio']»."""
     if not isinstance(payload, dict):
         return ""
     parts = []
-    for key, value in payload.items():
-        if value is True:
-            parts.append(str(key))
-        elif value not in (False, None, "", []):
-            parts.append(f"{key}: {value}")
+    if payload.get("personnel_count"):
+        parts.append(f"{payload['personnel_count']} Personen")
+    if payload.get("vehicles_needed"):
+        parts.append(f"Fahrzeuge: {', '.join(str(v) for v in payload['vehicles_needed'])}")
+    if payload.get("equipment_needed"):
+        parts.append(f"Gerät: {', '.join(str(e) for e in payload['equipment_needed'])}")
+    if payload.get("estimated_duration_hours"):
+        parts.append(f"ca. {payload['estimated_duration_hours']} h")
     return ", ".join(parts)
 
 
 def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[tuple[str, str]]:
     """Every field the board knows, always present — empty values render as an
     em dash so operators see what is unknown (and can fill it in by hand)."""
-    crew, vehicles, materials = _active_resources(data, inc.id)
+    crew, vehicles, materials = _active_resources(data, inc)
     leaders = _leader_ids(data, inc)
 
     coords = "–"
@@ -258,9 +373,20 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         ("Koordinaten", coords),
         ("Eingang", _dt_full(inc.created_at)),
         ("Quelle", {"intake": "Telefon", "divera": "Divera"}.get(inc.source or "", "Operator")),
-        ("Beschreibung", inc.description or "–"),
+        ("Meldung", inc.description or "–"),
         ("Kontakt", inc.contact or "–"),
         ("Merkmale", ", ".join(flags) or "–"),
+    ]
+
+    # A stop names its route: the crew below is the Auftrag's squad, and the
+    # sheet has to say which route it is working and where this address sits.
+    if inc.group_id is not None and inc.group_id in data.group_map:
+        group = data.group_map[inc.group_id]
+        stops = sorted((i for i in data.incidents if i.group_id == inc.group_id), key=lambda i: i.group_position)
+        pos = next((n for n, stop in enumerate(stops, start=1) if stop.id == inc.id), None)
+        rows.append(("Auftrag", group.name if pos is None else f"{group.name} – Stopp {pos} von {len(stops)}"))
+
+    rows += [
         (
             "Personal",
             # EL first (plan 25, decision 23), rank order underneath — the sort key
@@ -295,14 +421,14 @@ def _detail_rows(data: EventReportData, inc: Incident, home_city: str) -> list[t
         parts = reko_filing_lines(data, report)
         if report.summary_text:
             parts.append(report.summary_text)
-        dangers = _json_true_keys(report.dangers_json)
+        dangers = _dangers_text(report.dangers_json)
         if dangers:
             parts.append(f"Gefahren: {dangers}")
-        effort = _json_true_keys(report.effort_json)
+        effort = _effort_text(report.effort_json)
         if effort:
             parts.append(f"Aufwand: {effort}")
         if report.power_supply:
-            parts.append(f"Strom: {report.power_supply}")
+            parts.append(f"Strom: {POWER_LABELS.get(report.power_supply, report.power_supply)}")
         if report.additional_notes:
             parts.append(f"Notizen: {report.additional_notes}")
         rows.append((f"Reko {_time(report.submitted_at)}", " – ".join(parts) or "–"))
@@ -413,11 +539,15 @@ def build_lageblatt_pdf(
     data: EventReportData,
     home_city: str = "",
     photos: Mapping[uuid.UUID, Sequence[ExportPhoto]] | None = None,
+    logo: bytes | None = None,
 ) -> bytes:
     """Render the Lageblatt PDF and return it as bytes.
 
     ``photos``: pre-loaded Reko/Rapport photos per incident id (the caller reads
     the files — this builder stays free of I/O). ``None`` renders no photos.
+    ``logo``: station logo bytes (``services.branding.get_report_logo``) — same
+    letterhead as the Einsatzrapport, so the two sheets a station files for one
+    night carry the same mark.
     """
     now_local = datetime.now(LOCAL_TZ)
     buffer = BytesIO()
@@ -434,14 +564,35 @@ def build_lageblatt_pdf(
     title_style = ParagraphStyle("lageblatt_title", fontName="Helvetica-Bold", fontSize=11, leading=14)
     meta_style = ParagraphStyle("lageblatt_meta", fontName="Helvetica", fontSize=8, leading=10)
 
-    story = [
+    heading = [
         Paragraph(f"Ereignis: {data.event.name}", title_style),
         Paragraph(
             f"Datum: {now_local.strftime('%d.%m.%Y')} – Stand: {now_local.strftime('%H:%M')} Uhr",
             meta_style,
         ),
-        Spacer(1, 3 * mm),
     ]
+    # Letterhead like the Einsatzrapport's: mark left, title block beside it.
+    logo_img = logo_flowable(logo)
+    usable = A4[0] - 16 * mm
+    story: list[Any]
+    if logo_img is None:
+        story = list(heading)
+    else:
+        lw = logo_img.drawWidth + 6 * mm
+        head = Table([[logo_img, heading]], colWidths=[lw, usable - lw], hAlign="LEFT")
+        head.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story = [head]
+    story.append(Spacer(1, 3 * mm))
 
     # Two header rows: group labels with SPANs, then the sub-columns —
     # mirroring the cantonal Führungsformular so crews recognise the layout.
@@ -477,12 +628,11 @@ def build_lageblatt_pdf(
     rows: list[list[Any]] = [header_group, header_sub]
     for index, inc in enumerate(data.incidents, start=1):
         rows.append(_incident_row(data, inc, index, home_city))
-    for _ in range(EMPTY_ROWS):
-        rows.append([""] * 12)
 
-    usable = A4[0] - 16 * mm
     # Same width for columns of the same kind: all Zeit equal, both Wer equal.
-    fractions = [0.034, 0.034, 0.052, 0.150, 0.170, 0.052, 0.085, 0.167, 0.052, 0.085, 0.085, 0.034]
+    # Zeit is sized so «07.09.2026» fits on one line at 6pt (the clock wraps
+    # underneath); the extra width comes out of the two free-text columns.
+    fractions = [0.034, 0.034, 0.064, 0.150, 0.152, 0.064, 0.085, 0.149, 0.064, 0.085, 0.085, 0.034]
     col_widths = [usable * f for f in fractions]
 
     style = [
@@ -501,16 +651,24 @@ def build_lageblatt_pdf(
         ("SPAN", (8, 0), (10, 0)),
         ("SPAN", (11, 0), (11, 1)),
     ]
-    # Uniform row height everywhere (~3 lines at 6pt): filled and empty rows
-    # read as one grid, and every row leaves handwriting space.
+    # Data rows get ROW_HEIGHT as a MINIMUM and grow with their content — a
+    # fixed height overprinted the next row as soon as a Rückmeldung wrapped
+    # past three lines. Short rows still match the handwriting grid below, so
+    # the sheet reads as one table.
+    n_data = len(data.incidents)
     table = LongTable(
         rows,
         colWidths=col_widths,
         repeatRows=2,
-        rowHeights=[None, None] + [ROW_HEIGHT] * (len(data.incidents) + EMPTY_ROWS),
+        minRowHeights=[0, 0] + [ROW_HEIGHT] * n_data,
     )
     table.setStyle(TableStyle(style))
     story.append(table)
+
+    # The handwriting continuation: empty rows to the bottom of the page (or a
+    # fresh full page, see _HandwritingGrid). 8 mm reserve keeps the footer
+    # line on the same sheet as the grid it signs.
+    story.append(_HandwritingGrid(col_widths, footer_reserve=8 * mm))
 
     footer_style = ParagraphStyle(
         "lageblatt_footer", fontName="Helvetica", fontSize=6.5, leading=8, textColor=colors.grey

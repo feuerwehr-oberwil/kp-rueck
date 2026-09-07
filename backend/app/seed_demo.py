@@ -8,7 +8,9 @@ per-session sandbox endpoint (POST /api/demo/sandbox): it fills an existing
 event with the demo scenario, looking up the shared resources by name.
 """
 
+import base64
 from datetime import datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import bcrypt
@@ -20,7 +22,12 @@ from .crud.assignments import sync_auto_leader
 from .crud.group_assignments import sync_auto_group_leader
 from .database import async_session_maker
 from .seed_training import seed_training_data
+from .services.branding import LOGO_SETTING_KEY
 from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
+
+# The «Feuerwehr Musterdorf» crest (same one the KP-Front demo uses), so demo
+# exports carry the letterhead a configured station would get.
+_DEMO_LOGO_PATH = Path(__file__).parent / "assets" / "demo_report_logo.png"
 
 # Stable UUIDs for the demo users. The demo reset truncates + re-seeds the
 # users table every few hours; using fixed IDs (instead of uuid4()) means a
@@ -216,6 +223,11 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
 
     def ago(minutes: int) -> datetime:
         return now - timedelta(minutes=minutes)
+
+    # The story is backdated ~3 hours, so the event must be too: a sandbox
+    # created "now" prints an Einsatzrapport whose Zeitraum starts AFTER its
+    # first Meldung (field test 07.09.: «Zeitraum seit 10:34, 1. Einsatz 07:34»).
+    event.created_at = ago(185)
 
     # Position orders cards within each status column (0-based per column);
     # every incident below draws its slot from this shared counter.
@@ -472,6 +484,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
         notes="Sturmschäden nach Gewitterfront: Sturmholz räumen, Stopps in Routenreihenfolge abarbeiten.",
         position=0,
         created_by=editor_id,
+        # Just before its stops go to «Disponiert» at ago(110..108).
+        created_at=ago(115),
     )
     db.add(auftrag)
     # Flush the Auftrag first: Incident.group_id has no ORM relationship (the
@@ -590,6 +604,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
             resource_id=resource.id,
             assigned_by=editor_id,
             driver_stay=driver_stay,
+            # Backdated like everything else: without this the DB stamps "now",
+            # and every rapport line reads «seit 10:34» on a 07:44 incident —
+            # or a reversed «10:34 bis 07:56» once the crew is released.
+            assigned_at=incidents[incident_title].created_at + timedelta(minutes=10),
         )
 
     assignments = [
@@ -640,6 +658,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                 resource_type=resource_type,
                 resource_id=resource.id,
                 assigned_by=editor_id,
+                # Equipped when the route was put together, before it went out.
+                assigned_at=ago(112),
             )
         )
 
@@ -782,6 +802,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
                 resource_type="personnel",
                 resource_id=author_p.id,
                 assigned_by=editor_id,
+                # Sent out shortly before arriving on site — not the seed's own
+                # clock, which put the assignment AFTER the release.
+                assigned_at=ago(arrived_min + 10),
                 unassigned_at=None if status == "reko_done" else ago(submitted_min - 2),
             )
         )
@@ -1056,6 +1079,11 @@ async def seed_demo_database() -> None:
                 # truncates `settings` too, so it is (re)written by
                 # _ensure_disposable_marker() on every call, outside this guard.
             ]
+
+            # The station logo, as the branding upload would store it. A missing
+            # asset costs the demo its letterhead, never the seed.
+            if _DEMO_LOGO_PATH.is_file():
+                demo_settings.append((LOGO_SETTING_KEY, base64.b64encode(_DEMO_LOGO_PATH.read_bytes()).decode("ascii")))
 
             for key, value in demo_settings:
                 setting = models.Setting(

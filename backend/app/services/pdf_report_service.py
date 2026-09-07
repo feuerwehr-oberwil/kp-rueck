@@ -70,14 +70,17 @@ LABELS: dict[str, str] = {
     "summary_title": "Zusammenfassung",
     "summary_hint": "Kennzahlen über alle Einsätze dieses Ereignisses.",
     "incidents_total": "Einsätze",
-    "personnel_involved": "Personal",
+    # «Personal: 15» next to an Anwesenheit of 19 read as a contradiction
+    # (field test 07.09.) — the pair below says what each number counts.
+    "personnel_involved": "Eingesetztes Personal",
+    "personnel_present": "Anwesendes Personal",
     "vehicles_used": "Fahrzeuge",
     "materials_used": "Material",
     "reko_reports_count": "Reko-Berichte",
     "no_incidents": "Keine Einsätze erfasst",
     # Anwesenheit (roll-call with An-/Abmeldezeit)
     "attendance_title": "Anwesenheit",
-    "attendance_hint": "Personen mit Anmeldung zu diesem Ereignis, in der Reihenfolge der Mannschaftsliste. Dauer in h:mm.",
+    "attendance_hint": "Personen mit Anmeldung zu diesem Ereignis, in der Reihenfolge der Mannschaftsliste. Dauer in hh:mm.",
     #: The end of an open attendance: somebody who arrived and never checked out. The
     #: report says so instead of leaving the cell blank – blank reads as "no data",
     #: and the whole point of the column is that the difference is visible.
@@ -89,7 +92,7 @@ LABELS: dict[str, str] = {
     "col_duration": "Dauer",
     # Reaction times (debrief metrics)
     "reaction_title": "Reaktionszeiten",
-    "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status, in h:mm.",
+    "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status, in hh:mm.",
     "col_to_reko": "→ Reko",
     "col_to_disponiert": "→ Disponiert",
     "col_to_einsatz": "→ Vor Ort",
@@ -135,14 +138,18 @@ LABELS: dict[str, str] = {
     # Per-incident detail
     "details_title": "Einsatzdetails",
     "details_hint": "Ein Block pro Einsatz, in derselben Reihenfolge wie die Übersicht.",
-    "description": "Beschreibung",
+    # «Meldung», not «Beschreibung»: the board calls the field Meldung, and the
+    # archived record must use the operator's own word (field test 07.09.).
+    "description": "Meldung",
     "contact": "Kontakt",
     "flags": "Merkmale",
     "nachbarhilfe": "Nachbarhilfe",
     "am_warten": "Am Warten",
     "zu_fuss": "Zu Fuss",
     "crew": "Personal",
-    "vehicles": "Fahrzeuge",
+    # The detail block's vehicle list: vehicles plus «Zu Fuss», matching the
+    # Lageblatt's word for the same row (field test 07.09.).
+    "mittel": "Mittel",
     "materials": "Material",
     "status_timeline": "Statusverlauf",
     "reko": "Reko",
@@ -1220,7 +1227,7 @@ def _widths(*fixed: float, flex: int = -1) -> list[float]:
     return cols
 
 
-def _logo_flowable(logo: bytes | None) -> Image | None:
+def logo_flowable(logo: bytes | None) -> Image | None:
     """The station logo scaled into the letterhead box, or ``None``.
 
     Never raises: an unreadable image costs the report its logo, never its existence –
@@ -1257,7 +1264,7 @@ def photo_grid(
     KeepTogether, which mis-measures). Photos that came back without bytes
     (missing file, over the export cap) and photos ReportLab cannot read become
     small note lines after the grid instead of failing the document — the
-    :func:`_logo_flowable` rule. Returns ``[]`` for no photos.
+    :func:`logo_flowable` rule. Returns ``[]`` for no photos.
     """
     cells: list[tuple[Image, Paragraph]] = []
     notes: list[str] = []
@@ -1330,7 +1337,7 @@ def _cover(
     # Letterhead: the mark left, the title block right of it. Stacked, the logo would
     # push the title down the page and read as a picture *above* a report rather than
     # the letterhead of one.
-    logo_img = _logo_flowable(logo)
+    logo_img = logo_flowable(logo)
     flow: list[Any]
     if logo_img is None:
         flow = list(heading)
@@ -1405,16 +1412,24 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
     ordered = [s for s in STATUS_ORDER if s in status_counts]
     ordered += sorted(s for s in status_counts if s not in STATUS_ORDER)
     status_breakdown = ", ".join(f"{STATUS_LABELS.get(s, s)}: {status_counts[s]}" for s in ordered)
+    # Distinct persons who arrived — the Anwesenheit section's own count, so the
+    # two numbers can be read against each other (eingesetzt ≤ anwesend).
+    present_personnel = {a.personnel_id for a in data.attendance}
+
     rows = [
         (LABELS["incidents_total"], f"{len(incidents)}" + (f"  ({status_breakdown})" if status_breakdown else "")),
         (LABELS["personnel_involved"], str(len(distinct_personnel))),
+        (LABELS["personnel_present"], str(len(present_personnel))),
         (LABELS["vehicles_used"], str(len(distinct_vehicles))),
         (LABELS["materials_used"], str(len(distinct_materials))),
         (LABELS["reko_reports_count"], str(len(data.reko_reports))),
     ]
 
+    # 46 mm, not the shared 40: «Eingesetztes Personal» is the longest label in
+    # the document and would wrap at 40 — this table stands alone, so the wider
+    # column costs no alignment elsewhere.
     table_data = [[_p(label, styles["field_label"]), _p(value, styles["cell"])] for label, value in rows]
-    table = Table(table_data, colWidths=_widths(40 * mm), hAlign="LEFT")
+    table = Table(table_data, colWidths=_widths(46 * mm), hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
@@ -1432,15 +1447,16 @@ def _summary_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> 
 
 
 def _fmt_duration(seconds: float | None) -> str:
-    """Duration as a clock reading – ``0:08``, ``2:05``, ``102:00``.
+    """Duration as a clock reading – ``00:08``, ``02:05``, ``102:00``.
 
     One shape for the whole column, so the numbers can be compared straight down it.
-    The old mixed "8 min" / "1 h 05" made the reader re-read the unit on every cell.
+    The old mixed "8 min" / "1 h 05" made the reader re-read the unit on every cell;
+    hours are zero-padded so the column edge stays straight (field test 07.09.).
     """
     if seconds is None or seconds < 0:
         return ""
     minutes = int(seconds // 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def _attendance_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> LongTable:
@@ -1893,7 +1909,8 @@ def _incident_detail(
     block.extend(_maybe_field(LABELS["description"], inc.description, styles))
     block.extend(_maybe_field(LABELS["contact"], inc.contact, styles))
 
-    # Flags
+    # Flags. Zu Fuss is NOT one of them: it is how the squad moves, so it lives
+    # under «Mittel» with the vehicles — where the Lageblatt already files it.
     flag_parts = []
     if inc.nachbarhilfe:
         note = f" ({inc.nachbarhilfe_note})" if inc.nachbarhilfe_note else ""
@@ -1901,8 +1918,6 @@ def _incident_detail(
     if inc.am_warten:
         note = f" ({inc.am_warten_note})" if inc.am_warten_note else ""
         flag_parts.append(f"{LABELS['am_warten']}{note}")
-    if inc.zu_fuss:
-        flag_parts.append(LABELS["zu_fuss"])
     block.extend(_maybe_field(LABELS["flags"], ", ".join(flag_parts), styles))
 
     # Assignments by resource type
@@ -1917,7 +1932,7 @@ def _incident_detail(
     )
     for res_type, label in (
         ("personnel", LABELS["crew"]),
-        ("vehicle", LABELS["vehicles"]),
+        ("vehicle", LABELS["mittel"]),
         ("material", LABELS["materials"]),
     ):
         items = [a for a in inc_assignments if a.resource_type == res_type]
@@ -1937,6 +1952,9 @@ def _incident_detail(
             if a.unassigned_at:
                 span = LABELS["period_range"].format(start=_fmt_dt(a.assigned_at), end=_fmt_dt(a.unassigned_at))
             lines.append(f"{name} ({span})")
+        # «Zu Fuss» reads as one more Mittel — no clock, the flag has none.
+        if res_type == "vehicle" and inc.zu_fuss:
+            lines.append(LABELS["zu_fuss"])
         block.extend(_bullet_field(label, lines, styles))
 
     # Status transition timeline. No operator name on the line: which account moved the

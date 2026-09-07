@@ -282,8 +282,9 @@ async def export_event_lageblatt(
     try:
         data = await collect_event_report_data(db, event_id)
         home_city = await get_setting_value(db, "home_city", "")
+        logo = await get_report_logo(db)
         photos = await asyncio.to_thread(_collect_report_photos, data)
-        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city, photos)
+        pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city, photos, logo)
 
         date_str = datetime.now(UTC).strftime("%Y-%m-%d-%H%M")
         filename = f"lageblatt-{slugify_event_name(event.name)}-{date_str}.pdf"
