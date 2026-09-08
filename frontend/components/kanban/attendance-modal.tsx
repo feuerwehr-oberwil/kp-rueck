@@ -376,7 +376,9 @@ function AttendanceRow({
       aria-pressed={state === 'present'}
       className={cn(
         'flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
-        'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        // ring-inset: the focus ring must not grow the row's footprint — an outset ring made
+        // the focused row sit 2px proud of its neighbours (field test 08.09.)
+        'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
         state === 'present' && 'border-success/40 bg-success/5',
         state === 'left' && 'border-dashed text-muted-foreground',
         state === 'absent' && 'border-border',
