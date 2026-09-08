@@ -1,5 +1,5 @@
 {
-  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers, et la démo tourne en allemand. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
+  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
   "meta": {
     "title": "KP Rück – le tableau d’intervention du poste de commandement",
     "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
@@ -27,7 +27,7 @@
     "h1": "Le tableau d’intervention du poste de commandement.",
     "lede": "KP Rück reproduit sous forme numérique le tableau magnétique du PC arrière :\n      <strong>interventions, personnel, véhicules et matériel</strong> sur un seul tableau –\n      en direct sur chaque appareil.",
     "cta": "Ouvrir la démo",
-    "ctaNote": "Sans compte – choisir un rôle et commencer (interface en allemand)",
+    "ctaNote": "Sans compte – choisir un rôle et commencer, aussi en français",
     "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
     "frameAlt": "Tableau d’intervention : colonnes de Reçu à Terminé, les cartes d’intervention entre les deux, le personnel à gauche, le matériel à droite"
   },
@@ -125,7 +125,7 @@
     "eyebrow": "Tiré de la démo",
     "h2": "Voilà à quoi cela ressemble.",
     "lede": "Toutes les images proviennent de la démo publique. Cliquez sur\n        «&nbsp;Ouvrir la démo&nbsp;» et vous serez devant le même tableau.",
-    "note": "Les captures d’écran sont en allemand : la démo publique l’est, et elles en viennent – des images reconstituées seraient une affirmation plutôt qu’une preuve.",
+    "note": "Les captures d’écran sont en allemand : elles viennent de la démo publique en réglage allemand – des images reconstituées seraient une affirmation plutôt qu’une preuve.",
     "items": [
       {
         "alt": "Vue projecteur : toutes les phases d’intervention côte à côte sur un écran",
