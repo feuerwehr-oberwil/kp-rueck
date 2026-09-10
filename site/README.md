@@ -99,7 +99,7 @@ Reset wieder verschwindet.
 ## Kontakt
 
 Drei Wege, alle ohne eigenes Backend: zwei vorausgefüllte GitHub-Issue-Templates
-(`.github/ISSUE_TEMPLATE/bug_report.md` und `feature_request.md`) und ein Formular, das an einen
+(`.github/ISSUE_TEMPLATE/bug_report.yml` und `feature_request.md`) und ein Formular, das an einen
 externen Formulardienst postet. Ohne JavaScript bleibt das Formular ein gewöhnlicher POST.
 
 Wer die Templates umbenennt, muss die `?template=…`-Links in `index.template.html` mitziehen.
