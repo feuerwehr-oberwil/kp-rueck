@@ -12,8 +12,10 @@ whoever happens to be logged in, so this sits behind the **admin** role — deli
 ``DEFAULT_SETTINGS``, because the generic ``PATCH /api/settings/{key}`` endpoint is open to any
 editor and its allow-list is what keeps this key out of reach.
 
-The background channel needs that switch. The manual "Problem melden" channel does not: the
-operator reads the full payload and presses send, and pressing send IS the consent.
+The background channel is the only thing this switch gates, and since the manual send route
+went with the maintainer's ingest (``app/api/diag.py``) it is the only thing left that could
+transmit at all. "Problem melden" no longer asks: the operator saves the Diagnose-Datei and
+sends it themselves, from their own mail client or a GitHub issue.
 """
 
 from __future__ import annotations

@@ -1,19 +1,25 @@
-"""Diagnostics: the station's own error sink, and the two opt-in channels upstream.
+"""Diagnostics: the station's own error sink, and the bundle an operator can hand over.
 
-The sink comes first and is the primary thing this module does — a crash on the board is
+The sink came first and is still the primary thing this module does — a crash on the board is
 invisible to whoever runs the server, so the browser posts uncaught errors here and they
 surface in the SERVER log, on the station's own machine, where the deployer already looks.
 That path needs no consent and no network: it is the app telling its own operator what
 happened.
 
-What consent gates is the SECOND hop. Two channels, gated differently on purpose:
+* ``POST /diag/client-error`` — the sink. Always logged and always buffered locally
+  (``telemetry/recent.py``); additionally queued for an upstream ingest only when an admin
+  has switched telemetry on AND the deployer configured a DSN. Unauthenticated (a crash can
+  happen on the login screen), so it is capped per hour on top of the client's own cap.
+* ``GET /diag/export`` — the bundle an operator downloads and attaches to a mail or a GitHub
+  issue. Any logged-in user, no consent involved: it hands them their own instance's
+  sanitised error traces so a Rückmeldung can say more than "es ist abgestürzt". Nothing is
+  transmitted by this route — the operator is, quite literally, the transport.
 
-* ``POST /diag/client-error`` — background. Additionally queued for upstream only when an
-  admin has switched telemetry on. Unauthenticated (a crash can happen on the login screen),
-  so it is capped per hour on top of the client's own per-session cap.
-* ``POST /diag/report`` — the manual "Problem melden" form. Requires a logged-in user and is
-  queued regardless of the background switch, because the operator saw the payload and
-  pressed send. Refused only when the DEPLOYER has disabled outbound entirely.
+There used to be a third, ``POST /diag/report``: the Fehlerberichte form posted the operator's
+text here and the forwarder carried it upstream. It went when the maintainer's ingest did. A
+queued report with no destination is worse than no route at all, because the form says
+«gesendet» and nothing ever arrives — so the form now opens a mail or an issue directly, and
+the only thing this module owes it is the export above.
 
 The contract for all of it: never 500, never trust the payload. A diagnostics sink that
 becomes a source of errors is worse than no sink.
@@ -33,7 +39,7 @@ from ..database import get_db
 from ..logging_config import get_logger
 from ..models import TelemetryOutbox
 from ..telemetry import consent as consent_mod
-from ..telemetry import outbox, scrub
+from ..telemetry import outbox, recent, scrub
 from ..telemetry.envelope import build_event
 
 logger = get_logger("kprueck.clienterror")
@@ -57,17 +63,6 @@ class ClientError(BaseModel):
     kind: str = Field(default="error", max_length=40)
     path: str | None = Field(default=None, max_length=400)
     build: str | None = Field(default=None, max_length=120)
-
-
-class ProblemReport(BaseModel):
-    """The manual channel. ``message`` is the whole point; the rest is context the dialog
-    already showed the operator verbatim before they pressed send."""
-
-    message: str = Field(default="", max_length=4000)
-    build: str | None = Field(default=None, max_length=120)
-    locale: str | None = Field(default=None, max_length=20)
-    viewport: str | None = Field(default=None, max_length=40)
-    online: bool | None = None
 
 
 async def _queued_last_hour(db: AsyncSession) -> int:
@@ -99,6 +94,23 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
     except Exception:  # noqa: S110 — a diagnostics sink must never raise
         pass
 
+    # Sanitised once, read twice. The local buffer below and the upstream envelope further
+    # down share this object, so there is no path by which one of them carries a field the
+    # other scrubbed away.
+    error = scrub.build_error(
+        kind=payload.kind,
+        message=payload.message,
+        stack=payload.stack,
+        component_stack=payload.component_stack,
+        path=payload.path,
+    )
+
+    # The local buffer, filled BEFORE and REGARDLESS of consent — it is what an operator's
+    # diagnostics export attaches to a mail, and it never leaves this machine on its own.
+    # Consent gates transmission; this is not transmission. See telemetry/recent.py.
+    recent.record(error=error, release=payload.build or settings.version, device=scrub.device_class(ua))
+
+    # Second hop: only with consent, and only if we haven't already queued enough this hour.
     try:
         if await consent_mod.get_consent(db) != consent_mod.CONSENT_ERRORS:
             return
@@ -114,13 +126,7 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
                 release=payload.build or "unknown",
                 user_agent=ua,
             ),
-            error=scrub.build_error(
-                kind=payload.kind,
-                message=payload.message,
-                stack=payload.stack,
-                component_stack=payload.component_stack,
-                path=payload.path,
-            ),
+            error=error,
         )
         await outbox.enqueue(db, channel="error", payload=event)
         await db.commit()
@@ -129,42 +135,45 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
         logger.debug("telemetry: could not queue client error", exc_info=True)
 
 
-@router.post("/report", status_code=202)
-async def submit_problem_report(
-    payload: ProblemReport,
+@router.get("/export")
+async def export_diagnostics(
     request: Request,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Queue a manual problem report. Pressing send IS the consent — see telemetry/consent.py.
+    """The diagnostics bundle an operator attaches to a Rückmeldung.
 
-    Returns the sanitised payload so the UI can show, after the fact, exactly what was queued.
-    A preview the sender writes is a promise; one the receiver echoes back is a check.
+    This is the answer to "pls fix". A mailed report carries a sentence and a build number;
+    what makes a bug findable is the stack trace, and until this endpoint existed there was
+    no way for the person who hit it to get one out of the app — the traces were in the
+    server log, which needs a shell and is not something you attach to an e-mail.
+
+    Logged-in user, not admin, deliberately: the person who hit the bug is whoever was
+    holding the device, and a report they cannot complete is a report that does not arrive.
+    Nothing here is new exposure — every field is the same sanitised text the app already
+    shows that user verbatim in the Fehlerberichte form before they send anything.
+
+    Returns JSON rather than a file download so the caller keeps its session headers; the
+    frontend turns it into the ``.json`` the operator attaches.
     """
-    if not consent_mod.env_allows_outbound():
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="outbound-disabled")
-    try:
-        install_id = await consent_mod.get_install_id(db, mint=True)
-        event = build_event(
-            channel="report",
-            context=scrub.build_context(
-                install_id=install_id or "unknown",
-                app=APP_NAME,
-                release=payload.build or "unknown",
-                user_agent=request.headers.get("user-agent", "")[:300],
-                viewport=payload.viewport,
-                locale=payload.locale,
-                online=payload.online,
-            ),
-            report=scrub.build_report(message=payload.message, trouble_kind=None, trouble_at=None),
-        )
-        await outbox.enqueue(db, channel="report", payload=event)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.exception("problem report could not be queued")
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed") from None
-    return {"queued": True, "sent": event}
+    return {
+        "generatedAt": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "app": APP_NAME,
+        "release": settings.version,
+        # Same random per-instance id the reports carry, so a mailed bundle and a report that
+        # arrived some other way can be recognised as the same station without naming it.
+        "install": await consent_mod.get_install_id(db),
+        "device": scrub.device_class(request.headers.get("user-agent")),
+        "errors": recent.snapshot(),
+        # Stated so the absence of a trace is readable as "the process restarted" rather than
+        # "the app has no errors" — the two look identical in an empty list.
+        "errorsKept": recent.MAX_RECENT,
+        "note": (
+            "Bereinigte Fehlerprotokolle dieser Installation, seit dem letzten Neustart des "
+            "Servers. Keine Einsatzdaten, keine Adressen, keine Namen, keine Zugangsdaten – "
+            "siehe PRIVACY.md."
+        ),
+    }
 
 
 # --- Admin surface --------------------------------------------------------------------

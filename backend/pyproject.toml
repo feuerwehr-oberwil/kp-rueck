@@ -144,11 +144,12 @@ extend-immutable-calls = [
 # The vendored telemetry modules are byte-identical with kp-front and pinned by checksum
 # (tests/test_telemetry_vendored.py). kp-front DOES select BLE, so its copies carry
 # `# noqa: BLE001`; here those directives look unused. Stripping them would break the
-# identity the checksum protects, so RUF100 is off for these four files specifically.
+# identity the checksum protects, so RUF100 is off for these five files specifically.
 "app/telemetry/scrub.py" = ["RUF100"]
 "app/telemetry/envelope.py" = ["RUF100"]
 "app/telemetry/outbox.py" = ["RUF100"]
 "app/telemetry/forwarder.py" = ["RUF100"]
+"app/telemetry/recent.py" = ["RUF100"]
 # E402: Module import not at top - intentional for logging setup before imports
 "app/main.py" = ["E402"]
 # E402: Secondary routers defined after primary router in same file

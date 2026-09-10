@@ -1683,14 +1683,14 @@
         }
       }
     },
-    "/api/diag/report": {
-      "post": {
+    "/api/diag/export": {
+      "get": {
         "tags": [
           "diag"
         ],
-        "summary": "Submit Problem Report",
-        "description": "Queue a manual problem report. Pressing send IS the consent — see telemetry/consent.py.\n\nReturns the sanitised payload so the UI can show, after the fact, exactly what was queued.\nA preview the sender writes is a promise; one the receiver echoes back is a check.",
-        "operationId": "submit_problem_report_api_diag_report_post",
+        "summary": "Export Diagnostics",
+        "description": "The diagnostics bundle an operator attaches to a Rückmeldung.\n\nThis is the answer to \"pls fix\". A mailed report carries a sentence and a build number;\nwhat makes a bug findable is the stack trace, and until this endpoint existed there was\nno way for the person who hit it to get one out of the app — the traces were in the\nserver log, which needs a shell and is not something you attach to an e-mail.\n\nLogged-in user, not admin, deliberately: the person who hit the bug is whoever was\nholding the device, and a report they cannot complete is a report that does not arrive.\nNothing here is new exposure — every field is the same sanitised text the app already\nshows that user verbatim in the Fehlerberichte form before they send anything.\n\nReturns JSON rather than a file download so the caller keeps its session headers; the\nfrontend turns it into the ``.json`` the operator attaches.",
+        "operationId": "export_diagnostics_api_diag_export_get",
         "parameters": [
           {
             "name": "authorization",
@@ -1725,25 +1725,15 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProblemReport"
-              }
-            }
-          }
-        },
         "responses": {
-          "202": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Submit Problem Report Api Diag Report Post"
+                  "title": "Response Export Diagnostics Api Diag Export Get"
                 }
               }
             }
@@ -28165,66 +28155,6 @@
         ],
         "title": "PrinterStatusResponse",
         "description": "Printer status response."
-      },
-      "ProblemReport": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "maxLength": 4000,
-            "title": "Message",
-            "default": ""
-          },
-          "build": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 120
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Build"
-          },
-          "locale": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Locale"
-          },
-          "viewport": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Viewport"
-          },
-          "online": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Online"
-          }
-        },
-        "type": "object",
-        "title": "ProblemReport",
-        "description": "The manual channel. ``message`` is the whole point; the rest is context the dialog\nalready showed the operator verbatim before they pressed send."
       },
       "ProviderCapability": {
         "properties": {

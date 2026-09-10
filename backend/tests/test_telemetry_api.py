@@ -1,4 +1,4 @@
-"""The consent gate, the two channels, and the forwarder.
+"""The consent gate, the error channel, the local buffer, and the forwarder.
 
 The tests worth reading here are the negative ones. Anyone can verify that telemetry works
 when it is switched on; what a fire station needs verified is that a fresh install sends
@@ -30,8 +30,8 @@ A_CRASH = {
 def _usable_dsn(monkeypatch):
     """A parseable DSN for the duration of each test.
 
-    The DSN shipped in the repo is a placeholder that deliberately does not parse, so without
-    this every test here would be testing the "telemetry is off" path by accident.
+    The DSN shipped in the repo is now the empty string — there is no upstream any more — so
+    without this every test here would be testing the "telemetry is off" path by accident.
     """
     monkeypatch.setattr(settings, "telemetry_dsn", "https://pub1ickey@ingest.test/2")
     monkeypatch.setattr(settings, "telemetry_enabled", True)
@@ -148,46 +148,20 @@ async def test_the_generic_settings_endpoint_cannot_reach_the_consent_key(editor
     assert r.status_code == 404
 
 
-# --- The manual channel ---------------------------------------------------------------
+# --- The manual route is gone ---------------------------------------------------------
 
 
-async def test_report_requires_a_logged_in_user(client):
-    assert (await client.post("/api/diag/report", json={"message": "kaputt"})).status_code in (
-        401,
-        403,
-    )
-
-
-async def test_report_is_queued_without_any_admin_opt_in(editor_client, db_session):
-    # Pressing send IS the consent — the background switch is irrelevant here, and this is
-    # the difference the whole design rests on.
-    assert await consent_mod.get_consent(db_session) == consent_mod.CONSENT_OFF
-    r = await editor_client.post("/api/diag/report", json={"message": "Nach dem Verschieben war die Karte weg"})
-    assert r.status_code == 202
-    rows = await _queued(db_session)
-    assert len(rows) == 1 and rows[0].channel == "report"
-
-
-async def test_report_echoes_back_exactly_what_was_queued(editor_client, db_session):
-    # The dialog shows a client-built preview; this response is the server confirming the
-    # preview was honest. If they could differ, the preview would be theatre.
-    r = await editor_client.post(
-        "/api/diag/report",
-        json={"message": "Absturz beim Einsatz Bahnhofstrasse 4, Rückruf 079 123 45 67"},
-    )
-    assert r.status_code == 202
-    echoed = r.json()["sent"]
-    assert echoed == (await _queued(db_session))[0].payload_json
-    wire = str(echoed)
-    assert "Bahnhofstrasse 4" not in wire and "079 123 45 67" not in wire
-
-
-async def test_report_is_refused_when_the_deployer_disabled_outbound(editor_client, monkeypatch):
-    # 503 rather than a silent success: the dialog has to know to fall back to mail.
-    monkeypatch.setattr(settings, "telemetry_enabled", False)
+async def test_the_manual_report_route_no_longer_exists(editor_client):
+    # It went with the ingest it fed. Pinned rather than merely deleted: a queued report with
+    # no destination is the one failure this package must never produce — the form would say
+    # «gesendet» and nothing would ever arrive — so a future re-add has to be deliberate.
+    #
+    # 404 or 405: a catch-all that claims the path for GET makes FastAPI report the POST as a
+    # wrong method rather than a missing one. Both mean the same thing here; asserting the
+    # pair keeps the test about the route being gone rather than about which one the router
+    # happens to pick.
     r = await editor_client.post("/api/diag/report", json={"message": "kaputt"})
-    assert r.status_code == 503
-    assert r.json()["detail"] == "outbound-disabled"
+    assert r.status_code in (404, 405)
 
 
 # --- Admin surface --------------------------------------------------------------------
@@ -308,17 +282,72 @@ async def test_offline_keeps_the_row_queued(client, db_session, fake_http):
     assert row.sent_at is None and row.attempts == 1 and row.last_error == "OSError"
 
 
-async def test_consent_revoked_between_queue_and_flush_sends_nothing(client, editor_client, db_session, fake_http):
+async def test_consent_revoked_between_queue_and_flush_sends_nothing(client, db_session, fake_http):
     # The race the design has to survive: an admin switches off while a payload is queued.
+    # The flush must DROP the queue rather than drain it — checking consent only at enqueue
+    # would let a revoked consent still ship the payload that was already sitting there.
     from app.telemetry.forwarder import flush
 
     await _set_consent(db_session, consent_mod.CONSENT_ERRORS)
     await client.post("/api/diag/client-error", json=A_CRASH)
-    await editor_client.post("/api/diag/report", json={"message": "von Hand gemeldet"})
+    assert len(await _queued(db_session)) == 1
     await _set_consent(db_session, consent_mod.CONSENT_OFF)
 
-    # The manual report still goes (its consent was the send button); the background one is
-    # dropped, not merely delayed.
-    assert await flush(db_session) == 1
+    assert await flush(db_session) == 0
     await db_session.commit()
-    assert [r.channel for r in await _queued(db_session)] == ["report"]
+    assert fake_http.posted == []
+    assert await _queued(db_session) == []
+
+
+# --- The local buffer and the export ---------------------------------------------------
+#
+# This is the route that actually carries a bug report to the maintainer now that the ingest
+# is gone, so the tests worth having are the ones proving it works WITHOUT consent and still
+# refuses to carry an address.
+
+
+@pytest.fixture(autouse=True)
+def _empty_buffer():
+    """Module-level state outlives a test; each one starts from nothing."""
+    from app.telemetry import recent
+
+    recent.clear()
+    yield
+    recent.clear()
+
+
+async def test_a_crash_reaches_the_local_buffer_without_any_consent(client, db_session):
+    # The whole point of the buffer: consent gates TRANSMISSION, and nothing here transmits.
+    # A station that has opted into nothing must still be able to export its own stack trace.
+    from app.telemetry import recent
+
+    assert (await client.post("/api/diag/client-error", json=A_CRASH)).status_code == 204
+    assert await _queued(db_session) == []  # nothing queued upstream…
+    assert recent.count() == 1  # …but the operator can still hand it over
+
+
+async def test_the_buffer_holds_the_scrubbed_text_not_the_raw_crash(client):
+    # A_CRASH carries an address in the message and the maintainer's home directory in the
+    # stack. Both are the reason scrub.py exists, and the export must not reintroduce them.
+    from app.telemetry import recent
+
+    await client.post("/api/diag/client-error", json=A_CRASH)
+    (entry,) = recent.snapshot()
+    assert "Hauptstrasse 12" not in entry["message"]
+    assert "beichenberger" not in entry["stack"]
+    assert "KanbanBoard" in entry["stack"]  # the useful half survives
+
+
+async def test_export_requires_a_logged_in_user(client):
+    assert (await client.get("/api/diag/export")).status_code in (401, 403)
+
+
+async def test_export_hands_over_the_buffered_errors(client, editor_client):
+    await client.post("/api/diag/client-error", json=A_CRASH)
+
+    r = await editor_client.get("/api/diag/export")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["app"] == "kp-rueck"
+    assert len(body["errors"]) == 1
+    assert "Hauptstrasse 12" not in body["errors"][0]["message"]

@@ -273,8 +273,10 @@ jobs:
             exit 0
           fi
           # consent.py and dsn.py are deliberately NOT here: the first talks to whatever table
-          # each app keeps deployment state in, the second holds the app's own ingest project.
-          files="scrub.py envelope.py outbox.py forwarder.py __init__.py"
+          # each app keeps deployment state in, the second is where a deployer's own ingest
+          # goes (the shipped value is empty in both apps, but it is per-app configuration and
+          # not part of what a payload contains).
+          files="scrub.py envelope.py outbox.py forwarder.py recent.py __init__.py"
           status=0
           for f in $files; do
             ours="backend/app/telemetry/$f"

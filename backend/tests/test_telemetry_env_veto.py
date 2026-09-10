@@ -55,7 +55,11 @@ def test_either_spelling_disables_telemetry(monkeypatch: pytest.MonkeyPatch, var
 
 @pytest.mark.parametrize("var", ["KP_TELEMETRY_DSN", "TELEMETRY_DSN"])
 def test_either_spelling_redirects_the_dsn(monkeypatch: pytest.MonkeyPatch, var: str) -> None:
-    """A station aiming the machinery at its own GlitchTip must not still reach ours."""
+    """A station aiming the machinery at its own GlitchTip must actually land on that DSN.
+
+    The shipped default is the empty string ("off"), so the assertion against UPSTREAM_DSN
+    below is now "the override replaced the off-switch", not "it stopped reaching us".
+    """
     own_ingest = "https://deadbeef@glitchtip.example.ch/7"
     monkeypatch.setenv(var, own_ingest)
     settings = Settings(_env_file=None)
