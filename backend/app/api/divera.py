@@ -423,7 +423,8 @@ async def get_personnel_sync_preview(
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
-    preview = build_sync_preview(divera_members, existing)
+    linked_ids = set(await identities_crud.get_identity_map(db, "divera"))
+    preview = build_sync_preview(divera_members, existing, linked_ids)
 
     return schemas.DiveraSyncPreview(
         new=[schemas.DiveraSyncPreviewItem(**item) for item in preview["new"]],
@@ -469,7 +470,8 @@ async def execute_personnel_sync(
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
-    preview = build_sync_preview(divera_members, existing)
+    linked_ids = set(await identities_crud.get_identity_map(db, "divera"))
+    preview = build_sync_preview(divera_members, existing, linked_ids)
 
     result = await execute_sync(
         db=db,
@@ -590,8 +592,8 @@ async def send_incident_alarm(
             if fn.function_type == "driver" and fn.vehicle_id in assigned_vehicle_ids:
                 assigned_personnel_ids.add(fn.personnel_id)
 
-    # Provider-side ids come from the neutral identity table; the deprecated
-    # personnel.divera_user_id column is a read fallback for one release.
+    # Provider-side ids come from the neutral identity table — the only place
+    # a person's id at a provider lives.
     identity_map = await identities_crud.get_identity_map(db, provider.slug, list(request_data.personnel_ids))
 
     sent: list[schemas.DiveraAlarmRecipient] = []
@@ -609,8 +611,6 @@ async def send_incident_alarm(
             )
             continue
         external_id = identity_map.get(pid)
-        if external_id is None and provider.slug == "divera" and person.divera_user_id:
-            external_id = str(person.divera_user_id)
         if not external_id:
             skipped.append(
                 schemas.DiveraAlarmRecipient(

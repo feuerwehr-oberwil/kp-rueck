@@ -45,8 +45,8 @@ export interface Person {
   isTelefondienst?: boolean
   isKommandoposten?: boolean
   roleSortOrder: number
-  /** Divera user_cluster_relation id — present only when linked to Divera. */
-  diveraUserId?: number | null
+  /** Whether the person is linked to Divera (addressable for outbound alarms). */
+  diveraLinked?: boolean
 }
 
 interface PersonnelContextType {
@@ -73,7 +73,7 @@ const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   status: apiPerson.status === "unavailable" ? "unavailable" : "available",
   tags: apiPerson.tags || [],
   roleSortOrder: apiPerson.role_sort_order,
-  diveraUserId: apiPerson.divera_user_id ?? null,
+  diveraLinked: apiPerson.divera_linked ?? false,
 })
 
 export function PersonnelProvider({ children }: { children: ReactNode }) {

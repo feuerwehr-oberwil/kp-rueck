@@ -9,8 +9,9 @@ export interface ApiPersonnel {
   role_sort_order: number // Sort order for grouping by role
   status: string // available, unavailable
   tags?: string[] | null
-  /** Divera user_cluster_relation id — present only when linked to Divera. */
-  divera_user_id?: number | null
+  /** True when the person has a Divera identity (addressable for outbound alarms).
+   *  The provider-side id itself stays server-side. */
+  divera_linked?: boolean
   checked_in: boolean
   checked_in_at: string | null
   checked_out_at: string | null

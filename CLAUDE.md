@@ -218,7 +218,7 @@ runs: http://localhost:8000/docs
 **Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
 - Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach); the pool table carries `source`/`source_id` provenance, incidents carry `source`/`source_ref`.
 - Outbound alerting (Ausalarmierung) goes through the `AlarmProvider` protocol in `services/alerting/` (Divera = first adapter).
-- Personnel provider identity lives in `personnel_external_identities` (`personnel.divera_user_id` is a deprecated dual-write, removable next release).
+- Personnel provider identity lives in `personnel_external_identities` — the only place a person's provider-side id exists (the deprecated `personnel.divera_user_id` dual-write was dropped in migration `b7c2e5a1d4f8`). The personnel API exposes only a `divera_linked` boolean.
 - Printing: transport-neutral job queue + pull agent (`docs/PRINT_AGENT.md`).
 
 ## Environment Variables

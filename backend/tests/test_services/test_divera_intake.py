@@ -296,13 +296,13 @@ async def test_groups_fetch_refuses_without_a_key_and_on_a_rejected_key(monkeypa
 # ============================================
 
 
-def _person(name: str, divera_user_id: int | None = None) -> Personnel:
+def _person(name: str) -> Personnel:
     """An unsaved Personnel row — the preview compares in memory and never touches the DB."""
-    return Personnel(id=uuid4(), name=name, status="available", divera_user_id=divera_user_id)
+    return Personnel(id=uuid4(), name=name, status="available")
 
 
 def test_preview_marks_an_unknown_member_as_new():
-    preview = build_sync_preview([{"divera_id": 1, "name": "Neu Person"}], [])
+    preview = build_sync_preview([{"divera_id": 1, "name": "Neu Person"}], [], set())
 
     assert preview["new"] == [{"member": {"divera_id": 1, "name": "Neu Person"}, "status": "new", "existing_id": None}]
     assert preview["unchanged"] == []
@@ -315,7 +315,7 @@ def test_preview_matches_across_case_accents_and_spacing():
     sync from creating a duplicate magnet every run."""
     existing = [_person("müller  hans")]
 
-    preview = build_sync_preview([{"divera_id": 5, "name": "Muller Hans"}], existing)
+    preview = build_sync_preview([{"divera_id": 5, "name": "Muller Hans"}], existing, set())
 
     assert preview["new"] == []
     assert preview["not_in_divera"] == []
@@ -328,7 +328,7 @@ def test_preview_reports_people_divera_no_longer_lists():
     stays = _person("Bleibt Person")
     gone = _person("Weg Person")
 
-    preview = build_sync_preview([{"divera_id": 1, "name": "Bleibt Person"}], [stays, gone])
+    preview = build_sync_preview([{"divera_id": 1, "name": "Bleibt Person"}], [stays, gone], set())
 
     assert [item["existing_id"] for item in preview["not_in_divera"]] == [str(gone.id)]
     assert preview["not_in_divera"][0]["member"]["divera_id"] == 0
@@ -343,6 +343,7 @@ def test_preview_pairs_two_namesakes_with_two_different_people():
     preview = build_sync_preview(
         [{"divera_id": 1, "name": "Meier Hans"}, {"divera_id": 2, "name": "Meier Hans"}],
         [first, second],
+        set(),
     )
 
     matched = {item["existing_id"] for item in preview["unchanged"]}
@@ -363,6 +364,7 @@ def test_a_surplus_namesake_is_folded_onto_an_already_matched_person():
     preview = build_sync_preview(
         [{"divera_id": i, "name": "Meier Hans"} for i in (1, 2, 3)],
         [first, second],
+        set(),
     )
 
     assert preview["new"] == []
@@ -373,12 +375,13 @@ def test_a_surplus_namesake_is_folded_onto_an_already_matched_person():
 def test_preview_flags_whether_a_match_is_already_linked():
     """`divera_linked` is what tells the operator (and execute_sync) that a person is still
     missing the id that makes them addressable for an outbound alarm."""
-    linked = _person("Verknuepft Person", divera_user_id=4242)
+    linked = _person("Verknuepft Person")
     unlinked = _person("Offen Person")
 
     preview = build_sync_preview(
         [{"divera_id": 4242, "name": "Verknuepft Person"}, {"divera_id": 99, "name": "Offen Person"}],
         [linked, unlinked],
+        {linked.id},
     )
 
     flags = {item["existing_id"]: item["divera_linked"] for item in preview["unchanged"]}
@@ -387,12 +390,12 @@ def test_preview_flags_whether_a_match_is_already_linked():
 
 def test_preview_treats_a_renamed_person_as_a_departure_and_an_arrival():
     """Documents a real limitation: matching is by name only, so a marriage or a corrected
-    spelling in Divera reads as "one person left, one arrived" — the Divera id already stored
-    on the person is never consulted. Running the sync with `remove_stale` then deletes the
-    old row and creates a new one, losing its history."""
-    person = _person("Alt Name", divera_user_id=555)
+    spelling in Divera reads as "one person left, one arrived" — the Divera identity already
+    stored for the person is never consulted. Running the sync with `remove_stale` then deletes
+    the old row and creates a new one, losing its history."""
+    person = _person("Alt Name")
 
-    preview = build_sync_preview([{"divera_id": 555, "name": "Neu Name"}], [person])
+    preview = build_sync_preview([{"divera_id": 555, "name": "Neu Name"}], [person], {person.id})
 
     assert preview["new"][0]["member"]["name"] == "Neu Name"
     assert preview["not_in_divera"][0]["existing_id"] == str(person.id)
@@ -483,7 +486,6 @@ async def test_a_member_without_a_divera_id_is_created_but_not_linked(
     assert result["created"] == 1
     assert result["linked"] == 0
     person = (await db_session.execute(select(Personnel).where(Personnel.name == "Ohne Id"))).scalar_one()
-    assert person.divera_user_id is None
     identities = (
         (
             await db_session.execute(
@@ -499,8 +501,10 @@ async def test_a_member_without_a_divera_id_is_created_but_not_linked(
 async def test_an_already_linked_match_is_not_relinked(db_session: AsyncSession, intake_user: User, mock_request):
     """Nothing to write means nothing is counted — an unchanged sync must report linked 0, so
     the operator can tell a no-op run from one that changed the Mannschaft."""
-    person = _person("Schon Verknuepft", divera_user_id=606)
+    person = _person("Schon Verknuepft")
     db_session.add(person)
+    await db_session.flush()
+    db_session.add(PersonnelExternalIdentity(personnel_id=person.id, provider="divera", external_id="606"))
     await db_session.commit()
 
     preview = {
@@ -536,8 +540,16 @@ async def test_an_unidentifiable_match_is_counted_but_left_alone(
     result = await execute_sync(db_session, preview, remove_stale=False, current_user=intake_user, request=mock_request)
 
     assert result == {"created": 0, "deleted": 0, "linked": 0, "unchanged": 1}
-    await db_session.refresh(person)
-    assert person.divera_user_id is None
+    identities = (
+        (
+            await db_session.execute(
+                select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.personnel_id == person.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert identities == []
 
 
 # ============================================
