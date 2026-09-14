@@ -12,7 +12,7 @@ import type {
   Map as MlMap,
   StyleSpecification,
 } from 'maplibre-gl'
-import type { RasterLayer } from 'react-map-gl/maplibre'
+import type { RasterLayerSpecification } from 'react-map-gl/maplibre'
 
 /**
  * A GeoJSON FeatureCollection as MapLibre's own types spell it.
@@ -177,13 +177,13 @@ export function fitTo(map: MlMap, points: readonly LatLngPoint[], options: FitTo
  * brightness(0.6) contrast(1.1)` – the same shape as KP Front's empirically tuned night paint,
  * but fully desaturated, because Rück's dark map drops colour entirely rather than merely dimming.
  */
-export const DAY_BASE_PAINT: RasterLayer['paint'] = {
+export const DAY_BASE_PAINT: RasterLayerSpecification['paint'] = {
   'raster-saturation': -0.7,
   'raster-brightness-min': 0.05,
   'raster-contrast': -0.05,
 }
 
-export const NIGHT_BASE_PAINT: RasterLayer['paint'] = {
+export const NIGHT_BASE_PAINT: RasterLayerSpecification['paint'] = {
   'raster-saturation': -1,
   'raster-brightness-max': 0.6,
   'raster-contrast': 0.1,
@@ -201,7 +201,7 @@ export const NIGHT_BASE_PAINT: RasterLayer['paint'] = {
  * either theme – `DAY_BASE_PAINT` would desaturate it to mud and `NIGHT_BASE_PAINT`'s brightness
  * cap would crush it to black.
  */
-export const DARK_BASE_PAINT: RasterLayer['paint'] = {
+export const DARK_BASE_PAINT: RasterLayerSpecification['paint'] = {
   'raster-brightness-min': 0.34,
   'raster-contrast': -0.05,
 }

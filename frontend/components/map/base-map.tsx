@@ -39,6 +39,15 @@ export const BASE_SOURCE_ID = 'kp-basemap'
 export const BASE_LAYER_ID = 'kp-basemap-tiles'
 
 /**
+ * WebGL context attributes for the one surface that captures the canvas (print).
+ *
+ * MapLibre 5 moved `preserveDrawingBuffer` (and the other raw WebGL flags) off `MapOptions` and
+ * into `canvasContextAttributes`. Module-level so the object identity is stable across renders –
+ * the attributes are read once when the GL context is created.
+ */
+const PRESERVE_DRAWING_BUFFER = { preserveDrawingBuffer: true } as const
+
+/**
  * How long a tile failure waits before it flips the whole map to offline.
  *
  * An outage fails every tile in the viewport at once, and the fallback is a style swap now, not a
@@ -401,7 +410,7 @@ export function BaseMap({
         interactive={interactive}
         cursor={cursor}
         interactiveLayerIds={interactiveLayerIds}
-        preserveDrawingBuffer={preserveDrawingBuffer}
+        canvasContextAttributes={preserveDrawingBuffer ? PRESERVE_DRAWING_BUFFER : undefined}
         onClick={onClick}
         onLoad={handleLoad}
         onMoveEnd={handleMoveEnd}

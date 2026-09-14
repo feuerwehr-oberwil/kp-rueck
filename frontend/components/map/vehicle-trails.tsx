@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import type { Map as MlMap, MapLayerMouseEvent } from "maplibre-gl"
-import { Layer, Popup, Source, useMap, type LineLayer } from "react-map-gl/maplibre"
+import { Layer, Popup, Source, useMap, type LineLayerSpecification } from "react-map-gl/maplibre"
 
 import { apiClient, type ApiVehicleTrail } from "@/lib/api-client"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
@@ -38,7 +38,7 @@ const TRAIL_DASH = [4 / TRAIL_WIDTH_PX, 8 / TRAIL_WIDTH_PX]
  * next to the vehicle pill it belongs to. Linear between the two stops leaves the board's default
  * zoom 13 at ~90 %, so the familiar look barely moves.
  */
-const TRAIL_PAINT: LineLayer["paint"] = {
+const TRAIL_PAINT: LineLayerSpecification["paint"] = {
   "line-color": ["get", "color"],
   "line-width": ["interpolate", ["linear"], ["zoom"], 11, TRAIL_WIDTH_PX * 0.6, 16, TRAIL_WIDTH_PX * 1.3],
   "line-opacity": 0.35,
@@ -52,7 +52,7 @@ const TRAIL_PAINT: LineLayer["paint"] = {
  * mouse listeners bind to *its* id. Same trick as KP Front's `l-draw-hit`. Static width: nothing
  * is drawn, and shrinking the target when zoomed out would defeat the point.
  */
-const TRAIL_HIT_PAINT: LineLayer["paint"] = {
+const TRAIL_HIT_PAINT: LineLayerSpecification["paint"] = {
   "line-color": ["get", "color"],
   "line-width": 18,
   "line-opacity": 0,

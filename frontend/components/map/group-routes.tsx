@@ -20,7 +20,7 @@
 
 import { useMemo, useState } from "react"
 import type { CSSProperties } from "react"
-import { Layer, Marker, Source, type LineLayer } from "react-map-gl/maplibre"
+import { Layer, Marker, Source, type LineLayerSpecification } from "react-map-gl/maplibre"
 import { Z, type FeatureCollectionData } from "@/lib/map-view"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "@/lib/contexts/operations-context"
@@ -51,7 +51,7 @@ const ROUTE_WIDTH_PX = 4
  * default zoom 13 at ~90 %, so the familiar look barely moves. Colour and opacity stay
  * data-driven, which is what keeps every Auftrag in this one layer.
  */
-const ROUTE_PAINT: LineLayer["paint"] = {
+const ROUTE_PAINT: LineLayerSpecification["paint"] = {
   "line-color": ["get", "color"],
   "line-opacity": ["get", "opacity"],
   "line-width": ["interpolate", ["linear"], ["zoom"], 11, ROUTE_WIDTH_PX * 0.6, 16, ROUTE_WIDTH_PX * 1.3],

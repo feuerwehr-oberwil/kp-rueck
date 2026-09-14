@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import type { Map as MlMap, MapLayerMouseEvent } from "maplibre-gl"
-import { Layer, Marker, Source, useMap, type LineLayer } from "react-map-gl/maplibre"
+import { Layer, Marker, Source, useMap, type LineLayerSpecification } from "react-map-gl/maplibre"
 import type { CSSProperties } from "react"
 import type { Incident } from "@/lib/types/incidents"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
@@ -67,7 +67,7 @@ function dashAtPhase(phase: number): number[] {
 // The width stays a plain number at every zoom, unlike the routes and the GPS trails. It cannot
 // interpolate: `line-dasharray` counts in line widths, so a width that grows with the zoom would
 // stretch the dash pattern with it and the ants would march at a different pace on every scale.
-const LINE_PAINT: LineLayer["paint"] = {
+const LINE_PAINT: LineLayerSpecification["paint"] = {
   "line-color": LINE_COLOR,
   "line-width": LINE_WIDTH_PX,
   "line-opacity": 0.8,
@@ -81,7 +81,7 @@ const LINE_PAINT: LineLayer["paint"] = {
  * bind to *its* id. Same trick as KP Front's `l-draw-hit`. Its width is static: nothing is drawn,
  * so a zoom-interpolated hit target would only make the aim worse when zoomed out.
  */
-const HIT_PAINT: LineLayer["paint"] = {
+const HIT_PAINT: LineLayerSpecification["paint"] = {
   "line-color": LINE_COLOR,
   "line-width": 18,
   "line-opacity": 0,
