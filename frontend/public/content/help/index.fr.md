@@ -382,6 +382,11 @@ Une intervention traverse 7 colonnes : **Reçu** → **Reconnaissance** → **Re
 | Terminé / retour | Travail achevé, le groupe rentre |
 | Clôturé | Réglé, personnel et véhicules libérés automatiquement. La colonne peut être repliée. |
 
+**Terminé / retour ou Clôturé ?**
+
+- **Terminé / retour** – Les travaux sur le lieu du sinistre sont achevés. L’effectif et les véhicules sont sur le chemin du retour ou pas encore tous rentrés. Du matériel peut encore rester sur place.
+- **Clôturé** – L’intervention est entièrement réglée. L’effectif et les véhicules sont de nouveau disponibles. Pour le matériel, il est établi ce qui est revenu au magasin, a été consommé ou est resté sur place. Le rapport est arrivé, ou son absence a été vérifiée sciemment.
+
 Il n’existe pas d’« archive » pour une intervention isolée – c’est l’**événement** entier qui s’archive (`G E`).
 
 **Déplacer :** faire glisser la carte dans une nouvelle colonne, ou utiliser les touches `>` / `<`.

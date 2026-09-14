@@ -92,7 +92,7 @@
         "time": "21:19",
         "tag": "Deployment",
         "h3": "Crew and vehicles are assigned.",
-        "p": "Personnel, vehicles and equipment onto the incident by drag and drop. The system helps the incident commander spot and surface double bookings, missing resources and contradictions. Whoever arrives checks themselves in with a QR code."
+        "p": "Personnel, vehicles and equipment onto the incident by drag and drop. KP Rück detects double bookings and missing resources. The incident command decides: reassign, add, or knowingly dispatch anyway. Whoever arrives checks themselves in with a QR code."
       },
       {
         "time": "21:26",
@@ -164,7 +164,7 @@
       {
         "alt": "Assignments: several incidents bundled into one route",
         "title": "Assignments",
-        "sub": "Several incidents as one route – with crew, resources and an order the board optimises by distance"
+        "sub": "Bundle several incidents into one assignment: crew and resources stay with the assignment and drive from stop to stop in the set or optimised order"
       },
       {
         "alt": "Exercise controls: generate single or targeted incidents, automation and field simulation",
