@@ -28,6 +28,17 @@ will keep holding.
 
 ## [Unreleased]
 
+### Security
+
+- **MapLibre GL updated to 6.9, closing a critical XSS advisory** (GHSA-jrc7-96c5-q579). The map
+  library's HTML sanitizer could be bypassed through a live `NamedNodeMap`, so attacker-controlled
+  text reaching a popup or attribution could execute script. The fix is only shipped from 6.4.1
+  on, so the map stack moves from MapLibre 4 to 6 and `react-map-gl` from 7 to 8 with it. Nothing
+  changes on the board: same basemaps, same offline fallback, same markers. One thing to know for
+  a very old command-post machine: MapLibre 6 requires **WebGL 2** and no longer falls back to
+  WebGL 1. A box that cannot do WebGL 2 gets the map's existing «kein WebGL» panel with its retry
+  button – the rest of the board is unaffected.
+
 ## [0.7.0] – 2026-09-07
 
 ### Security and deployment
