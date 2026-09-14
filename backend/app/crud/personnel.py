@@ -100,11 +100,11 @@ async def list_personnel_with_attendance(
     query = query.order_by(Personnel.role_sort_order.asc(), Personnel.role.asc(), Personnel.name.asc())
 
     result = await db.execute(query)
-    rows = result.all()
     # One membership query for the whole list — never a per-row identity lookup.
     linked_ids = set(await external_identities.get_identity_map(db, "divera"))
     return [
-        to_personnel_schema(person, attendance, divera_linked=person.id in linked_ids) for person, attendance in rows
+        to_personnel_schema(person, attendance, divera_linked=person.id in linked_ids)
+        for person, attendance in result.all()
     ]
 
 
