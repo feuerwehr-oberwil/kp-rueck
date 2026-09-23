@@ -576,6 +576,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const lastSyncVersionRef = useRef<string | null>(null)
   // Id of the newest board load; see `loadData`.
   const loadIdRef = useRef<number>(0)
+  // The Ereignis whose board is in state — see the switch reset in the sync effect.
+  const boardEventIdRef = useRef<string | null>(null)
 
   // Polling configuration
   const pollingBackoffRef = useRef<number>(1)
@@ -677,6 +679,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
+      // No Ereignis, no board to be fresh or stale about.
+      boardEventIdRef.current = null
+      setLastSyncAt(null)
+      setLoadError(null)
       setIsLoading(false)
       // Only declare "loaded" once events have actually resolved. While the
       // EventProvider is still figuring out which event is selected, stay
@@ -689,6 +695,32 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const eventId = selectedEvent.id
     // A counter, not a DOM ref — the cleanup below bumps the live value on purpose.
     const loadIds = loadIdRef
+
+    // Another Ereignis: the board in state is the PREVIOUS one's, and it must go
+    // before B's first load, not after it. «Keep the last good board» (a0f05021)
+    // is about one Ereignis over time; across a switch, A's board kept its
+    // `lastSyncAt`, so a failed first load of B showed A's incidents as «B, a
+    // little stale» — the wrong Ereignis, presented as fact. B starts where a
+    // fresh page starts: nothing loaded, progress bar, and on failure «never
+    // loaded». The known ids go too, or B's high-priority incidents would all
+    // ring as «new» the moment they land. Station-wide state (vehicles,
+    // settings, home city) stays: it is the same across Ereignisse.
+    // Same id (the event object was refetched) is not a switch.
+    if (boardEventIdRef.current !== null && boardEventIdRef.current !== eventId) {
+      setOperations([])
+      setPersonnel([])
+      setMaterials([])
+      setMaterialOnSite(new Map())
+      setSpecialFunctions([])
+      setIncidentTotal(null)
+      setLastSyncAt(null)
+      setLoadError(null)
+      setIsLoaded(false)
+      isInitialLoadRef.current = true
+      knownIncidentIdsRef.current = new Set()
+      lastSyncVersionRef.current = null
+    }
+    boardEventIdRef.current = eventId
 
     // Only ever called through `reloadScheduler` (below) — one load at a time.
     const loadData = async () => {

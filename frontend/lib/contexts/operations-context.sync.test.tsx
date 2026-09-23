@@ -301,6 +301,43 @@ describe("OperationsProvider — render cost", () => {
   })
 })
 
+describe("OperationsProvider — switching Ereignis", () => {
+  it("starts the new Ereignis unloaded: a failed first load there never shows the previous board as stale", async () => {
+    const { result, rerender } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("a1")])
+    await waitFor(() => expect(result.current.ops.operations.map((o) => o.id)).toEqual(["a1"]))
+    expect(result.current.sync.lastSyncAt).not.toBeNull()
+
+    eventState.selectedEvent = { id: EVENT_B }
+    rerender()
+
+    // Nothing of A survives the switch, not even for the length of B's fetch.
+    expect(result.current.ops.operations).toEqual([])
+    expect(result.current.ops.isLoaded).toBe(false)
+    expect(result.current.sync.lastSyncAt).toBeNull()
+
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    expect(incidentCalls[0].eventId).toBe(EVENT_B)
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+
+    // B never loaded — that is what the board must say, not «A's board, stale».
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+    expect(result.current.sync.lastSyncAt).toBeNull()
+    expect(result.current.ops.operations).toEqual([])
+    expect(result.current.ops.isLoaded).toBe(true)
+  })
+
+  it("keeps the board when the effect re-runs for the SAME Ereignis", async () => {
+    const { result, rerender } = await renderLoaded([incident("a1")])
+    // A fresh object with the same id (the event list refetched).
+    eventState.selectedEvent = { id: EVENT_A }
+    rerender()
+    expect(result.current.operations.map((o) => o.id)).toEqual(["a1"])
+    expect(result.current.isLoaded).toBe(true)
+  })
+})
+
 describe("OperationsProvider — a failed load is not an empty board", () => {
   async function renderBoard(initial: ApiIncident[] = [incident("1"), incident("2")]) {
     const rendered = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
