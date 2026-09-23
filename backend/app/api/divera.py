@@ -5,6 +5,7 @@ import re
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +43,22 @@ from ..websocket_manager import broadcast_incident_update, get_divera_poller_sta
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/divera", tags=["divera"])
+
+# What a failed read from Divera tells the CALLER. Fixed strings, never the exception: every
+# Divera request authenticates with `?accesskey=` in the URL, and httpx's `HTTPStatusError`
+# renders as "Client error '401 …' for url 'https://…?accesskey=<the key>'" — so `f"…{e}"` in a
+# 502 detail handed the station's access key to any editor's browser (and the audit of it).
+DIVERA_MEMBERS_UNAVAILABLE = "Failed to fetch members from Divera"
+DIVERA_GROUPS_UNAVAILABLE = "Divera-Gruppen konnten nicht geladen werden"
+
+
+def _upstream_error(e: Exception) -> str:
+    """A loggable account of a failed Divera read — the status or error type, never the URL."""
+    if isinstance(e, httpx.HTTPStatusError):
+        return f"HTTP {e.response.status_code}"
+    if isinstance(e, httpx.HTTPError):
+        return type(e).__name__
+    return str(e)  # our own ValueErrors ("success=false", "not configured") carry no URL
 
 
 # Type/priority inference lives in services.divera_intake so the webhook,
@@ -416,10 +433,10 @@ async def get_personnel_sync_preview(
     try:
         divera_members = await fetch_divera_members()
     except Exception as e:
-        logger.error(f"Failed to fetch Divera members: {e}")
+        logger.error("Failed to fetch Divera members: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch members from Divera: {e}",
+            detail=DIVERA_MEMBERS_UNAVAILABLE,
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
@@ -463,10 +480,10 @@ async def execute_personnel_sync(
     try:
         divera_members = await fetch_divera_members()
     except Exception as e:
-        logger.error(f"Failed to fetch Divera members: {e}")
+        logger.error("Failed to fetch Divera members: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch members from Divera: {e}",
+            detail=DIVERA_MEMBERS_UNAVAILABLE,
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
@@ -769,10 +786,10 @@ async def list_divera_members(
     try:
         members = await fetch_divera_members()
     except Exception as e:
-        logger.error("Failed to fetch Divera members: %s", e)
+        logger.error("Failed to fetch Divera members: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch members from Divera: {e}",
+            detail=DIVERA_MEMBERS_UNAVAILABLE,
         ) from e
     members.sort(key=lambda m: m["name"].lower())
     return [schemas.DiveraMemberPreview(**m) for m in members]
@@ -794,10 +811,10 @@ async def list_divera_groups(
     try:
         groups = await fetch_divera_groups()
     except Exception as e:
-        logger.error("Failed to fetch groups from Divera: %s", e)
+        logger.error("Failed to fetch groups from Divera: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Divera-Gruppen konnten nicht geladen werden: {e}",
+            detail=DIVERA_GROUPS_UNAVAILABLE,
         ) from e
     return [schemas.DiveraGroupPreview(**g) for g in groups]
 
@@ -847,10 +864,10 @@ async def send_divera_message(
         try:
             known = {g["divera_id"]: g["name"] for g in await fetch_divera_groups()}
         except Exception as e:
-            logger.error("Failed to resolve Divera groups: %s", e)
+            logger.error("Failed to resolve Divera groups: %s", _upstream_error(e))
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Divera-Gruppen konnten nicht geladen werden: {e}",
+                detail=DIVERA_GROUPS_UNAVAILABLE,
             ) from e
         unknown = [gid for gid in request_data.group_ids if gid not in known]
         if unknown:
