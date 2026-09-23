@@ -2897,6 +2897,9 @@
       "justNow": "gerade eben",
       "moveToActive": "Nach Einsatz verschieben",
       "moveToComplete": "Nach Beendet / Rückfahrt"
+    },
+    "messages": {
+      "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt"
     }
   },
   "help": {

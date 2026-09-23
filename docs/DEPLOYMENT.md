@@ -583,6 +583,11 @@ table is readable by whoever walks past), but it travels further, so:
   rather than left in vehicles;
 - **Neuer Code** (Links & QR sheet) makes every link and slip in circulation useless to anybody
   who has not already unlocked, without disturbing the phones already in the field;
+- the backend does the same **by itself** when the code is being guessed: 30 wrong codes against
+  one Ereignis within an hour, from any number of addresses, rotate it and put a warning in the
+  bell («Feld-Code für … nach zu vielen Fehlversuchen neu erzeugt»). Phones already in the field
+  keep working; anybody still to unlock needs the new digits from the Links & QR sheet. Tune with
+  `FELD_CODE_MAX_FAILED_ATTEMPTS` / `FELD_CODE_FAILED_WINDOW_SECONDS` (0 attempts = off);
   **Alle Geräte abmelden** is the separate, harder brake for a lost phone;
 - the token expires by itself after 30 days.
 

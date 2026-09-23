@@ -30,6 +30,14 @@ will keep holding.
 
 ### Security
 
+- **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per
+  address (five per quarter-hour), so a poster link tried from many addresses could work through
+  all 10,000 four-digit codes. Now every wrong code against an Ereignis counts towards one
+  ceiling, stored in the database so a restart does not reset it: at 30 within an hour
+  (`FELD_CODE_MAX_FAILED_ATTEMPTS`, `FELD_CODE_FAILED_WINDOW_SECONDS`) the code is replaced and
+  the board shows a warning – «Feld-Code für … nach zu vielen Fehlversuchen neu erzeugt». Nobody
+  in the field is logged out; phones that still have to unlock need the new code from the Links &
+  QR sheet. The migration adds two columns to `events` and runs automatically.
 - **MapLibre GL updated to 6.9, closing a critical XSS advisory** (GHSA-jrc7-96c5-q579). The map
   library's HTML sanitizer could be bypassed through a live `NamedNodeMap`, so attacker-controlled
   text reaching a popup or attribution could execute script. The fix is only shipped from 6.4.1

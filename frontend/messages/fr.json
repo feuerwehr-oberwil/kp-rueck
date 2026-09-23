@@ -2514,6 +2514,9 @@
       "justNow": "à l’instant",
       "moveToActive": "Déplacer vers Intervention",
       "moveToComplete": "Vers Terminé / Retour"
+    },
+    "messages": {
+      "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées"
     }
   },
   "print": {
