@@ -10,7 +10,6 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import dynamic from "next/dynamic"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
@@ -23,23 +22,17 @@ import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
-import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
-import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
-import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
-import { RapportBacklogSheet, selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
+import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
-import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
-import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
@@ -64,18 +57,10 @@ import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentLocationLabel, getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { useCardView } from "@/lib/card-view"
-import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
-import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
-import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { RekoPickerDialog } from "@/components/event-setup-checklist"
-import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
 import { summarizeChecklist } from "@/lib/checklist-tasks"
 import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { BoardLoadErrorPanel } from "@/components/board-load-error"
 import { SidePanel } from "@/components/kanban/side-panel"
@@ -84,16 +69,9 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
-import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
-import { PrintHubSheet, type ThermoPrintOptions } from "@/components/print/print-hub-sheet"
-import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
-import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
+import type { ThermoPrintOptions } from "@/components/print/print-hub-sheet"
 import type { Incident } from "@/lib/types/incidents"
-import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
-import {
-  IncidentStatusWorkflowDialogs,
-  useIncidentStatusWorkflow,
-} from "@/components/kanban/incident-status-workflow"
+import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
 import { cn } from "@/lib/utils"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
@@ -102,23 +80,7 @@ import { isNavigableBinding, soleDestination, type BindingsPopoverState, type Re
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
 import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
-
-/**
- * The two Auftrag dialogs that carry a map, loaded on their own chunk.
- *
- * Both are mounted (closed) for the whole life of the board, so a static import put
- * `maplibre-gl` — the single biggest dependency the app has — into the board's first-load
- * bundle, for two dialogs most shifts never open. `ssr: false` because a GL canvas needs a
- * browser; the chunk is fetched right after hydration, so the first open is not held up by it.
- */
-const RoutenEditorModal = dynamic(
-  () => import("@/components/kanban/routen-editor-modal").then((mod) => mod.RoutenEditorModal),
-  { ssr: false },
-)
-const IncidentPickerDialog = dynamic(
-  () => import("@/components/kanban/incident-picker-dialog").then((mod) => mod.IncidentPickerDialog),
-  { ssr: false },
-)
+import { BoardDialogs } from "@/components/board/board-dialogs"
 
 /** Events whose Bereitschaft checklist the operator has closed — see the auto-open effect. */
 const CHECKLIST_DISMISSED_KEY = "kp-board-checklistDismissedEvents"
@@ -2574,351 +2536,120 @@ export default function FireStationDashboard() {
         )}
       </div>
 
-      <OperationDetailModal
-        operation={selectedOperation}
-        open={detailModalOpen}
-        onOpenChange={setDetailModalOpen}
-        openOnTab={openDetailOnTab ?? undefined}
-        onUpdate={handleOperationUpdate}
-        onDelete={isEditor ? handleOperationDelete : undefined}
+      <BoardDialogs
+        activeFooterSheet={activeFooterSheet}
+        assignGroupResource={assignGroupResource}
+        assignMaterialToOperation={assignMaterialToOperation}
+        assignPersonToOperation={assignPersonToOperation}
+        assignVehicleToGroupWithConflict={assignVehicleToGroupWithConflict}
+        assignVehicleToIncidentWithConflict={assignVehicleToIncidentWithConflict}
+        assignedResources={assignedResources}
+        assignmentDialogOpen={assignmentDialogOpen}
+        assignmentLabelForPerson={assignmentLabelForPerson}
+        assignmentOperationId={assignmentOperationId}
+        assignmentResourceType={assignmentResourceType}
+        attendanceOpen={attendanceOpen}
+        auftraegeFocusGroupId={auftraegeFocusGroupId}
+        auftraegeSheetOpen={auftraegeSheetOpen}
+        auftragPickerIncidentId={auftragPickerIncidentId}
+        closedStopGuard={closedStopGuard}
+        createGroup={createGroup}
+        createOperation={createOperation}
+        deleteDialogOpen={deleteDialogOpen}
+        deleteReleaseHint={deleteReleaseHint}
+        detailModalOpen={detailModalOpen}
+        distributeConfirm={distributeConfirm}
+        diveraDialogOp={diveraDialogOp}
+        diveraDialogOpLive={diveraDialogOpLive}
+        diveraEnabled={diveraEnabled}
+        diveraMessageText={diveraMessageText}
+        filedRapports={filedRapports}
+        formatLocation={formatLocation}
+        funkrufname={funkrufname}
+        groups={groups}
+        handleAssignRouteResource={handleAssignRouteResource}
+        handleChooseAuftrag={handleChooseAuftrag}
+        handleConfirmAddStops={handleConfirmAddStops}
+        handleDeleteOperationConfirm={handleDeleteOperationConfirm}
+        handleDistributeToAuftrag={handleDistributeToAuftrag}
+        handleOpenAssignmentDialog={handleOpenAssignmentDialog}
+        handleOpenIncidentFromNotification={handleOpenIncidentFromNotification}
+        handleOpenRapport={handleOpenRapport}
+        handleOperationDelete={handleOperationDelete}
+        handleOperationUpdate={handleOperationUpdate}
+        handlePrintBoard={handlePrintBoard}
+        handleRemoveFromAuftrag={handleRemoveFromAuftrag}
+        handleToggleZuFuss={handleToggleZuFuss}
+        handleTransfer={handleTransfer}
+        handleVehicleAssign={handleVehicleAssign}
+        handleVehicleRemove={handleVehicleRemove}
+        isEditor={isEditor}
+        isPrintingBoard={isPrintingBoard}
+        isTransferring={isTransferring}
+        linksSheetOpen={linksSheetOpen}
         materials={materials}
-        onAssignVehicle={isEditor ? handleVehicleAssign : undefined}
-        onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
-        onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
-        onRemoveCrew={isEditor ? removeCrew : undefined}
-        onRemoveMaterial={isEditor ? removeMaterial : undefined}
-        canEdit={isEditor}
-        diveraEnabled={isEditor && diveraEnabled}
-        onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}
-        onChangeStatus={isEditor ? requestStatusChange : undefined}
-        onRequestComplete={isEditor ? requestCompletion : undefined}
-        onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
-      />
-
-      <NewEmergencyModal
-        open={newEmergencyModalOpen}
-        onOpenChange={(open) => {
-          setNewEmergencyModalOpen(open)
-          if (!open) setNewEmergencyGroupId(null)
-        }}
-        onCreateOperation={createOperation}
-        defaultGroupId={newEmergencyGroupId}
-      />
-
-      {/* Resource Assignment Dialog */}
-      <ResourceAssignmentDialog
-        open={assignmentDialogOpen}
-        onOpenChange={(open) => {
-          setAssignmentDialogOpen(open)
-          if (!open) {
-            // Route-scoped assign is over — drop back to per-incident mode.
-            setRouteAssign(null)
-            statusWorkflow.resumeGateAfterAssignment()
-          }
-        }}
-        resourceType={assignmentResourceType}
-        operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
-        assignTarget={routeAssign ? 'route' : 'incident'}
-        routeName={routeAssign ? groups.find((g) => g.id === routeAssign.groupId)?.name : undefined}
-        personnel={personnel}
-        // «Nicht einsatzbereit» no longer rides along here — the dialog reads
-        // it from the operations context itself, for every caller.
-        vehicles={vehicleTypes}
-        materials={materials}
-        assignedPersonnel={routeGroupResources ? routeGroupResources.personnel.map(p => p.name) : assignedResources.assignedPersonnel}
-        assignedVehicles={routeGroupResources ? routeGroupResources.vehicles.map(v => v.name) : assignedResources.assignedVehicles}
-        assignedMaterials={routeGroupResources ? routeGroupResources.materials.map(m => m.resourceId) : assignedResources.assignedMaterials}
-        rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
-        onAssignPerson={routeAssign
-          ? (personId) => assignGroupResource(routeAssign.groupId, 'personnel', personId)
-          : ((personId: string, personName: string, operationId: string) =>
-              // force: the dialog has its own «Doppelbelegung? Trotzdem zuweisen»
-              // confirm with the label of where the person already is. Asking
-              // again through the shared prompt would be the same question twice.
-              assignPersonToOperation(personId, personName, operationId, true))}
-        onAssignVehicle={routeAssign
-          ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
-          : assignVehicleToIncidentWithConflict}
-        onAssignMaterial={routeAssign
-          ? (materialId) => assignGroupResource(routeAssign.groupId, 'material', materialId)
-          : ((materialId: string, operationId: string) =>
-              assignMaterialToOperation(materialId, operationId, true))}
-        onRemovePerson={routeAssign
-          ? (_op, personName) => {
-              const item = routeGroupResources?.personnel.find(p => p.name === personName)
-              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
-            }
-          : removeCrew}
-        onRemoveVehicle={routeAssign
-          ? (_op, vehicleName) => {
-              const item = routeGroupResources?.vehicles.find(v => v.name === vehicleName)
-              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
-            }
-          : removeVehicle}
-        onRemoveMaterial={routeAssign
-          ? (_op, materialId) => {
-              const item = routeGroupResources?.materials.find(m => m.resourceId === materialId)
-              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
-            }
-          : removeMaterial}
-        zuFuss={!routeAssign && assignmentOperationId ? operations.find(op => op.id === assignmentOperationId)?.zuFuss ?? false : false}
-        onToggleZuFuss={!routeAssign && assignmentOperationId ? () => handleToggleZuFuss(assignmentOperationId) : undefined}
+        mobilePersonnelSheetOpen={mobilePersonnelSheetOpen}
+        newEmergencyGroupId={newEmergencyGroupId}
+        newEmergencyModalOpen={newEmergencyModalOpen}
+        occupiedMaterialIds={occupiedMaterialIds}
         occupiedPersonnelIds={occupiedPersonnelIds}
         occupiedVehicleIds={occupiedVehicleIds}
-        occupiedMaterialIds={occupiedMaterialIds}
-        // Incident-scoped only: the flag lives on the incident's assignment, and
-        // a route assignment has no endpoint to patch it through (see the Auftrag
-        // case in RouteResourceSections, which has no toggle either).
-        vehicleDriverStay={!routeAssign && assignmentOperationId
-          ? operations.find(op => op.id === assignmentOperationId)?.vehicleDriverStay
-          : undefined}
-        onToggleDriverStay={!routeAssign && assignmentOperationId
-          ? (vehicleName) => toggleDriverStay(assignmentOperationId, vehicleName)
-          : undefined}
-      />
-
-
-      {/* The one link sheet the footer opens: Check-In (with the Appell row),
-          Feld-Code + Feld link, Alarm, and the base /display share. */}
-      <LinksQrSheet
-        open={linksSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'links' && setActiveFooterSheet(null)}
-        eventId={selectedEvent?.id ?? null}
-        printerEnabled={printerEnabled}
-        onOpenAttendance={openAttendance}
-      />
-
-      {/* The Appell itself */}
-      {selectedEvent && (
-        <AttendanceModal
-          open={attendanceOpen}
-          onOpenChange={setAttendanceOpen}
-          eventId={selectedEvent.id}
-          eventName={selectedEvent.name}
-          assignmentLabelFor={assignmentLabelForPerson}
-          onAttendanceChange={refreshPersonnel}
-        />
-      )}
-
-      {/* The Checkliste's Reko picker — page-owned, see `rekoPickerOpen`. */}
-      <RekoPickerDialog
-        open={rekoPickerOpen}
-        onOpenChange={setRekoPickerOpen}
-        eventId={selectedEvent?.id ?? null}
-      />
-
-      {/* Vehicle Status Sheet */}
-      <VehicleStatusSheet
-        open={vehicleStatusSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'vehicles' && setActiveFooterSheet(null)}
-        eventId={selectedEvent?.id || null}
-      />
-
-      {/* Aufträge (multi-stop route) Sheet */}
-      <AuftraegeSheet
-        open={auftraegeSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'auftraege' && setActiveFooterSheet(null)}
-        focusGroupId={auftraegeFocusGroupId}
-        onAddStop={(groupId) => setStopPickerGroupId(groupId)}
-        onAssignRouteResource={handleAssignRouteResource}
-        onOpenDetail={handleOpenIncidentFromNotification}
-        onOpenRoutenEditor={(groupId, focusIncidentId) => {
-          setRoutenEditorGroupId(groupId)
-          setRoutenEditorFocusIncidentId(focusIncidentId ?? null)
-        }}
-        canEdit={isEditor}
-        onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
-        funkrufname={funkrufname}
-      />
-
-      {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}
-      <RapportBacklogSheet
-        open={rapportBacklogSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'rapporte' && setActiveFooterSheet(null)}
-        rapports={openRapports}
-        filed={filedRapports}
-        onOpenRapport={handleOpenRapport}
-      />
-
-      {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
-      <RoutenEditorModal
-        open={routenEditorGroupId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRoutenEditorGroupId(null)
-            setRoutenEditorFocusIncidentId(null)
-          }
-        }}
-        groupId={routenEditorGroupId}
-        focusIncidentId={routenEditorFocusIncidentId}
-        canEdit={isEditor}
-        onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
-      />
-
-      {/* "+ Stop" — pick existing incidents to add as stops to a route */}
-      {isEditor && <IncidentPickerDialog
-        open={stopPickerGroupId !== null}
-        onOpenChange={(open) => !open && setStopPickerGroupId(null)}
+        openAttendance={openAttendance}
+        openDetailOnTab={openDetailOnTab}
+        openIncidentDetail={openIncidentDetail}
+        openRapports={openRapports}
+        operationToDelete={operationToDelete}
         operations={operations}
-        groups={groups}
-        targetGroupId={stopPickerGroupId}
-        onConfirm={handleConfirmAddStops}
-        onCreateNew={() => {
-          setNewEmergencyGroupId(stopPickerGroupId)
-          setNewEmergencyModalOpen(true)
-        }}
-      />}
-
-      {/* "An Auftrag verteilen" — distribute one incident into a route */}
-      <AuftragPickerDialog
-        open={auftragPickerIncidentId !== null}
-        onOpenChange={(open) => !open && setAuftragPickerIncidentId(null)}
-        groups={groups}
-        currentGroupId={
-          auftragPickerIncidentId
-            ? operations.find((op) => op.id === auftragPickerIncidentId)?.groupId ?? null
-            : null
-        }
-        onChoose={handleChooseAuftrag}
-        onCreate={(name) => createGroup({ name })}
-        onRemoveFromCurrent={handleRemoveFromAuftrag}
-      />
-
-      {/* Ask-first for the two distribute moves without an undo — pulling a
-          stop out of another Auftrag, folding a disponierter Einsatz into one. */}
-      <ConfirmDialog
-        open={distributeConfirm !== null}
-        onOpenChange={(open) => !open && setDistributeConfirm(null)}
-        title={tDash('distributeConfirmTitle')}
-        description={
-          distributeConfirm?.fromName
-            ? tDash('distributeConfirmTransfer', {
-                incident: distributeConfirm.incidentLabel,
-                from: distributeConfirm.fromName,
-              })
-            : tDash('distributeConfirmDispatched', {
-                incident: distributeConfirm?.incidentLabel ?? '',
-              })
-        }
-        confirmText={tDash('distributeConfirmAction')}
-        onConfirm={() => {
-          if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId)
-          setDistributeConfirm(null)
-        }}
-      />
-
-      {/* «Dieser Einsatz ist abgeschlossen. Trotzdem als Stop hinzufügen?» */}
-      <ClosedStopDialog
-        prompt={closedStopGuard.prompt}
-        onProceed={closedStopGuard.proceed}
-        onCancel={closedStopGuard.dismiss}
-      />
-
-      {/* Delete Operation Confirmation Dialog. The description names what the
-          deletion also RELEASES — a card that was never an incident is usually
-          one somebody had already put people and a vehicle on. */}
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title={tCommon('deleteIncidentTitle')}
-        description={[
-          tCommon('deleteIncidentDescription', { name: operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : '' }),
-          deleteReleaseHint,
-        ].filter(Boolean).join(' ')}
-        onConfirm={handleDeleteOperationConfirm}
-      />
-
-      {/* Reko Assignment Dialog (from context menu) */}
-      {rekoAssignOperationId && (
-        <AssignRekoDialog
-          open={rekoAssignDialogOpen}
-          onOpenChange={setRekoAssignDialogOpen}
-          incidentId={rekoAssignOperationId}
-          incidentTitle={operations.find(op => op.id === rekoAssignOperationId)?.location || ''}
-          onAssigned={() => {
-            refreshOperations()
-            setRekoAssignDialogOpen(false)
-          }}
-        />
-      )}
-
-      {/* Divera-Mitteilung from the Checkliste. Mounted here, not inside the
-          checklist popover: opening it closes that popover, which would take a
-          dialog rendered in there down with it (same reason as the driver
-          prompt). Nothing is sent until it is confirmed, and its group picker
-          starts empty — «alle» is a choice, never a default. */}
-      <DiveraMessageDialog
-        open={diveraMessageText !== null}
-        onOpenChange={(open) => !open && setDiveraMessageText(null)}
-        defaultText={diveraMessageText ?? ''}
-      />
-
-      {/* Thermal slip, A4 status print and per-event file export in one sheet */}
-      <PrintHubSheet
-        open={printSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'print' && setActiveFooterSheet(null)}
-        onThermoPrint={handlePrintBoard}
-        isThermoPrinting={isPrintingBoard}
-        printerEnabled={printerEnabled}
-      />
-
-      <IncidentStatusWorkflowDialogs
-        controller={statusWorkflow}
-        printerEnabled={printerEnabled}
-        funkrufname={funkrufname}
-        diveraEnabled={diveraEnabled}
-        onOpenAssignment={handleOpenAssignmentDialog}
-        onOpenDetail={(operationId, tab, section) => {
-          openIncidentDetail(operationId, tab, section)
-        }}
-        onSendDivera={setDiveraDialogOp}
-        onRefresh={refreshOperations}
-      />
-
-      <DiveraSendDialog
-        open={!!diveraDialogOp}
-        onOpenChange={(open) => !open && setDiveraDialogOp(null)}
-        operation={diveraDialogOpLive}
-        materials={materials}
-      />
-
-      {/* Resource transfer dialog — opened from the card context menu */}
-      {transferSourceOp && (
-        <TransferIncidentDialog
-          open={!!transferSourceOp}
-          onOpenChange={(open) => !open && setTransferSourceOp(null)}
-          sourceIncident={transferSourceOp as unknown as Incident}
-          sourceName={transferSourceOp?.location}
-          availableIncidents={transferAvailableIncidents}
-          onTransfer={handleTransfer}
-          isTransferring={isTransferring}
-          resourceSummary={{
-            crew: transferSourceOp.crew.length,
-            vehicles: transferSourceOp.vehicles.length,
-            materials: transferSourceOp.materials.length,
-          }}
-        />
-      )}
-
-      {/* Mobile Personnel Sheet */}
-      <MobilePersonnelSheet
-        open={mobilePersonnelSheetOpen}
-        onOpenChange={setMobilePersonnelSheetOpen}
+        performDistribute={performDistribute}
         personnel={personnel}
-        operations={operations}
-      />
-
-      {/* Mobile Bottom Navigation. No separate Thermo entry any more: the one
-          print sheet carries the thermal column itself, gated on the same
-          `printerEnabled` it is still handed here. */}
-      <MobileBottomNavigation
-        currentPage="kanban"
-        hasSelectedEvent={!!selectedEvent}
-        onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
-        onPersonnel={() => setMobilePersonnelSheetOpen(true)}
-        onVehicleStatus={() => setActiveFooterSheet('vehicles')}
-        onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}
+        printSheetOpen={printSheetOpen}
         printerEnabled={printerEnabled}
+        rapportBacklogSheetOpen={rapportBacklogSheetOpen}
+        refreshOperations={refreshOperations}
+        refreshPersonnel={refreshPersonnel}
+        rekoAssignDialogOpen={rekoAssignDialogOpen}
+        rekoAssignOperationId={rekoAssignOperationId}
+        rekoPersonnelNames={rekoPersonnelNames}
+        rekoPickerOpen={rekoPickerOpen}
+        removeCrew={removeCrew}
+        removeMaterial={removeMaterial}
+        removeVehicle={removeVehicle}
+        requestCompletion={requestCompletion}
+        requestStatusChange={requestStatusChange}
+        routeAssign={routeAssign}
+        routeGroupResources={routeGroupResources}
+        routenEditorFocusIncidentId={routenEditorFocusIncidentId}
+        routenEditorGroupId={routenEditorGroupId}
+        selectedEvent={selectedEvent}
+        selectedOperation={selectedOperation}
+        setActiveFooterSheet={setActiveFooterSheet}
+        setAssignmentDialogOpen={setAssignmentDialogOpen}
+        setAttendanceOpen={setAttendanceOpen}
+        setAuftragPickerIncidentId={setAuftragPickerIncidentId}
+        setDeleteDialogOpen={setDeleteDialogOpen}
+        setDetailModalOpen={setDetailModalOpen}
+        setDistributeConfirm={setDistributeConfirm}
+        setDiveraDialogOp={setDiveraDialogOp}
+        setDiveraMessageText={setDiveraMessageText}
+        setMobilePersonnelSheetOpen={setMobilePersonnelSheetOpen}
+        setNewEmergencyGroupId={setNewEmergencyGroupId}
+        setNewEmergencyModalOpen={setNewEmergencyModalOpen}
+        setRekoAssignDialogOpen={setRekoAssignDialogOpen}
+        setRekoPickerOpen={setRekoPickerOpen}
+        setRouteAssign={setRouteAssign}
+        setRouteStopStatus={setRouteStopStatus}
+        setRoutenEditorFocusIncidentId={setRoutenEditorFocusIncidentId}
+        setRoutenEditorGroupId={setRoutenEditorGroupId}
+        setStopPickerGroupId={setStopPickerGroupId}
+        setTransferSourceOp={setTransferSourceOp}
+        statusWorkflow={statusWorkflow}
+        stopPickerGroupId={stopPickerGroupId}
+        toggleDriverStay={toggleDriverStay}
+        transferAvailableIncidents={transferAvailableIncidents}
+        transferSourceOp={transferSourceOp}
+        unassignGroupResource={unassignGroupResource}
+        vehicleStatusSheetOpen={vehicleStatusSheetOpen}
+        vehicleTypes={vehicleTypes}
       />
     </ProtectedRoute>
   )
