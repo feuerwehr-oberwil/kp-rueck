@@ -23,6 +23,7 @@ from sqlalchemy import func as sa_func
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...config import settings
 from ...database import execute_dml
 from ...models import Event, FeldDeviceClaim, FeldUnlockClaim
 
@@ -106,6 +107,21 @@ def code_matches(event: Event, code: str) -> bool:
     return secrets.compare_digest((event.feld_code or "").strip(), (code or "").strip())
 
 
+async def _rotate_code(db: AsyncSession, event: Event) -> None:
+    """New digits, outstanding picker grants revoked, failure count reset. No commit.
+
+    The count restarts because the guesses were against the OLD code: they say
+    nothing about the new one, and carrying them over would rotate a code
+    nobody has had the chance to guess yet.
+    """
+    old_code = event.feld_code
+    while event.feld_code == old_code:
+        event.feld_code = generate_code()
+    event.feld_code_failures = 0
+    event.feld_code_failures_since = None
+    await _revoke_unlocks(db, event.id)
+
+
 async def regenerate_code(db: AsyncSession, event: Event) -> str:
     """A fresh code for an event whose old one got around.
 
@@ -113,13 +129,47 @@ async def regenerate_code(db: AsyncSession, event: Event) -> str:
     so somebody who has not finished naming themselves must enter the new code.
     """
     await lock_event(db, event.id)
-    old_code = event.feld_code
-    while event.feld_code == old_code:
-        event.feld_code = generate_code()
-    await _revoke_unlocks(db, event.id)
+    await _rotate_code(db, event)
     await db.commit()
     await db.refresh(event)
     return event.feld_code
+
+
+async def record_code_failure(db: AsyncSession, event: Event) -> bool:
+    """Count one wrong code against the whole Ereignis; rotate at the ceiling.
+
+    Returns True when this failure rotated the code. The caller must hold the
+    event row lock (``lock_event``) — the unlock endpoint does — so two phones
+    failing at the same instant cannot both read 29 and write 30.
+
+    **The rules**, because each one is a decision:
+
+    * Fixed window from the first failure: once ``feld_code_failed_window_seconds``
+      has passed since it, the next failure starts a new count at 1. A slow
+      trickle of typos over a three-day Ereignis never adds up to a rotation.
+    * A correct code does NOT reset the count. The per-IP throttle may forget
+      a success's fumbles — that is one phone proving itself — but here a reset
+      would let a guesser hide behind the crews: every legitimate unlock in the
+      depot would hand the attacker a fresh budget of 29.
+    * A rotation (this one, or «Neu generieren» on the board) resets it.
+
+    Commits either way: the count has to survive the 403 the caller raises next.
+    """
+    limit = settings.feld_code_max_failed_attempts
+    now = datetime.now(UTC)
+    window = timedelta(seconds=settings.feld_code_failed_window_seconds)
+    since = event.feld_code_failures_since
+    if since is None or now - since > window:
+        event.feld_code_failures = 0
+        event.feld_code_failures_since = now
+    event.feld_code_failures += 1
+
+    rotated = limit > 0 and event.feld_code_failures >= limit
+    if rotated:
+        await _rotate_code(db, event)
+    await db.commit()
+    await db.refresh(event)
+    return rotated
 
 
 async def create_claim(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> FeldDeviceClaim:

@@ -25,6 +25,10 @@ export default function SetupPage() {
   const [stationName, setStationName] = useState('');
   const [password, setPassword] = useState('');
   const [passwordRepeat, setPasswordRepeat] = useState('');
+  // Internet-facing boards only: the one-time code the backend printed into its
+  // log (backend/app/auth/setup_token.py). Being first proves nothing there.
+  const [setupToken, setSetupToken] = useState('');
+  const [tokenRequired, setTokenRequired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [fieldError, setFieldError] = useState<'tooShort' | 'mismatch' | null>(null);
   const [submitError, setSubmitError] = useState('');
@@ -43,6 +47,7 @@ export default function SetupPage() {
       if (status?.claimed) {
         router.replace('/');
       } else {
+        setTokenRequired(!!status?.setup_token_required);
         setClaimed(false);
       }
     });
@@ -67,6 +72,7 @@ export default function SetupPage() {
       const result = await apiClient.claimSetup({
         station_name: stationName.trim(),
         admin_password: password,
+        ...(tokenRequired ? { setup_token: setupToken.trim() } : {}),
       });
       // The claim created the admin account — sign in with it right away so
       // the operator lands on their board, not on a login form. If the login
@@ -83,6 +89,9 @@ export default function SetupPage() {
       if (err instanceof ApiError && err.status === 409) {
         setClaimed(true);
       } else {
+        // A 403 is the backend asking for the code — also when the status check
+        // failed open and the page did not know to show the field.
+        if (err instanceof ApiError && err.status === 403) setTokenRequired(true);
         setSubmitError(err instanceof Error && err.message ? err.message : t('errorGeneric'));
       }
       setSubmitting(false);
@@ -200,6 +209,26 @@ export default function SetupPage() {
                       <p className="text-sm text-destructive">{t('errorMismatch')}</p>
                     )}
                   </div>
+
+                  {tokenRequired && (
+                    <div className="space-y-2">
+                      <Label htmlFor="setup-token" className="text-sm font-semibold text-muted-foreground">
+                        {t('setupTokenLabel')}
+                      </Label>
+                      <Input
+                        id="setup-token"
+                        type="text"
+                        value={setupToken}
+                        onChange={(e) => setSetupToken(e.target.value)}
+                        required
+                        autoComplete="off"
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        disabled={submitting}
+                        className="font-mono"
+                      />
+                    </div>
+                  )}
 
                   <Button type="submit" className="w-full" disabled={submitting}>
                     {submitting && <Loader2 className="size-4 animate-spin" />}

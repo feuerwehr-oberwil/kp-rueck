@@ -14900,7 +14900,7 @@
           "setup"
         ],
         "summary": "Get Setup Status",
-        "description": "Whether this board has been claimed. The frontend polls this on first load.",
+        "description": "Whether this board has been claimed. The frontend polls this on first load.\n\n``setup_token_required`` tells the page to ask for the Einrichtungscode. Only\never true while unclaimed — afterwards there is nothing left to ask for.",
         "operationId": "get_setup_status_api_setup_status_get",
         "responses": {
           "200": {
@@ -27334,7 +27334,8 @@
           "field_complete",
           "field_message",
           "field_pickup",
-          "field_report"
+          "field_report",
+          "feld_code_rotated"
         ],
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
@@ -30043,6 +30044,18 @@
             "maxLength": 128,
             "minLength": 12,
             "title": "Admin Password"
+          },
+          "setup_token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Token"
           }
         },
         "type": "object",
@@ -30072,6 +30085,11 @@
           "claimed": {
             "type": "boolean",
             "title": "Claimed"
+          },
+          "setup_token_required": {
+            "type": "boolean",
+            "title": "Setup Token Required",
+            "default": false
           }
         },
         "type": "object",

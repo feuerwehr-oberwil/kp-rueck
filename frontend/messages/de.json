@@ -2168,6 +2168,7 @@
       "passwordLabel": "Admin-Passwort",
       "passwordHint": "mindestens 12 Zeichen",
       "passwordRepeatLabel": "Admin-Passwort wiederholen",
+      "setupTokenLabel": "Einrichtungscode (steht im Server-Log)",
       "showPassword": "Passwort anzeigen",
       "hidePassword": "Passwort verbergen",
       "submit": "Board einrichten",
@@ -2897,6 +2898,9 @@
       "justNow": "gerade eben",
       "moveToActive": "Nach Einsatz verschieben",
       "moveToComplete": "Nach Beendet / Rückfahrt"
+    },
+    "messages": {
+      "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt"
     }
   },
   "help": {

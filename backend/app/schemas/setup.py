@@ -7,6 +7,9 @@ class SetupStatusResponse(BaseModel):
     """Whether this board has been claimed (= at least one user account exists)."""
 
     claimed: bool
+    # The claim must quote the Einrichtungscode from the server log (auth/setup_token.py).
+    # False once claimed, and on LAN / development installs by default.
+    setup_token_required: bool = False
 
 
 class SetupClaimRequest(BaseModel):
@@ -21,6 +24,8 @@ class SetupClaimRequest(BaseModel):
 
     station_name: str = Field(min_length=1, max_length=120)
     admin_password: str = Field(min_length=12, max_length=128)
+    # Only checked when the status says it is required; absent otherwise.
+    setup_token: str | None = Field(default=None, max_length=128)
 
     @field_validator("station_name")
     @classmethod

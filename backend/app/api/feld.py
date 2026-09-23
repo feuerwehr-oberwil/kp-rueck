@@ -63,7 +63,7 @@ from ..crud.feld.melden import never_left_the_window
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
-from ..services import incident_display
+from ..services import incident_display, notification_service
 from ..services.photo_storage import photo_storage
 from ..services.settings import (
     FELD_DRIVER_MESSAGE_CHIPS_KEY,
@@ -285,6 +285,11 @@ class _FeldCodeThrottle(LoginThrottle):
 
 #: Wrong Feld-Codes, counted per (IP, Ereignis) — never per IP alone.
 #:
+#: This is the per-PHONE control. The per-EREIGNIS one — every address added
+#: together, persisted, rotating the code at a ceiling — is
+#: ``crud.record_code_failure``; the two answer different attackers and
+#: neither replaces the other.
+#:
 #: The obvious control was a plain rate limit on this route, and it was wrong
 #: for exactly the reason `auth/login_throttle.py` exists: a station NATs every
 #: phone behind one public IP, so crews scanning the poster in the depot would
@@ -367,6 +372,17 @@ async def unlock_feld(
 
     if not crud.code_matches(event, payload.code):
         await feld_code_throttle.record_failure(ip, scope)
+        # The Ereignis-wide ceiling, across every address (crud/feld/access.py
+        # has the rules). The caller still gets the ordinary «Falscher Code»
+        # below — telling a guesser that the code just moved would only tell
+        # them to start over sooner. The KP is told instead.
+        if await crud.record_code_failure(db, event):
+            logger.warning(
+                "Feld-Code for event %s rotated after %d failed attempts across all addresses",
+                event.id,
+                settings.feld_code_max_failed_attempts,
+            )
+            await notification_service.create_feld_code_rotated_notification(db, event)
         # The failure that fills the counter answers "wait", not "wrong": the
         # code the crew types next is refused whatever it says, and telling
         # them it was wrong would send them looking for a better one.

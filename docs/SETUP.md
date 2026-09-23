@@ -192,8 +192,13 @@ curl https://kp.example.ch/health
 | A domain (`DOMAIN=kp.example.ch`) | `https://kp.example.ch` – Caddy fetches the certificate on the first request, so the very first load can take a few seconds |
 | LAN, no domain | `http://<this host's IP>:<HTTP_PORT>`, e.g. `http://192.168.1.50:8080` – the same URL you put in `CORS_ORIGINS` |
 
-You should get a login form. If you get anything else – a blank tab, a bare 404, "connection
-refused" – do not start over: [`DEPLOYMENT.md` §9](DEPLOYMENT.md#9-troubleshooting) is indexed by
+You should get a login form – or, if you left `ADMIN_SEED_PASSWORD` empty, the `/setup` page
+that names the station and sets the admin password. **With a domain, `/setup` also asks for an
+«Einrichtungscode»:** a board on the internet is found by scanners within minutes of getting its
+certificate, and "whoever comes first" must not be one of them. The code is in the backend's log:
+`docker compose logs backend | grep -A1 Einrichtungscode`. A LAN install does not ask for it
+(`SETUP_TOKEN_REQUIRED` / `SETUP_TOKEN` in `.env.example` change either default). If you get
+anything else – a blank tab, a bare 404, "connection refused" – do not start over: [`DEPLOYMENT.md` §9](DEPLOYMENT.md#9-troubleshooting) is indexed by
 exactly what you are looking at.
 
 ## 2. Take over the seeded accounts

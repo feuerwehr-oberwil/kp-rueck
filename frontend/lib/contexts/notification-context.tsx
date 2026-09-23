@@ -87,6 +87,24 @@ const SIDEBAR_OPEN_KEY = 'notification-sidebar-open'
 const UNAVAILABLE_TOAST_ID = 'notifications-unavailable'
 
 /**
+ * The message in the operator's language, where the frontend can build one.
+ *
+ * Backend messages are German-only (see CLAUDE.md, i18n), and for almost every
+ * type that stays true: they carry an address or a name the server composed.
+ * `feld_code_rotated` is fixed text around the Ereignis name, and it is the
+ * one a French-speaking KP has to act on at once — every phone that has not
+ * unlocked yet needs the new code from them — so it is rebuilt here. Bell,
+ * sidebar and toasts all read `message`, which is why this is the one place.
+ * The list is fetched per selected event, so its name is the right one.
+ */
+export function localizeNotificationMessage(notification: Pick<Notification, 'type' | 'message'>, eventName: string): string {
+  if (notification.type === 'feld_code_rotated') {
+    return translateOutsideReact('notifications.messages.feldCodeRotated', { event: eventName })
+  }
+  return notification.message
+}
+
+/**
  * What one poll learned. A failed fetch is NOT an empty notification list —
  * collapsing the two is what let the panel claim all is well while the backend
  * was unreachable.
@@ -226,6 +244,7 @@ export function NotificationProvider({
         status: 'ok',
         notifications: (data as (Omit<Notification, 'created_at'> & { created_at: string })[]).map((n) => ({
           ...n,
+          message: localizeNotificationMessage(n, selectedEvent.name),
           created_at: new Date(n.created_at),
         })),
       }

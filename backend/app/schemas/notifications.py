@@ -43,6 +43,8 @@ class NotificationType(str, Enum):
     FIELD_MESSAGE = "field_message"
     FIELD_PICKUP = "field_pickup"
     FIELD_REPORT = "field_report"
+    # The door itself: the Feld-Code was rotated after too many wrong guesses.
+    FELD_CODE_ROTATED = "feld_code_rotated"
 
 
 class NotificationResponse(BaseModel):
