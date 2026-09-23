@@ -455,6 +455,43 @@ async def test_divera_webhook_rows_carry_divera_source(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_divera_webhook_race_acks_the_winner(client: AsyncClient, db_session: AsyncSession, webhook_secret: str):
+    """Two deliveries of one alarm both pass the dedupe lookup; the loser must still get 200.
+
+    The race is staged deterministically: the first delivery is stored, then the lookup is
+    made to miss once — exactly what the second of two concurrent requests sees — so the
+    insert hits the unique `divera_id`. FireHub and POST /api/alarms ack the winner here; the
+    Divera adapter answered 409, which Divera logs as a failed delivery.
+    """
+    from app.crud import divera as divera_crud
+
+    payload = {"id": 515151, "title": "BMA Altersheim"}
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        first = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
+        assert first.status_code == 200
+
+        real_lookup = divera_crud.get_divera_emergency_by_divera_id
+        misses = iter([None])
+
+        async def lookup_that_misses_once(db, divera_id):
+            try:
+                return next(misses)
+            except StopIteration:
+                return await real_lookup(db, divera_id)
+
+        with patch.object(divera_crud, "get_divera_emergency_by_divera_id", lookup_that_misses_once):
+            second = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
+
+    assert second.status_code == 200, second.text
+    assert second.json()["message"] == "Duplicate emergency ignored"
+    count = await db_session.scalar(
+        select(func.count()).select_from(DiveraEmergency).where(DiveraEmergency.divera_id == 515151)
+    )
+    assert count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_manual_attach_carries_provenance(
     client: AsyncClient, db_session: AsyncSession, webhook_secret: str, test_editor
 ):

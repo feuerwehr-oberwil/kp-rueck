@@ -35,6 +35,14 @@ DEDUP_WINDOW_SECONDS = 30
 # old means the agent died mid-print (power loss, crash) and no completion
 # will ever arrive. Failed jobs (paper out, cable pulled) retry after a short
 # pause. Both are capped so a broken printer doesn't loop forever.
+#
+# ⚠️ This is the time from CLAIM to REPORT, and it is only safe while the agent keeps that
+# window to one job: past it the job is requeued and printed a second time. The agent used to
+# claim a batch of up to ten before printing any, so the tenth claim aged through nine prints
+# first — against an unreachable printer (5 s connect timeout per destination) that alone
+# approaches this. It now claims one job, prints it and reports it (with bounded retries,
+# ~35 s worst case) before claiming the next. The CUPS output's 30-minute patience does not
+# apply here: the agent refuses to pair KP Rück's protocol with anything but ESC/POS.
 STALE_PRINTING_TIMEOUT_SECONDS = 120
 FAILED_RETRY_DELAY_SECONDS = 30
 MAX_PRINT_ATTEMPTS = 3

@@ -362,6 +362,11 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
 
 
 async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
+    # Row-locked like the manual attach (crud.divera.lock_divera_emergency): an operator who
+    # pulls the fresh alarm onto a board in the same instant must not get a second card.
+    # populate_existing refreshes `emergency` itself, so the check below sees the locked row.
+    if await divera_crud.lock_divera_emergency(db, emergency.id) is None:
+        return None
     if emergency.is_training or emergency.attached_to_event_id is not None:
         return None
 
@@ -408,12 +413,12 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         changes={"created": data.model_dump(mode="json"), "auto_attach_divera": True},
     )
     await events_crud.update_event_activity(db, event.id)
-    await db.commit()
-    await db.refresh(incident)
 
+    # One commit for incident and link — it is also what releases the row lock.
     await divera_crud.attach_emergency_to_event(
         db=db, emergency_id=emergency.id, event_id=event.id, incident_id=incident.id
     )
+    await db.refresh(incident)
 
     # Reality preempts the drill. Simulated drives are global: they mask the real
     # Traccar position of their vehicle for EVERY consumer (map, GPS automation,

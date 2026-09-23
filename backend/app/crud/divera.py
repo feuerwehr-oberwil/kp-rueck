@@ -102,6 +102,31 @@ async def get_divera_emergency_by_id(
     return result.scalar_one_or_none()
 
 
+async def lock_divera_emergency(
+    db: AsyncSession,
+    emergency_id: UUID,
+) -> models.DiveraEmergency | None:
+    """Get a Divera emergency with a row lock (`SELECT … FOR UPDATE`) held to the next commit.
+
+    The attach paths read `attached_to_event_id`, create an incident, and only then write the
+    link. Without the lock two attaches of the same alarm (a double click, two operators, the
+    auto-attach next to a manual one) both read "not attached here" and each created an
+    incident — two cards for one call. With it the second waits for the first's commit and
+    then sees the link. `populate_existing` because the row may already sit in the session's
+    identity map from an earlier read, and a stale copy would defeat the point.
+
+    ⚠️ The lock ends at the first commit, so the caller must create the incident WITHOUT
+    committing and let `attach_emergency_to_event` commit both together.
+    """
+    result = await db.execute(
+        select(models.DiveraEmergency)
+        .where(models.DiveraEmergency.id == emergency_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_divera_emergency_by_divera_id(
     db: AsyncSession,
     divera_id: int,

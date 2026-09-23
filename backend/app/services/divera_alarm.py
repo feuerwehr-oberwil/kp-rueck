@@ -84,12 +84,15 @@ async def _request_with_retry(
             return data.get("data")
         except _RETRYABLE as exc:
             last_exc = exc
-            logger.warning("Divera %s attempt %d failed: %s", method, attempt + 1, exc)
+            # The error TYPE, not the exception: the request URL carries `?accesskey=`.
+            logger.warning("Divera %s attempt %d failed: %s", method, attempt + 1, type(exc).__name__)
             await asyncio.sleep(0.5 * (2**attempt))
         except httpx.HTTPStatusError as exc:
             raise DiveraAlarmError(f"Divera returned HTTP {exc.response.status_code}") from exc
 
-    raise DiveraAlarmError(f"Divera unreachable after retries: {last_exc}")
+    # This message becomes an API 502 detail (alerting → api/divera), so it names the kind of
+    # failure and nothing that came from the request itself.
+    raise DiveraAlarmError(f"Divera unreachable after retries ({type(last_exc).__name__})")
 
 
 def _extract_alarm_ids(list_data: Any) -> list[int]:

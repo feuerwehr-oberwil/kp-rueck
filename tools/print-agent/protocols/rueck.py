@@ -5,8 +5,8 @@ transport, from `httpx`/asyncio to stdlib `urllib`, so the agent's core carries 
 dependencies (see `core`). Nothing about the backend moved.
 
     GET   /api/print/config/                          → {enabled, ip, port}
-    GET   /api/print/jobs/pending/?limit=10&wait=25   → [job, …]
-    PATCH /api/print/jobs/{id}/claim/
+    GET   /api/print/jobs/pending/?limit=10&wait=25   → [job, …]  (candidates, oldest first)
+    PATCH /api/print/jobs/{id}/claim/                 → at most ONE per poll, see `poll()`
     PATCH /api/print/jobs/{id}/complete/              → {"status": …, "error_message": …}
 
 Authenticated with `X-Agent-Token`, matching the backend's `PRINT_AGENT_TOKEN`. Those
@@ -33,6 +33,15 @@ import json
 import time
 
 from core import FatalError, Job, log, request
+
+# The completion report is retried, because a report that never arrives is a slip that prints
+# TWICE: the backend requeues a claimed job it has not heard back about after its stale timeout
+# (STALE_PRINTING_TIMEOUT_SECONDS, 120 s) and the next poll prints it again. Bounded, because
+# that same timeout is the budget: three attempts of at most REPORT_TIMEOUT_SEC with these
+# pauses between them stay well inside it. A repeat that the backend had in fact received is
+# harmless — it answers a repeated identical report with 200 and changes nothing.
+REPORT_RETRY_DELAYS_SEC = (1.0, 3.0)
+REPORT_TIMEOUT_SEC = 10.0
 
 # The fallback gaps, used when the backend does not long-poll (and while printing is switched
 # off). Idle was 60 s for as long as polling was the only mechanism; 10 s is the honest
@@ -105,7 +114,16 @@ class RueckProtocol:
             self._warned_disabled = False
 
     def poll(self) -> list[Job]:
-        """Fetch pending jobs and claim each. Sleeps the adaptive gap before returning."""
+        """Fetch pending jobs and claim ONE. Sleeps the adaptive gap before returning empty.
+
+        One, not the batch, because the claim starts the backend's stale clock. This used to
+        claim up to ten and then print them in turn, so the last claim aged through every print
+        before it — and past the backend's 120 s it was requeued while still in this agent's
+        hands, and came out twice (or, if a network error ended the cycle, sat stranded until
+        the reaper got to it). Claiming right before printing keeps claim-to-report to one job.
+        The rest of the list costs nothing: they are still pending on the next poll, which the
+        backend answers at once because there is work.
+        """
         # While printing is switched off, re-read the config every cycle instead of every
         # two minutes: the cycle is only a short sleep anyway, and the alternative is that
         # someone flips the switch in the settings UI and watches nothing happen for a
@@ -150,6 +168,7 @@ class RueckProtocol:
                     payload=entry.get("payload") or {},
                 )
             )
+            break  # one at a time — see the docstring
 
         if not claimed:
             # A hang that lasted means the backend long-polls and has already done the
@@ -172,14 +191,36 @@ class RueckProtocol:
         """
         if ok:
             self._last_job_at = time.monotonic()
-        code, _ = self._request(
-            f"/api/print/jobs/{job_id}/complete/",
-            method="PATCH",
-            json_body={
-                "status": "completed" if ok else "failed",
-                "error_message": note if ok else error,
-                "retryable": bool(unreachable) and not ok,
-            },
+        body = {
+            "status": "completed" if ok else "failed",
+            "error_message": note if ok else error,
+            "retryable": bool(unreachable) and not ok,
+        }
+        # Retried on a network error or a 5xx (a backend restarting behind its proxy); NOT on
+        # a 4xx, which is an answer — 409 means the job is already settled, and asking again
+        # cannot change that. Never raises: the paper is out either way, and a failed report
+        # must not end the cycle for the jobs behind this one.
+        delays = (0.0, *REPORT_RETRY_DELAYS_SEC)
+        for attempt, delay in enumerate(delays, start=1):
+            time.sleep(delay)
+            try:
+                code, _ = self._request(
+                    f"/api/print/jobs/{job_id}/complete/",
+                    method="PATCH",
+                    json_body=body,
+                    timeout=REPORT_TIMEOUT_SEC,
+                )
+            except OSError as e:  # URLError, timeouts, resets — all OSError
+                reason = str(getattr(e, "reason", e))
+            else:
+                if code < 500:
+                    if code != 200:
+                        log(f"WARN: completion report for {job_id} → HTTP {code}")
+                    return
+                reason = f"HTTP {code}"
+            if attempt < len(delays):
+                log(f"WARN: completion report for {job_id} failed ({reason}) — retrying")
+        log(
+            f"WARN: completion report for {job_id} failed {len(delays)}× ({reason}) — the backend "
+            "will requeue it after its stale timeout, so it may print a second time"
         )
-        if code != 200:
-            log(f"WARN: completion report for {job_id} → HTTP {code}")

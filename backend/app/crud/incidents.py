@@ -410,8 +410,14 @@ async def create_incident(
     *,
     source: str | None = None,
     source_ref: str | None = None,
+    commit: bool = True,
 ) -> Incident:
     """Create new incident with audit logging.
+
+    ``commit=False`` flushes instead of committing, for a caller that must write something
+    else in the same transaction — the pool attach, which holds a row lock on the alarm until
+    the link is written (see ``crud.divera.lock_divera_emergency``). The caller then owns the
+    commit and the refresh.
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
@@ -462,6 +468,10 @@ async def create_incident(
 
     # Update event activity timestamp
     await events_crud.update_event_activity(db, db_incident.event_id)
+
+    if not commit:
+        await db.flush()
+        return db_incident
 
     await db.commit()
     await db.refresh(db_incident)

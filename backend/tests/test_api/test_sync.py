@@ -666,6 +666,16 @@ async def test_get_sync_logs_with_limit(sync_admin_client: AsyncClient, db_sessi
     assert len(logs) == 3
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("limit", [0, -1, 201, 1_000_000])
+async def test_get_sync_logs_limit_is_bounded(sync_admin_client: AsyncClient, limit: int):
+    """Out-of-range limits are a 422 on both routes, not a full-table read (or a 500)."""
+    for path in ("/api/sync/logs", "/api/sync/history"):
+        response = await sync_admin_client.get(f"{path}?limit={limit}")
+        assert response.status_code == 422, path
+
+
 # ============================================
 # Sync Config Tests
 # ============================================
