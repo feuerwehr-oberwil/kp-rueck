@@ -141,7 +141,15 @@
     "staleDataBanner": {
       "connectionLost": "Liaison perdue – les données sont peut-être périmées.",
       "lastUpdate": "Dernière actualisation il y a {time}. L’interrogation continue en arrière-plan.",
-      "reconnect": "Se reconnecter"
+      "reconnect": "Se reconnecter",
+      "loadFailedAt": "État à {time} – échec de la mise à jour",
+      "showsLastLoaded": "Le tableau affiche le dernier état chargé.",
+      "reload": "Recharger"
+    },
+    "boardLoadError": {
+      "title": "Impossible de charger les interventions",
+      "body": "Le serveur n’a pas répondu ou a signalé une erreur. Le tableau n’est pas vide – il n’est pas encore chargé.",
+      "retry": "Recharger"
     },
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
@@ -1523,6 +1531,7 @@
       "noPersonnelCheckedIn": "Personne n’est annoncé",
       "personnelLoading": "Chargement du personnel",
       "materialLoading": "Chargement du matériel",
+      "notLoaded": "Non chargé",
       "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
       "groupFree": "Libres · {count}",
       "groupBound": "Engagés · {count}",
