@@ -269,6 +269,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
             { name: b.name, role: b.role, roleSortOrder: b.role_sort_order },
           );
         case 'status':
+          // Collation of data, not formatting: de-CH on purpose (see roster-order).
           return direction * (a.status.localeCompare(b.status, 'de-CH') || compareByName(a, b));
         default:
           return 0;
@@ -284,6 +285,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
   const roleOptions = useMemo(() => {
     const roles = new Set<string>();
     for (const person of personnel) if (person.role) roles.add(person.role);
+    // Rank labels are roster data: de-CH whatever the UI language (see roster-order).
     return [...roles].sort((a, b) => a.localeCompare(b, 'de-CH'));
   }, [personnel]);
   const visibleRows = useMemo(() => {

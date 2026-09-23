@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { RefreshCw, WifiOff } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
-import { de } from "date-fns/locale";
+import { useDateFnsLocale } from "@/lib/date-locale";
 
 import { Button } from "@/components/ui/button";
 import { useBoardSyncStatus, useOperations } from "@/lib/contexts/operations-context";
@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
  */
 export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
+  const dateLocale = useDateFnsLocale();
   const { refreshOperations } = useOperations();
   const { lastSyncAt, loadError } = useBoardSyncStatus();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
@@ -73,7 +74,7 @@ export function StaleDataBanner() {
 
   // Null after a failed FIRST load: there is no «last update» to name.
   const lastSyncRelative = lastSyncAt
-    ? formatDistanceToNowStrict(lastSyncAt, { addSuffix: false, locale: de })
+    ? formatDistanceToNowStrict(lastSyncAt, { addSuffix: false, locale: dateLocale })
     : null;
 
   return (

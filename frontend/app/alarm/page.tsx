@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useIntlLocale } from '@/lib/date-locale'
 import {
   Loader2,
   Plus,
@@ -337,6 +338,7 @@ function ReceiptScreen({
   onAnother: () => void
 }) {
   const t = useTranslations('intake.alarm')
+  const intlLocale = useIntlLocale()
   // The three "the KP has it" sentences are `/feld`'s own, word for word — the
   // reporter is being told the same thing whichever door they came through, so
   // the strings are shared rather than copied.
@@ -411,7 +413,7 @@ function ReceiptScreen({
         <p className="mt-1 text-sm text-muted-foreground">
           {t('receiptMeta', {
             eventName,
-            time: receipt.at.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+            time: receipt.at.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
           })}
         </p>
       </div>

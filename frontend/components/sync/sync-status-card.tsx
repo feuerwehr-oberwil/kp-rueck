@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFnsLocale } from '@/lib/date-locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
@@ -24,6 +24,7 @@ interface SyncStatusCardProps {
 export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComplete }: SyncStatusCardProps) {
   const t = useTranslations('sync.status')
   const tCommon = useTranslations('sync.common')
+  const dateLocale = useDateFnsLocale()
   const [isSyncing, setIsSyncing] = useState(false)
   const [config, setConfig] = useState<SyncConfig | null>(null)
   const [copied, setCopied] = useState(false)
@@ -148,7 +149,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     try {
       return formatDistanceToNow(new Date(status.last_sync), {
         addSuffix: true,
-        locale: de,
+        locale: dateLocale,
       })
     } catch {
       return tCommon('invalid')

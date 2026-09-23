@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useTranslations } from "next-intl"
+import { useIntlLocale } from "@/lib/date-locale"
 import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye, CalendarRange } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -94,6 +95,7 @@ function DisplayChrome({
   children: React.ReactNode
 }) {
   const t = useTranslations('display')
+  const intlLocale = useIntlLocale()
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -322,7 +324,7 @@ function DisplayChrome({
           <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-1">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-mono text-sm font-semibold tabular-nums">
-              {currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
+              {currentTime ? currentTime.toLocaleTimeString(intlLocale) : "--:--:--"}
             </span>
           </div>
         </div>

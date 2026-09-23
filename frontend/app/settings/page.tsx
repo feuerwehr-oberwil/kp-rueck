@@ -95,6 +95,7 @@ import {
   Plug,
 } from 'lucide-react';
 import { useMessages, useTranslations } from 'next-intl';
+import { useIntlLocale } from '@/lib/date-locale';
 import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
@@ -308,6 +309,7 @@ const SETTING_CONFIGS: SettingConfig[] = [
 export default function SettingsPage() {
   useGlobalNavigation();
   const t = useTranslations('settings');
+  const intlLocale = useIntlLocale();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isEditor, isAdmin, isAuthenticated } = useAuth();
@@ -647,7 +649,7 @@ export default function SettingsPage() {
   });
 
   const formatAuditTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('de-CH', {
+    return new Date(timestamp).toLocaleString(intlLocale, {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     });
@@ -801,7 +803,7 @@ export default function SettingsPage() {
           {tiles.status === 'installed' && (
             <span className="text-xs text-muted-foreground">
               {[tiles.name, zoom, t('page.general.tiles.checkedAt', {
-                time: tiles.checkedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+                time: tiles.checkedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
               })]
                 .filter(Boolean)
                 .join(' · ')}

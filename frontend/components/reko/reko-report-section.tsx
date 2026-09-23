@@ -50,6 +50,7 @@ import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
+import { getIntlLocale } from '@/lib/date-locale'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -444,14 +445,14 @@ interface RekoReportCardProps {
  */
 function formatStamp(iso: string): string {
   const date = new Date(iso)
-  const time = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  const time = date.toLocaleTimeString(getIntlLocale(), { hour: '2-digit', minute: '2-digit' })
   const now = new Date()
   const isToday =
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
   if (isToday) return time
-  return `${date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
+  return `${date.toLocaleDateString(getIntlLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
 }
 
 /** Where a stored Reko photo is read back from, on a mount that has a session. */

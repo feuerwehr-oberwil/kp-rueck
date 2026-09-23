@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useIntlLocale } from "@/lib/date-locale";
 import { WifiOff } from "lucide-react";
 
 import { displayStaleLevel } from "@/lib/display-staleness";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
  */
 export function DisplayStaleBanner({ lastRefresh }: { lastRefresh: Date | null }) {
   const t = useTranslations("display.common");
+  const intlLocale = useIntlLocale();
   const [now, setNow] = useState<Date>(() => new Date());
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export function DisplayStaleBanner({ lastRefresh }: { lastRefresh: Date | null }
   const level = displayStaleLevel({ lastRefresh, now });
   if (level === "fresh" || !lastRefresh) return null;
 
-  const time = lastRefresh.toLocaleTimeString("de-CH", {
+  const time = lastRefresh.toLocaleTimeString(intlLocale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

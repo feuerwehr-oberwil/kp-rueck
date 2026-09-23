@@ -27,6 +27,7 @@ import { Clock, Hourglass, Flag, Check, ChevronDown } from 'lucide-react'
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useCurrentTime } from '@/lib/hooks/use-current-time'
+import { useIntlLocale } from '@/lib/date-locale'
 import { useEvent } from '@/lib/contexts/event-context'
 import { readItem, writeItem } from '@/lib/utils/safe-storage'
 import { cn } from '@/lib/utils'
@@ -58,11 +59,12 @@ const PILL = 'flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5'
  */
 export function WallClock({ className }: { className?: string }) {
   const { currentTime, isMounted } = useCurrentTime()
+  const intlLocale = useIntlLocale()
   return (
     <div className={cn(PILL, className)}>
       <Clock className="h-4 w-4 text-muted-foreground" />
       <span className="font-mono text-base font-semibold tabular-nums">
-        {isMounted && currentTime ? currentTime.toLocaleTimeString('de-CH') : '--:--:--'}
+        {isMounted && currentTime ? currentTime.toLocaleTimeString(intlLocale) : '--:--:--'}
       </span>
     </div>
   )
@@ -70,6 +72,7 @@ export function WallClock({ className }: { className?: string }) {
 
 export function EventClock({ className }: { className?: string }) {
   const t = useTranslations('kanban.clock')
+  const intlLocale = useIntlLocale()
   const { currentTime, isMounted } = useCurrentTime()
   const { selectedEvent } = useEvent()
 
@@ -84,12 +87,12 @@ export function EventClock({ className }: { className?: string }) {
   }
 
   const startedAt = selectedEvent?.created_at ?? null
-  const wallClock = isMounted && currentTime ? currentTime.toLocaleTimeString('de-CH') : '--:--:--'
+  const wallClock = isMounted && currentTime ? currentTime.toLocaleTimeString(intlLocale) : '--:--:--'
 
   const valueFor = (m: EventClockMode): string => {
     if (m === 'time') return wallClock
     if (!startedAt || !isMounted || !currentTime) return '--:--'
-    if (m === 'start') return startedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+    if (m === 'start') return startedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })
     return formatDuration(currentTime.getTime() - startedAt.getTime())
   }
 
