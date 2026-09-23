@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
-import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
+import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 
 interface DraggableOperationProps {
@@ -240,6 +241,7 @@ function DraggableOperationBase({
   const { materialGroups } = useMaterials()
   const { groups, getGroupResources } = useGroups()
   const { materialOnSite } = useOperations()
+  const promoteToLeader = usePromoteToLeader(operation)
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
   // the page via a window event (mirrors the driver-assignment-changed pattern),
@@ -880,6 +882,11 @@ function DraggableOperationBase({
                         the one name worth reading is the Einsatzleiter's. */}
                     {sortCrewByLeader(operation.crew, operation.leaderName).slice(0, MAX_ROW_CHIPS).map((crewName) => {
                       const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
+                      // Touch only (the chip menu): the detail's rule and the
+                      // detail's handler — editors only, and not on whoever
+                      // already holds the role. (A stop inside an Auftrag, whose
+                      // leader is the route's, has no crew row on the card.)
+                      const canPromote = canDrag && operation.leaderName !== crewName
                       return (
                         <RemovableChip
                           key={crewName}
@@ -897,12 +904,14 @@ function DraggableOperationBase({
                           removeTitle={t('common.removeNamed', { name: crewName })}
                           removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                           removeIconClassName="h-2.5 w-2.5"
-                          // No «Als Einsatzleiter markieren» here: the card
-                          // never offered it (the badge is read-only on a drag
-                          // source) — the detail's chip menu does.
                           menuTitle={crewName.trim() || t('common.unknownResource')}
                           menuSubtitle={<PersonMenuSubtitle name={crewName} isLeader={operation.leaderName === crewName} />}
-                          menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                          menuActions={[
+                            { label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') },
+                            ...(canPromote
+                              ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(crewName) }]
+                              : []),
+                          ]}
                           removeLabel={t('chipMenu.removeFromIncident')}
                           removeIcon={UserMinus}
                         >
@@ -911,8 +920,10 @@ function DraggableOperationBase({
                               so a long name cannot squash them. */}
                           {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
                           {/* Read-only here: the card is a drag source, and the
-                              star only renders for whoever actually holds the
-                              role, so the chip row stays as dense as it was. */}
+                              badge only renders for whoever actually holds the
+                              role, so the chip row stays as dense as it was.
+                              With a mouse, promotion stays in the detail's EL
+                              stub; on touch it is the chip menu's row above. */}
                           <LeaderBadge isLeader={operation.leaderName === crewName} />
                           <span className="truncate">{crewName.trim() || t('common.unknownResource')}</span>
                         </RemovableChip>
@@ -1457,6 +1468,10 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // The type row's visibility depends on the board's majority type, so a
     // storm tipping over the 50% line must repaint the cards.
     prevProps.dominantIncidentType === nextProps.dominantIncidentType &&
+    // The editor gate: it registers the drag source, and it decides whether the
+    // chip menu offers «Als Einsatzleiter markieren». A role change alone must
+    // repaint the card, or a viewer keeps an editor's row.
+    prevProps.canDrag === nextProps.canDrag &&
     !rekoSummaryChanged &&
     !assignedRekoChanged &&
     // Conflict set: identity check is enough — page.tsx memoizes the Set

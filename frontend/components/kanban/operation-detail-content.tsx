@@ -52,6 +52,7 @@ import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
+import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
@@ -235,22 +236,8 @@ export function OperationDetailContent({
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
 
-  // Promote a crew member to Einsatzleiter. The backend demotes the previous
-  // holder in the same transaction, so this is set-and-move in one call; we
-  // just need the board to re-read who holds it afterwards.
-  const promoteToLeader = useCallback(
-    async (crewName: string) => {
-      const assignmentId = operation.crewAssignments.get(crewName)
-      if (!assignmentId) return
-      try {
-        await apiClient.updateAssignment(operation.id, assignmentId, { is_leader: true })
-        await refreshOperations()
-      } catch {
-        toast.error(t('detail.leaderFailed'))
-      }
-    },
-    [operation.id, operation.crewAssignments, refreshOperations, t],
-  )
+  // Promote a crew member to Einsatzleiter — shared with the card's chip menu.
+  const promoteToLeader = usePromoteToLeader(operation)
 
   /** Same promotion, one level up: the route owns the people, so a grouped
    *  incident's leader is set on the Auftrag. */

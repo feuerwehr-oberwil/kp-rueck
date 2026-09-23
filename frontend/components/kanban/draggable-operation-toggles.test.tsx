@@ -16,6 +16,8 @@ import { CARD_VIEW_KEYS, CARD_VIEW_PRESETS, type CardViewSettings } from '@/lib/
  */
 
 const mockGroups: { id: string; name: string; stopIds: string[]; color: string | null }[] = []
+const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const updateAssignment = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 vi.mock('@/lib/contexts/materials-context', () => ({
   useMaterials: () => ({ materialGroups: [] }),
@@ -27,6 +29,7 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
   useOperations: () => ({
     materialOnSite: new Map(),
     personnel: [{ id: 'p-1', name: 'Muster Hans', role: 'Wachtmeister' }],
+    refreshOperations,
   }),
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
@@ -39,7 +42,7 @@ vi.mock('@/lib/contexts/event-context', () => ({
   useEvent: () => ({ selectedEvent: mockEvent }),
 }))
 vi.mock('@/lib/hooks/use-print-job-toast', () => ({ usePrintJobToast: () => vi.fn() }))
-vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
+vi.mock('@/lib/api-client', () => ({ apiClient: { updateAssignment } }))
 vi.mock('@atlaskit/pragmatic-drag-and-drop/element/adapter', () => ({
   draggable: () => () => {},
   dropTargetForElements: () => () => {},
@@ -378,9 +381,10 @@ describe('a chip on a touch screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
     const menu = await screen.findByRole('menu', { name: 'Muster Hans' })
     expect(menu).toHaveTextContent('Wachtmeister')
-    // The card never offered EL promotion, so neither does its menu.
     expect(screen.getAllByRole('menuitem').map((row) => row.textContent)).toEqual([
       'Details öffnen',
+      // The «EL» glyph, then the label.
+      'ELAls Einsatzleiter markieren',
       'Vom Einsatz entfernen',
     ])
     expect(onClick).not.toHaveBeenCalled()
@@ -388,6 +392,34 @@ describe('a chip on a touch screen', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Details öffnen' }))
     expect(onClick).toHaveBeenCalledTimes(1)
     expect(onClick).toHaveBeenCalledWith('overview', 'resources')
+  })
+
+  it('promotes the person to Einsatzleiter with the detail\'s call, and navigates nowhere', async () => {
+    updateAssignment.mockClear()
+    refreshOperations.mockClear()
+    const onClick = vi.fn()
+    renderWithIntl(
+      card(CARD_VIEW_PRESETS.alles, operation({ crewAssignments: new Map([['Muster Hans', 'a-1']]) }), { onClick }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Als Einsatzleiter markieren/ }))
+    expect(updateAssignment).toHaveBeenCalledWith('incident-1', 'a-1', { is_leader: true })
+    await vi.waitFor(() => expect(refreshOperations).toHaveBeenCalledOnce())
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('offers no promotion to a viewer', async () => {
+    mount({ canDrag: false })
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
+    await screen.findByRole('menu', { name: 'Muster Hans' })
+    expect(screen.queryByRole('menuitem', { name: /Als Einsatzleiter markieren/ })).not.toBeInTheDocument()
+  })
+
+  it('offers no promotion on whoever already is the Einsatzleiter', async () => {
+    renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation({ leaderName: 'Muster Hans' })))
+    await userEvent.click(screen.getByRole('button', { name: /Muster Hans/ }))
+    await screen.findByRole('menu', { name: 'Muster Hans' })
+    expect(screen.queryByRole('menuitem', { name: /Als Einsatzleiter markieren/ })).not.toBeInTheDocument()
   })
 
   it('removes the person from the menu, and navigates nowhere', async () => {
