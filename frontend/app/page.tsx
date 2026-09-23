@@ -19,7 +19,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, QrCode, Copy, Check, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight } from 'lucide-react'
+import { Plus, QrCode, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight } from 'lucide-react'
 import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
@@ -29,13 +29,13 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
 import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
 import { RapportBacklogSheet, selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
-import { MaterialOnSitePanel, selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
+import { selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
@@ -44,7 +44,6 @@ import { apiClient } from "@/lib/api-client"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { QRCodeSVG } from 'qrcode.react'
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
@@ -66,8 +65,6 @@ import { columns, findAuftragForStop, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPS
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentLocationLabel, getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
-import { DraggablePerson } from "@/components/kanban/draggable-person"
-import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { CardViewMenu } from "@/components/kanban/card-view-menu"
 import { ToolbarOverflow } from "@/components/kanban/toolbar-overflow"
@@ -85,7 +82,7 @@ import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
-import { BoardLoadErrorPanel, ResourcesNotLoaded } from "@/components/board-load-error"
+import { BoardLoadErrorPanel } from "@/components/board-load-error"
 import { SidePanel } from "@/components/kanban/side-panel"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -106,8 +103,9 @@ import { cn } from "@/lib/utils"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { isStringArray } from "@/lib/utils/safe-storage"
-import { aggregateByName, isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
-import { AggregatedMaterialRow, AvailableOnlyToggle, BindingsPopoverBody, MaterialSidebarRow, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
+import { MaterialSidebar } from "@/components/board/material-sidebar"
 import type { LucideIcon } from "lucide-react"
 
 /**
@@ -2377,206 +2375,31 @@ export default function FireStationDashboard() {
               order with an opaque background, which painted that half away. The
               right one only ever looked fine because it comes after the board. */}
           {showLeftSidebar && (
-            <aside className="relative z-10 w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
-              <button
-                onClick={() => setShowLeftSidebar(false)}
-                className="absolute right-0 top-1/2 translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-                title={`${tDash('toggleLeftSidebar')} ([)`}
-                aria-label={tDash('toggleLeftSidebar')}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {/* Search */}
-              <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-                <SearchInput
-                  id="personnel-search-input"
-                  size="sm"
-                  containerClassName="flex-1 min-w-0"
-                  placeholder={tDash('personnelSearch')}
-                  value={personnelSearchQuery}
-                  onValueChange={setPersonnelSearchQuery}
-                  className="h-8 text-sm"
-                  hint={!isMobile ? <Kbd>P</Kbd> : undefined}
-                />
-                <AvailableOnlyToggle
-                  active={personnelAvailableOnly}
-                  onToggle={() => setPersonnelAvailableOnly((v) => !v)}
-                  label={personnelAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
-                />
-              </div>
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? (
-                  <SidebarLoading label={tDash('personnelLoading')} />
-                ) : boardNeverLoaded ? (
-                  <ResourcesNotLoaded label={tDash('notLoaded')} />
-                ) : personnel.length === 0 ? (
-                  /* Nobody is checked in for this Ereignis — the QR is the way in.
-                     The test used to be "nobody is *available*", which meant a board
-                     where every checked-in person was already assigned (or driving,
-                     or on Reko) replaced the whole crew list with «Keine Personen
-                     verfügbar» and a check-in QR — hiding the very people the
-                     operator had just checked in, and telling them to check in
-                     again. Assigned people belong in the list, drawn as assigned. */
-                  <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
-                    <p className="text-sm text-muted-foreground text-center">
-                      {tDash('noPersonnelCheckedIn')}
-                    </p>
-                    {checkInUrl ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="rounded-lg border p-2 bg-white">
-                          <QRCodeSVG
-                            value={checkInUrl}
-                            size={120}
-                            level="M"
-                            includeMargin={false}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-muted-foreground text-center">
-                            {tDash('scanCheckInQr')}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={copyCheckInUrlToClipboard}
-                            title={tCommon('copyLink')}
-                          >
-                            {copied ? (
-                              <Check className="size-3.5 text-success" />
-                            ) : (
-                              <Copy className="size-3.5" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : filteredPersonnel.length === 0 ? (
-                  /* Nothing to list although people ARE checked in: the search or
-                     the «nur Verfügbare» filter is hiding all of them. Which of
-                     the two it is decides what the way out is, so it decides the
-                     wording — a search that matches nothing used to leave a blank
-                     box under a footer still claiming «10/17». */
-                  effectivePersonnelQuery ? (
-                    <SidebarEmpty
-                      message={tDash.rich('noPersonnelMatch', {
-                        query: effectivePersonnelQuery,
-                        term: (chunks) => <span className="text-foreground">{chunks}</span>,
-                      })}
-                      action={tDash('resetSearch')}
-                      // Clear whichever field is actually driving this: the
-                      // sidebar's own search wins over the board's (see
-                      // `effectivePersonnelQuery`), so clearing the board's
-                      // while the sidebar holds a term would change nothing.
-                      onAction={() => {
-                        if (personnelSearchQuery) setPersonnelSearchQuery('')
-                        else setSearchQuery('')
-                      }}
-                    />
-                  ) : (
-                    <SidebarEmpty
-                      message={tDash('noneAvailableFiltered')}
-                      action={tDash('showAll')}
-                      onAction={() => setPersonnelAvailableOnly(false)}
-                    />
-                  )
-                ) : (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    {/* Frei first, Gebunden second — the sidebar's first job is
-                        «wen kann ich noch schicken?», so availability is the
-                        structure and rank is a suffix on the row. Caps, so a
-                        heading can never read as a person. */}
-                    {([
-                      ['free', availabilityGroupedPersonnel.free],
-                      ['bound', availabilityGroupedPersonnel.bound],
-                    ] as const).map(([kind, people]) => people.length === 0 ? null : (
-                      <div key={kind}>
-                        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {kind === 'free'
-                            ? tDash('groupFree', { count: people.length })
-                            : tDash('groupBound', { count: people.length })}
-                        </h3>
-                        <div className="space-y-0.5">
-                          {people.map((person) => (
-                            /* The row answers where the person is — completely.
-                               An anchor rather than a trigger: the card keeps
-                               its own click handler, which decides between a
-                               direct jump and this list. */
-                            <Popover
-                              key={person.id}
-                              open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}
-                              onOpenChange={(open) => { if (!open) setBindingsPopover(null) }}
-                            >
-                              <PopoverAnchor asChild>
-                                <div>
-                                  <DraggablePerson
-                                    person={person}
-                                    onClick={() => handlePersonClick(person)}
-                                    assignmentCount={doubleBookedPersons.counts.get(person.name)}
-                                    engagement={personEngagements.get(person.name)}
-                                  />
-                                </div>
-                              </PopoverAnchor>
-                              <PopoverContent align="start" side="right" className="w-80 p-3">
-                                {bindingsPopover && (
-                                  <BindingsPopoverBody
-                                    state={bindingsPopover}
-                                    onGo={followBinding}
-                                    onClose={() => setBindingsPopover(null)}
-                                  />
-                                )}
-                              </PopoverContent>
-                            </Popover>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* Fixed availability counter at bottom. No rule above it: the
-                  slightly lighter bar and its own padding already read as a
-                  separate strip, and a line there was just chrome. */}
-              <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
-                <p className="text-xs text-muted-foreground text-center">
-                  {/* Three states, three sentences. The counter used to render
-                      «0/0 verfügbar» before the roster had arrived and «10/17»
-                      over a list showing nothing — both of them assertions about
-                      the station that were not true at the moment they were made.
-                      While loading it says nothing («–/–»); while a search is
-                      narrowing the list it counts what is on screen. */}
-                  {!isLoaded || boardNeverLoaded
-                    ? tCommon('counterLoading')
-                    : effectivePersonnelQuery
-                      ? tCommon('visibleCounter', { shown: filteredPersonnel.length, total: personnel.length })
-                      : null}
-                </p>
-                {/* One number and its counterpart, both from the SAME predicate
-                    the list is filtered with (`summarizeRoster` → isPersonOccupied).
-                    The counter used to read `status === "available"` straight off
-                    the API while the list went through the helpers, so people on
-                    Reko, driving, in the Magazin or on Telefondienst were hidden
-                    above and counted as free here — «14 verfügbar» over nine
-                    visible rows. Deliberately NOT broken down by function: this
-                    is the line read in half a second, not a statistic. */}
-                {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
-                  <div className="flex items-center justify-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                      <Check className="size-3.5" />
-                      {tCommon('rosterFree', { count: rosterSummary.free })}
-                    </span>
-                    <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
-                    {rosterSummary.bound > 0 && (
-                      <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
-                        {tCommon('rosterBound', { count: rosterSummary.bound })}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </aside>
+            <PersonnelSidebar
+              setShowLeftSidebar={setShowLeftSidebar}
+              personnelSearchQuery={personnelSearchQuery}
+              setPersonnelSearchQuery={setPersonnelSearchQuery}
+              setSearchQuery={setSearchQuery}
+              isMobile={isMobile}
+              personnelAvailableOnly={personnelAvailableOnly}
+              setPersonnelAvailableOnly={setPersonnelAvailableOnly}
+              isLoaded={isLoaded}
+              boardNeverLoaded={boardNeverLoaded}
+              personnel={personnel}
+              checkInUrl={checkInUrl}
+              copied={copied}
+              copyCheckInUrlToClipboard={copyCheckInUrlToClipboard}
+              filteredPersonnel={filteredPersonnel}
+              effectivePersonnelQuery={effectivePersonnelQuery}
+              availabilityGroupedPersonnel={availabilityGroupedPersonnel}
+              bindingsPopover={bindingsPopover}
+              setBindingsPopover={setBindingsPopover}
+              handlePersonClick={handlePersonClick}
+              doubleBookedPersons={doubleBookedPersons}
+              personEngagements={personEngagements}
+              followBinding={followBinding}
+              rosterSummary={rosterSummary}
+            />
           )}
 
           {/* The board and its three reopen tabs share one containing block, so
@@ -2764,193 +2587,32 @@ export default function FireStationDashboard() {
               on DOM order alone today; it carries the class so the handle does not
               depend on which side of the board its aside happens to sit. */}
           {showRightSidebar && (
-            <aside className="relative z-10 w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
-              <button
-                onClick={() => setShowRightSidebar(false)}
-                className="absolute left-0 top-1/2 -translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-                title={`${tDash('toggleRightSidebar')} (])`}
-                aria-label={tDash('toggleRightSidebar')}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-              {/* Search */}
-              <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-                <SearchInput
-                  id="material-search-input"
-                  size="sm"
-                  containerClassName="flex-1 min-w-0"
-                  placeholder={tDash('materialSearch')}
-                  value={materialSearchQuery}
-                  onValueChange={setMaterialSearchQuery}
-                  className="h-8 text-sm"
-                  hint={!isMobile ? <Kbd>M</Kbd> : undefined}
-                />
-                <AvailableOnlyToggle
-                  active={materialsAvailableOnly}
-                  onToggle={() => setMaterialsAvailableOnly((v) => !v)}
-                  label={materialsAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
-                />
-              </div>
-              {/* «Vor Ort» roll-up — above the scroll area on purpose, so neither
-                  the search nor «nur verfügbare» (which hides everything that is
-                  assigned, i.e. exactly this material) can filter the answer to
-                  "what is still out there" away. Renders nothing at zero. */}
-              <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? (
-                  <SidebarLoading label={tDash('materialLoading')} />
-                ) : boardNeverLoaded ? (
-                  <ResourcesNotLoaded label={tDash('notLoaded')} />
-                ) : materials.length === 0 ? (
-                  /* A fresh station: no Gerät has ever been recorded. The same
-                     shape the Personal sidebar has always had for «niemand
-                     angemeldet», down to naming the next step — the material
-                     sidebar used to leave a bare box here. The link is for
-                     editors: the section it points at is editor-only. */
-                  <SidebarEmpty
-                    message={tDash('noMaterialYet')}
-                    action={isEditor ? tDash('createMaterialInSettings') : undefined}
-                    actionHref="/settings?section=materials"
-                  />
-                ) : Object.keys(groupedMaterials).length === 0 ? (
-                  effectiveMaterialQuery ? (
-                    <SidebarEmpty
-                      message={tDash.rich('noMaterialMatch', {
-                        query: effectiveMaterialQuery,
-                        term: (chunks) => <span className="text-foreground">{chunks}</span>,
-                      })}
-                      action={tDash('resetSearch')}
-                      onAction={() => {
-                        if (materialSearchQuery) setMaterialSearchQuery('')
-                        else setSearchQuery('')
-                      }}
-                    />
-                  ) : (
-                    <SidebarEmpty
-                      message={tDash('noneAvailableFiltered')}
-                      action={tDash('showAll')}
-                      onAction={() => setMaterialsAvailableOnly(false)}
-                    />
-                  )
-                ) : (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    {Object.entries(groupedMaterials).map(([category, items]) => {
-                      // «Nicht einsatzbereit» leaves the module blocks and the
-                      // normal rows and sinks to the bottom of its depot: a
-                      // module whose contents are half defective must not read
-                      // as ready, and a dead device must not sit in the middle
-                      // of the pickable ones.
-                      const readyItems = items.filter(m => !m.outOfService)
-                      const outOfServiceItems = items.filter(m => m.outOfService)
-                      const ungroupedItems = readyItems.filter(m => !m.groupId)
-                      const groupedItems = new Map<string, Material[]>()
-                      for (const m of readyItems.filter(m => m.groupId)) {
-                        const group = materialGroups.find(g => g.id === m.groupId)
-                        if (group) {
-                          if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
-                          groupedItems.get(group.id)!.push(m)
-                        } else {
-                          ungroupedItems.push(m)
-                        }
-                      }
-                      return (
-                        <div key={category}>
-                          {/* Caps like every sidebar heading — a depot label
-                              must not read as a device. */}
-                          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</h3>
-                          <div className="space-y-0.5">
-                            {/* Material groups/blocks */}
-                            {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
-                              const group = materialGroups.find(g => g.id === groupId)!
-                              const allAvailable = groupMaterials.every(m => m.status === 'available')
-                              const someAssigned = groupMaterials.some(m => m.status === 'assigned')
-                              const allAssigned = groupMaterials.every(m => m.status === 'assigned')
-                              return (
-                                <MaterialGroupBlock
-                                  key={groupId}
-                                  group={group}
-                                  materials={groupMaterials}
-                                  allAvailable={allAvailable}
-                                  someAssigned={someAssigned}
-                                  allAssigned={allAssigned}
-                                  onMaterialClick={handleMaterialClick}
-                                />
-                              )
-                            })}
-                            {/* Ungrouped materials — identical devices fold
-                                into one counted row (see AggregatedMaterialRow);
-                                consumables and singletons keep their own row.
-                                Then the ones that cannot go out. */}
-                            {aggregateByName(ungroupedItems).map((bundle) =>
-                              bundle.length > 1 ? (
-                                <AggregatedMaterialRow
-                                  key={bundle[0].id}
-                                  units={bundle}
-                                  onOpenBindings={handleAggregateMaterialClick}
-                                  onToggleOutOfService={handleToggleMaterialOutOfService}
-                                  bindingsPopover={bindingsPopover}
-                                  onCloseBindings={() => setBindingsPopover(null)}
-                                  onGoBinding={followBinding}
-                                />
-                              ) : (
-                                <MaterialSidebarRow
-                                  key={bundle[0].id}
-                                  material={bundle[0]}
-                                  onClick={() => handleMaterialClick(bundle[0])}
-                                  onToggleOutOfService={handleToggleMaterialOutOfService}
-                                  bindingsPopover={bindingsPopover}
-                                  onCloseBindings={() => setBindingsPopover(null)}
-                                  onGoBinding={followBinding}
-                                />
-                              ),
-                            )}
-                            {outOfServiceItems.map((material) => (
-                              <MaterialSidebarRow
-                                key={material.id}
-                                material={material}
-                                onClick={() => handleMaterialClick(material)}
-                                onToggleOutOfService={handleToggleMaterialOutOfService}
-                                bindingsPopover={bindingsPopover}
-                                onCloseBindings={() => setBindingsPopover(null)}
-                                onGoBinding={followBinding}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-              {/* Fixed availability counter at bottom — see the left sidebar,
-                  including why it has three states. */}
-              <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
-                <p className="text-xs text-muted-foreground text-center">
-                  {!isLoaded || boardNeverLoaded
-                    ? tCommon('counterLoading')
-                    : effectiveMaterialQuery
-                      ? tCommon('visibleCounter', { shown: filteredMaterials.length, total: materials.length })
-                      : null}
-                </p>
-                {/* Same helper as the list filter — see the crew footer above. */}
-                {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
-                  <div className="flex items-center justify-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                      <Check className="size-3.5" />
-                      {tCommon('rosterFree', { count: materialSummary.free })}
-                    </span>
-                    <span className="text-muted-foreground">{tCommon('rosterOf', { total: materialSummary.total })}</span>
-                    {materialSummary.bound > 0 && (
-                      <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
-                        {tCommon('rosterBound', { count: materialSummary.bound })}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </aside>
+            <MaterialSidebar
+              setShowRightSidebar={setShowRightSidebar}
+              materialSearchQuery={materialSearchQuery}
+              setMaterialSearchQuery={setMaterialSearchQuery}
+              setSearchQuery={setSearchQuery}
+              isMobile={isMobile}
+              materialsAvailableOnly={materialsAvailableOnly}
+              setMaterialsAvailableOnly={setMaterialsAvailableOnly}
+              materialOnSiteEntries={materialOnSiteEntries}
+              openIncidentDetail={openIncidentDetail}
+              isLoaded={isLoaded}
+              boardNeverLoaded={boardNeverLoaded}
+              isEditor={isEditor}
+              materials={materials}
+              materialGroups={materialGroups}
+              groupedMaterials={groupedMaterials}
+              filteredMaterials={filteredMaterials}
+              effectiveMaterialQuery={effectiveMaterialQuery}
+              handleMaterialClick={handleMaterialClick}
+              handleAggregateMaterialClick={handleAggregateMaterialClick}
+              handleToggleMaterialOutOfService={handleToggleMaterialOutOfService}
+              bindingsPopover={bindingsPopover}
+              setBindingsPopover={setBindingsPopover}
+              followBinding={followBinding}
+              materialSummary={materialSummary}
+            />
           )}
 
         </div>
