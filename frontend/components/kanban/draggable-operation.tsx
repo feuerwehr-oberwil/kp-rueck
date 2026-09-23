@@ -6,7 +6,8 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
-import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
+import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
@@ -16,7 +17,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2 } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2, Info, UserMinus } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -40,6 +41,7 @@ import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
+import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 
 interface DraggableOperationProps {
@@ -239,6 +241,7 @@ function DraggableOperationBase({
   const { materialGroups } = useMaterials()
   const { groups, getGroupResources } = useGroups()
   const { materialOnSite } = useOperations()
+  const promoteToLeader = usePromoteToLeader(operation)
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
   // the page via a window event (mirrors the driver-assignment-changed pattern),
@@ -850,6 +853,13 @@ function DraggableOperationBase({
                       removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
                       removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                       removeIconClassName="h-2.5 w-2.5"
+                      // Touch: the tap that used to open the Reko tab is the
+                      // menu's first row now (see RemovableChip).
+                      menuTitle={operation.assignedReko.name.trim() || t('common.unknownResource')}
+                      menuSubtitle={<PersonMenuSubtitle name={operation.assignedReko.name} />}
+                      menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('reko') }]}
+                      removeLabel={t('chipMenu.removeFromIncident')}
+                      removeIcon={UserMinus}
                     >
                       {/* Never an empty chip: a name the roster lost renders as
                           «Unbekannt», not as a blank pill. */}
@@ -872,6 +882,11 @@ function DraggableOperationBase({
                         the one name worth reading is the Einsatzleiter's. */}
                     {sortCrewByLeader(operation.crew, operation.leaderName).slice(0, MAX_ROW_CHIPS).map((crewName) => {
                       const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
+                      // Touch only (the chip menu): the detail's rule and the
+                      // detail's handler — editors only, and not on whoever
+                      // already holds the role. (A stop inside an Auftrag, whose
+                      // leader is the route's, has no crew row on the card.)
+                      const canPromote = canDrag && operation.leaderName !== crewName
                       return (
                         <RemovableChip
                           key={crewName}
@@ -889,14 +904,26 @@ function DraggableOperationBase({
                           removeTitle={t('common.removeNamed', { name: crewName })}
                           removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                           removeIconClassName="h-2.5 w-2.5"
+                          menuTitle={crewName.trim() || t('common.unknownResource')}
+                          menuSubtitle={<PersonMenuSubtitle name={crewName} isLeader={operation.leaderName === crewName} />}
+                          menuActions={[
+                            { label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') },
+                            ...(canPromote
+                              ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(crewName) }]
+                              : []),
+                          ]}
+                          removeLabel={t('chipMenu.removeFromIncident')}
+                          removeIcon={UserMinus}
                         >
                           {/* Leading chip glyphs are h-3 throughout the card (the
                               chip's own remove X stays at 2.5) and never shrink,
                               so a long name cannot squash them. */}
                           {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
                           {/* Read-only here: the card is a drag source, and the
-                              star only renders for whoever actually holds the
-                              role, so the chip row stays as dense as it was. */}
+                              badge only renders for whoever actually holds the
+                              role, so the chip row stays as dense as it was.
+                              With a mouse, promotion stays in the detail's EL
+                              stub; on touch it is the chip menu's row above. */}
                           <LeaderBadge isLeader={operation.leaderName === crewName} />
                           <span className="truncate">{crewName.trim() || t('common.unknownResource')}</span>
                         </RemovableChip>
@@ -931,6 +958,8 @@ function DraggableOperationBase({
                         removeTitle={t('common.removeZuFuss')}
                         removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
+                        menuTitle={t('common.zuFuss')}
+                        menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
                       >
                         <Footprints className="h-3 w-3 flex-shrink-0" />
                         <span className="truncate">{t('common.zuFuss')}</span>
@@ -954,6 +983,14 @@ function DraggableOperationBase({
                         removeTitle={t('common.removeNamed', { name: vehicleName })}
                         removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
+                        menuTitle={vehicleName}
+                        menuSubtitle={[
+                          callsign,
+                          driverName,
+                          driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
+                        ].filter(Boolean).join(' · ')}
+                        menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                        removeLabel={t('detail.removeVehicle')}
                       >
                         {/* min-w-0 so the NAME truncates while the status pill
                             (shrink-0 below) stays whole — a long
@@ -1030,6 +1067,9 @@ function DraggableOperationBase({
                               removeTitle={t('common.removeNamed', { name: group.name })}
                               removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                               removeIconClassName="h-2.5 w-2.5"
+                              menuTitle={group.name}
+                              menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                              removeLabel={t('chipMenu.removeFromIncident')}
                             >
                               <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                               <span className="truncate">{group.name}</span>
@@ -1056,6 +1096,10 @@ function DraggableOperationBase({
                                 removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
                                 removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                                 removeIconClassName="h-2.5 w-2.5"
+                                menuTitle={material?.name || materialId}
+                                menuSubtitle={material?.category}
+                                menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                                removeLabel={t('chipMenu.removeFromIncident')}
                               >
                                 {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
                                 <span className="truncate">{material?.name || materialId}</span>
@@ -1424,6 +1468,10 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // The type row's visibility depends on the board's majority type, so a
     // storm tipping over the 50% line must repaint the cards.
     prevProps.dominantIncidentType === nextProps.dominantIncidentType &&
+    // The editor gate: it registers the drag source, and it decides whether the
+    // chip menu offers «Als Einsatzleiter markieren». A role change alone must
+    // repaint the card, or a viewer keeps an editor's row.
+    prevProps.canDrag === nextProps.canDrag &&
     !rekoSummaryChanged &&
     !assignedRekoChanged &&
     // Conflict set: identity check is enough — page.tsx memoizes the Set

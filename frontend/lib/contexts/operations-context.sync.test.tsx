@@ -326,6 +326,8 @@ describe("OperationsProvider — switching Ereignis", () => {
     expect(result.current.sync.lastSyncAt).toBeNull()
     expect(result.current.ops.operations).toEqual([])
     expect(result.current.ops.isLoaded).toBe(true)
+    // …which the board page reads as its error panel.
+    expect(result.current.ops.boardNeverLoaded).toBe(true)
   })
 
   it("keeps the board when the effect re-runs for the SAME Ereignis", async () => {
@@ -364,6 +366,8 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     await waitFor(() => expect(result.current.sync.loadError).toBeInstanceOf(NetworkError))
     expect(result.current.ops.operations.map((o) => o.id)).toEqual(["1", "2"])
     expect(result.current.sync.lastSyncAt).toBe(syncedAt)
+    // Stale, not «never loaded»: the board keeps its columns.
+    expect(result.current.ops.boardNeverLoaded).toBe(false)
   })
 
   it.each([
@@ -391,6 +395,10 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
     expect(result.current.sync.lastSyncAt).toBeNull()
     expect(result.current.ops.operations).toEqual([])
+    // `isLoaded` flips anyway (mutations key off it) — this is what tells the
+    // board page to show the error panel instead of empty columns.
+    expect(result.current.ops.isLoaded).toBe(true)
+    expect(result.current.ops.boardNeverLoaded).toBe(true)
   })
 
   it("keeps the previous home city and Restliste when only those fail", async () => {
@@ -414,6 +422,7 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     await waitFor(() => expect(incidentCalls).toHaveLength(1))
     await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
     await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+    expect(result.current.ops.boardNeverLoaded).toBe(true)
 
     // No socket event is coming: the poll (~5 s ± jitter) has to try again.
     await act(async () => {
@@ -425,5 +434,6 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     await waitFor(() => expect(result.current.sync.loadError).toBeNull())
     expect(result.current.ops.operations.map((o) => o.id)).toEqual(["1"])
     expect(result.current.sync.lastSyncAt).not.toBeNull()
+    expect(result.current.ops.boardNeverLoaded).toBe(false)
   })
 })
