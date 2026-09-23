@@ -19,9 +19,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useEvent } from '@/lib/contexts/event-context';
-import { apiClient, type ApiAuditLog } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
-import { Card } from '@/components/ui/card';
 import { SearchInput } from '@/components/ui/search-input'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -52,14 +51,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Settings2,
@@ -70,10 +61,7 @@ import {
   Package,
   FileSpreadsheet,
   FileText,
-  Download,
-  X,
   Save,
-  User,
   Printer,
   Shield,
   Info,
@@ -95,6 +83,8 @@ import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
 import { AlarmWebhookSecretCard } from '@/components/settings/alarm-webhook-secret-card';
 import { ExcelImportSection } from '@/components/settings/excel-import-section';
+import { AuditLogSection } from '@/components/settings/audit-log-section';
+import { useAuditLog } from '@/components/settings/use-audit-log';
 import { useExcelImport } from '@/components/settings/use-excel-import';
 import {
   LATITUDE_RANGE,
@@ -220,12 +210,6 @@ const SECTIONS = [
 
 ] as const;
 
-// Audit log constants
-const AUDIT_ACTION_TYPES = ['create', 'update', 'delete', 'assign', 'login_success', 'login_failure', 'logout'];
-const AUDIT_RESOURCE_TYPES = ['incident', 'personnel', 'vehicle', 'material', 'user', 'api'];
-/** How many audit rows the page asks for. Was component state, but nothing ever changed it. */
-const AUDIT_LOG_LIMIT = 100;
-
 type SectionId = typeof SECTIONS[number]['id'];
 
 interface SettingConfig {
@@ -340,52 +324,19 @@ export default function SettingsPage() {
   const excelImport = useExcelImport(activeSection, isEditor);
   const { preview, replaceConfirmOpen, setReplaceConfirmOpen, selectImportMode, handleImport, setImportError } = excelImport;
 
-  // Audit export state
-  const [auditExportEventId, setAuditExportEventId] = useState<string>('');
-  const [auditExportLoading, setAuditExportLoading] = useState(false);
-
   // Demo mode detection
   const [demoMode, setDemoMode] = useState(false);
   useEffect(() => {
     apiClient.getDemoStatus().then((status) => setDemoMode(status?.demo === true));
   }, []);
 
-  // Audit log state
-  const [auditEntries, setAuditEntries] = useState<ApiAuditLog[]>([]);
-  const [auditLoading, setAuditLoading] = useState(false);
-  const [auditError, setAuditError] = useState<string | null>(null);
-  const [auditResourceFilter, setAuditResourceFilter] = useState<string>('all');
-  const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
-  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  // The audit section: export, log, filters — see use-audit-log. Called here so
+  // its fetch effect keeps its place after the demo-status one.
+  const auditLog = useAuditLog({ activeSection, isEditor, events, setImportError });
 
   const handleSyncComplete = () => {
     setHistoryRefreshTrigger((prev) => prev + 1);
   };
-
-  // Fetch audit logs
-  const fetchAuditLogs = async () => {
-    setAuditLoading(true);
-    setAuditError(null);
-    try {
-      const params: { limit: number; resource_type?: string; action_type?: string } = { limit: AUDIT_LOG_LIMIT };
-      if (auditResourceFilter !== 'all') params.resource_type = auditResourceFilter;
-      if (auditActionFilter !== 'all') params.action_type = auditActionFilter;
-      const data = await apiClient.getAuditLogs(params);
-      setAuditEntries(data);
-    } catch (err) {
-      console.error('Failed to fetch audit logs:', err);
-      setAuditError(err instanceof Error ? err.message : t('common.loadError'));
-    } finally {
-      setAuditLoading(false);
-    }
-  };
-
-  // Fetch audit logs when on audit section
-  useEffect(() => {
-    if (activeSection === 'audit' && isEditor) {
-      fetchAuditLogs();
-    }
-  }, [activeSection, isEditor, auditResourceFilter, auditActionFilter]);
 
   // Navigate to section
   const navigateToSection = (sectionId: SectionId) => {
@@ -432,71 +383,6 @@ export default function SettingsPage() {
       setSaving(null);
     }
   };
-
-  const handleAuditExport = async () => {
-    if (!auditExportEventId) {
-      toast.error(t('page.toasts.selectEvent'));
-      return;
-    }
-    setAuditExportLoading(true);
-    setImportError(null);
-    try {
-      const blob = await apiClient.exportEventAudit(auditExportEventId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const selectedEvent = events.find(e => e.id === auditExportEventId);
-      const eventName = selectedEvent?.name || 'event';
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const sanitizedName = eventName.replace(/[^a-zA-Z0-9_-]/g, '_');
-      a.download = `audit_${sanitizedName}_${timestamp}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success(t('page.toasts.auditExportSuccess'));
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : t('page.errors.auditExportFailed'));
-    } finally {
-      setAuditExportLoading(false);
-    }
-  };
-
-  // Audit log helpers
-  const filteredAuditEntries = auditEntries.filter((entry) => {
-    if (entry.action_type === 'get_request') return false;
-    if (!auditSearchQuery) return true;
-    const query = auditSearchQuery.toLowerCase();
-    return (
-      entry.action_type.toLowerCase().includes(query) ||
-      entry.resource_type.toLowerCase().includes(query) ||
-      (entry.resource_id && entry.resource_id.toLowerCase().includes(query)) ||
-      (entry.user_id && entry.user_id.toLowerCase().includes(query)) ||
-      (entry.ip_address && entry.ip_address.toLowerCase().includes(query))
-    );
-  });
-
-  const formatAuditTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString(intlLocale, {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    });
-  };
-
-  const getAuditBadgeVariant = (actionType: string) => {
-    if (actionType.includes('delete')) return 'destructive' as const;
-    if (actionType.includes('create')) return 'default' as const;
-    if (actionType.includes('update')) return 'secondary' as const;
-    return 'outline' as const;
-  };
-
-  const clearAuditFilters = () => {
-    setAuditResourceFilter('all');
-    setAuditActionFilter('all');
-    setAuditSearchQuery('');
-  };
-
-  const hasActiveAuditFilters = auditResourceFilter !== 'all' || auditActionFilter !== 'all' || auditSearchQuery !== '';
 
   // Render setting input
   const renderSettingInput = (config: SettingConfig) => {
@@ -1102,221 +988,7 @@ export default function SettingsPage() {
         return <ExcelImportSection importer={excelImport} demoMode={demoMode} />;
 
       case 'audit':
-        return (
-          <div className="space-y-6">
-            {/* Audit Export */}
-            <SettingCard
-              title={t('page.audit.exportTitle')}
-              subtitle={t('page.audit.exportDescription')}
-            >
-              <div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <div className="flex-1 w-full sm:w-auto">
-                    <Select
-                      value={auditExportEventId}
-                      onValueChange={setAuditExportEventId}
-                      disabled={eventsLoading || auditExportLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t('page.audit.selectEventPlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {events
-                          .filter(e => !e.archived_at)
-                          .map((event) => (
-                            <SelectItem key={event.id} value={event.id}>
-                              {event.name}
-                              {event.training_flag && (
-                                <span className="ml-2 text-xs text-muted-foreground">{t('page.audit.trainingTag')}</span>
-                              )}
-                            </SelectItem>
-                          ))}
-                        {events.filter(e => e.archived_at).length > 0 && (
-                          <>
-                            <SelectItem value="_divider" disabled>
-                              {t('page.audit.archivedDivider')}
-                            </SelectItem>
-                            {events
-                              .filter(e => e.archived_at)
-                              .map((event) => (
-                                <SelectItem key={event.id} value={event.id}>
-                                  {event.name}
-                                  {event.training_flag && (
-                                    <span className="ml-2 text-xs text-muted-foreground">{t('page.audit.trainingTag')}</span>
-                                  )}
-                                </SelectItem>
-                              ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    onClick={handleAuditExport}
-                    disabled={!auditExportEventId || auditExportLoading || eventsLoading}
-                    className="w-full sm:w-auto"
-                  >
-                    <Download className="size-4" />
-                    {auditExportLoading ? t('page.audit.exporting') : t('page.audit.exportButton')}
-                  </Button>
-                </div>
-              </div>
-            </SettingCard>
-
-            {/* Suche, Filter und Treffer in EINER Karte – wie die Bestandslisten:
-                die Bedienleiste oben, die Tabelle darunter, alles auf derselben
-                Fläche. Vorher stand die Leiste nackt auf dem Seitenhintergrund und
-                jeder Zustand darunter (Laden / Fehler / leer / Tabelle) brachte
-                seine eigene Karte mit. */}
-            <SettingCard>
-            <SearchInput
-              placeholder={t('page.audit.searchPlaceholder')}
-              value={auditSearchQuery}
-              onValueChange={setAuditSearchQuery}
-              className="w-full"
-            />
-
-            {/* Filters - Compact row */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Select value={auditResourceFilter} onValueChange={setAuditResourceFilter}>
-                <SelectTrigger className="w-36 h-9">
-                  <SelectValue placeholder={t('page.audit.resource')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('page.audit.allResources')}</SelectItem>
-                  {AUDIT_RESOURCE_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={auditActionFilter} onValueChange={setAuditActionFilter}>
-                <SelectTrigger className="w-36 h-9">
-                  <SelectValue placeholder={t('page.audit.action')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('page.audit.allActions')}</SelectItem>
-                  {AUDIT_ACTION_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {hasActiveAuditFilters && (
-                <Button variant="ghost" size="sm" onClick={clearAuditFilters} className="h-9">
-                  <X className="size-3.5" />
-                  {t('page.audit.clearFilters')}
-                </Button>
-              )}
-              <span className="text-sm text-muted-foreground ml-auto">
-                {t('common.entriesCount', { count: filteredAuditEntries.length })}
-              </span>
-            </div>
-
-            {/* Content */}
-            <div className="mt-4">
-            {auditLoading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex gap-3">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                ))}
-              </div>
-            ) : auditError ? (
-              <>
-                <p className="text-destructive">{auditError}</p>
-                <Button onClick={fetchAuditLogs} className="mt-4">{t('common.retry')}</Button>
-              </>
-            ) : filteredAuditEntries.length === 0 ? (
-              <p className="py-4 text-center text-muted-foreground">
-                {hasActiveAuditFilters ? t('page.audit.noEntriesFiltered') : t('page.audit.noEntries')}
-              </p>
-            ) : (
-              <>
-                {/* Desktop Table - Hidden on mobile */}
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-40">{t('page.audit.timeHead')}</TableHead>
-                        <TableHead>{t('page.audit.action')}</TableHead>
-                        <TableHead>{t('page.audit.resource')}</TableHead>
-                        <TableHead className="hidden lg:table-cell">{t('page.audit.userHead')}</TableHead>
-                        <TableHead>{t('page.audit.detailsHead')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredAuditEntries.map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell className="font-mono text-xs">
-                            {formatAuditTimestamp(entry.timestamp)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={getAuditBadgeVariant(entry.action_type)}>
-                              {entry.action_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{entry.resource_type}</Badge>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                            {entry.user_id ? `${entry.user_id.substring(0, 8)}...` : <em>{t('page.audit.system')}</em>}
-                          </TableCell>
-                          <TableCell>
-                            {entry.changes_json ? (
-                              <details className="cursor-pointer">
-                                <summary className="text-xs text-primary hover:text-primary/80">{t('page.audit.show')}</summary>
-                                <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
-                                  {JSON.stringify(entry.changes_json, null, 2)}
-                                </pre>
-                              </details>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Mobile Cards - Shown only on mobile */}
-                <div className="md:hidden space-y-3">
-                  {filteredAuditEntries.map((entry) => (
-                    <Card key={entry.id} className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <Badge variant={getAuditBadgeVariant(entry.action_type)}>
-                          {entry.action_type}
-                        </Badge>
-                        <Badge variant="outline">{entry.resource_type}</Badge>
-                      </div>
-                      <p className="font-mono text-xs text-muted-foreground mb-2">
-                        {formatAuditTimestamp(entry.timestamp)}
-                      </p>
-                      {entry.user_id && (
-                        <p className="text-xs text-muted-foreground">
-                          <User className="h-3 w-3 inline mr-1" />
-                          {entry.user_id.substring(0, 8)}...
-                        </p>
-                      )}
-                      {entry.changes_json && (
-                        <details className="mt-2 cursor-pointer">
-                          <summary className="text-xs text-primary">{t('page.audit.showDetails')}</summary>
-                          <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
-                            {JSON.stringify(entry.changes_json, null, 2)}
-                          </pre>
-                        </details>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              </>
-            )}
-            </div>
-            </SettingCard>
-          </div>
-        );
+        return <AuditLogSection audit={auditLog} events={events} eventsLoading={eventsLoading} />;
 
       default:
         return null;
