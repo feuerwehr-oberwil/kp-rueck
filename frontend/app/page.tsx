@@ -104,6 +104,7 @@ import {
 } from "@/components/kanban/incident-status-workflow"
 import { cn } from "@/lib/utils"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { isStringArray } from "@/lib/utils/safe-storage"
 import { aggregateByName, isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { AggregatedMaterialRow, AvailableOnlyToggle, BindingsPopoverBody, MaterialSidebarRow, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
@@ -126,24 +127,10 @@ const IncidentPickerDialog = dynamic(
   { ssr: false },
 )
 
-/**
- * Per-device layout memory. Folding a sidebar away is a deliberate act; walking
- * to the Karte and back used to undo it, which made the fold worthless. Keys
- * follow the `kp-board-*` family the other board preferences already use.
- */
-const LEFT_SIDEBAR_KEY = "kp-board-leftSidebarOpen"
-const RIGHT_SIDEBAR_KEY = "kp-board-rightSidebarOpen"
-const SIDE_PANEL_MODE_KEY = "kp-board-sidePanelMode"
 /** Events whose Bereitschaft checklist the operator has closed — see the auto-open effect. */
 const CHECKLIST_DISMISSED_KEY = "kp-board-checklistDismissedEvents"
 /** How many dismissals to keep; enough for a season of Einsätze, bounded on purpose. */
 const CHECKLIST_DISMISSED_LIMIT = 30
-
-const isBoolean = (value: unknown): value is boolean => typeof value === "boolean"
-
-type SidePanelMode = 'detail' | 'collapsed'
-const isSidePanelMode = (value: unknown): value is SidePanelMode =>
-  value === 'detail' || value === 'collapsed'
 
 /**
  * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it
@@ -475,13 +462,15 @@ export default function FireStationDashboard() {
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
-  // Modal and panel intentionally share one incident identity; only presentation
-  // changes at the external-monitor breakpoint.
-  const [sidePanelMode, setSidePanelMode] = usePersistedState<SidePanelMode>(
-    SIDE_PANEL_MODE_KEY,
-    'collapsed',
-    isSidePanelMode,
-  )
+  // Both sidebars and the detail panel, remembered per device.
+  const {
+    sidePanelMode,
+    setSidePanelMode,
+    showLeftSidebar,
+    setShowLeftSidebar,
+    showRightSidebar,
+    setShowRightSidebar,
+  } = useBoardLayoutPrefs(isMobile)
   // "Open the detail on THIS tab" — set by whoever pointed at one specific
   // thing: a notification, the Rapport-Backlog, or a click on one BLOCK of a
   // kanban card (its Reko part, its resource rows). A click on the card as a
@@ -538,8 +527,6 @@ export default function FireStationDashboard() {
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string; status: string }>>([])
-  const [showLeftSidebar, setShowLeftSidebar] = usePersistedState(LEFT_SIDEBAR_KEY, true, isBoolean)
-  const [showRightSidebar, setShowRightSidebar] = usePersistedState(RIGHT_SIDEBAR_KEY, true, isBoolean)
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
@@ -1354,16 +1341,6 @@ export default function FireStationDashboard() {
     toggleVehicleAssignment,
     openIncidentDetail,
   ])
-
-  // Hide sidebars on mobile by default. Runs after the persisted state has been
-  // restored (`isMobile` only turns true once its own mount effect has measured
-  // the window), so a remembered «offen» never survives on a phone — mobile wins.
-  useEffect(() => {
-    if (isMobile) {
-      setShowLeftSidebar(false)
-      setShowRightSidebar(false)
-    }
-  }, [isMobile, setShowLeftSidebar, setShowRightSidebar])
 
   // Show empty state if no event is selected (removed automatic redirect)
   // useEffect(() => {
