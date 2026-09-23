@@ -2292,7 +2292,7 @@
           "divera"
         ],
         "summary": "Attach Emergency To Event",
-        "description": "Attach a Divera emergency to an Event by creating an Incident.\n\n1. Fetches the Divera emergency\n2. Verifies the Event exists\n3. Creates an Incident from the emergency data\n4. Links the emergency to the Event and Incident\n5. Broadcasts WebSocket update\n\nEditor role required.",
+        "description": "Attach a Divera emergency to an Event by creating an Incident.\n\n1. Fetches (and row-locks) the Divera emergency\n2. Verifies the Event exists\n3. Creates an Incident from the emergency data\n4. Links the emergency to the Event and Incident — in the same transaction as 3\n5. Broadcasts WebSocket update\n\nIdempotent per event: attaching an alarm to the event it is already on answers 200 with\nthe incident it already made, instead of making a second one.\n\nEditor role required.",
         "operationId": "attach_emergency_to_event_api_divera_emergencies__emergency_id__attach_post",
         "parameters": [
           {

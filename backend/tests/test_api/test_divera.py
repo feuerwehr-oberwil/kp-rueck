@@ -401,8 +401,12 @@ async def test_attach_emergency_event_not_found(editor_client: AsyncClient, test
 async def test_attach_emergency_already_attached(
     editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
 ):
-    """Test that attaching same emergency to same event is rejected."""
-    # First attachment
+    """Attaching the same emergency to the same event again returns the card it already made.
+
+    The double click / second operator case: idempotent, never a second incident. (It used
+    to be a 400 — correct as a guard, but only for requests that did not overlap; see
+    test_divera_attach_race.py for the ones that do.)
+    """
     with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
         response1 = await editor_client.post(
             f"/api/divera/emergencies/{test_emergency.id}/attach",
@@ -410,7 +414,32 @@ async def test_attach_emergency_already_attached(
         )
         assert response1.status_code == 201
 
-    # Second attachment to same event
+        response2 = await editor_client.post(
+            f"/api/divera/emergencies/{test_emergency.id}/attach",
+            json={"event_id": str(test_event.id)},
+        )
+    assert response2.status_code == 200
+    assert response2.json()["id"] == response1.json()["id"]
+
+    incidents = await editor_client.get(f"/api/incidents/?event_id={test_event.id}")
+    assert [i["id"] for i in incidents.json()] == [response1.json()["id"]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_attach_emergency_again_after_its_card_was_deleted_is_refused(
+    editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
+):
+    """Deleting the card was a decision; re-attaching to the same event stays a 400."""
+    with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
+        response1 = await editor_client.post(
+            f"/api/divera/emergencies/{test_emergency.id}/attach",
+            json={"event_id": str(test_event.id)},
+        )
+    assert response1.status_code == 201
+    deleted = await editor_client.delete(f"/api/incidents/{response1.json()['id']}")
+    assert deleted.status_code in (200, 204), deleted.text
+
     response2 = await editor_client.post(
         f"/api/divera/emergencies/{test_emergency.id}/attach",
         json={"event_id": str(test_event.id)},
