@@ -553,3 +553,93 @@ export async function assignReko(
   );
   expect(response.ok(), await response.text()).toBeTruthy();
 }
+
+/* ------------------------------------------------------------------ board refactor
+ * Arrange-steps for the board flows pinned before `app/page.tsx` was split
+ * (2026-09-23): check-ins, Aufträge, and read-backs of what the board wrote.
+ */
+
+/** Check somebody in for this Ereignis — the board's roster is "everybody checked in". */
+export async function checkInForEvent(
+  request: APIRequestContext,
+  cookieHeader: string,
+  personnelId: string,
+  eventId: string,
+): Promise<void> {
+  const response = await request.post(
+    `${API_BASE}/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}`,
+    { headers: jsonHeaders(cookieHeader) },
+  );
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+/** One Auftrag (incident group) in this Ereignis. */
+export async function createGroup(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+  name: string,
+): Promise<{ id: string; name: string }> {
+  const response = await request.post(`${API_BASE}/api/incident-groups/`, {
+    headers: jsonHeaders(cookieHeader),
+    data: { event_id: eventId, name },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
+/** Read one incident back, as the backend has it now. */
+export async function getIncident(
+  request: APIRequestContext,
+  cookieHeader: string,
+  incidentId: string,
+): Promise<TestIncident & { group_id: string | null }> {
+  const response = await request.get(`${API_BASE}/api/incidents/${incidentId}`, {
+    headers: jsonHeaders(cookieHeader),
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
+/** incident id → its live assignments, for the whole Ereignis. */
+export async function assignmentsByEvent(
+  request: APIRequestContext,
+  cookieHeader: string,
+  eventId: string,
+): Promise<Record<string, { id: string; resource_type: string; resource_id: string }[]>> {
+  const response = await request.get(`${API_BASE}/api/assignments/by-event/${eventId}`, {
+    headers: jsonHeaders(cookieHeader),
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
+export interface TestVehicle {
+  id: string;
+  name: string;
+  display_order: number;
+  out_of_service?: boolean;
+}
+
+/** The fleet, in the order the board's number keys follow (`display_order`). */
+export async function listVehicles(request: APIRequestContext, cookieHeader: string): Promise<TestVehicle[]> {
+  const response = await request.get(`${API_BASE}/api/vehicles/`, { headers: jsonHeaders(cookieHeader) });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const vehicles: TestVehicle[] = await response.json();
+  return vehicles.sort((a, b) => a.display_order - b.display_order);
+}
+
+export interface TestMaterial {
+  id: string;
+  name: string;
+  location: string;
+  group_id: string | null;
+  consumable: boolean;
+  out_of_service?: boolean;
+}
+
+export async function listMaterials(request: APIRequestContext, cookieHeader: string): Promise<TestMaterial[]> {
+  const response = await request.get(`${API_BASE}/api/materials/`, { headers: jsonHeaders(cookieHeader) });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
