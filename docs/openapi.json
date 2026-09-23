@@ -15721,7 +15721,7 @@
           "sync"
         ],
         "summary": "Get Sync Logs",
-        "description": "Get recent sync operation logs (counts and error strings only — no credentials).\nRequires authentication.\n\nArgs:\n    limit: Maximum number of logs to return (default 20).\n\nReturns:\n    List of sync log entries, most recent first.",
+        "description": "Get recent sync operation logs (counts and error strings only — no credentials).\nRequires authentication.\n\nArgs:\n    limit: Maximum number of logs to return (default 20, 1–200).\n\nReturns:\n    List of sync log entries, most recent first.",
         "operationId": "get_sync_logs_api_sync_history_get",
         "parameters": [
           {
@@ -15730,6 +15730,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
               "default": 20,
               "title": "Limit"
             }
@@ -15801,7 +15803,7 @@
           "sync"
         ],
         "summary": "Get Sync Logs",
-        "description": "Get recent sync operation logs (counts and error strings only — no credentials).\nRequires authentication.\n\nArgs:\n    limit: Maximum number of logs to return (default 20).\n\nReturns:\n    List of sync log entries, most recent first.",
+        "description": "Get recent sync operation logs (counts and error strings only — no credentials).\nRequires authentication.\n\nArgs:\n    limit: Maximum number of logs to return (default 20, 1–200).\n\nReturns:\n    List of sync log entries, most recent first.",
         "operationId": "get_sync_logs_api_sync_logs_get",
         "parameters": [
           {
@@ -15810,6 +15812,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
               "default": 20,
               "title": "Limit"
             }
