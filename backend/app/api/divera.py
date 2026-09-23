@@ -123,9 +123,17 @@ async def receive_divera_webhook(
             "auto_attached_incident_id": str(incident.id) if incident else None,
         }
 
-    except IntegrityError as e:
-        logger.error(f"Database integrity error: {e}")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists") from e
+    except IntegrityError:
+        # A concurrent delivery of the same alarm raced past the dedupe check above and won
+        # the unique `divera_id`. That is a duplicate, not a conflict: ack the winner exactly
+        # like the lookup would have, as FireHub and POST /api/alarms do. A 409 here made
+        # Divera log a failed delivery (and retry) for an alarm that is on the board.
+        await db.rollback()
+        if await divera_crud.get_divera_emergency_by_divera_id(db, payload.id):
+            logger.info("Concurrent Divera webhook ignored: ID %s", payload.id)
+            return {"status": "ok", "message": "Duplicate emergency ignored"}
+        logger.exception("Divera webhook hit an integrity error with no winner to ack: ID %s", payload.id)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists") from None
     except Exception as e:
         logger.error(f"Error processing Divera webhook: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing webhook") from e
