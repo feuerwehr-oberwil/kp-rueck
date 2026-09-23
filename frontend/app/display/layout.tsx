@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useTranslations } from "next-intl"
+import { useIntlLocale } from "@/lib/date-locale"
 import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye, CalendarRange } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
+import { usePolling } from "@/lib/hooks/use-polling"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { SearchInput } from "@/components/ui/search-input"
@@ -51,24 +53,22 @@ function ConnectionIndicator({ token }: { token: string | null }) {
   const t = useTranslations('display')
   const [online, setOnline] = useState(true)
 
-  useEffect(() => {
-    const check = async () => {
-      try {
-        // Probe something THIS viewer can actually reach. `getAllSettings` is authenticated,
-        // so on a share-token display it failed every single time and the icon sat
-        // permanently red — the only warning these screens had was stuck crying wolf, which
-        // is worse than no indicator at all: a real alert next to it reads as more noise.
-        if (token) await apiClient.getViewerData(token)
-        else await apiClient.getAllSettings()
-        setOnline(true)
-      } catch {
-        setOnline(false)
-      }
+  const check = useCallback(async () => {
+    try {
+      // Probe something THIS viewer can actually reach. `getAllSettings` is authenticated,
+      // so on a share-token display it failed every single time and the icon sat
+      // permanently red — the only warning these screens had was stuck crying wolf, which
+      // is worse than no indicator at all: a real alert next to it reads as more noise.
+      const answer = token ? await apiClient.getViewerData(token) : await apiClient.getAllSettings()
+      // A GET with no answer at all resolves to nothing rather than throwing — that is
+      // exactly the outage this icon exists for, not a green light.
+      setOnline(answer !== undefined)
+    } catch {
+      setOnline(false)
     }
-    check()
-    const interval = setInterval(check, 15000)
-    return () => clearInterval(interval)
   }, [token])
+  // Unattended wall screen: never paused on visibility (see `usePolling`).
+  usePolling(check, { intervalMs: 15000, pauseWhenHidden: false })
 
   return (
     <div className="flex items-center gap-1.5" title={online ? t('layout.connected') : t('layout.disconnected')}>
@@ -95,6 +95,7 @@ function DisplayChrome({
   children: React.ReactNode
 }) {
   const t = useTranslations('display')
+  const intlLocale = useIntlLocale()
   const { selectedEvent } = useEvent()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -323,7 +324,7 @@ function DisplayChrome({
           <div className="hidden sm:flex items-center gap-1.5 rounded-md bg-secondary/50 px-2.5 py-1">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-mono text-sm font-semibold tabular-nums">
-              {currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
+              {currentTime ? currentTime.toLocaleTimeString(intlLocale) : "--:--:--"}
             </span>
           </div>
         </div>

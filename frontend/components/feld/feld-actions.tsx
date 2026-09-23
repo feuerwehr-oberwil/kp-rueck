@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useIntlLocale } from '@/lib/date-locale'
 import {
   CarTaxiFront,
   Check,
@@ -92,6 +93,7 @@ function toDate(value: string | null): Date | null {
 export function FeldActions({ assignment, personnelId, token, messageChips, onReported, onOpenRapport }: FeldActionsProps) {
   const t = useTranslations('feld.actions')
   const tPickup = useTranslations('feld.pickup')
+  const intlLocale = useIntlLocale()
   const [panel, setPanel] = useState<FeldPanel>('none')
   const [note, setNote] = useState(assignment.pickup_note ?? '')
   const [message, setMessage] = useState('')
@@ -212,7 +214,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
   })
   const timeOf = (value: string | null): string | null => {
     const date = toDate(value)
-    return date ? date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : null
+    return date ? date.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }) : null
   }
   type JourneyStep = {
     key: 'arrived' | 'complete' | 'rapport'

@@ -2885,7 +2885,8 @@
       "emptyTitle": "Keine aktiven Benachrichtigungen",
       "emptySubtitle": "Alles ist in Ordnung",
       "dismissAria": "Benachrichtigung schliessen",
-      "closePanel": "Panel schliessen (B)"
+      "closePanel": "Panel schliessen (B)",
+      "bellTitle": "Benachrichtigungen (B)"
     },
     "card": {
       "severityCritical": "Kritisch",

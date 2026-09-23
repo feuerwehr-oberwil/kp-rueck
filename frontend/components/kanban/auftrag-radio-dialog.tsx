@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
+import { useIntlLocale } from "@/lib/date-locale"
 import { Check, Copy, Radio, X } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -45,6 +46,7 @@ interface AuftragRadioDialogProps {
 export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: AuftragRadioDialogProps) {
   const t = useTranslations("kanban")
   const tAuftraege = useTranslations("kanban.auftraege")
+  const intlLocale = useIntlLocale()
   const { getGroupResources } = useGroups()
   const { operations, materials } = useOperations()
   const [copied, setCopied] = useState(false)
@@ -93,7 +95,7 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
           <DialogDescription>
             {announced
               ? tAuftraege("repeatRadioDescription", {
-                  time: announced.at.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }),
+                  time: announced.at.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit" }),
                 })
               : radio
                 ? tAuftraege("repeatRadioPreview")

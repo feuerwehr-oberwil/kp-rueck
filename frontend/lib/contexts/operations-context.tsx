@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, NetworkError, type ApiDangersAssessment, type ApiEventRestliste, type ApiEventSpecialFunctionResponse, type ApiVehicle, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -28,6 +28,7 @@ import {
 } from "@/lib/recent-removals"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
 import { UpdateBatcher } from "@/lib/update-batcher"
+import { ReloadScheduler } from "@/lib/reload-scheduler"
 import { apiCoordinatesToTuple, coordinatesToApiFields, type IncidentCoordinates } from "@/lib/coordinate-parser"
 
 // Re-export types for backward compatibility
@@ -213,8 +214,6 @@ interface OperationsContextType {
    * Gate empty states on this so they only show when data is genuinely empty,
    * never during the initial blank-before-fetch window. */
   isLoaded: boolean
-  /** Wall-clock time of the last successful operations load. null until the first load completes. */
-  lastSyncAt: Date | null
   /**
    * Total incidents for the selected event, before the server's limit. Null when unknown
    * (older backend, or header stripped by a proxy) — never treat null as zero. Compare
@@ -299,6 +298,13 @@ interface OperationsContextType {
    * targets all read this set. Until now nothing on the board consulted a
    * vehicle's state at all — a unit recorded as defective was assignable. */
   outOfServiceVehicleIds: Set<string>
+  /** The raw lists behind the last good board load, as fetched — handed out so
+   *  derived views (the Bereitschaft checklist) read the board's snapshot
+   *  instead of polling the same endpoints again on their own timer. */
+  specialFunctions: ApiEventSpecialFunctionResponse[]
+  vehicles: ApiVehicle[]
+  /** All settings as of the last load that got them (kept through a failed fetch). */
+  settings: Record<string, string>
   resolveResourceConflict: (action: "move" | "keep") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
@@ -332,7 +338,58 @@ function toMaterialOnSite(
   return map
 }
 
+/** The actions the provider hands out through stable wrappers — see the value memo. */
+type BoardActions = Pick<
+  OperationsContextType,
+  | "removeCrew"
+  | "removeMaterial"
+  | "removeVehicle"
+  | "removeReko"
+  | "updateOperation"
+  | "reorderColumn"
+  | "changeStatusToTop"
+  | "createOperation"
+  | "getNextOperationId"
+  | "assignPersonToOperation"
+  | "assignRekoPersonToOperation"
+  | "assignMaterialToOperation"
+  | "assignVehicleToOperation"
+  | "resolveResourceConflict"
+  | "deleteOperation"
+>
+
+/**
+ * How fresh the board is — split off the main context on purpose.
+ *
+ * `lastSyncAt` moves on every confirmed-fresh poll tick (every ~5 s while the
+ * socket is down) without a single card changing. In the main value that
+ * re-rendered all ~40 `useOperations()` consumers each time, for the benefit
+ * of the one component that reads it (the stale-data banner).
+ */
+export interface BoardSyncStatus {
+  /** Wall-clock time of the last successful sync — a completed board load or a
+   *  poll that confirmed nothing changed. null until the first load completes.
+   *  A failed load leaves it where it was: that is what ages the board. */
+  lastSyncAt: Date | null
+  /** Why the most recent board load failed; null once a sync gets through.
+   *  While set, the board on screen is the last good state (or, after a failed
+   *  FIRST load, nothing at all — which `isLoaded` alone can't tell apart
+   *  from an empty Ereignis). */
+  loadError: Error | null
+}
+
+/**
+ * `request()` lets a GET resolve to nothing when the connection is dead (a soft
+ * degrade meant for pollers). For the board's snapshot «nothing» must not pass
+ * for «empty» — this turns it back into the failure it is.
+ */
+function answered<T>(value: T | undefined): T {
+  if (value === undefined || value === null) throw new NetworkError()
+  return value
+}
+
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
+const BoardSyncStatusContext = createContext<BoardSyncStatus | undefined>(undefined)
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -365,6 +422,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setGlobalHomeCity(homeCity)
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
+  const [loadError, setLoadError] = useState<Error | null>(null)
   const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
   // The one vehicle that was just put on an incident with nobody driving it, or
   // null. It was a queue while the setup checklist walked every driverless vehicle
@@ -377,6 +435,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
   const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
   const [outOfServiceVehicleIds, setOutOfServiceVehicleIds] = useState<Set<string>>(new Set())
+  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
+  const [settings, setSettings] = useState<Record<string, string>>({})
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
@@ -401,7 +462,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const reorderInFlightRef = useRef<boolean>(false)
   const queuedReorderRef = useRef<string[] | null>(null)
   // UI #2: queue-and-replay for WS/poll updates that arrive during a cooldown.
-  // When set, the next cooldown clear triggers a single loadData(false). Prevents
+  // When set, the next cooldown clear triggers a single reload. Prevents
   // silent loss of remote updates during rapid local dispatch.
   const pendingReplayRef = useRef<boolean>(false)
   const replayPendingUpdatesRef = useRef<(() => void) | null>(null)
@@ -513,6 +574,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Sync version for lightweight polling optimization
   const lastSyncVersionRef = useRef<string | null>(null)
+  // Id of the newest board load; see `loadData`.
+  const loadIdRef = useRef<number>(0)
+  // The Ereignis whose board is in state — see the switch reset in the sync effect.
+  const boardEventIdRef = useRef<string | null>(null)
 
   // Polling configuration
   const pollingBackoffRef = useRef<number>(1)
@@ -588,71 +653,170 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Refresh operations from server
+  // The board has ONE loader: `loadData` in the sync effect below, behind a
+  // single-flight scheduler (`lib/reload-scheduler`). Explicit refreshes queue
+  // behind a running load instead of racing it. Until 2026-09-23 this was a
+  // second, sequential copy of the whole load that could land in either order
+  // with the effect's — and the two copies had already drifted once (see
+  // `rekoDangerTypes`).
+  const reloadSchedulerRef = useRef<ReloadScheduler | null>(null)
   const refreshOperations = useCallback(async () => {
+    const scheduler = reloadSchedulerRef.current
+    if (scheduler) return scheduler.request()
+    // No sync effect running: signed out, or no Ereignis selected.
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
+      setIsLoading(false)
+    }
+  }, [selectedEvent])
+
+  // Load initial data and set up WebSocket/polling
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) {
       setIsLoading(false)
       return
     }
 
-    const epochAtStart = mutationEpochRef.current
+    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
+      setOperations([])
+      // No Ereignis, no board to be fresh or stale about.
+      boardEventIdRef.current = null
+      setLastSyncAt(null)
+      setLoadError(null)
+      setIsLoading(false)
+      // Only declare "loaded" once events have actually resolved. While the
+      // EventProvider is still figuring out which event is selected, stay
+      // unloaded so the board shows the progress bar — not a premature empty
+      // state (empty columns + "Keine Personen" + QR) that flashes before data.
+      if (isEventLoaded) setIsLoaded(true)
+      return
+    }
 
-    try {
+    const eventId = selectedEvent.id
+    // A counter, not a DOM ref — the cleanup below bumps the live value on purpose.
+    const loadIds = loadIdRef
 
-      // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
-      // list off the UI — we write reconciled, event-scoped state below in one go,
-      // avoiding a flicker where every person briefly reads as "available".
-      const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
-        apiClient.getIncidentsWithTotal(selectedEvent.id),
-        refreshPersonnel({ skipStateUpdate: true }),
-        refreshMaterials({ skipStateUpdate: true }),
-        apiClient.getAllSettings().catch(() => ({ home_city: "" })),
-        apiClient.getVehicles(),
-        // Never fatal: a board that cannot say which pump is still in a cellar is
-        // still a board.
-        apiClient.getEventRestliste(selectedEvent.id).catch(() => null),
-      ])
-      setMaterialOnSite(toMaterialOnSite(restliste))
-      setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
-      const apiIncidents = incidentPage.incidents
-      setIncidentTotal(incidentPage.total)
+    // Another Ereignis: the board in state is the PREVIOUS one's, and it must go
+    // before B's first load, not after it. «Keep the last good board» (a0f05021)
+    // is about one Ereignis over time; across a switch, A's board kept its
+    // `lastSyncAt`, so a failed first load of B showed A's incidents as «B, a
+    // little stale» — the wrong Ereignis, presented as fact. B starts where a
+    // fresh page starts: nothing loaded, progress bar, and on failure «never
+    // loaded». The known ids go too, or B's high-priority incidents would all
+    // ring as «new» the moment they land. Station-wide state (vehicles,
+    // settings, home city) stays: it is the same across Ereignisse.
+    // Same id (the event object was refetched) is not a switch.
+    if (boardEventIdRef.current !== null && boardEventIdRef.current !== eventId) {
+      setOperations([])
+      setPersonnel([])
+      setMaterials([])
+      setMaterialOnSite(new Map())
+      setSpecialFunctions([])
+      setIncidentTotal(null)
+      setLastSyncAt(null)
+      setLoadError(null)
+      setIsLoaded(false)
+      isInitialLoadRef.current = true
+      knownIncidentIdsRef.current = new Set()
+      lastSyncVersionRef.current = null
+    }
+    boardEventIdRef.current = eventId
 
-      // Convert incidents to operations
-      const ops = apiIncidents.map(apiIncidentToOperation)
-
-      // Fetch special functions first to know who is reko personnel
-      // (reko personnel should not appear in crew list - they're tracked separately)
-      const rekoPersonnelIds = new Set<string>()
-      const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>() // personId -> vehicle info
-      const magazinPersonnelIds = new Set<string>()
-      const telefondienstPersonnelIds = new Set<string>()
-      const kommandopostenPersonnelIds = new Set<string>()
-      let specialFunctions: Awaited<ReturnType<typeof apiClient.getEventSpecialFunctions>> = []
+    // Only ever called through `reloadScheduler` (below) — one load at a time.
+    const loadData = async () => {
+      // Monotonic across effect instances: a load still in flight when the
+      // Ereignis changes (or the user signs out) must not paint the previous
+      // Ereignis over the new one. The cleanup bumps the counter too.
+      const loadId = ++loadIdRef.current
+      const isCurrentLoad = () => loadId === loadIdRef.current
+      // Drive the top progress bar only for the meaningful initial load — not
+      // the silent ~5s background polls — so the board's first paint feels fast
+      // without the bar flickering on every sync.
+      const driveBar = isInitialLoadRef.current
+      if (driveBar) topLoading.start()
       try {
-        specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
+        if (driveBar) {
+          setIsLoading(true)
+        }
+
+        const epochAtStart = mutationEpochRef.current
+
+        // Snapshot the sync version BEFORE fetching data. Pairing the stored
+        // version with data fetched after it can only err toward one extra
+        // reload — the old trailing fetch could store a version NEWER than the
+        // data it was paired with, blinding the polling fallback to a change.
+        const versionSnapshot = await apiClient.getSyncVersion(eventId).catch(() => null)
+
+        // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
+        // list off the UI — we write reconciled, event-scoped state below in one go,
+        // avoiding a flicker where every person briefly reads as "available".
+        //
+        // A failed fetch never becomes an empty list: the reload fails as a
+        // whole and the board keeps its last good state (`answered`, and the
+        // rejecting refreshPersonnel/refreshMaterials). Settings and the
+        // Restliste are the exceptions — a failure there keeps the previous
+        // value instead of failing the board.
+        const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
+          apiClient.getIncidentsWithTotal(eventId),
+          refreshPersonnel({ skipStateUpdate: true }),
+          refreshMaterials({ skipStateUpdate: true }),
+          apiClient.getAllSettings().catch(() => undefined),
+          apiClient.getVehicles().then(answered),
+          // Never fatal: a board that cannot say which pump is still in a cellar is
+          // still a board.
+          apiClient.getEventRestliste(eventId).catch(() => undefined),
+        ])
+        const apiIncidents = incidentPage.incidents
+
+        const ops = apiIncidents.map(apiIncidentToOperation)
+
+        // Fetch special functions, assignments, and reko summaries in parallel
+        const rekoPersonnelIds = new Set<string>()
+        const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>()
+        const magazinPersonnelIds = new Set<string>()
+        const telefondienstPersonnelIds = new Set<string>()
+        const kommandopostenPersonnelIds = new Set<string>()
+        const assignedPersonIds = new Set<string>()
+        const assignedMaterialIds = new Set<string>()
+
+        // ⚠️ Part of the snapshot, not decoration: these used to be allSettled
+        // and «non-fatal», so a failed assignments fetch painted every card
+        // without its crew and every person as available — a board that invites
+        // a double dispatch. Now any of them failing fails the reload, and the
+        // board keeps its last good state.
+        const [specialFunctions, assignmentsByIncident, rekoSummaries] = await Promise.all([
+          apiClient.getEventSpecialFunctions(eventId).then(answered),
+          apiClient.getAssignmentsByEvent(eventId).then(answered),
+          apiClient.getEventRekoSummaries(eventId).then(answered),
+        ])
+
+        // Process special functions (single fetch, used for both reko filtering and availability)
         for (const func of specialFunctions) {
           if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
-          else if (func.function_type === 'driver') driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
-          else if (func.function_type === 'magazin') magazinPersonnelIds.add(func.personnel_id)
-          else if (func.function_type === 'telefondienst') telefondienstPersonnelIds.add(func.personnel_id)
-          else if (func.function_type === 'kommandoposten') kommandopostenPersonnelIds.add(func.personnel_id)
+          else if (func.function_type === 'driver') {
+            driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
+            assignedPersonIds.add(func.personnel_id)
+          } else if (func.function_type === 'magazin') {
+            magazinPersonnelIds.add(func.personnel_id)
+            assignedPersonIds.add(func.personnel_id)
+          } else if (func.function_type === 'telefondienst') {
+            telefondienstPersonnelIds.add(func.personnel_id)
+            assignedPersonIds.add(func.personnel_id)
+          } else if (func.function_type === 'kommandoposten') {
+            kommandopostenPersonnelIds.add(func.personnel_id)
+            assignedPersonIds.add(func.personnel_id)
+          } else {
+            assignedPersonIds.add(func.personnel_id)
+          }
         }
-      } catch (error) {
-        console.error('Failed to load special functions:', error)
-      }
 
-      // Fetch assignments for this event
-      try {
-        const assignmentsByIncident = await apiClient.getAssignmentsByEvent(selectedEvent.id)
-
+        // Process assignments
         ops.forEach((operation) => {
           const assignments = assignmentsByIncident[operation.id] || []
           for (const assignment of assignments) {
             if (assignment.resource_type === "personnel") {
               const person = personnelList.find(p => p.id === assignment.resource_id)
               if (person) {
-                // Reko personnel are stored separately, not as crew
                 if (rekoPersonnelIds.has(person.id)) {
                   operation.assignedReko = { id: person.id, name: person.name }
                   continue
@@ -677,20 +841,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             }
           }
         })
-      } catch (error) {
-        console.error(`Failed to load assignments:`, error)
-      }
 
-      // Show vehicles in their configured display order everywhere (radio text,
-      // Divera/WhatsApp messages, cards) instead of assignment order.
-      {
-        const vehicleOrder = new Map(vehiclesList.map(v => [v.name, v.display_order]))
-        ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a) ?? 0) - (vehicleOrder.get(b) ?? 0)))
-      }
+        // Show vehicles in their configured display order everywhere (radio text,
+        // Divera/WhatsApp messages, cards) instead of assignment order.
+        {
+          const vehicleOrder = new Map(vehiclesList.map(v => [v.name, v.display_order]))
+          ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a) ?? 0) - (vehicleOrder.get(b) ?? 0)))
+        }
 
-      // Fetch reko summaries
-      try {
-        const rekoSummaries = await apiClient.getEventRekoSummaries(selectedEvent.id)
+        // Process reko summaries
         ops.forEach(op => {
           const summary = rekoSummaries.summaries[op.id]
           if (summary?.has_completed_reko) {
@@ -707,240 +866,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             }
           }
         })
-      } catch (error) {
-        console.error('Failed to load reko summaries:', error)
-      }
-
-      // Calculate event-scoped availability
-      const assignedPersonIds = new Set<string>()
-      const assignedMaterialIds = new Set<string>()
-
-      // Add non-reko special function personnel to assigned set
-      specialFunctions
-        .filter(func => func.function_type !== 'reko')
-        .forEach(func => assignedPersonIds.add(func.personnel_id))
-
-      ops.forEach(operation => {
-        operation.crew.forEach(crewName => {
-          const person = personnelList.find(p => p.name === crewName)
-          if (person) assignedPersonIds.add(person.id)
-        })
-        operation.materials.forEach(materialId => assignedMaterialIds.add(materialId))
-      })
-
-      // Update personnel status based on assignments
-      const eventScopedPersonnel = personnelList.map(person => ({
-        ...person,
-        status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
-        isReko: rekoPersonnelIds.has(person.id),
-        isDriver: driverPersonnelIds.has(person.id),
-        driverVehicleId: driverPersonnelIds.get(person.id)?.vehicleId || undefined,
-        driverVehicleName: driverPersonnelIds.get(person.id)?.vehicleName || undefined,
-        isMagazin: magazinPersonnelIds.has(person.id),
-        isTelefondienst: telefondienstPersonnelIds.has(person.id),
-        isKommandoposten: kommandopostenPersonnelIds.has(person.id),
-      }))
-
-      // Update material DEPLOYMENT based on the assignments of this Ereignis.
-      //
-      // Only deployment. This used to be the whole state — a plain ternary over
-      // the assignments — which silently overwrote the readiness a station had
-      // recorded: a Tauchpumpe entered as defective came back green and
-      // draggable on the next load. `outOfService` is carried through untouched
-      // by the spread and beats this field wherever the state is read (see
-      // `materialResourceState`).
-      const eventScopedMaterials = materialsList.map(material => ({
-        ...material,
-        status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
-      }))
-
-      // A local mutation landed while this reload was fetching — its optimistic
-      // state is newer than this snapshot. Discard and replay once cooldowns clear.
-      if (mutationEpochRef.current !== epochAtStart) {
-        pendingReplayRef.current = true
-        replayPendingUpdatesRef.current?.()
-        return
-      }
-
-      setOperations(ops)
-      setPersonnel(eventScopedPersonnel)
-      setMaterials(eventScopedMaterials)
-      // Sync the module-level mirror BEFORE the state batch renders: the
-      // mirror-effect runs only after render, so helpers reading it
-      // (getIncidentRefLabel & co.) would format the first paint without the
-      // home city and visibly re-render to the short label later.
-      setGlobalHomeCity(settings.home_city || "")
-      setGlobalRankAbbreviations((settings as Record<string, string>)[RANK_ABBREVIATIONS_KEY] || "")
-      setHomeCity(settings.home_city || "")
-      setLastSyncAt(new Date())
-    } catch (error) {
-      console.error("Failed to load data:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedEvent, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials])
-
-  // Load initial data and set up WebSocket/polling
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) {
-      setIsLoading(false)
-      return
-    }
-
-    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
-      setOperations([])
-      setIsLoading(false)
-      // Only declare "loaded" once events have actually resolved. While the
-      // EventProvider is still figuring out which event is selected, stay
-      // unloaded so the board shows the progress bar — not a premature empty
-      // state (empty columns + "Keine Personen" + QR) that flashes before data.
-      if (isEventLoaded) setIsLoaded(true)
-      return
-    }
-
-    const eventId = selectedEvent.id
-
-    const loadData = async (showLoading = true) => {
-      // Drive the top progress bar only for the meaningful initial load — not
-      // the silent ~5s background polls — so the board's first paint feels fast
-      // without the bar flickering on every sync.
-      const driveBar = showLoading && isInitialLoadRef.current
-      if (driveBar) topLoading.start()
-      try {
-        if (showLoading && isInitialLoadRef.current) {
-          setIsLoading(true)
-        }
-
-        const epochAtStart = mutationEpochRef.current
-
-        // Snapshot the sync version BEFORE fetching data. Pairing the stored
-        // version with data fetched after it can only err toward one extra
-        // reload — the old trailing fetch could store a version NEWER than the
-        // data it was paired with, blinding the polling fallback to a change.
-        const versionSnapshot = await apiClient.getSyncVersion(eventId).catch(() => null)
-
-        // Fetch all data in parallel. See refreshOperations for why we suppress
-        // intermediate personnel/material writes.
-        const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
-          apiClient.getIncidentsWithTotal(eventId),
-          refreshPersonnel({ skipStateUpdate: true }),
-          refreshMaterials({ skipStateUpdate: true }),
-          apiClient.getAllSettings().catch(() => ({ home_city: "" })),
-          apiClient.getVehicles(),
-          apiClient.getEventRestliste(eventId).catch(() => null),
-        ])
-        setMaterialOnSite(toMaterialOnSite(restliste))
-        setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
-        const apiIncidents = incidentPage.incidents
-        setIncidentTotal(incidentPage.total)
-
-        const ops = apiIncidents.map(apiIncidentToOperation)
-
-        // Fetch special functions, assignments, and reko summaries in parallel
-        const rekoPersonnelIds = new Set<string>()
-        const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>()
-        const magazinPersonnelIds = new Set<string>()
-        const telefondienstPersonnelIds = new Set<string>()
-        const kommandopostenPersonnelIds = new Set<string>()
-        const assignedPersonIds = new Set<string>()
-        const assignedMaterialIds = new Set<string>()
-
-        const [specialFunctionsResult, assignmentsResult, rekoSummariesResult] = await Promise.allSettled([
-          apiClient.getEventSpecialFunctions(eventId),
-          apiClient.getAssignmentsByEvent(eventId),
-          apiClient.getEventRekoSummaries(eventId),
-        ])
-
-        // Process special functions (single fetch, used for both reko filtering and availability)
-        if (specialFunctionsResult.status === 'fulfilled') {
-          for (const func of specialFunctionsResult.value) {
-            if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
-            else if (func.function_type === 'driver') {
-              driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
-              assignedPersonIds.add(func.personnel_id)
-            } else if (func.function_type === 'magazin') {
-              magazinPersonnelIds.add(func.personnel_id)
-              assignedPersonIds.add(func.personnel_id)
-            } else if (func.function_type === 'telefondienst') {
-              telefondienstPersonnelIds.add(func.personnel_id)
-              assignedPersonIds.add(func.personnel_id)
-            } else if (func.function_type === 'kommandoposten') {
-              kommandopostenPersonnelIds.add(func.personnel_id)
-              assignedPersonIds.add(func.personnel_id)
-            } else {
-              assignedPersonIds.add(func.personnel_id)
-            }
-          }
-        } else {
-          console.error('Failed to load special functions:', specialFunctionsResult.reason)
-        }
-
-        // Process assignments
-        if (assignmentsResult.status === 'fulfilled') {
-          const assignmentsByIncident = assignmentsResult.value
-          ops.forEach((operation) => {
-            const assignments = assignmentsByIncident[operation.id] || []
-            for (const assignment of assignments) {
-              if (assignment.resource_type === "personnel") {
-                const person = personnelList.find(p => p.id === assignment.resource_id)
-                if (person) {
-                  if (rekoPersonnelIds.has(person.id)) {
-                    operation.assignedReko = { id: person.id, name: person.name }
-                    continue
-                  }
-                  operation.crew.push(person.name)
-                  operation.crewAssignments.set(person.name, assignment.id)
-                  if (assignment.is_leader) operation.leaderName = person.name
-                }
-              } else if (assignment.resource_type === "material") {
-                operation.materials.push(assignment.resource_id)
-                operation.materialAssignments.set(assignment.resource_id, assignment.id)
-              } else if (assignment.resource_type === "vehicle") {
-                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
-                if (vehicle) {
-                  operation.vehicles.push(vehicle.name)
-                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
-                  if (vehicle.radio_call_sign) {
-                    operation.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
-                  }
-                  operation.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
-                }
-              }
-            }
-          })
-        } else {
-          console.error('Failed to load assignments:', assignmentsResult.reason)
-        }
-
-        // Show vehicles in their configured display order everywhere (radio text,
-        // Divera/WhatsApp messages, cards) instead of assignment order.
-        {
-          const vehicleOrder = new Map(vehiclesList.map(v => [v.name, v.display_order]))
-          ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a) ?? 0) - (vehicleOrder.get(b) ?? 0)))
-        }
-
-        // Process reko summaries
-        if (rekoSummariesResult.status === 'fulfilled') {
-          const rekoSummaries = rekoSummariesResult.value
-          ops.forEach(op => {
-            const summary = rekoSummaries.summaries[op.id]
-            if (summary?.has_completed_reko) {
-              const dangerTypes = rekoDangerTypes(summary.dangers_json)
-              op.hasCompletedReko = true
-              op.rekoSummary = {
-                isRelevant: summary.is_relevant ?? false,
-                hasDangers: dangerTypes.length > 0,
-                dangerTypes,
-                personnelCount: summary.effort_json?.personnel_count ?? null,
-                estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
-                summaryText: summary.summary_text ?? null,
-                photos: summary.photos_json ?? [],
-              }
-            }
-          })
-        } else {
-          console.error('Failed to load reko summaries:', rekoSummariesResult.reason)
-        }
 
         // Calculate availability from assignments
 
@@ -964,12 +889,22 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           isKommandoposten: kommandopostenPersonnelIds.has(person.id),
         }))
 
-        // Deployment only — see the note in refreshOperations. `outOfService`
-        // rides through the spread and is never recomputed from assignments.
+        // Update material DEPLOYMENT based on the assignments of this Ereignis.
+        //
+        // Only deployment. This used to be the whole state — a plain ternary over
+        // the assignments — which silently overwrote the readiness a station had
+        // recorded: a Tauchpumpe entered as defective came back green and
+        // draggable on the next load. `outOfService` is carried through untouched
+        // by the spread and beats this field wherever the state is read (see
+        // `materialResourceState`).
         const eventScopedMaterials = materialsList.map(material => ({
           ...material,
           status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
         }))
+
+        // Fetched for an Ereignis that is no longer on screen: drop it whole —
+        // no state, no alert sound, no known-incident bookkeeping.
+        if (!isCurrentLoad()) return
 
         // Detect new high-priority incidents and play alert sound
         if (knownIncidentIdsRef.current.size > 0) {
@@ -1015,31 +950,67 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations(ops)
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
-        // Sync the module-level mirror BEFORE the state batch renders: the
-      // mirror-effect runs only after render, so helpers reading it
-      // (getIncidentRefLabel & co.) would format the first paint without the
-      // home city and visibly re-render to the short label later.
-      setGlobalHomeCity(settings.home_city || "")
-      setGlobalRankAbbreviations((settings as Record<string, string>)[RANK_ABBREVIATIONS_KEY] || "")
-      setHomeCity(settings.home_city || "")
+        if (restliste) setMaterialOnSite(toMaterialOnSite(restliste))
+        setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
+        setSpecialFunctions(specialFunctions)
+        setVehicles(vehiclesList)
+        setIncidentTotal(incidentPage.total)
+        if (settings) {
+          setSettings(settings)
+          // Sync the module-level mirror BEFORE the state batch renders: the
+          // mirror-effect runs only after render, so helpers reading it
+          // (getIncidentRefLabel & co.) would format the first paint without the
+          // home city and visibly re-render to the short label later.
+          setGlobalHomeCity(settings.home_city || "")
+          setGlobalRankAbbreviations(settings[RANK_ABBREVIATIONS_KEY] || "")
+          setHomeCity(settings.home_city || "")
+        }
         setIsLoaded(true)
         setLastSyncAt(new Date())
+        setLoadError(null)
         isInitialLoadRef.current = false
+        stopPollingIfSocketCarries()
 
         // Store the version snapshot taken before the data fetch (null forces
         // the next poll tick to reload — fails toward freshness).
         lastSyncVersionRef.current = versionSnapshot?.version ?? null
       } catch (error) {
+        if (!isCurrentLoad()) return
         console.error("Failed to load data:", error)
+        // Last good state stays on screen; `lastSyncAt` does NOT move, so the
+        // stale-data banner starts counting. `isLoaded` still flips on a failed
+        // FIRST load — mutations key off it — which is why `loadError` exists:
+        // an empty board and a board that never arrived are told apart there.
+        // ⚠️ Nothing renders `loadError` yet beyond the banner (mockup pending).
+        setLoadError(error instanceof Error ? error : new Error(String(error)))
         setIsLoaded(true)
         isInitialLoadRef.current = false
+        // With the socket up nothing polls, and a quiet Ereignis sends no
+        // event to retry on: poll until a load gets through again.
+        onLoadFailed()
       } finally {
-        setIsLoading(false)
+        if (isCurrentLoad()) setIsLoading(false)
         if (driveBar) topLoading.done()
       }
     }
 
-    loadData()
+    const inCooldown = () =>
+      criticalUpdateInProgress.current || assignmentHoldsRef.current > 0 || boardDraggingRef.current
+
+    // Socket events, poll ticks and cooldown replays are automatic loads: the
+    // scheduler holds them back during a mutation cooldown and we queue a
+    // replay instead — the same queue-don't-drop rule as before, now also
+    // applied when a queued follow-up load finally gets its turn.
+    const reloadScheduler = new ReloadScheduler({
+      load: loadData,
+      mayAutoLoad: () => decideRemoteUpdateAction({ inCooldown: inCooldown() }) === "fetch",
+      onAutoLoadHeld: () => {
+        pendingReplayRef.current = true
+      },
+    })
+    reloadSchedulerRef.current = reloadScheduler
+
+    void reloadScheduler.request()
 
     // WebSocket setup
     wsClient.connect()
@@ -1052,18 +1023,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
     document.addEventListener('visibilitychange', handleWake)
 
-    const inCooldown = () =>
-      criticalUpdateInProgress.current || assignmentHoldsRef.current > 0 || boardDraggingRef.current
-
-    const handleRemoteUpdate = () => {
-      const action = decideRemoteUpdateAction({ inCooldown: inCooldown() })
-      if (action === "queue") {
-        // Queue rather than drop — replay once the cooldown clears.
-        pendingReplayRef.current = true
-        return
-      }
-      loadData(false)
-    }
+    // A burst of events (a Reko submit is incident + assignment + personnel
+    // within milliseconds) becomes one reload; the cooldown gate is checked
+    // when the debounce fires, not when the first event arrived.
+    const handleRemoteUpdate = () => reloadScheduler.requestDebounced()
 
     // Expose replay so cooldown-clear timers (defined outside this useEffect)
     // can trigger a coalesced reload when they fire.
@@ -1074,7 +1037,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       })
       if (action === "skip") return
       pendingReplayRef.current = false
-      loadData(false)
+      void reloadScheduler.requestAuto()
     }
 
     // Surgically apply a driver_stay ("bleibt vor Ort") toggle from another
@@ -1102,6 +1065,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const unsubscribePersonnelUpdate = wsClient.on('personnel_update', handleRemoteUpdate)
     const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', handleRemoteUpdate)
     const unsubscribeMaterialUpdate = wsClient.on('material_update', handleRemoteUpdate)
+    // Drivers, Reko, Magazin: the sidebar flags and the Bereitschaft checklist
+    // both read them off this load, and nothing else would bring another
+    // client's change in.
+    const unsubscribeSpecialFunctionUpdate = wsClient.on('special_function_update', handleRemoteUpdate)
     const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate<DriverStayPayload>) => {
       if (update?.action === 'driver_stay') {
         applyDriverStayUpdate(update.data)
@@ -1122,7 +1089,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       const interval = getNextPollInterval(true)
       pollTimeout = setTimeout(async () => {
         if (!isPollingActive) return
-        const tickAction = decidePollTickAction({ isLoading: isLoadingRef.current, inCooldown: inCooldown() })
+        const tickAction = decidePollTickAction({
+          isLoading: isLoadingRef.current || reloadScheduler.busy,
+          inCooldown: inCooldown(),
+        })
         if (tickAction === "skip") {
           if (isPollingActive) schedulePoll()
           return
@@ -1139,12 +1109,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           const { version } = await apiClient.getSyncVersion(eventId)
           if (version !== lastSyncVersionRef.current) {
             lastSyncVersionRef.current = version
-            await loadData(false)
+            await reloadScheduler.requestAuto()
           } else {
             // Confirmed fresh — keep the stale-data banner honest. Without
             // this, a healthy polling session with no changes let lastSyncAt
             // age past the threshold and showed "Verbindung verloren".
+            // Same version as the last GOOD load: the board on screen is
+            // current, whatever a failed reload in between said.
             setLastSyncAt(new Date())
+            setLoadError(null)
+            stopPollingIfSocketCarries()
           }
         } catch {
           pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
@@ -1167,6 +1141,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         clearTimeout(pollTimeout)
         pollTimeout = undefined
       }
+    }
+
+    // A failed load polls even with the socket up (see loadData's catch); the
+    // first sync that gets through hands back to the socket.
+    const onLoadFailed = () => startPolling()
+    const stopPollingIfSocketCarries = () => {
+      if (wsClient.getStatus() === 'connected') stopPolling()
     }
 
     const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
@@ -1195,10 +1176,15 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       unsubscribePersonnelUpdate()
       unsubscribeVehicleUpdate()
       unsubscribeMaterialUpdate()
+      unsubscribeSpecialFunctionUpdate()
       unsubscribeAssignmentUpdate()
       unsubscribeAssignmentsTransferred()
       statusUnsubscribe()
       stopPolling()
+      reloadScheduler.dispose()
+      if (reloadSchedulerRef.current === reloadScheduler) reloadSchedulerRef.current = null
+      // Invalidate the load still in flight, if any (see `loadData`).
+      loadIds.current++
       wsClient.disconnect()
     }
   }, [authLoading, isAuthenticated, selectedEvent, isEventLoaded, refreshPersonnel, refreshMaterials, setPersonnel, setMaterials])
@@ -2289,54 +2275,120 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return labels
   }, [operations])
 
-  const formatLocation = (fullAddress: string): string => {
+  const formatLocation = useCallback((fullAddress: string): string => {
     const serverLabel = serverLocationLabels.get(fullAddress)
     if (serverLabel !== undefined) return serverLabel
     return formatLocationForDisplay(fullAddress, homeCity)
+  }, [serverLocationLabels, homeCity])
+
+  // ⚠️ The value below is memoised: ~40 components read this context, and an
+  // unmemoised object re-rendered every one of them whenever this provider
+  // rendered for ANY reason — including the personnel/materials providers'
+  // own loading flips on every reload. The actions close over this render's
+  // state and are rebuilt each render, so consumers get stable wrappers that
+  // always call the LATEST render's version (never a stale closure either).
+  const latestActionsRef = useRef<BoardActions | null>(null)
+  latestActionsRef.current = {
+    removeCrew,
+    removeMaterial,
+    removeVehicle,
+    removeReko,
+    updateOperation,
+    reorderColumn,
+    changeStatusToTop,
+    createOperation,
+    getNextOperationId,
+    assignPersonToOperation,
+    assignRekoPersonToOperation,
+    assignMaterialToOperation,
+    assignVehicleToOperation,
+    resolveResourceConflict,
+    deleteOperation,
   }
+  const stableActions = useMemo<BoardActions>(() => {
+    const stable = <K extends keyof BoardActions>(key: K): BoardActions[K] =>
+      ((...args: unknown[]) =>
+        (latestActionsRef.current![key] as (...a: unknown[]) => unknown)(...args)) as BoardActions[K]
+    return {
+      removeCrew: stable("removeCrew"),
+      removeMaterial: stable("removeMaterial"),
+      removeVehicle: stable("removeVehicle"),
+      removeReko: stable("removeReko"),
+      updateOperation: stable("updateOperation"),
+      reorderColumn: stable("reorderColumn"),
+      changeStatusToTop: stable("changeStatusToTop"),
+      createOperation: stable("createOperation"),
+      getNextOperationId: stable("getNextOperationId"),
+      assignPersonToOperation: stable("assignPersonToOperation"),
+      assignRekoPersonToOperation: stable("assignRekoPersonToOperation"),
+      assignMaterialToOperation: stable("assignMaterialToOperation"),
+      assignVehicleToOperation: stable("assignVehicleToOperation"),
+      resolveResourceConflict: stable("resolveResourceConflict"),
+      deleteOperation: stable("deleteOperation"),
+    }
+  }, [])
+
+  const value = useMemo<OperationsContextType>(
+    () => ({
+      personnel,
+      setPersonnel,
+      materials,
+      setMaterials,
+      operations,
+      setOperations,
+      homeCity,
+      isLoading,
+      isLoaded,
+      incidentTotal,
+      formatLocation,
+      refreshOperations,
+      setBoardDragging,
+      vehicleNeedingDriver,
+      clearVehicleNeedingDriver,
+      resourceConflict,
+      outOfServiceVehicleIds,
+      materialOnSite,
+      specialFunctions,
+      vehicles,
+      settings,
+      cancelResourceConflict,
+      requestResourceConflict,
+      ...stableActions,
+    }),
+    [
+      personnel,
+      setPersonnel,
+      materials,
+      setMaterials,
+      operations,
+      homeCity,
+      isLoading,
+      isLoaded,
+      incidentTotal,
+      formatLocation,
+      refreshOperations,
+      setBoardDragging,
+      vehicleNeedingDriver,
+      clearVehicleNeedingDriver,
+      resourceConflict,
+      outOfServiceVehicleIds,
+      materialOnSite,
+      specialFunctions,
+      vehicles,
+      settings,
+      cancelResourceConflict,
+      requestResourceConflict,
+      stableActions,
+    ],
+  )
+
+  const syncStatus = useMemo<BoardSyncStatus>(() => ({ lastSyncAt, loadError }), [lastSyncAt, loadError])
 
   return (
-    <OperationsContext.Provider
-      value={{
-        personnel,
-        setPersonnel,
-        materials,
-        setMaterials,
-        operations,
-        setOperations,
-        homeCity,
-        isLoading,
-        isLoaded,
-        lastSyncAt,
-        incidentTotal,
-        formatLocation,
-        refreshOperations,
-        removeCrew,
-        removeMaterial,
-        removeVehicle,
-        removeReko,
-        updateOperation,
-        reorderColumn,
-        setBoardDragging,
-        changeStatusToTop,
-        createOperation,
-        getNextOperationId,
-        assignPersonToOperation,
-        assignRekoPersonToOperation,
-        assignMaterialToOperation,
-        assignVehicleToOperation,
-        vehicleNeedingDriver,
-        clearVehicleNeedingDriver,
-        resourceConflict,
-        outOfServiceVehicleIds,
-        materialOnSite,
-        resolveResourceConflict,
-        cancelResourceConflict,
-        requestResourceConflict,
-        deleteOperation,
-      }}
-    >
-      {children}
+    <OperationsContext.Provider value={value}>
+      <BoardSyncStatusContext.Provider value={syncStatus}>
+        {children}
+      </BoardSyncStatusContext.Provider>
       <audio ref={alertAudioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </OperationsContext.Provider>
   )
@@ -2346,6 +2398,15 @@ export function useOperations() {
   const context = useContext(OperationsContext)
   if (context === undefined) {
     throw new Error("useOperations must be used within an OperationsProvider")
+  }
+  return context
+}
+
+/** The board's sync freshness, on its own context — see `BoardSyncStatus`. */
+export function useBoardSyncStatus(): BoardSyncStatus {
+  const context = useContext(BoardSyncStatusContext)
+  if (context === undefined) {
+    throw new Error("useBoardSyncStatus must be used within an OperationsProvider")
   }
   return context
 }

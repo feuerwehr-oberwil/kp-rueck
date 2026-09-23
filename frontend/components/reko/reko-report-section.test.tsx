@@ -20,7 +20,9 @@ vi.mock('@/lib/api-client', () => ({
     },
   },
 }))
-vi.mock('@/lib/websocket-client', () => ({ wsClient: { on: () => () => {} } }))
+vi.mock('@/lib/websocket-client', () => ({
+  wsClient: { on: () => () => {}, getStatus: () => 'connected', onStatusChange: () => () => {} },
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import RekoReportSection from '@/components/reko/reko-report-section'

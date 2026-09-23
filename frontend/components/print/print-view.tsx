@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect } from "react"
 import { useTranslations } from "next-intl"
+import { getIntlLocale } from "@/lib/date-locale"
 import type { Operation, Person, Material } from "@/lib/contexts/operations-context"
 import type { ApiPersonnelListItem, ApiVehicle } from "@/lib/api-client"
 import type { GroupResources } from "@/lib/types/groups"
@@ -112,7 +113,7 @@ interface RosterRow {
 const ROSTER_RANK: Record<RosterState, number> = { assigned: 0, available: 1, left: 2 }
 
 function formatDateTime(date: Date): string {
-  return date.toLocaleString("de-CH", {
+  return date.toLocaleString(getIntlLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

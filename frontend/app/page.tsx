@@ -83,7 +83,8 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventSetupChecklist, RekoPickerDialog } from "@/components/event-setup-checklist"
 import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
-import { summarizeEventChecklist } from "@/lib/checklist-tasks"
+import { summarizeChecklist } from "@/lib/checklist-tasks"
+import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
@@ -1818,7 +1819,9 @@ export default function FireStationDashboard() {
 
   // Checklist popover state and live readiness progress (persistent reference)
   const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
-  const [checklistProgress, setChecklistProgress] = useState({ completed: 0, total: 0 })
+  // Bumped when the popover ticks or un-ticks a row: those overrides live in
+  // localStorage, which no snapshot or socket event will ever report.
+  const [checklistOverridesVersion, setChecklistOverridesVersion] = useState(0)
   const autoOpenedEventRef = useRef<string | null>(null)
   // What is remembered is the DISMISSAL, per event — not whether the popover
   // happened to be open. A checklist the operator closed stays closed for that
@@ -1852,32 +1855,20 @@ export default function FireStationDashboard() {
     apiClient.getDemoStatus().then((s) => setIsDemo(!!s?.demo)).catch(() => {})
   }, [])
 
-  // Poll readiness progress so the persistent "Bereitschaft" badge stays live
-  // even while the popover is closed. Rare users forget the steps, not the app —
-  // keeping "what still needs doing" visible at a glance, every callout.
-  useEffect(() => {
-    if (!selectedEvent || !isMounted) return
+  // Readiness progress for the persistent "Bereitschaft" badge, live even while
+  // the popover is closed. Rare users forget the steps, not the app — keeping
+  // "what still needs doing" visible at a glance, every callout. Derived from
+  // the board's snapshot (see useChecklistFacts) rather than polled per badge.
+  const checklistEnabled = !!selectedEvent && isMounted && !isDemo
+  const checklistFacts = useChecklistFacts({ enabled: checklistEnabled })
+  const checklistProgress = useMemo(() => {
     // Disabled in the demo — keep progress empty so the badge/popover never show.
-    if (isDemo) {
-      setChecklistProgress({ completed: 0, total: 0 })
-      return
-    }
-    let cancelled = false
-    const load = async () => {
-      try {
-        const summary = await summarizeEventChecklist(selectedEvent.id)
-        if (!cancelled) setChecklistProgress(summary)
-      } catch {
-        // ignore — badge keeps its last-known value
-      }
-    }
-    load()
-    const interval = setInterval(load, 5000)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [selectedEvent, isMounted, isDemo])
+    // Until the facts arrive: nothing yet, same as before the first poll landed.
+    if (!checklistEnabled || !selectedEvent || !checklistFacts) return { completed: 0, total: 0 }
+    return summarizeChecklist(selectedEvent.id, checklistFacts)
+    // checklistOverridesVersion: the summary reads the overrides from localStorage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checklistEnabled, selectedEvent, checklistFacts, checklistOverridesVersion])
 
   // Auto-open the checklist once per event whenever setup is still incomplete
   // (regardless of event age), then hand off to the persistent button so it
@@ -3521,6 +3512,7 @@ export default function FireStationDashboard() {
                       onOpenAttendance={() => setAttendanceOpen(true)}
                       onSendDiveraMessage={(text) => setDiveraMessageText(text)}
                       onOpenRekoPicker={() => setRekoPickerOpen(true)}
+                      onOverridesChange={() => setChecklistOverridesVersion((v) => v + 1)}
                     />
                   </PopoverContent>
                 </Popover>

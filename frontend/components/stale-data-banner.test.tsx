@@ -5,13 +5,15 @@ import { renderWithIntl } from "@/test-utils/render-with-intl";
 import type { WebSocketStatus } from "@/lib/websocket-client";
 
 let mockLastSyncAt: Date | null = null;
+let mockLoadError: Error | null = null;
 let mockWsStatus: WebSocketStatus = "disconnected";
 let statusListener: ((status: WebSocketStatus) => void) | null = null;
 let mockRestReachable = true;
 let restListener: ((reachable: boolean) => void) | null = null;
 
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ lastSyncAt: mockLastSyncAt }),
+  useOperations: () => ({}),
+  useBoardSyncStatus: () => ({ lastSyncAt: mockLastSyncAt, loadError: mockLoadError }),
 }));
 
 vi.mock("@/lib/websocket-client", () => ({
@@ -41,6 +43,7 @@ import { StaleDataBanner } from "@/components/stale-data-banner";
 
 beforeEach(() => {
   mockLastSyncAt = null;
+  mockLoadError = null;
   mockWsStatus = "disconnected";
   statusListener = null;
   mockRestReachable = true;
@@ -70,6 +73,23 @@ describe("StaleDataBanner", () => {
       screen.getByText(/Verbindung verloren/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Polling läuft/i);
+  });
+
+  it("shows after a failed board load even while the WebSocket is connected", () => {
+    mockWsStatus = "connected";
+    mockLastSyncAt = new Date(Date.now() - 60_000);
+    mockLoadError = new Error("503");
+    renderWithIntl(<StaleDataBanner />);
+    expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
+  });
+
+  it("shows when the first load failed, without naming a last update that never happened", () => {
+    mockWsStatus = "connected";
+    mockLastSyncAt = null;
+    mockLoadError = new Error("timeout");
+    renderWithIntl(<StaleDataBanner />);
+    expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).not.toHaveTextContent(/Letzte Aktualisierung/i);
   });
 
   it("shows on a REST outage even while the WebSocket claims connected", () => {

@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { RefreshCw, WifiOff } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
-import { de } from "date-fns/locale";
+import { useDateFnsLocale } from "@/lib/date-locale";
 
 import { Button } from "@/components/ui/button";
-import { useOperations } from "@/lib/contexts/operations-context";
+import { useBoardSyncStatus, useOperations } from "@/lib/contexts/operations-context";
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client";
 import { getRestReachable, onRestReachableChange } from "@/lib/api-client";
 import { shouldShowStaleBanner } from "@/lib/stale-data";
@@ -29,7 +29,9 @@ import { cn } from "@/lib/utils";
  */
 export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
-  const { lastSyncAt, refreshOperations } = useOperations();
+  const dateLocale = useDateFnsLocale();
+  const { refreshOperations } = useOperations();
+  const { lastSyncAt, loadError } = useBoardSyncStatus();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
   const [restReachable, setRestReachable] = useState<boolean>(getRestReachable());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -48,7 +50,13 @@ export function StaleDataBanner() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const visible = shouldShowStaleBanner({ wsStatus, lastSyncAt, now, restReachable });
+  const visible = shouldShowStaleBanner({
+    wsStatus,
+    lastSyncAt,
+    now,
+    restReachable,
+    loadFailed: loadError !== null,
+  });
 
   const handleReconnect = async () => {
     setReconnecting(true);
@@ -62,12 +70,12 @@ export function StaleDataBanner() {
     }
   };
 
-  if (!visible || !lastSyncAt) return null;
+  if (!visible) return null;
 
-  const lastSyncRelative = formatDistanceToNowStrict(lastSyncAt, {
-    addSuffix: false,
-    locale: de,
-  });
+  // Null after a failed FIRST load: there is no «last update» to name.
+  const lastSyncRelative = lastSyncAt
+    ? formatDistanceToNowStrict(lastSyncAt, { addSuffix: false, locale: dateLocale })
+    : null;
 
   return (
     <div
@@ -80,9 +88,11 @@ export function StaleDataBanner() {
         <span className="font-medium">
           {t('connectionLost')}
         </span>
-        <span className="text-muted-foreground">
-          {t('lastUpdate', { time: lastSyncRelative })}
-        </span>
+        {lastSyncRelative && (
+          <span className="text-muted-foreground">
+            {t('lastUpdate', { time: lastSyncRelative })}
+          </span>
+        )}
       </div>
       <Button
         variant="outline"

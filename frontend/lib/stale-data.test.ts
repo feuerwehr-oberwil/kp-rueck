@@ -100,4 +100,40 @@ describe("shouldShowStaleBanner", () => {
     });
     expect(result).toBe(false);
   });
+
+  describe("after a failed board load", () => {
+    it("shows once the last good sync is past the threshold, even with the socket connected", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          lastSyncAt: new Date(now.getTime() - STALE_BANNER_THRESHOLD_MS - 1),
+          now,
+          loadFailed: true,
+        }),
+      ).toBe(true);
+    });
+
+    it("gives a single failed reload the threshold before it raises the banner", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          lastSyncAt: new Date(now.getTime() - 3_000),
+          now,
+          loadFailed: true,
+        }),
+      ).toBe(false);
+    });
+
+    it("shows when the FIRST load failed — no good state is not an empty Ereignis", () => {
+      expect(
+        shouldShowStaleBanner({ wsStatus: "connected", lastSyncAt: null, now, loadFailed: true }),
+      ).toBe(true);
+    });
+
+    it("stays out of the way of a first load that is merely still running", () => {
+      expect(
+        shouldShowStaleBanner({ wsStatus: "connected", lastSyncAt: null, now, loadFailed: false }),
+      ).toBe(false);
+    });
+  });
 });

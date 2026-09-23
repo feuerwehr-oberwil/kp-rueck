@@ -21,6 +21,7 @@
  */
 
 import { Clock, Hourglass, Timer } from 'lucide-react'
+import { getIntlLocale } from '@/lib/date-locale'
 import type { LucideIcon } from 'lucide-react'
 
 import { getTimeSince } from '@/lib/kanban-utils'
@@ -67,7 +68,7 @@ export function incidentTimeSource(incident: {
 
 /** `HH:MM`, 24-hour. The one formatter for an absolute incident time. */
 export function formatClockTime(date: Date): string {
-  return date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(getIntlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 /**
