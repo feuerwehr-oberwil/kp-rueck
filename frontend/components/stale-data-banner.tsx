@@ -7,7 +7,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { de } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
-import { useOperations } from "@/lib/contexts/operations-context";
+import { useBoardSyncStatus, useOperations } from "@/lib/contexts/operations-context";
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client";
 import { getRestReachable, onRestReachableChange } from "@/lib/api-client";
 import { shouldShowStaleBanner } from "@/lib/stale-data";
@@ -29,7 +29,8 @@ import { cn } from "@/lib/utils";
  */
 export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
-  const { lastSyncAt, refreshOperations } = useOperations();
+  const { refreshOperations } = useOperations();
+  const { lastSyncAt } = useBoardSyncStatus();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
   const [restReachable, setRestReachable] = useState<boolean>(getRestReachable());
   const [now, setNow] = useState<Date>(() => new Date());

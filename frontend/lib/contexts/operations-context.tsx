@@ -214,8 +214,6 @@ interface OperationsContextType {
    * Gate empty states on this so they only show when data is genuinely empty,
    * never during the initial blank-before-fetch window. */
   isLoaded: boolean
-  /** Wall-clock time of the last successful operations load. null until the first load completes. */
-  lastSyncAt: Date | null
   /**
    * Total incidents for the selected event, before the server's limit. Null when unknown
    * (older backend, or header stripped by a proxy) — never treat null as zero. Compare
@@ -333,7 +331,42 @@ function toMaterialOnSite(
   return map
 }
 
+/** The actions the provider hands out through stable wrappers — see the value memo. */
+type BoardActions = Pick<
+  OperationsContextType,
+  | "removeCrew"
+  | "removeMaterial"
+  | "removeVehicle"
+  | "removeReko"
+  | "updateOperation"
+  | "reorderColumn"
+  | "changeStatusToTop"
+  | "createOperation"
+  | "getNextOperationId"
+  | "assignPersonToOperation"
+  | "assignRekoPersonToOperation"
+  | "assignMaterialToOperation"
+  | "assignVehicleToOperation"
+  | "resolveResourceConflict"
+  | "deleteOperation"
+>
+
+/**
+ * How fresh the board is — split off the main context on purpose.
+ *
+ * `lastSyncAt` moves on every confirmed-fresh poll tick (every ~5 s while the
+ * socket is down) without a single card changing. In the main value that
+ * re-rendered all ~40 `useOperations()` consumers each time, for the benefit
+ * of the one component that reads it (the stale-data banner).
+ */
+export interface BoardSyncStatus {
+  /** Wall-clock time of the last successful sync — a completed board load or a
+   *  poll that confirmed nothing changed. null until the first load completes. */
+  lastSyncAt: Date | null
+}
+
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
+const BoardSyncStatusContext = createContext<BoardSyncStatus | undefined>(undefined)
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -2154,54 +2187,114 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return labels
   }, [operations])
 
-  const formatLocation = (fullAddress: string): string => {
+  const formatLocation = useCallback((fullAddress: string): string => {
     const serverLabel = serverLocationLabels.get(fullAddress)
     if (serverLabel !== undefined) return serverLabel
     return formatLocationForDisplay(fullAddress, homeCity)
+  }, [serverLocationLabels, homeCity])
+
+  // ⚠️ The value below is memoised: ~40 components read this context, and an
+  // unmemoised object re-rendered every one of them whenever this provider
+  // rendered for ANY reason — including the personnel/materials providers'
+  // own loading flips on every reload. The actions close over this render's
+  // state and are rebuilt each render, so consumers get stable wrappers that
+  // always call the LATEST render's version (never a stale closure either).
+  const latestActionsRef = useRef<BoardActions | null>(null)
+  latestActionsRef.current = {
+    removeCrew,
+    removeMaterial,
+    removeVehicle,
+    removeReko,
+    updateOperation,
+    reorderColumn,
+    changeStatusToTop,
+    createOperation,
+    getNextOperationId,
+    assignPersonToOperation,
+    assignRekoPersonToOperation,
+    assignMaterialToOperation,
+    assignVehicleToOperation,
+    resolveResourceConflict,
+    deleteOperation,
   }
+  const stableActions = useMemo<BoardActions>(() => {
+    const stable = <K extends keyof BoardActions>(key: K): BoardActions[K] =>
+      ((...args: unknown[]) =>
+        (latestActionsRef.current![key] as (...a: unknown[]) => unknown)(...args)) as BoardActions[K]
+    return {
+      removeCrew: stable("removeCrew"),
+      removeMaterial: stable("removeMaterial"),
+      removeVehicle: stable("removeVehicle"),
+      removeReko: stable("removeReko"),
+      updateOperation: stable("updateOperation"),
+      reorderColumn: stable("reorderColumn"),
+      changeStatusToTop: stable("changeStatusToTop"),
+      createOperation: stable("createOperation"),
+      getNextOperationId: stable("getNextOperationId"),
+      assignPersonToOperation: stable("assignPersonToOperation"),
+      assignRekoPersonToOperation: stable("assignRekoPersonToOperation"),
+      assignMaterialToOperation: stable("assignMaterialToOperation"),
+      assignVehicleToOperation: stable("assignVehicleToOperation"),
+      resolveResourceConflict: stable("resolveResourceConflict"),
+      deleteOperation: stable("deleteOperation"),
+    }
+  }, [])
+
+  const value = useMemo<OperationsContextType>(
+    () => ({
+      personnel,
+      setPersonnel,
+      materials,
+      setMaterials,
+      operations,
+      setOperations,
+      homeCity,
+      isLoading,
+      isLoaded,
+      incidentTotal,
+      formatLocation,
+      refreshOperations,
+      setBoardDragging,
+      vehicleNeedingDriver,
+      clearVehicleNeedingDriver,
+      resourceConflict,
+      outOfServiceVehicleIds,
+      materialOnSite,
+      cancelResourceConflict,
+      requestResourceConflict,
+      ...stableActions,
+    }),
+    [
+      personnel,
+      setPersonnel,
+      materials,
+      setMaterials,
+      operations,
+      homeCity,
+      isLoading,
+      isLoaded,
+      incidentTotal,
+      formatLocation,
+      refreshOperations,
+      setBoardDragging,
+      vehicleNeedingDriver,
+      clearVehicleNeedingDriver,
+      resourceConflict,
+      outOfServiceVehicleIds,
+      materialOnSite,
+      cancelResourceConflict,
+      requestResourceConflict,
+      stableActions,
+    ],
+  )
+
+  const syncStatus = useMemo<BoardSyncStatus>(() => ({ lastSyncAt }), [lastSyncAt])
 
   return (
-    <OperationsContext.Provider
-      value={{
-        personnel,
-        setPersonnel,
-        materials,
-        setMaterials,
-        operations,
-        setOperations,
-        homeCity,
-        isLoading,
-        isLoaded,
-        lastSyncAt,
-        incidentTotal,
-        formatLocation,
-        refreshOperations,
-        removeCrew,
-        removeMaterial,
-        removeVehicle,
-        removeReko,
-        updateOperation,
-        reorderColumn,
-        setBoardDragging,
-        changeStatusToTop,
-        createOperation,
-        getNextOperationId,
-        assignPersonToOperation,
-        assignRekoPersonToOperation,
-        assignMaterialToOperation,
-        assignVehicleToOperation,
-        vehicleNeedingDriver,
-        clearVehicleNeedingDriver,
-        resourceConflict,
-        outOfServiceVehicleIds,
-        materialOnSite,
-        resolveResourceConflict,
-        cancelResourceConflict,
-        requestResourceConflict,
-        deleteOperation,
-      }}
-    >
-      {children}
+    <OperationsContext.Provider value={value}>
+      <BoardSyncStatusContext.Provider value={syncStatus}>
+        {children}
+      </BoardSyncStatusContext.Provider>
       <audio ref={alertAudioRef} src="/alerts/mixkit-digital-quick-tone-2866.wav" preload="auto" />
     </OperationsContext.Provider>
   )
@@ -2211,6 +2304,15 @@ export function useOperations() {
   const context = useContext(OperationsContext)
   if (context === undefined) {
     throw new Error("useOperations must be used within an OperationsProvider")
+  }
+  return context
+}
+
+/** The board's sync freshness, on its own context — see `BoardSyncStatus`. */
+export function useBoardSyncStatus(): BoardSyncStatus {
+  const context = useContext(BoardSyncStatusContext)
+  if (context === undefined) {
+    throw new Error("useBoardSyncStatus must be used within an OperationsProvider")
   }
   return context
 }

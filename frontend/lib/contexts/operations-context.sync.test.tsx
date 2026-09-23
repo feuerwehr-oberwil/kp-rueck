@@ -262,3 +262,32 @@ describe("OperationsProvider — reload scheduling", () => {
     expect(maxConcurrentIncidentFetches).toBe(1)
   })
 })
+
+describe("OperationsProvider — render cost", () => {
+  it("hands out the same value when the provider re-renders with nothing new", async () => {
+    const { result, rerender } = await renderLoaded()
+    const before = result.current
+    rerender()
+    expect(result.current).toBe(before)
+  })
+
+  it("keeps its actions stable across a reload — and they act on the latest board", async () => {
+    const { result } = await renderLoaded([incident("1")])
+    const updateOperation = result.current.updateOperation
+
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1"), incident("2")])
+    await waitFor(() => expect(result.current.operations).toHaveLength(2))
+
+    expect(result.current.updateOperation).toBe(updateOperation)
+    // The wrapper captured before the reload still sees incident 2.
+    act(() => updateOperation("2", { notes: "neu" }))
+    expect(result.current.operations.find((o) => o.id === "2")?.notes).toBe("neu")
+  })
+
+  it("keeps the sync timestamp off the main context", async () => {
+    const { result } = await renderLoaded()
+    expect("lastSyncAt" in result.current).toBe(false)
+  })
+})

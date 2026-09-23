@@ -19,7 +19,8 @@ import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { FileText, Clock, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
+import { FileText, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
+import { WallClock } from "@/components/ui/event-clock"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -228,8 +229,6 @@ export default function MapPage() {
   }
   const [focusVehicleName, setFocusVehicleName] = useState<string | null>(null)
   const [focusVehicleTrigger, setFocusVehicleTrigger] = useState(0)
-  const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [isMounted, setIsMounted] = useState(false)
 
   // Cross-window sync (bidirectional)
   const { broadcast } = useCrossWindowSync({
@@ -805,14 +804,6 @@ export default function MapPage() {
     refreshIncidents()
   }, [refreshIncidents])
 
-  // Clock update
-  useEffect(() => {
-    setIsMounted(true)
-    setCurrentTime(new Date())
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
   useEffect(() => {
     if (highlightParam) {
       setSelectedIncidentId(highlightParam)
@@ -948,12 +939,8 @@ export default function MapPage() {
           {/* Desktop Navigation */}
           {!isMobile && (
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-mono text-base font-semibold tabular-nums">
-                  {isMounted && currentTime ? currentTime.toLocaleTimeString("de-CH") : "--:--:--"}
-                </span>
-              </div>
+              {/* Ticks inside its own component — see WallClock. */}
+              <WallClock />
               <PageNavigation
                 currentPage="map"
                 hasSelectedEvent={!!selectedEvent}

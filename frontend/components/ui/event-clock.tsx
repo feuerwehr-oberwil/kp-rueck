@@ -49,6 +49,25 @@ function formatDuration(ms: number): string {
   return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`
 }
 
+const PILL = 'flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5'
+
+/**
+ * The plain wall-clock pill, ticking on its own. A page that shows a clock
+ * must mount THIS rather than hold a 1 s timer in its own state: the map page
+ * did, and re-rendered itself, the map and every marker once a second.
+ */
+export function WallClock({ className }: { className?: string }) {
+  const { currentTime, isMounted } = useCurrentTime()
+  return (
+    <div className={cn(PILL, className)}>
+      <Clock className="h-4 w-4 text-muted-foreground" />
+      <span className="font-mono text-base font-semibold tabular-nums">
+        {isMounted && currentTime ? currentTime.toLocaleTimeString('de-CH') : '--:--:--'}
+      </span>
+    </div>
+  )
+}
+
 export function EventClock({ className }: { className?: string }) {
   const t = useTranslations('kanban.clock')
   const { currentTime, isMounted } = useCurrentTime()
@@ -74,25 +93,17 @@ export function EventClock({ className }: { className?: string }) {
     return formatDuration(currentTime.getTime() - startedAt.getTime())
   }
 
-  const pill = 'flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5'
   const ActiveIcon = MODE_ICON[mode]
 
   // No Ereignis, no reference point — degrade to exactly the old wall clock.
-  if (!startedAt) {
-    return (
-      <div className={cn(pill, className)}>
-        <Clock className="h-4 w-4 text-muted-foreground" />
-        <span className="font-mono text-base font-semibold tabular-nums">{wallClock}</span>
-      </div>
-    )
-  }
+  if (!startedAt) return <WallClock className={className} />
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={cn(pill, 'transition-colors hover:bg-secondary', className)}
+          className={cn(PILL, 'transition-colors hover:bg-secondary', className)}
           title={t('menuLabel')}
           aria-label={`${t(`modes.${mode}`)}: ${valueFor(mode)}`}
         >

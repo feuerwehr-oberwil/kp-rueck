@@ -11,7 +11,8 @@ let mockRestReachable = true;
 let restListener: ((reachable: boolean) => void) | null = null;
 
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ lastSyncAt: mockLastSyncAt }),
+  useOperations: () => ({}),
+  useBoardSyncStatus: () => ({ lastSyncAt: mockLastSyncAt }),
 }));
 
 vi.mock("@/lib/websocket-client", () => ({
