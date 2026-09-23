@@ -1,9 +1,27 @@
 "use client"
 
-import { type ComponentProps, type ReactNode } from "react"
-import { X } from "lucide-react"
+import { useId, useRef, useState, type ComponentProps, type ReactNode } from "react"
+import { useTranslations } from "next-intl"
+import { CircleMinus, X, type LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 import { cn } from "@/lib/utils"
+
+/** One row of the touch menu above the destructive «remove» row. */
+export interface ChipMenuAction {
+  label: string
+  /** A 16px glyph: a Lucide icon element, or the «EL» badge. */
+  icon?: ReactNode
+  onSelect: () => void
+}
 
 interface RemovableChipProps {
   children: ReactNode
@@ -21,18 +39,30 @@ interface RemovableChipProps {
   removeButtonClassName?: string
   /** Defaults to 0 so the X is keyboard-reachable; pass -1 to skip the tab order. */
   removeTabIndex?: number
+  /** Touch menu: the header's first line (the person's or vehicle's name). */
+  menuTitle?: string
+  /** Touch menu: the header's second line (rank, call sign, driver …). A node
+   *  so a caller can pass a component that looks the value up — the menu
+   *  content only mounts while open, so a closed chip pays nothing for it. */
+  menuSubtitle?: ReactNode
+  /** Touch menu: rows above the separator, in order («Details öffnen» first). */
+  menuActions?: ChipMenuAction[]
+  /** Touch menu: the destructive row's label. Defaults to `removeTitle`. */
+  removeLabel?: string
+  /** Touch menu: the destructive row's icon. */
+  removeIcon?: LucideIcon
 }
 
-// Touch-first visibility: the X stays faintly visible (opacity-70) on touch
-// devices — the command-post tablets — and only collapses to hover/focus-reveal
-// from the `sm` breakpoint up, where a mouse exists. Before this, chips used
-// `opacity-0 group-hover` and the remove button was unreachable by touch.
+// Mouse only: the ✕ collapses to hover/focus-reveal in a 12px slot that is
+// still RESERVED, so the chip's width never changes. `pointer-fine:` replaced
+// `sm:` (2026-09-23): the breakpoint stood in for «has a mouse», and a 1180 px
+// command-post tablet is far past `sm` — it got the hover-reveal ✕, invisible
+// and still live under a finger, so a thumb resting on a name could take a
+// person off an Einsatz. Without a fine pointer there is no ✕ at all; a tap
+// opens the chip menu instead (decision 27 B), where removal is a deliberate
+// second tap on a 44px row.
 //
-// From `sm` up the reserved slot shrinks from 24px to 12px — on a board full of
-// names, 24px of empty gutter per chip is a column of wasted width — but it is
-// still RESERVED, and the chip's width never changes.
-//
-// Both alternatives were built and rejected by looking at them:
+// Both hover alternatives were built and rejected by looking at them:
 //
 //   Overlaying the label. Chip backgrounds are translucent (`bg-secondary`
 //   plus a `bg-destructive/20` hover tint), so nothing painted on the button is
@@ -45,20 +75,43 @@ interface RemovableChipProps {
 //   back onto the first line, which hovers it again. The chip oscillates for as
 //   long as the pointer rests near a wrap boundary.
 //
-// The hit area is restored to 24px with an invisible `after` overlay, which
-// costs no layout because it is absolutely positioned.
+// The hit area is 24px via an invisible `after` overlay, which costs no layout
+// because it is absolutely positioned.
 const REMOVE_BUTTON_VISIBILITY =
-  "opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 " +
-  "sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 " +
-  "sm:min-w-0 sm:w-3 relative after:absolute after:-inset-1.5 after:content-['']"
+  "hidden pointer-fine:inline-flex items-center justify-center w-3 rounded-sm " +
+  "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 " +
+  "relative after:absolute after:-inset-1.5 after:content-['']"
+
+/** 44px rows — the menu is the touch path, so every row is a thumb target. */
+const MENU_ROW = "min-h-11 gap-3 px-3 text-sm"
+
+/** Every row keeps the icon column, so labels line up with or without one. */
+function MenuIcon({ icon }: { icon: ReactNode }) {
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
+      {icon}
+    </span>
+  )
+}
 
 /**
- * A resource chip (crew / vehicle / material / group) with a hover-reveal
- * remove button. Centralizes the `stopPropagation` + `opacity-0
- * group-hover:opacity-100` X-button skeleton that had been hand-rolled ~10×
- * across the detail panel, kanban card and route sections. Everything
- * chip-specific (label, leading icon, driver-stay toggle) is passed as
- * children; only the removable-badge shell lives here.
+ * A resource chip (crew / vehicle / material / group) with a remove action.
+ *
+ * With a mouse: the hover-reveal ✕, as always. Centralizes the
+ * `stopPropagation` + reveal skeleton that had been hand-rolled ~10× across the
+ * detail panel, kanban card and route sections.
+ *
+ * Without a fine pointer (tablets, phones): no ✕; a tap opens a menu — header
+ * (`menuTitle` / `menuSubtitle`), the caller's `menuActions`, a separator, and
+ * the destructive remove row. The chip's tap used to fall through to whatever
+ * the surrounding block opens (the card opens its detail); callers that had
+ * such a behaviour pass it as the first action, so it stays one extra tap away
+ * instead of disappearing.
+ *
+ * The menu opens on `click`, not `pointerdown` (Radix's trigger default): a
+ * finger that starts a scroll or a card drag on a chip never produces a click,
+ * so neither opens a menu under it. That is why the Radix trigger is an inert
+ * overlay used only as the anchor, and the chip itself does the opening.
  */
 export function RemovableChip({
   children,
@@ -70,34 +123,167 @@ export function RemovableChip({
   removeIconClassName = "h-3 w-3",
   removeButtonClassName,
   removeTabIndex = 0,
+  menuTitle,
+  menuSubtitle,
+  menuActions,
+  removeLabel,
+  removeIcon: RemoveIcon = CircleMinus,
 }: RemovableChipProps) {
+  const pointerFine = usePointerFine()
+  const hasMenu = !pointerFine && (!!onRemove || (menuActions?.length ?? 0) > 0)
+
+  if (!hasMenu) {
+    return (
+      <Badge variant={variant} className={cn("group relative transition-colors", className)} title={title}>
+        {children}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemove()
+            }}
+            className={cn(REMOVE_BUTTON_VISIBILITY, removeButtonClassName)}
+            title={removeTitle}
+            aria-label={removeTitle}
+            tabIndex={removeTabIndex}
+          >
+            <X className={removeIconClassName} />
+          </button>
+        )}
+      </Badge>
+    )
+  }
+
   return (
-    <Badge variant={variant} className={cn("group relative transition-colors", className)} title={title}>
+    <ChipWithMenu
+      variant={variant}
+      className={className}
+      title={title}
+      onRemove={onRemove}
+      removeTitle={removeTitle}
+      menuTitle={menuTitle}
+      menuSubtitle={menuSubtitle}
+      menuActions={menuActions}
+      removeLabel={removeLabel}
+      RemoveIcon={RemoveIcon}
+    >
       {children}
-      {onRemove && (
-        <button
-          type="button"
-          onClick={(e) => {
+    </ChipWithMenu>
+  )
+}
+
+function ChipWithMenu({
+  children,
+  variant,
+  className,
+  title,
+  onRemove,
+  removeTitle,
+  menuTitle,
+  menuSubtitle,
+  menuActions,
+  removeLabel,
+  RemoveIcon,
+}: Omit<RemovableChipProps, "removeIcon" | "removeIconClassName" | "removeButtonClassName" | "removeTabIndex"> & {
+  RemoveIcon: LucideIcon
+}) {
+  const t = useTranslations("kanban.chipMenu")
+  const [open, setOpen] = useState(false)
+  const chipRef = useRef<HTMLSpanElement>(null)
+  const labelId = useId()
+  const actions = menuActions ?? []
+  const destructiveLabel = removeLabel ?? removeTitle ?? t("remove")
+
+  // Only events that start INSIDE the chip open it. The menu is portalled, but
+  // React still bubbles its clicks and keys through this component — without
+  // the check, choosing a row would reopen the menu it just closed.
+  const ownEvent = (e: React.SyntheticEvent) => e.currentTarget.contains(e.target as Node)
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <Badge
+        ref={chipRef}
+        variant={variant}
+        className={cn(
+          "group relative transition-[color,box-shadow]",
+          className,
+          open && "ring-2 ring-primary/50",
+        )}
+        title={title}
+        role="button"
+        tabIndex={0}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(e) => {
+          if (!ownEvent(e)) return
+          // The chip's own action, not the block's around it (the card opens
+          // its detail on any tap — that is now the menu's first row).
+          e.stopPropagation()
+          setOpen(true)
+        }}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return
+          if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+            e.preventDefault()
             e.stopPropagation()
-            onRemove()
-          }}
-          className={cn(
-            // The 24px minimum is a TOUCH target and it was setting the height
-            // of every chip on the board — a 16px label in a 28px pill. From
-            // `sm` up the `after` overlay below provides the target instead, so
-            // the chip can shrink back to the size of its own text.
-            "inline-flex items-center justify-center min-h-[24px] min-w-[24px] -mr-1 rounded-sm sm:min-h-0",
-            "sm:mr-0",
-            REMOVE_BUTTON_VISIBILITY,
-            removeButtonClassName
-          )}
-          title={removeTitle}
-          aria-label={removeTitle}
-          tabIndex={removeTabIndex}
-        >
-          <X className={removeIconClassName} />
-        </button>
-      )}
-    </Badge>
+            setOpen(true)
+          }
+        }}
+      >
+        {children}
+        {/* Anchor only: positions the menu on the chip. Inert, so Radix's
+            pointerdown toggle never runs — the chip opens on click, above. */}
+        <DropdownMenuTrigger asChild>
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0" />
+        </DropdownMenuTrigger>
+      </Badge>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-64 max-w-[calc(100vw-1rem)] p-1.5"
+        aria-labelledby={menuTitle ? labelId : undefined}
+        aria-label={menuTitle ? undefined : destructiveLabel}
+        // The chip, not Radix's inert anchor, gets focus back.
+        onCloseAutoFocus={(e) => {
+          e.preventDefault()
+          chipRef.current?.focus({ preventScroll: true })
+        }}
+        // Portalled, but React bubbles through the tree: a row's click must not
+        // reach the card (which would open its detail on top of the action).
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        {menuTitle && (
+          <>
+            <DropdownMenuLabel className="px-3 pt-2 pb-2">
+              <span id={labelId} className="block truncate text-sm font-semibold text-foreground">{menuTitle}</span>
+              {menuSubtitle && (
+                <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{menuSubtitle}</span>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {actions.map((action) => (
+          <DropdownMenuItem key={action.label} className={MENU_ROW} onSelect={action.onSelect}>
+            <MenuIcon icon={action.icon} />
+            {action.label}
+          </DropdownMenuItem>
+        ))}
+        {onRemove && (
+          <>
+            {actions.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuItem variant="destructive" className={MENU_ROW} onSelect={onRemove}>
+              {/* Coloured here: the item's destructive tint only reaches a
+                DIRECT child svg, and MenuIcon wraps it. */}
+            <MenuIcon icon={<RemoveIcon className="text-destructive" />} />
+              {destructiveLabel}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

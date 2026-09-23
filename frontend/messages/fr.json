@@ -1337,6 +1337,12 @@
       "is": "Chef d’intervention",
       "promote": "Marquer comme chef d’intervention"
     },
+    "chipMenu": {
+      "openDetails": "Ouvrir les détails",
+      "removeFromIncident": "Retirer de l’intervention",
+      "removeFromAuftrag": "Retirer de la mission",
+      "remove": "Retirer"
+    },
     "participants": {
       "title": "Ont participé jusqu’ici",
       "loading": "Chargement …",

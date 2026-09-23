@@ -233,6 +233,12 @@
       "is": "Einsatzleiter",
       "promote": "Als Einsatzleiter markieren"
     },
+    "chipMenu": {
+      "openDetails": "Details öffnen",
+      "removeFromIncident": "Vom Einsatz entfernen",
+      "removeFromAuftrag": "Vom Auftrag entfernen",
+      "remove": "Entfernen"
+    },
     "participants": {
       "title": "Bisher im Einsatz",
       "loading": "Wird geladen …",

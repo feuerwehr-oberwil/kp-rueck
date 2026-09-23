@@ -10,7 +10,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -51,7 +51,8 @@ import { TransferIncidentDialog } from "@/components/incidents/transfer-incident
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
-import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
+import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
@@ -723,6 +724,18 @@ export function OperationDetailContent({
                   onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
                   removeTitle={t('detail.removePerson')}
                   removeButtonClassName="ml-1"
+                  // Touch: the hover-only EL stub below does not exist without
+                  // a mouse, so promotion is a menu row — offered exactly where
+                  // the stub is.
+                  menuTitle={member}
+                  menuSubtitle={<PersonMenuSubtitle name={member} isLeader={!auftrag && isLeader} />}
+                  menuActions={
+                    !auftrag && canEdit && !isLeader
+                      ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(member) }]
+                      : undefined
+                  }
+                  removeLabel={t('chipMenu.removeFromIncident')}
+                  removeIcon={UserMinus}
                 >
                   {/* A stop inside an Auftrag takes its leader from the route,
                       so the badge is not offered on the stop's own crew — it
@@ -763,6 +776,7 @@ export function OperationDetailContent({
               onRemove={canEdit ? () => onUpdate({ zuFuss: false }) : undefined}
               removeTitle={t('common.removeZuFuss')}
               removeButtonClassName="ml-1"
+              menuTitle={t('common.zuFuss')}
             >
               <Footprints className="h-3.5 w-3.5 shrink-0" />
               {t('common.zuFuss')}
@@ -782,6 +796,12 @@ export function OperationDetailContent({
                   onRemove={canEdit && onRemoveVehicle ? () => onRemoveVehicle(operation.id, vehicleName) : undefined}
                   removeTitle={t('detail.removeVehicle')}
                   removeButtonClassName="ml-1"
+                  menuTitle={vehicleName}
+                  menuSubtitle={[
+                    callsign,
+                    driverName,
+                    driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
+                  ].filter(Boolean).join(' · ')}
                 >
                   {vehicleName}{callsign ? ` · ${callsign}` : ''}{driverName ? ` (${driverName})` : ''}
                   {canEdit && assignmentId && (
@@ -836,6 +856,8 @@ export function OperationDetailContent({
                       onRemove={canEdit && onRemoveMaterial ? () => matIds.forEach((matId) => onRemoveMaterial(operation.id, matId)) : undefined}
                       removeTitle={t('common.removeNamed', { name: group.name })}
                       removeButtonClassName="ml-1"
+                      menuTitle={group.name}
+                      removeLabel={t('chipMenu.removeFromIncident')}
                     >
                       {/* h-3.5 like the «Zu Fuss» chip's glyph: both sit in a
                           `text-sm` chip, and 12px next to 14px text read as
@@ -854,6 +876,9 @@ export function OperationDetailContent({
                         onRemove={canEdit && onRemoveMaterial ? () => onRemoveMaterial(operation.id, matId) : undefined}
                         removeTitle={t('detail.removeMaterial')}
                         removeButtonClassName="ml-1"
+                        menuTitle={mat?.name || matId}
+                        menuSubtitle={mat?.category}
+                        removeLabel={t('chipMenu.removeFromIncident')}
                       >
                         {mat?.name || matId}
                         {/* Origin/depot, e.g. "(Pio)" — shown here in the modal but

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
@@ -16,7 +17,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2 } from 'lucide-react'
+import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2, Info, UserMinus } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
@@ -850,6 +851,13 @@ function DraggableOperationBase({
                       removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
                       removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                       removeIconClassName="h-2.5 w-2.5"
+                      // Touch: the tap that used to open the Reko tab is the
+                      // menu's first row now (see RemovableChip).
+                      menuTitle={operation.assignedReko.name.trim() || t('common.unknownResource')}
+                      menuSubtitle={<PersonMenuSubtitle name={operation.assignedReko.name} />}
+                      menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('reko') }]}
+                      removeLabel={t('chipMenu.removeFromIncident')}
+                      removeIcon={UserMinus}
                     >
                       {/* Never an empty chip: a name the roster lost renders as
                           «Unbekannt», not as a blank pill. */}
@@ -889,6 +897,14 @@ function DraggableOperationBase({
                           removeTitle={t('common.removeNamed', { name: crewName })}
                           removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                           removeIconClassName="h-2.5 w-2.5"
+                          // No «Als Einsatzleiter markieren» here: the card
+                          // never offered it (the badge is read-only on a drag
+                          // source) — the detail's chip menu does.
+                          menuTitle={crewName.trim() || t('common.unknownResource')}
+                          menuSubtitle={<PersonMenuSubtitle name={crewName} isLeader={operation.leaderName === crewName} />}
+                          menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                          removeLabel={t('chipMenu.removeFromIncident')}
+                          removeIcon={UserMinus}
                         >
                           {/* Leading chip glyphs are h-3 throughout the card (the
                               chip's own remove X stays at 2.5) and never shrink,
@@ -931,6 +947,8 @@ function DraggableOperationBase({
                         removeTitle={t('common.removeZuFuss')}
                         removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
+                        menuTitle={t('common.zuFuss')}
+                        menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
                       >
                         <Footprints className="h-3 w-3 flex-shrink-0" />
                         <span className="truncate">{t('common.zuFuss')}</span>
@@ -954,6 +972,14 @@ function DraggableOperationBase({
                         removeTitle={t('common.removeNamed', { name: vehicleName })}
                         removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                         removeIconClassName="h-2.5 w-2.5"
+                        menuTitle={vehicleName}
+                        menuSubtitle={[
+                          callsign,
+                          driverName,
+                          driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
+                        ].filter(Boolean).join(' · ')}
+                        menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                        removeLabel={t('detail.removeVehicle')}
                       >
                         {/* min-w-0 so the NAME truncates while the status pill
                             (shrink-0 below) stays whole — a long
@@ -1030,6 +1056,9 @@ function DraggableOperationBase({
                               removeTitle={t('common.removeNamed', { name: group.name })}
                               removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                               removeIconClassName="h-2.5 w-2.5"
+                              menuTitle={group.name}
+                              menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                              removeLabel={t('chipMenu.removeFromIncident')}
                             >
                               <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                               <span className="truncate">{group.name}</span>
@@ -1056,6 +1085,10 @@ function DraggableOperationBase({
                                 removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
                                 removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
                                 removeIconClassName="h-2.5 w-2.5"
+                                menuTitle={material?.name || materialId}
+                                menuSubtitle={material?.category}
+                                menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                                removeLabel={t('chipMenu.removeFromIncident')}
                               >
                                 {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
                                 <span className="truncate">{material?.name || materialId}</span>

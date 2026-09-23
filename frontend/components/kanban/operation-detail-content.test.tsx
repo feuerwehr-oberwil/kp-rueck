@@ -1,8 +1,9 @@
 import type { ReactNode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
+import { apiClient } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 
@@ -23,6 +24,7 @@ vi.mock("@/lib/contexts/operations-context", () => ({
     formatLocation: (value: string) => value,
     setOperations: vi.fn(),
     refreshOperations,
+    personnel: [],
   }),
 }))
 vi.mock("@/lib/contexts/event-context", () => ({
@@ -1001,5 +1003,72 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
     expect(screen.getByText("Fahrzeuge (0)")).toBeInTheDocument()
     expect(screen.getByText("Material (0)")).toBeInTheDocument()
     expect(screen.getByTitle("Mannschaft zuweisen")).toBeInTheDocument()
+  })
+})
+
+/**
+ * Touch (decision 27 B): the EL stub is hover-only, so without a mouse the
+ * chip's menu is where a person is made Einsatzleiter — offered on exactly the
+ * chips the stub would be on, and never on the one who already is.
+ */
+describe("OperationDetailContent · chip menu on touch", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    )
+    vi.mocked(apiClient.updateAssignment).mockReset()
+    vi.mocked(apiClient.updateAssignment).mockResolvedValue(undefined as never)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  const crewOperation: Operation = {
+    ...operation,
+    crew: ["Muster Hans", "Frei Anna"],
+    leaderName: "Muster Hans",
+    crewAssignments: new Map([
+      ["Muster Hans", "a-1"],
+      ["Frei Anna", "a-2"],
+    ]),
+  }
+
+  function mount(onRemoveCrew = vi.fn()) {
+    renderWithIntl(
+      <OperationDetailContent
+        operation={crewOperation}
+        layout="panel"
+        materials={[]}
+        onUpdate={vi.fn()}
+        onRemoveCrew={onRemoveCrew}
+        canEdit
+      />,
+    )
+    return onRemoveCrew
+  }
+
+  it("marks a person as Einsatzleiter from the menu", async () => {
+    const user = userEvent.setup()
+    mount()
+    await user.click(screen.getByRole("button", { name: /Frei Anna$/ }))
+    await screen.findByRole("menu", { name: "Frei Anna" })
+    expect(screen.getAllByRole("menuitem").map((row) => row.textContent)).toEqual([
+      "ELAls Einsatzleiter markieren",
+      "Vom Einsatz entfernen",
+    ])
+    await user.click(screen.getByRole("menuitem", { name: "Als Einsatzleiter markieren" }))
+    await waitFor(() =>
+      expect(apiClient.updateAssignment).toHaveBeenCalledWith("incident-1", "a-2", { is_leader: true }),
+    )
+  })
+
+  it("offers no promotion to the Einsatzleiter, and removes from the menu", async () => {
+    const user = userEvent.setup()
+    const onRemoveCrew = mount()
+    await user.click(screen.getByRole("button", { name: /Muster Hans$/ }))
+    const menu = await screen.findByRole("menu", { name: "Muster Hans" })
+    expect(menu).toHaveTextContent("Einsatzleiter")
+    expect(screen.queryByRole("menuitem", { name: "Als Einsatzleiter markieren" })).toBeNull()
+    await user.click(screen.getByRole("menuitem", { name: "Vom Einsatz entfernen" }))
+    expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Muster Hans")
   })
 })
