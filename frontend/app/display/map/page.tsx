@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
@@ -8,6 +8,7 @@ import { useIncidents, useOperations, type Operation } from "@/lib/contexts/oper
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { apiClient, type ApiViewerIncident, type ApiViewerData } from "@/lib/api-client"
+import { usePolling } from "@/lib/hooks/use-polling"
 import type { Incident } from "@/lib/types/incidents"
 import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/incidents"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
@@ -473,26 +474,20 @@ function TokenDisplayMap({
   // are read as fact by whoever glances at the wall.
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      try {
-        const d = await apiClient.getViewerData(token)
-        if (!cancelled) {
-          setData(d)
-          setLastRefresh(new Date())
-        }
-      } catch {
-        // Keep the last-known data — DisplayStaleBanner surfaces that it has gone stale.
-      }
-    }
-    load()
-    const id = window.setInterval(load, 5000)
-    return () => {
-      cancelled = true
-      window.clearInterval(id)
+  const load = useCallback(async () => {
+    try {
+      const d = await apiClient.getViewerData(token)
+      // A GET that got no answer resolves to nothing: that is a failed poll,
+      // not an empty Ereignis, and must not count as a fresh one either.
+      if (!d) return
+      setData(d)
+      setLastRefresh(new Date())
+    } catch {
+      // Keep the last-known data — DisplayStaleBanner surfaces that it has gone stale.
     }
   }, [token])
+  // Unattended wall screen: never paused on visibility (see `usePolling`).
+  usePolling(load, { intervalMs: 5000, pauseWhenHidden: false })
 
   const incidents = useMemo<Incident[]>(
     () => (data?.incidents ?? []).map(apiIncidentToIncident),

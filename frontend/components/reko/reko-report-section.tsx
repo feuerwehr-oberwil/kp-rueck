@@ -49,6 +49,7 @@ import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } fr
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
+import { usePolling } from '@/lib/hooks/use-polling'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -95,7 +96,7 @@ interface RekoReportSectionProps {
   dense?: boolean
 }
 
-const POLL_INTERVAL_MS = 5000 // Poll every 5 seconds for new reports
+const POLL_INTERVAL_MS = 5000 // Fallback poll while the socket is down
 
 /**
  * An action that belongs to a row, not a toolbar: grey, underlined, never
@@ -136,31 +137,24 @@ export default function RekoReportSection({
     }
   }, [incidentId])
 
-  // WebSocket for instant updates + an always-on safety-net poll.
+  // WebSocket for instant updates, a poll only while the socket is down.
   //
-  // This section only mounts while a detail modal is open (per-incident, tiny
-  // payload), so a low-frequency poll is cheap. We keep it running even while the
-  // WebSocket is connected: the very first report often submits during the gap
-  // between this component mounting and the single `reko_update` event arriving,
-  // and with no fallback poll a missed event meant the report never showed until
-  // the modal was reopened ("first emergency doesn't show right away").
+  // This used to poll every 5 s even with the socket connected, as a safety net
+  // for the first report arriving while the modal mounted («first emergency
+  // doesn't show right away»). What actually loses that `reko_update` is a
+  // socket that is not in the room — reconnecting, or down — and `usePolling`
+  // covers exactly that: it polls while disconnected and runs once more the
+  // moment the socket is back. The subscription is set up in the same effect
+  // pass as the first load, so there is no mount gap for an event to fall into.
   useEffect(() => {
-    loadReports()
-
     // Listen for reko updates matching this incident (instant refresh)
-    const unsubscribeReko = wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
+    return wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
       if (data.data?.incident_id === incidentId) {
         loadReports()
       }
     })
-
-    const pollInterval = setInterval(loadReports, POLL_INTERVAL_MS)
-
-    return () => {
-      unsubscribeReko()
-      clearInterval(pollInterval)
-    }
   }, [loadReports, incidentId])
+  usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
 
   const latestReport: ApiRekoReportResponse | undefined = reports[0]
   const previousReports = reports.slice(1)

@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, NetworkError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, NetworkError, type ApiDangersAssessment, type ApiEventRestliste, type ApiEventSpecialFunctionResponse, type ApiVehicle, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -298,6 +298,13 @@ interface OperationsContextType {
    * targets all read this set. Until now nothing on the board consulted a
    * vehicle's state at all — a unit recorded as defective was assignable. */
   outOfServiceVehicleIds: Set<string>
+  /** The raw lists behind the last good board load, as fetched — handed out so
+   *  derived views (the Bereitschaft checklist) read the board's snapshot
+   *  instead of polling the same endpoints again on their own timer. */
+  specialFunctions: ApiEventSpecialFunctionResponse[]
+  vehicles: ApiVehicle[]
+  /** All settings as of the last load that got them (kept through a failed fetch). */
+  settings: Record<string, string>
   resolveResourceConflict: (action: "move" | "keep") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
@@ -428,6 +435,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
   const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
   const [outOfServiceVehicleIds, setOutOfServiceVehicleIds] = useState<Set<string>>(new Set())
+  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
+  const [settings, setSettings] = useState<Record<string, string>>({})
 
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
@@ -910,8 +920,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials(eventScopedMaterials)
         if (restliste) setMaterialOnSite(toMaterialOnSite(restliste))
         setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
+        setSpecialFunctions(specialFunctions)
+        setVehicles(vehiclesList)
         setIncidentTotal(incidentPage.total)
         if (settings) {
+          setSettings(settings)
           // Sync the module-level mirror BEFORE the state batch renders: the
           // mirror-effect runs only after render, so helpers reading it
           // (getIncidentRefLabel & co.) would format the first paint without the
@@ -1020,6 +1033,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     const unsubscribePersonnelUpdate = wsClient.on('personnel_update', handleRemoteUpdate)
     const unsubscribeVehicleUpdate = wsClient.on('vehicle_update', handleRemoteUpdate)
     const unsubscribeMaterialUpdate = wsClient.on('material_update', handleRemoteUpdate)
+    // Drivers, Reko, Magazin: the sidebar flags and the Bereitschaft checklist
+    // both read them off this load, and nothing else would bring another
+    // client's change in.
+    const unsubscribeSpecialFunctionUpdate = wsClient.on('special_function_update', handleRemoteUpdate)
     const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate<DriverStayPayload>) => {
       if (update?.action === 'driver_stay') {
         applyDriverStayUpdate(update.data)
@@ -1127,6 +1144,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       unsubscribePersonnelUpdate()
       unsubscribeVehicleUpdate()
       unsubscribeMaterialUpdate()
+      unsubscribeSpecialFunctionUpdate()
       unsubscribeAssignmentUpdate()
       unsubscribeAssignmentsTransferred()
       statusUnsubscribe()
@@ -2298,6 +2316,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       resourceConflict,
       outOfServiceVehicleIds,
       materialOnSite,
+      specialFunctions,
+      vehicles,
+      settings,
       cancelResourceConflict,
       requestResourceConflict,
       ...stableActions,
@@ -2320,6 +2341,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       resourceConflict,
       outOfServiceVehicleIds,
       materialOnSite,
+      specialFunctions,
+      vehicles,
+      settings,
       cancelResourceConflict,
       requestResourceConflict,
       stableActions,

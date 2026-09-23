@@ -8,6 +8,8 @@ import {
   generateChecklistTasks,
   isTaskComplete,
   listChecklistTasks,
+  summarizeChecklist,
+  type ChecklistFacts,
   type ChecklistTaskState,
 } from './checklist-tasks'
 
@@ -242,5 +244,39 @@ describe('completion comes from live state, and live state has the last word', (
     expect(isTaskComplete(open, {})).toBe(false)
     expect(isTaskComplete(open, { 'assign-reko': true })).toBe(true)
     expect(isTaskComplete(open, { 'assign-reko': false })).toBe(false)
+  })
+})
+
+describe('the Bereitschaft badge counts off the board snapshot', () => {
+  const facts = (overrides: Partial<ChecklistFacts> = {}): ChecklistFacts => ({
+    checkedInPersonnel: 0,
+    specialFunctions: [],
+    vehicles: [{ id: 'v1', name: 'TLF' }],
+    printerStatus: null,
+    settings: {},
+    ...overrides,
+  })
+
+  it('moves as the snapshot fills in, with no fetch of its own', () => {
+    localStorage.clear()
+    const before = summarizeChecklist('e-badge', facts())
+    const after = summarizeChecklist(
+      'e-badge',
+      facts({
+        checkedInPersonnel: 12,
+        specialFunctions: [
+          { function_type: 'driver', vehicle_id: 'v1' },
+          { function_type: 'reko', vehicle_id: null },
+        ],
+      }),
+    )
+    expect(after.total).toBe(before.total)
+    expect(after.completed).toBeGreaterThan(before.completed)
+  })
+
+  it('counts exactly the rows the station has not hidden', () => {
+    const all = summarizeChecklist('e-badge', facts())
+    const fewer = summarizeChecklist('e-badge', facts({ settings: { [CHECKLIST_HIDDEN_TASKS_KEY]: JSON.stringify(['share-alarm-link']) } }))
+    expect(fewer.total).toBe(all.total - 1)
   })
 })
