@@ -192,6 +192,23 @@ class Settings(BaseSettings):
     feld_code_max_failed_attempts: int = 30
     feld_code_failed_window_seconds: int = 3600
 
+    # First-run setup: the Einrichtungscode an UNCLAIMED board asks for (auth/setup_token.py).
+    # SETUP_TOKEN = use this value instead of a generated one (never printed to the log).
+    # SETUP_TOKEN_REQUIRED = true/false decides outright; empty = required when the deployment
+    # looks internet-facing (production with a DOMAIN, on Railway, or an https CORS origin),
+    # not on a LAN or in development. A claimed board ignores both.
+    setup_token: str = ""
+    setup_token_required: bool | None = None
+
+    @field_validator("setup_token_required", mode="before")
+    @classmethod
+    def _blank_setup_token_required_is_auto(cls, v: object) -> object:
+        # `SETUP_TOKEN_REQUIRED=` copied blank out of .env.example means "decide for me", not a
+        # boot-stopping bool parse error.
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
     # SSO provisioning
     # Comma-separated emails (case-insensitive) that get role=editor on first
     # Microsoft login. Everyone else is provisioned as viewer – any tenant

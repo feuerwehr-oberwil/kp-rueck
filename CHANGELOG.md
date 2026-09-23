@@ -38,6 +38,13 @@ will keep holding.
   the board shows a warning – «Feld-Code für … nach zu vielen Fehlversuchen neu erzeugt». Nobody
   in the field is logged out; phones that still have to unlock need the new code from the Links &
   QR sheet. The migration adds two columns to `events` and runs automatically.
+- **An internet-facing board no longer belongs to whoever finds it first.** A board started
+  without `ADMIN_SEED_PASSWORD` is claimed at `/setup` by its first visitor – right on a LAN, a
+  race against scanners with a public domain. With a `DOMAIN`, on Railway or behind https, the
+  backend now prints a one-time **Einrichtungscode** into its log at startup and `/setup` asks
+  for it (`docker compose logs backend | grep -A1 Einrichtungscode`). LAN installs are unchanged.
+  `SETUP_TOKEN_REQUIRED=true|false` overrides the inference, `SETUP_TOKEN` sets your own code.
+  Boards that are already set up are not affected.
 - **MapLibre GL updated to 6.9, closing a critical XSS advisory** (GHSA-jrc7-96c5-q579). The map
   library's HTML sanitizer could be bypassed through a live `NamedNodeMap`, so attacker-controlled
   text reaching a popup or attribution could execute script. The fix is only shipped from 6.4.1

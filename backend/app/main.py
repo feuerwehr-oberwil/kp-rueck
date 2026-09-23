@@ -49,6 +49,7 @@ from .api.print import router as print_router
 from .api.reko import photos_router
 from .api.reko import router as reko_router
 from .api.settings import router as settings_router
+from .api.setup import announce_setup_token_if_unclaimed
 from .api.setup import router as setup_router
 from .api.special_functions import router as special_functions_router
 from .api.stats import router as stats_router
@@ -206,6 +207,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await seed_database()
         except Exception as e:
             logger.warning(f"Database seeding failed: {e}")
+
+    # An unclaimed, internet-facing board prints its Einrichtungscode now – the operator reads
+    # the boot log right after starting the stack (auth/setup_token.py). After the seed, which
+    # is what decides whether any account exists. A failure here must not stop the boot: the
+    # code is then created and printed on the first claim attempt instead.
+    async for db in get_db():
+        try:
+            await announce_setup_token_if_unclaimed(db)
+        except Exception as e:
+            logger.warning(f"Could not check for an unclaimed board: {e}")
+        break
 
     # Start background sync scheduler
     logger.info("Starting background sync scheduler...")
