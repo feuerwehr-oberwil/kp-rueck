@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
   const { refreshOperations } = useOperations();
-  const { lastSyncAt } = useBoardSyncStatus();
+  const { lastSyncAt, loadError } = useBoardSyncStatus();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
   const [restReachable, setRestReachable] = useState<boolean>(getRestReachable());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -49,7 +49,13 @@ export function StaleDataBanner() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const visible = shouldShowStaleBanner({ wsStatus, lastSyncAt, now, restReachable });
+  const visible = shouldShowStaleBanner({
+    wsStatus,
+    lastSyncAt,
+    now,
+    restReachable,
+    loadFailed: loadError !== null,
+  });
 
   const handleReconnect = async () => {
     setReconnecting(true);
@@ -63,12 +69,12 @@ export function StaleDataBanner() {
     }
   };
 
-  if (!visible || !lastSyncAt) return null;
+  if (!visible) return null;
 
-  const lastSyncRelative = formatDistanceToNowStrict(lastSyncAt, {
-    addSuffix: false,
-    locale: de,
-  });
+  // Null after a failed FIRST load: there is no «last update» to name.
+  const lastSyncRelative = lastSyncAt
+    ? formatDistanceToNowStrict(lastSyncAt, { addSuffix: false, locale: de })
+    : null;
 
   return (
     <div
@@ -81,9 +87,11 @@ export function StaleDataBanner() {
         <span className="font-medium">
           {t('connectionLost')}
         </span>
-        <span className="text-muted-foreground">
-          {t('lastUpdate', { time: lastSyncRelative })}
-        </span>
+        {lastSyncRelative && (
+          <span className="text-muted-foreground">
+            {t('lastUpdate', { time: lastSyncRelative })}
+          </span>
+        )}
       </div>
       <Button
         variant="outline"

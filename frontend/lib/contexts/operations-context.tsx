@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, NetworkError, type ApiDangersAssessment, type ApiEventRestliste, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -361,8 +361,24 @@ type BoardActions = Pick<
  */
 export interface BoardSyncStatus {
   /** Wall-clock time of the last successful sync — a completed board load or a
-   *  poll that confirmed nothing changed. null until the first load completes. */
+   *  poll that confirmed nothing changed. null until the first load completes.
+   *  A failed load leaves it where it was: that is what ages the board. */
   lastSyncAt: Date | null
+  /** Why the most recent board load failed; null once a sync gets through.
+   *  While set, the board on screen is the last good state (or, after a failed
+   *  FIRST load, nothing at all — which `isLoaded` alone can't tell apart
+   *  from an empty Ereignis). */
+  loadError: Error | null
+}
+
+/**
+ * `request()` lets a GET resolve to nothing when the connection is dead (a soft
+ * degrade meant for pollers). For the board's snapshot «nothing» must not pass
+ * for «empty» — this turns it back into the failure it is.
+ */
+function answered<T>(value: T | undefined): T {
+  if (value === undefined || value === null) throw new NetworkError()
+  return value
 }
 
 const OperationsContext = createContext<OperationsContextType | undefined>(undefined)
@@ -399,6 +415,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setGlobalHomeCity(homeCity)
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
+  const [loadError, setLoadError] = useState<Error | null>(null)
   const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
   // The one vehicle that was just put on an incident with nobody driving it, or
   // null. It was a queue while the setup checklist walked every driverless vehicle
@@ -691,15 +708,21 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // Fetch all data in parallel. skipStateUpdate keeps the raw personnel/material
         // list off the UI — we write reconciled, event-scoped state below in one go,
         // avoiding a flicker where every person briefly reads as "available".
+        //
+        // A failed fetch never becomes an empty list: the reload fails as a
+        // whole and the board keeps its last good state (`answered`, and the
+        // rejecting refreshPersonnel/refreshMaterials). Settings and the
+        // Restliste are the exceptions — a failure there keeps the previous
+        // value instead of failing the board.
         const [incidentPage, personnelList, materialsList, settings, vehiclesList, restliste] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
-          apiClient.getAllSettings().catch(() => ({ home_city: "" })),
-          apiClient.getVehicles(),
+          apiClient.getAllSettings().catch(() => undefined),
+          apiClient.getVehicles().then(answered),
           // Never fatal: a board that cannot say which pump is still in a cellar is
           // still a board.
-          apiClient.getEventRestliste(eventId).catch(() => null),
+          apiClient.getEventRestliste(eventId).catch(() => undefined),
         ])
         const apiIncidents = incidentPage.incidents
 
@@ -714,72 +737,68 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         const assignedPersonIds = new Set<string>()
         const assignedMaterialIds = new Set<string>()
 
-        const [specialFunctionsResult, assignmentsResult, rekoSummariesResult] = await Promise.allSettled([
-          apiClient.getEventSpecialFunctions(eventId),
-          apiClient.getAssignmentsByEvent(eventId),
-          apiClient.getEventRekoSummaries(eventId),
+        // ⚠️ Part of the snapshot, not decoration: these used to be allSettled
+        // and «non-fatal», so a failed assignments fetch painted every card
+        // without its crew and every person as available — a board that invites
+        // a double dispatch. Now any of them failing fails the reload, and the
+        // board keeps its last good state.
+        const [specialFunctions, assignmentsByIncident, rekoSummaries] = await Promise.all([
+          apiClient.getEventSpecialFunctions(eventId).then(answered),
+          apiClient.getAssignmentsByEvent(eventId).then(answered),
+          apiClient.getEventRekoSummaries(eventId).then(answered),
         ])
 
         // Process special functions (single fetch, used for both reko filtering and availability)
-        if (specialFunctionsResult.status === 'fulfilled') {
-          for (const func of specialFunctionsResult.value) {
-            if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
-            else if (func.function_type === 'driver') {
-              driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
-              assignedPersonIds.add(func.personnel_id)
-            } else if (func.function_type === 'magazin') {
-              magazinPersonnelIds.add(func.personnel_id)
-              assignedPersonIds.add(func.personnel_id)
-            } else if (func.function_type === 'telefondienst') {
-              telefondienstPersonnelIds.add(func.personnel_id)
-              assignedPersonIds.add(func.personnel_id)
-            } else if (func.function_type === 'kommandoposten') {
-              kommandopostenPersonnelIds.add(func.personnel_id)
-              assignedPersonIds.add(func.personnel_id)
-            } else {
-              assignedPersonIds.add(func.personnel_id)
-            }
+        for (const func of specialFunctions) {
+          if (func.function_type === 'reko') rekoPersonnelIds.add(func.personnel_id)
+          else if (func.function_type === 'driver') {
+            driverPersonnelIds.set(func.personnel_id, { vehicleId: func.vehicle_id || '', vehicleName: func.vehicle_name || '' })
+            assignedPersonIds.add(func.personnel_id)
+          } else if (func.function_type === 'magazin') {
+            magazinPersonnelIds.add(func.personnel_id)
+            assignedPersonIds.add(func.personnel_id)
+          } else if (func.function_type === 'telefondienst') {
+            telefondienstPersonnelIds.add(func.personnel_id)
+            assignedPersonIds.add(func.personnel_id)
+          } else if (func.function_type === 'kommandoposten') {
+            kommandopostenPersonnelIds.add(func.personnel_id)
+            assignedPersonIds.add(func.personnel_id)
+          } else {
+            assignedPersonIds.add(func.personnel_id)
           }
-        } else {
-          console.error('Failed to load special functions:', specialFunctionsResult.reason)
         }
 
         // Process assignments
-        if (assignmentsResult.status === 'fulfilled') {
-          const assignmentsByIncident = assignmentsResult.value
-          ops.forEach((operation) => {
-            const assignments = assignmentsByIncident[operation.id] || []
-            for (const assignment of assignments) {
-              if (assignment.resource_type === "personnel") {
-                const person = personnelList.find(p => p.id === assignment.resource_id)
-                if (person) {
-                  if (rekoPersonnelIds.has(person.id)) {
-                    operation.assignedReko = { id: person.id, name: person.name }
-                    continue
-                  }
-                  operation.crew.push(person.name)
-                  operation.crewAssignments.set(person.name, assignment.id)
-                  if (assignment.is_leader) operation.leaderName = person.name
+        ops.forEach((operation) => {
+          const assignments = assignmentsByIncident[operation.id] || []
+          for (const assignment of assignments) {
+            if (assignment.resource_type === "personnel") {
+              const person = personnelList.find(p => p.id === assignment.resource_id)
+              if (person) {
+                if (rekoPersonnelIds.has(person.id)) {
+                  operation.assignedReko = { id: person.id, name: person.name }
+                  continue
                 }
-              } else if (assignment.resource_type === "material") {
-                operation.materials.push(assignment.resource_id)
-                operation.materialAssignments.set(assignment.resource_id, assignment.id)
-              } else if (assignment.resource_type === "vehicle") {
-                const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
-                if (vehicle) {
-                  operation.vehicles.push(vehicle.name)
-                  operation.vehicleAssignments.set(vehicle.name, assignment.id)
-                  if (vehicle.radio_call_sign) {
-                    operation.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
-                  }
-                  operation.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
+                operation.crew.push(person.name)
+                operation.crewAssignments.set(person.name, assignment.id)
+                if (assignment.is_leader) operation.leaderName = person.name
+              }
+            } else if (assignment.resource_type === "material") {
+              operation.materials.push(assignment.resource_id)
+              operation.materialAssignments.set(assignment.resource_id, assignment.id)
+            } else if (assignment.resource_type === "vehicle") {
+              const vehicle = vehiclesList.find(v => v.id === assignment.resource_id)
+              if (vehicle) {
+                operation.vehicles.push(vehicle.name)
+                operation.vehicleAssignments.set(vehicle.name, assignment.id)
+                if (vehicle.radio_call_sign) {
+                  operation.vehicleCallsigns.set(vehicle.name, vehicle.radio_call_sign)
                 }
+                operation.vehicleDriverStay.set(vehicle.name, assignment.driver_stay || false)
               }
             }
-          })
-        } else {
-          console.error('Failed to load assignments:', assignmentsResult.reason)
-        }
+          }
+        })
 
         // Show vehicles in their configured display order everywhere (radio text,
         // Divera/WhatsApp messages, cards) instead of assignment order.
@@ -789,27 +808,22 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         }
 
         // Process reko summaries
-        if (rekoSummariesResult.status === 'fulfilled') {
-          const rekoSummaries = rekoSummariesResult.value
-          ops.forEach(op => {
-            const summary = rekoSummaries.summaries[op.id]
-            if (summary?.has_completed_reko) {
-              const dangerTypes = rekoDangerTypes(summary.dangers_json)
-              op.hasCompletedReko = true
-              op.rekoSummary = {
-                isRelevant: summary.is_relevant ?? false,
-                hasDangers: dangerTypes.length > 0,
-                dangerTypes,
-                personnelCount: summary.effort_json?.personnel_count ?? null,
-                estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
-                summaryText: summary.summary_text ?? null,
-                photos: summary.photos_json ?? [],
-              }
+        ops.forEach(op => {
+          const summary = rekoSummaries.summaries[op.id]
+          if (summary?.has_completed_reko) {
+            const dangerTypes = rekoDangerTypes(summary.dangers_json)
+            op.hasCompletedReko = true
+            op.rekoSummary = {
+              isRelevant: summary.is_relevant ?? false,
+              hasDangers: dangerTypes.length > 0,
+              dangerTypes,
+              personnelCount: summary.effort_json?.personnel_count ?? null,
+              estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
+              summaryText: summary.summary_text ?? null,
+              photos: summary.photos_json ?? [],
             }
-          })
-        } else {
-          console.error('Failed to load reko summaries:', rekoSummariesResult.reason)
-        }
+          }
+        })
 
         // Calculate availability from assignments
 
@@ -894,19 +908,23 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations(ops)
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
-        setMaterialOnSite(toMaterialOnSite(restliste))
+        if (restliste) setMaterialOnSite(toMaterialOnSite(restliste))
         setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
         setIncidentTotal(incidentPage.total)
-        // Sync the module-level mirror BEFORE the state batch renders: the
-        // mirror-effect runs only after render, so helpers reading it
-        // (getIncidentRefLabel & co.) would format the first paint without the
-        // home city and visibly re-render to the short label later.
-        setGlobalHomeCity(settings.home_city || "")
-        setGlobalRankAbbreviations((settings as Record<string, string>)[RANK_ABBREVIATIONS_KEY] || "")
-        setHomeCity(settings.home_city || "")
+        if (settings) {
+          // Sync the module-level mirror BEFORE the state batch renders: the
+          // mirror-effect runs only after render, so helpers reading it
+          // (getIncidentRefLabel & co.) would format the first paint without the
+          // home city and visibly re-render to the short label later.
+          setGlobalHomeCity(settings.home_city || "")
+          setGlobalRankAbbreviations(settings[RANK_ABBREVIATIONS_KEY] || "")
+          setHomeCity(settings.home_city || "")
+        }
         setIsLoaded(true)
         setLastSyncAt(new Date())
+        setLoadError(null)
         isInitialLoadRef.current = false
+        stopPollingIfSocketCarries()
 
         // Store the version snapshot taken before the data fetch (null forces
         // the next poll tick to reload — fails toward freshness).
@@ -914,8 +932,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (!isCurrentLoad()) return
         console.error("Failed to load data:", error)
+        // Last good state stays on screen; `lastSyncAt` does NOT move, so the
+        // stale-data banner starts counting. `isLoaded` still flips on a failed
+        // FIRST load — mutations key off it — which is why `loadError` exists:
+        // an empty board and a board that never arrived are told apart there.
+        // ⚠️ Nothing renders `loadError` yet beyond the banner (mockup pending).
+        setLoadError(error instanceof Error ? error : new Error(String(error)))
         setIsLoaded(true)
         isInitialLoadRef.current = false
+        // With the socket up nothing polls, and a quiet Ereignis sends no
+        // event to retry on: poll until a load gets through again.
+        onLoadFailed()
       } finally {
         if (isCurrentLoad()) setIsLoading(false)
         if (driveBar) topLoading.done()
@@ -1038,7 +1065,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             // Confirmed fresh — keep the stale-data banner honest. Without
             // this, a healthy polling session with no changes let lastSyncAt
             // age past the threshold and showed "Verbindung verloren".
+            // Same version as the last GOOD load: the board on screen is
+            // current, whatever a failed reload in between said.
             setLastSyncAt(new Date())
+            setLoadError(null)
+            stopPollingIfSocketCarries()
           }
         } catch {
           pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
@@ -1061,6 +1092,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         clearTimeout(pollTimeout)
         pollTimeout = undefined
       }
+    }
+
+    // A failed load polls even with the socket up (see loadData's catch); the
+    // first sync that gets through hands back to the socket.
+    const onLoadFailed = () => startPolling()
+    const stopPollingIfSocketCarries = () => {
+      if (wsClient.getStatus() === 'connected') stopPolling()
     }
 
     const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
@@ -2288,7 +2326,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  const syncStatus = useMemo<BoardSyncStatus>(() => ({ lastSyncAt }), [lastSyncAt])
+  const syncStatus = useMemo<BoardSyncStatus>(() => ({ lastSyncAt, loadError }), [lastSyncAt, loadError])
 
   return (
     <OperationsContext.Provider value={value}>

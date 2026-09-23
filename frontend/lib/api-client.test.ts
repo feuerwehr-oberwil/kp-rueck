@@ -40,6 +40,15 @@ describe('apiClient network failures', () => {
     await expect(promise).resolves.toBeUndefined()
   })
 
+  it('rejects the board incident list instead of passing an outage off as an empty Ereignis', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    const promise = apiClient.getIncidentsWithTotal('event-id')
+    const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
+    await vi.runAllTimersAsync()
+    await assertion
+  })
+
   it('still resolves successful mutations with the response body', async () => {
     const body = { id: 'some-id', priority: 'high' }
     vi.stubGlobal(

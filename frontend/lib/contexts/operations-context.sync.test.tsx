@@ -96,12 +96,17 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
   apiClient: api,
 }))
 
-import { OperationsProvider, useOperations } from "./operations-context"
+import { NetworkError } from "@/lib/api-client"
+import { OperationsProvider, useBoardSyncStatus, useOperations } from "./operations-context"
 
 const wrapper = ({ children }: { children: ReactNode }) => <OperationsProvider>{children}</OperationsProvider>
 
 /** Incident fetches that hang until the test answers them, oldest first. */
-let incidentCalls: Array<{ eventId: string; resolve: (incidents: ApiIncident[]) => void }>
+let incidentCalls: Array<{
+  eventId: string
+  resolve: (incidents: ApiIncident[]) => void
+  reject: (error: Error) => void
+}>
 let maxConcurrentIncidentFetches: number
 let openIncidentFetches: number
 
@@ -113,7 +118,7 @@ beforeEach(() => {
   openIncidentFetches = 0
   api.getIncidentsWithTotal.mockReset().mockImplementation(
     (eventId: string) =>
-      new Promise((resolve) => {
+      new Promise((resolve, reject) => {
         openIncidentFetches++
         maxConcurrentIncidentFetches = Math.max(maxConcurrentIncidentFetches, openIncidentFetches)
         incidentCalls.push({
@@ -121,6 +126,10 @@ beforeEach(() => {
           resolve: (incidents) => {
             openIncidentFetches--
             resolve({ incidents, total: incidents.length })
+          },
+          reject: (error) => {
+            openIncidentFetches--
+            reject(error)
           },
         })
       }),
@@ -289,5 +298,95 @@ describe("OperationsProvider — render cost", () => {
   it("keeps the sync timestamp off the main context", async () => {
     const { result } = await renderLoaded()
     expect("lastSyncAt" in result.current).toBe(false)
+  })
+})
+
+describe("OperationsProvider — a failed load is not an empty board", () => {
+  async function renderBoard(initial: ApiIncident[] = [incident("1"), incident("2")]) {
+    const rendered = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer(initial)
+    await waitFor(() => expect(rendered.result.current.ops.isLoaded).toBe(true))
+    return rendered
+  }
+
+  async function reloadFailing(fail: () => void) {
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    fail()
+  }
+
+  it("keeps the last good board when the incident fetch dies, and says so", async () => {
+    const { result } = await renderBoard()
+    const syncedAt = result.current.sync.lastSyncAt
+    expect(syncedAt).not.toBeNull()
+    expect(result.current.sync.loadError).toBeNull()
+
+    await reloadFailing(() => incidentCalls.shift()!.reject(new NetworkError()))
+
+    await waitFor(() => expect(result.current.sync.loadError).toBeInstanceOf(NetworkError))
+    expect(result.current.ops.operations.map((o) => o.id)).toEqual(["1", "2"])
+    expect(result.current.sync.lastSyncAt).toBe(syncedAt)
+  })
+
+  it.each([
+    ["assignments", () => api.getAssignmentsByEvent.mockResolvedValueOnce(undefined)],
+    ["special functions", () => api.getEventSpecialFunctions.mockRejectedValueOnce(new Error("500"))],
+    ["reko summaries", () => api.getEventRekoSummaries.mockResolvedValueOnce(undefined)],
+    ["vehicles", () => api.getVehicles.mockResolvedValueOnce(undefined)],
+    ["personnel", () => refreshPersonnel.mockRejectedValueOnce(new Error("500"))],
+  ])("does not paint a partial snapshot when %s fail", async (_what, breakIt) => {
+    const { result } = await renderBoard()
+    const before = result.current.ops.operations
+
+    breakIt()
+    await reloadFailing(() => void answer([incident("1")]))
+
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+    expect(result.current.ops.operations).toBe(before)
+  })
+
+  it("a failed FIRST load reports the error instead of passing for an empty Ereignis", async () => {
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+    expect(result.current.sync.lastSyncAt).toBeNull()
+    expect(result.current.ops.operations).toEqual([])
+  })
+
+  it("keeps the previous home city and Restliste when only those fail", async () => {
+    api.getAllSettings.mockResolvedValue({ home_city: "Oberwil" })
+    const { result } = await renderBoard()
+    expect(result.current.ops.homeCity).toBe("Oberwil")
+
+    api.getAllSettings.mockRejectedValueOnce(new Error("500"))
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1"), incident("2"), incident("3")])
+
+    await waitFor(() => expect(result.current.ops.operations).toHaveLength(3))
+    expect(result.current.ops.homeCity).toBe("Oberwil")
+    expect(result.current.sync.loadError).toBeNull()
+  })
+
+  it("retries by polling even with the socket up, and a good load clears the error", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+
+    // No socket event is coming: the poll (~5 s ± jitter) has to try again.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+
+    await waitFor(() => expect(result.current.sync.loadError).toBeNull())
+    expect(result.current.ops.operations.map((o) => o.id)).toEqual(["1"])
+    expect(result.current.sync.lastSyncAt).not.toBeNull()
   })
 })

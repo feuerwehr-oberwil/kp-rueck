@@ -758,6 +758,11 @@ class ApiClient {
    * `total` is null when the header is absent (an older backend, or a proxy that strips it) –
    * callers must treat null as "unknown", never as zero, or the banner would claim a full
    * board is truncated.
+   *
+   * ⚠️ Rejects with `NetworkError` when the request never got an answer. `request()` lets a
+   * GET resolve to nothing on a dead connection, and this used to turn that into `[]` – a
+   * failed load and an Ereignis without incidents were the same value, and the board wiped
+   * every card on a timed-out poll (2026-09-23).
    */
   async getIncidentsWithTotal(eventId: string, params?: {
     status?: IncidentStatus
@@ -781,7 +786,8 @@ class ApiClient {
         },
       },
     )
-    return { incidents: incidents ?? [], total }
+    if (incidents === undefined) throw new NetworkError()
+    return { incidents, total }
   }
 
   async getIncident(id: string): Promise<ApiIncident> {

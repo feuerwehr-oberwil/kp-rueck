@@ -20,6 +20,11 @@ export interface ShouldShowStaleBannerInput {
    * WS-based behavior.
    */
   restReachable?: boolean;
+  /**
+   * The most recent board load failed (`loadError` from the operations
+   * context). Optional for the same reason as `restReachable`.
+   */
+  loadFailed?: boolean;
 }
 
 /**
@@ -30,9 +35,18 @@ export interface ShouldShowStaleBannerInput {
  *  - the WebSocket is not connected (so realtime updates are off) AND the
  *    last successful operations load is older than the threshold.
  *
- * If `lastSyncAt` is null we have nothing to sync against yet (initial load
- * or no event selected), so the banner stays hidden — that case is the job
- * of the loading state, not this banner.
+ *  - the last board load FAILED and the last good sync is older than the
+ *    threshold — whatever the WebSocket says. A connected socket only proves
+ *    events can arrive; it says nothing about whether the reload they trigger
+ *    got through, and it used to hide the banner over a board that had not
+ *    loaded since the failure;
+ *  - the FIRST board load failed (`lastSyncAt` null, `loadFailed`): there is
+ *    no good state at all, and an empty board must not pass for an empty
+ *    Ereignis.
+ *
+ * If `lastSyncAt` is null and nothing failed, we have nothing to sync against
+ * yet (initial load or no event selected), so the banner stays hidden — that
+ * case is the job of the loading state, not this banner.
  */
 export function shouldShowStaleBanner({
   wsStatus,
@@ -40,12 +54,15 @@ export function shouldShowStaleBanner({
   now,
   thresholdMs = STALE_BANNER_THRESHOLD_MS,
   restReachable = true,
+  loadFailed = false,
 }: ShouldShowStaleBannerInput): boolean {
-  if (lastSyncAt === null) return false;
+  if (lastSyncAt === null) return loadFailed;
+  const ageMs = now.getTime() - lastSyncAt.getTime();
+  if (loadFailed && ageMs > thresholdMs) return true;
   // A REST outage is already debounced by the api-client's retry/backoff, so
   // it raises the banner immediately — no extra threshold wait.
   if (!restReachable) return true;
   if (wsStatus === "connected") return false;
   if (wsStatus === "connecting") return false;
-  return now.getTime() - lastSyncAt.getTime() > thresholdMs;
+  return ageMs > thresholdMs;
 }

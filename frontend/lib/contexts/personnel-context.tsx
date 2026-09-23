@@ -58,7 +58,8 @@ interface PersonnelContextType {
    * @param options.skipStateUpdate When true, returns the list without writing
    *   to local state — used by operations-context to avoid a flicker where
    *   raw API personnel (duty-status-based) is briefly shown before the
-   *   reconciled event-scoped status is applied.
+   *   reconciled event-scoped status is applied. The caller then owns the
+   *   state, so a failed fetch REJECTS instead of resolving to [].
    */
   refreshPersonnel: (options?: { skipStateUpdate?: boolean }) => Promise<Person[]>
 }
@@ -112,6 +113,10 @@ export function PersonnelProvider({ children }: { children: ReactNode }) {
             description: translateOutsideReact('notifications.personnel.loadFailedDescription'),
           })
         }
+        // The board (skipStateUpdate) owns the state and must see the failure:
+        // an empty list here would read as «nobody checked in» and strip every
+        // crew off every card on the next reload.
+        if (options?.skipStateUpdate) throw error
         return []
       } finally {
         setIsLoading(false)
