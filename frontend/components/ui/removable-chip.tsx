@@ -39,10 +39,10 @@ interface RemovableChipProps {
   removeButtonClassName?: string
   /** Defaults to 0 so the X is keyboard-reachable; pass -1 to skip the tab order. */
   removeTabIndex?: number
-  /** Touch menu: the header's first line (the person's or vehicle's name). */
+  /** Touch menu: the label's name (the person's or vehicle's name). */
   menuTitle?: string
-  /** Touch menu: the header's second line (rank, call sign, driver …). A node
-   *  so a caller can pass a component that looks the value up — the menu
+  /** Touch menu: the label's muted detail after the name (rank, call sign,
+   *  driver …). A node so a caller can pass a component that looks the value up — the menu
    *  content only mounts while open, so a closed chip pays nothing for it. */
   menuSubtitle?: ReactNode
   /** Touch menu: rows above the separator, in order («Details öffnen» first). */
@@ -60,7 +60,7 @@ interface RemovableChipProps {
 // and still live under a finger, so a thumb resting on a name could take a
 // person off an Einsatz. Without a fine pointer there is no ✕ at all; a tap
 // opens the chip menu instead (decision 27 B), where removal is a deliberate
-// second tap on a 44px row.
+// second tap on its own, separated row.
 //
 // Both hover alternatives were built and rejected by looking at them:
 //
@@ -82,13 +82,22 @@ const REMOVE_BUTTON_VISIBILITY =
   "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 " +
   "relative after:absolute after:-inset-1.5 after:content-['']"
 
-/** 44px rows — the menu is the touch path, so every row is a thumb target. */
-const MENU_ROW = "min-h-11 gap-3 px-3 text-sm"
+// The menu is sized like the card's right-click menu (draggable-operation.tsx),
+// not as a touch-only special: the primitive's own 32px rows (`px-2 py-1.5
+// text-sm`), a 16px icon with `mr-2`, `p-1` around, `w-max` from 13rem to
+// 22rem, a one-line label instead of a header block. The first build had 44px
+// rows under a two-line header and read as a different kind of object next to
+// the menus the same operators already know; the user asked for the card's
+// sizes (2026-09-23). The rows are still full-width targets, and removal stays
+// behind a separator, so it is never the row a thumb lands on first.
+const MENU_CONTENT =
+  "w-max min-w-52 max-w-[min(22rem,var(--radix-dropdown-menu-content-available-width))] " +
+  "[&_[data-slot=dropdown-menu-item]]:whitespace-nowrap"
 
 /** Every row keeps the icon column, so labels line up with or without one. */
 function MenuIcon({ icon }: { icon: ReactNode }) {
   return (
-    <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
+    <span className="mr-2 flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
       {icon}
     </span>
   )
@@ -101,7 +110,7 @@ function MenuIcon({ icon }: { icon: ReactNode }) {
  * `stopPropagation` + reveal skeleton that had been hand-rolled ~10× across the
  * detail panel, kanban card and route sections.
  *
- * Without a fine pointer (tablets, phones): no ✕; a tap opens a menu — header
+ * Without a fine pointer (tablets, phones): no ✕; a tap opens a menu — label
  * (`menuTitle` / `menuSubtitle`), the caller's `menuActions`, a separator, and
  * the destructive remove row. The chip's tap used to fall through to whatever
  * the surrounding block opens (the card opens its detail); callers that had
@@ -241,7 +250,7 @@ function ChipWithMenu({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className="w-64 max-w-[calc(100vw-1rem)] p-1.5"
+        className={MENU_CONTENT}
         aria-labelledby={menuTitle ? labelId : undefined}
         aria-label={menuTitle ? undefined : destructiveLabel}
         // The chip, not Radix's inert anchor, gets focus back.
@@ -257,17 +266,19 @@ function ChipWithMenu({
       >
         {menuTitle && (
           <>
-            <DropdownMenuLabel className="px-3 pt-2 pb-2">
-              <span id={labelId} className="block truncate text-sm font-semibold text-foreground">{menuTitle}</span>
+            {/* One line at the label's own size — who this is, then the
+                muted detail (rank, call sign, driver …) after a middle dot. */}
+            <DropdownMenuLabel className="flex min-w-0 items-baseline gap-1.5">
+              <span id={labelId} className="truncate">{menuTitle}</span>
               {menuSubtitle && (
-                <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{menuSubtitle}</span>
+                <span className="truncate text-xs font-normal text-muted-foreground">· {menuSubtitle}</span>
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
           </>
         )}
         {actions.map((action) => (
-          <DropdownMenuItem key={action.label} className={MENU_ROW} onSelect={action.onSelect}>
+          <DropdownMenuItem key={action.label} onSelect={action.onSelect}>
             <MenuIcon icon={action.icon} />
             {action.label}
           </DropdownMenuItem>
@@ -275,10 +286,10 @@ function ChipWithMenu({
         {onRemove && (
           <>
             {actions.length > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuItem variant="destructive" className={MENU_ROW} onSelect={onRemove}>
+            <DropdownMenuItem variant="destructive" onSelect={onRemove}>
               {/* Coloured here: the item's destructive tint only reaches a
-                DIRECT child svg, and MenuIcon wraps it. */}
-            <MenuIcon icon={<RemoveIcon className="text-destructive" />} />
+                  DIRECT child svg, and MenuIcon wraps it. */}
+              <MenuIcon icon={<RemoveIcon className="text-destructive" />} />
               {destructiveLabel}
             </DropdownMenuItem>
           </>

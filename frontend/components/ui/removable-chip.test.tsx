@@ -86,8 +86,12 @@ describe("RemovableChip on touch", () => {
     const rows = screen.getAllByRole("menuitem")
     expect(rows.map((row) => row.textContent)).toEqual(["Details öffnen", "Vom Einsatz entfernen"])
     expect(rows[1]).toHaveAttribute("data-variant", "destructive")
-    // 44px rows: this menu is the touch path.
-    for (const row of rows) expect(row.className).toContain("min-h-11")
+    // The card's right-click menu rows (the primitive's `px-2 py-1.5`), not a
+    // bespoke touch size.
+    for (const row of rows) {
+      expect(row.className).toContain("py-1.5")
+      expect(row.className).not.toMatch(/min-h-/)
+    }
     // The tap is the chip's; the card must not open its detail underneath.
     expect(onParentClick).not.toHaveBeenCalled()
     // (Radix hides the rest of the page from assistive tech while the menu is up.)
