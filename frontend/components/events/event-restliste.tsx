@@ -31,6 +31,7 @@ import { apiClient, type ApiEventRestliste, type ApiRestlisteIncident, type ApiR
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { Reveal } from '@/components/ui/reveal'
 
 type Section = 'rapport' | 'material' | 'pickup'
 
@@ -155,13 +156,13 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
             <FileWarning className="size-3.5 text-warning" />
             <span>{t('missingRapport', { count: missing.length, total: data.incident_total })}</span>
           </button>
-          {open === 'rapport' && (
+          <Reveal open={open === 'rapport'}>
             <div className="ml-4 space-y-0.5 border-l border-border/60 pl-2">
               {missing.map(row =>
                 incidentRow(row, row.rapport_state === 'draft' ? t('stateDraft') : undefined),
               )}
             </div>
-          )}
+          </Reveal>
         </div>
       )}
 
@@ -192,9 +193,9 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
               </Button>
             )}
           </div>
-          {open === 'material' && (
+          <Reveal open={open === 'material'}>
             <div className="ml-4 space-y-0.5 border-l border-border/60 pl-2">{material.map(unitRow)}</div>
-          )}
+          </Reveal>
         </div>
       )}
 
@@ -210,7 +211,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
             <CarTaxiFront className="size-3.5 text-amber-600 dark:text-amber-400" />
             <span>{t('openPickups', { count: pickups.length })}</span>
           </button>
-          {open === 'pickup' && (
+          <Reveal open={open === 'pickup'}>
             <div className="ml-4 space-y-0.5 border-l border-border/60 pl-2">
               {/* The chip is the "erledigt" control here too (§18.9). The
                   Restliste is where somebody works the open pickups off one by
@@ -229,7 +230,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                 </div>
               ))}
             </div>
-          )}
+          </Reveal>
         </div>
       )}
     </div>

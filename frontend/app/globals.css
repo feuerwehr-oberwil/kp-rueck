@@ -454,6 +454,34 @@
   }
 }
 
+/* Native <details> (settings: Telemetrie, Audit-Log, Drucker «So funktioniert
+   es»): the same slide on the browser's own content box. Needs
+   `interpolate-size` to animate to `auto` — Chromium 129+; where it is
+   missing (Safari today) the body opens instantly, as it always did. */
+@supports (interpolate-size: allow-keywords) {
+  details {
+    interpolate-size: allow-keywords;
+  }
+  details::details-content {
+    block-size: 0;
+    opacity: 0;
+    overflow-y: clip;
+    transition:
+      block-size var(--reveal-duration) var(--ease),
+      opacity var(--reveal-duration) var(--ease),
+      content-visibility var(--reveal-duration) allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    details::details-content {
+      transition: none;
+    }
+  }
+}
+
 @layer utilities {
   /* Modal height scale. Two steps, not the eight ad-hoc vh values this
      replaced: `compact` for confirming something, `tall` for picking from a

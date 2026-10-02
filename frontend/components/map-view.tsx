@@ -36,6 +36,7 @@ import { Maximize, Truck, Users } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
+import { Reveal } from "@/components/ui/reveal"
 
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -770,7 +771,8 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
         </span>
       </div>
 
-      {isExpanded && (
+      {/* Slides open/closed (Reveal) — the list used to pop in at full height. */}
+      <Reveal open={isExpanded}>
         <ul className="mt-3 space-y-1 text-sm border-t border-warning/50 pt-2 max-h-60 overflow-y-auto">
           {incidents.map((incident) => (
             <li
@@ -786,7 +788,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
             </li>
           ))}
         </ul>
-      )}
+      </Reveal>
     </div>
   )
 }

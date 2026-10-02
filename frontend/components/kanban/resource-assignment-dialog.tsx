@@ -32,6 +32,7 @@ import { getIncidentRefLabel } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
+import { Reveal } from "@/components/ui/reveal"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
@@ -1613,7 +1614,7 @@ export function ResourceAssignmentDialog({
                     // Origin(s) of the module's items — distinct depots/locations.
                     const groupOrigins = [...new Set(groupMats.map(m => m.category).filter(Boolean))].join(", ")
                     return (
-                      <div key={`group-${groupId}`} className="space-y-1">
+                      <div key={`group-${groupId}`}>
                         {/* Group header row */}
                         <div className={cn(
                           "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
@@ -1672,11 +1673,13 @@ export function ResourceAssignmentDialog({
                         {/* Expanded individual materials — the same tile as
                             ungrouped items, slightly inset so they read as the
                             module's contents. */}
-                        {isExpanded && (
+                        {/* Slides open (Reveal); the 4px gap under the header
+                            is padding inside the clip, so nothing snaps. */}
+                        <Reveal open={isExpanded} innerClassName="pt-1">
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-4 border-l-2 border-border/40 ml-3">
                             {groupMats.map(renderMaterialTile)}
                           </div>
-                        )}
+                        </Reveal>
                       </div>
                     )
                   })}

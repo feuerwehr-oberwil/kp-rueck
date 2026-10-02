@@ -47,9 +47,16 @@ export function Reveal({
   children,
   className,
   innerClassName,
+  keepMounted = false,
+  id,
 }: {
   open: boolean
   children: ReactNode
+  /** Keep the body in the DOM (`hidden`) while closed — for bodies that hold
+   *  form state a close must not throw away (the /feld sections). */
+  keepMounted?: boolean
+  /** For a trigger's `aria-controls`. */
+  id?: string
   /** On the outer grid box — e.g. cancelling a parent's `space-y` margin. */
   className?: string
   /**
@@ -115,11 +122,13 @@ export function Reveal({
     [],
   )
 
-  if (phase === "closed") return null
+  if (phase === "closed" && !keepMounted) return null
 
   const expanded = phase === "open"
   return (
     <div
+      id={id}
+      hidden={phase === "closed" || undefined}
       data-slot="reveal"
       data-state={expanded ? "open" : "closed"}
       inert={!open || undefined}
