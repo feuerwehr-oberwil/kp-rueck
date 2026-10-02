@@ -1026,6 +1026,7 @@
     },
     "driverNote": {
       "missing": "Kein Fahrer",
+      "missingNamed": "{vehicle} ohne Fahrer",
       "pick": "Fahrer wählen",
       "pickFor": "Kein Fahrer – Fahrer für {vehicle} wählen"
     }
@@ -2688,7 +2689,8 @@
       "unknownAddress": "Ohne Adresse",
       "footer": "KP Rück - Notfall-Ausdruck",
       "fahrerCol": "Fahrer",
-      "ortCol": "Ort"
+      "ortCol": "Ort",
+      "noDriver": "ohne Fahrer"
     },
     "map": {
       "loadFailed": "Karte konnte nicht geladen werden. Ohne Karte drucken oder später erneut versuchen.",

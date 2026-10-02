@@ -2136,6 +2136,7 @@
     },
     "driverNote": {
       "missing": "Pas de conducteur",
+      "missingNamed": "{vehicle} sans conducteur",
       "pick": "Choisir un conducteur",
       "pickFor": "Pas de conducteur – choisir un conducteur pour {vehicle}"
     }
@@ -2767,7 +2768,8 @@
       "unknownAddress": "Sans adresse",
       "footer": "KP Rück - impression de secours",
       "fahrerCol": "Conducteur",
-      "ortCol": "Lieu"
+      "ortCol": "Lieu",
+      "noDriver": "sans conducteur"
     },
     "map": {
       "loadFailed": "Impossible de charger la carte. Imprimez sans carte ou réessayez plus tard.",
