@@ -1401,7 +1401,7 @@ export function ResourceAssignmentDialog({
           a responsive variant that an unprefixed max-w-* does NOT override. */}
       <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 pr-8">
             <Icon className="h-5 w-5" />
             {getDialogTitle()}
           </DialogTitle>
