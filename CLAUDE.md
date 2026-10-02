@@ -339,6 +339,23 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
+- **Form messages** (`components/ui/form-message.tsx`): what is wrong with a field is said UNDER
+  it. Red `error` blocks saving (`role="alert"`, the control gets `fieldMessageProps(id, 'error')`
+  = `aria-invalid` + `aria-describedby`, a submit focuses the first blocking field via
+  `focusFirstBlockingField`); amber `advice` is a polite status and never blocks. No toast for a
+  field problem, and no submit button greyed out without a word. `DetailField` takes `error` /
+  `advice` and renders it with the id `formMessageId(htmlFor)`.
+- **Empty lists** (`components/ui/empty-state.tsx`): say WHY and offer the one way out – search
+  («Keine Treffer für «q».» + «Suche leeren»), filter (name it + «Filter zurücksetzen», which
+  keeps the search and every tick), truly nothing (what would fill it), everything taken (a line
+  above the spoken-for block, not a replacement). Title + one line + at most one action, no big
+  icons; the repeated board columns keep their single grey sentence.
+- **Search fields**: every «type to narrow this list» is `components/ui/search-input.tsx` – its
+  ✕ is «Suche leeren» and keeps focus, it is ≥44px with 16px text on a phone or coarse pointer
+  whatever `className` says, focus is the `Input` ring (no own ring), `count` is the optional
+  live hit count. Not a hand-built `relative` + `<Search>` + `<Input>`. Where the chip rows do
+  not fit (`useCompactFilters`: ≤639px wide or ≤719px tall) the assignment dialog folds them into
+  ONE «Filtern» menu with the active count on the button and a «Gefiltert: …» line under it.
 
 ## Important Files & Documentation
 
