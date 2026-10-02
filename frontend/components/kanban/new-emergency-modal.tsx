@@ -29,8 +29,9 @@
  * disabled button said nothing, and its error only appeared after the field had
  * been filled and emptied again.
  *
- * ON A PHONE the rows stack (`stacked`): label above, control full width, switches
- * label-left / switch-right — the grammar of every other phone form. The row's 120px
+ * ON A PHONE the rows stack (DetailField does that by itself below 768px, see
+ * `useStackedFields`): label above, control full width, switches label-left /
+ * switch-right — the grammar of every other phone form. The row's 120px
  * label column left a 390px phone ~200px of control and read as a table. A field's
  * message then sits full width under its control as well.
  */
@@ -234,7 +235,7 @@ export function NewEmergencyModal({
               </FormMessage>
             )}
 
-            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart stacked={isMobile}>
+            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
               <Textarea
                 id="notes"
                 placeholder={t('common.meldungPlaceholder')}
@@ -247,7 +248,7 @@ export function NewEmergencyModal({
 
             {/* One per line, Einsatzart and Priorität included: two half-width
                 controls sharing a row is how «Mittel» gets read as the Einsatzart. */}
-            <DetailField label={t('common.einsatzart')} htmlFor="incidentType" stacked={isMobile}>
+            <DetailField label={t('common.einsatzart')} htmlFor="incidentType">
               <Select
                 value={formData.incidentType}
                 onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
@@ -265,7 +266,7 @@ export function NewEmergencyModal({
               </Select>
             </DetailField>
 
-            <DetailField label={t('common.priority')} htmlFor="priority" stacked={isMobile}>
+            <DetailField label={t('common.priority')} htmlFor="priority">
               <Select
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
@@ -291,8 +292,6 @@ export function NewEmergencyModal({
               `DetailToggle`, as the Übersicht tab. The explanatory sentence under
               each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
-              stacked={isMobile}
-
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
               icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
@@ -302,8 +301,6 @@ export function NewEmergencyModal({
               }
             />
             <DetailToggle
-              stacked={isMobile}
-
               label={t('common.feldReported')}
               description={t('common.feldReportedDescription')}
               icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
@@ -313,7 +310,7 @@ export function NewEmergencyModal({
               }
             />
 
-            <DetailField label={t('common.contact')} htmlFor="contact" stacked={isMobile}>
+            <DetailField label={t('common.contact')} htmlFor="contact">
               <Input
                 id="contact"
                 placeholder={t('common.contactPlaceholder')}
@@ -325,7 +322,7 @@ export function NewEmergencyModal({
             <DetailField
               label={t('common.contactPhone')}
               htmlFor={PHONE_FIELD_ID}
-              stacked={isMobile}
+             
               advice={
                 showPhoneAdvice && phone
                   ? t(phone.kind === 'short' ? 'newEmergency.phoneShort' : 'newEmergency.phoneLong', { digits: phone.digits })

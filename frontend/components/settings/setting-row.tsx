@@ -24,6 +24,13 @@
  * Auswahlfelder und Textfelder die Spalte, und nur Zahlenfelder bleiben schmal (eine Minutenzahl
  * in 200 Pixeln liest sich als Fehler).
  *
+ * **Auf dem Handy steht die Beschriftung ÜBER dem Feld** (Regel des Owners, 02.10.2026):
+ * Beschriftung → Hinweis → Bedienelement in voller Breite. Die 200-Pixel-Spalte liess einem
+ * 390er-Handy rund 80 Pixel für Beschriftung und Hinweis, und die standen dann als Wortsäule
+ * neben dem Feld. Ausnahme Schalter: die bleiben rechts neben ihrer Beschriftung, wie überall
+ * auf dem Handy (`DetailToggle`). Entschieden wird über `useStackedFields` – dieselbe Weiche
+ * wie beim `DetailField`; die Aufruferin muss nichts tun.
+ *
  * Die drei Teile der Sperre stecken mit drin (`unavailable`), damit «gesperrt» nicht wieder in
  * jedem Abschnitt anders aussieht: Marke an der Beschriftung, Satz in voller Breite unter der
  * Zeile, und das `title` am Bedienelement bleibt Sache der Aufruferin – sie hält es ohnehin
@@ -34,6 +41,7 @@ import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { useStackedFields } from '@/components/ui/use-stacked-fields'
 import { cn } from '@/lib/utils'
 import {
   SettingUnavailableBadge,
@@ -72,8 +80,23 @@ interface SettingRowProps {
   footer?: ReactNode
   /** Das Bedienelement. */
   children?: ReactNode
+  /** Erzwingt eine Form; ohne Angabe gestapelt auf dem Handy (`useStackedFields`). */
+  stacked?: boolean
   className?: string
 }
+
+/**
+ * Gestapelt (Handy): ein Schalter als Bedienelement bleibt rechts neben der Beschriftung –
+ * an der Zeile per `:has()` erkannt, damit keine Aufruferin ihn eigens anmelden muss.
+ */
+const STACKED_ROW =
+  'flex flex-col items-stretch gap-2 ' +
+  'has-[>[data-slot=setting-control]_[data-slot=switch]]:flex-row ' +
+  'has-[>[data-slot=setting-control]_[data-slot=switch]]:items-center ' +
+  'has-[>[data-slot=setting-control]_[data-slot=switch]]:gap-5'
+const STACKED_CONTROL =
+  'flex w-full min-w-0 justify-start ' +
+  'has-[[data-slot=switch]]:w-auto has-[[data-slot=switch]]:shrink-0 has-[[data-slot=switch]]:justify-end'
 
 export function SettingRow({
   label,
@@ -84,15 +107,21 @@ export function SettingRow({
   unavailableBadge,
   footer,
   children,
+  stacked: stackedProp,
   className,
 }: SettingRowProps) {
   const t = useTranslations('settings.common')
+  const stacked = useStackedFields(stackedProp)
 
   return (
     // `data-slot`: the settings search lands ON the row (scroll + flash) — it
     // finds the matched catalogue text in the DOM and walks up to this marker.
-    <div data-slot="setting-row" className={cn('py-3', className)}>
-      <div className="flex items-center gap-5">
+    <div
+      data-slot="setting-row"
+      data-stacked={stacked ? '' : undefined}
+      className={cn('py-3', className)}
+    >
+      <div className={stacked ? STACKED_ROW : 'flex items-center gap-5'}>
         <div className="min-w-0 flex-1">
           {/* Die Marken stehen NEBEN der Beschriftung, nie darin: ein Button innerhalb
               eines <label> löst beim Klick das Bedienelement aus, zu dem er gehört. */}
@@ -113,7 +142,12 @@ export function SettingRow({
           {hint && <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{hint}</p>}
         </div>
         {children && (
-          <div className={cn('flex shrink-0 justify-end', SETTING_CONTROL_COLUMN)}>{children}</div>
+          <div
+            data-slot="setting-control"
+            className={stacked ? STACKED_CONTROL : cn('flex shrink-0 justify-end', SETTING_CONTROL_COLUMN)}
+          >
+            {children}
+          </div>
         )}
       </div>
       {unavailable && <SettingUnavailableNote className="mt-2">{unavailable}</SettingUnavailableNote>}
@@ -228,8 +262,11 @@ export function SettingGroup({
 }) {
   return (
     <div className={cn('mt-6', className)}>
-      <div className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">
+      {/* Wraps instead of squeezing: an action wider than a switch («Rapporte eintreffen
+          lassen») drops under the title on a phone rather than leaving the title and hint
+          a one-word column beside it. */}
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+        <div className="min-w-[min(12rem,100%)] flex-1">
           <p className="text-xs font-semibold text-muted-foreground">{title}</p>
           {hint && <p className="mt-0.5 mb-1 text-xs leading-snug text-muted-foreground">{hint}</p>}
         </div>
