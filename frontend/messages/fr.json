@@ -950,7 +950,6 @@
       "notesPlaceholder": "Accès, clé, contact sur place …",
       "needLocation": "Sans lieu d'intervention, le PC ne peut envoyer personne.",
       "needMessage": "Sans message, le PC ne sait pas de quoi il s'agit.",
-      "nextStepHint": "Étape suivante : vérifier l'annonce.",
       "locationHint": "Saisir l'adresse, toucher la carte ou « Utiliser ma position ».",
       "locationHintPhone": "Saisir l'adresse ou toucher la carte."
     },
