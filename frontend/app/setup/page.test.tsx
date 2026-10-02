@@ -132,6 +132,47 @@ describe('SetupPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/login')
   })
 
+  it('asks for no Einrichtungscode unless the backend requires one', async () => {
+    await renderForm()
+
+    expect(screen.queryByLabelText(/Einrichtungscode/)).not.toBeInTheDocument()
+  })
+
+  it('sends the Einrichtungscode when the backend requires one', async () => {
+    const user = userEvent.setup()
+    getSetupStatus.mockResolvedValue({ claimed: false, setup_token_required: true })
+    await renderForm()
+
+    await user.type(screen.getByLabelText('Einrichtungscode (steht im Server-Log)'), ' ABCD-EFGH-JKMN-PQRS ')
+    await fillAndSubmit(user)
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/'))
+    expect(claimSetup).toHaveBeenCalledWith({
+      station_name: 'Feuerwehr Testwil',
+      admin_password: VALID_PASSWORD,
+      setup_token: 'ABCD-EFGH-JKMN-PQRS',
+    })
+  })
+
+  it('shows the Einrichtungscode field when a claim is refused for the lack of one', async () => {
+    // The status check failed open (backend still booting), so the page did
+    // not know to ask — the 403 is what tells it.
+    const user = userEvent.setup()
+    getSetupStatus.mockResolvedValue(null)
+    claimSetup.mockRejectedValue(
+      new ApiError('Einrichtungscode fehlt oder ist falsch. Er steht im Server-Log.', 403)
+    )
+    await renderForm()
+
+    await fillAndSubmit(user)
+
+    expect(
+      await screen.findByText('Einrichtungscode fehlt oder ist falsch. Er steht im Server-Log.')
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Einrichtungscode (steht im Server-Log)')).toBeInTheDocument()
+    expect(assign).not.toHaveBeenCalled()
+  })
+
   it('relays the backend refusal honestly on 422', async () => {
     const user = userEvent.setup()
     claimSetup.mockRejectedValue(new ApiError('Passwort erfüllt die Anforderungen nicht', 422))

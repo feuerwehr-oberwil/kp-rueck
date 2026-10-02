@@ -26,6 +26,9 @@ export type NotificationType =
   // a radio message must not ring its own bell (suppressed server-side).
   | 'reko_arrived'
   | 'reko_submitted'
+  // The door: the Feld-Code was rotated after too many wrong guesses from any
+  // address. Event-level (no incident_id); a warning, so it toasts.
+  | 'feld_code_rotated'
 
 export interface Notification {
   id: string

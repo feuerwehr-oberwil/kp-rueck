@@ -72,11 +72,14 @@ export interface ApiPrintJob {
 // First-Run Setup Types
 export interface ApiSetupStatus {
   claimed: boolean
+  /** The claim must quote the Einrichtungscode from the server log (internet-facing boards). */
+  setup_token_required?: boolean
 }
 
 export interface ApiSetupClaim {
   station_name: string
   admin_password: string
+  setup_token?: string
 }
 
 export interface ApiSetupResult {

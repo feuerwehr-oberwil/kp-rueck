@@ -897,6 +897,39 @@ async def create_field_notification(
     return notification
 
 
+async def create_feld_code_rotated_notification(db: AsyncSession, event: Event) -> Notification:
+    """Bell entry: the Feld-Code was rotated because it was being guessed.
+
+    A ``warning``, not ``info``: from this moment every phone that has not
+    unlocked yet needs the NEW four digits, and the only people who can hand
+    them out are the ones reading this. The new code itself is deliberately
+    not in the message — the bell is readable by viewers too, and the code is
+    one click away in «Links & QR».
+
+    Event-level (no incident). The frontend renders its own per-locale text for
+    this type (``lib/contexts/notification-context.tsx``); the German message
+    here is the fallback and what the API returns.
+    """
+    notification = Notification(
+        type="feld_code_rotated",
+        severity="warning",
+        message=f"Feld-Code für {event.name} nach zu vielen Fehlversuchen neu erzeugt",
+        incident_id=None,
+        event_id=event.id,
+    )
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+
+    from ..websocket_manager import broadcast_notification_update
+
+    await broadcast_notification_update(
+        {"id": str(notification.id), "type": notification.type, "event_id": str(event.id)},
+        "create",
+    )
+    return notification
+
+
 async def create_reko_arrived_notification(
     db: AsyncSession,
     incident_id: UUID,

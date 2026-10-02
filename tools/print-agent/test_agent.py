@@ -383,6 +383,130 @@ def test_rueck_still_paces_itself_against_a_backend_that_ignores_wait(no_long_po
     assert elapsed >= 0.5, f"spun instead of pacing itself ({elapsed:.2f}s)"
 
 
+# --- Claim one, print it, report it: nothing ages past the backend's stale clock ----------
+
+
+class QueueHandler(RueckHandler):
+    """A backend with a real little queue: three pending jobs, claims take them off it.
+
+    Records the conversation as an ordered list of events, so a test can assert on the ORDER
+    of claims and reports — which is the whole property under test.
+    """
+
+    def do_GET(self):
+        if self.path.startswith("/api/print/jobs/pending/"):
+            self.server.seen.append(("GET", self.path))
+            pending = [j for j in ("q-1", "q-2", "q-3") if j not in self.server.claimed]
+            self._json([{"id": j, "job_type": "assignment", "payload": {}} for j in pending])
+            return
+        super().do_GET()
+
+    def do_PATCH(self):
+        job_id = self.path.split("/")[-3]
+        if self.path.endswith("/claim/"):
+            self.server.claimed.add(job_id)
+            self.server.events.append(("claim", job_id))
+            self._json({"ok": True})
+            return
+        if self.path.endswith("/complete/"):
+            self.server.events.append(("complete", job_id))
+            self.server.complete_calls += 1
+            status = self.server.complete_answers.pop(0) if self.server.complete_answers else 200
+            if status != 200:
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                self.send_response(status); self.end_headers(); return
+        super().do_PATCH()
+
+
+@pytest.fixture
+def queue_server():
+    srv = _Stub(QueueHandler)
+    srv.claimed, srv.events, srv.complete_answers, srv.complete_calls = set(), [], [], 0
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield srv
+    srv.shutdown()
+
+
+@pytest.fixture
+def no_report_backoff(monkeypatch):
+    import protocols.rueck as rueck
+    monkeypatch.setattr(rueck, "REPORT_RETRY_DELAYS_SEC", (0.0, 0.0))
+
+
+def _queue_backend(url):
+    backend = _build({"name": "rueck", "protocol": "kp-rueck", "url": url,
+                      "secret": "rueck-token", "output": "escpos", "dry_run": True})
+    backend.protocol.refresh_config()
+    return backend
+
+
+def test_rueck_claims_one_job_prints_and_reports_it_before_claiming_the_next(queue_server):
+    """The claim starts the backend's 120 s stale clock. Claiming ten up front let the tenth
+    age through nine prints and get requeued while still in hand — a double print."""
+    backend = _queue_backend(queue_server.url)
+
+    backend.run(threading.Event(), once=True)
+    assert queue_server.events == [("claim", "q-1"), ("complete", "q-1")]
+
+    backend.run(threading.Event(), once=True)
+    backend.run(threading.Event(), once=True)
+    assert queue_server.events == [
+        ("claim", "q-1"), ("complete", "q-1"),
+        ("claim", "q-2"), ("complete", "q-2"),
+        ("claim", "q-3"), ("complete", "q-3"),
+    ]
+
+
+def test_a_lost_completion_report_is_retried(queue_server, no_report_backoff, monkeypatch):
+    """A report that never arrives means the backend requeues the job and it prints twice."""
+    import urllib.error
+
+    import protocols.rueck as rueck
+
+    real_request = rueck.request
+    failures = iter([urllib.error.URLError("Connection refused")])
+
+    def flaky(url, **kw):
+        if url.endswith("/complete/"):
+            err = next(failures, None)
+            if err is not None:
+                raise err
+        return real_request(url, **kw)
+
+    monkeypatch.setattr(rueck, "request", flaky)
+    backend = _queue_backend(queue_server.url)
+    backend.run(threading.Event(), once=True)
+
+    assert queue_server.events == [("claim", "q-1"), ("complete", "q-1")]
+
+
+def test_a_backend_restarting_behind_its_proxy_gets_the_report_on_the_next_attempt(queue_server, no_report_backoff):
+    queue_server.complete_answers = [502, 503]
+    backend = _queue_backend(queue_server.url)
+    backend.run(threading.Event(), once=True)
+
+    assert queue_server.complete_calls == 3
+    assert queue_server.events[-1] == ("complete", "q-1")
+
+
+def test_a_4xx_answer_to_the_report_is_not_retried(queue_server, no_report_backoff):
+    """409 means the job is already settled; asking again cannot change that."""
+    queue_server.complete_answers = [409]
+    backend = _queue_backend(queue_server.url)
+    backend.run(threading.Event(), once=True)
+
+    assert queue_server.complete_calls == 1
+
+
+def test_an_exhausted_report_gives_up_without_ending_the_cycle(queue_server, no_report_backoff, capsys):
+    queue_server.complete_answers = [503, 503, 503, 503]
+    backend = _queue_backend(queue_server.url)
+    backend._cycle()  # must not raise — the paper is out either way
+
+    assert queue_server.complete_calls == 3
+    assert "may print a second time" in capsys.readouterr().out
+
+
 # --- QR sizing --------------------------------------------------------------------------
 #
 # The sizing lives in `core` (stdlib) rather than in `formatters` (which imports escpos), so

@@ -2616,7 +2616,8 @@ class ApiClient {
   /**
    * Claim the board: names the station and creates the admin account.
    * Rejects with a 409 `ApiError` when someone else already claimed it,
-   * 422 when the password is too short.
+   * 422 when the password is too short, 403 when the Einrichtungscode is
+   * missing or wrong, 429 after too many wrong codes.
    */
   async claimSetup(data: ApiSetupClaim): Promise<ApiSetupResult> {
     return this.request<ApiSetupResult>('/api/setup', {

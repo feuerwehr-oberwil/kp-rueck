@@ -23,7 +23,7 @@ from ..auth.security import (
     create_ws_token,
     decode_token,
     session_family,
-    verify_password,
+    verify_login_password,
 )
 from ..auth.token_blocklist import token_blocklist
 from ..config import settings
@@ -84,8 +84,11 @@ async def login(
     result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
 
-    # Verify credentials (password_hash can be None for Microsoft-only users)
-    if not user or not user.password_hash or not verify_password(form_data.password, user.password_hash):
+    # Verify credentials (password_hash can be None for Microsoft-only users). Always ONE
+    # bcrypt check, in a worker thread, whether or not the user exists — see
+    # auth/security.verify_login_password for both halves of why.
+    password_ok = await verify_login_password(form_data.password, user.password_hash if user else None)
+    if not user or not password_ok:
         await login_throttle.record_failure(client_ip, form_data.username)
         # Log failed login attempt if user exists
         if user:

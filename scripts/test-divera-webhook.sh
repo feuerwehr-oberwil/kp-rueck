@@ -1,9 +1,15 @@
 #!/bin/bash
-# Test script for Divera webhook using curl
-# Usage:
-#   ./test_divera_webhook.sh                    # Test locally
-#   ./test_divera_webhook.sh production         # Test on Railway
-#   ./test_divera_webhook.sh http://custom-url  # Custom URL
+# Manual smoke test for the Divera webhook using curl. NOT part of the test suite (that is
+# backend/tests/test_api/test_alarms.py); it lived in backend/ until 2026-09-23, where it sat
+# next to the code that ships in the image and looked like one.
+#
+# ⚠️ It POSTs a FEUER3 alarm. Against a board with an auto-attach event that becomes a real
+# incident card, so `production` is for a station that has agreed to it, not for curiosity.
+#
+# The webhook fails closed without a secret, so pass the station's `alarm_webhook_secret`:
+#   WEBHOOK_SECRET=… ./scripts/test-divera-webhook.sh                    # Test locally
+#   WEBHOOK_SECRET=… ./scripts/test-divera-webhook.sh production         # $PRODUCTION_URL
+#   WEBHOOK_SECRET=… ./scripts/test-divera-webhook.sh http://custom-url  # Custom URL
 
 set -e
 
@@ -47,6 +53,7 @@ echo ""
 # Send webhook
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$WEBHOOK_URL" \
   -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: ${WEBHOOK_SECRET:-}" \
   -d "$PAYLOAD")
 
 # Extract status code (last line)
