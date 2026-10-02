@@ -100,7 +100,7 @@ const TIMED_KINDS = ['success', 'info', 'warning', 'error', 'message'] as const
  * to keep it that way) for one default is churn, not design. Same technique the
  * quiet-surface muting in NotificationToasts already uses — and it composes with
  * it: that effect saves and restores whatever is installed, i.e. these wrappers.
- * Bare `toast()` cannot be wrapped (sonner binds it internally); its two callers
+ * Bare `toast()` cannot be wrapped (sonner binds it internally); its callers
  * pass `toastLifetime(…)` themselves. Idempotent across HMR.
  */
 export function installToastLifetime() {

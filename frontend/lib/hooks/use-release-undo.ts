@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
+import { toastLifetime } from "@/lib/toast-lifetime"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -139,7 +140,8 @@ export function useReleaseUndo() {
         toast(
           translateOutsideReact(items.length > 1 ? "notifications.release.releasedMany" : "notifications.release.released", values),
           {
-            duration: 8000,
+            // a bare toast() bypasses the lifetime wrappers — carry the line itself
+            ...toastLifetime(8000),
             action: {
               label: translateOutsideReact("notifications.operations.undoLabel"),
               onClick: () => {
