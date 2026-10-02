@@ -103,7 +103,12 @@ export default function DisplayIndexPage() {
                           </span>
                         )}
                         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {te('incidentCount', { count: event.incident_count })}
+                          {/* `incidentCountShort`, the key /events uses. This page
+                              asked for `incidentCount`, which /events renamed in
+                              August — next-intl prints the path rather than
+                              throwing, so every row read «events.page.incidentCount».
+                              lib/i18n-keys-used.test.ts now catches that. */}
+                          {te('incidentCountShort', { count: event.incident_count })}
                         </span>
                       </button>
                     </li>
