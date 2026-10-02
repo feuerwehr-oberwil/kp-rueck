@@ -86,11 +86,22 @@ export function useFieldSave(incidentId: string, field: SavedTextField, serverVa
 export function FieldSaveStatus({
   view,
   onRetry,
+  part = "all",
   className,
 }: {
   view: FieldSaveView
   /** Send the kept draft again — the caller's own update path. */
   onRetry: (draft: string) => void
+  /**
+   * `all` — the line under the field (default).
+   * `mark` — only a small icon for INSIDE the field's trailing edge: trail
+   *   while saving, ✓ when saved, ! when failed; the words are its `title`
+   *   and a live region. Never takes layout space — for rows that must keep
+   *   their height (the toggle notes, owner 02.10.).
+   * `failure` — only the failure block (reason, «Erneut speichern», «Text
+   *   kopieren»): an error is allowed to take space, saving/saved are not.
+   */
+  part?: "all" | "mark" | "failure"
   className?: string
 }) {
   const t = useTranslations("kanban.fieldSave")
@@ -125,6 +136,37 @@ export function FieldSaveStatus({
   }, [view.draft])
 
   if (!entry) return null
+
+  if (part === "mark") {
+    const saving = entry.status === "pending" || entry.status === "saving"
+    const savedShown = entry.status === "saved" && !!entry.savedAt && expiredSavedAt !== entry.savedAt
+    const failed = entry.status === "failed"
+    if (!saving && !savedShown && !failed) return null
+    const label = saving
+      ? t("saving")
+      : failed
+        ? t("failed")
+        : t("savedAt", { time: formatClockTime(entry.savedAt!) })
+    return (
+      <span
+        role={failed ? undefined : "status"}
+        aria-live={failed ? undefined : "polite"}
+        title={label}
+        className={cn("pointer-events-auto inline-flex size-4 items-center justify-center", className)}
+      >
+        {saving ? (
+          <ShellLoader className="size-3.5" />
+        ) : failed ? (
+          <AlertCircle className="size-3.5 text-destructive" aria-hidden="true" />
+        ) : (
+          <Check className="size-3.5 text-success" aria-hidden="true" />
+        )}
+        <span className="sr-only">{label}</span>
+      </span>
+    )
+  }
+
+  if (part === "failure" && entry.status !== "failed") return null
 
   if (entry.status === "pending" || entry.status === "saving") {
     return (
