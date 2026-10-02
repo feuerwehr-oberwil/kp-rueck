@@ -65,11 +65,26 @@ describe('pickVisibleLabels', () => {
   })
 
   it('ignores anchors outside the viewport, so they block nothing', () => {
-    const visible = pickVisibleLabels([candidate('off', -50, 0, { priority: 'high' }), candidate('on', 5, 5)], {
+    const visible = pickVisibleLabels([candidate('off', -50, 50, { priority: 'high' }), candidate('on', 5, 50)], {
       ...GEOMETRY,
       viewport: { width: 390, height: 400 },
     })
     expect([...visible]).toEqual(['on'])
+  })
+
+  it('drops a label that would hang off the edge, but keeps its dot as an obstacle', () => {
+    const viewport = { width: 390, height: 400 }
+    // «edge» sits 40px from the right edge: its 100px label cannot fit.
+    const visible = pickVisibleLabels([candidate('edge', 350, 100, { priority: 'high' }), candidate('left', 300, 100)], {
+      ...GEOMETRY,
+      viewport,
+    })
+    expect(visible.has('edge')).toBe(false)
+    // «left»'s label (320–420) would also leave the map; nothing is drawn rather than a stub.
+    expect(visible.has('left')).toBe(false)
+    const inner = pickVisibleLabels([candidate('edge', 350, 100), candidate('inner', 200, 100)], { ...GEOMETRY, viewport })
+    // «inner»'s label (220–320) stays clear of edge's dot (338–362) and fits.
+    expect([...inner]).toEqual(['inner'])
   })
 })
 

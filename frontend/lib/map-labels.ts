@@ -86,7 +86,8 @@ export function pickVisibleLabels(
     labelOffsetX: number
     labelHeight: number
     dotSize: number
-    /** Only labels whose anchor is on screen take part – an off-screen one would still block. */
+    /** Only anchors on screen take part (an off-screen one would still block), and only labels
+     *  that fit inside it are drawn. */
     viewport?: { width: number; height: number }
   },
 ): Set<string> {
@@ -119,6 +120,9 @@ export function pickVisibleLabels(
       right: c.x + labelOffsetX + c.width,
       bottom: top + labelHeight,
     }
+    // A label hanging off the map's edge is clipped to a stub – it names nothing. Its dot still
+    // counts as an obstacle for the others.
+    if (viewport && (rect.right > viewport.width || rect.top < 0 || rect.bottom > viewport.height)) continue
     if (kept.some((other) => intersects(rect, other))) continue
     // Its own dot does not count – and neither does a dot at exactly the same spot, which is
     // the same address (those labels step down instead, see `stackSharedAddresses`).
