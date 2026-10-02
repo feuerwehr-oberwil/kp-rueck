@@ -192,6 +192,26 @@ describe("special functions in the crew list", () => {
     expect(screen.getByText(/Verfügbar · 1/)).toBeDefined()
   })
 
+  it("draws «Bereits im Einsatz» quiet: neutral heading and tile, amber only in the note", () => {
+    // Owner decision 2026-10: no amber heading, no amber-tinted tiles — the
+    // small amber note on the row names where the person is.
+    renderCrewWithAssigned(
+      [
+        person({ name: "Egger Olivier", status: "assigned", isMagazin: true }),
+        person({ name: "Frei Anna" }),
+      ],
+      [],
+    )
+
+    const heading = screen.getByText(/Bereits im Einsatz · 1/).closest("h3") as HTMLElement
+    expect(heading.className).toContain("text-muted-foreground")
+    expect(heading.innerHTML).not.toMatch(/amber/)
+
+    const tile = screen.getByRole("button", { name: /Egger Olivier/ })
+    expect(tile.className).not.toMatch(/amber/)
+    expect(tile.querySelector('[class*="text-amber-600"]')).not.toBeNull()
+  })
+
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {
     renderCrewWithAssigned(
       [
@@ -213,7 +233,7 @@ describe("special functions in the crew list", () => {
       person({ name: "Frei Anna" }),
     ])
 
-    await user.type(screen.getByPlaceholderText("Suchen …"), "kommandoposten")
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "kommandoposten")
 
     expect(screen.getByRole("button", { name: /Egger Olivier/ })).toBeDefined()
     expect(screen.queryByRole("button", { name: /Frei Anna/ })).toBeNull()

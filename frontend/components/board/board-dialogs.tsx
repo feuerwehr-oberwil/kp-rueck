@@ -431,6 +431,8 @@ export function BoardDialogs({
         onToggleDriverStay={!routeAssign && assignmentOperationId
           ? (vehicleName) => toggleDriverStay(assignmentOperationId, vehicleName)
           : undefined}
+        // Nobody checked in: the empty crew list offers the check-in link.
+        onShowCheckIn={() => setActiveFooterSheet('links')}
       />
 
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { UpdateBatcher } from './update-batcher'
+import { KeyedSerialQueue, UpdateBatcher } from './update-batcher'
 
 interface Op {
   status: string
@@ -118,5 +118,51 @@ describe('UpdateBatcher', () => {
     vi.advanceTimersByTime(500)
     expect(flush).toHaveBeenLastCalledWith({ location: 'Liestal' })
     expect(flush).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("KeyedSerialQueue", () => {
+  const deferred = () => {
+    let resolve!: () => void
+    let reject!: (e: Error) => void
+    const promise = new Promise<void>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
+  it("runs one task per key at a time, in order, and other keys in parallel", async () => {
+    const queue = new KeyedSerialQueue()
+    const started: string[] = []
+    const a1 = deferred()
+    const a2 = deferred()
+    const b1 = deferred()
+    void queue.run("a", () => (started.push("a1"), a1.promise))
+    const second = queue.run("a", () => (started.push("a2"), a2.promise))
+    void queue.run("b", () => (started.push("b1"), b1.promise))
+    await Promise.resolve()
+    expect(started).toEqual(["a1", "b1"])
+
+    // A failure ahead does not block or poison the next one.
+    a1.reject(new Error("offline"))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(started).toEqual(["a1", "b1", "a2"])
+    a2.resolve()
+    await expect(second).resolves.toBeUndefined()
+    b1.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(queue.isBusy("a")).toBe(false)
+  })
+
+  it("lets a pagehide flush jump the line", async () => {
+    const queue = new KeyedSerialQueue()
+    const started: string[] = []
+    const a1 = deferred()
+    void queue.run("a", () => (started.push("a1"), a1.promise))
+    void queue.run("a", async () => void started.push("flush"), { jump: true })
+    await Promise.resolve()
+    expect(started).toEqual(["a1", "flush"])
+    a1.resolve()
   })
 })

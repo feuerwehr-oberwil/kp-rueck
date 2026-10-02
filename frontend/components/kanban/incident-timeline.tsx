@@ -19,11 +19,12 @@
  */
 
 import { useTranslations } from "next-intl"
-import { ArrowRight, Loader2, MessageSquare, Package, Send, Truck, UserMinus, UserPlus } from "lucide-react"
+import { ArrowRight, MessageSquare, Package, Send, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 export interface IncidentTimelineProps {
   events: ApiIncidentTimelineEvent[] | null
@@ -35,6 +36,7 @@ export interface IncidentTimelineProps {
 
 export function IncidentTimeline({ events, isLoading, failed, onRetry, className }: IncidentTimelineProps) {
   const t = useTranslations('kanban')
+  const tLoading = useTranslations('common')
 
   // No card around the list and no hairlines inside it («Nur Abstand»): the
   // heading names the block, whitespace separates the entries. The display
@@ -48,9 +50,7 @@ export function IncidentTimeline({ events, isLoading, failed, onRetry, className
       </div>
 
       {isLoading && (
-        <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        </p>
+        <LoadingStatus className="py-2 text-xs">{tLoading('loading')}</LoadingStatus>
       )}
 
       {!isLoading && failed && (

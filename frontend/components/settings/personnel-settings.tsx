@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fieldMessageProps } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -33,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, Loader2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   DropdownMenu,
@@ -64,6 +65,7 @@ import {
   compareByRankThenName,
   setGlobalRankAbbreviations,
 } from '@/lib/roster-order';
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
@@ -673,7 +675,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     <Input
                       {...field}
                       id="personnel-name"
-                      aria-invalid={!!fieldState.error}
+                      {...fieldMessageProps('personnel-name', fieldState.error ? 'error' : null)}
                       placeholder={t('personnel.namePlaceholder')}
                       autoFocus
                     />
@@ -749,7 +751,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                         <Input
                           {...field}
                           id="personnel-role"
-                          aria-invalid={!!fieldState.error}
+                          {...fieldMessageProps('personnel-role', fieldState.error ? 'error' : null)}
                           placeholder={t('personnel.roleExamplePlaceholder')}
                         />
                       )}
@@ -856,7 +858,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={submitDisabled}>
-                  {isSaving && <Loader2 className="size-4 animate-spin" />}
+                  {isSaving && <ShellLoader className="size-4" />}
                   {editingPersonnel ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
@@ -884,8 +886,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
 
           {isSyncLoading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="ml-3 text-muted-foreground">{t('personnel.syncLoading')}</span>
+              <LoadingStatus size="surface" className="text-sm">{t('personnel.syncLoading')}</LoadingStatus>
             </div>
           )}
 
@@ -942,7 +943,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     onClick={handleExecuteSync}
                     disabled={isSyncExecuting || (syncPreview.new.length === 0 && !removeStale)}
                   >
-                    {isSyncExecuting && <Loader2 className="size-4 animate-spin" />}
+                    {isSyncExecuting && <ShellLoader className="size-4" />}
                     {t('personnel.syncExecuteButton')}
                   </Button>
                 </div>

@@ -3,7 +3,9 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
+import { setToastDurationSetting } from '@/lib/toast-lifetime'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -14,22 +16,6 @@ import {
   TOAST_BURST_LIMIT,
 } from '@/lib/notification-policy'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
-
-/**
- * Where the stack sits. Stable identities — see the note on the `offset` prop.
- *
- * Desktop has nothing at the bottom of the board, so the stack sits close to the
- * edge: the «Alle schliessen» pill takes the last 16px and the toasts start just
- * above it. It used to float 80px up with the pill at 48px, leaving a band of
- * empty screen underneath that made the whole group look detached from the
- * corner it is anchored to.
- *
- * Mobile keeps its distance: the bottom navigation is fixed there (min 60px plus
- * the safe-area inset), and a toast printed over the tab bar is a toast that
- * eats a tap.
- */
-const TOASTER_OFFSET = { right: '16px', bottom: '56px' }
-const TOASTER_OFFSET_MOBILE = { right: '16px', bottom: '116px' }
 
 const TOAST_DATA_KEY = 'shownToastData'
 const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
@@ -114,9 +100,11 @@ export function NotificationToasts() {
   // for the KP.
   const pathname = usePathname()
   const isQuietSurface = isMobile || (pathname?.startsWith('/feld') ?? false)
-  // Non-critical toast lifetime (ms), configurable in notification settings.
-  const toastDurationMs = Math.max(2, settings.toast_duration_seconds || 8) * 1000
-  const tCommon = useTranslations('kanban.common')
+  // «Anzeigedauer» scales every toast's length-based lifetime (lib/toast-lifetime.ts).
+  const toastDurationSetting = settings.toast_duration_seconds
+  useEffect(() => {
+    setToastDurationSetting(toastDurationSetting)
+  }, [toastDurationSetting])
   const tToasts = useTranslations('notifications.toasts')
 
   // Initialize with previously shown notification IDs from localStorage,
@@ -209,7 +197,7 @@ export function NotificationToasts() {
         // incident, and a page has to be listening (the board registers the
         // handler, the map does not).
         const target = canNavigateToIncident ? notification.incident_id : undefined
-        const description = target ? (
+        const message = target ? (
           <button
             type="button"
             title={tToasts('openIncident')}
@@ -229,31 +217,26 @@ export function NotificationToasts() {
 
         const toastOptions = {
           id: notification.id,
-          description,
           // Dismiss notification when toast is closed by any means
           onDismiss: () => dismissNotification(notification.id),
-          action: notification.severity === 'critical' ? {
-            label: tCommon('close'),
-            // Close the toast, which will trigger onDismiss callback
-            onClick: () => toast.dismiss(notification.id),
-          } : undefined,
         }
 
+        // The message IS the toast. A heading «Warnung» / «Information» above it
+        // said nothing the glyph does not (the tone lives in the glyph now). Only
+        // the critical one keeps its heading: it stays until somebody closes it
+        // (its ✕ — a «Schliessen» button beside the ✕ was the same act twice),
+        // and the heading says why it does not go away. The others get their
+        // lifetime from their length (lib/toast-lifetime.ts).
         if (notification.severity === 'critical') {
           toast.error(tToasts('criticalTitle'), {
             ...toastOptions,
+            description: message,
             duration: Infinity, // Manual dismiss only
           })
         } else if (notification.severity === 'warning') {
-          toast.warning(tToasts('warningTitle'), {
-            ...toastOptions,
-            duration: toastDurationMs,
-          })
+          toast.warning(message, toastOptions)
         } else {
-          toast.info(tToasts('infoTitle'), {
-            ...toastOptions,
-            duration: toastDurationMs,
-          })
+          toast.info(message, toastOptions)
         }
       })
 
@@ -263,7 +246,6 @@ export function NotificationToasts() {
         toast.info(tToasts('overflowTitle', { count: overflow.length }), {
           id: 'notification-overflow',
           description: tToasts('overflowDescription'),
-          duration: toastDurationMs,
           action: {
             label: tToasts('overflowAction'),
             onClick: () => {
@@ -290,44 +272,15 @@ export function NotificationToasts() {
     dismissNotification,
     isSidebarOpen,
     isQuietSurface,
-    toastDurationMs,
     openSidebar,
     navigateToIncident,
     canNavigateToIncident,
   ])
 
   return (
-    <Toaster
-      position="bottom-right"
-      // Hug the bottom-right corner: 16px from the right, and just above the
-      // "Alle schliessen" pill that closes the stack (on mobile, above the tab
-      // bar instead). Cap the visible stack so tall warning bursts don't climb
-      // into content.
-      //
-      // A module constant, not an inline literal: a fresh object on every render
-      // re-runs Sonner's positioning effect, which is what made toasts slide in
-      // from somewhere other than where they belong during a burst.
-      offset={isMobile ? TOASTER_OFFSET_MOBILE : TOASTER_OFFSET}
-      // Matches the burst budget (the "+N weitere" summary is counted inside it),
-      // so a planned burst lands at once instead of trickling in as timers expire.
-      visibleToasts={TOAST_BURST_LIMIT}
-      closeButton
-      expand={false}
-      duration={toastDurationMs}
-      toastOptions={{
-        classNames: {
-          toast: 'group shadow-lg',
-          title: 'font-semibold text-sm',
-          description: 'text-sm leading-relaxed',
-          actionButton: 'bg-black/10 hover:bg-black/20 dark:bg-white/20 dark:hover:bg-white/30 font-medium',
-          cancelButton: 'bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20',
-          closeButton: 'bg-black/5 border-0 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20',
-          success: 'bg-success/10 text-success border-success/30',
-          error: 'bg-destructive/10 text-destructive border-destructive/30',
-          warning: 'bg-warning/10 text-warning-foreground border-warning/30',
-          info: 'bg-info/10 text-info border-info/30',
-        },
-      }}
-    />
+    // Matches the burst budget (the "+N weitere" summary is counted inside it),
+    // so a planned burst lands at once instead of trickling in as timers expire.
+    // Look and placement: components/ui/sonner.tsx.
+    <Toaster visibleToasts={TOAST_BURST_LIMIT} />
   )
 }

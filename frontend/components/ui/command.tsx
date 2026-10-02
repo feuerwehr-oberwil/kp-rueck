@@ -87,7 +87,7 @@ function CommandInput({
       {showClose && (
         <DialogPrimitive.Close
           data-slot="command-input-close"
-          className="ring-offset-background focus:ring-ring hover:bg-muted hover:text-foreground -mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md opacity-70 transition-colors hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden cursor-pointer"
+          className="ring-offset-background focus:ring-ring hover:bg-muted hover:text-foreground -mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-sm opacity-70 transition-colors hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden cursor-pointer"
           aria-label={t('close')}
         >
           <XIcon className="size-4" />

@@ -14,18 +14,20 @@ import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/i
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { Loader2, Check, Layers, ChevronDown } from "lucide-react"
+import { Check, Layers, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { buildSituationData, viewerGroupsToIncidentGroups } from "@/lib/viewer-data"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
+import { LoadingStatus } from "@/components/ui/shell-loader"
+import { translateOutsideReact } from "@/lib/i18n-messages"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <LoadingStatus size="surface" className="text-sm">{translateOutsideReact('map.page.loading')}</LoadingStatus>
     </div>
   ),
 })
@@ -205,7 +207,7 @@ function DisplayMapControls({
             onClick={() => onToggleStatusFilter(group)}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${index > 0 ? 'border-l border-border' : ''} ${
               options.statusFilters[group]
-                ? 'bg-primary text-primary-foreground'
+                ? 'sel-choice'
                 : 'bg-background/80 text-muted-foreground hover:bg-muted'
             }`}
           >
@@ -220,7 +222,7 @@ function DisplayMapControls({
           <button
             className={`px-3 py-1.5 text-xs font-medium rounded-lg border shadow-md backdrop-blur-sm transition-colors flex items-center gap-1.5 ${
               optionsChanged
-                ? 'border-primary/50 bg-secondary/80 text-foreground'
+                ? 'border-sel-edge bg-secondary/80 text-foreground'
                 : 'bg-background/80 text-muted-foreground border-border hover:bg-muted'
             }`}
             title={t('page.viewMenuLabel')}
@@ -468,6 +470,7 @@ function TokenDisplayMap({
   gpsAvailable,
   onGpsAvailabilityChange,
 }: DisplayMapVariantProps & { token: string }) {
+  const tLoading = useTranslations('common')
   const [data, setData] = useState<ApiViewerData | null>(null)
   // Age of the last SUCCESSFUL poll. Holding the last-known data through a failed fetch is
   // correct; rendering it as if it were current is not. Frozen vehicle positions on a map
@@ -518,7 +521,7 @@ function TokenDisplayMap({
   if (!data) {
     return (
       <div className="flex h-full items-center justify-center bg-muted">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
   }

@@ -140,17 +140,24 @@
     },
     "staleDataBanner": {
       "connectionLost": "Liaison perdue – les données sont peut-être périmées.",
-      "lastUpdate": "Dernière actualisation il y a {time}. L’interrogation continue en arrière-plan.",
       "reconnect": "Se reconnecter",
       "loadFailedAt": "État à {time} – échec de la mise à jour",
       "showsLastLoaded": "Le tableau affiche le dernier état chargé.",
-      "reload": "Recharger"
+      "reload": "Recharger",
+      "confirmedAt": "État à {time}",
+      "notConfirmed": "Liaison rétablie – l’état actuel n’est pas encore confirmé."
     },
     "boardLoadError": {
       "title": "Impossible de charger les interventions",
       "body": "Le serveur n’a pas répondu ou a signalé une erreur. Le tableau n’est pas vide – il n’est pas encore chargé.",
       "retry": "Recharger"
     },
+    "bootScreen": {
+      "stuckTitle": "Le démarrage prend plus de temps que d’habitude",
+      "stuckHint": "Connexion faible ou serveur injoignable.",
+      "restart": "Redémarrer"
+    },
+    "loading": "Chargement …",
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },
@@ -161,6 +168,13 @@
       "errorDescription": "Le texte n’a pas pu être copié.",
       "copied": "Copié",
       "copy": "Copier"
+    },
+    "emptyState": {
+      "noHits": "Aucun résultat",
+      "noHitsFor": "Aucun résultat pour « {query} ».",
+      "clearSearch": "Effacer la recherche",
+      "resetFilters": "Réinitialiser les filtres",
+      "quoted": "« {name} »"
     },
     "deleteConfirmDialog": {
       "confirm": "Supprimer",
@@ -227,6 +241,8 @@
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
+    "closeToast": "Fermer l’annonce",
+    "toastRegion": "Annonces",
     "redirecting": "Redirection …",
     "duration": {
       "days": "{count, plural, one {# jour} other {# jours}}",
@@ -355,7 +371,7 @@
       "demoDescription": "Cette page affiche les alarmes entrantes – depuis <b>DIVERA 24/7</b> ou via l’interface webhook ouverte. En mode démo, aucune liaison d’alarme n’est configurée.",
       "noResults": "Aucun résultat",
       "noEmergencies": "Aucune urgence",
-      "resetSearch": "Réinitialiser la recherche",
+      "resetSearch": "Effacer la recherche",
       "trainingBadge": "EXERCICE",
       "assigned": "Attribuée",
       "archived": "Archivée",
@@ -524,6 +540,7 @@
       "title": "Créer un nouvel événement",
       "nameLabel": "Nom",
       "namePlaceholder": "p. ex. Inondation 2026-02-19",
+      "nameRequired": "Le nom manque – sans nom, l’événement ne peut pas être créé.",
       "modeLabel": "Mode",
       "modeLive": "Intervention",
       "modeTraining": "Exercice",
@@ -1231,10 +1248,14 @@
       },
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
+      "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Rechercher une intervention …",
       "all": "Toutes ({count})",
-      "noResults": "Aucune intervention trouvée",
-      "noActive": "Aucune intervention en cours"
+      "noActive": "Aucune intervention en cours",
+      "noHitsFor": "Aucune intervention pour « {query} ».",
+      "searchScope": "Recherche dans le lieu, le type, les véhicules et l’équipe.",
+      "noneInFilter": "Aucune intervention au statut « {filter} ».",
+      "showAll": "Tout afficher"
     },
     "mobilePersonnel": {
       "title": "Personnel",
@@ -1544,14 +1565,14 @@
         "type": "Par genre"
       },
       "noPersonnelCheckedIn": "Personne n’est annoncé",
-      "personnelLoading": "Chargement du personnel",
-      "materialLoading": "Chargement du matériel",
+      "personnelLoading": "Chargement du personnel …",
+      "materialLoading": "Chargement du matériel …",
       "notLoaded": "Non chargé",
       "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
       "groupFree": "Libres · {count}",
       "groupBound": "Engagés · {count}",
       "noMaterialMatch": "Aucun engin ne correspond à <term>« {query} »</term>",
-      "resetSearch": "Réinitialiser la recherche",
+      "resetSearch": "Effacer la recherche",
       "noMaterialYet": "Aucun matériel enregistré",
       "createMaterialInSettings": "Créer dans les réglages",
       "scanCheckInQr": "Scanner le code QR d’arrivée",
@@ -1731,10 +1752,10 @@
       "kpMessageVerb": "à l’effectif"
     },
     "newEmergency": {
-      "validationTitle": "Remplis tous les champs obligatoires",
-      "validationDescription": "Le lieu d’intervention est obligatoire.",
       "description": "Saisis les détails de la nouvelle intervention",
       "locationError": "Saisis un lieu d’intervention",
+      "phoneShort": "Le numéro n’a que {digits} chiffres – à vérifier. La création reste possible.",
+      "phoneLong": "Le numéro a {digits} chiffres – à vérifier. La création reste possible.",
       "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-déposer une fois l’intervention créée.",
       "create": "Créer l’intervention"
     },
@@ -1840,16 +1861,38 @@
       "noVehicle": "Aucun véhicule",
       "groupSelected": "{selected}/{total} sélectionnés",
       "partial": "Partiel",
-      "noPersonsFound": "Aucune personne trouvée",
-      "noSelectablePersons": "Aucune personne sélectionnable",
-      "tryOtherSearch": "Essaie un autre terme de recherche",
-      "allPersonsAssigned": "Toutes les personnes sont attribuées à d’autres interventions",
-      "noVehiclesFound": "Aucun véhicule trouvé",
-      "noAvailableVehicles": "Aucun véhicule disponible",
-      "allVehiclesAssigned": "Tous les véhicules sont déjà attribués",
-      "noMaterialsFound": "Aucun matériel trouvé",
-      "noSelectableMaterials": "Aucun matériel",
-      "allMaterialsAssigned": "Aucun matériel n’est saisi",
+      "searchCrew": "Rechercher une personne …",
+      "searchVehicles": "Rechercher un véhicule …",
+      "searchMaterials": "Rechercher du matériel …",
+      "hits": "{count, plural, one {# résultat} other {# résultats}}",
+      "searchScopeCrew": "Recherche dans le nom, le grade, la fonction et les tags.",
+      "searchScopeVehicles": "Recherche dans le nom et le type.",
+      "searchScopeMaterials": "Recherche dans le nom, l’emplacement et le module.",
+      "nounCrew": "les personnes",
+      "nounVehicles": "les véhicules",
+      "nounMaterials": "le matériel",
+      "filterHides": "{count, plural, one {Le filtre {filters} masque} other {Les filtres {filters} masquent}} {noun}.",
+      "filterHidesSearch": "{count, plural, one {Le filtre {filters} masque} other {Les filtres {filters} masquent}} les résultats pour « {query} ».",
+      "onlyAssignedNoneIncident": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette intervention.",
+      "onlyAssignedNoneRoute": "Le filtre « Attribués uniquement » masque tous les véhicules – aucun n’est encore attribué à cette mission.",
+      "noneCrewTitle": "Personne n’est encore enregistré.",
+      "noneCrewBody": "Les personnes enregistrées apparaissent ici. Le lien d’enregistrement se trouve sous « Liens & QR ».",
+      "showCheckInLink": "Afficher le lien d’enregistrement",
+      "noneVehiclesTitle": "Aucun véhicule saisi.",
+      "noneVehiclesBody": "Les véhicules se saisissent dans les paramètres.",
+      "noneMaterialsTitle": "Aucun matériel saisi.",
+      "noneMaterialsBody": "Le matériel se saisit dans les paramètres.",
+      "allBusyCrew": "Personne n’est libre – toutes les personnes ci-dessous sont déjà engagées ou ont une fonction. Les prendre reste possible, avec confirmation.",
+      "allBusyVehicles": "Aucun véhicule n’est libre – ceux ci-dessous sont engagés ou hors service.",
+      "allBusyMaterials": "Aucun matériel n’est libre – ce qui figure ci-dessous est engagé ailleurs ou hors service.",
+      "filterButton": "Filtrer",
+      "filterActiveCount": "{count, plural, one {# filtre actif} other {# filtres actifs}}",
+      "filterSummary": "Filtré : {filters}",
+      "filterGroupRank": "Grade",
+      "filterGroupVehicleType": "Type",
+      "filterGroupDepot": "Emplacement",
+      "filterGroupMaterialType": "Type",
+      "filterGroupAssignment": "Attribution",
       "changes": "Modifications",
       "vehicleDriver": "Conducteur : {name}",
       "vehicleNoDriver": "Pas de conducteur",
@@ -2063,6 +2106,32 @@
       "dispatchHint": "Vraiment un nouvel engagement ? « Engager à nouveau … » ouvre le dialogue complet avec message radio et alarme.",
       "dispatchAgain": "Engager à nouveau …",
       "confirm": "Corriger le statut"
+    },
+    "fieldSave": {
+      "saving": "Enregistrement …",
+      "savedAt": "Enregistré – {time}",
+      "failed": "Non enregistré.",
+      "failedBody": "{reason} – le texte reste ici.",
+      "reason": {
+        "network": "Pas de liaison avec le serveur",
+        "session": "La session a expiré",
+        "forbidden": "Pas d’autorisation pour cette modification",
+        "conflict": "L’intervention a été modifiée ailleurs entre-temps",
+        "rejected": "Le serveur a refusé la saisie",
+        "server": "Le serveur a signalé une erreur",
+        "unknown": "Erreur inconnue"
+      },
+      "serverNow": "Sur le serveur entre-temps : «{text}»",
+      "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
+      "retry": "Enregistrer à nouveau",
+      "copy": "Copier le texte",
+      "copied": "Copié",
+      "leave": {
+        "title": "Texte non enregistré",
+        "description": "{count, plural, one {{fields} n’a pas pu être enregistré} other {{fields} n’ont pas pu être enregistrés}}. Le texte reste conservé dans cette fenêtre jusqu’au rechargement de la page.",
+        "confirm": "Fermer quand même",
+        "cancel": "Retour à l’intervention"
+      }
     }
   },
   "login": {
@@ -2487,7 +2556,7 @@
       "geofenceAlertsLabel": "Arrivée par géorepérage",
       "geofenceAlertsHint": "Notification lorsqu’un véhicule arrive sur le lieu d’intervention (GPS). Le rayon d’arrivée se règle sous Réglages → GPS.",
       "toastDurationLabel": "Durée d’affichage (s)",
-      "toastDurationHint": "Combien de temps une annonce reste visible en incrustation (2–30 s). Les annonces critiques restent jusqu’à ce qu’on les ferme.",
+      "toastDurationHint": "Valeur de base 8 s : les annonces courtes disparaissent plus vite, les longues restent plus longtemps. Une valeur plus élevée les prolonge toutes dans la même proportion (2–30 s). Les annonces critiques restent jusqu’à ce qu’on les ferme.",
       "timeLimitsTitle": "Limites de temps par statut",
       "timeLimitsSubtitle": "L’avertissement apparaît lorsqu’une intervention reste plus longtemps qu’indiqué dans un statut.",
       "liveTab": "Mode réel",
@@ -2511,8 +2580,6 @@
     },
     "toasts": {
       "criticalTitle": "Avertissement critique",
-      "warningTitle": "Avertissement",
-      "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
       "overflowAction": "Ouvrir",

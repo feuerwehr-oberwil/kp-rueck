@@ -32,10 +32,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Link2, RefreshCw, Check, Info, Loader2, AlertTriangle } from 'lucide-react';
+import { toastLifetime } from '@/lib/toast-lifetime';
+import { Link2, RefreshCw, Check, Info, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { getDateFnsLocale } from '@/lib/date-locale';
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export default function DiveraPoolPage() {
   useGlobalNavigation();
@@ -112,7 +114,7 @@ export default function DiveraPoolPage() {
           description: data.auto_attached
             ? t('autoAttached', { title: emergency.title })
             : emergency.title,
-          duration: 10000,
+          ...toastLifetime(10000),
         });
         playAlertSound();
         loadData();
@@ -263,7 +265,7 @@ export default function DiveraPoolPage() {
             disabled={loading}
             className="px-3"
           >
-            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
           </Button>
 
           <div className="flex-1" />
@@ -292,10 +294,10 @@ export default function DiveraPoolPage() {
       </div>
 
       {/* List */}
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
+      <main className="flex-1 overflow-auto pb-nav-reserve md:pb-0">
         {loading ? (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            {t('loading')}
+          <div className="flex items-center justify-center h-64">
+            <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>
           </div>
         ) : filteredEmergencies.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
@@ -339,7 +341,7 @@ export default function DiveraPoolPage() {
                   className={`
                     px-6 py-4 flex gap-4 transition-colors
                     ${isEditor ? 'cursor-pointer hover:bg-muted/50' : ''}
-                    ${isSelected ? 'bg-primary/5' : ''}
+                    ${isSelected ? 'bg-sel-wash' : ''}
                     ${isArchived ? 'opacity-50' : ''}
                   `}
                 >
@@ -350,7 +352,7 @@ export default function DiveraPoolPage() {
                         className={`
                           w-5 h-5 rounded border-2 flex items-center justify-center transition-colors
                           ${isSelected
-                            ? 'bg-primary border-primary text-primary-foreground'
+                            ? 'bg-sel border-sel text-primary-foreground'
                             : 'border-muted-foreground/30'
                           }
                         `}
@@ -485,7 +487,7 @@ export default function DiveraPoolPage() {
               disabled={!selectedEventId || attaching}
               variant={realAlarmIntoTraining ? 'destructive' : 'default'}
             >
-              {attaching && <Loader2 className="size-4 animate-spin" />}
+              {attaching && <ShellLoader className="size-4" />}
               {realAlarmIntoTraining ? t('attachAnyway') : t('attach')}
             </Button>
           </DialogFooter>

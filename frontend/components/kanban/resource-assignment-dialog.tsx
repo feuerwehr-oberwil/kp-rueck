@@ -7,8 +7,21 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban } from "lucide-react"
+import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useCompactFilters } from "@/lib/hooks/use-compact-filters"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
 import { isPersonOccupied, materialResourceState, personMatchesQuery } from "@/lib/resource-status"
 import { useMaterials } from "@/lib/contexts/materials-context"
@@ -59,6 +72,35 @@ interface ResourceAssignmentDialogProps {
    *  can be made where the vehicle is assigned, not only on the incident card. */
   vehicleDriverStay?: Map<string, boolean>
   onToggleDriverStay?: (vehicleName: string) => void
+  /** Opens the check-in link (the board's «Links & QR» sheet). Offered when
+   *  nobody is checked in — the one way an empty crew list fills up. The
+   *  dialog closes itself first. Omitted where there is no such sheet; the
+   *  sentence still says where it is. */
+  onShowCheckIn?: () => void
+}
+
+/** The radio value for «no filter» in the compact filter menu. */
+const ALL_FILTER = "__all__"
+/** Radix menus close on every pick; the filter menu stays open so two filters
+ *  are two taps, not two trips. Outside / Escape still closes it. */
+const keepMenuOpen = (event: Event) => event.preventDefault()
+
+const materialMatchesQuery = (m: Material, raw: string, groups: { id: string; name: string }[]) => {
+  const query = raw.trim().toLowerCase()
+  if (!query) return true
+  // Match material name or category
+  if (m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)) return true
+  // Match group name
+  if (m.groupId) {
+    const group = groups.find(g => g.id === m.groupId)
+    if (group?.name.toLowerCase().includes(query)) return true
+  }
+  return false
+}
+
+const vehicleMatchesQuery = (v: { name: string; type: string }, query: string) => {
+  const q = query.trim().toLowerCase()
+  return !q || v.name.toLowerCase().includes(q) || v.type.toLowerCase().includes(q)
 }
 
 /** Where an occupied resource currently is: `short` is length-capped for the
@@ -85,24 +127,22 @@ type Binding = OccupancyLabel & {
  *
  * Deliberately a rule and not a `<Separator/>` with a label beside it: the
  * heading has to be readable as "everything below this is spoken for" while the
- * eye is moving, which is why the busy one is amber and the free one is not.
+ * eye is moving. Both headings are neutral (owner decision 2026-10, «quieter»
+ * pass): the label says it, and the amber note on each busy row says where —
+ * an amber heading plus amber-tinted tiles turned half the dialog orange.
+ * `tone` stays as the semantic marker of the block.
  */
 function ListSection({ label, tone, children }: { label: string; tone: 'free' | 'busy'; children: React.ReactNode }) {
   return (
     <section>
       <h3
         className={cn(
-          "mb-2 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-wide",
-          tone === 'busy' ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+          "mb-2 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground",
         )}
+        data-tone={tone}
       >
         {label}
-        <span
-          className={cn(
-            "h-px flex-1",
-            tone === 'busy' ? "bg-amber-500/30" : "bg-border/60",
-          )}
-        />
+        <span className="h-px flex-1 bg-border/60" />
       </h3>
       {children}
     </section>
@@ -136,8 +176,12 @@ export function ResourceAssignmentDialog({
   occupiedMaterialIds = new Set(),
   vehicleDriverStay,
   onToggleDriverStay,
+  onShowCheckIn,
 }: ResourceAssignmentDialogProps) {
   const t = useTranslations('kanban')
+  const tEmpty = useTranslations('common.emptyState')
+  const compactFilters = useCompactFilters()
+  const searchRef = useRef<HTMLInputElement>(null)
   const { materialGroups } = useMaterials()
   const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
   const { groups, getGroupResources, unassignResource } = useGroups()
@@ -148,7 +192,6 @@ export function ResourceAssignmentDialog({
   // fleet list does not carry. Loaded only while the dialog is open.
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchFocused, setSearchFocused] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   // Quick category filter (null = all): rank for crew, depot/location for
@@ -194,7 +237,6 @@ export function ResourceAssignmentDialog({
   useEffect(() => {
     if (!open) {
       setSearchQuery("")
-      setSearchFocused(false)
       setCategoryFilter(null)
       setTypeFilter(null)
       setShowOnlyAssignedVehicles(false)
@@ -451,30 +493,72 @@ export function ResourceAssignmentDialog({
   }, [filteredPersonnel])
 
   const filteredVehicles = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
     return availableVehicles.filter(v =>
-      (!query || v.name.toLowerCase().includes(query) || v.type.toLowerCase().includes(query)) &&
+      vehicleMatchesQuery(v, searchQuery) &&
       (!categoryFilter || v.type === categoryFilter) &&
       (!showOnlyAssignedVehicles || assignedVehicles.includes(v.name))
     )
   }, [availableVehicles, searchQuery, categoryFilter, showOnlyAssignedVehicles, assignedVehicles])
 
   const filteredMaterials = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
     return selectableMaterials.filter(m => {
       if (categoryFilter && m.category !== categoryFilter) return false
       if (typeFilter && m.type !== typeFilter) return false
-      if (!query) return true
-      // Match material name or category
-      if (m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)) return true
-      // Match group name
-      if (m.groupId) {
-        const group = materialGroups.find(g => g.id === m.groupId)
-        if (group?.name.toLowerCase().includes(query)) return true
-      }
-      return false
+      return materialMatchesQuery(m, searchQuery, materialGroups)
     })
   }, [selectableMaterials, searchQuery, materialGroups, categoryFilter, typeFilter])
+
+  /**
+   * WHY the list is empty — the four answers are four different sentences
+   * (see components/ui/empty-state.tsx). The old code knew only «there is a
+   * search» and «everything is assigned», so «Nur zugewiesene» on an Einsatz
+   * without a vehicle claimed «Alle Fahrzeuge sind bereits zugewiesen».
+   *
+   * - `none`:   the pool itself is empty (nobody checked in, no fleet entered)
+   * - `search`: the search alone matches nothing — filters or not
+   * - `filter`: the search (if any) has hits, an active filter hides them
+   */
+  const query = searchQuery.trim()
+  const activeFilterLabels = [
+    ...(categoryFilter ? [categoryFilter] : []),
+    ...(resourceType === 'materials' && typeFilter ? [typeFilter] : []),
+    ...(resourceType === 'vehicles' && showOnlyAssignedVehicles ? [t('common.onlyAssignedVehicles')] : []),
+  ]
+  const filtersActive = activeFilterLabels.length > 0
+  const poolCount =
+    resourceType === 'crew' ? selectablePersonnel.length
+      : resourceType === 'vehicles' ? availableVehicles.length
+        : resourceType === 'materials' ? selectableMaterials.length
+          : 0
+  const filteredCount =
+    resourceType === 'crew' ? filteredPersonnel.length
+      : resourceType === 'vehicles' ? filteredVehicles.length
+        : resourceType === 'materials' ? filteredMaterials.length
+          : 0
+  const searchHitCount = !query
+    ? poolCount
+    : resourceType === 'crew' ? selectablePersonnel.filter((p) => personMatchesQuery(p, query)).length
+      : resourceType === 'vehicles' ? availableVehicles.filter((v) => vehicleMatchesQuery(v, query)).length
+        : resourceType === 'materials' ? selectableMaterials.filter((m) => materialMatchesQuery(m, query, materialGroups)).length
+          : 0
+  const emptyReason: 'none' | 'search' | 'filter' | null =
+    !resourceType || filteredCount > 0 ? null
+      : poolCount === 0 ? 'none'
+        : query && searchHitCount === 0 ? 'search'
+          : filtersActive ? 'filter'
+            : 'search'
+
+  /** «Filter zurücksetzen»: the filters only — the search and every tick stay. */
+  const resetFilters = () => {
+    setCategoryFilter(null)
+    setTypeFilter(null)
+    setShowOnlyAssignedVehicles(false)
+  }
+  /** «Suche leeren»: the query only, and the cursor stays in the field. */
+  const clearSearch = () => {
+    setSearchQuery("")
+    searchRef.current?.focus()
+  }
 
   // Sort the material list by category sort order, then assigned-first, then
   // name — feeds the group split so order within each group respects the setting.
@@ -641,20 +725,20 @@ export function ResourceAssignmentDialog({
    * An occupied row was already amber-flagged, and that was the whole of it: the
    * flagged rows sat scattered through the grid, so finding three free people in
    * a roster of forty meant reading all forty. Sinking them under a heading
-   * turns that into one eye movement, and the amber line stays for the rows that
-   * still say *where* somebody is.
+   * turns that into one eye movement. The rows themselves are neutral tiles now;
+   * the small amber note (icon + text) that says *where* somebody is stays.
    *
    * Nothing is hidden and nothing is disabled — the bottom block is still
    * clickable and still opens the Doppelbelegung confirm. This orders the list;
    * it does not take a decision away from the operator.
    *
-   * "Busy" is exactly what the row already draws in amber: bound to another
+   * "Busy" is exactly what the row's amber note names: bound to another
    * Schadenplatz or Auftrag, or holding an Ereignis role (a Reko trupp, the
    * TLF 1's driver). A resource on THIS target is never busy — it is selected.
    *
    * Module groups stay whole and stay on top: a module is a unit, and splitting
    * its contents across two headings would be a worse lie than the scatter this
-   * fixes. Occupied items inside an expanded module keep the amber flag.
+   * fixes. Occupied items inside an expanded module keep the amber note.
    */
   const crewSections = (() => {
     const free: Person[] = []
@@ -705,6 +789,82 @@ export function ResourceAssignmentDialog({
     return { free, busy }
   })()
 
+  // (d) Everything there is, is taken: the list is NOT empty — the spoken-for
+  // block still lists them and stays clickable — so this is a line where the
+  // free block would be, not a replacement for the list.
+  const allBusy =
+    emptyReason === null &&
+    (resourceType === 'crew'
+      ? crewSections.free.length === 0 && crewSections.busy.length > 0
+      : resourceType === 'vehicles'
+        ? vehicleSections.free.length === 0 && vehicleSections.busy.length > 0
+        : resourceType === 'materials'
+          ? groupedFilteredMaterials.groups.length === 0 &&
+            ungroupedMaterialSections.free.length === 0 &&
+            ungroupedMaterialSections.busy.length > 0
+          : false)
+  const allBusyText =
+    resourceType === 'crew' ? t('assignmentDialog.allBusyCrew')
+      : resourceType === 'vehicles' ? t('assignmentDialog.allBusyVehicles')
+        : t('assignmentDialog.allBusyMaterials')
+
+  /** The empty list's title, line and one way out — per reason (see `emptyReason`). */
+  const emptyContent = (() => {
+    if (!emptyReason) return null
+    if (emptyReason === 'none') {
+      if (resourceType === 'crew') {
+        return {
+          title: t('assignmentDialog.noneCrewTitle'),
+          description: t('assignmentDialog.noneCrewBody'),
+          action: onShowCheckIn
+            ? ({
+                label: t('assignmentDialog.showCheckInLink'),
+                // Closed the normal way first (the board's close handler resumes
+                // any status gate), then the sheet with the link opens.
+                onClick: () => {
+                  onOpenChange(false)
+                  onShowCheckIn()
+                },
+              } satisfies EmptyStateAction)
+            : undefined,
+        }
+      }
+      return resourceType === 'vehicles'
+        ? { title: t('assignmentDialog.noneVehiclesTitle'), description: t('assignmentDialog.noneVehiclesBody') }
+        : { title: t('assignmentDialog.noneMaterialsTitle'), description: t('assignmentDialog.noneMaterialsBody') }
+    }
+    if (emptyReason === 'search') {
+      return {
+        title: tEmpty('noHitsFor', { query }),
+        description:
+          resourceType === 'crew' ? t('assignmentDialog.searchScopeCrew')
+            : resourceType === 'vehicles' ? t('assignmentDialog.searchScopeVehicles')
+              : t('assignmentDialog.searchScopeMaterials'),
+        action: { label: tEmpty('clearSearch'), onClick: clearSearch, icon: X } satisfies EmptyStateAction,
+      }
+    }
+    // A filter hides it all. Name the filter — «Keine Treffer» alone sends the
+    // operator hunting for which of four chip rows did it.
+    const filters = new Intl.ListFormat(getActiveLocale(), { type: 'conjunction' }).format(
+      activeFilterLabels.map((name) => tEmpty('quoted', { name })),
+    )
+    const noun =
+      resourceType === 'crew' ? t('assignmentDialog.nounCrew')
+        : resourceType === 'vehicles' ? t('assignmentDialog.nounVehicles')
+          : t('assignmentDialog.nounMaterials')
+    const onlyAssignedNothingYet =
+      resourceType === 'vehicles' && showOnlyAssignedVehicles && activeFilterLabels.length === 1 && assignedVehicles.length === 0 && !query
+    return {
+      title: tEmpty('noHits'),
+      description: onlyAssignedNothingYet
+        ? t(assignTarget === 'route' ? 'assignmentDialog.onlyAssignedNoneRoute' : 'assignmentDialog.onlyAssignedNoneIncident')
+        : query
+          ? t('assignmentDialog.filterHidesSearch', { count: activeFilterLabels.length, filters, query })
+          : t('assignmentDialog.filterHides', { count: activeFilterLabels.length, filters, noun }),
+      action: { label: tEmpty('resetFilters'), onClick: resetFilters, icon: X } satisfies EmptyStateAction,
+    }
+  })()
+
   // Quick number-key assignment (1..9): toggle the Nth visible item of the active
   // resource type — the same action as clicking it. The onAssign*/onRemove*
   // callbacks are wired by the parent, so in route-assign mode this assigns to the
@@ -715,6 +875,8 @@ export function ResourceAssignmentDialog({
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+      // The compact «Filtern» menu has type-ahead of its own.
+      if (target?.closest?.('[role="menu"]')) return
       if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
       const idx = Number(e.key) - 1
       // Indexed in the order the grid DRAWS them (free block, then the
@@ -883,22 +1045,22 @@ export function ResourceAssignmentDialog({
     const isSelected = isPersonSelected(person.name)
     const wasJustAssigned = justAssigned === person.id
     const special = specialFunctionsOf(person)
-    // Already on another incident/Auftrag → amber flag with the
-    // reference, taking precedence over the special-function badge.
+    // Already on another incident/Auftrag → amber note with the
+    // reference, taking precedence over the special-function badge. The tile
+    // itself stays neutral: the note says where, no tinted block.
     const elsewhere = personElsewhereLabel(person)
     return (
       <button
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-          isSelected && "border-primary/30 bg-primary/5",
-          (elsewhere || special.length > 0) && !isSelected && "border-amber-500/40 bg-amber-500/5"
+          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+          isSelected && "border-sel-edge bg-sel-wash",
         )}
       >
         {isSelected ? (
           <CheckCircle className={cn(
-            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            "h-5 w-5 text-sel-foreground flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
@@ -947,8 +1109,8 @@ export function ResourceAssignmentDialog({
     // glyph and refuses the click. No error message — the target is simply not
     // grabbable, which is the same treatment the sidebar gives it.
     const isOutOfService = !!vehicle.outOfService && !isAssigned
-    // Already on another incident/Auftrag → amber flag with the
-    // reference, matching the crew special-function treatment.
+    // Already on another incident/Auftrag → amber note with the
+    // reference, matching the crew treatment (neutral tile, amber note).
     const elsewhere = vehicleElsewhereLabel(vehicle)
     // «bleibt vor Ort» vs «kehrt zurück». Assigning here used to
     // drop that decision on the floor: the flag exists from the
@@ -964,9 +1126,8 @@ export function ResourceAssignmentDialog({
         key={vehicle.id}
         className={cn(
           "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 transition-all",
-          !isOutOfService && "hover:border-primary/50 hover:bg-secondary/30 hover-delight",
-          isAssigned && "border-primary/30 bg-primary/5",
-          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5",
+          !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          isAssigned && "border-sel-edge bg-sel-wash",
           isOutOfService && "border-dashed opacity-60"
         )}
       >
@@ -982,7 +1143,7 @@ export function ResourceAssignmentDialog({
             <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
           ) : isAssigned ? (
             <CheckCircle className={cn(
-              "h-5 w-5 text-emerald-500 flex-shrink-0",
+              "h-5 w-5 text-sel-foreground flex-shrink-0",
               wasJustAssigned && "animate-check-appear"
             )} />
           ) : (
@@ -1069,9 +1230,8 @@ export function ResourceAssignmentDialog({
         disabled={isOutOfService}
         className={cn(
           "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
-          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-primary/50 hover:bg-secondary/30 hover-delight",
-          isSelected && "border-primary/30 bg-primary/5",
-          elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5",
+          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          isSelected && "border-sel-edge bg-sel-wash",
           vehicleOnScene && !isSelected && "border-emerald-500/30"
         )}
       >
@@ -1079,7 +1239,7 @@ export function ResourceAssignmentDialog({
           <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
         ) : isSelected ? (
           <CheckCircle className={cn(
-            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            "h-5 w-5 text-sel-foreground flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
@@ -1115,6 +1275,118 @@ export function ResourceAssignmentDialog({
     )
   }
 
+  const searchField = (
+    <SearchInput
+      ref={searchRef}
+      containerClassName={compactFilters ? "min-w-0 flex-1" : undefined}
+      placeholder={
+        resourceType === 'crew' ? t('assignmentDialog.searchCrew')
+          : resourceType === 'vehicles' ? t('assignmentDialog.searchVehicles')
+            : resourceType === 'materials' ? t('assignmentDialog.searchMaterials')
+              : t('common.search')
+      }
+      value={searchQuery}
+      onValueChange={setSearchQuery}
+      count={query && filteredCount > 0 ? t('assignmentDialog.hits', { count: filteredCount }) : undefined}
+    />
+  )
+
+  // The compact «Filtern» menu (#24): the same filters as the chip rows, in
+  // one place. Single-choice groups are radio groups with «Alle»; the menu
+  // stays open between picks.
+  const categoryGroupLabel =
+    resourceType === 'crew' ? t('assignmentDialog.filterGroupRank')
+      : resourceType === 'vehicles' ? t('assignmentDialog.filterGroupVehicleType')
+        : t('assignmentDialog.filterGroupDepot')
+  const hasFilterMenu =
+    categories.length > 1 || (resourceType === 'materials' && materialTypeGroups.length > 1) || resourceType === 'vehicles'
+  const filterMenu = hasFilterMenu ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="shrink-0 gap-1.5"
+          aria-label={
+            filtersActive
+              ? `${t('assignmentDialog.filterButton')}, ${t('assignmentDialog.filterActiveCount', { count: activeFilterLabels.length })}`
+              : t('assignmentDialog.filterButton')
+          }
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          {t('assignmentDialog.filterButton')}
+          {filtersActive && (
+            <span
+              aria-hidden="true"
+              className="min-w-4 rounded-sm bg-foreground px-1 text-2xs font-bold leading-4 text-background tabular-nums"
+            >
+              {activeFilterLabels.length}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {categories.length > 1 && (
+          <>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{categoryGroupLabel}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={categoryFilter ?? ALL_FILTER}
+              onValueChange={(value) => setCategoryFilter(value === ALL_FILTER ? null : value)}
+            >
+              <DropdownMenuRadioItem value={ALL_FILTER} onSelect={keepMenuOpen}>
+                {t('assignmentDialog.all')}
+              </DropdownMenuRadioItem>
+              {categories.map((cat) => (
+                <DropdownMenuRadioItem key={cat} value={cat} onSelect={keepMenuOpen}>
+                  {resourceType === 'materials' && assignedVehicles.includes(cat) && (
+                    <Truck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  )}
+                  {cat}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        )}
+        {resourceType === 'materials' && materialTypeGroups.length > 1 && (
+          <>
+            {categories.length > 1 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('assignmentDialog.filterGroupMaterialType')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={typeFilter ?? ALL_FILTER}
+              onValueChange={(value) => setTypeFilter(value === ALL_FILTER ? null : value)}
+            >
+              <DropdownMenuRadioItem value={ALL_FILTER} onSelect={keepMenuOpen}>
+                {t('assignmentDialog.all')}
+              </DropdownMenuRadioItem>
+              {materialTypeGroups.map(({ type, count }) => (
+                <DropdownMenuRadioItem key={type} value={type} onSelect={keepMenuOpen}>
+                  {type} ({count})
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        )}
+        {resourceType === 'vehicles' && (
+          <>
+            {categories.length > 1 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('assignmentDialog.filterGroupAssignment')}</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={showOnlyAssignedVehicles}
+              onCheckedChange={(checked) => setShowOnlyAssignedVehicles(checked === true)}
+              onSelect={keepMenuOpen}
+            >
+              {t('common.onlyAssignedVehicles')}
+            </DropdownMenuCheckboxItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled={!filtersActive} onSelect={resetFilters}>
+          <X aria-hidden="true" />
+          {tEmpty('resetFilters')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1125,7 +1397,7 @@ export function ResourceAssignmentDialog({
           a responsive variant that an unprefixed max-w-* does NOT override. */}
       <DialogContent className="max-w-6xl sm:max-w-6xl w-[calc(100vw-2rem)] h-[80dvh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 pr-8">
             <Icon className="h-5 w-5" />
             {getDialogTitle()}
           </DialogTitle>
@@ -1133,18 +1405,37 @@ export function ResourceAssignmentDialog({
         </DialogHeader>
 
         <div className="flex flex-col min-h-0 flex-1 gap-4">
-          {/* Search */}
-          <SearchInput
-            placeholder={t('common.search')}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            className={cn(
-              "transition-all",
-              searchFocused && "ring-2 ring-primary/50 animate-search-focus"
-            )}
-          />
+          {/* Search — the shared field: one focus look (the `ring` token), «Suche
+              leeren», a hit count while searching. Its own animated ring is gone. */}
+          {compactFilters ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                {searchField}
+                {filterMenu}
+              </div>
+              {filtersActive && (
+                // What is filtered, readable without opening the menu, and the
+                // one-step way back.
+                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" data-testid="filter-summary">
+                  <span className="min-w-0 truncate">
+                    {t('assignmentDialog.filterSummary', { filters: activeFilterLabels.join(' · ') })}
+                  </span>
+                  {/* Not twice: an emptied list offers the same reset as its one action. */}
+                  {emptyReason !== 'filter' && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="shrink-0 cursor-pointer underline underline-offset-2 decoration-muted-foreground/50 hover:text-foreground"
+                    >
+                      {tEmpty('resetFilters')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+          {searchField}
 
           {/* Quick category filter — rank (crew), depot (material), type (vehicles) */}
           {categories.length > 1 && (
@@ -1154,7 +1445,7 @@ export function ResourceAssignmentDialog({
                 className={cn(
                   "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   categoryFilter === null
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
@@ -1174,7 +1465,7 @@ export function ResourceAssignmentDialog({
                     className={cn(
                       "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : vehiclePresent
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -1202,7 +1493,7 @@ export function ResourceAssignmentDialog({
                     className={cn(
                       "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >
@@ -1221,7 +1512,7 @@ export function ResourceAssignmentDialog({
                 className={cn(
                   "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   showOnlyAssignedVehicles
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
@@ -1230,12 +1521,20 @@ export function ResourceAssignmentDialog({
             </div>
           )}
 
+            </>
+          )}
+
           {/* Resource List — flexes to fill the space between chips and footer,
               so the list scrolls internally and the dialog never exceeds 85dvh. */}
           <ScrollArea className="flex-1 min-h-0 pr-2">
             <div className="space-y-2">
               {resourceType === 'crew' && (
                 <div className="space-y-4">
+                  {allBusy && (
+                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
+                      <p className="text-sm text-muted-foreground">{allBusyText}</p>
+                    </ListSection>
+                  )}
                   {crewSections.free.length > 0 && (
                     <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: crewSections.free.length })}>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1255,7 +1554,11 @@ export function ResourceAssignmentDialog({
 
               {resourceType === 'vehicles' && (
                 <div className="space-y-4">
-                  {(vehicleSections.free.length > 0 || !!onToggleZuFuss) && (
+                  {/* «Zu Fuss» and «Verfügbar · 0» go with a list a search or a
+                      filter emptied: next to «Keine Treffer» they read as the
+                      one hit. With truly no fleet, «Zu Fuss» is still a choice. */}
+                  {(vehicleSections.free.length > 0 || allBusy ||
+                    (!!onToggleZuFuss && emptyReason !== 'search' && emptyReason !== 'filter')) && (
                     <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: vehicleSections.free.length })}>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {/* «Zu Fuss» is not a vehicle and is never spoken for,
@@ -1264,12 +1567,12 @@ export function ResourceAssignmentDialog({
                           <button
                             onClick={onToggleZuFuss}
                             className={cn(
-                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                              zuFuss && "border-primary/30 bg-primary/5"
+                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+                              zuFuss && "border-sel-edge bg-sel-wash"
                             )}
                           >
                             {zuFuss ? (
-                              <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                              <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
                             ) : (
                               <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                             )}
@@ -1281,6 +1584,7 @@ export function ResourceAssignmentDialog({
                         )}
                         {vehicleSections.free.map(renderVehicleTile)}
                       </div>
+                      {allBusy && <p className="mt-2 text-sm text-muted-foreground">{allBusyText}</p>}
                     </ListSection>
                   )}
                   {vehicleSections.busy.length > 0 && (
@@ -1312,8 +1616,8 @@ export function ResourceAssignmentDialog({
                       <div key={`group-${groupId}`} className="space-y-1">
                         {/* Group header row */}
                         <div className={cn(
-                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:bg-secondary/30",
-                          allSelected && "border-primary/30 bg-primary/5"
+                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
+                          allSelected && "border-sel-edge bg-sel-wash"
                         )}>
                           {/* Expand/collapse toggle */}
                           <button
@@ -1338,11 +1642,11 @@ export function ResourceAssignmentDialog({
                             <div className="flex items-center gap-3">
                               {allSelected ? (
                                 <CheckCircle className={cn(
-                                  "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                  "h-5 w-5 text-sel-foreground flex-shrink-0",
                                   wasJustAssigned && "animate-check-appear"
                                 )} />
                               ) : someSelected ? (
-                                <CheckCircle className="h-5 w-5 text-emerald-500/50 flex-shrink-0" />
+                                <CheckCircle className="h-5 w-5 text-sel-foreground/50 flex-shrink-0" />
                               ) : (
                                 <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                               )}
@@ -1378,6 +1682,11 @@ export function ResourceAssignmentDialog({
                   })}
                   {/* Ungrouped materials — free first, spoken-for underneath.
                       Module groups above stay whole: a module is a unit. */}
+                  {allBusy && (
+                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
+                      <p className="text-sm text-muted-foreground">{allBusyText}</p>
+                    </ListSection>
+                  )}
                   {ungroupedMaterialSections.free.length > 0 && (
                     <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: ungroupedMaterialSections.free.length })}>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1395,39 +1704,13 @@ export function ResourceAssignmentDialog({
                 </>
               )}
 
-              {/* Empty state with personality */}
-              {resourceType === 'crew' && filteredPersonnel.length === 0 && (
-                <div className="text-center py-12 animate-fade-in-up">
-                  <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? t('assignmentDialog.noPersonsFound') : t('assignmentDialog.noSelectablePersons')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {searchQuery ? t('assignmentDialog.tryOtherSearch') : t('assignmentDialog.allPersonsAssigned')}
-                  </p>
-                </div>
-              )}
-              {resourceType === 'vehicles' && filteredVehicles.length === 0 && (
-                <div className="text-center py-12 animate-fade-in-up">
-                  <Truck className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? t('assignmentDialog.noVehiclesFound') : t('assignmentDialog.noAvailableVehicles')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {searchQuery ? t('assignmentDialog.tryOtherSearch') : t('assignmentDialog.allVehiclesAssigned')}
-                  </p>
-                </div>
-              )}
-              {resourceType === 'materials' && filteredMaterials.length === 0 && (
-                <div className="text-center py-12 animate-fade-in-up">
-                  <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    {searchQuery ? t('assignmentDialog.noMaterialsFound') : t('assignmentDialog.noSelectableMaterials')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {searchQuery ? t('assignmentDialog.tryOtherSearch') : t('assignmentDialog.allMaterialsAssigned')}
-                  </p>
-                </div>
+              {/* Why the list is empty, and the one way out — never a big icon. */}
+              {emptyContent && (
+                <EmptyState
+                  title={emptyContent.title}
+                  description={emptyContent.description}
+                  action={emptyContent.action}
+                />
               )}
             </div>
           </ScrollArea>
@@ -1445,7 +1728,7 @@ export function ResourceAssignmentDialog({
             >
               {t('common.done')}
               {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-primary-foreground/20 rounded">
+                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-action-foreground/20 rounded">
                   {t('assignmentDialog.changes')}
                 </span>
               )}

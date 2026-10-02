@@ -6,6 +6,7 @@ import type { WebSocketStatus } from "@/lib/websocket-client";
 
 let mockLastSyncAt: Date | null = null;
 let mockLoadError: Error | null = null;
+let mockLiveSince: Date | null | undefined = undefined;
 let mockWsStatus: WebSocketStatus = "disconnected";
 let statusListener: ((status: WebSocketStatus) => void) | null = null;
 let mockRestReachable = true;
@@ -15,7 +16,7 @@ const refreshOperations = vi.fn(async () => {});
 
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({ refreshOperations }),
-  useBoardSyncStatus: () => ({ lastSyncAt: mockLastSyncAt, loadError: mockLoadError }),
+  useBoardSyncStatus: () => ({ lastSyncAt: mockLastSyncAt, loadError: mockLoadError, liveSince: mockLiveSince }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -51,6 +52,7 @@ import { StaleDataBanner } from "@/components/stale-data-banner";
 beforeEach(() => {
   mockLastSyncAt = null;
   mockLoadError = null;
+  mockLiveSince = undefined;
   mockWsStatus = "disconnected";
   statusListener = null;
   mockRestReachable = true;
@@ -60,11 +62,30 @@ beforeEach(() => {
 });
 
 describe("StaleDataBanner", () => {
-  it("renders nothing while the WebSocket is connected", () => {
+  it("renders nothing while the WebSocket is connected and a load got through since it came up", () => {
     mockWsStatus = "connected";
+    mockLiveSince = new Date(Date.now() - 20 * 60_000);
     mockLastSyncAt = new Date(Date.now() - 10 * 60_000);
     const { container } = renderWithIntl(<StaleDataBanner />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("stays up after a reconnect until a load is confirmed, and says which of the two is missing", () => {
+    mockWsStatus = "connected";
+    mockLiveSince = new Date(Date.now() - 20_000);
+    mockLastSyncAt = new Date(2026, 9, 2, 9, 41, 7);
+    renderWithIntl(<StaleDataBanner />);
+    const banner = screen.getByRole("status");
+    expect(banner).toHaveTextContent("Verbindung steht wieder – der aktuelle Stand ist noch nicht bestätigt.");
+    expect(banner).toHaveTextContent("Stand 09:41:07");
+    expect(banner).not.toHaveTextContent(/Verbindung verloren/i);
+  });
+
+  it("stays up while the socket is still connecting past the threshold", () => {
+    mockWsStatus = "connecting";
+    mockLastSyncAt = new Date(Date.now() - 60_000);
+    renderWithIntl(<StaleDataBanner />);
+    expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
   });
 
   it("renders nothing when there has never been a successful sync", () => {
@@ -81,7 +102,8 @@ describe("StaleDataBanner", () => {
     expect(
       screen.getByText(/Verbindung verloren/i),
     ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/Polling läuft/i);
+    // The confirmed time, to the second — not «vor 1 Minute».
+    expect(screen.getByRole("status")).toHaveTextContent(/Stand \d{2}:\d{2}:\d{2}/);
   });
 
   it("shows after a failed board load even while the WebSocket is connected", () => {
@@ -99,7 +121,7 @@ describe("StaleDataBanner", () => {
     mockLoadError = new Error("500");
     renderWithIntl(<StaleDataBanner />);
     const banner = screen.getByRole("status");
-    expect(banner).toHaveTextContent("Stand 09:55 – Aktualisierung fehlgeschlagen");
+    expect(banner).toHaveTextContent("Stand 09:55:00 – Aktualisierung fehlgeschlagen");
     expect(banner).toHaveTextContent("Das Board zeigt den letzten geladenen Stand.");
     expect(banner).not.toHaveTextContent(/Verbindung verloren/i);
   });
@@ -154,17 +176,23 @@ describe("StaleDataBanner", () => {
     expect(screen.queryByText(/Verbindung verloren/i)).not.toBeInTheDocument();
   });
 
-  it("re-renders when wsClient signals reconnection", () => {
+  it("a reconnect alone does not clear it — the first confirmed load does", () => {
     mockWsStatus = "disconnected";
+    mockLiveSince = null;
     mockLastSyncAt = new Date(Date.now() - 60_000);
-    renderWithIntl(<StaleDataBanner />);
+    const { rerender } = renderWithIntl(<StaleDataBanner />);
     expect(screen.getByText(/Verbindung verloren/i)).toBeInTheDocument();
 
     act(() => {
       mockWsStatus = "connected";
+      mockLiveSince = new Date();
       statusListener?.("connected");
     });
+    expect(screen.getByRole("status")).toHaveTextContent(/noch nicht bestätigt/i);
 
-    expect(screen.queryByText(/Verbindung verloren/i)).not.toBeInTheDocument();
+    // The resync lands.
+    mockLastSyncAt = new Date(Date.now() + 1);
+    rerender(<StaleDataBanner />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

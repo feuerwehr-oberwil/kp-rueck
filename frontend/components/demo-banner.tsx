@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
+import { ShellLoader } from '@/components/ui/shell-loader'
 import {
   Dialog,
   DialogContent,
@@ -128,10 +129,12 @@ export function DemoBanner() {
   if (showResetOverlay) {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/90 backdrop-blur-sm">
-        <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto" />
-          <h2 className="text-xl font-semibold text-foreground">{t('resettingTitle')}</h2>
-          <p className="text-muted-foreground text-sm">{t('resettingDescription')}</p>
+        <div role="status" className="flex flex-col items-center gap-4 text-center">
+          <ShellLoader size="surface" className="text-foreground" />
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-foreground">{t('resettingTitle')}</h2>
+            <p className="text-muted-foreground text-sm">{t('resettingDescription')}</p>
+          </div>
         </div>
       </div>
     )

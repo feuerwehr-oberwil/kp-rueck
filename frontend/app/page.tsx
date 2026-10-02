@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Badge } from "@/components/ui/badge"
@@ -1997,7 +1998,7 @@ export default function FireStationDashboard() {
   if (!isMounted) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">{tDash('loading')}</div>
+        <LoadingStatus size="surface" className="text-sm">{tDash('loading')}</LoadingStatus>
       </div>
     )
   }
@@ -2028,7 +2029,7 @@ export default function FireStationDashboard() {
             {/* Event title doubles as an event switcher: switch events or create a
                 new one without first hunting through the user menu → Ereignisse. */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+              <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                 <h1 className={`text-xl md:text-2xl font-bold tracking-tight truncate ${selectedEvent ? "" : "text-muted-foreground"}`}>
                   {selectedEvent ? selectedEvent.name : tDash('noEventSelected')}
                 </h1>
@@ -2102,6 +2103,7 @@ export default function FireStationDashboard() {
             isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
+            onNewIncident={isEditor ? () => setNewEmergencyModalOpen(true) : undefined}
           />
         ) : (
           /* Desktop View */

@@ -183,6 +183,14 @@ kp-rueck/
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
+- **Phone geometry (one source)**: `--kb-inset`, `--vv-height`, `--nav-reserve`, `--sheet-top`
+  and `html[data-kb]` are measured and published on `<html>` (contract in
+  `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard: a phone list under
+  the nav ends with `pb-nav-reserve`, a sheet's foot with `pb-sheet-safe` (a modal sheet covers
+  the nav — no nav reserve inside it), and anything fixed at the bottom stands on
+  `var(--kb-inset)`. A phone form goes in a bottom `SheetContent` (`SheetBody` scrolls, footer
+  stays) — it stands on the keyboard and gets grip + swipe-to-dismiss for free; the swipe closes
+  through `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`).
 - **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)
@@ -339,6 +347,57 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
+- **Loading states – one signal, always with words.** A full-screen start (auth probe, Microsoft
+  callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the phase, no percentage, and
+  «Neu starten» after 9 s. In the app it is the shell trail (`components/ui/shell-loader.tsx`):
+  `LoadingStatus` for a stand-alone wait (words required, `role="status"`; `surface` = 48px
+  stacked for an empty dialog/panel, `inline` = 20px beside the text), `ShellLoader` in the icon
+  slot of a busy button beside its label. Do not add `Loader2`/`animate-spin` spinners, and no
+  artificial minimum wait. Under reduced motion the trail and the snail stand still, and
+  overlays fade without zoom/slide (`globals.css`, via tw-animate's variables – never a blanket
+  `transform: none`, which would break positioning and drag-and-drop).
+- **The snail is shared with KP Front and edited there.** `frontend/public/firefighter-snail-loader.svg`
+  is a byte-identical copy of kp-front's `public/firefighter-snail-loader.svg`, and
+  `SHELL_TRAIL_PATH` is its `fs-shell-trail` path. Never edit either here; colour it from the
+  outside (`--accent` is pointed at `--primary`). The `snail-drift` CI job
+  (`scripts/check-snail-drift.mjs`) compares both with kp-front, like the telemetry, alarm
+  keyword, roster and alarm-contract drift jobs.
+- **Toasts – one message surface**: one lane, `components/ui/sonner.tsx` (sonner runs `unstyled`;
+  its injected CSS is unlayered and beats every Tailwind utility, so tone classes on a call site do
+  nothing). Same neutral card for every type, tone only in the glyph; `toast.error` is the only
+  tinted card, so use it for failures and nothing else. Don't pass `duration` unless you mean it:
+  the lifetime comes from the text length (`lib/toast-lifetime.ts`, Front's curve; errors and
+  toasts with a button get at least 6 s; scaled by the
+  «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
+  Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
+- **«Gespeichert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`).
+  The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
+  under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
+  when the PATCH carrying its NEWEST text answered; PATCHes run one at a time per incident
+  (`KeyedSerialQueue`) so the server sees edits in order. A failed text stays as a draft in the field —
+  render the control's `value` from `useFieldSave(...).value`, never straight from `operation`, or a
+  reload replaces it — and is sent again only via «Erneut speichern». No automatic resend, no offline
+  queue. Drafts are scoped to user + Ereignis; a user switch drops them and a queued write of the
+  previous user is not sent. A new free-text incident field goes into `SAVED_TEXT_FIELDS`.
+- **Stale banner**: a connected WebSocket only vouches for the board once a load got through AFTER it
+  came up (`BoardSyncStatus.liveSince`); «connected»/«connecting» alone never hide the warning.
+- **Form messages** (`components/ui/form-message.tsx`): what is wrong with a field is said UNDER
+  it. Red `error` blocks saving (`role="alert"`, the control gets `fieldMessageProps(id, 'error')`
+  = `aria-invalid` + `aria-describedby`, a submit focuses the first blocking field via
+  `focusFirstBlockingField`); amber `advice` is a polite status and never blocks. No toast for a
+  field problem, and no submit button greyed out without a word. `DetailField` takes `error` /
+  `advice` and renders it with the id `formMessageId(htmlFor)`.
+- **Empty lists** (`components/ui/empty-state.tsx`): say WHY and offer the one way out – search
+  («Keine Treffer für «q».» + «Suche leeren»), filter (name it + «Filter zurücksetzen», which
+  keeps the search and every tick), truly nothing (what would fill it), everything taken (a line
+  above the spoken-for block, not a replacement). Title + one line + at most one action, no big
+  icons; the repeated board columns keep their single grey sentence.
+- **Search fields**: every «type to narrow this list» is `components/ui/search-input.tsx` – its
+  ✕ is «Suche leeren» and keeps focus, it is ≥44px with 16px text on a phone or coarse pointer
+  whatever `className` says, focus is the `Input` ring (no own ring), `count` is the optional
+  live hit count. Not a hand-built `relative` + `<Search>` + `<Input>`. Where the chip rows do
+  not fit (`useCompactFilters`: ≤639px wide or ≤719px tall) the assignment dialog folds them into
+  ONE «Filtern» menu with the active count on the button and a «Gefiltert: …» line under it.
 - **Undo never restores a snapshot blindly.** An undo is a new write that must still be valid
   *now*: the route-optimisation undo sends `expected_ids` with `POST /incident-groups/{id}/stops/reorder`
   (server compares under the Auftrag row lock → 409 «Auftrag geändert»; every stop add/remove/
@@ -388,9 +447,22 @@ Firefighting command post operators (KP Rück) managing active incidents in high
 
 ### Aesthetic Direction
 - **Visual tone**: Clean, information-dense, dark-mode-first. Inspired by Linear and Trello – minimal chrome, excellent information hierarchy, smooth interactions. Borrows density and seriousness from military C2 and dispatch systems but wrapped in modern, approachable UI patterns.
-- **Typography**: Geist (sans) – clean, professional, highly legible at small sizes
-- **Color**: Warm red primary (fire service identity), blue accent, warm grays. Status colors carry meaning and must be consistent.
+- **Typography**: Sora (sans) + Spline Sans Mono – the faces KP Front and kp-rueck.ch use; see «Type & corners» below
+- **Color**: Red is the fire-service identity (logo) and the priority/danger signal – it is **not** the action or selection colour. Warm grays, slate selection, ink main button; status colors carry meaning and must be consistent. See «Colour roles» below.
 - **Anti-references**: Avoid playful/consumer aesthetics (Slack, Figma), gamification, decorative illustrations, or anything that undermines the seriousness of the operational context.
+
+### Colour roles
+One colour, one meaning – decided in the 2026-10 UI review; tokens in `frontend/app/globals.css`.
+- **Selection = slate «A2»**, tonal, never a fill: a chosen chip/filter/preset/segment/current status = `--sel-wash` + `--sel-foreground` + 1px `--sel-edge` (`<Button variant="selected">`, or the `sel-choice` utility on borderless controls); switch/checkbox «an» = `--sel`; ticked row = wash + edge + slate ✓ (never emerald); selected Einsatz card = 2px `--sel-line` outline. Where-you-are (active tab, open popover/panel trigger) = ink tint `bg-foreground/[0.09]`.
+- **Red = priority and danger only.** It never fills an action: the main button is ink (`--action`), `destructive` is a red outline. Hoch cards keep their red edge, wash, ring and pulse.
+- **Green = frei / verfügbar** on the availability dots and badges themselves. Never for «selected» – a toggled filter such as «Nur verfügbare» uses the slate selected state like every other filter.
+- **Board column header lines are the status key** – they stay coloured; cards don't repeat the status as a tint (phone cards are neutral except Hoch).
+- **Focus = slate** (`--ring` = `--sel-line`), never red – a red ring reads as an error.
+
+### Type & corners
+- **Sora** (sans) and **Spline Sans Mono** (mono), self-hosted via `next/font/local` from `frontend/app/fonts/` (SIL OFL, licences beside the files). Use `font-sans` / `font-mono`; don't add a third face.
+- **Corners**: `--radius` 12px – `rounded-md`/`-lg`/`-xl` are all 12px. Controls under 32px tall (badges, kbd, h-5…h-7 chips) use `rounded-sm` (8px). Pills stay `rounded-full`.
+- **Main button = ink** (`<Button>` default, one per surface); night = light ink `#c3cddc` with dark text.
 
 ### Design Principles
 1. **Clarity over decoration** – Every pixel should serve a purpose. Prioritize legibility, hierarchy, and scannability. No ornamental elements.

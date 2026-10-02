@@ -12,7 +12,20 @@
  *
  * `size` only controls the ornaments (icon size and the padding reserved for
  * them); the field height still comes from `Input`, so `className` overrides
- * behave exactly as they did before.
+ * behave exactly as they did before — on a desk.
+ *
+ * On a phone (≤768px) or any coarse pointer (a tablet at the KP) the field is
+ * at least 44px tall with 16px text whatever the caller's `className` says:
+ * iOS zooms the whole page into anything smaller the moment it is focused, and
+ * the ✕ becomes a full 44px square instead of a 20px glyph. The sizes are
+ * floors (`min-h-*`), so a caller that is already bigger (check-in's `h-12`)
+ * keeps its height.
+ *
+ * Focus is the `Input` primitive's own ring (`ring` token) — one look for every
+ * field; a search box does not get an animated ring of its own.
+ *
+ * `count`: an optional live read-out at the end («3 Treffer»), announced
+ * politely so a screen reader hears what the typing did.
  */
 
 import * as React from 'react'
@@ -26,11 +39,16 @@ type SearchInputSize = 'sm' | 'default' | 'lg'
 
 const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; clear: string; clearIcon: string; hint: string }> = {
   // Dense sidebar filters (personnel/materials lists).
-  sm: { icon: 'h-3.5 w-3.5', left: 'left-2.5', pad: 'pl-8 pr-8', clear: 'right-1', clearIcon: 'h-3 w-3', hint: 'right-2' },
-  default: { icon: 'h-4 w-4', left: 'left-3', pad: 'pl-9 pr-9', clear: 'right-1.5', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
+  sm: { icon: 'h-3.5 w-3.5', left: 'left-2.5', pad: 'pl-8 pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
+  default: { icon: 'h-4 w-4', left: 'left-3', pad: 'pl-9 pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
   // Phone surfaces (check-in), where the field is taller.
-  lg: { icon: 'h-5 w-5', left: 'left-3', pad: 'pl-10 pr-10', clear: 'right-2', clearIcon: 'h-4 w-4', hint: 'right-3' },
+  lg: { icon: 'h-5 w-5', left: 'left-3', pad: 'pl-10 pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
 }
+
+/** Phone / touch floors — see the header. Variants, so they outrank a caller's
+ *  unprefixed `h-8 text-sm` exactly where it matters and nowhere else. */
+const TOUCH_FIELD = 'max-md:min-h-11 max-md:text-base max-md:pr-11 pointer-coarse:min-h-11 pointer-coarse:text-base pointer-coarse:pr-11'
+const TOUCH_CLEAR = 'max-md:size-11 pointer-coarse:size-11'
 
 export interface SearchInputProps
   extends Omit<React.ComponentProps<'input'>, 'onChange' | 'value' | 'type' | 'size'> {
@@ -43,17 +61,22 @@ export interface SearchInputProps
    *  Kbd on the board. It yields to the clear button once there is text, since
    *  by then the operator has found the field and needs the way back out. */
   hint?: React.ReactNode
+  /** A live read-out at the field's end — «3 Treffer». Shown while non-empty. */
+  count?: React.ReactNode
 }
 
 export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
   function SearchInput(
-    { value, onValueChange, containerClassName, className, size = 'default', disabled, hint, ...props },
+    { value, onValueChange, containerClassName, className, size = 'default', disabled, hint, count, ...props },
     ref,
   ) {
     const t = useTranslations('kanban.common')
     const o = ORNAMENTS[size]
     const inner = React.useRef<HTMLInputElement>(null)
     React.useImperativeHandle(ref, () => inner.current as HTMLInputElement)
+
+    const hasValue = value.length > 0
+    const showCount = count != null && count !== '' && count !== false
 
     return (
       <div className={cn('relative', containerClassName)}>
@@ -67,7 +90,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           value={value}
           disabled={disabled}
           onChange={(event) => onValueChange(event.target.value)}
-          className={cn(o.pad, className)}
+          className={cn(o.pad, className, size !== 'lg' && TOUCH_FIELD, showCount && 'pr-24 max-md:pr-24 pointer-coarse:pr-28')}
           // A search box is never a credential. Without this, a browser that has
           // saved a KP login drops the username into the nearest text input the
           // moment a password field appears elsewhere on the page — opening
@@ -77,7 +100,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           autoComplete="off"
           {...props}
         />
-        {hint && value.length === 0 && (
+        {hint && !hasValue && (
           // A flex box, not a bare div: an inline <kbd> child would sit on the
           // text baseline and float a pixel high of center. The inset mirrors
           // the magnifier's, not the clear button's — the button carries its
@@ -86,25 +109,41 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             {hint}
           </div>
         )}
-        {value.length > 0 && !disabled && (
-          <button
-            type="button"
-            // Clearing must not cost the field its focus — the operator is
-            // mid-search, and refocusing by hand is the friction we removed.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              onValueChange('')
-              inner.current?.focus()
-            }}
-            aria-label={t('clearSearch')}
-            title={t('clearSearch')}
-            className={cn(
-              'absolute top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-              o.clear,
+        {(showCount || (hasValue && !disabled)) && (
+          <div className="absolute inset-y-0 right-0 flex items-center">
+            {showCount && (
+              <span
+                aria-live="polite"
+                data-slot="search-count"
+                className={cn('pointer-events-none text-xs tabular-nums text-muted-foreground', !(hasValue && !disabled) && 'pr-3')}
+              >
+                {count}
+              </span>
             )}
-          >
-            <X className={o.clearIcon} />
-          </button>
+            {hasValue && !disabled && (
+              <button
+                type="button"
+                // Clearing must not cost the field its focus — the operator is
+                // mid-search, and refocusing by hand is the friction we removed.
+                // On a phone a blur would also fold the keyboard away on the way
+                // to an empty field they are about to type into.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onValueChange('')
+                  inner.current?.focus()
+                }}
+                aria-label={t('clearSearch')}
+                title={t('clearSearch')}
+                className={cn(
+                  'flex shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                  o.clear,
+                  size !== 'lg' && TOUCH_CLEAR,
+                )}
+              >
+                <X className={o.clearIcon} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         )}
       </div>
     )

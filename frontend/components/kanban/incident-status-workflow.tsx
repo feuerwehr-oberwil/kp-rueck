@@ -960,7 +960,7 @@ export function IncidentStatusWorkflowDialogs({
                     <button
                       key={key}
                       onClick={() => openAssignment(key, missingOperation.id, "missing")}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40"
+                      className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-sel-edge hover:bg-secondary/40"
                     >
                       {filled
                         ? <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
@@ -1284,13 +1284,13 @@ export function IncidentStatusWorkflowDialogs({
                       )}
                     </div>
                     <div className="flex flex-shrink-0 gap-1">
-                      <Button size="xs" variant={choice === "magazin" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
+                      <Button size="xs" variant={choice === "magazin" ? "selected" : "outline"} aria-pressed={choice === "magazin"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>
                         {tMat("toMagazinShort")}
                       </Button>
                       {/* A consumable has no "vor Ort" state — offering the button
                           would offer a state the backend refuses to store. */}
                       {!item.consumable && (
-                        <Button size="xs" variant={choice === "vorort" ? "default" : "outline"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
+                        <Button size="xs" variant={choice === "vorort" ? "selected" : "outline"} aria-pressed={choice === "vorort"} onClick={() => controller.setMaterialDecision(materialId, "vorort")}>
                           {tMat("onSiteShort")}
                         </Button>
                       )}

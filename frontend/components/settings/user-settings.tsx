@@ -44,11 +44,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
 import { useIntlLocale } from '@/lib/date-locale';
+import { ShellLoader } from '@/components/ui/shell-loader';
 
 /** The three roles in the order the select offers them, with the label key each uses. */
 const ROLE_HINTS = [
@@ -505,7 +506,7 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={submitting}>
-              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {submitting && <ShellLoader className="size-4" />}
               {t('common.create')}
             </Button>
           </DialogFooter>
@@ -569,7 +570,7 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {submitting && <ShellLoader className="size-4" />}
               {t('common.save')}
             </Button>
           </DialogFooter>
@@ -602,7 +603,7 @@ export function UserSettings() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleResetPassword} disabled={submitting || !newPassword}>
-              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {submitting && <ShellLoader className="size-4" />}
               {t('users.setPassword')}
             </Button>
           </DialogFooter>

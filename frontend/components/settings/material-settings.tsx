@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fieldMessageProps } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -31,7 +32,7 @@ import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField, DetailToggle } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, CircleSlash, PackageMinus } from 'lucide-react';
+import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, CircleSlash, PackageMinus } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient, ApiError, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -48,6 +49,7 @@ import {
 } from '@/lib/schemas/material';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import { ShellLoader } from '@/components/ui/shell-loader';
 
 /** "19.08." — the short stamp the archive line and «seit …» both use. */
 function shortDate(value: string | null): string {
@@ -428,7 +430,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                           <Input
                             {...field}
                             id="material-name"
-                            aria-invalid={!!fieldState.error}
+                            {...fieldMessageProps('material-name', fieldState.error ? 'error' : null)}
                             placeholder={t('materials.namePlaceholder')}
                             autoFocus
                           />
@@ -448,7 +450,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                             <Input
                               {...field}
                               id="material-type"
-                              aria-invalid={!!fieldState.error}
+                              {...fieldMessageProps('material-type', fieldState.error ? 'error' : null)}
                               placeholder={t('materials.typePlaceholder')}
                               className="flex-1"
                             />
@@ -493,7 +495,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                             <Input
                               {...field}
                               id="material-location"
-                              aria-invalid={!!fieldState.error}
+                              {...fieldMessageProps('material-location', fieldState.error ? 'error' : null)}
                               placeholder={t('materials.locationPlaceholder')}
                               className="flex-1"
                             />
@@ -572,7 +574,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                         {t('common.cancel')}
                       </Button>
                       <Button type="submit" disabled={isSaving}>
-                        {isSaving && <Loader2 className="size-4 animate-spin" />}
+                        {isSaving && <ShellLoader className="size-4" />}
                         {editingMaterial ? t('common.update') : t('common.create')}
                       </Button>
                     </DialogFooter>
@@ -1050,7 +1052,7 @@ function MaterialGroupSettings({
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={isSaving || !groupName.trim()}>
-              {isSaving && <Loader2 className="size-4 animate-spin" />}
+              {isSaving && <ShellLoader className="size-4" />}
               {editingGroup ? t('common.update') : t('common.create')}
             </Button>
           </DialogFooter>

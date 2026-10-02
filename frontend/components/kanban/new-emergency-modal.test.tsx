@@ -17,11 +17,33 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
  */
 
 vi.mock('@/components/location/location-input', () => ({
-  LocationInput: ({ address, onAddressChange }: { address: string; onAddressChange: (v: string) => void }) => (
-    <input aria-label="Ort" value={address} onChange={(e) => onAddressChange(e.target.value)} />
+  // The real field's id, invalid flag and description — what the modal's
+  // inline message (#21) wires and a blocked submit focuses.
+  LocationInput: ({
+    address,
+    onAddressChange,
+    error,
+    describedBy,
+  }: {
+    address: string
+    onAddressChange: (v: string) => void
+    error?: boolean
+    describedBy?: string
+  }) => (
+    <input
+      id="location_address"
+      aria-label="Ort"
+      aria-invalid={error}
+      aria-describedby={describedBy}
+      value={address}
+      onChange={(e) => onAddressChange(e.target.value)}
+    />
   ),
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }))
+// Desktop (the centred dialog) unless a test says phone — jsdom has no matchMedia.
+const viewport = vi.hoisted(() => ({ mobile: false }))
+vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => viewport.mobile }))
 
 import { NewEmergencyModal } from '@/components/kanban/new-emergency-modal'
 
@@ -100,5 +122,124 @@ describe('NewEmergencyModal — Aktionsreihenfolge', () => {
 
     const labels = Array.from(footer!.querySelectorAll('button')).map((b) => b.textContent?.trim())
     expect(labels).toEqual(['Abbrechen', 'Einsatz erstellen'])
+  })
+})
+
+describe('NewEmergencyModal — Handy', () => {
+  it('is a bottom sheet on the keyboard edge with its actions in a footer that stays', () => {
+    viewport.mobile = true
+    try {
+      renderModal()
+      const sheet = document.querySelector<HTMLElement>('[data-slot="sheet-content"]')!
+      expect(sheet).toHaveAttribute('data-side', 'bottom')
+      expect(sheet.style.bottom).toBe('var(--kb-inset, 0px)')
+      // the rows scroll on their own; the footer is outside that scroller
+      const body = sheet.querySelector('[data-slot="sheet-body"]')!
+      expect(body).toContainElement(screen.getByLabelText('Ort'))
+      const footer = sheet.querySelector<HTMLElement>('[data-slot="sheet-footer"]')!
+      expect(body).not.toContainElement(footer)
+      const buttons = Array.from(footer.querySelectorAll('button')).map((b) => b.textContent?.trim())
+      expect(buttons[0]).toMatch(/Abbrechen/)
+      expect(buttons[1]).toMatch(/erstellen/)
+      expect(sheet.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
+      // labels ABOVE the fields on the phone: the label is its own block, the control below it
+      const meldung = screen.getByText('Meldung', { selector: 'label' })
+      expect(meldung).toHaveClass('block')
+      expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
+      // switches: label left, switch right, one row
+      const tel = screen.getByRole('switch', { name: 'Telefonisch' })
+      expect(tel.closest('.min-h-11')).toHaveTextContent('Telefonisch')
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('in the sheet too, a press without Einsatzort says why under the field and focuses it', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const { onCreateOperation } = renderModal()
+      const sheet = document.querySelector<HTMLElement>('[data-slot="sheet-content"]')!
+      const footer = sheet.querySelector<HTMLElement>('[data-slot="sheet-footer"]')!
+      const create = Array.from(footer.querySelectorAll('button')).find((b) => /erstellen/.test(b.textContent ?? ''))!
+      expect(create).toBeEnabled()
+      await user.click(create)
+
+      const alert = screen.getByRole('alert')
+      expect(sheet.querySelector('[data-slot="sheet-body"]')).toContainElement(alert)
+      expect(screen.getByLabelText('Ort')).toHaveFocus()
+      expect(onCreateOperation).not.toHaveBeenCalled()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('in the sheet, the phone advice stands full width under the stacked field and is wired to it', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      renderModal()
+      const phone = screen.getByLabelText('Telefonnummer')
+      await user.type(phone, '079 123 45')
+      await user.tab()
+      const advice = screen.getByRole('status')
+      expect(phone).toHaveAccessibleDescription(advice.textContent!)
+      // stacked: no desktop label-column indent on the message
+      expect(advice.className).not.toMatch(/pl-\[/)
+    } finally {
+      viewport.mobile = false
+    }
+  })
+})
+
+/**
+ * Messages under the field (#21): red blocks, amber advises. «Einsatz erstellen»
+ * is never greyed out for a missing Ort any more — a press says what is missing
+ * and puts the cursor there. No toast.
+ */
+describe('NewEmergencyModal — Meldungen im Formular', () => {
+  it('a press without Einsatzort says why, under the field, and focuses it', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation } = renderModal()
+
+    const create = screen.getByRole('button', { name: 'Einsatz erstellen' })
+    expect(create).toBeEnabled()
+    await user.click(create)
+
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toBe('Einsatzort fehlt – ohne Ort lässt sich der Einsatz nicht erstellen.')
+    const ort = screen.getByLabelText('Ort')
+    expect(ort).toHaveFocus()
+    expect(ort).toHaveAttribute('aria-invalid', 'true')
+    expect(ort).toHaveAccessibleDescription(alert.textContent!)
+    expect(onCreateOperation).not.toHaveBeenCalled()
+  })
+
+  it('advises on a short phone number once the field is left — and creates anyway', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation } = renderModal()
+
+    const phone = screen.getByLabelText('Telefonnummer')
+    await user.type(phone, '079 123 45')
+    // Still typing: a number being typed is not a wrong number.
+    expect(screen.queryByRole('status')).toBeNull()
+
+    await user.tab()
+    const advice = screen.getByRole('status')
+    expect(advice.textContent).toBe('Nummer hat nur 8 Ziffern – bitte prüfen. Erstellen geht trotzdem.')
+    expect(phone).toHaveAccessibleDescription(advice.textContent!)
+    expect(phone).not.toHaveAttribute('aria-invalid')
+
+    await submit(user)
+    expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ contactPhone: '079 123 45' }))
+  })
+
+  it('says nothing about a complete number', async () => {
+    const user = userEvent.setup()
+    renderModal()
+
+    await user.type(screen.getByLabelText('Telefonnummer'), '079 123 45 67')
+    await user.tab()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })

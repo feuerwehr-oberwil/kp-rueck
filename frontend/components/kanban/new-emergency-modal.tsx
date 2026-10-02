@@ -20,22 +20,49 @@
  * three bare icons. Rows carry no hairlines anywhere since the «Nur Abstand»
  * pick — the boxes and the whitespace do the separating. Same grammar,
  * different skin.
+ *
+ * MESSAGES (#21): what is wrong is said UNDER the field, never in a toast and
+ * never by greying the button out. Red blocks (no Einsatzort), amber advises (a
+ * phone number with a digit count no Swiss number has) and lets the operator
+ * create anyway. «Einsatz erstellen» stays pressable: a press with the Ort
+ * missing shows the reason and puts the cursor into the field — the old
+ * disabled button said nothing, and its error only appeared after the field had
+ * been filled and emptied again.
+ *
+ * ON A PHONE the rows stack (`stacked`): label above, control full width, switches
+ * label-left / switch-right — the grammar of every other phone form. The row's 120px
+ * label column left a 390px phone ~200px of control and read as a table. A field's
+ * message then sits full width under its control as well.
  */
 
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DETAIL_CONTROL_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
+import { DETAIL_MESSAGE_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
 import { Axe, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { LocationInput } from "@/components/location/location-input"
-import { toast } from "sonner"
+import {
+  FIELD_ADVICE_CLASS,
+  FormMessage,
+  fieldMessageProps,
+  focusFirstBlockingField,
+  formMessageId,
+} from "@/components/ui/form-message"
+import { phoneAdvice } from "@/lib/phone-plausibility"
+import { cn } from "@/lib/utils"
+
+/** LocationInput's own input id — the field a blocked submit focuses. */
+const LOCATION_FIELD_ID = "location_address"
+const PHONE_FIELD_ID = "contact-phone"
 
 interface NewEmergencyModalProps {
   open: boolean
@@ -52,6 +79,7 @@ export function NewEmergencyModal({
   defaultGroupId = null,
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')
+  const isMobile = useIsMobile()
   const [formData, setFormData] = useState({
     location: "",
     incidentType: "elementarereignis",
@@ -105,16 +133,18 @@ export function NewEmergencyModal({
   // Validation rules
   const isLocationValid = formData.location.trim().length > 0
   const showLocationError = (touched.location || showValidationErrors) && !isLocationValid
-
+  // Advice only once the operator has left the field (or tried to create) —
+  // «079 1» is not a wrong number, it is a number being typed.
+  const phone = phoneAdvice(formData.contactPhone)
+  const showPhoneAdvice = !!phone && (touched.contactPhone || showValidationErrors)
 
   const handleSubmit = () => {
-    // Trigger validation display
+    // Show every message there is, then refuse only on the blocking ones —
+    // the phone advice is said, never waited on.
     setShowValidationErrors(true)
 
     if (!isLocationValid) {
-      toast.error(t('newEmergency.validationTitle'), {
-        description: t('newEmergency.validationDescription')
-      })
+      focusFirstBlockingField([LOCATION_FIELD_ID])
       return
     }
 
@@ -161,22 +191,9 @@ export function NewEmergencyModal({
     onOpenChange(false)
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
-          so a bare `max-w-*` loses to it at desktop widths and the form gets
-          crushed into ~440px — clipped selects, icon-only Einsatzort. */}
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-primary" />
-            <DialogTitle>{t('common.newIncident')}</DialogTitle>
-          </div>
-          <DialogDescription>
-            {t('newEmergency.description')}
-          </DialogDescription>
-        </DialogHeader>
-
+  // The form itself — the same rows in both shapes below.
+  const fields = (
+    <>
         {/* ONE column: the eight rows fit a laptop's height with room to spare,
             and a single reading direction beats filling width for its own sake —
             a second column made the eye jump mid-form. Was ist passiert first
@@ -189,7 +206,8 @@ export function NewEmergencyModal({
               address={formData.location}
               latitude={formData.coordinates?.[0] ?? null}
               longitude={formData.coordinates?.[1] ?? null}
-              dense
+              // phone: LocationInput's own stacked layout (label above), the /feld one
+              dense={!isMobile}
               boxed
               required
               onAddressChange={(address) => {
@@ -204,14 +222,19 @@ export function NewEmergencyModal({
               }
               autoFocus={open}
               error={showLocationError}
+              describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
             />
             {showLocationError && (
-              <p className={`${DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
+              <FormMessage
+                id={formMessageId(LOCATION_FIELD_ID)}
+                tone="error"
+                className={isMobile ? "mt-1" : cn("mb-1", DETAIL_MESSAGE_INDENT)}
+              >
                 {t('newEmergency.locationError')}
-              </p>
+              </FormMessage>
             )}
 
-            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart stacked={isMobile}>
               <Textarea
                 id="notes"
                 placeholder={t('common.meldungPlaceholder')}
@@ -224,7 +247,7 @@ export function NewEmergencyModal({
 
             {/* One per line, Einsatzart and Priorität included: two half-width
                 controls sharing a row is how «Mittel» gets read as the Einsatzart. */}
-            <DetailField label={t('common.einsatzart')} htmlFor="incidentType">
+            <DetailField label={t('common.einsatzart')} htmlFor="incidentType" stacked={isMobile}>
               <Select
                 value={formData.incidentType}
                 onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
@@ -242,7 +265,7 @@ export function NewEmergencyModal({
               </Select>
             </DetailField>
 
-            <DetailField label={t('common.priority')} htmlFor="priority">
+            <DetailField label={t('common.priority')} htmlFor="priority" stacked={isMobile}>
               <Select
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
@@ -268,6 +291,7 @@ export function NewEmergencyModal({
               `DetailToggle`, as the Übersicht tab. The explanatory sentence under
               each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
+              stacked={isMobile}
 
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
@@ -278,6 +302,7 @@ export function NewEmergencyModal({
               }
             />
             <DetailToggle
+              stacked={isMobile}
 
               label={t('common.feldReported')}
               description={t('common.feldReportedDescription')}
@@ -288,7 +313,7 @@ export function NewEmergencyModal({
               }
             />
 
-            <DetailField label={t('common.contact')} htmlFor="contact">
+            <DetailField label={t('common.contact')} htmlFor="contact" stacked={isMobile}>
               <Input
                 id="contact"
                 placeholder={t('common.contactPlaceholder')}
@@ -297,14 +322,26 @@ export function NewEmergencyModal({
               />
             </DetailField>
 
-            <DetailField label={t('common.contactPhone')} htmlFor="contact-phone">
+            <DetailField
+              label={t('common.contactPhone')}
+              htmlFor={PHONE_FIELD_ID}
+              stacked={isMobile}
+              advice={
+                showPhoneAdvice && phone
+                  ? t(phone.kind === 'short' ? 'newEmergency.phoneShort' : 'newEmergency.phoneLong', { digits: phone.digits })
+                  : undefined
+              }
+            >
               <Input
-                id="contact-phone"
+                id={PHONE_FIELD_ID}
                 type="tel"
                 inputMode="tel"
                 placeholder={t('common.contactPhonePlaceholder')}
                 value={formData.contactPhone}
                 onChange={(e) => setFormData({ ...formData, contactPhone: sanitizePhoneInput(e.target.value) })}
+                onBlur={() => setTouched((prev) => ({ ...prev, contactPhone: true }))}
+                className={cn(showPhoneAdvice && FIELD_ADVICE_CLASS)}
+                {...fieldMessageProps(PHONE_FIELD_ID, showPhoneAdvice ? 'advice' : null)}
               />
             </DetailField>
 
@@ -313,19 +350,75 @@ export function NewEmergencyModal({
             </p>
         </div>
 
+    </>
+  )
+
+  const cancelButton = (
+    <Button variant="outline" onClick={() => onOpenChange(false)}>
+      {t('common.cancel')}
+    </Button>
+  )
+  // Never disabled for a missing Ort: the press is how the operator finds out
+  // what is missing (see the header).
+  const createButton = (
+    <Button
+      onClick={handleSubmit}
+      className="hover-delight"
+    >
+      <Plus className="h-4 w-4" />
+      {t('newEmergency.create')}
+    </Button>
+  )
+
+  // PHONE: a bottom sheet standing on the keyboard's edge (ui/sheet.tsx → `--kb-inset`), the
+  // rows in their own scroll area and «Abbrechen» / «Einsatz erstellen» in a footer that stays
+  // above the keys. The centred 90vh dialog this replaces kept its buttons — and with the
+  // autofocused Einsatzort, the keyboard — at the bottom of the whole screen: whoever wanted to
+  // create the Einsatz had to put the keyboard away first. Swiping it down closes it like the
+  // ✕ does; what was typed stays in this component's state for the next open, as before.
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl">
+          <SheetHeader className="px-4 pt-5 pb-2 pr-12">
+            <div className="flex items-center gap-3">
+              <Plus className="h-6 w-6 text-primary" />
+              <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
+            </div>
+            <SheetDescription>{t('newEmergency.description')}</SheetDescription>
+          </SheetHeader>
+          <SheetBody className="px-4">{fields}</SheetBody>
+          <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
+            {cancelButton}
+            {createButton}
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
+          so a bare `max-w-*` loses to it at desktop widths and the form gets
+          crushed into ~440px — clipped selects, icon-only Einsatzort. */}
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <Plus className="h-6 w-6 text-primary" />
+            <DialogTitle>{t('common.newIncident')}</DialogTitle>
+          </div>
+          <DialogDescription>
+            {t('newEmergency.description')}
+          </DialogDescription>
+        </DialogHeader>
+
+        {fields}
+
         {/* Actions — Abbrechen left, primary right, like every other dialog. */}
         <DialogFooter className="pt-1">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!formData.location}
-            className="hover-delight"
-          >
-            <Plus className="h-4 w-4" />
-            {t('newEmergency.create')}
-          </Button>
+          {cancelButton}
+          {createButton}
         </DialogFooter>
       </DialogContent>
     </Dialog>

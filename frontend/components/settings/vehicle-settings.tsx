@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fieldMessageProps } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -30,7 +31,7 @@ import {
 import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField } from '@/components/kanban/detail-field';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, Ban, CircleSlash } from 'lucide-react';
+import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, ArrowUp, ArrowDown, Ban, CircleSlash } from 'lucide-react';
 import { apiClient, ApiError, ApiVehicle } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -43,6 +44,7 @@ import {
 } from '@/lib/schemas/vehicle';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import { ShellLoader } from '@/components/ui/shell-loader';
 
 type SortColumn = 'display_order' | 'name' | 'radio_call_sign' | 'status';
 
@@ -322,7 +324,7 @@ export function VehicleSettings() {
                       <Input
                         {...field}
                         id="vehicle-name"
-                        aria-invalid={!!fieldState.error}
+                        {...fieldMessageProps('vehicle-name', fieldState.error ? 'error' : null)}
                         placeholder={t('vehicles.namePlaceholder')}
                         autoFocus
                       />
@@ -343,7 +345,7 @@ export function VehicleSettings() {
                         id="vehicle-display-order"
                         type="number"
                         min={1}
-                        aria-invalid={!!fieldState.error}
+                        {...fieldMessageProps('vehicle-display-order', fieldState.error ? 'error' : null)}
                         value={Number.isFinite(field.value) ? field.value : ''}
                         onChange={(e) => {
                           const raw = e.target.value;
@@ -370,7 +372,7 @@ export function VehicleSettings() {
                       <Input
                         {...field}
                         id="vehicle-radio-call-sign"
-                        aria-invalid={!!fieldState.error}
+                        {...fieldMessageProps('vehicle-radio-call-sign', fieldState.error ? 'error' : null)}
                         placeholder={t('vehicles.radioPlaceholder')}
                       />
                     </DetailField>
@@ -407,7 +409,7 @@ export function VehicleSettings() {
                     {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={isSaving}>
-                    {isSaving && <Loader2 className="size-4 animate-spin" />}
+                    {isSaving && <ShellLoader className="size-4" />}
                     {editingVehicle ? t('common.update') : t('common.create')}
                   </Button>
                 </DialogFooter>

@@ -16,13 +16,13 @@ import {
   Printer,
   CheckCircle,
   AlertCircle,
-  Loader2,
   RefreshCw,
 } from 'lucide-react';
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
 import { SettingCard, SettingRow, SettingActions } from '@/components/settings/setting-row';
 import { toast } from 'sonner';
+import { ShellLoader } from '@/components/ui/shell-loader';
 
 // The Pi print-agent polls ~5s while "active" (within ACTIVE window of its last
 // job) and ~60s when idle. We estimate the pickup window the same way so the
@@ -394,7 +394,7 @@ export function PrinterSettings() {
                 disabled={statusLoading}
                 aria-label={t('refreshStatus')}
               >
-                <RefreshCw className={`size-3.5 ${statusLoading ? 'animate-spin' : ''}`} />
+                {statusLoading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
               </Button>
             </span>
           }
@@ -407,7 +407,7 @@ export function PrinterSettings() {
             disabled={testingConnection || testingPrint || !printerConfigured}
           >
             {testingConnection ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <ShellLoader className="size-3.5" />
             ) : (
               <CheckCircle className="size-3.5" />
             )}
@@ -421,7 +421,7 @@ export function PrinterSettings() {
             disabled={testingPrint || testingConnection || !printerConfigured}
           >
             {testingPrint ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <ShellLoader className="size-3.5" />
             ) : (
               <Printer className="size-3.5" />
             )}
@@ -437,7 +437,7 @@ export function PrinterSettings() {
                 {testPhase === 'done' ? (
                   <CheckCircle className="h-3.5 w-3.5 text-success" />
                 ) : (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <ShellLoader className="h-3.5 w-3.5" />
                 )}
                 {testPhase === 'queued' && t('phaseQueued')}
                 {testPhase === 'printing' && t('phasePrinting')}
