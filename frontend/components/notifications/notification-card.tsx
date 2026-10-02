@@ -23,6 +23,7 @@ import { useOperations } from '@/lib/contexts/operations-context'
 import { fieldNudgeForNotification } from '@/lib/notification-field-action'
 import { formatNotificationTime } from '@/lib/notification-time'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
+import { notificationDetail, notificationParts } from '@/lib/notification-format'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { cn } from '@/lib/utils'
@@ -85,6 +86,7 @@ export function NotificationCard({
 }: NotificationCardProps) {
   const t = useTranslations('notifications.card')
   const tSidebar = useTranslations('notifications.sidebar')
+  const tToasts = useTranslations('notifications.toasts')
   const compact = variant === 'compact'
   const styles = severityStyles(notification.severity, compact)
   const { isEditor } = useAuth()
@@ -99,6 +101,13 @@ export function NotificationCard({
         : t('severityInfo')
 
   const isClickable = !!notification.incident_id && !!onClickIncident
+
+  // Same reading as the toast: what is asked, then where · who (lib/notification-format.ts).
+  const parts = notificationParts(notification, {
+    fieldReport: tToasts('fieldReport'),
+    fieldReportDirect: tToasts('fieldReportDirect'),
+  })
+  const detail = notificationDetail(parts)
 
   // The move this notification is asking for, if it is still open. Nothing is
   // offered for a card that has already been moved — by a drag, by the nudge on
@@ -145,7 +154,8 @@ export function NotificationCard({
             </span>
           </div>
 
-          <p className="text-sm leading-snug break-words text-foreground">{notification.message}</p>
+          <p className="text-sm font-medium leading-snug break-words text-foreground">{parts.what}</p>
+          {detail && <p className="mt-0.5 text-xs leading-snug break-words text-muted-foreground">{detail}</p>}
 
           {showAction && (
             <Button
