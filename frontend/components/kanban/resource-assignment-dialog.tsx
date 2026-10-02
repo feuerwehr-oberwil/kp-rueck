@@ -1142,7 +1142,7 @@ export function ResourceAssignmentDialog({
             onBlur={() => setSearchFocused(false)}
             className={cn(
               "transition-all",
-              searchFocused && "ring-2 ring-primary/50 animate-search-focus"
+              searchFocused && "ring-2 ring-ring/50 animate-search-focus"
             )}
           />
 

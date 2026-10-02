@@ -24,7 +24,8 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.90 0.003 60);
   --input: oklch(0.92 0.003 60);
-  --ring: oklch(0.45 0.14 25);
+  /* Focus = slate, not the red primary: a red ring reads as an error. */
+  --ring: var(--sel-line);
   --chart-1: oklch(0.45 0.18 25);
   --chart-2: oklch(0.50 0.15 250);
   --chart-3: oklch(0.65 0.20 60);
@@ -38,7 +39,7 @@
   --sidebar-accent: oklch(0.94 0.005 250);
   --sidebar-accent-foreground: oklch(0.25 0 0);
   --sidebar-border: oklch(0.88 0 0);
-  --sidebar-ring: oklch(0.45 0.18 25);
+  --sidebar-ring: var(--sel-line);
 
   /* Refined status colors - light mode */
   --status-available: oklch(0.55 0.12 145);
@@ -57,6 +58,20 @@
   --warning-foreground: oklch(0.30 0.10 85);
   --info: oklch(0.55 0.15 250);
   --info-foreground: oklch(0.25 0.10 250);
+
+  /* Selection («A2», decided 2026-10): a muted SLATE blue, tonal rather than
+     filled, so «chosen» never borrows the red that means priority/danger.
+       --sel            switch «an» fill
+       --sel-foreground text / ✓ of a chosen chip, preset, row
+       --sel-wash       background of a chosen chip, preset, row, card
+       --sel-edge       1px edge of a chosen chip or row
+       --sel-line       2px outline of the selected Einsatz card; also the focus ring
+     Rules: CLAUDE.md → Design Context → Colour roles. */
+  --sel: oklch(0.50 0.07 250);
+  --sel-foreground: oklch(0.42 0.075 250);
+  --sel-wash: oklch(0.55 0.07 250 / 0.12);
+  --sel-edge: oklch(0.45 0.07 250 / 0.55);
+  --sel-line: oklch(0.47 0.075 250);
 }
 
 /* Dark mode - Professional emergency services theme */
@@ -87,7 +102,7 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.42 0.012 250);
   --input: oklch(0.29 0.012 250);
-  --ring: oklch(0.50 0.16 25);
+  --ring: var(--sel-line);
   --chart-1: oklch(0.50 0.16 25);
   --chart-2: oklch(0.50 0.15 250);
   --chart-3: oklch(0.72 0.22 60);
@@ -100,7 +115,7 @@
   --sidebar-accent: oklch(0.30 0.012 250);
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.42 0.012 250);
-  --sidebar-ring: oklch(0.50 0.16 25);
+  --sidebar-ring: var(--sel-line);
 
   /* Refined status colors - dark mode */
   --status-available: oklch(0.48 0.08 0);
@@ -119,6 +134,13 @@
   --warning-foreground: oklch(0.90 0.08 85);
   --info: oklch(0.45 0.12 250);
   --info-foreground: oklch(0.85 0.08 250);
+
+  /* Selection (see :root) – lighter slate on the dark surfaces. */
+  --sel: oklch(0.60 0.07 250);
+  --sel-foreground: oklch(0.82 0.06 250);
+  --sel-wash: oklch(0.70 0.06 250 / 0.18);
+  --sel-edge: oklch(0.75 0.06 250 / 0.55);
+  --sel-line: oklch(0.74 0.07 250);
 }
 
 @theme inline {
@@ -176,6 +198,13 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+
+  /* Selection roles (bg-sel-wash, text-sel-foreground, ring-sel-edge, …) */
+  --color-sel: var(--sel);
+  --color-sel-foreground: var(--sel-foreground);
+  --color-sel-wash: var(--sel-wash);
+  --color-sel-edge: var(--sel-edge);
+  --color-sel-line: var(--sel-line);
 }
 
 @layer base {
@@ -419,12 +448,12 @@
      lingers, so the eye finds the row the jump was aiming at. */
   @keyframes settings-search-flash {
     0% {
-      background-color: color-mix(in oklab, var(--primary) 10%, transparent);
-      box-shadow: inset 2px 0 0 var(--primary);
+      background-color: var(--sel-wash);
+      box-shadow: inset 2px 0 0 var(--sel-line);
     }
     60% {
       background-color: transparent;
-      box-shadow: inset 2px 0 0 var(--primary);
+      box-shadow: inset 2px 0 0 var(--sel-line);
     }
     100% {
       background-color: transparent;
@@ -595,10 +624,10 @@
   /* Search input focus glow */
   @keyframes search-focus {
     0% {
-      box-shadow: 0 0 0 0 oklch(from var(--primary) l c h / 0.4);
+      box-shadow: 0 0 0 0 oklch(from var(--ring) l c h / 0.4);
     }
     100% {
-      box-shadow: 0 0 0 4px oklch(from var(--primary) l c h / 0);
+      box-shadow: 0 0 0 4px oklch(from var(--ring) l c h / 0);
     }
   }
 

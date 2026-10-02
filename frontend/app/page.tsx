@@ -2022,7 +2022,7 @@ export default function FireStationDashboard() {
             {/* Event title doubles as an event switcher: switch events or create a
                 new one without first hunting through the user menu → Ereignisse. */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+              <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                 <h1 className={`text-xl md:text-2xl font-bold tracking-tight truncate ${selectedEvent ? "" : "text-muted-foreground"}`}>
                   {selectedEvent ? selectedEvent.name : tDash('noEventSelected')}
                 </h1>
