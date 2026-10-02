@@ -339,6 +339,21 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
+- **Loading states – one signal, always with words.** A full-screen start (auth probe, Microsoft
+  callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the phase, no percentage, and
+  «Neu starten» after 9 s. In the app it is the shell trail (`components/ui/shell-loader.tsx`):
+  `LoadingStatus` for a stand-alone wait (words required, `role="status"`; `surface` = 48px
+  stacked for an empty dialog/panel, `inline` = 20px beside the text), `ShellLoader` in the icon
+  slot of a busy button beside its label. Do not add `Loader2`/`animate-spin` spinners, and no
+  artificial minimum wait. Under reduced motion the trail and the snail stand still, and
+  overlays fade without zoom/slide (`globals.css`, via tw-animate's variables – never a blanket
+  `transform: none`, which would break positioning and drag-and-drop).
+- **The snail is shared with KP Front and edited there.** `frontend/public/firefighter-snail-loader.svg`
+  is a byte-identical copy of kp-front's `public/firefighter-snail-loader.svg`, and
+  `SHELL_TRAIL_PATH` is its `fs-shell-trail` path. Never edit either here; colour it from the
+  outside (`--accent` is pointed at `--primary`). The `snail-drift` CI job
+  (`scripts/check-snail-drift.mjs`) compares both with kp-front, like the telemetry, alarm
+  keyword, roster and alarm-contract drift jobs.
 
 ## Important Files & Documentation
 

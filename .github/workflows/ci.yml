@@ -16,6 +16,8 @@ name: CI
 #   strips", "could the two classify an alarm differently", "could a station's roster
 #   snapshot be valid for one product and refused by the other", and "could one dispatch
 #   webhook be accepted by one app and refused by the other".
+#   A fifth, snail-drift ("do the two apps still show the same loading snail"), was added
+#   2026-10-02 and is NOT in the required list yet — same probation as the four had.
 #   All read `env.SIBLING_REPO` and SKIP (never fail) when it is empty or cannot be checked
 #   out, so a fork inherits an honest "not checked" rather than a red X against a repository
 #   it has nothing to do with. They still fail on real drift for the upstream pair.
@@ -526,6 +528,63 @@ jobs:
           echo "Copy the file across, run BOTH suites (each asserts its own column), and land"
           echo "the change in both repositories together. If a payload genuinely converged, it"
           echo "moves from 'divergent' into 'cases' on both sides in the same change."
+          echo ""
+          echo "If this is a fork that means to differ, point SIBLING_REPO at your own kp-front"
+          echo "fork in .github/workflows/ci.yml, or set it to ''."
+          exit 1
+
+  # Fifth shared thing, and the first one a user sees: the loading snail. KP Front owns
+  # public/firefighter-snail-loader.svg; frontend/public/ carries a byte-identical copy (the
+  # boot screen inlines it), and the in-app shell trail (frontend/components/ui/shell-
+  # loader.tsx) inlines the SVG's `fs-shell-trail` path as SHELL_TRAIL_PATH. So two things
+  # can drift: the drawing, and the path the trail runs along. The in-repo test
+  # (shell-loader.test.tsx) pins our constant to our copy; only this job reads kp-front.
+  #
+  # Its own job, same reasoning as the four above: a failure here means "the two apps no
+  # longer show the same mascot", a cosmetic question next to theirs, and a shared red X
+  # would hide which one it is.
+  snail-drift:
+    name: Snail loader matches KP Front
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out the sibling repository
+        id: sibling
+        if: env.SIBLING_REPO != ''
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          path: .kp-front
+          fetch-depth: 1
+
+      # The runner's own node: the script has no dependencies, so no install step.
+      - name: Compare the snail and its shell trail
+        env:
+          SIBLING_STATUS: ${{ steps.sibling.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — cross-repo snail check disabled for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable)."
+            echo "::notice::Skipping the snail drift check. Set SIBLING_REPO in"
+            echo "::notice::.github/workflows/ci.yml to a repository this workflow can read, or to ''."
+            exit 0
+          fi
+          if node scripts/check-snail-drift.mjs .kp-front .; then
+            exit 0
+          fi
+          echo ""
+          echo "The snail is edited in kp-front, never here. Copy its"
+          echo "public/firefighter-snail-loader.svg to frontend/public/ unchanged; if the"
+          echo "fs-shell-trail path moved, paste the new d=\"…\" into SHELL_TRAIL_PATH in"
+          echo "frontend/components/ui/shell-loader.tsx. A Rück-only tweak to the drawing is"
+          echo "exactly what this job exists to catch: colour it from the outside (--accent)."
           echo ""
           echo "If this is a fork that means to differ, point SIBLING_REPO at your own kp-front"
           echo "fork in .github/workflows/ci.yml, or set it to ''."
