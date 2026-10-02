@@ -1023,9 +1023,9 @@ function DraggableOperationBase({
                             className={cn(
                               "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 transition-colors",
                               onToggleDriverStay && "cursor-pointer hover:brightness-110",
-                              driverStay
-                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
-                                : "bg-muted-foreground/15 text-muted-foreground",
+                              // Neutral in both states (quieter cards): the
+                              // word and the pin/return icon say which.
+                              "bg-muted-foreground/15 text-muted-foreground",
                             )}
                           >
                             {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}

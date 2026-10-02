@@ -148,7 +148,7 @@ export function MobileIncidentListView({
             the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights). */}
         {isTraining && isEditor && (
           <Link href="/training" className="mb-3 block">
-            <Button className="w-full min-h-[48px] gap-2 bg-orange-600 text-white hover:bg-orange-700">
+            <Button variant="outline" className="w-full min-h-[48px] gap-2">
               <Sparkles className="h-4 w-4" />
               {t('createTrainingIncident')}
             </Button>
