@@ -301,8 +301,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4 modal-h-tall")}
-      style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
+      // phone: a modal sheet over the nav — only the safe area at its foot
+      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4 modal-h-tall", isMobile && "pb-sheet-safe")}
       // both roles: a Radix AlertDialog is role="alertdialog", and the vehicle-conflict prompt
       // that can appear from here is one — see the note in auftraege-sheet.tsx
       shouldPreventClose={(target) => !!target.closest('[role="dialog"], [role="alertdialog"]') || driverDialogOpen}

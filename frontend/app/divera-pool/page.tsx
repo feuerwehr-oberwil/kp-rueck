@@ -293,7 +293,7 @@ export default function DiveraPoolPage() {
       </div>
 
       {/* List */}
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
+      <main className="flex-1 overflow-auto pb-nav-reserve md:pb-0">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>

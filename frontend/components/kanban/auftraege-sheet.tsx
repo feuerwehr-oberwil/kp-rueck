@@ -310,8 +310,8 @@ export function AuftraegeSheet({
           // sidebar's edge instead of centering against the covered viewport.
           rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
-          className="flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall"
-          style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
+          // phone: a modal sheet over the nav — only the safe area at its foot
+          className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall", isMobile && "pb-sheet-safe")}
           onPointerDownOutside={(e) => {
             // A sonner toast is portalled outside this non-modal sheet, so clicking
             // its "Rückgängig" action counts as an outside interaction and would

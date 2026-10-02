@@ -1231,6 +1231,7 @@
       },
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
+      "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Rechercher une intervention …",
       "all": "Toutes ({count})",
       "noResults": "Aucune intervention trouvée",

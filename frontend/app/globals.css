@@ -983,3 +983,41 @@
 body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) footer {
   z-index: 40;
 }
+
+/* ── Phone geometry: keyboard, bottom nav, bottom sheets ──
+   The variables are written by components/viewport-insets.tsx and the Sheet primitive; the
+   contract is documented in lib/viewport-insets.ts. These are the no-JS defaults. */
+:root {
+  --kb-inset: 0px;
+  --vv-height: 100dvh;
+  --nav-reserve: 0px;
+  --sheet-top: 0px;
+}
+
+/* While the keyboard is up an undocked bottom sheet (it stands on `bottom: var(--kb-inset)`,
+   see ui/sheet.tsx) is never taller than the band of screen left above the keys, minus 5rem:
+   room for one message above the sheet's edge (the toast lane reads `--sheet-top`) and a strip
+   of backdrop to tap. Capped to the band's own height, never «layout height minus the foot»:
+   that one grows as iOS pans and starts the pan/re-aim loop documented in lib/viewport-insets.
+   Unlayered on purpose, so it wins over the `modal-h-*` utility on the same element. */
+:root[data-kb] [data-slot='sheet-content'][data-side='bottom']:not([data-docked]) {
+  max-height: calc(var(--vv-height) - 5rem);
+}
+
+/* The ONE scroll reserve for a phone list under the fixed bottom nav: the nav's measured height
+   (safe area included) or the keyboard, whichever covers more — never both added up, since the
+   nav sits behind the keyboard — plus a small gap. Replaces the `env(safe-area-inset-bottom) +
+   5rem` guesses that were retyped per list. 0 + gap on desktop, where the nav is hidden. */
+@utility pb-nav-reserve {
+  padding-bottom: calc(max(var(--nav-reserve, 0px), var(--kb-inset, 0px)) + 0.75rem);
+}
+
+/* The foot of a phone bottom sheet: it covers the nav, so it only pays the safe area (the home
+   indicator) and a small gap. With the keyboard up the sheet stands on the keys and the safe
+   area is under them, so only the gap stays. */
+@utility pb-sheet-safe {
+  padding-bottom: max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+  :root[data-kb] & {
+    padding-bottom: 0.75rem;
+  }
+}
