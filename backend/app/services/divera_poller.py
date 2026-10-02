@@ -106,9 +106,13 @@ class DiveraPoller:
                 self._poll_count += 1
             except asyncio.CancelledError:
                 break
+            except httpx.HTTPError:
+                # Already logged by the fetch with its status or error type. NOT `{e}` here:
+                # an `HTTPStatusError` renders as "… for url '…?accesskey=<the key>'".
+                self._error_count += 1
             except Exception as e:
                 self._error_count += 1
-                logger.error(f"Error polling Divera: {e}")
+                logger.error("Error polling Divera: %s", e)
 
             # Wait for next poll interval
             try:
@@ -132,7 +136,8 @@ class DiveraPoller:
             logger.error(f"Divera API error: {e.response.status_code}")
             raise
         except httpx.RequestError as e:
-            logger.error(f"Divera API request failed: {e}")
+            # Host and error type only — the URL carries the access key in its query.
+            logger.error("Divera API request failed: %s (%s)", type(e).__name__, httpx.URL(url).host)
             raise
 
         # Parse and process alarms

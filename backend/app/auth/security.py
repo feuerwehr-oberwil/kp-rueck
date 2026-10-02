@@ -1,6 +1,8 @@
 """Security utilities: password hashing, token generation."""
 
+import asyncio
 import math
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -86,6 +88,52 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     password_bytes = plain_password.encode("utf-8")
     hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password_bytes, hashed_bytes)
+
+
+# ⚠️ bcrypt at cost 12 is ~250 ms of CPU by design, and until 2026-09-23 the login ran it ON
+# the event loop: every sign-in froze every other request, WebSocket push and long-poll of the
+# whole backend for that quarter second, and a burst of logins at the start of an Einsatz —
+# or somebody guessing passwords — stacked those freezes end to end. The async helpers below
+# run it in a worker thread instead.
+#
+# The dummy hash closes the other half: an unknown username used to answer in ~1 ms while a
+# known one took the full bcrypt, so the response time alone told a guesser which usernames
+# exist. Checking the password against a real hash of the same cost makes both paths take
+# the same time. Generated lazily (the first unknown-user login pays for it once) from random
+# bytes nobody knows, so it can never match anything.
+_dummy_hash: bytes | None = None
+
+
+def _get_dummy_hash() -> bytes:
+    global _dummy_hash
+    if _dummy_hash is None:
+        _dummy_hash = bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt(rounds=12))
+    return _dummy_hash
+
+
+def _check_login_password(plain_password: str, hashed_password: str | None) -> bool:
+    password_bytes = plain_password.encode("utf-8")
+    # Longer than bcrypt's 72-byte limit cannot match — hash_password refuses to store one —
+    # and bcrypt 5 raises on it, which used to surface as a 500 from the login form.
+    too_long = len(password_bytes) > 72
+    if not hashed_password or too_long:
+        bcrypt.checkpw(password_bytes[:72], _get_dummy_hash())  # burn the same time, discard
+        return False
+    return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
+
+
+async def verify_login_password(plain_password: str, hashed_password: str | None) -> bool:
+    """Check a sign-in password off the event loop, in constant-ish time.
+
+    `hashed_password` is None for an unknown username or a Microsoft-only account; the check
+    then runs against a dummy hash so that neither case answers faster than a wrong password.
+    """
+    return await asyncio.to_thread(_check_login_password, plain_password, hashed_password)
+
+
+async def hash_password_async(password: str) -> str:
+    """`hash_password` in a worker thread — same policy, same errors, off the event loop."""
+    return await asyncio.to_thread(hash_password, password)
 
 
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:

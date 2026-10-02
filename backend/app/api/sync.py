@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Protocol
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Table, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -216,14 +216,19 @@ async def trigger_immediate_sync(current_user: CurrentAdmin, db: AsyncSession = 
 @router.get("/logs", response_model=list[SyncLogResponse])
 @router.get("/history", response_model=list[SyncLogResponse])  # Alias for frontend compatibility
 async def get_sync_logs(
-    current_user: CurrentUser, limit: int = 20, db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser,
+    # Bounded like every other list endpoint: any signed-in viewer can call this, and an
+    # unbounded `limit` (or a negative one, which Postgres rejects as a 500) made it a way to
+    # have the backend serialise the whole sync history on request. The UI asks for 10.
+    limit: int = Query(20, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
 ) -> list[SyncLogResponse]:
     """
     Get recent sync operation logs (counts and error strings only — no credentials).
     Requires authentication.
 
     Args:
-        limit: Maximum number of logs to return (default 20).
+        limit: Maximum number of logs to return (default 20, 1–200).
 
     Returns:
         List of sync log entries, most recent first.

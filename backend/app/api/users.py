@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentAdmin
-from ..auth.security import hash_password
+from ..auth.security import hash_password_async
 from ..config import settings
 from ..database import get_db
 from ..models import User
@@ -22,10 +22,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-def _hash_user_password(password: str) -> str:
-    """Translate password policy failures without exposing supplied credentials."""
+async def _hash_user_password(password: str) -> str:
+    """Translate password policy failures without exposing supplied credentials.
+
+    Hashed in a worker thread: bcrypt at cost 12 is ~250 ms the event loop must not spend.
+    """
     try:
-        return hash_password(password)
+        return await hash_password_async(password)
     except ValueError:
         raise HTTPException(status_code=400, detail="Passwort erfüllt die Passwortanforderungen nicht.") from None
 
@@ -94,7 +97,7 @@ async def create_user(
     # Create user
     user = User(
         username=user_data.username,
-        password_hash=_hash_user_password(user_data.password),
+        password_hash=await _hash_user_password(user_data.password),
         role=user_data.role,
         display_name=user_data.display_name or user_data.username,
         is_active=True,
@@ -221,7 +224,7 @@ async def reset_user_password(
 
     # Hash before mutation. The database increment prevents concurrent resets
     # from losing an invalidation, and commits atomically with the new password.
-    password_hash = _hash_user_password(password_data.new_password)
+    password_hash = await _hash_user_password(password_data.new_password)
     await db.execute(
         update(User)
         .where(User.id == user_id)
