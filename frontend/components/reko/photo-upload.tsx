@@ -674,7 +674,7 @@ export default function PhotoUpload({
                     onClick={() => handleRemovePhoto(filename)}
                     disabled={disabled}
                     aria-label={t('removePhoto', { number: index + 1 })}
-                    className="absolute top-1 right-1 cursor-pointer p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md disabled:hidden"
+                    className="absolute top-1 right-1 cursor-pointer p-1 bg-background/90 text-destructive ring-1 ring-destructive/50 rounded-full hover:bg-background transition-colors shadow-md disabled:hidden dark:text-red-400"
                   >
                     <X className="h-4 w-4" />
                   </button>

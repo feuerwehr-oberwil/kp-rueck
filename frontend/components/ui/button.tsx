@@ -9,14 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        // Solid token in BOTH themes. The shadcn default `dark:bg-destructive/60`
-        // blended the red 40% into the page background — washed-out fill, yet the
-        // full-chroma token still screamed through. The dark `--destructive` token
-        // itself is tuned instead (globals.css): deeper, lower-chroma, ≥4.5:1
-        // with the near-white destructive-foreground on top.
+        // The main action: an INK fill (`--action`, globals.css) — red never
+        // fills an action here, it means priority and danger (CLAUDE.md →
+        // Colour roles). One per surface: «Neuer Einsatz», «Fertig», «Anmelden».
+        default: 'bg-action text-action-foreground hover:bg-action/90',
+        // Red outline + red text, never a red fill: the action is dangerous,
+        // not urgent, and a filled red button reads as the thing to press.
+        // `dark:text-red-400` because the dark `--destructive` is tuned as a
+        // FILL (deep, low-chroma) and as text on the dark board it falls
+        // under 4.5:1.
         destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
+          'border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/70 dark:text-red-400 dark:hover:bg-destructive/15 dark:hover:text-red-400 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
         outline:
           'border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary:

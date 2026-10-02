@@ -1445,7 +1445,7 @@ export function ResourceAssignmentDialog({
             >
               {t('common.done')}
               {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-primary-foreground/20 rounded">
+                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-action-foreground/20 rounded">
                   {t('assignmentDialog.changes')}
                 </span>
               )}

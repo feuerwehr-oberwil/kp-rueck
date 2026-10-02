@@ -362,7 +362,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
               {mapNode}
               {addMode && (
-                <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md">
+                <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-foreground px-3 py-1 text-xs font-medium text-background shadow-md">
                   {isAddingStop ? t("addingStop") : t("addStopHint")}
                 </div>
               )}

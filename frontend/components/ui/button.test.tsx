@@ -36,11 +36,18 @@ describe("Button", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it("applies the destructive variant class", () => {
+  it("draws destructive as a red outline, never a red fill", () => {
     render(<Button variant="destructive">Löschen</Button>);
-    expect(screen.getByRole("button", { name: "Löschen" })).toHaveClass(
-      "bg-destructive",
-    );
+    const button = screen.getByRole("button", { name: "Löschen" });
+    expect(button).toHaveClass("text-destructive", "border-destructive/60", "bg-transparent");
+    expect(button.className).not.toMatch(/(^|\s)bg-destructive(\s|$)/);
+  });
+
+  it("fills the main action with ink, not the red primary", () => {
+    render(<Button>Neuer Einsatz</Button>);
+    const button = screen.getByRole("button", { name: "Neuer Einsatz" });
+    expect(button).toHaveClass("bg-action", "text-action-foreground");
+    expect(button.className).not.toMatch(/bg-primary/);
   });
 
   it("draws a chosen option tonal in the slate selection role", () => {
