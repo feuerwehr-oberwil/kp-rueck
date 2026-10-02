@@ -495,7 +495,12 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 >
 > What the code proves is **presence at this Ereignis, not identity**: somebody may still pick
 > the wrong name deliberately. That is the stated trust assumption of a brigade. Unlock attempts
-> are rate limited and throttled per IP and event, and a redeemed device is a row in
+> are rate limited and throttled per IP and event, **and capped per event across all addresses**:
+> at `FELD_CODE_MAX_FAILED_ATTEMPTS` wrong codes (default 30) within
+> `FELD_CODE_FAILED_WINDOW_SECONDS` (default 1 h), counted in the database, the code is rotated
+> and the board gets a `feld_code_rotated` warning. A correct code does not reset that count – a
+> guesser must not be able to hide behind the crews unlocking in the depot; the window running
+> out or any rotation does. A redeemed device is a row in
 > `feld_device_claims`, which is what makes **Alle Geräte abmelden** possible for a lost phone –
 > deliberately separate from **Neuer Code**, which only changes what *new* devices unlock with.
 >

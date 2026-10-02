@@ -6,11 +6,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from alembic.config import Config
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from alembic import command
 from app.config import settings
-from app.models import Event, FeldDeviceClaim, FeldUnlockClaim, Personnel
+from app.models import FeldDeviceClaim, FeldUnlockClaim, Personnel
 from tests.conftest import create_scratch_database, drop_scratch_database, worker_database_url
 
 
@@ -26,12 +27,17 @@ def test_credential_reset_runs_once(monkeypatch):
         engine = create_async_engine(url)
         try:
             async with async_sessionmaker(engine, expire_on_commit=False)() as db:
-                db.add_all(
-                    [
-                        Event(id=event_id, name="Disposable reset test"),
-                        Personnel(id=person_id, name="Test Person", role="Feuerwehrmann", status="available"),
-                    ]
+                # Raw SQL for the event, not the ORM: this runs against the schema as
+                # of d2a7f91c60e4, and the Event model grows columns after that revision
+                # (feld_code_failures, 2026-09-23) that an ORM insert would name.
+                await db.execute(
+                    text(
+                        "INSERT INTO events (id, name, training_flag, auto_attach_divera, feld_code) "
+                        "VALUES (:id, 'Disposable reset test', false, false, '1234')"
+                    ),
+                    {"id": event_id},
                 )
+                db.add(Personnel(id=person_id, name="Test Person", role="Feuerwehrmann", status="available"))
                 await db.flush()
                 db.add_all(
                     [

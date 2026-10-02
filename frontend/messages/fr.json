@@ -2514,6 +2514,9 @@
       "justNow": "à l’instant",
       "moveToActive": "Déplacer vers Intervention",
       "moveToComplete": "Vers Terminé / Retour"
+    },
+    "messages": {
+      "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées"
     }
   },
   "print": {
@@ -3640,6 +3643,7 @@
       "passwordLabel": "Mot de passe admin",
       "passwordHint": "au moins 12 caractères",
       "passwordRepeatLabel": "Répéter le mot de passe admin",
+      "setupTokenLabel": "Code de configuration (dans le journal du serveur)",
       "showPassword": "Afficher le mot de passe",
       "hidePassword": "Masquer le mot de passe",
       "submit": "Configurer le tableau",

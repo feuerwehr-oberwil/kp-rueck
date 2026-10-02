@@ -12,6 +12,12 @@ maintainer. The claim endpoint dies after the first success (409 forever
 after), so it grants nothing on any board that already has accounts; brute
 force is moot for the same reason. Auth in this app is per-route dependencies,
 not middleware, so simply taking none is what keeps these reachable.
+
+**Unless the board is internet-facing** (2026-09-23). There "first" is a race
+against every scanner that reads Certificate Transparency logs, so the claim
+must also quote the Einrichtungscode the backend printed into its own log
+(``auth/setup_token.py`` – when it is required, and why the LAN default stays
+first-visit-claims). Reading the log proves you operate the box.
 """
 
 import secrets
@@ -22,8 +28,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
+from ..auth import setup_token
 from ..database import get_db
-from ..middleware.rate_limit import RateLimits, limiter
+from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Setting, User
 from ..seed import production_account_set
 from ..services.audit import log_action
@@ -37,10 +44,29 @@ async def _is_claimed(db: AsyncSession) -> bool:
     return result.scalar_one_or_none() is not None
 
 
+async def announce_setup_token_if_unclaimed(db: AsyncSession) -> None:
+    """At boot: if a claim will need the Einrichtungscode, put it in the log now.
+
+    Now rather than on the first claim attempt, because the operator reads the
+    log right after starting the stack — not after somebody has already tried.
+    A claimed board prints nothing: the code would open nothing.
+    """
+    if setup_token.setup_token_required() and not await _is_claimed(db):
+        setup_token.current_token()
+
+
 @router.get("/status", response_model=schemas.SetupStatusResponse)
 async def get_setup_status(db: AsyncSession = Depends(get_db)) -> schemas.SetupStatusResponse:
-    """Whether this board has been claimed. The frontend polls this on first load."""
-    return schemas.SetupStatusResponse(claimed=await _is_claimed(db))
+    """Whether this board has been claimed. The frontend polls this on first load.
+
+    ``setup_token_required`` tells the page to ask for the Einrichtungscode. Only
+    ever true while unclaimed — afterwards there is nothing left to ask for.
+    """
+    claimed = await _is_claimed(db)
+    return schemas.SetupStatusResponse(
+        claimed=claimed,
+        setup_token_required=not claimed and setup_token.setup_token_required(),
+    )
 
 
 @router.post(
@@ -48,11 +74,12 @@ async def get_setup_status(db: AsyncSession = Depends(get_db)) -> schemas.SetupS
     response_model=schemas.SetupClaimResponse,
     status_code=status.HTTP_201_CREATED,
 )
-# Brute force is moot (the endpoint 409s forever after the first success), but
-# it is still a public write route that accepts a password, and the coverage
-# test in tests/test_middleware/test_rate_limit_enforced.py rightly refuses to
-# ship one of those uncapped. The LOGIN limit fits: legitimately hit once per
-# deployment lifetime, from one browser.
+# Brute force against the claim itself is moot (the endpoint 409s forever after
+# the first success), but it is a public write route that accepts a password –
+# and, when required, a secret – and the coverage test in
+# tests/test_middleware/test_rate_limit_enforced.py rightly refuses to ship one
+# of those uncapped. The LOGIN limit fits: legitimately hit once per deployment
+# lifetime, from one browser.
 @limiter.limit(RateLimits.LOGIN)
 async def claim_board(
     body: schemas.SetupClaimRequest,
@@ -76,6 +103,26 @@ async def claim_board(
             status_code=status.HTTP_409_CONFLICT,
             detail="Das System ist bereits eingerichtet.",
         )
+
+    if setup_token.setup_token_required():
+        # Same two layers as the login form: slowapi's per-IP LOGIN ceiling on
+        # the route (above), and a throttle that counts only the failures.
+        ip = client_ip(request) or "unknown"
+        throttle = setup_token.setup_token_throttle
+        wait = await throttle.retry_after(ip, setup_token.THROTTLE_SCOPE)
+        if wait:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Zu viele falsche Einrichtungscodes. Bitte in {wait} Sekunden erneut versuchen.",
+                headers={"Retry-After": str(wait)},
+            )
+        if not setup_token.matches(body.setup_token):
+            await throttle.record_failure(ip, setup_token.THROTTLE_SCOPE)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Einrichtungscode fehlt oder ist falsch. Er steht im Server-Log.",
+            )
+        await throttle.record_success(ip, setup_token.THROTTLE_SCOPE)
 
     users = production_account_set(body.admin_password, secrets.token_urlsafe(24))
     admin_user = next(user for user in users if user.username == "admin")
@@ -118,4 +165,7 @@ async def claim_board(
             detail="Das System ist bereits eingerichtet.",
         ) from None
 
+    # Spent. The 409 above already refuses every later claim; this makes the
+    # code itself worthless too, rather than leaving a live secret in a log.
+    setup_token.invalidate()
     return schemas.SetupClaimResponse(username="admin")

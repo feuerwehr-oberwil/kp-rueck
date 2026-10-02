@@ -29,11 +29,16 @@ _RAILWAY_INDICATORS = (
 )
 
 
+def is_railway() -> bool:
+    """True on Railway, which always serves the app on a public URL."""
+    return any(os.getenv(name) is not None for name in _RAILWAY_INDICATORS)
+
+
 def is_production_environment() -> bool:
     """True when this process is serving a real deployment rather than a dev machine."""
     if os.getenv("ENVIRONMENT", "").strip().lower() == "production":
         return True
-    return any(os.getenv(name) is not None for name in _RAILWAY_INDICATORS)
+    return is_railway()
 
 
 # --------------------------------------------------------------------------------------
