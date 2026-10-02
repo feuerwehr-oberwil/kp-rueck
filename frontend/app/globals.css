@@ -31,7 +31,9 @@
   --chart-3: oklch(0.65 0.20 60);
   --chart-4: oklch(0.55 0.12 145);
   --chart-5: oklch(0.60 0.15 300);
-  --radius: 0.5rem;
+  /* Corners (review step C2): 12px on every box, 8px on controls under 32px
+     tall (`rounded-sm`: badges, kbd, h-5…h-7 chips), pills stay pills. */
+  --radius: 0.75rem;
   --sidebar: oklch(0.96 0 0);
   --sidebar-foreground: oklch(0.15 0 0);
   --sidebar-primary: oklch(0.45 0.18 25);
@@ -173,10 +175,15 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  /* One box corner (12px) for md/lg/xl alike — buttons, inputs, popovers,
+     cards and dialogs used to sit at 6/8/12px and read as three families.
+     `sm` (8px) is the small-control step. Bare `rounded` (4px) is left to the
+     micro chips and text marks under ~20px, where 8px would turn them into
+     pills. */
   --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: var(--radius);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

@@ -177,7 +177,7 @@ export function StopStatusControl({
     // there is no gap/seam or offset box between them.
     <div
       className={cn(
-        "inline-flex h-6 flex-shrink-0 items-stretch overflow-hidden rounded-md border border-border/60",
+        "inline-flex h-6 flex-shrink-0 items-stretch overflow-hidden rounded-sm border border-border/60",
         !compact && "w-28",
       )}
       onClick={(e) => e.stopPropagation()}

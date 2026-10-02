@@ -369,7 +369,7 @@ export function IncidentPickerDialog({
               aria-pressed={view === "list"}
               title={t("viewList")}
               className={cn(
-                "flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors",
+                "flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors",
                 view === "list" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
               )}
             >
@@ -382,7 +382,7 @@ export function IncidentPickerDialog({
               aria-pressed={view === "map"}
               title={t("viewMap")}
               className={cn(
-                "flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors",
+                "flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors",
                 view === "map" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
               )}
             >

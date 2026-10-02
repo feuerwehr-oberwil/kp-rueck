@@ -99,7 +99,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
       >
         <span aria-hidden className={cn('h-0.5 w-full', accent?.dot)} />
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
+        <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
           {operations.length}
           {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('absolute -right-1 -top-1 h-2 w-2', alarmDotClass)} />}
         </span>
@@ -124,7 +124,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
           <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           <h2 className={cn("flex-1 truncate", COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
           {hasAlarm && <span title={alarmTitle} aria-label={alarmTitle} className={cn('h-2 w-2 flex-shrink-0', alarmDotClass)} />}
-          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
+          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-sm bg-foreground/10 px-1.5 text-xs font-bold tabular-nums text-foreground">
             {operations.length}
           </span>
         </div>
