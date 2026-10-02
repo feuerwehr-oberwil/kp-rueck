@@ -132,7 +132,13 @@ describe('NewEmergencyModal — Handy', () => {
       renderModal()
       const sheet = document.querySelector<HTMLElement>('[data-slot="sheet-content"]')!
       expect(sheet).toHaveAttribute('data-side', 'bottom')
-      expect(sheet.style.bottom).toBe('var(--kb-inset, 0px)')
+      // geometry comes from the keyboard rule in globals.css, not an inline bottom
+      expect(sheet.style.bottom).toBe('')
+      // no keyboard on open: nothing but the sheet holds focus
+      expect(screen.getByLabelText('Ort')).not.toHaveFocus()
+      // the phone keyboard offers no contact card on the Melder fields
+      expect(screen.getByLabelText('Meldung')).toHaveAttribute('autocomplete', 'off')
+      expect(screen.getByLabelText('Kontakt / Melder')).toHaveAttribute('autocomplete', 'off')
       // the rows scroll on their own; the footer is outside that scroller
       const body = sheet.querySelector('[data-slot="sheet-body"]')!
       expect(body).toContainElement(screen.getByLabelText('Ort'))

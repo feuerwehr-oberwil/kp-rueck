@@ -101,4 +101,8 @@ describe('laneFitsAboveSheet', () => {
   it('does not fit above a nearly full-height sheet', () => {
     expect(laneFitsAboveSheet(844 - MIN_ROOM_ABOVE_SHEET + 1, 844)).toBe(false)
   })
+  it('goes to the top while a keyboard is up: the sheet fills the visible band then', () => {
+    expect(laneFitsAboveSheet(400, 844, true)).toBe(false)
+    expect(laneFitsAboveSheet(0, 844, true)).toBe(true)
+  })
 })

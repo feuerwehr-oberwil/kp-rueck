@@ -455,7 +455,11 @@ export function LocationInput({
                   aria-controls="location-options"
                   aria-invalid={error}
                   aria-describedby={describedBy}
+                  // `off`: an Einsatzort is never the operator's own address — iOS offers
+                  // «AutoFill Contact» on anything that looks like one otherwise.
                   autoComplete="off"
+                  // Enter picks the suggestion / commits what is typed (handleAddressKeyDown)
+                  enterKeyHint="done"
                   disabled={disabled}
                   placeholder={t('locationInput.addressPlaceholder')}
                   value={addressSearchQuery}

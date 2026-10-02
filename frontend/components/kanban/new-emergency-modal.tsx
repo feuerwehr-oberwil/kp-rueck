@@ -221,7 +221,9 @@ export function NewEmergencyModal({
                   coordinates: lat !== null && lon !== null ? [lat, lon] : null
                 }))
               }
-              autoFocus={open}
+              // Desktop: straight into the Einsatzort. Phone: no keyboard until a field is
+              // tapped — the sheet itself does not focus a field either (ui/sheet.tsx).
+              autoFocus={open && !isMobile}
               error={showLocationError}
               describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
             />
@@ -241,6 +243,8 @@ export function NewEmergencyModal({
                 placeholder={t('common.meldungPlaceholder')}
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                // Free text about the incident: no contact card, no address book.
+                autoComplete="off"
                 // Grows with what is in it, like the detail's Meldung.
                 className="min-h-[5rem] max-h-[16rem]"
               />
@@ -316,6 +320,9 @@ export function NewEmergencyModal({
                 placeholder={t('common.contactPlaceholder')}
                 value={formData.contact}
                 onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                // The Melder is somebody else: never offer the operator's own contact card.
+                autoComplete="off"
+                enterKeyHint="next"
               />
             </DetailField>
 
@@ -333,6 +340,9 @@ export function NewEmergencyModal({
                 id={PHONE_FIELD_ID}
                 type="tel"
                 inputMode="tel"
+                // the Melder's number, not the operator's own
+                autoComplete="off"
+                enterKeyHint="done"
                 placeholder={t('common.contactPhonePlaceholder')}
                 value={formData.contactPhone}
                 onChange={(e) => setFormData({ ...formData, contactPhone: sanitizePhoneInput(e.target.value) })}
@@ -377,12 +387,15 @@ export function NewEmergencyModal({
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl">
-          <SheetHeader className="px-4 pt-5 pb-2 pr-12">
+          {/* While typing, the head is as short as it can be: the band above the keys is
+              ~350px on an iPhone, and the sentence under the title is the one thing in it
+              nobody needs at that moment. */}
+          <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
             <div className="flex items-center gap-3">
               <Plus className="h-6 w-6 text-primary" />
               <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             </div>
-            <SheetDescription>{t('newEmergency.description')}</SheetDescription>
+            <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
           <SheetBody className="px-4">{fields}</SheetBody>
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
