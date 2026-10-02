@@ -870,6 +870,45 @@
   pointer-events: auto;
 }
 
+/* Toast lane — the look is in components/ui/sonner.tsx (sonner runs `unstyled`).
+   What has to live here is what must beat sonner's own stylesheet, which it
+   injects UNLAYERED: no Tailwind utility can win against it, so these rules sit
+   outside @layer too, one notch more specific than sonner's.
+   - the app font (inherited from <body>) instead of sonner's system stack;
+   - `break-word`, not sonner's `anywhere` (that split «Anwesenhe|it» mid-word). */
+:root [data-sonner-toaster] {
+  font-family: inherit;
+}
+:root [data-sonner-toast] {
+  overflow-wrap: break-word;
+}
+
+/* The line along a toast's foot that runs out with its time (lib/toast-lifetime.ts
+   sets `--toast-life` and the class). A background image, not a pseudo-element:
+   sonner already uses ::after (the hover bridge between expanded toasts) and
+   ::before (the swipe area) and would win both. Inset by the corner radius so it
+   stays a straight line. It pauses while the pointer is on the stack, as sonner's
+   timer does; under reduced motion sonner's own rule stops all toast animation,
+   so the line stands still at full length — still saying «this goes by itself». */
+:root [data-sonner-toast].toast-timed {
+  background-image: linear-gradient(
+    color-mix(in oklab, var(--foreground) 22%, transparent),
+    color-mix(in oklab, var(--foreground) 22%, transparent)
+  );
+  background-repeat: no-repeat;
+  background-position: 12px 100%;
+  background-size: calc(100% - 24px) 2px;
+  animation: toast-life var(--toast-life, 4000ms) linear forwards;
+}
+:root [data-sonner-toaster]:hover [data-sonner-toast].toast-timed {
+  animation-play-state: paused;
+}
+@keyframes toast-life {
+  to {
+    background-size: 0 2px;
+  }
+}
+
 /* The footer toolbar goes UNDER a modal dialog — and only under a modal dialog.
 
    Its `z-[60]` is deliberate: a footer sheet slides UP into place

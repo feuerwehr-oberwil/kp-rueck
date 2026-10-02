@@ -12,6 +12,7 @@ import { useEvent } from "./event-context"
 import { usePersonnel, type Person, type PersonStatus } from "./personnel-context"
 import { useMaterials, type Material } from "./materials-context"
 import { toast } from "sonner"
+import { toastLifetime } from "@/lib/toast-lifetime"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
 import { topLoading } from "@/components/ui/top-loading-bar"
@@ -2048,7 +2049,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       if (isLoaded) {
         toast(translateOutsideReact('notifications.operations.deletedTitle'), {
           description: getIncidentRefLabel(operation),
-          duration: 8000,
+          // a bare toast() bypasses the lifetime wrappers — carry the line itself
+          ...toastLifetime(8000),
           action: {
             label: translateOutsideReact('notifications.operations.undoLabel'),
             onClick: () => {

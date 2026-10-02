@@ -339,6 +339,13 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
+- **Toasts – one message surface**: one lane, `components/ui/sonner.tsx` (sonner runs `unstyled`;
+  its injected CSS is unlayered and beats every Tailwind utility, so tone classes on a call site do
+  nothing). Same neutral card for every type, tone only in the glyph; `toast.error` is the only
+  tinted card, so use it for failures and nothing else. Don't pass `duration` unless you mean it:
+  the lifetime comes from the text length (`lib/toast-lifetime.ts`, Front's curve, scaled by the
+  «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
+  Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
 
 ## Important Files & Documentation
 
