@@ -31,6 +31,7 @@ import { FormMessage, formMessageId } from "@/components/ui/form-message"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { Reveal } from "@/components/ui/reveal"
 
 /**
  * The dense mount's control skin: a quiet box at rest, a solid one in focus.
@@ -237,10 +238,20 @@ export function DetailToggle({
   const noteRef = useRef<HTMLDivElement>(null)
   const wasChecked = useRef(checked)
   useEffect(() => {
-    if (checked && !wasChecked.current) {
-      noteRef.current?.querySelector("input")?.focus()
-    }
+    const turnedOn = checked && !wasChecked.current
     wasChecked.current = checked
+    if (!turnedOn) return
+    const focusNote = () => noteRef.current?.querySelector("input")?.focus()
+    if (noteRef.current) {
+      focusNote()
+      return
+    }
+    // The phone note sits in a Reveal, which mounts its body a frame after
+    // the switch flips — focus once it is there.
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(focusNote)
+    })
+    return () => cancelAnimationFrame(id)
   }, [checked])
 
   if (stacked) {
@@ -258,20 +269,33 @@ export function DetailToggle({
             <Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onToggle} />
           </div>
         </div>
-        {checked && note && (
-          <div ref={noteRef} className="mt-1">
-            {note}
-          </div>
+        {/* Phone: the note opens UNDER the row, so it slides in (Reveal)
+            instead of shoving the form down in one frame. */}
+        {note && (
+          <Reveal open={checked}>
+            <div ref={noteRef} className="pt-1">
+              {note}
+            </div>
+          </Reveal>
         )}
-        {checked && footer && <div className="mt-1 empty:hidden">{footer}</div>}
+        {footer && (
+          <Reveal open={checked}>
+            <div className="mt-1 empty:hidden">{footer}</div>
+          </Reveal>
+        )}
       </div>
     )
   }
 
   return (
     <div className={cn("py-1", className)}>
+      {/* `min-h-7`: the row is as tall OFF as ON. The «warum» input that
+          appears beside the switch is 28px (h-7) — taller than the switch and
+          the label — so a row sized by its content grew by ~4px the moment the
+          switch was flipped and pushed every row below it down. Reserving the
+          input's height keeps the form still. */}
       <div
-        className="flex cursor-pointer items-center gap-2 select-none"
+        className="flex min-h-7 cursor-pointer items-center gap-2 select-none"
         onClick={() => !disabled && onToggle(!checked)}
       >
         {/* The SAME gutter as `DetailField`, so a switch starts exactly where
@@ -305,7 +329,13 @@ export function DetailToggle({
           <div className="min-w-0 flex-1" />
         )}
       </div>
-      {checked && footer && <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>}
+      {/* The note's save line slides in and out (Reveal) rather than popping
+          a line into the form under the row. */}
+      {footer && (
+        <Reveal open={checked}>
+          <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>
+        </Reveal>
+      )}
     </div>
   )
 }

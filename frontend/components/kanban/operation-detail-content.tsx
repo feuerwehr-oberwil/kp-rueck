@@ -1348,7 +1348,7 @@ export function OperationDetailContent({
                 aria-invalid={nachbarhilfeNoteSave.failed || undefined}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className={cn("h-7 cursor-text text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                className={cn("h-7 cursor-text rounded-sm text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
               />
             }
             footer={
@@ -1376,7 +1376,7 @@ export function OperationDetailContent({
                 aria-invalid={amWartenNoteSave.failed || undefined}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className={cn("h-7 cursor-text text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                className={cn("h-7 cursor-text rounded-sm text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
               />
             }
             footer={
