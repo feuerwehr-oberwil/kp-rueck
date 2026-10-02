@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import {
   Dialog,
   DialogContent,
@@ -283,10 +284,7 @@ export function EventSetupChecklist({
   if (isLoading && tasks.length === 0) {
     return (
       <div className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-muted-foreground">{t('loading')}</span>
-        </div>
+        <LoadingStatus>{t('loading')}</LoadingStatus>
       </div>
     )
   }

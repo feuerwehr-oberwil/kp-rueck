@@ -31,7 +31,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Binoculars, CarTaxiFront, Flag, Loader2, MapPin, MessageSquare, Send } from 'lucide-react'
+import { Binoculars, CarTaxiFront, Flag, MapPin, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,7 @@ import { useOperations, type Operation } from '@/lib/contexts/operations-context
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 interface FieldReportsRowProps {
   operation: Operation
@@ -260,7 +261,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     />
                   )}
                   {saving === row.key ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <ShellLoader className="h-4 w-4 text-muted-foreground" />
                   ) : (
                     <Switch
                       aria-label={row.label}
@@ -346,6 +347,7 @@ export function FieldMessageThread({
   canEdit?: boolean
 }) {
   const t = useTranslations('feld.kp')
+  const tLoading = useTranslations('common')
   const { personnel } = usePersonnel()
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
   const [draft, setDraft] = useState('')
@@ -444,9 +446,7 @@ export function FieldMessageThread({
       </DetailGroupHeading>
 
       {isLoading && entries.length === 0 && (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        </p>
+        <LoadingStatus className="text-xs">{tLoading('loading')}</LoadingStatus>
       )}
 
       {failed && (
@@ -529,7 +529,7 @@ export function FieldMessageThread({
             disabled={sending || !draft.trim()}
             onClick={() => void send()}
           >
-            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            {sending ? <ShellLoader className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
           </Button>
         </div>
       )}

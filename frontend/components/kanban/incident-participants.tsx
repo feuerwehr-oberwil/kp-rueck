@@ -17,13 +17,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { History, Loader2, Package, Search, Truck, User } from "lucide-react"
+import { History, Package, Search, Truck, User } from "lucide-react"
 
 import { apiClient, type ApiIncidentParticipant } from "@/lib/api-client"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime } from "@/lib/incident-time"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { cn } from "@/lib/utils"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 const RESOURCE_ICON = { personnel: User, vehicle: Truck, material: Package } as const
 
@@ -87,10 +88,7 @@ export function IncidentParticipants({
 
       <div>
           {loading && (
-            <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {t("loading")}
-            </p>
+            <LoadingStatus className="py-2 text-xs">{t("loading")}</LoadingStatus>
           )}
 
           {failed && (

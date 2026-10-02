@@ -6,6 +6,7 @@ import { PageNavigation } from '@/components/page-navigation';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { LoadingStatus } from '@/components/ui/shell-loader';
 import { SearchInput } from '@/components/ui/search-input'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useEvent } from '@/lib/contexts/event-context';
@@ -410,9 +411,8 @@ export default function HelpPage() {
         <ScrollArea className="flex-1">
           <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 md:py-8">
             {isLoading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <p className="mt-4 text-muted-foreground">{t('loading')}</p>
+              <div className="flex justify-center py-12">
+                <LoadingStatus size="surface">{t('loading')}</LoadingStatus>
               </div>
             ) : (
               <div className="prose prose-slate dark:prose-invert max-w-none">

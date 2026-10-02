@@ -24,7 +24,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, RefreshCw } from 'lucide-react'
+import { Check, Copy, Eye, EyeOff, KeyRound, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SettingCard } from '@/components/settings/setting-row'
 import { apiClient, ApiError, type ApiAlarmWebhookSecret } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 export function AlarmWebhookSecretCard() {
   const t = useTranslations('settings.page.alarmIntake.webhookSecret')
@@ -163,7 +164,7 @@ export function AlarmWebhookSecretCard() {
           </div>
         ) : (
           <Button variant="outline" size="sm" onClick={reveal} disabled={revealing}>
-            {revealing ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Eye className="size-3.5" aria-hidden="true" />}
+            {revealing ? <ShellLoader className="size-3.5" /> : <Eye className="size-3.5" aria-hidden="true" />}
             {t('reveal')}
           </Button>
         )}

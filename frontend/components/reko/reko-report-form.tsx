@@ -25,7 +25,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, Loader2, Send } from 'lucide-react'
+import { Check, Send } from 'lucide-react'
 
 import { DetailField, DENSE_CONTROL } from '@/components/kanban/detail-field'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type { ApiDangersAssessment, ApiEffortEstimation, ApiRekoReportResponse } from '@/lib/api/types'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** The five hazards, in the order both mounts ask them. */
 const DANGER_KEYS = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const
@@ -383,7 +384,7 @@ export function RekoReportForm({
           <Button type="submit" size="xs" disabled={disabled || isSubmitting || busy}>
             {isSubmitting ? (
               <>
-                <Loader2 className="size-3.5 animate-spin" />
+                <ShellLoader className="size-3.5" />
                 {t('submittingKp')}
               </>
             ) : (
@@ -614,7 +615,7 @@ export function RekoReportForm({
         <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-14 w-full" size="lg">
           {isSubmitting ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <ShellLoader className="h-5 w-5" />
               {t('submitting')}
             </>
           ) : (

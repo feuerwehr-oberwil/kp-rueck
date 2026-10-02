@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Badge } from "@/components/ui/badge"
@@ -1991,7 +1992,7 @@ export default function FireStationDashboard() {
   if (!isMounted) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">{tDash('loading')}</div>
+        <LoadingStatus size="surface" className="text-sm">{tDash('loading')}</LoadingStatus>
       </div>
     )
   }

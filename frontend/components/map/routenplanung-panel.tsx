@@ -16,7 +16,7 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Plus, Route as RouteIcon, MousePointerClick, X, Loader2, MapPinned } from "lucide-react"
+import { Plus, Route as RouteIcon, MousePointerClick, X, MapPinned } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -34,6 +34,7 @@ import type { RouteStartMode, useRoutePlanning } from "@/lib/hooks/use-route-pla
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { RouteStopList, RouteOptimizeMenu } from "./route-stop-list"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 // Same six-swatch palette as the Aufträge sheet so routes read apart at a glance.
 const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
@@ -296,7 +297,7 @@ export function RoutenplanungPanel({
                         : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                     )}
                   >
-                    {isAddingStop ? <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" /> : <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />}
+                    {isAddingStop ? <ShellLoader className="h-3.5 w-3.5 flex-shrink-0" /> : <MousePointerClick className="h-3.5 w-3.5 flex-shrink-0" />}
                     {t("addStopToggle")}
                   </button>
                 </TooltipTrigger>
