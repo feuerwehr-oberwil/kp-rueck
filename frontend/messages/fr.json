@@ -1249,12 +1249,15 @@
       "createTrainingIncident": "Créer une intervention d’exercice",
       "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Rechercher une intervention …",
-      "all": "Toutes ({count})",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
       "searchScope": "Recherche dans le lieu, le type, les véhicules et l’équipe.",
       "noneInFilter": "Aucune intervention au statut « {filter} ».",
-      "showAll": "Tout afficher"
+      "showAll": "Tout afficher",
+      "filter": "Filtrer",
+      "filterOn": "Filtrer – {filters}",
+      "filterSummary": "Filtré : {filters}",
+      "filterGroupStatus": "Statut"
     },
     "mobilePersonnel": {
       "title": "Personnel",

@@ -191,6 +191,12 @@ kp-rueck/
   `var(--kb-inset)`. A phone form goes in a bottom `SheetContent` (`SheetBody` scrolls, footer
   stays) — it stands on the keyboard and gets grip + swipe-to-dismiss for free; the swipe closes
   through `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`).
+- **Phone list screens have ONE action, in a footer** in flow directly above the bottom nav (the
+  list root pads by `--nav-reserve`; the scroller reserves only what the keyboard covers beyond
+  nav + the footer's measured `--list-foot`) – not a button above the list, not floating over cards.
+- **Phone filters = the search field + ONE square funnel** (`DropdownMenu` of checkable rows with
+  counts, «Alle zeigen» first while something is ticked; on = `variant="selected"`, the ticks named
+  in its `aria-label` and in a «Gefiltert: …» line; its width never changes) – no chip rows on the phone.
 - **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)

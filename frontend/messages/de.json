@@ -1251,12 +1251,15 @@
       "createTrainingIncident": "Übungs-Einsatz erstellen",
       "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
-      "all": "Alle ({count})",
       "noActive": "Keine aktiven Einsätze",
       "noHitsFor": "Keine Einsätze für «{query}».",
       "searchScope": "Gesucht wird in Ort, Einsatzart, Fahrzeugen und Mannschaft.",
       "noneInFilter": "Keine Einsätze mit Status «{filter}».",
-      "showAll": "Alle zeigen"
+      "showAll": "Alle zeigen",
+      "filter": "Filtern",
+      "filterOn": "Filtern – {filters}",
+      "filterSummary": "Gefiltert: {filters}",
+      "filterGroupStatus": "Status"
     },
     "mobilePersonnel": {
       "title": "Personal",
