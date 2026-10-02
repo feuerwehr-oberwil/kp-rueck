@@ -42,4 +42,15 @@ describe("Button", () => {
       "bg-destructive",
     );
   });
+
+  it("draws a chosen option tonal in the slate selection role", () => {
+    render(
+      <Button variant="selected" aria-pressed>
+        Aktiv
+      </Button>,
+    );
+    const chosen = screen.getByRole("button", { name: "Aktiv" });
+    expect(chosen).toHaveClass("bg-sel-wash", "text-sel-foreground", "border-sel-edge");
+    expect(chosen.className).not.toMatch(/bg-primary/);
+  });
 });

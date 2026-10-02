@@ -100,7 +100,7 @@ export function DeviceSettings() {
                 type="button"
                 onClick={() => setTheme(value)}
                 className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all ${
-                  theme === value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                  theme === value ? 'border-sel-edge bg-sel-wash' : 'border-border hover:border-sel-edge'
                 }`}
                 title={label}
               >

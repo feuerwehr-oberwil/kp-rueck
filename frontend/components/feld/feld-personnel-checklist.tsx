@@ -227,7 +227,7 @@ export function FeldPersonnelChecklist({
                       // saying «X hinzufügen» would be the same string on every
                       // row of the list with only the name to tell them apart.
                       onClick={() => add(candidate)}
-                      className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors hover:border-sel-edge hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate text-sm">{candidate.name}</span>
@@ -348,7 +348,7 @@ function PersonRow({
       <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
-          className="h-4 w-4 cursor-pointer accent-primary"
+          className="h-4 w-4 cursor-pointer accent-sel"
           checked={row.present}
           disabled={disabled}
           aria-label={t('presentAria', { name: row.name })}

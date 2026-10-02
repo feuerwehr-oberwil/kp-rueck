@@ -511,7 +511,7 @@ function DraggableOperationBase({
               // "this whole card takes it" and stays visible on every priority
               // tint — the old `bg-muted/20` was invisible on all of them. Same
               // treatment the side panel's Ressourcen block uses.
-              isOver && 'ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5',
+              isOver && 'ring-2 ring-sel-line ring-offset-2 ring-offset-background bg-sel-wash',
               // "Hier steht sie" — the answer to a click in the sidebar. The old
               // treatment was bg-muted/30 plus a border tint, which was quieter
               // than the selected card right next to it and got lost on a board
@@ -520,9 +520,10 @@ function DraggableOperationBase({
               // carries an accent ring while it does. Priority still reads from the
               // chevron, so borrowing the left border for ~4s costs no information.
               isHighlighted && 'is-highlighted border-l-accent bg-muted/30 ring-[1.5px] ring-accent shadow-lg shadow-accent/25',
-              // Selection: a full-strength neutral frame plus a neutral surface
-              // tint — no colour of its own, so it can never compete with the red
-              // a high-priority card already carries. Three deliberate choices:
+              // Selection («A2»): a 2px slate outline plus the slate selection
+              // wash — slate is the board's «chosen» colour (CLAUDE.md → Colour
+              // roles) and sits far enough from red that it never competes with
+              // the priority a high card already carries. Choices:
               //
               // 1. OUTLINE, not ring/shadow. `priority-high-pulse` animates
               //    `box-shadow` outright (globals.css), which wipes out every
@@ -530,24 +531,20 @@ function DraggableOperationBase({
               //    ring-based selection was invisible on exactly the cards that
               //    matter most. An outline is a separate property, survives the
               //    animation, and is out of flow: 2px of extra frame, zero layout
-              //    shift. At offset 0 it wraps OUTSIDE the border box, so the 4px
-              //    priority edge stays fully visible inside it.
-              // 2. The 1px border is taken to full `foreground` on top/right/bottom
-              //    so no grey `border-border` line sits between the outline and the
-              //    content. Bare `border-foreground` would clobber `border-l-*`
-              //    (cn is twMerge), hence the three sides spelled out.
-              // 3. The tint is a GRADIENT, not a `bg-*` colour: a background colour
+              //    shift. Offset 2px leaves a gap between the outline and the
+              //    card's own border, so the 4px priority edge and the 1px border
+              //    stay exactly as they are inside it.
+              // 2. The tint is a GRADIENT, not a `bg-*` colour: a background colour
               //    would twMerge away `bg-card/80` — and, on a high-priority card,
               //    its `bg-destructive` wash. A background image layers over
-              //    whatever colour the card has. Keyed to `foreground`, so it
-              //    darkens the light card and lightens the dark one with one value.
+              //    whatever colour the card has.
               //
               // Gated on `showSelectionFrame`, not on `isSelected`: on a screen
               // narrow enough that a click opens the modal instead of the side
               // panel there is nothing for the frame to point at. `isHighlighted`
               // (the notification Spotlight) is a different signal and stays at
               // every width.
-              showSelectionFrame && !isHighlighted && 'border-t-foreground border-r-foreground border-b-foreground outline-2 outline-offset-0 outline-foreground bg-linear-to-b from-foreground/[0.06] to-foreground/[0.06]',
+              showSelectionFrame && !isHighlighted && 'outline-2 outline-offset-2 outline-sel-line bg-linear-to-b from-sel-wash to-sel-wash',
               // The hovered card, which the READING shortcuts act on — E and
               // Enter open this one's detail. Everything that MUTATES follows
               // the selection frame instead (a pointer wanders across the board

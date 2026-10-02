@@ -24,6 +24,13 @@ const buttonVariants = cva(
         ghost:
           'hover:bg-muted hover:text-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
+        // The CHOSEN option of a choice — filter pill, segmented toggle, the
+        // current status. Tonal slate («A2»), never a fill: a filled button
+        // reads as an action, and red means priority/danger on this board.
+        // Pair it with `outline` for the unchosen options (same 1px border, so
+        // nothing shifts) and set `aria-pressed` / `aria-current` alongside.
+        selected:
+          'border border-sel-edge bg-sel-wash text-sel-foreground hover:bg-sel-wash hover:text-sel-foreground',
       },
       size: {
         default: 'min-h-[44px] px-4 py-2 has-[>svg]:px-3',

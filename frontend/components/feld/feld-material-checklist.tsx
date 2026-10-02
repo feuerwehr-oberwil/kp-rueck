@@ -144,7 +144,7 @@ function ExtraMaterialPicker({
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 cursor-pointer accent-primary"
+                    className="h-4 w-4 cursor-pointer accent-sel"
                     checked={entry.left_on_site}
                     disabled={disabled}
                     aria-label={t('leftOnSiteAria', { name: entry.name })}
@@ -215,12 +215,12 @@ function ExtraMaterialPicker({
                       onClick={() => onChange(toggleExtraMaterial(entries, name))}
                       className={cn(
                         'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 px-2.5 py-2 text-left transition-colors',
-                        'hover:border-primary/50 hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
-                        isPicked && 'border-primary/30 bg-primary/5',
+                        'hover:border-sel-edge hover:bg-secondary/30 disabled:cursor-not-allowed disabled:opacity-50',
+                        isPicked && 'border-sel-edge bg-sel-wash',
                       )}
                     >
                       {isPicked ? (
-                        <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500" />
+                        <CheckCircle className="h-5 w-5 shrink-0 text-sel-foreground" />
                       ) : (
                         <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
                       )}
@@ -316,7 +316,7 @@ export function FeldMaterialChecklist({
                     <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 cursor-pointer accent-primary"
+                        className="h-4 w-4 cursor-pointer accent-sel"
                         checked={row.used}
                         disabled={disabled}
                         aria-label={t('usedAria', { name: row.name })}
@@ -330,7 +330,7 @@ export function FeldMaterialChecklist({
                       <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 cursor-pointer accent-primary"
+                          className="h-4 w-4 cursor-pointer accent-sel"
                           checked={row.left_on_site}
                           disabled={disabled}
                           aria-label={t('leftOnSiteAria', { name: row.name })}

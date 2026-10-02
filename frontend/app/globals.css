@@ -207,6 +207,17 @@
   --color-sel-line: var(--sel-line);
 }
 
+/* The chosen option of a choice that has no border of its own (segmented
+   toggles, chips): slate wash + slate text + a 1px slate edge drawn INSIDE
+   (inset shadow), so choosing never shifts the layout. Bordered controls use
+   `border-sel-edge bg-sel-wash text-sel-foreground` instead, or <Button
+   variant="selected">. */
+@utility sel-choice {
+  background-color: var(--sel-wash);
+  color: var(--sel-foreground);
+  box-shadow: inset 0 0 0 1px var(--sel-edge);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -775,7 +775,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
             <Button
               key={key}
               type="button"
-              variant={priority === key ? 'default' : 'outline'}
+              variant={priority === key ? 'selected' : 'outline'}
+              aria-pressed={priority === key}
               onClick={() => setPriority(key)}
               size="lg"
               className="text-base"

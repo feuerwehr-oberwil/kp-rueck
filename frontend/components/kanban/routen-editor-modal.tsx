@@ -425,7 +425,7 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors",
                     addMode
-                      ? "border-primary/50 bg-primary/[0.06] text-foreground"
+                      ? "border-sel-edge bg-sel-wash text-foreground"
                       : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                   )}
                 >

@@ -438,8 +438,8 @@ export function StopListRow({
           // Column layout: [handle] [number] [status — fixed width] [name/address — flex].
           "flex cursor-pointer items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
           stopStatusBorderClass(mirror),
-          selected && "bg-primary/[0.06] ring-1 ring-primary/40",
-          isDropOver && "bg-primary/[0.04] ring-2 ring-primary/50",
+          selected && "bg-sel-wash ring-1 ring-sel-edge",
+          isDropOver && "bg-sel-wash ring-2 ring-sel-line",
           changed && "ring-1 ring-amber-500/70",
         )}
       >

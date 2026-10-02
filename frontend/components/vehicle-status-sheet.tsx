@@ -370,7 +370,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       "border-l-4",
                       getStatusBorderColor(vehicle.status, !!vehicle.incident_id || !!auftragName),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
-                      isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      isSelected && "ring-2 ring-sel-line ring-offset-2 ring-offset-background",
                       !isClickable && "opacity-75"
                     )}
                     tabIndex={isClickable ? 0 : -1}

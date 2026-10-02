@@ -49,7 +49,7 @@ export function CardViewMenu({
         <Button
           size="xs"
           variant="ghost"
-          className="px-2.5 text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
+          className="px-2.5 text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-foreground/[0.09] data-[state=open]:text-foreground"
           title={t('tooltip')}
           aria-label={t('label')}
         >
@@ -83,7 +83,7 @@ export function CardViewMenu({
               className={cn(
                 'h-7 rounded-md border text-xs transition-colors',
                 preset === option
-                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  ? 'border-sel-edge bg-sel-wash text-sel-foreground'
                   : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >

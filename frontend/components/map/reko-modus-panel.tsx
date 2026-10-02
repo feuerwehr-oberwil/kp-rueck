@@ -130,8 +130,8 @@ export function RekoModusPanel({
                 className={cn(
                   "w-full flex items-center justify-between gap-2 p-3 rounded-lg border transition-all text-left",
                   isSelected
-                    ? "border-primary ring-2 ring-primary/20 bg-secondary/40"
-                    : "border-border hover:border-primary/50 hover:bg-secondary/30"
+                    ? "border-sel-line bg-sel-wash"
+                    : "border-border hover:border-sel-edge hover:bg-secondary/30"
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">

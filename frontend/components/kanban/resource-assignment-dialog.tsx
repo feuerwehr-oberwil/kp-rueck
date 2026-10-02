@@ -891,14 +891,14 @@ export function ResourceAssignmentDialog({
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-          isSelected && "border-primary/30 bg-primary/5",
+          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+          isSelected && "border-sel-edge bg-sel-wash",
           (elsewhere || special.length > 0) && !isSelected && "border-amber-500/40 bg-amber-500/5"
         )}
       >
         {isSelected ? (
           <CheckCircle className={cn(
-            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            "h-5 w-5 text-sel-foreground flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
@@ -964,8 +964,8 @@ export function ResourceAssignmentDialog({
         key={vehicle.id}
         className={cn(
           "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 transition-all",
-          !isOutOfService && "hover:border-primary/50 hover:bg-secondary/30 hover-delight",
-          isAssigned && "border-primary/30 bg-primary/5",
+          !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          isAssigned && "border-sel-edge bg-sel-wash",
           elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5",
           isOutOfService && "border-dashed opacity-60"
         )}
@@ -982,7 +982,7 @@ export function ResourceAssignmentDialog({
             <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
           ) : isAssigned ? (
             <CheckCircle className={cn(
-              "h-5 w-5 text-emerald-500 flex-shrink-0",
+              "h-5 w-5 text-sel-foreground flex-shrink-0",
               wasJustAssigned && "animate-check-appear"
             )} />
           ) : (
@@ -1069,8 +1069,8 @@ export function ResourceAssignmentDialog({
         disabled={isOutOfService}
         className={cn(
           "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
-          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-primary/50 hover:bg-secondary/30 hover-delight",
-          isSelected && "border-primary/30 bg-primary/5",
+          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          isSelected && "border-sel-edge bg-sel-wash",
           elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5",
           vehicleOnScene && !isSelected && "border-emerald-500/30"
         )}
@@ -1079,7 +1079,7 @@ export function ResourceAssignmentDialog({
           <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
         ) : isSelected ? (
           <CheckCircle className={cn(
-            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            "h-5 w-5 text-sel-foreground flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
@@ -1154,7 +1154,7 @@ export function ResourceAssignmentDialog({
                 className={cn(
                   "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   categoryFilter === null
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
@@ -1174,7 +1174,7 @@ export function ResourceAssignmentDialog({
                     className={cn(
                       "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : vehiclePresent
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -1202,7 +1202,7 @@ export function ResourceAssignmentDialog({
                     className={cn(
                       "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >
@@ -1221,7 +1221,7 @@ export function ResourceAssignmentDialog({
                 className={cn(
                   "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   showOnlyAssignedVehicles
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
@@ -1264,12 +1264,12 @@ export function ResourceAssignmentDialog({
                           <button
                             onClick={onToggleZuFuss}
                             className={cn(
-                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                              zuFuss && "border-primary/30 bg-primary/5"
+                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+                              zuFuss && "border-sel-edge bg-sel-wash"
                             )}
                           >
                             {zuFuss ? (
-                              <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                              <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
                             ) : (
                               <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                             )}
@@ -1312,8 +1312,8 @@ export function ResourceAssignmentDialog({
                       <div key={`group-${groupId}`} className="space-y-1">
                         {/* Group header row */}
                         <div className={cn(
-                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:bg-secondary/30",
-                          allSelected && "border-primary/30 bg-primary/5"
+                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
+                          allSelected && "border-sel-edge bg-sel-wash"
                         )}>
                           {/* Expand/collapse toggle */}
                           <button
@@ -1338,11 +1338,11 @@ export function ResourceAssignmentDialog({
                             <div className="flex items-center gap-3">
                               {allSelected ? (
                                 <CheckCircle className={cn(
-                                  "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                  "h-5 w-5 text-sel-foreground flex-shrink-0",
                                   wasJustAssigned && "animate-check-appear"
                                 )} />
                               ) : someSelected ? (
-                                <CheckCircle className="h-5 w-5 text-emerald-500/50 flex-shrink-0" />
+                                <CheckCircle className="h-5 w-5 text-sel-foreground/50 flex-shrink-0" />
                               ) : (
                                 <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                               )}

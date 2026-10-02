@@ -370,7 +370,7 @@ export function IncidentPickerDialog({
               title={t("viewList")}
               className={cn(
                 "flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors",
-                view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                view === "list" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
               )}
             >
               <List className="h-3.5 w-3.5" />
@@ -383,7 +383,7 @@ export function IncidentPickerDialog({
               title={t("viewMap")}
               className={cn(
                 "flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors",
-                view === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                view === "map" ? "sel-choice" : "text-muted-foreground hover:bg-muted",
               )}
             >
               <MapPin className="h-3.5 w-3.5" />
@@ -406,7 +406,7 @@ export function IncidentPickerDialog({
               className={cn(
                 "rounded-full border px-2.5 py-0.5 font-medium transition-colors",
                 showCompleted
-                  ? "border-primary/40 bg-primary/10 text-foreground"
+                  ? "border-sel-edge bg-sel-wash text-sel-foreground"
                   : "border-border text-muted-foreground hover:bg-muted",
               )}
             >
@@ -468,7 +468,7 @@ export function IncidentPickerDialog({
                   key={op.id}
                   className={cn(
                     "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50",
-                    isChecked && "bg-primary/[0.06]",
+                    isChecked && "bg-sel-wash",
                   )}
                 >
                   <Checkbox checked={isChecked} onCheckedChange={() => toggle(op.id)} />

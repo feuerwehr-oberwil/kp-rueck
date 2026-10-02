@@ -339,7 +339,7 @@ export default function DiveraPoolPage() {
                   className={`
                     px-6 py-4 flex gap-4 transition-colors
                     ${isEditor ? 'cursor-pointer hover:bg-muted/50' : ''}
-                    ${isSelected ? 'bg-primary/5' : ''}
+                    ${isSelected ? 'bg-sel-wash' : ''}
                     ${isArchived ? 'opacity-50' : ''}
                   `}
                 >
@@ -350,7 +350,7 @@ export default function DiveraPoolPage() {
                         className={`
                           w-5 h-5 rounded border-2 flex items-center justify-center transition-colors
                           ${isSelected
-                            ? 'bg-primary border-primary text-primary-foreground'
+                            ? 'bg-sel border-sel text-primary-foreground'
                             : 'border-muted-foreground/30'
                           }
                         `}

@@ -292,7 +292,7 @@ export function RoutenplanungPanel({
                     className={cn(
                       "flex min-h-10 w-full items-center gap-2 rounded-md border border-dashed px-1.5 py-1.5 text-sm transition-colors",
                       addMode
-                        ? "border-primary/50 bg-primary/[0.06] text-foreground"
+                        ? "border-sel-edge bg-sel-wash text-foreground"
                         : "border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                     )}
                   >

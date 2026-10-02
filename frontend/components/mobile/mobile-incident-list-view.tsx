@@ -167,7 +167,8 @@ export function MobileIncidentListView({
         {/* Status Filter Pills - 44px min height for touch targets (WCAG 2.5.5) */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           <Button
-            variant={activeFilter === null ? "default" : "outline"}
+            variant={activeFilter === null ? "selected" : "outline"}
+            aria-pressed={activeFilter === null}
             size="sm"
             onClick={() => setActiveFilter(null)}
             className="flex-shrink-0 min-h-[44px] px-4"
@@ -177,7 +178,8 @@ export function MobileIncidentListView({
           {statusGroups.map(group => (
             <Button
               key={group.id}
-              variant={activeFilter === group.id ? "default" : "outline"}
+              variant={activeFilter === group.id ? "selected" : "outline"}
+              aria-pressed={activeFilter === group.id}
               size="sm"
               onClick={() => setActiveFilter(activeFilter === group.id ? null : group.id)}
               className="flex-shrink-0 min-h-[44px] px-4"

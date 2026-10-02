@@ -488,7 +488,8 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                   <Button
                     key={key}
                     type="button"
-                    variant={priority === key ? 'default' : 'outline'}
+                    variant={priority === key ? 'selected' : 'outline'}
+                    aria-pressed={priority === key}
                     onClick={() => setPriority(key)}
                   >
                     {label}

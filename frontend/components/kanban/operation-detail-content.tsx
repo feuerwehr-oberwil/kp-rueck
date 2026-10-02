@@ -926,7 +926,7 @@ export function OperationDetailContent({
         // drop target leaves its parent "entered" too, and two rings around one
         // drop is a question about which of them takes it.
         isPanelDropOver && !isResourceDropOver &&
-          "rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background",
+          "rounded-lg ring-2 ring-sel-line ring-offset-2 ring-offset-background",
       )}
       data-testid="operation-detail-content"
       data-layout={layout}
@@ -1369,8 +1369,13 @@ export function OperationDetailContent({
                   <Button
                     key={col.id}
                     size="xs"
-                    variant={isCurrent ? "default" : "outline"}
+                    // The current status is a statement, not a dead button:
+                    // tonal «selected» at full opacity (disabled only stops the
+                    // no-op click), so it reads as «here» and not as greyed out.
+                    variant={isCurrent ? "selected" : "outline"}
                     disabled={isCurrent}
+                    aria-current={isCurrent ? "step" : undefined}
+                    className={isCurrent ? "disabled:opacity-100" : undefined}
                     onClick={() => onChangeStatus(operation.id, col.status[0])}
                   >
                     {t(`columns.${col.id}`)}
@@ -1391,7 +1396,7 @@ export function OperationDetailContent({
               // The drop ring sits OUTSIDE the block (`ring-offset`) so it reads
               // as "this whole list takes it" rather than as a field focus.
               "rounded-lg transition-colors",
-              isResourceDropOver && "ring-2 ring-primary ring-offset-4 ring-offset-background bg-primary/5"
+              isResourceDropOver && "ring-2 ring-sel-line ring-offset-4 ring-offset-background bg-sel-wash"
             )}
           >
             {/* «Kräfte» — the third of the mock's group headings: who and what

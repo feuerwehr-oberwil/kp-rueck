@@ -1043,7 +1043,7 @@ export default function MapPage() {
                     <button
                       className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${
                         !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority'
-                          ? 'border-primary/50 bg-secondary/50 text-foreground'
+                          ? 'border-sel-edge bg-secondary/50 text-foreground'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                       }`}
                       title={t('page.viewMenuLabel')}
@@ -1217,7 +1217,7 @@ export default function MapPage() {
                                   }`}
                                 >
                                   {isSelected && (
-                                    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary" />
+                                    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-sel-line" />
                                   )}
                                   <span
                                     className={`h-2 w-2 flex-shrink-0 rounded-full ${

@@ -78,6 +78,24 @@ describe('the Ansicht menu', () => {
     }
   })
 
+  it('draws the chosen preset in the slate selection role, never in the red primary', async () => {
+    // Selection is «A2» slate (CLAUDE.md → Colour roles): red on this board
+    // means priority/danger, so a chosen option must not borrow it.
+    const user = userEvent.setup()
+    renderMenu(CARD_VIEW_PRESETS.standard)
+    await user.click(screen.getByRole('button', { name: /Ansicht/ }))
+
+    const chosen = screen.getByRole('button', { name: 'Standard' })
+    expect(chosen).toHaveClass('bg-sel-wash', 'text-sel-foreground', 'border-sel-edge')
+    expect(chosen.className).not.toMatch(/primary/)
+    expect(screen.getByRole('button', { name: 'Kompakt' }).className).not.toMatch(/sel-/)
+    // Every «an» switch uses the muted slate fill as well.
+    for (const sw of screen.getAllByRole('switch')) {
+      expect(sw.className).toContain('data-[state=checked]:bg-sel')
+      expect(sw.className).not.toContain('data-[state=checked]:bg-primary')
+    }
+  })
+
   it('asks for a whole preset when a preset is clicked', async () => {
     const user = userEvent.setup()
     const { onApplyPreset, onToggleKey } = renderMenu(CARD_VIEW_PRESETS.standard)

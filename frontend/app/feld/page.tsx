@@ -1220,7 +1220,7 @@ function FeldSurface() {
                     codeError?.kind === 'wrong'
                       ? 'border-destructive'
                       : codeFocused && Math.min(codeInput.length, 3) === index && !locked
-                        ? 'border-primary ring-2 ring-primary/25'
+                        ? 'border-ring ring-2 ring-ring/25'
                         : 'border-border'
                   } ${locked ? 'opacity-60' : ''}`}
                 >
