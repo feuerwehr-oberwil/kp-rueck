@@ -73,7 +73,7 @@ export function MarkExistingRekoPersonnel({
                 onClick={() => handleSelect(person)}
                 disabled={marking !== null}
                 className={cn(
-                  "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left hover:border-primary/50 hover:bg-secondary/30",
+                  "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left hover:border-sel-edge hover:bg-secondary/30",
                   marking === person.id && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -300,7 +300,7 @@ export function AssignRekoDialog({
                         "w-full p-3 rounded-lg border transition-all text-left",
                         isCurrentlyAssigned
                           ? "border-success bg-success/10 cursor-default"
-                          : "border-border hover:border-primary/50 hover:bg-secondary/30",
+                          : "border-border hover:border-sel-edge hover:bg-secondary/30",
                         assigning === person.personnel_id && "opacity-50 cursor-not-allowed"
                       )}
                     >

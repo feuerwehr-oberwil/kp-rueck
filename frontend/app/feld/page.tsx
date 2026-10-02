@@ -1078,7 +1078,7 @@ function FeldSurface() {
           <button
             type="button"
             onClick={() => setMeldenOpen(true)}
-            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg"
+            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground shadow-lg"
           >
             <Plus className="size-4" />
             {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
@@ -1220,7 +1220,7 @@ function FeldSurface() {
                     codeError?.kind === 'wrong'
                       ? 'border-destructive'
                       : codeFocused && Math.min(codeInput.length, 3) === index && !locked
-                        ? 'border-primary ring-2 ring-primary/25'
+                        ? 'border-ring ring-2 ring-ring/25'
                         : 'border-border'
                   } ${locked ? 'opacity-60' : ''}`}
                 >

@@ -316,15 +316,15 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
             const confirmOpen = panel === confirmPanelFor[step.key]
             return (
               <li key={step.key} className="relative flex items-start gap-2.5">
-                {/* Marker: emerald = done, red = the step owed now (same red
-                    as the button it points at), hollow grey = later. */}
+                {/* Marker: emerald = done, ink = the step owed now (same ink
+                    as the main button it points at), hollow grey = later. */}
                 <span
                   aria-hidden
                   className={`relative z-10 mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
                     step.done
                       ? 'border-emerald-500 bg-emerald-500 text-white'
                       : isCurrent
-                        ? 'border-primary bg-primary'
+                        ? 'border-action bg-action'
                         : 'border-border bg-secondary'
                   }`}
                 >

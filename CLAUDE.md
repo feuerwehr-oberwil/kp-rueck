@@ -373,9 +373,22 @@ Firefighting command post operators (KP Rück) managing active incidents in high
 
 ### Aesthetic Direction
 - **Visual tone**: Clean, information-dense, dark-mode-first. Inspired by Linear and Trello – minimal chrome, excellent information hierarchy, smooth interactions. Borrows density and seriousness from military C2 and dispatch systems but wrapped in modern, approachable UI patterns.
-- **Typography**: Geist (sans) – clean, professional, highly legible at small sizes
-- **Color**: Warm red primary (fire service identity), blue accent, warm grays. Status colors carry meaning and must be consistent.
+- **Typography**: Sora (sans) + Spline Sans Mono – the faces KP Front and kp-rueck.ch use; see «Type & corners» below
+- **Color**: Red is the fire-service identity (logo) and the priority/danger signal – it is **not** the action or selection colour. Warm grays, slate selection, ink main button; status colors carry meaning and must be consistent. See «Colour roles» below.
 - **Anti-references**: Avoid playful/consumer aesthetics (Slack, Figma), gamification, decorative illustrations, or anything that undermines the seriousness of the operational context.
+
+### Colour roles
+One colour, one meaning – decided in the 2026-10 UI review; tokens in `frontend/app/globals.css`.
+- **Selection = slate «A2»**, tonal, never a fill: a chosen chip/filter/preset/segment/current status = `--sel-wash` + `--sel-foreground` + 1px `--sel-edge` (`<Button variant="selected">`, or the `sel-choice` utility on borderless controls); switch/checkbox «an» = `--sel`; ticked row = wash + edge + slate ✓ (never emerald); selected Einsatz card = 2px `--sel-line` outline. Where-you-are (active tab, open popover/panel trigger) = ink tint `bg-foreground/[0.09]`.
+- **Red = priority and danger only.** It never fills an action: the main button is ink (`--action`), `destructive` is a red outline. Hoch cards keep their red edge, wash, ring and pulse.
+- **Green = frei / verfügbar** on the availability dots and badges themselves. Never for «selected» – a toggled filter such as «Nur verfügbare» uses the slate selected state like every other filter.
+- **Board column header lines are the status key** – they stay coloured; cards don't repeat the status as a tint (phone cards are neutral except Hoch).
+- **Focus = slate** (`--ring` = `--sel-line`), never red – a red ring reads as an error.
+
+### Type & corners
+- **Sora** (sans) and **Spline Sans Mono** (mono), self-hosted via `next/font/local` from `frontend/app/fonts/` (SIL OFL, licences beside the files). Use `font-sans` / `font-mono`; don't add a third face.
+- **Corners**: `--radius` 12px – `rounded-md`/`-lg`/`-xl` are all 12px. Controls under 32px tall (badges, kbd, h-5…h-7 chips) use `rounded-sm` (8px). Pills stay `rounded-full`.
+- **Main button = ink** (`<Button>` default, one per surface); night = light ink `#c3cddc` with dark text.
 
 ### Design Principles
 1. **Clarity over decoration** – Every pixel should serve a purpose. Prioritize legibility, hierarchy, and scannability. No ornamental elements.

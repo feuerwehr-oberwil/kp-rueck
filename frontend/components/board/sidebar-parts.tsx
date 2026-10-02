@@ -91,7 +91,12 @@ export function SidebarEmpty({
  *
  * Icon-only and 32px square so it sits flush with the 32px search field. The
  * check glyph is the same one the resource cards use for "verfügbar", so the
- * button reads as "keep the green ones" rather than as a generic funnel.
+ * button reads as "keep the available ones" rather than as a generic funnel.
+ *
+ * ON is the slate «selected» state every other filter uses, not green: a
+ * toggled filter is a choice, and selection looks the same everywhere. Green
+ * stays with the availability dots and badges themselves (CLAUDE.md → Colour
+ * roles).
  */
 export function AvailableOnlyToggle({
   active,
@@ -105,16 +110,14 @@ export function AvailableOnlyToggle({
   return (
     <Button
       size="icon-xs"
-      variant={active ? "secondary" : "ghost"}
+      variant={active ? "selected" : "ghost"}
       onClick={onToggle}
       aria-pressed={active}
       title={label}
       aria-label={label}
       className={cn(
         "flex-shrink-0 border",
-        active
-          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-          : "border-transparent text-muted-foreground hover:text-foreground",
+        !active && "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
       <CircleCheck className="size-4" />

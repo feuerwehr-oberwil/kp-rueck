@@ -46,7 +46,7 @@ import { cn } from "@/lib/utils"
  * focus — only its colour moves.
  */
 export const DENSE_CONTROL =
-  "h-7 min-h-7 rounded-md border border-border/50 bg-transparent px-2 shadow-none transition-colors " +
+  "h-7 min-h-7 rounded-sm border border-border/50 bg-transparent px-2 shadow-none transition-colors " +
   "hover:border-border hover:bg-input/50 focus-visible:border-border focus-visible:bg-input " +
   "dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input"
 

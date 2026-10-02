@@ -227,7 +227,7 @@ function DisplayChrome({
             <>
               <Link
                 href={isIndexPage ? "/" : "/display"}
-                className="hidden sm:flex items-center justify-center h-7 w-7 shrink-0 rounded-md hover:bg-muted transition-colors"
+                className="hidden sm:flex items-center justify-center h-7 w-7 shrink-0 rounded-sm hover:bg-muted transition-colors"
                 title={isIndexPage ? t('layout.backToEditor') : t('layout.displayOverview')}
               >
                 <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground" />
@@ -310,7 +310,7 @@ function DisplayChrome({
             </div>
             <button
               onClick={toggleFullscreen}
-              className="hidden sm:flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted transition-colors"
+              className="hidden sm:flex items-center justify-center h-7 w-7 rounded-sm hover:bg-muted transition-colors"
               title={isFullscreen ? t('layout.exitFullscreen') : t('layout.fullscreen')}
             >
               {isFullscreen ? (

@@ -376,7 +376,8 @@ export function LocationInput({
       </Button>
       <Button
         type="button"
-        variant={showCoordinates ? "default" : dense || boxed ? "ghost" : "outline"}
+        variant={showCoordinates ? "selected" : dense || boxed ? "ghost" : "outline"}
+        aria-pressed={showCoordinates}
         size={dense || boxed ? "icon-xs" : "icon"}
         className={cn((dense || boxed) && "size-7")}
         onClick={() => setShowCoordinates(!showCoordinates)}

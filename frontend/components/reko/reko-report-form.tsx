@@ -220,7 +220,7 @@ export function RekoReportForm({
                       "cursor-pointer px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                       index > 0 && "border-l border-border",
                       selected
-                        ? "bg-primary font-semibold text-primary-foreground"
+                        ? "sel-choice font-semibold"
                         : "text-muted-foreground hover:bg-input/50",
                     )}
                   >
@@ -414,7 +414,8 @@ export function RekoReportForm({
         <div className="grid grid-cols-2 gap-3">
           <Button
             type="button"
-            variant={value.is_relevant === true ? 'default' : 'outline'}
+            variant={value.is_relevant === true ? 'selected' : 'outline'}
+            aria-pressed={value.is_relevant === true}
             onClick={() => update('is_relevant', true)}
             disabled={disabled}
             size="lg"
@@ -424,7 +425,8 @@ export function RekoReportForm({
           </Button>
           <Button
             type="button"
-            variant={value.is_relevant === false ? 'default' : 'outline'}
+            variant={value.is_relevant === false ? 'selected' : 'outline'}
+            aria-pressed={value.is_relevant === false}
             onClick={() => update('is_relevant', false)}
             disabled={disabled}
             size="lg"
@@ -541,7 +543,8 @@ export function RekoReportForm({
             <Button
               key={option}
               type="button"
-              variant={value.power_supply === option ? 'default' : 'outline'}
+              variant={value.power_supply === option ? 'selected' : 'outline'}
+              aria-pressed={value.power_supply === option}
               onClick={() => update('power_supply', option)}
               disabled={disabled}
               className="text-sm"

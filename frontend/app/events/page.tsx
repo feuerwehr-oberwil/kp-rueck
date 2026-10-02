@@ -492,14 +492,15 @@ export default function EventsPage() {
             </div>
 
             {/* The active event is not a row — it is a banner, pinned above the
-                list, with the only other red on the page and the Restliste
-                expanded here only. Search never hides "you are here". */}
+                list, with an ink edge (where-you-are is ink, not red — red means
+                danger) and the Restliste expanded here only. Search never hides
+                "you are here". */}
             {bannerEvent && (
               <div
                 data-testid="event-card"
                 className="relative mb-6 overflow-hidden rounded-lg border border-border bg-muted/30 p-4 pl-5"
               >
-                <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-primary" />
+                <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-foreground" />
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -664,7 +665,7 @@ export default function EventsPage() {
                     }}
                     className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors ${
                       !newEventTraining
-                        ? 'border-primary bg-primary/5 text-primary'
+                        ? 'border-sel-line bg-sel-wash text-sel-foreground'
                         : 'border-muted hover:border-muted-foreground/25'
                     }`}
                   >
@@ -787,7 +788,7 @@ export default function EventsPage() {
                     <label className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3 text-sm">
                       <input
                         type="checkbox"
-                        className="mt-0.5 accent-primary"
+                        className="mt-0.5 accent-sel"
                         checked={archiveCheckout}
                         onChange={(e) => setArchiveCheckout(e.target.checked)}
                       />

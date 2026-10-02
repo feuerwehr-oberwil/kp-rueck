@@ -136,7 +136,7 @@ function RouteOption({
       onClick={onPick}
       className={cn(
         'flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors',
-        picked ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+        picked ? 'border-sel-edge bg-sel-wash' : 'hover:bg-muted/50',
       )}
     >
       <span className="mt-0.5 text-muted-foreground">{icon}</span>
@@ -375,16 +375,20 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
                      extra steps. */
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      variant={status.decided && !on ? 'default' : 'outline'}
+                      variant={status.decided && !on ? 'selected' : 'outline'}
                       size="sm"
+                      className="disabled:data-[current=true]:opacity-100"
+                      data-current={status.decided && !on}
                       disabled={busy || (status.decided && !on)}
                       onClick={() => void setConsent('off')}
                     >
                       {status.decided ? t('turnOff') : t('askNo')}
                     </Button>
                     <Button
-                      variant={status.decided && on ? 'default' : 'outline'}
+                      variant={status.decided && on ? 'selected' : 'outline'}
                       size="sm"
+                      className="disabled:data-[current=true]:opacity-100"
+                      data-current={status.decided && on}
                       disabled={busy || on}
                       onClick={() => void setConsent('errors')}
                     >

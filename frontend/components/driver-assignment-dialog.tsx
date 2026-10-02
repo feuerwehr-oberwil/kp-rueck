@@ -411,9 +411,9 @@ export function DriverAssignmentDialog({
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             {/* Current driver with remove option */}
             {localDriverId && localDriverName && (
-              <div className="flex shrink-0 items-center justify-between p-3 rounded-lg border border-primary/50 bg-primary/5">
+              <div className="flex shrink-0 items-center justify-between p-3 rounded-lg border border-sel-edge bg-sel-wash">
                 <div className="flex items-center gap-3">
-                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                  <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
                   <div>
                     <p className="font-medium text-sm">{localDriverName}</p>
                     <p className="text-xs text-muted-foreground">{t('currentDriverLabel')}</p>
@@ -449,7 +449,7 @@ export function DriverAssignmentDialog({
               <button
                 type="button"
                 onClick={() => setShowAddForm(true)}
-                className="flex w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                className="flex w-full shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-sel-edge hover:text-foreground"
               >
                 <UserPlus className="h-4 w-4" />
                 <span>{t('addPersonButton')}</span>
@@ -519,14 +519,14 @@ export function DriverAssignmentDialog({
                           disabled={isAssigning || isCurrentDriver}
                           className={cn(
                             "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left",
-                            !isCurrentDriver && "cursor-pointer hover:border-primary/50 hover:bg-secondary/30",
-                            isCurrentDriver && "opacity-50 cursor-not-allowed"
+                            !isCurrentDriver && "cursor-pointer hover:border-sel-edge hover:bg-secondary/30",
+                            isCurrentDriver && "border-sel-edge bg-sel-wash cursor-default"
                           )}
                         >
                           <div className="flex items-center gap-3">
                             {isCurrentDriver ? (
                               <CheckCircle className={cn(
-                                "h-5 w-5 text-primary flex-shrink-0",
+                                "h-5 w-5 text-sel-foreground flex-shrink-0",
                                 wasJustAssigned && "animate-check-appear"
                               )} />
                             ) : (
@@ -581,14 +581,14 @@ export function DriverAssignmentDialog({
                             disabled={isAssigning || isCurrentDriver}
                             className={cn(
                               "flex-1 min-w-0 flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left",
-                              !isCurrentDriver && "cursor-pointer hover:border-primary/50 hover:bg-secondary/30",
-                              isCurrentDriver && "opacity-50 cursor-not-allowed"
+                              !isCurrentDriver && "cursor-pointer hover:border-sel-edge hover:bg-secondary/30",
+                              isCurrentDriver && "border-sel-edge bg-sel-wash cursor-default"
                             )}
                           >
                             <div className="flex items-center gap-3">
                               {isCurrentDriver ? (
                                 <CheckCircle className={cn(
-                                  "h-5 w-5 text-primary flex-shrink-0",
+                                  "h-5 w-5 text-sel-foreground flex-shrink-0",
                                   wasJustAssigned && "animate-check-appear"
                                 )} />
                               ) : (

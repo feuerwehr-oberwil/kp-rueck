@@ -24,13 +24,16 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.90 0.003 60);
   --input: oklch(0.92 0.003 60);
-  --ring: oklch(0.45 0.14 25);
+  /* Focus = slate, not the red primary: a red ring reads as an error. */
+  --ring: var(--sel-line);
   --chart-1: oklch(0.45 0.18 25);
   --chart-2: oklch(0.50 0.15 250);
   --chart-3: oklch(0.65 0.20 60);
   --chart-4: oklch(0.55 0.12 145);
   --chart-5: oklch(0.60 0.15 300);
-  --radius: 0.5rem;
+  /* Corners (review step C2): 12px on every box, 8px on controls under 32px
+     tall (`rounded-sm`: badges, kbd, h-5…h-7 chips), pills stay pills. */
+  --radius: 0.75rem;
   --sidebar: oklch(0.96 0 0);
   --sidebar-foreground: oklch(0.15 0 0);
   --sidebar-primary: oklch(0.45 0.18 25);
@@ -38,7 +41,7 @@
   --sidebar-accent: oklch(0.94 0.005 250);
   --sidebar-accent-foreground: oklch(0.25 0 0);
   --sidebar-border: oklch(0.88 0 0);
-  --sidebar-ring: oklch(0.45 0.18 25);
+  --sidebar-ring: var(--sel-line);
 
   /* Refined status colors - light mode */
   --status-available: oklch(0.55 0.12 145);
@@ -57,6 +60,26 @@
   --warning-foreground: oklch(0.30 0.10 85);
   --info: oklch(0.55 0.15 250);
   --info-foreground: oklch(0.25 0.10 250);
+
+  /* Selection («A2», decided 2026-10): a muted SLATE blue, tonal rather than
+     filled, so «chosen» never borrows the red that means priority/danger.
+       --sel            switch «an» fill
+       --sel-foreground text / ✓ of a chosen chip, preset, row
+       --sel-wash       background of a chosen chip, preset, row, card
+       --sel-edge       1px edge of a chosen chip or row
+       --sel-line       2px outline of the selected Einsatz card; also the focus ring
+     Rules: CLAUDE.md → Design Context → Colour roles. */
+  --sel: oklch(0.50 0.07 250);
+  --sel-foreground: oklch(0.42 0.075 250);
+  --sel-wash: oklch(0.55 0.07 250 / 0.12);
+  --sel-edge: oklch(0.45 0.07 250 / 0.55);
+  --sel-line: oklch(0.47 0.075 250);
+
+  /* The main action button (Button `default`) is INK, not red (review step
+     C3): red never fills an action on this board — it means priority and
+     danger. Light: the text colour as fill. */
+  --action: var(--foreground);
+  --action-foreground: var(--background);
 }
 
 /* Dark mode - Professional emergency services theme */
@@ -87,7 +110,7 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.42 0.012 250);
   --input: oklch(0.29 0.012 250);
-  --ring: oklch(0.50 0.16 25);
+  --ring: var(--sel-line);
   --chart-1: oklch(0.50 0.16 25);
   --chart-2: oklch(0.50 0.15 250);
   --chart-3: oklch(0.72 0.22 60);
@@ -100,7 +123,7 @@
   --sidebar-accent: oklch(0.30 0.012 250);
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.42 0.012 250);
-  --sidebar-ring: oklch(0.50 0.16 25);
+  --sidebar-ring: var(--sel-line);
 
   /* Refined status colors - dark mode */
   --status-available: oklch(0.48 0.08 0);
@@ -119,12 +142,25 @@
   --warning-foreground: oklch(0.90 0.08 85);
   --info: oklch(0.45 0.12 250);
   --info-foreground: oklch(0.85 0.08 250);
+
+  /* Selection (see :root) – lighter slate on the dark surfaces. */
+  --sel: oklch(0.60 0.07 250);
+  --sel-foreground: oklch(0.82 0.06 250);
+  --sel-wash: oklch(0.70 0.06 250 / 0.18);
+  --sel-edge: oklch(0.75 0.06 250 / 0.55);
+  --sel-line: oklch(0.74 0.07 250);
+
+  /* Night: a light ink fill with dark text — KP Front's --btn-primary. Full
+     white would glare against the dark board. */
+  --action: #c3cddc;
+  --action-foreground: #0d1118;
 }
 
 @theme inline {
-  /* Using Geist for clean, professional sans-serif typography */
-  --font-sans: var(--font-geist-sans, "Geist"), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono, "Geist Mono"), "Courier New", monospace;
+  /* Sora (sans) + Spline Sans Mono (mono), self-hosted via next/font/local in
+     app/layout.tsx — see CLAUDE.md → Design Context → Type & corners. */
+  --font-sans: var(--font-sora, "Sora"), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-spline-sans-mono, "Spline Sans Mono"), "Courier New", monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -150,10 +186,15 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  /* One box corner (12px) for md/lg/xl alike — buttons, inputs, popovers,
+     cards and dialogs used to sit at 6/8/12px and read as three families.
+     `sm` (8px) is the small-control step. Bare `rounded` (4px) is left to the
+     micro chips and text marks under ~20px, where 8px would turn them into
+     pills. */
   --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: var(--radius);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -176,6 +217,26 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+
+  /* Selection roles (bg-sel-wash, text-sel-foreground, ring-sel-edge, …) */
+  --color-sel: var(--sel);
+  --color-sel-foreground: var(--sel-foreground);
+  --color-sel-wash: var(--sel-wash);
+  --color-sel-edge: var(--sel-edge);
+  --color-sel-line: var(--sel-line);
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+}
+
+/* The chosen option of a choice that has no border of its own (segmented
+   toggles, chips): slate wash + slate text + a 1px slate edge drawn INSIDE
+   (inset shadow), so choosing never shifts the layout. Bordered controls use
+   `border-sel-edge bg-sel-wash text-sel-foreground` instead, or <Button
+   variant="selected">. */
+@utility sel-choice {
+  background-color: var(--sel-wash);
+  color: var(--sel-foreground);
+  box-shadow: inset 0 0 0 1px var(--sel-edge);
 }
 
 @layer base {
@@ -419,12 +480,12 @@
      lingers, so the eye finds the row the jump was aiming at. */
   @keyframes settings-search-flash {
     0% {
-      background-color: color-mix(in oklab, var(--primary) 10%, transparent);
-      box-shadow: inset 2px 0 0 var(--primary);
+      background-color: var(--sel-wash);
+      box-shadow: inset 2px 0 0 var(--sel-line);
     }
     60% {
       background-color: transparent;
-      box-shadow: inset 2px 0 0 var(--primary);
+      box-shadow: inset 2px 0 0 var(--sel-line);
     }
     100% {
       background-color: transparent;
@@ -595,10 +656,10 @@
   /* Search input focus glow */
   @keyframes search-focus {
     0% {
-      box-shadow: 0 0 0 0 oklch(from var(--primary) l c h / 0.4);
+      box-shadow: 0 0 0 0 oklch(from var(--ring) l c h / 0.4);
     }
     100% {
-      box-shadow: 0 0 0 4px oklch(from var(--primary) l c h / 0);
+      box-shadow: 0 0 0 4px oklch(from var(--ring) l c h / 0);
     }
   }
 

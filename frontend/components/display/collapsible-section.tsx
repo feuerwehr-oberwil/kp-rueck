@@ -57,7 +57,7 @@ export function CollapsibleSection({
           <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden />
         )}
         {badge}
-        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-foreground/10 px-1 text-[10px] xl:text-xs font-bold tabular-nums text-foreground">
+        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-[10px] xl:text-xs font-bold tabular-nums text-foreground">
           {count}
         </span>
       </button>

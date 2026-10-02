@@ -164,7 +164,7 @@ export function DiveraMessageDialog({
                 onClick={() => setTarget("groups")}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  target === "groups" ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                  target === "groups" ? "sel-choice" : "hover:bg-muted",
                 )}
               >
                 <Users className="size-4 shrink-0" />
@@ -202,7 +202,7 @@ export function DiveraMessageDialog({
                 onClick={() => setTarget("all")}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  target === "all" ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                  target === "all" ? "sel-choice" : "hover:bg-muted",
                 )}
               >
                 <Megaphone className="size-4 shrink-0" />

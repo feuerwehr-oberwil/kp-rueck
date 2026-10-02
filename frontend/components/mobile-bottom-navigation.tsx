@@ -107,7 +107,7 @@ export function MobileBottomNavigation({
               onClick={() => !tab.disabled && handleTap(tab.id)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] rounded-lg transition-all touch-manipulation",
-                isActive && "text-primary scale-105",
+                isActive && "bg-foreground/[0.09] text-foreground scale-105",
                 !isActive && "text-muted-foreground hover:text-foreground",
                 tab.disabled && "opacity-40 pointer-events-none",
                 tapAnimation === tab.id && "animate-bounce-tap",
@@ -135,7 +135,7 @@ export function MobileBottomNavigation({
               onClick={() => handleTap('more')}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] rounded-lg transition-all touch-manipulation",
-                (currentPage === 'settings' || currentPage === 'help') && "text-primary scale-105",
+                (currentPage === 'settings' || currentPage === 'help') && "bg-foreground/[0.09] text-foreground scale-105",
                 (currentPage !== 'settings' && currentPage !== 'help') && "text-muted-foreground hover:text-foreground",
                 tapAnimation === 'more' && "animate-bounce-tap"
               )}

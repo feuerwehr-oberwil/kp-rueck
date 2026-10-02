@@ -223,7 +223,7 @@ export default function HelpPage() {
       const isInline = !className;
       if (isInline) {
         return (
-          <kbd className="bg-muted border border-border px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+          <kbd className="bg-muted border border-border px-1.5 py-0.5 rounded-sm text-sm font-mono" {...props}>
             {children}
           </kbd>
         );
@@ -391,7 +391,7 @@ export default function HelpPage() {
                           className={cn(
                             "text-left w-full text-sm py-1 px-2 rounded transition-colors hover:bg-muted",
                             activeSection === id
-                              ? "text-primary font-medium bg-muted"
+                              ? "text-foreground font-medium bg-foreground/[0.09]"
                               : "text-muted-foreground"
                           )}
                         >

@@ -573,7 +573,7 @@ function PanelHeader({ title, count, subtitle }: {
     <div className="px-3 xl:px-4 py-2.5 xl:py-3 border-b border-border bg-muted/40 shrink-0 min-h-[60px]">
       <div className="flex items-center justify-between">
         <h2 className="text-sm xl:text-base font-bold tracking-tight uppercase">{title}</h2>
-        <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs xl:text-sm font-bold tabular-nums">
+        <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs xl:text-sm font-bold tabular-nums">
           {count}
         </span>
       </div>
