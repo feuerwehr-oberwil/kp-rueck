@@ -24,6 +24,7 @@ import { ErrorReporter } from '@/components/error-reporter'
 import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
 import { publicBackendOrigin } from '@/lib/env'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
+import { ViewportInsets } from '@/components/viewport-insets'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -71,6 +72,8 @@ export default async function RootLayout({
           cartoApiKey={process.env.CARTO_API_KEY?.trim() || null}
         />
         <TopLoadingBar />
+        {/* --kb-inset / --vv-height on <html>: the on-screen keyboard, for the phone sheets. */}
+        <ViewportInsets />
         {/* Catches what escapes the React tree (rejected promises, listeners) and posts
             it to this station's OWN server log. Opt-in forwarding is a separate decision
             made server-side — see lib/report-error.ts. */}
