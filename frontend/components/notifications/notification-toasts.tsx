@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Binoculars, Radio, Siren, Timer, Truck, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { setToastDurationSetting } from '@/lib/toast-lifetime'
@@ -17,16 +16,8 @@ import {
   TOAST_BURST_LIMIT,
 } from '@/lib/notification-policy'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
-import { notificationDetail, notificationParts, type NotificationSource } from '@/lib/notification-format'
-
-/** The source is said by the glyph (and to screen readers), not in the text. */
-const SOURCE_ICON: Partial<Record<NotificationSource, LucideIcon>> = {
-  feld: Radio, // the field-report glyph on the board too (FieldStatusNudge)
-  reko: Binoculars, // Reko carries the Binoculars everywhere in the app
-  vehicle: Truck,
-  alarm: Siren,
-  time: Timer,
-}
+import { notificationDetail, notificationParts } from '@/lib/notification-format'
+import { NOTIFICATION_SOURCE_ICON } from './notification-source-icon'
 
 const TOAST_DATA_KEY = 'shownToastData'
 const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
@@ -207,7 +198,7 @@ export function NotificationToasts() {
           fieldReport: tToasts('fieldReport'),
           fieldReportDirect: tToasts('fieldReportDirect'),
         })
-        const Icon = SOURCE_ICON[parts.source]
+        const Icon = NOTIFICATION_SOURCE_ICON[parts.source]
         const spoken = [
           notification.severity === 'critical' ? tToasts('critical') : null,
           parts.source === 'system' ? null : tToasts(`source.${parts.source}`),
