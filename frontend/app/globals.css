@@ -908,6 +908,15 @@
   }
 }
 
+/* The boot snail handed over by the Microsoft callback (lib/snail-clock.ts): until the
+   client lifts its pause, a server-rendered snail stands instead of holding at its arrival's
+   first frame (off-screen left) — it continues the previous document's snail, which already
+   arrived. All of its animations off = the drawing at rest, speed lines hidden. */
+html[data-snail='standing'] .firefighter-snail.snail-paused,
+html[data-snail='standing'] .firefighter-snail.snail-paused * {
+  animation: none !important;
+}
+
 /* Reduced motion on the shared overlays: a dialog appears without zooming, a sheet or
    popover without sliding — they still fade, which is not movement. Done through
    tw-animate's own variables rather than `transform: none`, so nothing that POSITIONS an

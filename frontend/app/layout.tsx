@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
+import { cookies } from 'next/headers'
+import { SNAIL_STANDING_COOKIE } from '@/lib/snail-clock'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
@@ -64,9 +66,13 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale()
   const messages = await getMessages()
+  // Set for a few seconds by the Microsoft callback right before it loads the app: the boot
+  // snail of THIS document continues that one, so it must not paint at its arrival's first
+  // frame (lib/snail-clock.ts).
+  const snailStanding = (await cookies()).get(SNAIL_STANDING_COOKIE)?.value === 'standing'
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning data-snail={snailStanding ? 'standing' : undefined}>
       <body className={`${sora.variable} ${splineSansMono.variable} font-sans antialiased`}>
         {/* Where the browser may open its WebSocket. Read here because API_URL is a RUNTIME
             variable — the same one the /backend-api proxy route uses — and this layout renders

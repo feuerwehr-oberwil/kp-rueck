@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { SNAIL_HANDOVER_MAX_MS, handOverSnailClock, resetSnailClock, snailClockElapsed } from './snail-clock'
+import { SNAIL_HANDOVER_MAX_MS, SNAIL_STANDING_COOKIE, handOverSnailClock, resetSnailClock, snailClockElapsed } from './snail-clock'
 
 const KEY = 'kp-rueck.snail-handover'
 
@@ -56,5 +56,17 @@ describe('snail clock', () => {
   it('survives garbage in storage', () => {
     sessionStorage.setItem(KEY, '{nope')
     expect(snailClockElapsed()).toBe(0)
+  })
+
+  it('leaves a short-lived cookie so the server can render the next snail standing', () => {
+    snailClockElapsed()
+    handOverSnailClock()
+    expect(document.cookie).toContain(`${SNAIL_STANDING_COOKIE}=standing`)
+    // The next document's first snail consumes it, and drops the attribute the layout set.
+    document.documentElement.setAttribute('data-snail', 'standing')
+    resetSnailClock()
+    snailClockElapsed()
+    expect(document.cookie).not.toContain(`${SNAIL_STANDING_COOKIE}=standing`)
+    expect(document.documentElement.hasAttribute('data-snail')).toBe(false)
   })
 })

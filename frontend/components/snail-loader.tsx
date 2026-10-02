@@ -39,10 +39,12 @@ export function SnailLoader({ className }: { className?: string }) {
     const svg = ref.current?.querySelector('svg')
     if (!svg) return
     const elapsed = snailClockElapsed()
+    // Lift the pause FIRST: a handed-over snail stands with its animations switched off
+    // (globals.css, `data-snail="standing"`), and they only exist again once it is lifted.
+    svg.classList.remove('snail-paused')
     svg.getAnimations?.({ subtree: true }).forEach((animation) => {
       animation.currentTime = elapsed
     })
-    svg.classList.remove('snail-paused')
   }, [])
   return (
     <div
