@@ -370,6 +370,10 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   toasts with a button get at least 6 s; scaled by the
   «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
   Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
+- **Notification text**: toasts and the bell show a notification as line 1 = what is asked,
+  line 2 = where · who, source as glyph (`lib/notification-format.ts`, which takes the backend's
+  German sentence apart per type). Changing or adding a backend notification template means a
+  case + test there; an unmatched sentence falls back to one line, so nothing is lost.
 - **«Gespeichert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`).
   The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
   under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
