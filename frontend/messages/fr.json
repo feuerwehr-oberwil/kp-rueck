@@ -1651,7 +1651,8 @@
       "driverlessTitle": "Véhicule sans conducteur ?",
       "driverlessDescription": "« {vehicle} » est attribué à {incident}, mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Retirer le véhicule ?",
       "driverlessRemove": "Retirer le véhicule",
-      "driverlessKeep": "Laisser sans conducteur"
+      "driverlessKeep": "Laisser sans conducteur",
+      "driverlessRouteDescription": "« {vehicle} » est attribué à la mission « {auftrag} », mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Retirer le véhicule ?"
     },
     "materialDecision": {
       "title": "Matériel sur place ou à la caserne ?",
@@ -2132,6 +2133,11 @@
         "confirm": "Fermer quand même",
         "cancel": "Retour à l’intervention"
       }
+    },
+    "driverNote": {
+      "missing": "Pas de conducteur",
+      "pick": "Choisir un conducteur",
+      "pickFor": "Pas de conducteur – choisir un conducteur pour {vehicle}"
     }
   },
   "login": {

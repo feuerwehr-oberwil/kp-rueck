@@ -541,7 +541,8 @@
       "driverlessTitle": "Fahrzeug ohne Fahrer?",
       "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?",
       "driverlessRemove": "Fahrzeug entfernen",
-      "driverlessKeep": "Ohne Fahrer lassen"
+      "driverlessKeep": "Ohne Fahrer lassen",
+      "driverlessRouteDescription": "«{vehicle}» ist dem Auftrag «{auftrag}» zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?"
     },
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
@@ -1022,6 +1023,11 @@
         "confirm": "Trotzdem schliessen",
         "cancel": "Zurück zum Einsatz"
       }
+    },
+    "driverNote": {
+      "missing": "Kein Fahrer",
+      "pick": "Fahrer wählen",
+      "pickFor": "Kein Fahrer – Fahrer für {vehicle} wählen"
     }
   },
   "incidents": {

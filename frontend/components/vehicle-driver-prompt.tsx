@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
@@ -29,8 +30,13 @@ import { DriverAssignmentDialog } from "./driver-assignment-dialog"
  * left here is the case the prompt was actually good at: this one vehicle, just
  * now, is rolling with nobody driving it.
  *
+ * **Auftrag too.** A vehicle put on a route opens the same prompt (groups-context
+ * `promptIfDriverless`, `groupId`), and dismissing asks the same question about
+ * the Auftrag. Opened from a «Fahrer wählen» action instead (no target), closing
+ * just closes — the operator asked for the picker and knows what they left.
+ *
  * Mounted once in the root layout so it covers every assignment entry point
- * (kanban drag-drop, map, command palette, context menu).
+ * (kanban drag-drop, map, command palette, context menu, Aufträge).
  */
 export function VehicleDriverPrompt() {
   const {
@@ -43,15 +49,17 @@ export function VehicleDriverPrompt() {
     formatLocation,
   } = useOperations()
   const { selectedEvent } = useEvent()
+  const { groups, unassignResource } = useGroups()
   const t = useTranslations('kanban.driverPrompt')
   const eventId = selectedEvent?.id ?? null
 
   const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
   /** The dismissed-without-a-driver question, held after the picker closed. */
-  const [driverless, setDriverless] = useState<{
-    vehicleName: string
-    incidentId: string
-  } | null>(null)
+  const [driverless, setDriverless] = useState<
+    | { vehicleName: string; incidentId: string; groupId?: undefined; vehicleId?: undefined }
+    | { vehicleName: string; groupId: string; vehicleId: string; incidentId?: undefined }
+    | null
+  >(null)
 
   // The dialog closes itself right after a successful assignment, so "closed" alone
   // cannot tell an assignment from a dismissal — and only a dismissal should ask
@@ -77,25 +85,34 @@ export function VehicleDriverPrompt() {
     }
   }, [vehicleNeedingDriver, eventId])
 
-  const incident = driverless ? operations.find((op) => op.id === driverless.incidentId) : undefined
+  const incident = driverless?.incidentId ? operations.find((op) => op.id === driverless.incidentId) : undefined
   const incidentLabel = incident
     ? formatLocation(incident.location ?? '') || incident.location || ''
     : ''
+  const route = driverless?.groupId ? groups.find((g) => g.id === driverless.groupId) : undefined
 
   const confirmDialog = driverless ? (
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && setDriverless(null)}
       title={t('driverlessTitle')}
-      description={t('driverlessDescription', {
-        vehicle: driverless.vehicleName,
-        incident: incidentLabel,
-      })}
+      description={
+        driverless.groupId
+          ? t('driverlessRouteDescription', { vehicle: driverless.vehicleName, auftrag: route?.name ?? '' })
+          : t('driverlessDescription', { vehicle: driverless.vehicleName, incident: incidentLabel })
+      }
       confirmText={t('driverlessRemove')}
       cancelText={t('driverlessKeep')}
       variant="destructive"
       onConfirm={async () => {
-        await removeVehicle(driverless.incidentId, driverless.vehicleName)
+        if (driverless.groupId) {
+          const assignment = route?.assignments.find(
+            (a) => a.resourceType === 'vehicle' && a.resourceId === driverless.vehicleId,
+          )
+          if (assignment) await unassignResource(driverless.groupId, assignment.id)
+        } else if (driverless.incidentId) {
+          await removeVehicle(driverless.incidentId, driverless.vehicleName)
+        }
         setDriverless(null)
       }}
     />
@@ -119,6 +136,12 @@ export function VehicleDriverPrompt() {
           setDriverless({
             vehicleName: vehicleNeedingDriver.vehicleName,
             incidentId: vehicleNeedingDriver.incidentId,
+          })
+        } else if (vehicleNeedingDriver.groupId) {
+          setDriverless({
+            vehicleName: vehicleNeedingDriver.vehicleName,
+            vehicleId: vehicleNeedingDriver.vehicleId,
+            groupId: vehicleNeedingDriver.groupId,
           })
         }
         clearVehicleNeedingDriver()
