@@ -10,43 +10,30 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import dynamic from "next/dynamic"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
-import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, QrCode, Copy, Check, CircleCheck, Sparkles, ClipboardCheck, Truck, Printer, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, Waypoints, FileText, PanelRight, Loader2, Ban, ArrowRight, ArrowUpRight, Package2 } from 'lucide-react'
-import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { Plus, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, PanelRight } from 'lucide-react'
 import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
-import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { toast } from "sonner"
-import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
-import { AttendanceModal } from "@/components/kanban/attendance-modal"
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
-import { RapportBacklogSheet, selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
-import { MaterialOnSitePanel, selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
+import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
+import { selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient } from "@/lib/api-client"
-import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
-import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { QRCodeSVG } from 'qrcode.react'
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
@@ -67,597 +54,39 @@ import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns, findAuftragForStop, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
+import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
 import { getIncidentLocationLabel, getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
-import { DraggablePerson } from "@/components/kanban/draggable-person"
-import { DraggableMaterial } from "@/components/kanban/draggable-material"
-import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
-import { CardViewMenu } from "@/components/kanban/card-view-menu"
-import { ToolbarOverflow } from "@/components/kanban/toolbar-overflow"
 import { useCardView } from "@/lib/card-view"
-import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
-import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
-import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { EventSetupChecklist, RekoPickerDialog } from "@/components/event-setup-checklist"
-import { DiveraMessageDialog } from "@/components/divera/divera-message-dialog"
 import { summarizeChecklist } from "@/lib/checklist-tasks"
 import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
-import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
-import { BoardLoadErrorPanel, ResourcesNotLoaded } from "@/components/board-load-error"
+import { BoardLoadErrorPanel } from "@/components/board-load-error"
 import { SidePanel } from "@/components/kanban/side-panel"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
-import { MobilePersonnelSheet } from "@/components/mobile/mobile-personnel-sheet"
-import { PrintHubSheet, type ThermoPrintOptions } from "@/components/print/print-hub-sheet"
-import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
-import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
+import type { ThermoPrintOptions } from "@/components/print/print-hub-sheet"
 import type { Incident } from "@/lib/types/incidents"
-import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
-import {
-  IncidentStatusWorkflowDialogs,
-  useIncidentStatusWorkflow,
-} from "@/components/kanban/incident-status-workflow"
+import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
 import { cn } from "@/lib/utils"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { isStringArray } from "@/lib/utils/safe-storage"
-import type { LucideIcon } from "lucide-react"
+import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
+import { MaterialSidebar } from "@/components/board/material-sidebar"
+import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
+import { BoardDialogs } from "@/components/board/board-dialogs"
 
-/**
- * The two Auftrag dialogs that carry a map, loaded on their own chunk.
- *
- * Both are mounted (closed) for the whole life of the board, so a static import put
- * `maplibre-gl` — the single biggest dependency the app has — into the board's first-load
- * bundle, for two dialogs most shifts never open. `ssr: false` because a GL canvas needs a
- * browser; the chunk is fetched right after hydration, so the first open is not held up by it.
- */
-const RoutenEditorModal = dynamic(
-  () => import("@/components/kanban/routen-editor-modal").then((mod) => mod.RoutenEditorModal),
-  { ssr: false },
-)
-const IncidentPickerDialog = dynamic(
-  () => import("@/components/kanban/incident-picker-dialog").then((mod) => mod.IncidentPickerDialog),
-  { ssr: false },
-)
-
-/**
- * Per-device layout memory. Folding a sidebar away is a deliberate act; walking
- * to the Karte and back used to undo it, which made the fold worthless. Keys
- * follow the `kp-board-*` family the other board preferences already use.
- */
-const LEFT_SIDEBAR_KEY = "kp-board-leftSidebarOpen"
-const RIGHT_SIDEBAR_KEY = "kp-board-rightSidebarOpen"
-const SIDE_PANEL_MODE_KEY = "kp-board-sidePanelMode"
 /** Events whose Bereitschaft checklist the operator has closed — see the auto-open effect. */
 const CHECKLIST_DISMISSED_KEY = "kp-board-checklistDismissedEvents"
 /** How many dismissals to keep; enough for a season of Einsätze, bounded on purpose. */
 const CHECKLIST_DISMISSED_LIMIT = 30
-
-const isBoolean = (value: unknown): value is boolean => typeof value === "boolean"
-
-type SidePanelMode = 'detail' | 'collapsed'
-const isSidePanelMode = (value: unknown): value is SidePanelMode =>
-  value === 'detail' || value === 'collapsed'
-
-/**
- * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it
- * opens is active. Replaces ~8 hand-rolled, near-identical `<Button>` blocks
- * that only differed in icon/label/state — each with its own template-literal
- * className doing the same active/inactive ternary.
- *
- * **The label is hidden below `xl`.** The centre group grew to nine entries and
- * a row of nine labelled pills is wider than a 1280px window; because a footer
- * cannot shrink below its content, that width was pushing the whole application
- * sideways — board, sidebars and header together — rather than just itself.
- * Dropping to icons is the option that keeps every control one click away: an
- * overflow menu hides half of them behind a second click, and a scrolling bar
- * hides them behind a gesture nobody looks for in a 40px strip. The name stays
- * reachable as a tooltip and as the accessible name, which is unchanged for a
- * screen reader either way.
- */
-function ToolbarToggle({
-  icon: Icon,
-  label,
-  active,
-  disabled,
-  title,
-  count,
-  onActivate,
-}: {
-  icon: LucideIcon
-  label: string
-  active: boolean
-  disabled?: boolean
-  title?: string
-  /** Optional count badge. It survives the icon-only collapse below `xl`, for the
-   *  same reason the Bereitschaft badge does: the number IS the information, and
-   *  an icon on its own does not carry it. */
-  count?: number
-  onActivate: () => void
-}) {
-  return (
-    <Button
-      size="xs"
-      variant="ghost"
-      className={cn(
-        // Explicit px: these sit in a gap-less row, so the button's own padding
-        // is the only thing keeping one item's label off the next item's icon.
-        "px-2.5 transition-colors",
-        active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
-      )}
-      onPointerDown={(e) => {
-        e.stopPropagation()
-        onActivate()
-      }}
-      disabled={disabled}
-      // The tooltip carries the name at every width, so the icon-only mode is
-      // never a control nobody can identify.
-      title={title ?? label}
-      aria-label={label}
-    >
-      <Icon className="size-3.5" />
-      <span className="hidden text-xs xl:inline">{label}</span>
-      {count !== undefined && (
-        <Badge variant="secondary" className="h-4 px-1.5 text-[11px] font-medium tabular-nums">
-          {count}
-        </Badge>
-      )}
-    </Button>
-  )
-}
-
-/**
- * What a resource sidebar shows while the first load is still in flight.
- *
- * The point is not to look like the list — it is to stop the sidebar from
- * lying. Both used to render nothing while their footers asserted «0/0
- * verfügbar», i.e. that the station has no crew and no material, which is a
- * statement rather than an absence of one. A spinner plus the «–/–» counter
- * says «wait» without saying anything false.
- *
- * Deliberately not a skeleton: keeping placeholder rows in the true shape of
- * the list means maintaining a second copy of the layout, and it buys nothing
- * here beyond what a spinner already says.
- */
-function SidebarLoading({ label }: { label: string }) {
-  return (
-    <div
-      className="flex items-center justify-center py-10"
-      aria-busy="true"
-      aria-label={label}
-    >
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-    </div>
-  )
-}
-
-/**
- * A sidebar with nothing to list, and the reason why.
- *
- * One shape for all three of them — nothing checked in, nothing recorded yet,
- * nothing matching the search — because they are the same statement with
- * different causes, and the operator's next step is what differs. The action is
- * grey and underlined, never coloured: on this board colour means status and
- * priority, so an inline text action must not borrow it.
- */
-function SidebarEmpty({
-  message,
-  action,
-  onAction,
-  actionHref,
-}: {
-  message: React.ReactNode
-  action?: string
-  onAction?: () => void
-  actionHref?: string
-}) {
-  const actionClasses =
-    'text-xs text-muted-foreground underline underline-offset-2 decoration-muted-foreground/50 transition-colors hover:text-foreground hover:decoration-foreground cursor-pointer'
-  return (
-    <div className="flex flex-col items-center gap-2 py-6 text-center animate-in fade-in duration-300">
-      <p className="text-sm text-muted-foreground">{message}</p>
-      {action && actionHref ? (
-        <Link href={actionHref} className={actionClasses}>
-          {action}
-        </Link>
-      ) : action && onAction ? (
-        <button type="button" onClick={onAction} className={actionClasses}>
-          {action}
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
-/**
- * Sidebar filter: show only what can be assigned right now.
- *
- * Icon-only and 32px square so it sits flush with the 32px search field. The
- * check glyph is the same one the resource cards use for "verfügbar", so the
- * button reads as "keep the green ones" rather than as a generic funnel.
- */
-function AvailableOnlyToggle({
-  active,
-  onToggle,
-  label,
-}: {
-  active: boolean
-  onToggle: () => void
-  label: string
-}) {
-  return (
-    <Button
-      size="icon-xs"
-      variant={active ? "secondary" : "ghost"}
-      onClick={onToggle}
-      aria-pressed={active}
-      title={label}
-      aria-label={label}
-      className={cn(
-        "flex-shrink-0 border",
-        active
-          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-          : "border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <CircleCheck className="size-4" />
-    </Button>
-  )
-}
-
-/**
- * One place a resource is held right now.
- *
- * The board asked this question with `operations.find(...)` — the FIRST hit —
- * which meant a person on two Schadenplätze could never be followed to the
- * second one, and a Magaziner or Telefondienst (bound, but on no incident at
- * all) produced a click that did nothing whatsoever.
- */
-interface ResourceBinding {
-  key: string
-  /** 'incident' scrolls to a card, 'route' opens the Auftrag sheet,
-   *  'function' has nowhere to go and says so. */
-  kind: "incident" | "route" | "function"
-  /** Incident id, Auftrag id, or null for a station function. */
-  targetId: string | null
-  label: string
-  /** Second line — the Auftrag a stop belongs to, or «Sonderfunktion · kein Einsatz». */
-  detail: string
-}
-
-/** What the bindings popover is currently answering for. */
-interface BindingsPopoverState {
-  kind: "person" | "material"
-  id: string
-  title: string
-  subtitle: string
-  bindings: ResourceBinding[]
-}
-
-/** Can this binding actually be followed? A station function has nowhere to go,
- *  and neither has anything that lost its target. */
-const isNavigableBinding = (binding: ResourceBinding): boolean =>
-  binding.kind !== 'function' && !!binding.targetId
-
-/**
- * The one place this resource can be opened, or null when there is a choice to
- * make (or nothing to open).
- *
- * A picker over a list of one is a click spent on confirming what the board
- * already knew. The person row used to shortcut only when that one binding was
- * an INCIDENT, so somebody on a single Auftrag — the most ordinary state on a
- * storm board — got a popover offering exactly one destination. Kind does not
- * matter: one reachable place means go there.
- */
-const soleDestination = (bindings: ResourceBinding[]): ResourceBinding | null => {
-  const reachable = bindings.filter(isNavigableBinding)
-  return reachable.length === 1 && bindings.length === 1 ? reachable[0] : null
-}
-
-/**
- * Every binding of one busy resource, with a way to reach each.
- *
- * Deliberately shown only when there is something to choose: exactly one
- * incident binding still jumps straight there, which is the common case and the
- * behaviour operators already know.
- *
- * The popover also answers for a resource with NO binding — «keine Bindung» in
- * so many words. Both that case and «Zum Anspringen auswählen» over a list where
- * nothing IS navigable used to be silent: the hint promised an action that the
- * single row underneath it («TLF · Sonderfunktion · kein Einsatz») could not
- * deliver, and a free person produced no popover at all.
- */
-function BindingsPopoverBody({
-  state,
-  onGo,
-  onClose,
-}: {
-  state: BindingsPopoverState
-  onGo: (binding: ResourceBinding) => void
-  onClose: () => void
-}) {
-  const t = useTranslations('kanban.common')
-  const hasNavigable = state.bindings.some(isNavigableBinding)
-  return (
-    <div className="space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{state.title}</p>
-          {state.subtitle && <p className="truncate text-2xs text-muted-foreground">{state.subtitle}</p>}
-        </div>
-        {state.bindings.length > 0 && (
-          <Badge variant="outline" className="shrink-0 border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
-            {t('bindingsCount', { count: state.bindings.length })}
-          </Badge>
-        )}
-      </div>
-      {state.bindings.length === 0 ? (
-        <p className="text-2xs text-muted-foreground">{t('bindingsNone')}</p>
-      ) : hasNavigable ? (
-        <p className="text-2xs text-muted-foreground">{t('bindingsPick')}</p>
-      ) : null}
-      <div className="space-y-1">
-        {state.bindings.map((binding) => {
-          const reachable = isNavigableBinding(binding)
-          return (
-            <button
-              key={binding.key}
-              type="button"
-              disabled={!reachable}
-              onClick={() => { onGo(binding); onClose() }}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-                reachable ? "cursor-pointer hover:bg-muted/60" : "cursor-default",
-              )}
-            >
-              {reachable ? (
-                <ArrowRight className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-              ) : (
-                <Package2 className="size-3.5 shrink-0 text-muted-foreground" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm">{binding.label}</span>
-                {binding.detail && <span className="block truncate text-2xs text-muted-foreground">{binding.detail}</span>}
-              </span>
-              {reachable
-                ? <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
-                : <span className="shrink-0 text-2xs text-muted-foreground">–</span>}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-/** "19.08." — the stamp on «seit …», the same one the Materialverwaltung uses. */
-function shortDate(value: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`
-}
-
-/**
- * One material row in the sidebar, with its right-click menu.
- *
- * «Nicht einsatzbereit» is settable in two places that write the SAME field:
- * here and in the Materialverwaltung. One entry, no submenu, no reason picker
- * and no cause list — set or not set. Clicking it again releases the device.
- *
- * A flagged device does not render as a draggable card at all: it is a dashed,
- * dimmed row with the word on it, so it cannot be picked up and cannot be
- * mistaken for something merely busy. Colour carries none of that alone.
- */
-function MaterialSidebarRow({
-  material,
-  onClick,
-  onToggleOutOfService,
-  bindingsPopover,
-  onCloseBindings,
-  onGoBinding,
-}: {
-  material: Material
-  onClick: () => void
-  onToggleOutOfService: (material: Material, outOfService: boolean) => void
-  bindingsPopover: BindingsPopoverState | null
-  onCloseBindings: () => void
-  onGoBinding: (binding: ResourceBinding) => void
-}) {
-  const t = useTranslations('kanban.common')
-  const isOpen = bindingsPopover?.kind === 'material' && bindingsPopover.id === material.id
-  return (
-    <Popover open={isOpen} onOpenChange={(open) => { if (!open) onCloseBindings() }}>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <PopoverAnchor asChild>
-            <div>
-              {material.outOfService ? (
-                <div
-                  onClick={onClick}
-                  title={t('notReady')}
-                  className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 opacity-70"
-                >
-                  {/* Icon only: the Ban glyph plus the dashed frame already say
-                      «nicht einsatzbereit», and repeating it in words pushed the
-                      device name into an ellipsis. The word survives as the
-                      accessible name and in the tooltip, so nothing is lost for
-                      a screen reader or on hover. */}
-                  <Ban className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span className="sr-only">{t('notReady')}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-muted-foreground">{material.name}</span>
-                    {material.outOfServiceSince && (
-                      <span className="block text-2xs text-muted-foreground">
-                        {t('notReadySince', { date: shortDate(material.outOfServiceSince) })}
-                      </span>
-                    )}
-                  </span>
-                </div>
-              ) : (
-                <DraggableMaterial material={material} onClick={onClick} />
-              )}
-            </div>
-          </PopoverAnchor>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuCheckboxItem
-            checked={material.outOfService}
-            onCheckedChange={(checked) => onToggleOutOfService(material, checked === true)}
-          >
-            {t('notReady')}
-          </ContextMenuCheckboxItem>
-        </ContextMenuContent>
-      </ContextMenu>
-      <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (
-          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
-        )}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-/**
- * Fold a depot's ready devices into bundles of identical units, order
- * preserved by first appearance. Keyed by NAME — two devices that cannot be
- * told apart on the shelf cannot be told apart on the board. Consumables stay
- * single: their row already says «stock», and folding a Schlauch into a
- * counted bundle would double-count what `consumable` already models.
- */
-function aggregateByName(items: Material[]): Material[][] {
-  const order: Material[][] = []
-  const byName = new Map<string, Material[]>()
-  for (const item of items) {
-    if (item.consumable) {
-      order.push([item])
-      continue
-    }
-    const existing = byName.get(item.name)
-    if (existing) {
-      existing.push(item)
-    } else {
-      const bundle = [item]
-      byName.set(item.name, bundle)
-      order.push(bundle)
-    }
-  }
-  return order
-}
-
-/**
- * Several indistinguishable devices as ONE row: «Wassersauger  3/4».
- *
- * Picking between four identical Sauger is a decision with no content, so the
- * sidebar stops asking. Dragging the row takes one FREE unit (the drop side
- * neither knows nor cares which); clicking asks where the taken ones are (the
- * bindings popover of the first assigned unit); the context menu's «nicht
- * einsatzbereit» takes one free unit out of service — the flagged device then
- * stands at the bottom of its depot as its own dashed row, individually
- * restorable, exactly as before.
- */
-function AggregatedMaterialRow({
-  units,
-  onOpenBindings,
-  onToggleOutOfService,
-  bindingsPopover,
-  onCloseBindings,
-  onGoBinding,
-}: {
-  units: Material[]
-  /** Opens the combined popover — every taken unit's whereabouts at once. */
-  onOpenBindings: (units: Material[]) => void
-  onToggleOutOfService: (material: Material, outOfService: boolean) => void
-  bindingsPopover: BindingsPopoverState | null
-  onCloseBindings: () => void
-  onGoBinding: (binding: ResourceBinding) => void
-}) {
-  const t = useTranslations('kanban.common')
-  const ref = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
-
-  const freeUnits = units.filter((u) => materialResourceState(u) === 'available')
-  const assignedUnit = units.find((u) => u.status === 'assigned')
-  const dragUnit = freeUnits[0] ?? assignedUnit ?? units[0]
-  const allTaken = freeUnits.length === 0
-  // The popover may have been opened for ANY unit of this bundle.
-  const isOpen = bindingsPopover?.kind === 'material' && units.some((u) => u.id === bindingsPopover.id)
-
-  useEffect(() => {
-    const element = ref.current
-    if (!element) return
-    return draggable({
-      element,
-      getInitialData: () => ({ type: 'material', material: dragUnit }),
-      onDragStart: () => setIsDragging(true),
-      onDrop: () => setIsDragging(false),
-    })
-  }, [dragUnit])
-
-  return (
-    <Popover open={isOpen} onOpenChange={(open) => { if (!open) onCloseBindings() }}>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <PopoverAnchor asChild>
-            <div
-              ref={ref}
-              role="button"
-              title={dragUnit.name}
-              aria-grabbed={isDragging}
-              onClick={() => onOpenBindings(units)}
-              className={cn(
-                "group draggable rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
-                isDragging && "dragging",
-                allTaken && "opacity-60 hover:opacity-100",
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                  {dragUnit.name}
-                </span>
-                {/* The count IS the state: 0/4 needs no extra dot. Amber once
-                    nothing is left — the depot answers «kann ich noch einen
-                    holen?» at a glance. */}
-                <span
-                  className={cn(
-                    "shrink-0 text-xs tabular-nums",
-                    allTaken ? "font-medium text-amber-600 dark:text-amber-400" : "text-muted-foreground",
-                  )}
-                  title={t('aggregateCountTitle', { free: freeUnits.length, total: units.length })}
-                >
-                  {freeUnits.length}/{units.length}
-                </span>
-              </div>
-            </div>
-          </PopoverAnchor>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuCheckboxItem
-            checked={false}
-            disabled={freeUnits.length === 0}
-            onCheckedChange={() => {
-              if (freeUnits[0]) onToggleOutOfService(freeUnits[0], true)
-            }}
-          >
-            {t('notReadyOne')}
-          </ContextMenuCheckboxItem>
-        </ContextMenuContent>
-      </ContextMenu>
-      <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (
-          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
-        )}
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 /** Priority → its label key under `kanban.common`, for the toast a keyboard
  *  priority change raises. */
@@ -922,13 +351,15 @@ export default function FireStationDashboard() {
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
   const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
   const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
-  // Modal and panel intentionally share one incident identity; only presentation
-  // changes at the external-monitor breakpoint.
-  const [sidePanelMode, setSidePanelMode] = usePersistedState<SidePanelMode>(
-    SIDE_PANEL_MODE_KEY,
-    'collapsed',
-    isSidePanelMode,
-  )
+  // Both sidebars and the detail panel, remembered per device.
+  const {
+    sidePanelMode,
+    setSidePanelMode,
+    showLeftSidebar,
+    setShowLeftSidebar,
+    showRightSidebar,
+    setShowRightSidebar,
+  } = useBoardLayoutPrefs(isMobile)
   // "Open the detail on THIS tab" — set by whoever pointed at one specific
   // thing: a notification, the Rapport-Backlog, or a click on one BLOCK of a
   // kanban card (its Reko part, its resource rows). A click on the card as a
@@ -985,12 +416,10 @@ export default function FireStationDashboard() {
 
   useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string; status: string }>>([])
-  const [showLeftSidebar, setShowLeftSidebar] = usePersistedState(LEFT_SIDEBAR_KEY, true, isBoolean)
-  const [showRightSidebar, setShowRightSidebar] = usePersistedState(RIGHT_SIDEBAR_KEY, true, isBoolean)
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
-  const [activeFooterSheet, setActiveFooterSheet] = useState<'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | null>(null)
+  const [activeFooterSheet, setActiveFooterSheet] = useState<FooterSheet | null>(null)
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // Which sidebar row is currently showing its bindings, or null. One at a time
@@ -1532,181 +961,23 @@ export default function FireStationDashboard() {
     setDeleteDialogOpen(true)
   }, [operations])
 
-  const assignVehicleToGroupWithConflict = useCallback((groupId: string, vehicleId: string) => {
-    const vehicle = vehicleTypes.find((item) => item.id === vehicleId)
-    if (!vehicle) return
-    const groupConflicts = groups
-      .filter((group) => group.id !== groupId && group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId))
-    const incidentConflicts = operations.filter((op) => op.vehicles.includes(vehicle.name))
-    if (groupConflicts.length === 0 && incidentConflicts.length === 0) {
-      void assignGroupResource(groupId, "vehicle", vehicleId)
-      return
-    }
-    requestResourceConflict({
-      resourceType: "vehicle",
-      resourceId: vehicleId,
-      resourceName: vehicle.name,
-      targetOperationId: groupId,
-      conflicts: [
-        ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentConflicts.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
-      ],
-      customResolve: async (action) => {
-        if (action === "move") {
-          const groupResults = await Promise.all(groupConflicts.map((group) => {
-            const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
-            return assignment ? unassignGroupResource(group.id, assignment.id) : true
-          }))
-          const incidentResults = await Promise.all(incidentConflicts.map((op) => removeVehicle(op.id, vehicle.name)))
-          if ([...groupResults, ...incidentResults].some((ok) => !ok)) return
-        }
-        await assignGroupResource(groupId, "vehicle", vehicleId)
-      },
-    })
-  }, [vehicleTypes, groups, operations, requestResourceConflict, assignGroupResource, unassignGroupResource, removeVehicle])
-
-  /**
-   * The Auftrag half of the Doppelbelegung question, for people and material.
-   *
-   * Vehicles have had this since they got `assignVehicleTo*WithConflict`: a unit
-   * already on a route raises the normal confirm, which names where it comes
-   * from and where it is going, and «Verschieben» does the move. People and
-   * material instead hit a flat refusal — «Schon von einem anderen Auftrag
-   * belegt – dort zuerst freigeben.» — which is the board telling the operator
-   * to go and do by hand the thing the dialog does in one click, in the middle
-   * of a storm. Same question, same dialog; the Auftrag's name is what fills the
-   * «bisher» line.
-   *
-   * Returns true when it handled the case (assigned or asked), false when the
-   * resource is free and the caller should just assign.
-   */
-  const groupsHolding = useCallback(
-    (resourceType: "personnel" | "material", resourceId: string, exceptGroupId?: string) =>
-      groups.filter(
-        (group) =>
-          group.id !== exceptGroupId &&
-          group.assignments.some((a) => a.resourceType === resourceType && a.resourceId === resourceId),
-      ),
-    [groups],
-  )
-
-  /**
-   * One dialog per DROP, not per resource.
-   *
-   * `requestResourceConflict` is a plain `setState`, so two calls in the same
-   * tick leave only the second — and a Modul-Block carries three Geräte. Dropping
-   * «Ölwehr» on an Einsatz while the Auftrag holds it asked about the third
-   * device and silently did nothing with the other two, while showing a dialog
-   * that implied the whole drop had been handled. The loops in
-   * `use-kanban-drag-drop` are synchronous, so a microtask flush collects the
-   * whole drop and asks once, naming everything it is about to move.
-   */
-  const conflictBatch = useRef<
-    {
-      resourceType: "personnel" | "material"
-      resourceId: string
-      resourceName: string
-      targetId: string
-      /** Where it sits now, for the «Bisher:» line. */
-      conflicts: { operationId: string; operationLabel: string }[]
-      /** How to free it from each of those, for «Verschieben». */
-      releases: (() => Promise<unknown> | unknown)[]
-      assign: () => Promise<unknown> | unknown
-    }[]
-  >([])
-  const conflictFlushQueued = useRef(false)
-
-  /** «Verschieben» for a route-held resource: detach it from that route. */
-  const releaseFromGroups = useCallback(
-    (resourceType: "personnel" | "material", resourceId: string, holders: typeof groups) =>
-      holders.map((group) => () => {
-        const assignment = group.assignments.find(
-          (a) => a.resourceType === resourceType && a.resourceId === resourceId,
-        )
-        return assignment ? unassignGroupResource(group.id, assignment.id) : true
-      }),
-    [unassignGroupResource],
-  )
-
-  const askRouteConflict = useCallback(
-    (entry: {
-      resourceType: "personnel" | "material"
-      resourceId: string
-      resourceName: string
-      targetId: string
-      conflicts: { operationId: string; operationLabel: string }[]
-      releases: (() => Promise<unknown> | unknown)[]
-      assign: () => Promise<unknown> | unknown
-    }) => {
-      conflictBatch.current.push(entry)
-      if (conflictFlushQueued.current) return
-      conflictFlushQueued.current = true
-
-      queueMicrotask(() => {
-        conflictFlushQueued.current = false
-        const batch = conflictBatch.current
-        conflictBatch.current = []
-        if (batch.length === 0) return
-
-        // Every holder named once, however many of the dropped resources sit on it.
-        const seen = new Set<string>()
-        const conflicts: { operationId: string; operationLabel: string }[] = []
-        for (const entry of batch) {
-          for (const conflict of entry.conflicts) {
-            if (seen.has(conflict.operationId)) continue
-            seen.add(conflict.operationId)
-            conflicts.push(conflict)
-          }
-        }
-
-        requestResourceConflict({
-          resourceType: batch[0].resourceType === "personnel" ? "personnel" : "material",
-          resourceId: batch[0].resourceId,
-          // The whole drop, so «Motorsäge» does not stand in for three devices.
-          resourceName: batch.map((entry) => entry.resourceName).join(", "),
-          targetOperationId: batch[0].targetId,
-          conflicts,
-          customResolve: async (action) => {
-            if (action === "move") {
-              const results = await Promise.all(batch.flatMap((entry) => entry.releases.map((free) => free())))
-              if (results.some((ok) => ok === false)) return
-            }
-            // Sequential: the assign calls hit the same rows, and firing three
-            // PUTs at one Auftrag in parallel is how the last one wins.
-            for (const entry of batch) await entry.assign()
-          },
-        })
-      })
-    },
-    [requestResourceConflict],
-  )
-
-  const assignVehicleToIncidentWithConflict = useCallback((vehicleId: string, vehicleName: string, operationId: string) => {
-    const groupConflicts = groups.filter((group) =>
-      group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId),
-    )
-    if (groupConflicts.length === 0) {
-      assignVehicleToOperation(vehicleId, vehicleName, operationId)
-      return
-    }
-    requestResourceConflict({
-      resourceType: "vehicle",
-      resourceId: vehicleId,
-      resourceName: vehicleName,
-      targetOperationId: operationId,
-      conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-      customResolve: async (action) => {
-        if (action === "move") {
-          const results = await Promise.all(groupConflicts.map((group) => {
-            const assignment = group.assignments.find((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)
-            return assignment ? unassignGroupResource(group.id, assignment.id) : true
-          }))
-          if (results.some((ok) => !ok)) return
-        }
-        assignVehicleToOperation(vehicleId, vehicleName, operationId)
-      },
-    })
-  }, [groups, requestResourceConflict, unassignGroupResource, assignVehicleToOperation])
+  // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
+  const {
+    assignVehicleToGroupWithConflict,
+    groupsHolding,
+    releaseFromGroups,
+    askRouteConflict,
+    assignVehicleToIncidentWithConflict,
+  } = useAssignmentConflicts({
+    vehicleTypes,
+    groups,
+    operations,
+    requestResourceConflict,
+    assignGroupResource,
+    unassignGroupResource,
+    removeVehicle,
+    assignVehicleToOperation,
+  })
 
   // Register command palette handlers
   useEffect(() => {
@@ -1801,16 +1072,6 @@ export default function FireStationDashboard() {
     toggleVehicleAssignment,
     openIncidentDetail,
   ])
-
-  // Hide sidebars on mobile by default. Runs after the persisted state has been
-  // restored (`isMobile` only turns true once its own mount effect has measured
-  // the window), so a remembered «offen» never survives on a phone — mobile wins.
-  useEffect(() => {
-    if (isMobile) {
-      setShowLeftSidebar(false)
-      setShowRightSidebar(false)
-    }
-  }, [isMobile, setShowLeftSidebar, setShowRightSidebar])
 
   // Show empty state if no event is selected (removed automatic redirect)
   // useEffect(() => {
@@ -2847,206 +2108,31 @@ export default function FireStationDashboard() {
               order with an opaque background, which painted that half away. The
               right one only ever looked fine because it comes after the board. */}
           {showLeftSidebar && (
-            <aside className="relative z-10 w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
-              <button
-                onClick={() => setShowLeftSidebar(false)}
-                className="absolute right-0 top-1/2 translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-                title={`${tDash('toggleLeftSidebar')} ([)`}
-                aria-label={tDash('toggleLeftSidebar')}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {/* Search */}
-              <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-                <SearchInput
-                  id="personnel-search-input"
-                  size="sm"
-                  containerClassName="flex-1 min-w-0"
-                  placeholder={tDash('personnelSearch')}
-                  value={personnelSearchQuery}
-                  onValueChange={setPersonnelSearchQuery}
-                  className="h-8 text-sm"
-                  hint={!isMobile ? <Kbd>P</Kbd> : undefined}
-                />
-                <AvailableOnlyToggle
-                  active={personnelAvailableOnly}
-                  onToggle={() => setPersonnelAvailableOnly((v) => !v)}
-                  label={personnelAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
-                />
-              </div>
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? (
-                  <SidebarLoading label={tDash('personnelLoading')} />
-                ) : boardNeverLoaded ? (
-                  <ResourcesNotLoaded label={tDash('notLoaded')} />
-                ) : personnel.length === 0 ? (
-                  /* Nobody is checked in for this Ereignis — the QR is the way in.
-                     The test used to be "nobody is *available*", which meant a board
-                     where every checked-in person was already assigned (or driving,
-                     or on Reko) replaced the whole crew list with «Keine Personen
-                     verfügbar» and a check-in QR — hiding the very people the
-                     operator had just checked in, and telling them to check in
-                     again. Assigned people belong in the list, drawn as assigned. */
-                  <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
-                    <p className="text-sm text-muted-foreground text-center">
-                      {tDash('noPersonnelCheckedIn')}
-                    </p>
-                    {checkInUrl ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="rounded-lg border p-2 bg-white">
-                          <QRCodeSVG
-                            value={checkInUrl}
-                            size={120}
-                            level="M"
-                            includeMargin={false}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-muted-foreground text-center">
-                            {tDash('scanCheckInQr')}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={copyCheckInUrlToClipboard}
-                            title={tCommon('copyLink')}
-                          >
-                            {copied ? (
-                              <Check className="size-3.5 text-success" />
-                            ) : (
-                              <Copy className="size-3.5" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : filteredPersonnel.length === 0 ? (
-                  /* Nothing to list although people ARE checked in: the search or
-                     the «nur Verfügbare» filter is hiding all of them. Which of
-                     the two it is decides what the way out is, so it decides the
-                     wording — a search that matches nothing used to leave a blank
-                     box under a footer still claiming «10/17». */
-                  effectivePersonnelQuery ? (
-                    <SidebarEmpty
-                      message={tDash.rich('noPersonnelMatch', {
-                        query: effectivePersonnelQuery,
-                        term: (chunks) => <span className="text-foreground">{chunks}</span>,
-                      })}
-                      action={tDash('resetSearch')}
-                      // Clear whichever field is actually driving this: the
-                      // sidebar's own search wins over the board's (see
-                      // `effectivePersonnelQuery`), so clearing the board's
-                      // while the sidebar holds a term would change nothing.
-                      onAction={() => {
-                        if (personnelSearchQuery) setPersonnelSearchQuery('')
-                        else setSearchQuery('')
-                      }}
-                    />
-                  ) : (
-                    <SidebarEmpty
-                      message={tDash('noneAvailableFiltered')}
-                      action={tDash('showAll')}
-                      onAction={() => setPersonnelAvailableOnly(false)}
-                    />
-                  )
-                ) : (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    {/* Frei first, Gebunden second — the sidebar's first job is
-                        «wen kann ich noch schicken?», so availability is the
-                        structure and rank is a suffix on the row. Caps, so a
-                        heading can never read as a person. */}
-                    {([
-                      ['free', availabilityGroupedPersonnel.free],
-                      ['bound', availabilityGroupedPersonnel.bound],
-                    ] as const).map(([kind, people]) => people.length === 0 ? null : (
-                      <div key={kind}>
-                        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {kind === 'free'
-                            ? tDash('groupFree', { count: people.length })
-                            : tDash('groupBound', { count: people.length })}
-                        </h3>
-                        <div className="space-y-0.5">
-                          {people.map((person) => (
-                            /* The row answers where the person is — completely.
-                               An anchor rather than a trigger: the card keeps
-                               its own click handler, which decides between a
-                               direct jump and this list. */
-                            <Popover
-                              key={person.id}
-                              open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}
-                              onOpenChange={(open) => { if (!open) setBindingsPopover(null) }}
-                            >
-                              <PopoverAnchor asChild>
-                                <div>
-                                  <DraggablePerson
-                                    person={person}
-                                    onClick={() => handlePersonClick(person)}
-                                    assignmentCount={doubleBookedPersons.counts.get(person.name)}
-                                    engagement={personEngagements.get(person.name)}
-                                  />
-                                </div>
-                              </PopoverAnchor>
-                              <PopoverContent align="start" side="right" className="w-80 p-3">
-                                {bindingsPopover && (
-                                  <BindingsPopoverBody
-                                    state={bindingsPopover}
-                                    onGo={followBinding}
-                                    onClose={() => setBindingsPopover(null)}
-                                  />
-                                )}
-                              </PopoverContent>
-                            </Popover>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* Fixed availability counter at bottom. No rule above it: the
-                  slightly lighter bar and its own padding already read as a
-                  separate strip, and a line there was just chrome. */}
-              <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
-                <p className="text-xs text-muted-foreground text-center">
-                  {/* Three states, three sentences. The counter used to render
-                      «0/0 verfügbar» before the roster had arrived and «10/17»
-                      over a list showing nothing — both of them assertions about
-                      the station that were not true at the moment they were made.
-                      While loading it says nothing («–/–»); while a search is
-                      narrowing the list it counts what is on screen. */}
-                  {!isLoaded || boardNeverLoaded
-                    ? tCommon('counterLoading')
-                    : effectivePersonnelQuery
-                      ? tCommon('visibleCounter', { shown: filteredPersonnel.length, total: personnel.length })
-                      : null}
-                </p>
-                {/* One number and its counterpart, both from the SAME predicate
-                    the list is filtered with (`summarizeRoster` → isPersonOccupied).
-                    The counter used to read `status === "available"` straight off
-                    the API while the list went through the helpers, so people on
-                    Reko, driving, in the Magazin or on Telefondienst were hidden
-                    above and counted as free here — «14 verfügbar» over nine
-                    visible rows. Deliberately NOT broken down by function: this
-                    is the line read in half a second, not a statistic. */}
-                {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
-                  <div className="flex items-center justify-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                      <Check className="size-3.5" />
-                      {tCommon('rosterFree', { count: rosterSummary.free })}
-                    </span>
-                    <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
-                    {rosterSummary.bound > 0 && (
-                      <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
-                        {tCommon('rosterBound', { count: rosterSummary.bound })}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </aside>
+            <PersonnelSidebar
+              setShowLeftSidebar={setShowLeftSidebar}
+              personnelSearchQuery={personnelSearchQuery}
+              setPersonnelSearchQuery={setPersonnelSearchQuery}
+              setSearchQuery={setSearchQuery}
+              isMobile={isMobile}
+              personnelAvailableOnly={personnelAvailableOnly}
+              setPersonnelAvailableOnly={setPersonnelAvailableOnly}
+              isLoaded={isLoaded}
+              boardNeverLoaded={boardNeverLoaded}
+              personnel={personnel}
+              checkInUrl={checkInUrl}
+              copied={copied}
+              copyCheckInUrlToClipboard={copyCheckInUrlToClipboard}
+              filteredPersonnel={filteredPersonnel}
+              effectivePersonnelQuery={effectivePersonnelQuery}
+              availabilityGroupedPersonnel={availabilityGroupedPersonnel}
+              bindingsPopover={bindingsPopover}
+              setBindingsPopover={setBindingsPopover}
+              handlePersonClick={handlePersonClick}
+              doubleBookedPersons={doubleBookedPersons}
+              personEngagements={personEngagements}
+              followBinding={followBinding}
+              rosterSummary={rosterSummary}
+            />
           )}
 
           {/* The board and its three reopen tabs share one containing block, so
@@ -3234,827 +2320,179 @@ export default function FireStationDashboard() {
               on DOM order alone today; it carries the class so the handle does not
               depend on which side of the board its aside happens to sit. */}
           {showRightSidebar && (
-            <aside className="relative z-10 w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-              {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
-              <button
-                onClick={() => setShowRightSidebar(false)}
-                className="absolute left-0 top-1/2 -translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
-                title={`${tDash('toggleRightSidebar')} (])`}
-                aria-label={tDash('toggleRightSidebar')}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-              {/* Search */}
-              <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-                <SearchInput
-                  id="material-search-input"
-                  size="sm"
-                  containerClassName="flex-1 min-w-0"
-                  placeholder={tDash('materialSearch')}
-                  value={materialSearchQuery}
-                  onValueChange={setMaterialSearchQuery}
-                  className="h-8 text-sm"
-                  hint={!isMobile ? <Kbd>M</Kbd> : undefined}
-                />
-                <AvailableOnlyToggle
-                  active={materialsAvailableOnly}
-                  onToggle={() => setMaterialsAvailableOnly((v) => !v)}
-                  label={materialsAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
-                />
-              </div>
-              {/* «Vor Ort» roll-up — above the scroll area on purpose, so neither
-                  the search nor «nur verfügbare» (which hides everything that is
-                  assigned, i.e. exactly this material) can filter the answer to
-                  "what is still out there" away. Renders nothing at zero. */}
-              <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
-                {!isLoaded ? (
-                  <SidebarLoading label={tDash('materialLoading')} />
-                ) : boardNeverLoaded ? (
-                  <ResourcesNotLoaded label={tDash('notLoaded')} />
-                ) : materials.length === 0 ? (
-                  /* A fresh station: no Gerät has ever been recorded. The same
-                     shape the Personal sidebar has always had for «niemand
-                     angemeldet», down to naming the next step — the material
-                     sidebar used to leave a bare box here. The link is for
-                     editors: the section it points at is editor-only. */
-                  <SidebarEmpty
-                    message={tDash('noMaterialYet')}
-                    action={isEditor ? tDash('createMaterialInSettings') : undefined}
-                    actionHref="/settings?section=materials"
-                  />
-                ) : Object.keys(groupedMaterials).length === 0 ? (
-                  effectiveMaterialQuery ? (
-                    <SidebarEmpty
-                      message={tDash.rich('noMaterialMatch', {
-                        query: effectiveMaterialQuery,
-                        term: (chunks) => <span className="text-foreground">{chunks}</span>,
-                      })}
-                      action={tDash('resetSearch')}
-                      onAction={() => {
-                        if (materialSearchQuery) setMaterialSearchQuery('')
-                        else setSearchQuery('')
-                      }}
-                    />
-                  ) : (
-                    <SidebarEmpty
-                      message={tDash('noneAvailableFiltered')}
-                      action={tDash('showAll')}
-                      onAction={() => setMaterialsAvailableOnly(false)}
-                    />
-                  )
-                ) : (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    {Object.entries(groupedMaterials).map(([category, items]) => {
-                      // «Nicht einsatzbereit» leaves the module blocks and the
-                      // normal rows and sinks to the bottom of its depot: a
-                      // module whose contents are half defective must not read
-                      // as ready, and a dead device must not sit in the middle
-                      // of the pickable ones.
-                      const readyItems = items.filter(m => !m.outOfService)
-                      const outOfServiceItems = items.filter(m => m.outOfService)
-                      const ungroupedItems = readyItems.filter(m => !m.groupId)
-                      const groupedItems = new Map<string, Material[]>()
-                      for (const m of readyItems.filter(m => m.groupId)) {
-                        const group = materialGroups.find(g => g.id === m.groupId)
-                        if (group) {
-                          if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
-                          groupedItems.get(group.id)!.push(m)
-                        } else {
-                          ungroupedItems.push(m)
-                        }
-                      }
-                      return (
-                        <div key={category}>
-                          {/* Caps like every sidebar heading — a depot label
-                              must not read as a device. */}
-                          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</h3>
-                          <div className="space-y-0.5">
-                            {/* Material groups/blocks */}
-                            {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
-                              const group = materialGroups.find(g => g.id === groupId)!
-                              const allAvailable = groupMaterials.every(m => m.status === 'available')
-                              const someAssigned = groupMaterials.some(m => m.status === 'assigned')
-                              const allAssigned = groupMaterials.every(m => m.status === 'assigned')
-                              return (
-                                <MaterialGroupBlock
-                                  key={groupId}
-                                  group={group}
-                                  materials={groupMaterials}
-                                  allAvailable={allAvailable}
-                                  someAssigned={someAssigned}
-                                  allAssigned={allAssigned}
-                                  onMaterialClick={handleMaterialClick}
-                                />
-                              )
-                            })}
-                            {/* Ungrouped materials — identical devices fold
-                                into one counted row (see AggregatedMaterialRow);
-                                consumables and singletons keep their own row.
-                                Then the ones that cannot go out. */}
-                            {aggregateByName(ungroupedItems).map((bundle) =>
-                              bundle.length > 1 ? (
-                                <AggregatedMaterialRow
-                                  key={bundle[0].id}
-                                  units={bundle}
-                                  onOpenBindings={handleAggregateMaterialClick}
-                                  onToggleOutOfService={handleToggleMaterialOutOfService}
-                                  bindingsPopover={bindingsPopover}
-                                  onCloseBindings={() => setBindingsPopover(null)}
-                                  onGoBinding={followBinding}
-                                />
-                              ) : (
-                                <MaterialSidebarRow
-                                  key={bundle[0].id}
-                                  material={bundle[0]}
-                                  onClick={() => handleMaterialClick(bundle[0])}
-                                  onToggleOutOfService={handleToggleMaterialOutOfService}
-                                  bindingsPopover={bindingsPopover}
-                                  onCloseBindings={() => setBindingsPopover(null)}
-                                  onGoBinding={followBinding}
-                                />
-                              ),
-                            )}
-                            {outOfServiceItems.map((material) => (
-                              <MaterialSidebarRow
-                                key={material.id}
-                                material={material}
-                                onClick={() => handleMaterialClick(material)}
-                                onToggleOutOfService={handleToggleMaterialOutOfService}
-                                bindingsPopover={bindingsPopover}
-                                onCloseBindings={() => setBindingsPopover(null)}
-                                onGoBinding={followBinding}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-              {/* Fixed availability counter at bottom — see the left sidebar,
-                  including why it has three states. */}
-              <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
-                <p className="text-xs text-muted-foreground text-center">
-                  {!isLoaded || boardNeverLoaded
-                    ? tCommon('counterLoading')
-                    : effectiveMaterialQuery
-                      ? tCommon('visibleCounter', { shown: filteredMaterials.length, total: materials.length })
-                      : null}
-                </p>
-                {/* Same helper as the list filter — see the crew footer above. */}
-                {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
-                  <div className="flex items-center justify-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                      <Check className="size-3.5" />
-                      {tCommon('rosterFree', { count: materialSummary.free })}
-                    </span>
-                    <span className="text-muted-foreground">{tCommon('rosterOf', { total: materialSummary.total })}</span>
-                    {materialSummary.bound > 0 && (
-                      <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
-                        {tCommon('rosterBound', { count: materialSummary.bound })}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </aside>
+            <MaterialSidebar
+              setShowRightSidebar={setShowRightSidebar}
+              materialSearchQuery={materialSearchQuery}
+              setMaterialSearchQuery={setMaterialSearchQuery}
+              setSearchQuery={setSearchQuery}
+              isMobile={isMobile}
+              materialsAvailableOnly={materialsAvailableOnly}
+              setMaterialsAvailableOnly={setMaterialsAvailableOnly}
+              materialOnSiteEntries={materialOnSiteEntries}
+              openIncidentDetail={openIncidentDetail}
+              isLoaded={isLoaded}
+              boardNeverLoaded={boardNeverLoaded}
+              isEditor={isEditor}
+              materials={materials}
+              materialGroups={materialGroups}
+              groupedMaterials={groupedMaterials}
+              filteredMaterials={filteredMaterials}
+              effectiveMaterialQuery={effectiveMaterialQuery}
+              handleMaterialClick={handleMaterialClick}
+              handleAggregateMaterialClick={handleAggregateMaterialClick}
+              handleToggleMaterialOutOfService={handleToggleMaterialOutOfService}
+              bindingsPopover={bindingsPopover}
+              setBindingsPopover={setBindingsPopover}
+              followBinding={followBinding}
+              materialSummary={materialSummary}
+            />
           )}
 
         </div>
 
-        {/* Desktop Footer.
-
-            `z-[60]` keeps it above the footer-sheet layer (z-50), so a sheet
-            slides up from behind it instead of sweeping across it. Going UNDER
-            a modal dialog is no longer this element's business: it used to be a
-            hand-kept list of three modals here, which left the other ~20
-            dialogs with a bright, inert toolbar over a dimmed board. The rule
-            now keys off the dialog overlay itself — see the
-            `body:has([data-slot='dialog-overlay'])` block at the end of
-            app/globals.css. */}
-        <footer className="relative z-[60] bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border">
-          {/* `min-w-0` on the row and on the middle group is what actually keeps
-              the page from scrolling sideways. A flex item defaults to
-              `min-width: auto`, i.e. it refuses to shrink below its content —
-              so a toolbar wider than the window made the whole column wider
-              than the window, and `<main>`'s own `overflow-auto` then scrolled
-              the board, both sidebars and the header together. The label
-              collapse below is what makes it fit at 1024; this is what makes it
-              *impossible* for it not to.
-
-              Labels come back in two stages, because measurement says one
-              breakpoint cannot serve both cases (widths from Chrome, de-DE):
-
-                fully labelled, training event ....... 1414px needed
-                fully labelled, live event ........... 1262px needed
-
-              A single `xl` (1280) therefore clipped every training board — the
-              middle strip overflowed by 78px at 1280 and 35px at 1366 — while a
-              single `2xl` (1536) would have made a 1366 and even a 1440 laptop
-              icon-only on live boards that fit their labels comfortably today.
-              So:
-
-                xl  (1280) — the nine tool pills + Ansicht (unchanged)
-                2xl (1536) — "Bereitschaft" and "Übungs-Steuerung"
-
-              which leaves 1280 needing 1217px and 1536 needing 1414px. Both fit,
-              with the 2xl stage sized off the real 1414 rather than off a guess. */}
-          <div className="flex min-w-0 items-center justify-between gap-4">
-            {/* Left: Primary action.
-                "Neuer Einsatz" keeps its label at every width on purpose. It is
-                the only control down here that *creates* something, it is what
-                gets reached for under time pressure, and a bare "+" next to a
-                board that has add affordances on every column is genuinely
-                ambiguous. It costs 134px — the two labels below give back more
-                than that, so the primary action never has to pay. */}
-            <div className="flex shrink-0 items-center gap-3">
-              <Button size="sm" className="gap-2 shadow-sm" onClick={() => setNewEmergencyModalOpen(true)}>
-                <Plus className="size-3.5" />
-                {tCommon('newIncident')}
-              </Button>
-
-              {/* Event Setup Checklist — shown only while setup is incomplete; disappears once done */}
-              {selectedEvent && checklistProgress.total > 0 && checklistProgress.completed < checklistProgress.total && (
-                <Popover open={checklistPopoverOpen} onOpenChange={handleChecklistOpenChange}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                      // Icon-only below 2xl, so the tooltip has to carry the name —
-                      // same contract as `ToolbarToggle`.
-                      title={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
-                      aria-label={`${tDash('readiness')} ${checklistProgress.completed}/${checklistProgress.total}`}
-                    >
-                      <ClipboardCheck className="size-3.5" />
-                      {/* The word collapses like every other footer label; the
-                          badge never does — `n/m` is the informative half, and
-                          the clipboard icon alone does not carry a count. */}
-                      <span className="hidden 2xl:inline">{tDash('readiness')}</span>
-                      <Badge variant="secondary" className="h-5 px-1.5 text-xs font-medium tabular-nums">
-                        {checklistProgress.completed}/{checklistProgress.total}
-                      </Badge>
-                    </Button>
-                  </PopoverTrigger>
-                  {/* Same offset as CardViewMenu at the other end of the row,
-                      and for the same reason: the trigger sits inside the
-                      toolbar, so the offset has to clear the toolbar and not
-                      just the button. 10 left ~1px, and none at all while the
-                      button is still badge-less ("Checkliste wird geladen…"),
-                      which put the panel's bottom edge under the toolbar. */}
-                  <PopoverContent
-                    // Clamped: collision handling can shift this panel but not shrink it,
-                    // so a flat 600px runs off a narrow desktop window's edge.
-                    className="w-[min(600px,calc(100vw-2rem))] p-0"
-                    align="start"
-                    side="top"
-                    sideOffset={20}
-                  >
-                    <EventSetupChecklist
-                      eventId={selectedEvent.id}
-                      eventName={selectedEvent.name}
-                      onDismiss={() => handleChecklistOpenChange(false)}
-                      onAllTasksComplete={() => handleChecklistOpenChange(false)}
-                      onOpenVehicles={() => setActiveFooterSheet('vehicles')}
-                      onOpenAttendance={() => setAttendanceOpen(true)}
-                      onSendDiveraMessage={(text) => setDiveraMessageText(text)}
-                      onOpenRekoPicker={() => setRekoPickerOpen(true)}
-                      onOverridesChange={() => setChecklistOverridesVersion((v) => v + 1)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-
-            {/* Center: Secondary actions, in order, with whatever does not fit
-                behind «Mehr».
-
-                The strip used to rely on the label collapse alone, and the
-                measurements above were the proof that one row of pills cannot be
-                made to fit by choosing breakpoints: with the Meldungs-Leiste open
-                at 1280 four controls fell off the end entirely and a fifth
-                rendered as «Ansic». `ToolbarOverflow` measures instead of
-                guessing — see the note there. The label collapse stays: it is
-                still the cheapest width saving, and every control it does not
-                save is reachable in the panel.
-
-                Order is the contract. Items overflow from the end, so the pill
-                an operator reaches for on a live board (Links & QR) is the
-                last to go. */}
-            <ToolbarOverflow
-              moreLabel={tDash('more')}
-              moreTitle={(count) => tDash('moreTitle', { count })}
-              items={[
-                {
-                  // Every link the board hands out, in ONE sheet (decision 29).
-                  // Was five pills — Check-In, Reko, Feld, Anzeige, Alarm —
-                  // each opening its own sheet that did the same three things.
-                  // Check-In and Anzeige held out for a while as pills of their
-                  // own (the Appell; the display picker), but the Appell is a
-                  // row in this sheet now and the display share is just the
-                  // base /display link, so one pill covers everything.
-                  key: 'links',
-                  node: (
-                    <ToolbarToggle
-                      icon={QrCode}
-                      label={tDash('linksAndQr')}
-                      active={linksSheetOpen}
-                      onActivate={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
-                    />
-                  ),
-                },
-                {
-                  key: 'vehicles',
-                  separatorBefore: true,
-                  node: (
-                    <ToolbarToggle
-                      icon={Truck}
-                      label={tDash('vehicles')}
-                      active={vehicleStatusSheetOpen}
-                      disabled={!selectedEvent}
-                      onActivate={() => {
-                        if (!selectedEvent) return
-                        setActiveFooterSheet(vehicleStatusSheetOpen ? null : 'vehicles')
-                      }}
-                    />
-                  ),
-                },
-                {
-                  key: 'auftraege',
-                  node: (
-                    <ToolbarToggle
-                      icon={Waypoints}
-                      label={tDash('auftraege')}
-                      active={auftraegeSheetOpen}
-                      disabled={!selectedEvent}
-                      onActivate={() => {
-                        if (!selectedEvent) return
-                        if (!auftraegeSheetOpen) setAuftraegeFocusGroupId(null)
-                        setActiveFooterSheet(auftraegeSheetOpen ? null : 'auftraege')
-                      }}
-                    />
-                  ),
-                },
-                /* Schadenplatz-Rapporte, offen und erfasst. Absent only when
-                   there is NEITHER: the Bereitschaft button next door sets the
-                   precedent — a control with nothing to say leaves the row.
-                   An empty backlog on its own is no longer that case, because
-                   the sheet's second tab still answers "was haben wir letzte
-                   Woche geschrieben?". The badge is omitted at zero rather
-                   than shown as «0»: it counts OFFEN and nothing else. */
-                ...(openRapports.length > 0 || filedRapports.length > 0
-                  ? [{
-                      key: 'rapporte',
-                      node: (
-                        <ToolbarToggle
-                          icon={FileText}
-                          label={tDash('rapporte')}
-                          active={rapportBacklogSheetOpen}
-                          count={openRapports.length > 0 ? openRapports.length : undefined}
-                          title={tDash('rapportBacklog.toggleTitle', { count: openRapports.length })}
-                          onActivate={() => setActiveFooterSheet(rapportBacklogSheetOpen ? null : 'rapporte')}
-                        />
-                      ),
-                    }]
-                  : []),
-                /* One pill for every way onto paper. "Drucken" and "Thermo"
-                   used to sit here as two near-identical printer icons; they
-                   are now two columns inside the one sheet. */
-                {
-                  key: 'print',
-                  node: (
-                    <ToolbarToggle
-                      icon={Printer}
-                      label={tDash('print')}
-                      active={printSheetOpen}
-                      disabled={!selectedEvent}
-                      title={tDash('printTitle')}
-                      onActivate={() => {
-                        if (!selectedEvent) return
-                        setActiveFooterSheet(printSheetOpen ? null : 'print')
-                      }}
-                    />
-                  ),
-                },
-                ...(selectedEvent?.training_flag
-                  ? [{
-                      key: 'training',
-                      separatorBefore: true,
-                      node: (
-                        <Link href="/training" className="shrink-0">
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            className="text-warning-foreground hover:text-warning-foreground hover:bg-warning/10"
-                            title={tDash('trainingControl')}
-                            aria-label={tDash('trainingControl')}
-                          >
-                            <Sparkles className="size-3.5" />
-                            {/* Second collapse stage, at 2xl rather than xl. This is the
-                                longest label in the row (143px) and the only pill that
-                                is not part of the everyday live board — dropping its
-                                word first buys the most width for the least loss. */}
-                            <span className="hidden font-medium 2xl:inline">{tDash('trainingControl')}</span>
-                          </Button>
-                        </Link>
-                      ),
-                    }]
-                  : []),
-                {
-                  key: 'cardview',
-                  separatorBefore: true,
-                  // One control where the two pills used to be. The pills only
-                  // ever reached two of the nine card blocks — and never the long
-                  // ones (Mannschaft, Fahrzeuge, Material) that decide whether
-                  // forty cards fit on the screen.
-                  node: (
-                    <CardViewMenu
-                      view={cardView}
-                      preset={cardViewPreset}
-                      onApplyPreset={applyCardViewPreset}
-                      onToggleKey={toggleCardViewKey}
-                    />
-                  ),
-                  // `data-keep-open`: this one opens a popover of its own from
-                  // inside the panel, so the panel must not close under it.
-                  panelNode: (
-                    <div data-keep-open>
-                      <CardViewMenu
-                        view={cardView}
-                        preset={cardViewPreset}
-                        onApplyPreset={applyCardViewPreset}
-                        onToggleKey={toggleCardViewKey}
-                      />
-                    </div>
-                  ),
-                },
-              ]}
-            />
-
-            {/* Right: Help hint */}
-            <div className="flex shrink-0 items-center gap-3">
-              <button
-                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-                className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
-              >
-                <Kbd className="h-5 text-2xs px-1.5">{cmdHint}</Kbd>
-                <span className="hidden lg:inline">{tDash('commands')}</span>
-              </button>
-            </div>
-          </div>
-        </footer>
+        <BoardFooter
+          applyCardViewPreset={applyCardViewPreset}
+          auftraegeSheetOpen={auftraegeSheetOpen}
+          cardView={cardView}
+          cardViewPreset={cardViewPreset}
+          checklistPopoverOpen={checklistPopoverOpen}
+          checklistProgress={checklistProgress}
+          cmdHint={cmdHint}
+          filedRapports={filedRapports}
+          handleChecklistOpenChange={handleChecklistOpenChange}
+          linksSheetOpen={linksSheetOpen}
+          openRapports={openRapports}
+          printSheetOpen={printSheetOpen}
+          rapportBacklogSheetOpen={rapportBacklogSheetOpen}
+          selectedEvent={selectedEvent}
+          setActiveFooterSheet={setActiveFooterSheet}
+          setAttendanceOpen={setAttendanceOpen}
+          setAuftraegeFocusGroupId={setAuftraegeFocusGroupId}
+          setChecklistOverridesVersion={setChecklistOverridesVersion}
+          setDiveraMessageText={setDiveraMessageText}
+          setNewEmergencyModalOpen={setNewEmergencyModalOpen}
+          setRekoPickerOpen={setRekoPickerOpen}
+          toggleCardViewKey={toggleCardViewKey}
+          vehicleStatusSheetOpen={vehicleStatusSheetOpen}
+        />
           </>
         )}
       </div>
 
-      <OperationDetailModal
-        operation={selectedOperation}
-        open={detailModalOpen}
-        onOpenChange={setDetailModalOpen}
-        openOnTab={openDetailOnTab ?? undefined}
-        onUpdate={handleOperationUpdate}
-        onDelete={isEditor ? handleOperationDelete : undefined}
+      <BoardDialogs
+        activeFooterSheet={activeFooterSheet}
+        assignGroupResource={assignGroupResource}
+        assignMaterialToOperation={assignMaterialToOperation}
+        assignPersonToOperation={assignPersonToOperation}
+        assignVehicleToGroupWithConflict={assignVehicleToGroupWithConflict}
+        assignVehicleToIncidentWithConflict={assignVehicleToIncidentWithConflict}
+        assignedResources={assignedResources}
+        assignmentDialogOpen={assignmentDialogOpen}
+        assignmentLabelForPerson={assignmentLabelForPerson}
+        assignmentOperationId={assignmentOperationId}
+        assignmentResourceType={assignmentResourceType}
+        attendanceOpen={attendanceOpen}
+        auftraegeFocusGroupId={auftraegeFocusGroupId}
+        auftraegeSheetOpen={auftraegeSheetOpen}
+        auftragPickerIncidentId={auftragPickerIncidentId}
+        closedStopGuard={closedStopGuard}
+        createGroup={createGroup}
+        createOperation={createOperation}
+        deleteDialogOpen={deleteDialogOpen}
+        deleteReleaseHint={deleteReleaseHint}
+        detailModalOpen={detailModalOpen}
+        distributeConfirm={distributeConfirm}
+        diveraDialogOp={diveraDialogOp}
+        diveraDialogOpLive={diveraDialogOpLive}
+        diveraEnabled={diveraEnabled}
+        diveraMessageText={diveraMessageText}
+        filedRapports={filedRapports}
+        formatLocation={formatLocation}
+        funkrufname={funkrufname}
+        groups={groups}
+        handleAssignRouteResource={handleAssignRouteResource}
+        handleChooseAuftrag={handleChooseAuftrag}
+        handleConfirmAddStops={handleConfirmAddStops}
+        handleDeleteOperationConfirm={handleDeleteOperationConfirm}
+        handleDistributeToAuftrag={handleDistributeToAuftrag}
+        handleOpenAssignmentDialog={handleOpenAssignmentDialog}
+        handleOpenIncidentFromNotification={handleOpenIncidentFromNotification}
+        handleOpenRapport={handleOpenRapport}
+        handleOperationDelete={handleOperationDelete}
+        handleOperationUpdate={handleOperationUpdate}
+        handlePrintBoard={handlePrintBoard}
+        handleRemoveFromAuftrag={handleRemoveFromAuftrag}
+        handleToggleZuFuss={handleToggleZuFuss}
+        handleTransfer={handleTransfer}
+        handleVehicleAssign={handleVehicleAssign}
+        handleVehicleRemove={handleVehicleRemove}
+        isEditor={isEditor}
+        isPrintingBoard={isPrintingBoard}
+        isTransferring={isTransferring}
+        linksSheetOpen={linksSheetOpen}
         materials={materials}
-        onAssignVehicle={isEditor ? handleVehicleAssign : undefined}
-        onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
-        onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
-        onRemoveCrew={isEditor ? removeCrew : undefined}
-        onRemoveMaterial={isEditor ? removeMaterial : undefined}
-        canEdit={isEditor}
-        diveraEnabled={isEditor && diveraEnabled}
-        onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}
-        onChangeStatus={isEditor ? requestStatusChange : undefined}
-        onRequestComplete={isEditor ? requestCompletion : undefined}
-        onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
-      />
-
-      <NewEmergencyModal
-        open={newEmergencyModalOpen}
-        onOpenChange={(open) => {
-          setNewEmergencyModalOpen(open)
-          if (!open) setNewEmergencyGroupId(null)
-        }}
-        onCreateOperation={createOperation}
-        defaultGroupId={newEmergencyGroupId}
-      />
-
-      {/* Resource Assignment Dialog */}
-      <ResourceAssignmentDialog
-        open={assignmentDialogOpen}
-        onOpenChange={(open) => {
-          setAssignmentDialogOpen(open)
-          if (!open) {
-            // Route-scoped assign is over — drop back to per-incident mode.
-            setRouteAssign(null)
-            statusWorkflow.resumeGateAfterAssignment()
-          }
-        }}
-        resourceType={assignmentResourceType}
-        operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
-        assignTarget={routeAssign ? 'route' : 'incident'}
-        routeName={routeAssign ? groups.find((g) => g.id === routeAssign.groupId)?.name : undefined}
-        personnel={personnel}
-        // «Nicht einsatzbereit» no longer rides along here — the dialog reads
-        // it from the operations context itself, for every caller.
-        vehicles={vehicleTypes}
-        materials={materials}
-        assignedPersonnel={routeGroupResources ? routeGroupResources.personnel.map(p => p.name) : assignedResources.assignedPersonnel}
-        assignedVehicles={routeGroupResources ? routeGroupResources.vehicles.map(v => v.name) : assignedResources.assignedVehicles}
-        assignedMaterials={routeGroupResources ? routeGroupResources.materials.map(m => m.resourceId) : assignedResources.assignedMaterials}
-        rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
-        onAssignPerson={routeAssign
-          ? (personId) => assignGroupResource(routeAssign.groupId, 'personnel', personId)
-          : ((personId: string, personName: string, operationId: string) =>
-              // force: the dialog has its own «Doppelbelegung? Trotzdem zuweisen»
-              // confirm with the label of where the person already is. Asking
-              // again through the shared prompt would be the same question twice.
-              assignPersonToOperation(personId, personName, operationId, true))}
-        onAssignVehicle={routeAssign
-          ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
-          : assignVehicleToIncidentWithConflict}
-        onAssignMaterial={routeAssign
-          ? (materialId) => assignGroupResource(routeAssign.groupId, 'material', materialId)
-          : ((materialId: string, operationId: string) =>
-              assignMaterialToOperation(materialId, operationId, true))}
-        onRemovePerson={routeAssign
-          ? (_op, personName) => {
-              const item = routeGroupResources?.personnel.find(p => p.name === personName)
-              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
-            }
-          : removeCrew}
-        onRemoveVehicle={routeAssign
-          ? (_op, vehicleName) => {
-              const item = routeGroupResources?.vehicles.find(v => v.name === vehicleName)
-              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
-            }
-          : removeVehicle}
-        onRemoveMaterial={routeAssign
-          ? (_op, materialId) => {
-              const item = routeGroupResources?.materials.find(m => m.resourceId === materialId)
-              if (item) unassignGroupResource(routeAssign.groupId, item.assignmentId)
-            }
-          : removeMaterial}
-        zuFuss={!routeAssign && assignmentOperationId ? operations.find(op => op.id === assignmentOperationId)?.zuFuss ?? false : false}
-        onToggleZuFuss={!routeAssign && assignmentOperationId ? () => handleToggleZuFuss(assignmentOperationId) : undefined}
+        mobilePersonnelSheetOpen={mobilePersonnelSheetOpen}
+        newEmergencyGroupId={newEmergencyGroupId}
+        newEmergencyModalOpen={newEmergencyModalOpen}
+        occupiedMaterialIds={occupiedMaterialIds}
         occupiedPersonnelIds={occupiedPersonnelIds}
         occupiedVehicleIds={occupiedVehicleIds}
-        occupiedMaterialIds={occupiedMaterialIds}
-        // Incident-scoped only: the flag lives on the incident's assignment, and
-        // a route assignment has no endpoint to patch it through (see the Auftrag
-        // case in RouteResourceSections, which has no toggle either).
-        vehicleDriverStay={!routeAssign && assignmentOperationId
-          ? operations.find(op => op.id === assignmentOperationId)?.vehicleDriverStay
-          : undefined}
-        onToggleDriverStay={!routeAssign && assignmentOperationId
-          ? (vehicleName) => toggleDriverStay(assignmentOperationId, vehicleName)
-          : undefined}
-      />
-
-
-      {/* The one link sheet the footer opens: Check-In (with the Appell row),
-          Feld-Code + Feld link, Alarm, and the base /display share. */}
-      <LinksQrSheet
-        open={linksSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'links' && setActiveFooterSheet(null)}
-        eventId={selectedEvent?.id ?? null}
-        printerEnabled={printerEnabled}
-        onOpenAttendance={openAttendance}
-      />
-
-      {/* The Appell itself */}
-      {selectedEvent && (
-        <AttendanceModal
-          open={attendanceOpen}
-          onOpenChange={setAttendanceOpen}
-          eventId={selectedEvent.id}
-          eventName={selectedEvent.name}
-          assignmentLabelFor={assignmentLabelForPerson}
-          onAttendanceChange={refreshPersonnel}
-        />
-      )}
-
-      {/* The Checkliste's Reko picker — page-owned, see `rekoPickerOpen`. */}
-      <RekoPickerDialog
-        open={rekoPickerOpen}
-        onOpenChange={setRekoPickerOpen}
-        eventId={selectedEvent?.id ?? null}
-      />
-
-      {/* Vehicle Status Sheet */}
-      <VehicleStatusSheet
-        open={vehicleStatusSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'vehicles' && setActiveFooterSheet(null)}
-        eventId={selectedEvent?.id || null}
-      />
-
-      {/* Aufträge (multi-stop route) Sheet */}
-      <AuftraegeSheet
-        open={auftraegeSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'auftraege' && setActiveFooterSheet(null)}
-        focusGroupId={auftraegeFocusGroupId}
-        onAddStop={(groupId) => setStopPickerGroupId(groupId)}
-        onAssignRouteResource={handleAssignRouteResource}
-        onOpenDetail={handleOpenIncidentFromNotification}
-        onOpenRoutenEditor={(groupId, focusIncidentId) => {
-          setRoutenEditorGroupId(groupId)
-          setRoutenEditorFocusIncidentId(focusIncidentId ?? null)
-        }}
-        canEdit={isEditor}
-        onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
-        funkrufname={funkrufname}
-      />
-
-      {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}
-      <RapportBacklogSheet
-        open={rapportBacklogSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'rapporte' && setActiveFooterSheet(null)}
-        rapports={openRapports}
-        filed={filedRapports}
-        onOpenRapport={handleOpenRapport}
-      />
-
-      {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
-      <RoutenEditorModal
-        open={routenEditorGroupId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRoutenEditorGroupId(null)
-            setRoutenEditorFocusIncidentId(null)
-          }
-        }}
-        groupId={routenEditorGroupId}
-        focusIncidentId={routenEditorFocusIncidentId}
-        canEdit={isEditor}
-        onSetStopStatus={isEditor ? setRouteStopStatus : undefined}
-      />
-
-      {/* "+ Stop" — pick existing incidents to add as stops to a route */}
-      {isEditor && <IncidentPickerDialog
-        open={stopPickerGroupId !== null}
-        onOpenChange={(open) => !open && setStopPickerGroupId(null)}
+        openAttendance={openAttendance}
+        openDetailOnTab={openDetailOnTab}
+        openIncidentDetail={openIncidentDetail}
+        openRapports={openRapports}
+        operationToDelete={operationToDelete}
         operations={operations}
-        groups={groups}
-        targetGroupId={stopPickerGroupId}
-        onConfirm={handleConfirmAddStops}
-        onCreateNew={() => {
-          setNewEmergencyGroupId(stopPickerGroupId)
-          setNewEmergencyModalOpen(true)
-        }}
-      />}
-
-      {/* "An Auftrag verteilen" — distribute one incident into a route */}
-      <AuftragPickerDialog
-        open={auftragPickerIncidentId !== null}
-        onOpenChange={(open) => !open && setAuftragPickerIncidentId(null)}
-        groups={groups}
-        currentGroupId={
-          auftragPickerIncidentId
-            ? operations.find((op) => op.id === auftragPickerIncidentId)?.groupId ?? null
-            : null
-        }
-        onChoose={handleChooseAuftrag}
-        onCreate={(name) => createGroup({ name })}
-        onRemoveFromCurrent={handleRemoveFromAuftrag}
-      />
-
-      {/* Ask-first for the two distribute moves without an undo — pulling a
-          stop out of another Auftrag, folding a disponierter Einsatz into one. */}
-      <ConfirmDialog
-        open={distributeConfirm !== null}
-        onOpenChange={(open) => !open && setDistributeConfirm(null)}
-        title={tDash('distributeConfirmTitle')}
-        description={
-          distributeConfirm?.fromName
-            ? tDash('distributeConfirmTransfer', {
-                incident: distributeConfirm.incidentLabel,
-                from: distributeConfirm.fromName,
-              })
-            : tDash('distributeConfirmDispatched', {
-                incident: distributeConfirm?.incidentLabel ?? '',
-              })
-        }
-        confirmText={tDash('distributeConfirmAction')}
-        onConfirm={() => {
-          if (distributeConfirm) performDistribute(distributeConfirm.groupId, distributeConfirm.incidentId)
-          setDistributeConfirm(null)
-        }}
-      />
-
-      {/* «Dieser Einsatz ist abgeschlossen. Trotzdem als Stop hinzufügen?» */}
-      <ClosedStopDialog
-        prompt={closedStopGuard.prompt}
-        onProceed={closedStopGuard.proceed}
-        onCancel={closedStopGuard.dismiss}
-      />
-
-      {/* Delete Operation Confirmation Dialog. The description names what the
-          deletion also RELEASES — a card that was never an incident is usually
-          one somebody had already put people and a vehicle on. */}
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title={tCommon('deleteIncidentTitle')}
-        description={[
-          tCommon('deleteIncidentDescription', { name: operationToDelete ? (formatLocation(operationToDelete.location ?? '') || getIncidentTypeLabel(operationToDelete.incidentType)) : '' }),
-          deleteReleaseHint,
-        ].filter(Boolean).join(' ')}
-        onConfirm={handleDeleteOperationConfirm}
-      />
-
-      {/* Reko Assignment Dialog (from context menu) */}
-      {rekoAssignOperationId && (
-        <AssignRekoDialog
-          open={rekoAssignDialogOpen}
-          onOpenChange={setRekoAssignDialogOpen}
-          incidentId={rekoAssignOperationId}
-          incidentTitle={operations.find(op => op.id === rekoAssignOperationId)?.location || ''}
-          onAssigned={() => {
-            refreshOperations()
-            setRekoAssignDialogOpen(false)
-          }}
-        />
-      )}
-
-      {/* Divera-Mitteilung from the Checkliste. Mounted here, not inside the
-          checklist popover: opening it closes that popover, which would take a
-          dialog rendered in there down with it (same reason as the driver
-          prompt). Nothing is sent until it is confirmed, and its group picker
-          starts empty — «alle» is a choice, never a default. */}
-      <DiveraMessageDialog
-        open={diveraMessageText !== null}
-        onOpenChange={(open) => !open && setDiveraMessageText(null)}
-        defaultText={diveraMessageText ?? ''}
-      />
-
-      {/* Thermal slip, A4 status print and per-event file export in one sheet */}
-      <PrintHubSheet
-        open={printSheetOpen}
-        onOpenChange={(open) => !open && activeFooterSheet === 'print' && setActiveFooterSheet(null)}
-        onThermoPrint={handlePrintBoard}
-        isThermoPrinting={isPrintingBoard}
-        printerEnabled={printerEnabled}
-      />
-
-      <IncidentStatusWorkflowDialogs
-        controller={statusWorkflow}
-        printerEnabled={printerEnabled}
-        funkrufname={funkrufname}
-        diveraEnabled={diveraEnabled}
-        onOpenAssignment={handleOpenAssignmentDialog}
-        onOpenDetail={(operationId, tab, section) => {
-          openIncidentDetail(operationId, tab, section)
-        }}
-        onSendDivera={setDiveraDialogOp}
-        onRefresh={refreshOperations}
-      />
-
-      <DiveraSendDialog
-        open={!!diveraDialogOp}
-        onOpenChange={(open) => !open && setDiveraDialogOp(null)}
-        operation={diveraDialogOpLive}
-        materials={materials}
-      />
-
-      {/* Resource transfer dialog — opened from the card context menu */}
-      {transferSourceOp && (
-        <TransferIncidentDialog
-          open={!!transferSourceOp}
-          onOpenChange={(open) => !open && setTransferSourceOp(null)}
-          sourceIncident={transferSourceOp as unknown as Incident}
-          sourceName={transferSourceOp?.location}
-          availableIncidents={transferAvailableIncidents}
-          onTransfer={handleTransfer}
-          isTransferring={isTransferring}
-          resourceSummary={{
-            crew: transferSourceOp.crew.length,
-            vehicles: transferSourceOp.vehicles.length,
-            materials: transferSourceOp.materials.length,
-          }}
-        />
-      )}
-
-      {/* Mobile Personnel Sheet */}
-      <MobilePersonnelSheet
-        open={mobilePersonnelSheetOpen}
-        onOpenChange={setMobilePersonnelSheetOpen}
+        performDistribute={performDistribute}
         personnel={personnel}
-        operations={operations}
-      />
-
-      {/* Mobile Bottom Navigation. No separate Thermo entry any more: the one
-          print sheet carries the thermal column itself, gated on the same
-          `printerEnabled` it is still handed here. */}
-      <MobileBottomNavigation
-        currentPage="kanban"
-        hasSelectedEvent={!!selectedEvent}
-        onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
-        onPersonnel={() => setMobilePersonnelSheetOpen(true)}
-        onVehicleStatus={() => setActiveFooterSheet('vehicles')}
-        onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}
+        printSheetOpen={printSheetOpen}
         printerEnabled={printerEnabled}
+        rapportBacklogSheetOpen={rapportBacklogSheetOpen}
+        refreshOperations={refreshOperations}
+        refreshPersonnel={refreshPersonnel}
+        rekoAssignDialogOpen={rekoAssignDialogOpen}
+        rekoAssignOperationId={rekoAssignOperationId}
+        rekoPersonnelNames={rekoPersonnelNames}
+        rekoPickerOpen={rekoPickerOpen}
+        removeCrew={removeCrew}
+        removeMaterial={removeMaterial}
+        removeVehicle={removeVehicle}
+        requestCompletion={requestCompletion}
+        requestStatusChange={requestStatusChange}
+        routeAssign={routeAssign}
+        routeGroupResources={routeGroupResources}
+        routenEditorFocusIncidentId={routenEditorFocusIncidentId}
+        routenEditorGroupId={routenEditorGroupId}
+        selectedEvent={selectedEvent}
+        selectedOperation={selectedOperation}
+        setActiveFooterSheet={setActiveFooterSheet}
+        setAssignmentDialogOpen={setAssignmentDialogOpen}
+        setAttendanceOpen={setAttendanceOpen}
+        setAuftragPickerIncidentId={setAuftragPickerIncidentId}
+        setDeleteDialogOpen={setDeleteDialogOpen}
+        setDetailModalOpen={setDetailModalOpen}
+        setDistributeConfirm={setDistributeConfirm}
+        setDiveraDialogOp={setDiveraDialogOp}
+        setDiveraMessageText={setDiveraMessageText}
+        setMobilePersonnelSheetOpen={setMobilePersonnelSheetOpen}
+        setNewEmergencyGroupId={setNewEmergencyGroupId}
+        setNewEmergencyModalOpen={setNewEmergencyModalOpen}
+        setRekoAssignDialogOpen={setRekoAssignDialogOpen}
+        setRekoPickerOpen={setRekoPickerOpen}
+        setRouteAssign={setRouteAssign}
+        setRouteStopStatus={setRouteStopStatus}
+        setRoutenEditorFocusIncidentId={setRoutenEditorFocusIncidentId}
+        setRoutenEditorGroupId={setRoutenEditorGroupId}
+        setStopPickerGroupId={setStopPickerGroupId}
+        setTransferSourceOp={setTransferSourceOp}
+        statusWorkflow={statusWorkflow}
+        stopPickerGroupId={stopPickerGroupId}
+        toggleDriverStay={toggleDriverStay}
+        transferAvailableIncidents={transferAvailableIncidents}
+        transferSourceOp={transferSourceOp}
+        unassignGroupResource={unassignGroupResource}
+        vehicleStatusSheetOpen={vehicleStatusSheetOpen}
+        vehicleTypes={vehicleTypes}
       />
     </ProtectedRoute>
   )
