@@ -2344,7 +2344,6 @@
     "emptyState": {
       "title": "Noch kein Ereignis ausgewählt?",
       "description": "Kein Problem! Erstelle ein neues Ereignis oder wähle ein bestehendes aus, um loszulegen.",
-      "ready": "Bereit für deinen ersten Einsatz",
       "createButton": "Neues Ereignis erstellen",
       "viewButton": "Ereignisse anzeigen"
     },

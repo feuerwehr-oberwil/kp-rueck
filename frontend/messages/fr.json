@@ -575,7 +575,6 @@
     "emptyState": {
       "title": "Aucun événement sélectionné ?",
       "description": "Pas de problème ! Crée un nouvel événement ou choisis-en un existant pour démarrer.",
-      "ready": "Prêt pour ta première intervention",
       "createButton": "Créer un nouvel événement",
       "viewButton": "Afficher les événements"
     },
