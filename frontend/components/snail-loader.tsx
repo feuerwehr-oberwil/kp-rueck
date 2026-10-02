@@ -2,9 +2,18 @@
 
 import { useId, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react'
 
+import { snailClockElapsed } from '@/lib/snail-clock'
 import { cn } from '@/lib/utils'
 
 import snailSvg from '../public/firefighter-snail-loader.svg?raw'
+
+// Rendered paused (the SVG's own `snail-paused` hook): the server-rendered snail must not
+// start its arrival before the client knows where this launch's clock stands — after the
+// Microsoft callback it is already past the arrival and has to appear standing. Paused at
+// 0 the arrival keyframe holds the snail off-screen to the left, so a start that is still
+// waiting for JS shows the wordmark and the phase, and the snail drives in once. Reduced
+// motion switches the animations off altogether, so the snail just stands there.
+const PAUSED_SVG = snailSvg.replace('class="firefighter-snail ', 'class="firefighter-snail snail-paused ')
 
 /**
  * The firefighter snail, inline. `public/firefighter-snail-loader.svg` is KP Front's
@@ -22,10 +31,18 @@ export function SnailLoader({ className }: { className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   // One object per instance: React re-writes innerHTML whenever it gets a NEW object, and
   // a re-inserted SVG restarts its animations (KP Front found this on 01.10.2026).
-  const html = useMemo(() => ({ __html: snailSvg.replaceAll('fs-', `fs${id}-`) }), [id])
+  const html = useMemo(() => ({ __html: PAUSED_SVG.replaceAll('fs-', `fs${id}-`) }), [id])
+  // Before paint: put every animation where the launch's clock stands, then let it run.
+  // The first snail of a launch starts at 0 (one arrival); any later one — another boot
+  // stage, a remount, the next document after the Microsoft callback — continues the idle.
   useLayoutEffect(() => {
     const svg = ref.current?.querySelector('svg')
-    if (svg) continueSnailClock(svg)
+    if (!svg) return
+    const elapsed = snailClockElapsed()
+    svg.getAnimations?.({ subtree: true }).forEach((animation) => {
+      animation.currentTime = elapsed
+    })
+    svg.classList.remove('snail-paused')
   }, [])
   return (
     <div
@@ -36,28 +53,4 @@ export function SnailLoader({ className }: { className?: string }) {
       dangerouslySetInnerHTML={html}
     />
   )
-}
-
-/**
- * One animation clock for every snail of this page load (ported from KP Front's
- * lib/snailLaunch.ts). The first snail starts it; a snail mounted later — the phase
- * changing from «Anmeldung wird vorbereitet» to «Serververbindung wird geprüft», a second
- * loading screen after the first — continues from there instead of replaying the
- * entrance, so a slow start reads as one sequence and not as the snail arriving twice.
- * There is no minimum display time: when the app is ready, the snail goes.
- */
-let startedAt: number | undefined
-
-function continueSnailClock(svg: Element) {
-  const animations = svg.getAnimations?.({ subtree: true }) ?? []
-  if (!animations.length) return // reduced motion, or a browser without the API
-  if (startedAt === undefined) {
-    const time = animations[0].currentTime
-    startedAt = performance.now() - (typeof time === 'number' ? time : 0)
-    return
-  }
-  const elapsed = performance.now() - startedAt
-  animations.forEach((animation) => {
-    animation.currentTime = elapsed
-  })
 }
