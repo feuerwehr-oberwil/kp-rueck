@@ -144,9 +144,10 @@
 }
 
 @theme inline {
-  /* Using Geist for clean, professional sans-serif typography */
-  --font-sans: var(--font-geist-sans, "Geist"), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono, "Geist Mono"), "Courier New", monospace;
+  /* Sora (sans) + Spline Sans Mono (mono), self-hosted via next/font/local in
+     app/layout.tsx — see CLAUDE.md → Design Context → Type & corners. */
+  --font-sans: var(--font-sora, "Sora"), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-spline-sans-mono, "Spline Sans Mono"), "Courier New", monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
