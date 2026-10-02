@@ -6691,7 +6691,7 @@
           "incident-groups"
         ],
         "summary": "Reorder Stops",
-        "description": "Persist the manual order of the stops within one Auftrag (editor only).",
+        "description": "Persist the manual order of the stops within one Auftrag (editor only).\n\nWith ``expected_ids`` the reorder is conditional (409 when the current order\ndiffers) — used by the undo after a route optimisation.",
         "operationId": "reorder_stops_api_incident_groups__group_id__stops_reorder_post",
         "parameters": [
           {
@@ -24475,6 +24475,22 @@
             },
             "type": "array",
             "title": "Ordered Ids"
+          },
+          "expected_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Ids",
+            "description": "Apply only if the current stop order equals this list; else 409."
           }
         },
         "type": "object",
@@ -24482,7 +24498,7 @@
           "ordered_ids"
         ],
         "title": "GroupStopsReorder",
-        "description": "Reorder the stops within a single Auftrag."
+        "description": "Reorder the stops within a single Auftrag.\n\n``expected_ids`` makes the write conditional: when given, the server applies\n``ordered_ids`` only if the Auftrag's current stop order is exactly this list,\nchecked under the Auftrag's row lock in the same transaction, and answers 409\notherwise. The «Rückgängig» after a route optimisation sends the order the\noptimisation produced, so an undo can never overwrite a newer disposition or\nre-insert a stop another device removed meanwhile. Omitted = unconditional\n(a manual drag is the operator's own fresh decision)."
       },
       "HTTPValidationError": {
         "properties": {

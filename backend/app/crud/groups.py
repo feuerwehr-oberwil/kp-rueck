@@ -287,15 +287,27 @@ async def reorder_groups(
     return updated
 
 
+class StopOrderConflictError(Exception):
+    """The Auftrag's stop order is no longer what the caller expected (→ 409)."""
+
+
 async def reorder_group_stops(
     db: AsyncSession,
     group_id: uuid.UUID,
     ordered_ids: list[uuid.UUID],
+    expected_ids: list[uuid.UUID] | None = None,
 ) -> int:
     """Persist a manual order for the stops within one Auftrag.
 
     Same pattern as ``reorder_groups`` but on ``Incident.group_position``, scoped
     to ``group_id``. Unknown/stale ids are ignored. Returns the number reordered.
+
+    With ``expected_ids`` the write is conditional: the current stop order is read
+    AFTER taking the Auftrag's row lock — the same lock every stop add/remove/
+    reorder takes — and must equal ``expected_ids`` exactly, else
+    ``StopOrderConflictError`` and nothing changes. Checking and writing in one
+    locked transaction is the point: a check in the browser alone leaves a gap in
+    which another device can reorder, add or remove a stop.
     """
     if not ordered_ids:
         return 0
@@ -310,6 +322,9 @@ async def reorder_group_stops(
         .order_by(Incident.group_position.asc(), Incident.created_at.asc())
     )
     incidents_by_id = {incident.id: incident for incident in result.scalars().all()}
+
+    if expected_ids is not None and list(incidents_by_id) != list(expected_ids):
+        raise StopOrderConflictError("Auftrag changed since the order was read")
 
     temporary_base = -(len(ordered_ids) + 1)
     for offset, incident in enumerate(incidents_by_id.values()):
@@ -420,6 +435,11 @@ async def remove_stop_from_group(
     request: Request,
 ) -> bool:
     """Detach a stop from an Auftrag (null ``group_id``, leave status/board alone)."""
+    # Serialise with every other change to this route's stop list (reorder, add,
+    # the conditional undo-restore in ``reorder_group_stops``), which all lock the
+    # Auftrag row first. Without it a removal could slip between a guarded
+    # restore's check and its write.
+    await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
     result = await db.execute(
         select(Incident).where(
             Incident.id == incident_id,

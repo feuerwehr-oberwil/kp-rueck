@@ -144,9 +144,22 @@ class IncidentGroupReorder(BaseModel):
 
 
 class GroupStopsReorder(BaseModel):
-    """Reorder the stops within a single Auftrag."""
+    """Reorder the stops within a single Auftrag.
+
+    ``expected_ids`` makes the write conditional: when given, the server applies
+    ``ordered_ids`` only if the Auftrag's current stop order is exactly this list,
+    checked under the Auftrag's row lock in the same transaction, and answers 409
+    otherwise. The «Rückgängig» after a route optimisation sends the order the
+    optimisation produced, so an undo can never overwrite a newer disposition or
+    re-insert a stop another device removed meanwhile. Omitted = unconditional
+    (a manual drag is the operator's own fresh decision).
+    """
 
     ordered_ids: list[UUID]
+    expected_ids: list[UUID] | None = Field(
+        default=None,
+        description="Apply only if the current stop order equals this list; else 409.",
+    )
 
 
 class AddStopsRequest(BaseModel):

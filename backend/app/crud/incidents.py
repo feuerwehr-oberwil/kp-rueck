@@ -650,7 +650,22 @@ async def update_incident(
 
     # Apply updates
     update_data = incident_update.model_dump(exclude_unset=True)
-    if update_data.get("group_id") is not None:
+    # Leaving an Auftrag changes that route's stop list too: lock it like every
+    # other stop mutation, so the guarded undo-restore in
+    # ``groups.reorder_group_stops`` cannot interleave with the detach. Taken
+    # before the destination's lock (ordered by id) so two opposite moves cannot
+    # deadlock.
+    leaving_group_id = incident.group_id if "group_id" in update_data else None
+    if leaving_group_id is not None and leaving_group_id != update_data.get("group_id"):
+        joining_group_id = update_data.get("group_id")
+        if joining_group_id is not None and joining_group_id < leaving_group_id:
+            await _validate_and_lock_group(db, joining_group_id, incident.event_id)
+            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
+        else:
+            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
+            if joining_group_id is not None:
+                await _validate_and_lock_group(db, joining_group_id, incident.event_id)
+    elif update_data.get("group_id") is not None:
         await _validate_and_lock_group(db, update_data["group_id"], incident.event_id)
 
     # Detect an Auftrag (incident group) attach: when moving into a new group,
