@@ -4,15 +4,13 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { CloudOff, RefreshCw, WifiOff } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
-import { useDateFnsLocale } from "@/lib/date-locale";
 
 import { Button } from "@/components/ui/button";
 import { useBoardSyncStatus, useOperations } from "@/lib/contexts/operations-context";
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client";
 import { getRestReachable, onRestReachableChange } from "@/lib/api-client";
-import { shouldShowStaleBanner } from "@/lib/stale-data";
-import { formatClockTime } from "@/lib/incident-time";
+import { isLiveConfirmed, shouldShowStaleBanner } from "@/lib/stale-data";
+import { getIntlLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,14 +39,19 @@ import { cn } from "@/lib/utils";
  * A board that never loaded at all is the board page's own error panel
  * (`BoardLoadErrorPanel`); on that page the banner stands back, elsewhere
  * (map, settings, …) it is the only place that says so.
+ *
+ * Both voices name the board's confirmed time with SECONDS — «Stand
+ * 09:55:12» — rather than «vor 2 Minuten»: it is compared with the wall clock
+ * and with what another screen shows, and a minute is a long time on a board.
+ * A socket that is back but has not yet got a load through says THAT, not
+ * «Verbindung verloren» (review idea #4).
  */
 export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
   const tLoad = useTranslations('common.boardLoadError');
   const pathname = usePathname();
-  const dateLocale = useDateFnsLocale();
   const { refreshOperations } = useOperations();
-  const { lastSyncAt, loadError } = useBoardSyncStatus();
+  const { lastSyncAt, loadError, liveSince } = useBoardSyncStatus();
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>(wsClient.getStatus());
   const [restReachable, setRestReachable] = useState<boolean>(getRestReachable());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -73,7 +76,9 @@ export function StaleDataBanner() {
     now,
     restReachable,
     loadFailed: loadError !== null,
+    liveSince,
   });
+  const confirmedAt = lastSyncAt ? formatConfirmedTime(lastSyncAt) : null;
 
   const handleReconnect = async () => {
     setReconnecting(true);
@@ -102,7 +107,7 @@ export function StaleDataBanner() {
         <CloudOff className="h-4 w-4 flex-shrink-0 text-destructive" aria-hidden="true" />
         <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <span className="font-semibold">
-            {lastSyncAt ? t('loadFailedAt', { time: formatClockTime(lastSyncAt) }) : tLoad('title')}
+            {confirmedAt ? t('loadFailedAt', { time: confirmedAt }) : tLoad('title')}
           </span>
           {lastSyncAt && <span className="text-muted-foreground">{t('showsLastLoaded')}</span>}
         </div>
@@ -120,11 +125,10 @@ export function StaleDataBanner() {
     );
   }
 
-  // Defensive: this branch needs a good sync to have happened (see
-  // shouldShowStaleBanner), but it must never name a «last update» that wasn't.
-  const lastSyncRelative = lastSyncAt
-    ? formatDistanceToNowStrict(lastSyncAt, { addSuffix: false, locale: dateLocale })
-    : null;
+  // The socket is up again but no load has got through since: the connection
+  // is not what is missing, the confirmation is.
+  const awaitingConfirmation =
+    wsStatus === "connected" && restReachable && !isLiveConfirmed({ wsStatus, lastSyncAt, liveSince });
 
   return (
     <div
@@ -135,11 +139,13 @@ export function StaleDataBanner() {
       <WifiOff className="h-4 w-4 flex-shrink-0 text-warning-foreground" aria-hidden="true" />
       <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <span className="font-medium">
-          {t('connectionLost')}
+          {awaitingConfirmation ? t('notConfirmed') : t('connectionLost')}
         </span>
-        {lastSyncRelative && (
-          <span className="text-muted-foreground">
-            {t('lastUpdate', { time: lastSyncRelative })}
+        {/* Defensive: this branch needs a good sync to have happened (see
+            shouldShowStaleBanner), but it must never name a time that wasn't. */}
+        {confirmedAt && (
+          <span className="text-muted-foreground tabular-nums">
+            {t('confirmedAt', { time: confirmedAt })}
           </span>
         )}
       </div>
@@ -155,4 +161,9 @@ export function StaleDataBanner() {
       </Button>
     </div>
   );
+}
+
+/** hh:mm:ss in the interface language — the board's confirmed time. */
+function formatConfirmedTime(date: Date): string {
+  return date.toLocaleTimeString(getIntlLocale(), { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }

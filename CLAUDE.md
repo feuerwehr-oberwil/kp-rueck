@@ -348,6 +348,8 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   reload replaces it — and is sent again only via «Erneut speichern». No automatic resend, no offline
   queue. Drafts are scoped to user + Ereignis; a user switch drops them and a queued write of the
   previous user is not sent. A new free-text incident field goes into `SAVED_TEXT_FIELDS`.
+- **Stale banner**: a connected WebSocket only vouches for the board once a load got through AFTER it
+  came up (`BoardSyncStatus.liveSince`); «connected»/«connecting» alone never hide the warning.
 
 ## Important Files & Documentation
 

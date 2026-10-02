@@ -31,11 +31,12 @@
     },
     "staleDataBanner": {
       "connectionLost": "Verbindung verloren – Daten sind möglicherweise veraltet.",
-      "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
       "reconnect": "Neu verbinden",
       "loadFailedAt": "Stand {time} – Aktualisierung fehlgeschlagen",
       "showsLastLoaded": "Das Board zeigt den letzten geladenen Stand.",
-      "reload": "Erneut laden"
+      "reload": "Erneut laden",
+      "confirmedAt": "Stand {time}",
+      "notConfirmed": "Verbindung steht wieder – der aktuelle Stand ist noch nicht bestätigt."
     },
     "boardLoadError": {
       "title": "Einsätze konnten nicht geladen werden",

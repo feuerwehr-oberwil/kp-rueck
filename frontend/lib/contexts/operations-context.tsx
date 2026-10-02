@@ -356,6 +356,11 @@ export interface BoardSyncStatus {
    *  FIRST load, nothing at all — which `isLoaded` alone can't tell apart
    *  from an empty Ereignis). */
   loadError: Error | null
+  /** When the WebSocket last came up (null while it is not connected). A
+   *  socket only carries freshness once a board load has got through AFTER
+   *  this moment — events broadcast while it was down are gone, and the
+   *  resync it triggers can fail. The stale banner compares the two. */
+  liveSince: Date | null
 }
 
 /**
@@ -423,6 +428,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [loadError, setLoadError] = useState<Error | null>(null)
+  const [liveSince, setLiveSince] = useState<Date | null>(null)
+  // Mirrors for the socket status handler, which lives in the long-lived sync
+  // effect and must not take these as dependencies.
+  const liveSinceRef = useRef<Date | null>(null)
+  const lastSyncAtRef = useRef<Date | null>(null)
+  lastSyncAtRef.current = lastSyncAt
   const [incidentTotal, setIncidentTotal] = useState<number | null>(null)
   // The one vehicle that was just put on an incident with nobody driving it, or
   // null. It was a queue while the setup checklist walked every driverless vehicle
@@ -986,6 +997,22 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
 
     const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
+      // When the socket came up (see `BoardSyncStatus.liveSince`). And when a
+      // socket that vouched for the board goes away, the board WAS current up
+      // to this instant — every change until now would have arrived — so that
+      // is its confirmed time. Without it a quiet hour on a healthy socket left
+      // `lastSyncAt` an hour old, and the first blip raised the banner at once.
+      if (status === 'connected') {
+        if (liveSinceRef.current === null) {
+          liveSinceRef.current = new Date()
+          setLiveSince(liveSinceRef.current)
+        }
+      } else if (liveSinceRef.current !== null) {
+        const confirmed = lastSyncAtRef.current
+        if (confirmed && confirmed.getTime() >= liveSinceRef.current.getTime()) setLastSyncAt(new Date())
+        liveSinceRef.current = null
+        setLiveSince(null)
+      }
       if (status === 'disconnected' || status === 'error') {
         startPolling()
       } else if (status === 'connected') {
@@ -2263,7 +2290,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  const syncStatus = useMemo<BoardSyncStatus>(() => ({ lastSyncAt, loadError }), [lastSyncAt, loadError])
+  const syncStatus = useMemo<BoardSyncStatus>(
+    () => ({ lastSyncAt, loadError, liveSince }),
+    [lastSyncAt, loadError, liveSince],
+  )
 
   return (
     <OperationsContext.Provider value={value}>

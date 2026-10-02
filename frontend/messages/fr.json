@@ -140,11 +140,12 @@
     },
     "staleDataBanner": {
       "connectionLost": "Liaison perdue – les données sont peut-être périmées.",
-      "lastUpdate": "Dernière actualisation il y a {time}. L’interrogation continue en arrière-plan.",
       "reconnect": "Se reconnecter",
       "loadFailedAt": "État à {time} – échec de la mise à jour",
       "showsLastLoaded": "Le tableau affiche le dernier état chargé.",
-      "reload": "Recharger"
+      "reload": "Recharger",
+      "confirmedAt": "État à {time}",
+      "notConfirmed": "Liaison rétablie – l’état actuel n’est pas encore confirmé."
     },
     "boardLoadError": {
       "title": "Impossible de charger les interventions",
