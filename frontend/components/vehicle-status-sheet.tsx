@@ -6,6 +6,7 @@ import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -316,7 +317,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
             </div>
 
             <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
-              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+              {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
               {t('vehicleStatus.refresh')}
             </Button>
           </div>

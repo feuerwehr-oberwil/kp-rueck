@@ -10,7 +10,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -68,6 +68,7 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import type { Incident } from "@/lib/types/incidents"
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
@@ -114,6 +115,7 @@ function ActionBarButton({
   dense,
   onClick,
   disabled,
+  busy = false,
   variant = 'outline',
   className,
 }: {
@@ -125,6 +127,8 @@ function ActionBarButton({
   dense: boolean
   onClick: () => void
   disabled?: boolean
+  /** Running: the shell trail takes the icon's place, beside the busy label. */
+  busy?: boolean
   variant?: 'outline' | 'ghost'
   className?: string
 }) {
@@ -137,7 +141,7 @@ function ActionBarButton({
       aria-label={label}
       className={className}
     >
-      <Icon className="size-3.5" />
+      {busy ? <ShellLoader className="size-3.5" /> : <Icon className="size-3.5" />}
       {!dense && (visibleLabel ?? label)}
     </Button>
   )
@@ -1611,7 +1615,7 @@ export function OperationDetailContent({
                           disabled={isCopyingRekoLink}
                         >
                           {isCopyingRekoLink ? (
-                            <Loader2 className="size-3 animate-spin" />
+                            <ShellLoader className="size-3" />
                           ) : rekoCopied === 'direct' ? (
                             <Check className="size-3 text-success" />
                           ) : (
@@ -1790,6 +1794,7 @@ export function OperationDetailContent({
             visibleLabel={isCopyingWhatsApp ? t('common.copying') : undefined}
             dense={dense}
             disabled={isCopyingWhatsApp}
+            busy={isCopyingWhatsApp}
             onClick={handleCopyWhatsApp}
           />
 

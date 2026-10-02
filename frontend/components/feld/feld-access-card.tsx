@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, Copy, KeyRound, Loader2, RefreshCw } from 'lucide-react'
+import { Check, Copy, KeyRound, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { apiClient } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
 import type { ApiFeldAccessState } from '@/lib/api/types'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 interface FeldAccessCardProps {
   eventId: string
@@ -154,7 +155,7 @@ export function FeldAccessCard({ eventId, bare = false, onCodeChange }: FeldAcce
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button variant="ghost" size="xs" onClick={() => setConfirmRegenerate(true)} disabled={busy}>
-            {busy ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+            {busy ? <ShellLoader className="size-3" /> : <RefreshCw className="size-3" />}
             {t('regenerate')}
           </Button>
           {state.device_count > 0 && (

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiViewerData } from '@/lib/api-client'
 import { usePolling } from '@/lib/hooks/use-polling'
-import { Loader2, Eye, ChevronDown, ChevronRight } from 'lucide-react'
+import { Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
 import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT } from '@/lib/kanban-utils'
 import { useCollapsedSections } from '@/lib/hooks/use-collapsed-sections'
@@ -19,6 +19,7 @@ import { filterIncidents } from '@/lib/incident-search'
 import { type Operation } from '@/lib/contexts/operations-context'
 import { type Material } from '@/lib/contexts/materials-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 
 // Read-only board rendered from a share token (no login). The SAME board and the
 // SAME cards as the logged-in display — it differs only in where the data comes
@@ -151,6 +152,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 
 export function TokenBoard({ token }: { token: string }) {
   const t = useTranslations('display.tokenBoard')
+  const tLoading = useTranslations('common')
 
   // No event state here on purpose: the display layout loads the token's
   // Ereignis itself for the top bar, so this board only needs the payload.
@@ -290,7 +292,7 @@ export function TokenBoard({ token }: { token: string }) {
   if (loading) {
     return (
       <div className="min-h-full bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
   }

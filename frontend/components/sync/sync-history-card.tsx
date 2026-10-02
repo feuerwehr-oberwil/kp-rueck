@@ -12,13 +12,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ArrowDown, ArrowUp, CheckCircle2, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { format } from 'date-fns'
 import { useDateFnsLocale } from '@/lib/date-locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import type { SyncHistoryEntry } from '@/types/sync'
 import { Button } from '@/components/ui/button'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 interface SyncHistoryCardProps {
   refreshTrigger?: number
@@ -27,6 +28,7 @@ interface SyncHistoryCardProps {
 export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   const t = useTranslations('sync.history')
   const tCommon = useTranslations('sync.common')
+  const tLoading = useTranslations('common')
   const dateLocale = useDateFnsLocale()
   const [history, setHistory] = useState<SyncHistoryEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -85,7 +87,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
       case 'syncing':
         return (
           <Badge variant="secondary" className="bg-warning text-warning-foreground flex items-center gap-1 w-fit">
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <ShellLoader className="h-3 w-3" />
             {t('statusRunning')}
           </Badge>
         )
@@ -139,7 +141,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
       <div>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
           </div>
         ) : history.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">

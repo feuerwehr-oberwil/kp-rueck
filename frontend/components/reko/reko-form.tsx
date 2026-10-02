@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
+import { AlertCircle, Binoculars, MapPin, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import {
@@ -17,6 +17,7 @@ import {
 import { telHref } from '@/lib/phone'
 import { getApiUrl } from '@/lib/env'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 // The field page is the SHELL: the token, the incident header, the arrival
 // ping, the localStorage draft and the 30 s autosave. The fields themselves are
@@ -29,6 +30,7 @@ export default function RekoForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const t = useTranslations('reko.form')
+  const tLoading = useTranslations('common')
   const intlLocale = useIntlLocale()
 
   const incidentId = searchParams.get('incident_id')
@@ -412,7 +414,7 @@ export default function RekoForm() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
   }
@@ -474,7 +476,7 @@ export default function RekoForm() {
       >
         {isMarkingArrived ? (
           <>
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <ShellLoader className="h-5 w-5" />
             {t('markingArrival')}
           </>
         ) : arrivedAt ? (
@@ -539,7 +541,7 @@ export default function RekoForm() {
                 <p className="mt-1 text-xs opacity-90">{t('unsentReassurance')}</p>
               </div>
               <Button type="button" className="w-full" disabled={isSaving} onClick={() => saveDraft()}>
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
                 {t('sendNow')}
               </Button>
             </div>

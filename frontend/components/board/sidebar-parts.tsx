@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { ArrowRight, ArrowUpRight, Ban, CircleCheck, Loader2, Package2 } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Ban, CircleCheck, Package2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -22,6 +22,7 @@ import { isNavigableBinding, shortDate, type BindingsPopoverState, type Resource
 import type { Material } from "@/lib/contexts/operations-context"
 import { materialResourceState } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 /**
  * What a resource sidebar shows while the first load is still in flight.
@@ -29,21 +30,18 @@ import { cn } from "@/lib/utils"
  * The point is not to look like the list — it is to stop the sidebar from
  * lying. Both used to render nothing while their footers asserted «0/0
  * verfügbar», i.e. that the station has no crew and no material, which is a
- * statement rather than an absence of one. A spinner plus the «–/–» counter
- * says «wait» without saying anything false.
+ * statement rather than an absence of one. The shell trail with its words
+ * («Personal wird geladen …») plus the «–/–» counter says «wait» without
+ * saying anything false.
  *
  * Deliberately not a skeleton: keeping placeholder rows in the true shape of
  * the list means maintaining a second copy of the layout, and it buys nothing
- * here beyond what a spinner already says.
+ * here beyond what the loading line already says.
  */
 export function SidebarLoading({ label }: { label: string }) {
   return (
-    <div
-      className="flex items-center justify-center py-10"
-      aria-busy="true"
-      aria-label={label}
-    >
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <div className="flex items-center justify-center py-10" aria-busy="true">
+      <LoadingStatus className="text-sm">{label}</LoadingStatus>
     </div>
   )
 }

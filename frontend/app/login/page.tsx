@@ -20,7 +20,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Loader2, LogIn, Shield, Eye, Flame } from 'lucide-react';
+import { LogIn, Shield, Eye, Flame } from 'lucide-react';
 import {
   AVAILABLE_LOCALES,
   LOCALE_NAMES,
@@ -28,9 +28,11 @@ import {
   setActiveLocale,
   type SupportedLocale,
 } from '@/lib/i18n-messages';
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export default function LoginPage() {
   const t = useTranslations('login.page');
+  const tLoading = useTranslations('common');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -195,10 +197,10 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Loading config skeleton */}
+            {/* Sign-in options still loading */}
             {configLoading && (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
               </div>
             )}
 
@@ -211,7 +213,7 @@ export default function LoginPage() {
                   disabled={loading}
                 >
                   {loading ? (
-                    <Loader2 className="size-4 animate-spin" />
+                    <ShellLoader className="size-4" />
                   ) : (
                     <Shield className="size-4" />
                   )}
@@ -224,7 +226,7 @@ export default function LoginPage() {
                   disabled={loading}
                 >
                   {loading ? (
-                    <Loader2 className="size-4 animate-spin" />
+                    <ShellLoader className="size-4" />
                   ) : (
                     <Eye className="size-4" />
                   )}
@@ -313,7 +315,7 @@ export default function LoginPage() {
                       disabled={loading}
                     >
                       {loading ? (
-                        <Loader2 className="size-4 animate-spin" />
+                        <ShellLoader className="size-4" />
                       ) : (
                         <LogIn className="size-4" />
                       )}

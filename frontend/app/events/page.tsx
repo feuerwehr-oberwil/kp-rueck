@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { DetailField } from '@/components/kanban/detail-field'
-import { Plus, Archive, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package } from 'lucide-react'
+import { Plus, Archive, Trash2, GraduationCap, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -35,6 +35,7 @@ import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /**
  * Mirror of the backend slug (`slugify_event_name`, api/exports.py): lowercase,
@@ -374,7 +375,7 @@ export default function EventsPage() {
             disabled={busy}
             onClick={(e) => e.stopPropagation()}
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+            {busy ? <ShellLoader className="size-4" /> : <MoreHorizontal className="size-4" />}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -695,7 +696,7 @@ export default function EventsPage() {
                 {t('createDialog.cancel')}
               </Button>
               <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
-                {isCreating && <Loader2 className="size-4 animate-spin" />}
+                {isCreating && <ShellLoader className="size-4" />}
                 {isCreating ? t('createDialog.creating') : t('createDialog.create')}
               </Button>
             </DialogFooter>
@@ -806,7 +807,7 @@ export default function EventsPage() {
               {t('archiveDialog.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleArchive} disabled={isArchiving}>
-              {isArchiving && <Loader2 className="size-4 animate-spin" />}
+              {isArchiving && <ShellLoader className="size-4" />}
               {archiveRestliste &&
               (archiveRestliste.open_incidents.length > 0 ||
                 archiveRestliste.open_pickups.length > 0 ||
@@ -839,7 +840,7 @@ export default function EventsPage() {
               {t('deleteDialog.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting && <Loader2 className="size-4 animate-spin" />}
+              {isDeleting && <ShellLoader className="size-4" />}
               {t('deleteDialog.confirm')}
             </Button>
           </DialogFooter>

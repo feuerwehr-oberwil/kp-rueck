@@ -27,6 +27,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SettingBlock, SettingCard } from '@/components/settings/setting-row'
 import { Textarea } from '@/components/ui/textarea'
@@ -362,7 +363,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
         >
           <div className="space-y-3">
             {statusFailed && <p className="text-sm text-destructive">{t('loadError')}</p>}
-            {!status && !statusFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>}
+            {!status && !statusFailed && <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>}
 
             {status && (
               <>

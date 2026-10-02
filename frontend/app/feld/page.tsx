@@ -42,6 +42,7 @@ import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SearchInput } from '@/components/ui/search-input'
+import { ShellLoader } from '@/components/ui/shell-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
@@ -1225,7 +1226,7 @@ function FeldSurface() {
                   } ${locked ? 'opacity-60' : ''}`}
                 >
                   {unlocking && index === 3 && codeInput.length === 4 ? (
-                    <span className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                    <ShellLoader className="size-6 text-muted-foreground" />
                   ) : (
                     codeInput[index] ?? ''
                   )}

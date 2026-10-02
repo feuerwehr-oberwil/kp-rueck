@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { User, CheckCircle, Circle, Loader2, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
+import { User, CheckCircle, Circle, Trash2, AlertTriangle, UserPlus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -15,6 +15,7 @@ import { type Person, type Operation, useOperations } from "@/lib/contexts/opera
 import { personMatchesQuery } from "@/lib/resource-status"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 interface DriverAssignmentDialogProps {
   open: boolean
@@ -427,7 +428,7 @@ export function DriverAssignmentDialog({
                   className="cursor-pointer text-destructive hover:bg-destructive/10"
                 >
                   {isAssigning ? (
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <ShellLoader className="size-3.5" />
                   ) : (
                     <Trash2 className="size-3.5" />
                   )}
@@ -476,7 +477,7 @@ export function DriverAssignmentDialog({
                     size="sm"
                   >
                     {isAddingPerson ? (
-                      <><Loader2 className="size-3.5 animate-spin" />{t('adding')}</>
+                      <><ShellLoader className="size-3.5" />{t('adding')}</>
                     ) : (
                       <><Plus className="size-3.5" />{t('addAndAssign')}</>
                     )}

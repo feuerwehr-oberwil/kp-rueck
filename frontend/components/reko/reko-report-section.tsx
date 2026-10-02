@@ -43,7 +43,7 @@ import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-f
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, AlertTriangle, Loader2, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
 import { RekoReportForm, EMPTY_REKO_FORM, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
 import { getApiUrl } from '@/lib/env'
@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
 import { getIntlLocale } from '@/lib/date-locale'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -117,6 +118,7 @@ export default function RekoReportSection({
 }: RekoReportSectionProps) {
   const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
+  const tLoading = useTranslations('common')
   const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -235,7 +237,7 @@ export default function RekoReportSection({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
   }

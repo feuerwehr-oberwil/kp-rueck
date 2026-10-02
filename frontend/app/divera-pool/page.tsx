@@ -32,10 +32,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Link2, RefreshCw, Check, Info, Loader2, AlertTriangle } from 'lucide-react';
+import { Link2, RefreshCw, Check, Info, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { getDateFnsLocale } from '@/lib/date-locale';
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export default function DiveraPoolPage() {
   useGlobalNavigation();
@@ -263,7 +264,7 @@ export default function DiveraPoolPage() {
             disabled={loading}
             className="px-3"
           >
-            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
           </Button>
 
           <div className="flex-1" />
@@ -294,8 +295,8 @@ export default function DiveraPoolPage() {
       {/* List */}
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         {loading ? (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            {t('loading')}
+          <div className="flex items-center justify-center h-64">
+            <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>
           </div>
         ) : filteredEmergencies.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
@@ -485,7 +486,7 @@ export default function DiveraPoolPage() {
               disabled={!selectedEventId || attaching}
               variant={realAlarmIntoTraining ? 'destructive' : 'default'}
             >
-              {attaching && <Loader2 className="size-4 animate-spin" />}
+              {attaching && <ShellLoader className="size-4" />}
               {realAlarmIntoTraining ? t('attachAnyway') : t('attach')}
             </Button>
           </DialogFooter>

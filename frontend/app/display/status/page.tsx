@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
-import { Loader2, Binoculars, Package2, Ban, Infinity as InfinityIcon } from "lucide-react"
+import { Binoculars, Package2, Ban, Infinity as InfinityIcon } from "lucide-react"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -33,6 +33,7 @@ import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
@@ -96,6 +97,7 @@ function AuthStatusView() {
 
 /** Token/read-only display: view-model polled from the share token payload. */
 function TokenStatusView({ token }: { token: string }) {
+  const tLoading = useTranslations('common')
   const [payload, setPayload] = useState<ApiViewerData | null>(null)
   // Age of the last SUCCESSFUL poll. Keeping the last-known payload on a failed fetch is
   // right — during an outage it is the best picture in the room — but rendering it with no
@@ -129,7 +131,7 @@ function TokenStatusView({ token }: { token: string }) {
   if (!data) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
   }
