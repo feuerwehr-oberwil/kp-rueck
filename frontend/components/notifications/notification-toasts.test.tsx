@@ -15,7 +15,7 @@ import { DEFAULT_NOTIFICATION_SETTINGS } from "@/lib/types/notification"
 import type { Notification } from "@/lib/types/notification"
 
 const mocks = vi.hoisted(() => ({
-  toastCalls: [] as Array<{ level: string; options: Record<string, unknown> }>,
+  toastCalls: [] as Array<{ level: string; title: unknown; options: Record<string, unknown> }>,
   dismiss: vi.fn(),
   navigateToIncident: vi.fn(),
   dismissNotification: vi.fn(),
@@ -26,8 +26,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("sonner", () => {
   const record =
-    (level: string) => (_title: unknown, options: Record<string, unknown> = {}) => {
-      mocks.toastCalls.push({ level, options })
+    (level: string) => (title: unknown, options: Record<string, unknown> = {}) => {
+      mocks.toastCalls.push({ level, title, options })
       return level
     }
   const toast = Object.assign(record("message"), {
@@ -39,8 +39,10 @@ vi.mock("sonner", () => {
     message: record("message"),
     dismiss: mocks.dismiss,
   })
-  return { toast, Toaster: () => null }
+  return { toast }
 })
+// the lane itself (look, placement) has its own test — components/ui/sonner.test.tsx
+vi.mock("@/components/ui/sonner", () => ({ Toaster: () => null }))
 
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))
 
@@ -73,8 +75,8 @@ const fieldMessage = (overrides: Partial<Notification> = {}): Notification => ({
   ...overrides,
 })
 
-/** Mount the component and hand back the description of the single toast it fired. */
-function toastDescription(notification: Notification): unknown {
+/** Mount the component and hand back the single toast it fired. */
+function firedToast(notification: Notification) {
   mocks.notifications = [notification]
   render(
     <NextIntlClientProvider locale="de" messages={de}>
@@ -82,8 +84,11 @@ function toastDescription(notification: Notification): unknown {
     </NextIntlClientProvider>,
   )
   expect(mocks.toastCalls).toHaveLength(1)
-  return mocks.toastCalls[0].options.description
+  return mocks.toastCalls[0]
 }
+
+/** The message is the toast's title — no «Information» heading above it. */
+const toastMessage = (notification: Notification): unknown => firedToast(notification).title
 
 describe("NotificationToasts", () => {
   beforeEach(() => {
@@ -106,9 +111,9 @@ describe("NotificationToasts", () => {
 
   it("opens the incident on the Rapport tab when the message is clicked", () => {
     const notification = fieldMessage()
-    const description = toastDescription(notification)
+    const message = toastMessage(notification)
 
-    render(<>{description as ReactNode}</>)
+    render(<>{message as ReactNode}</>)
     fireEvent.click(screen.getByRole("button", { name: notification.message }))
 
     expect(mocks.navigateToIncident).toHaveBeenCalledWith("incident-1", "rapport")
@@ -117,14 +122,32 @@ describe("NotificationToasts", () => {
   })
 
   it("leaves the message as plain text when the notification carries no incident", () => {
-    expect(toastDescription(fieldMessage({ incident_id: undefined }))).toBe(
+    expect(toastMessage(fieldMessage({ incident_id: undefined }))).toBe(
       "Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer",
     )
   })
 
   it("leaves the message as plain text when no page is listening for the navigation", () => {
     mocks.canNavigateToIncident = false
-    expect(typeof toastDescription(fieldMessage())).toBe("string")
+    expect(typeof toastMessage(fieldMessage())).toBe("string")
+  })
+
+  it("leads with the message itself, the tone left to the glyph", () => {
+    const fired = firedToast(fieldMessage({ incident_id: undefined, severity: "warning" }))
+    expect(fired.level).toBe("warning")
+    expect(fired.title).toBe("Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer")
+    expect(fired.options.description).toBeUndefined()
+    // no fixed duration: the lifetime comes from the length (lib/toast-lifetime.ts)
+    expect(fired.options.duration).toBeUndefined()
+  })
+
+  it("keeps a critical one up with its heading, closed by its ✕ alone", () => {
+    const fired = firedToast(fieldMessage({ incident_id: undefined, severity: "critical" }))
+    expect(fired.level).toBe("error")
+    expect(fired.title).toBe("Kritische Warnung")
+    expect(fired.options.description).toBe("Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer")
+    expect(fired.options.duration).toBe(Infinity)
+    expect(fired.options.action).toBeUndefined()
   })
 
   it("silences a new-emergency notification once the board has overtaken it", () => {

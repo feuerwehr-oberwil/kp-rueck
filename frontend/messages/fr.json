@@ -233,6 +233,8 @@
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
+    "closeToast": "Fermer l’annonce",
+    "toastRegion": "Annonces",
     "redirecting": "Redirection …"
   },
   "display": {
@@ -2483,7 +2485,7 @@
       "geofenceAlertsLabel": "Arrivée par géorepérage",
       "geofenceAlertsHint": "Notification lorsqu’un véhicule arrive sur le lieu d’intervention (GPS). Le rayon d’arrivée se règle sous Réglages → GPS.",
       "toastDurationLabel": "Durée d’affichage (s)",
-      "toastDurationHint": "Combien de temps une annonce reste visible en incrustation (2–30 s). Les annonces critiques restent jusqu’à ce qu’on les ferme.",
+      "toastDurationHint": "Valeur de base 8 s : les annonces courtes disparaissent plus vite, les longues restent plus longtemps. Une valeur plus élevée les prolonge toutes dans la même proportion (2–30 s). Les annonces critiques restent jusqu’à ce qu’on les ferme.",
       "timeLimitsTitle": "Limites de temps par statut",
       "timeLimitsSubtitle": "L’avertissement apparaît lorsqu’une intervention reste plus longtemps qu’indiqué dans un statut.",
       "liveTab": "Mode réel",
@@ -2507,8 +2509,6 @@
     },
     "toasts": {
       "criticalTitle": "Avertissement critique",
-      "warningTitle": "Avertissement",
-      "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
       "overflowAction": "Ouvrir",

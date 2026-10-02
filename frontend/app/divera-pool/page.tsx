@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { toastLifetime } from '@/lib/toast-lifetime';
 import { Link2, RefreshCw, Check, Info, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
@@ -113,7 +114,7 @@ export default function DiveraPoolPage() {
           description: data.auto_attached
             ? t('autoAttached', { title: emergency.title })
             : emergency.title,
-          duration: 10000,
+          ...toastLifetime(10000),
         });
         playAlertSound();
         loadData();

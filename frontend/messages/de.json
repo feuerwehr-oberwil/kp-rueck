@@ -124,6 +124,8 @@
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
+    "closeToast": "Meldung schliessen",
+    "toastRegion": "Meldungen",
     "redirecting": "Wird weitergeleitet …"
   },
   "nav": {
@@ -2867,7 +2869,7 @@
       "geofenceAlertsLabel": "Geofence-Ankunft",
       "geofenceAlertsHint": "Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS). Der Ankunftsradius wird unter Einstellungen → GPS festgelegt.",
       "toastDurationLabel": "Anzeigedauer (Sek.)",
-      "toastDurationHint": "Wie lange eine Meldung als Einblendung sichtbar bleibt (2–30 Sek.). Kritische Meldungen bleiben, bis sie geschlossen werden.",
+      "toastDurationHint": "Grundwert 8 Sek.: Kurze Meldungen verschwinden schneller, lange bleiben länger. Ein höherer Wert verlängert alle im selben Verhältnis (2–30 Sek.). Kritische Meldungen bleiben, bis sie geschlossen werden.",
       "timeLimitsTitle": "Status-Zeitlimits",
       "timeLimitsSubtitle": "Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.",
       "liveTab": "Live-Modus",
@@ -2891,8 +2893,6 @@
     },
     "toasts": {
       "criticalTitle": "Kritische Warnung",
-      "warningTitle": "Warnung",
-      "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
       "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
       "overflowAction": "Öffnen",
