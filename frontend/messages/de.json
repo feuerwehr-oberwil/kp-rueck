@@ -118,7 +118,12 @@
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
-    "redirecting": "Wird weitergeleitet …"
+    "redirecting": "Wird weitergeleitet …",
+    "duration": {
+      "days": "{count, plural, one {# Tag} other {# Tage}}",
+      "hours": "{count, plural, one {# Stunde} other {# Stunden}}",
+      "minutes": "{count, plural, one {# Minute} other {# Minuten}}"
+    }
   },
   "nav": {
     "userMenu": {
@@ -265,8 +270,12 @@
       },
       "tooltips": {
         "start": "Startzeit des Einsatzes",
-        "column": "Zeit in diesem Status (seit {since})",
-        "total": "Zeit seit Alarmierung ({since})"
+        "column": "Zeit in diesem Status: {duration} (seit {since})",
+        "total": "Zeit seit Alarmierung: {duration} ({since})"
+      },
+      "a11y": {
+        "column": "Seit Statuswechsel {duration}, seit {since}",
+        "total": "Seit Alarmierung {duration}, seit {since}"
       }
     },
     "cardView": {
@@ -1115,7 +1124,8 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»"
+      "auftragLabel": "Auftrag «{name}»",
+      "durationDaysHours": "{days}d {hours}h"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",

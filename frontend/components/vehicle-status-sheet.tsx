@@ -17,6 +17,7 @@ import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { splitDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 
@@ -52,8 +53,14 @@ function formatDuration(minutes: number | null): string {
     return translateOutsideReact('incidents.vehicleStatus.durationMinutes', { minutes })
   }
 
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
+  // Shared split (lib/duration.ts): a vehicle out since yesterday reads
+  // «1d 10h», not «34h 12m».
+  const parts = splitDuration(minutes * 60_000)
+  if (parts.days > 0) {
+    return translateOutsideReact('incidents.vehicleStatus.durationDaysHours', { days: parts.days, hours: parts.hours })
+  }
+  const hours = Math.floor(parts.totalMinutes / 60)
+  const mins = parts.minutes
   return mins > 0
     ? translateOutsideReact('incidents.vehicleStatus.durationHoursMinutes', { hours, mins })
     : translateOutsideReact('incidents.vehicleStatus.durationHours', { hours })
