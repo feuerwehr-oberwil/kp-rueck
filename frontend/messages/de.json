@@ -1298,6 +1298,7 @@
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
+      "modesMenuLabel": "Modus",
       "modes": "Modus"
     },
     "planning": {
@@ -1325,8 +1326,8 @@
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
-      "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
-      "clickToExpand": "Klicken zum Erweitern",
+      "missingCoordsAria": "{count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
+      "missingCoordsChip": "{count} ohne Koordinaten",
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",

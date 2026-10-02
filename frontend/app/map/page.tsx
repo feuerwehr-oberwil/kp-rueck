@@ -1036,14 +1036,31 @@ export default function MapPage() {
               {/* No pill row any more: the list's section headings ARE the
                   status filter (they toggle the same `statusFilters`, list and
                   map together). View options and modes keep their own buttons
-                  below so the control families read apart. */}
-              <div className="flex flex-wrap gap-2 mb-4">
+                  below so the control families read apart.
+
+                  Phone: ONE row — the search plus the «Ansicht» menu, the same
+                  «search + one menu» shape as the assignment dialog's «Filtern».
+                  Three buttons above a separate search wrapped to two rows on a
+                  390px screen and ate a third of the list (owner, 02.10.2026).
+                  The two editor modes move into the Ansicht menu there: they are
+                  KP-desk tools, each swaps the whole list for its panel, and one
+                  extra tap is a fair price for a whole row of list. */}
+              <div className={isMobile ? 'flex items-center gap-2' : 'flex flex-wrap gap-2 mb-4'}>
+                {isMobile && (
+                  <SearchInput
+                    id="map-search-input"
+                    containerClassName="min-w-0 flex-1"
+                    placeholder={t('page.searchPlaceholder')}
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                  />
+                )}
                 {/* Ansicht — every map display option in one popover. The button
                     lights up subtly when any option differs from the defaults. */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 max-md:h-11 max-md:shrink-0 max-md:text-sm ${
                         !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority'
                           ? 'border-sel-edge bg-secondary/50 text-foreground'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
@@ -1140,6 +1157,21 @@ export default function MapPage() {
                         </div>
                       </>
                     )}
+                    {/* Phone: the two editor modes live here (see the row above). */}
+                    {isMobile && isEditor && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
+                          <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span className="flex-1">{t('page.routePlanning')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
+                          <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span className="flex-1">{t('rekoMode.title')}</span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -1147,7 +1179,7 @@ export default function MapPage() {
                     exactly two entries was a click to see two words. Both swap
                     the sidebar for their panel; same rounded-md so tools read
                     apart from filters. */}
-                {isEditor && (
+                {isEditor && !isMobile && (
                   <>
                     <button
                       className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
@@ -1167,14 +1199,16 @@ export default function MapPage() {
                 )}
               </div>
 
-              {/* Search bar */}
-              <SearchInput
-                id="map-search-input"
-                placeholder={t('page.searchPlaceholder')}
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                hint={!isMobile ? <Kbd>S</Kbd> : undefined}
-              />
+              {/* Search bar (desktop — the phone has it in the row above) */}
+              {!isMobile && (
+                <SearchInput
+                  id="map-search-input"
+                  placeholder={t('page.searchPlaceholder')}
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                  hint={<Kbd>S</Kbd>}
+                />
+              )}
               </div>
 
               {/* On mobile the fixed bottom navbar overlays the page, so pad the
@@ -1214,13 +1248,14 @@ export default function MapPage() {
                                   id={`map-incident-card-${incident.id}`}
                                   onClick={() => handleIncidentClick(incident.id)}
                                   onDoubleClick={() => handleDetailsClick(incident)}
+                                  // ONE selected state (A2): the slate wash, nothing else. It
+                                  // was a grey wash plus a 2px slate bar inset 4px top and
+                                  // bottom — two shapes that never lined up (owner, 02.10.).
                                   className={`group relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
-                                    isSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                                    isSelected ? 'bg-sel-wash' : 'hover:bg-muted/50'
                                   }`}
+                                  aria-current={isSelected ? 'true' : undefined}
                                 >
-                                  {isSelected && (
-                                    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-sel-line" />
-                                  )}
                                   <span
                                     className={`h-2 w-2 flex-shrink-0 rounded-full ${
                                       PRIORITY_DOT_CLASSES[(incident.priority ?? 'low') as Priority]

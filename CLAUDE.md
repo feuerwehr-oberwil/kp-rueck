@@ -392,6 +392,17 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   keeps the search and every tick), truly nothing (what would fill it), everything taken (a line
   above the spoken-for block, not a replacement). Title + one line + at most one action, no big
   icons; the repeated board columns keep their single grey sentence.
+- **Maps never rise above overlays.** Every map goes through `components/map/base-map.tsx`, whose
+  wrapper is `isolate`: markers (z up to 1000) and controls (z 2000) only compete inside the map.
+  Map chrome laid over a map from outside (chips, legend, fit-all) sits in a wrapper that is
+  `isolate` too. Never give map content a z-index meant for the page.
+- **MapLibre's worker is a served file**: `scripts/copy-maplibre-worker.mjs` copies it to
+  `public/maplibre/` (gitignored) before `dev`/`build`, and `base-map.tsx` calls `setWorkerUrl`.
+  Without it MapLibre 6 under webpack spawns the page as its worker – the basemap still draws,
+  but no GeoJSON layer loads and `load` never fires (no fit, pan, routes, lines, trails).
+- **Lagekarte labels on a phone** (`lib/map-labels.ts`, ≤767px or coarse pointer): no permanent
+  labels below zoom 16 – a tap shows the selected marker's label/card; from 16 on, only labels
+  that collide with no other label or dot. Desktop keeps every label.
 - **Search fields**: every «type to narrow this list» is `components/ui/search-input.tsx` – its
   ✕ is «Suche leeren» and keeps focus, it is ≥44px with 16px text on a phone or coarse pointer
   whatever `className` says, focus is the `Input` ring (no own ring), `count` is the optional

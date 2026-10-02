@@ -4,7 +4,9 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "build": "next build",
+    "predev": "node scripts/copy-maplibre-worker.mjs",
     "dev": "next dev",
     "lint": "eslint . --max-warnings 17",
     "lint:strict": "eslint . --max-warnings 0",
