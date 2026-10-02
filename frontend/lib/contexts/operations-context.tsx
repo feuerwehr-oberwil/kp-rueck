@@ -27,7 +27,21 @@ import {
   type RecentRemovals,
 } from "@/lib/recent-removals"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
-import { UpdateBatcher } from "@/lib/update-batcher"
+import { KeyedSerialQueue, UpdateBatcher } from "@/lib/update-batcher"
+import {
+  classifySaveFailure,
+  fieldSaveScope,
+  fieldSaveUser,
+  getFieldSaveScope,
+  isFieldSaveWatched,
+  isSavedTextField,
+  noteFieldEdit,
+  noteFieldSend,
+  noteFieldSettled,
+  setFieldSaveScope,
+  unsavedFieldDrafts,
+  type FieldSaveTicket,
+} from "@/lib/field-save"
 import { ReloadScheduler } from "@/lib/reload-scheduler"
 import { apiCoordinatesToTuple, coordinatesToApiFields, type IncidentCoordinates } from "@/lib/coordinate-parser"
 import { toMaterialOnSite } from "./operations/mapping"
@@ -358,8 +372,28 @@ const OperationsContext = createContext<OperationsContextType | undefined>(undef
 const BoardSyncStatusContext = createContext<BoardSyncStatus | undefined>(undefined)
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, user } = useAuth()
   const { selectedEvent, isEventLoaded } = useEvent()
+
+  // Text drafts belong to one operator in one Ereignis (lib/field-save). A
+  // different user — or a signed-out session — drops the previous one's.
+  const authUserId = isAuthenticated ? (user?.id ?? null) : null
+  useEffect(() => {
+    setFieldSaveScope(fieldSaveScope(authUserId, selectedEvent?.id))
+  }, [authUserId, selectedEvent?.id])
+
+  // A text that did not reach the server is only in this window: closing or
+  // reloading it loses the text, so the browser asks first.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (unsavedFieldDrafts().length === 0) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [])
 
   // Get personnel and materials from their dedicated contexts
   const { personnel, setPersonnel, refreshPersonnel } = usePersonnel()
@@ -409,6 +443,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // buffer PER incident (a single shared timer made rapid edits to two
   // different incidents silently drop the first one's PATCH).
   const updateBatcherRef = useRef<UpdateBatcher<Operation>>(new UpdateBatcher())
+  // …and one PATCH in flight per incident, in order — see KeyedSerialQueue.
+  const patchQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
   const criticalUpdateInProgress = useRef<boolean>(false)
   // Refcounted cooldown: every optimistic mutation takes a hold when it
   // starts and releases it (plus a grace period) when its request settles.
@@ -1172,6 +1208,19 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       ? { ...normalizedUpdates, statusChangedAt: new Date(), ...(clearsAmWarten ? { amWarten: false } : {}) }
       : normalizedUpdates
 
+    // Free-text fields report their own save state under the field
+    // (lib/field-save). Recorded here, in the one funnel, so the board card's
+    // inline edits and the detail's are the same edit to the same field.
+    if (isLoaded) {
+      for (const [key, value] of Object.entries(normalizedUpdates)) {
+        if (!isSavedTextField(key)) continue
+        noteFieldEdit(operationId, key, String(value ?? ''), String(currentOp?.[key] ?? ''))
+      }
+    }
+    // Whose edit this is. A write still queued when the session changes hands
+    // is dropped, never sent under the next operator's login.
+    const userAtEdit = fieldSaveUser(getFieldSaveScope())
+
     if (clearsAmWarten) {
       toast.info(translateOutsideReact('notifications.operations.amWartenClearedTitle'), {
         description: translateOutsideReact('notifications.operations.amWartenClearedDescription'),
@@ -1279,15 +1328,44 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           apiUpdates.source = batchedUpdates.source
         }
 
+        const textFields = Object.keys(batchedUpdates).filter(isSavedTextField)
+        // Only text fields, and their field is on screen: the failure is said
+        // there, with the text kept and a retry next to it — a toast on top
+        // would be the second red notice for one fact.
+        const failureShownAtField = () =>
+          textFields.length > 0 &&
+          Object.keys(batchedUpdates).every(isSavedTextField) &&
+          isFieldSaveWatched(operationId)
+        // Filled by the queued task — a holder, because TypeScript does not
+        // follow an assignment made inside the callback.
+        const sent: { ticket?: FieldSaveTicket } = {}
+
         try {
-          await apiClient.updateIncident(operationId, apiUpdates)
+          await patchQueueRef.current.run(
+            operationId,
+            async () => {
+              // Signed out (or somebody else signed in) while this sat in the
+              // debounce or behind an earlier PATCH: not this session's write.
+              // The scope change has already dropped the drafts it carried.
+              if (fieldSaveUser(getFieldSaveScope()) !== userAtEdit) return
+              sent.ticket = noteFieldSend(operationId, textFields)
+              await apiClient.updateIncident(operationId, apiUpdates)
+            },
+            // pagehide/visibility flush: leave now, the page may be gone
+            // before the request ahead of this one settles.
+            { jump: typeof document !== 'undefined' && document.visibilityState === 'hidden' },
+          )
+          if (sent.ticket) noteFieldSettled(sent.ticket, { ok: true })
           if (isReopeningOperation) await refreshOperations()
         } catch (err) {
           console.error("Failed to update operation:", err)
+          if (sent.ticket) noteFieldSettled(sent.ticket, { ok: false, reason: classifySaveFailure(err) })
           if (ApiError.isConflictError(err)) {
-            toast.info(translateOutsideReact('notifications.operations.conflictTitle'), {
-              description: translateOutsideReact('notifications.operations.conflictDescription')
-            })
+            if (!failureShownAtField()) {
+              toast.info(translateOutsideReact('notifications.operations.conflictTitle'), {
+                description: translateOutsideReact('notifications.operations.conflictDescription')
+              })
+            }
             await refreshOperations()
           } else if (batchedUpdates.status !== undefined) {
             // Status changes are usually drag-drops between columns. If the
@@ -1297,7 +1375,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
               description: translateOutsideReact('notifications.operations.statusNotChangedDescription'),
             })
             await refreshOperations()
-          } else {
+          } else if (!failureShownAtField()) {
             toast.error(translateOutsideReact('notifications.operations.updateFailedTitle'), { description: translateOutsideReact('notifications.operations.updateFailedDescription') })
           }
         } finally {

@@ -2070,6 +2070,32 @@
       "dispatchHint": "Vraiment un nouvel engagement ? « Engager à nouveau … » ouvre le dialogue complet avec message radio et alarme.",
       "dispatchAgain": "Engager à nouveau …",
       "confirm": "Corriger le statut"
+    },
+    "fieldSave": {
+      "saving": "Enregistrement …",
+      "savedAt": "Enregistré – {time}",
+      "failed": "Non enregistré.",
+      "failedBody": "{reason} – le texte reste ici.",
+      "reason": {
+        "network": "Pas de liaison avec le serveur",
+        "session": "La session a expiré",
+        "forbidden": "Pas d’autorisation pour cette modification",
+        "conflict": "L’intervention a été modifiée ailleurs entre-temps",
+        "rejected": "Le serveur a refusé la saisie",
+        "server": "Le serveur a signalé une erreur",
+        "unknown": "Erreur inconnue"
+      },
+      "serverNow": "Sur le serveur entre-temps : «{text}»",
+      "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
+      "retry": "Enregistrer à nouveau",
+      "copy": "Copier le texte",
+      "copied": "Copié",
+      "leave": {
+        "title": "Texte non enregistré",
+        "description": "{count, plural, one {{fields} n’a pas pu être enregistré} other {{fields} n’ont pas pu être enregistrés}}. Le texte reste conservé dans cette fenêtre jusqu’au rechargement de la page.",
+        "confirm": "Fermer quand même",
+        "cancel": "Retour à l’intervention"
+      }
     }
   },
   "login": {
