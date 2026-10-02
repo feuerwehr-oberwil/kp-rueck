@@ -20,6 +20,7 @@ import { getIncidentRefLabel } from "@/lib/incident-types"
 import { requestIncidentHighlight } from "@/lib/notification-highlight"
 import { cn } from "@/lib/utils"
 import { ArrowRight, ArrowUpRight, ChevronDown, ChevronRight, Layers } from "lucide-react"
+import { Reveal } from "@/components/ui/reveal"
 
 interface MaterialGroupBlockProps {
   group: MaterialGroup
@@ -122,8 +123,8 @@ export function MaterialGroupBlock({
       </button>
 
       {/* Expanded children */}
-      {expanded && (
-        <div className="px-1.5 pb-1.5 pt-1 space-y-1 border-t border-border/50">
+      <Reveal open={expanded} innerClassName="border-t border-border/50">
+        <div className="px-1.5 pb-1.5 pt-1 space-y-1">
           {materials.map((material) => (
             <ModuleMemberRow
               key={material.id}
@@ -138,7 +139,7 @@ export function MaterialGroupBlock({
             />
           ))}
         </div>
-      )}
+      </Reveal>
     </Card>
   )
 }

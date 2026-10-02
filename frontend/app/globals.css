@@ -34,6 +34,11 @@
   /* Corners (review step C2): 12px on every box, 8px on controls under 32px
      tall (`rounded-sm`: badges, kbd, h-5…h-7 chips), pills stay pills. */
   --radius: 0.75rem;
+  /* Disclosure motion (collapsibles, «▶ mehr» bodies, revealed notes): one
+     duration and one curve for all of them — components/ui/reveal.tsx and
+     the Radix CollapsibleContent below. */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --reveal-duration: 200ms;
   --sidebar: oklch(0.96 0 0);
   --sidebar-foreground: oklch(0.15 0 0);
   --sidebar-primary: oklch(0.45 0.18 25);
@@ -422,6 +427,33 @@
 }
 
 /* Micro-interactions for KP Rück */
+/* Radix Collapsible: slide its content open/closed (height + opacity) on the
+   height Radix measures for us. Radix keeps the content mounted until the
+   closing animation ends, so it does not vanish mid-slide. Instant under
+   reduced motion. */
+@keyframes collapsible-open {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+@keyframes collapsible-close {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+[data-slot="collapsible-content"] {
+  overflow: hidden;
+}
+[data-slot="collapsible-content"][data-state="open"] {
+  animation: collapsible-open var(--reveal-duration) var(--ease);
+}
+[data-slot="collapsible-content"][data-state="closed"] {
+  animation: collapsible-close var(--reveal-duration) var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="collapsible-content"][data-state] {
+    animation: none;
+  }
+}
+
 @layer utilities {
   /* Modal height scale. Two steps, not the eight ad-hoc vh values this
      replaced: `compact` for confirming something, `tall` for picking from a

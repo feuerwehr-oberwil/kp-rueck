@@ -36,6 +36,7 @@ import { FieldMessageThread } from "@/components/kanban/field-reports-row"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
+import { Reveal } from "@/components/ui/reveal"
 
 // Icons/labels/colors all sourced from the shared priority module.
 export const priorityVisuals: Record<
@@ -673,7 +674,9 @@ function DisclosureSection({
         <Icon className="h-4 w-4 shrink-0" />
         {label}
       </button>
-      {open && <div className="border-t border-border p-3">{children}</div>}
+      <Reveal open={open} innerClassName="border-t border-border">
+        <div className="p-3">{children}</div>
+      </Reveal>
     </div>
   )
 }

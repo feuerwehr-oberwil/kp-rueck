@@ -60,6 +60,7 @@ import { navigationUrl } from '@/lib/navigation'
 import { ApiError } from '@/lib/api/types/common'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
+import { Reveal } from '@/components/ui/reveal'
 
 /** `code` is the door (plan 26): the link alone opens nothing, so the page asks
  *  for the four digits before it can even show the picker. A device that has
@@ -1060,11 +1061,9 @@ function FeldSurface() {
           }`}
         />
       </button>
-      {materialExpanded && (
-        <div className="mt-3">
-          <FeldMaterialTable materials={materials} />
-        </div>
-      )}
+      <Reveal open={materialExpanded} innerClassName="pt-3">
+        <FeldMaterialTable materials={materials} />
+      </Reveal>
     </section>
   ) : null
 
