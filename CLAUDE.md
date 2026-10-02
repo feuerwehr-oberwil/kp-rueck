@@ -183,6 +183,14 @@ kp-rueck/
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
+- **Phone geometry (one source)**: `--kb-inset`, `--vv-height`, `--nav-reserve`, `--sheet-top`
+  and `html[data-kb]` are measured and published on `<html>` (contract in
+  `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard: a phone list under
+  the nav ends with `pb-nav-reserve`, a sheet's foot with `pb-sheet-safe` (a modal sheet covers
+  the nav — no nav reserve inside it), and anything fixed at the bottom stands on
+  `var(--kb-inset)`. A phone form goes in a bottom `SheetContent` (`SheetBody` scrolls, footer
+  stays) — it stands on the keyboard and gets grip + swipe-to-dismiss for free; the swipe closes
+  through `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`).
 - **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)
