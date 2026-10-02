@@ -5,7 +5,8 @@ import re
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,6 +43,22 @@ from ..websocket_manager import broadcast_incident_update, get_divera_poller_sta
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/divera", tags=["divera"])
+
+# What a failed read from Divera tells the CALLER. Fixed strings, never the exception: every
+# Divera request authenticates with `?accesskey=` in the URL, and httpx's `HTTPStatusError`
+# renders as "Client error '401 …' for url 'https://…?accesskey=<the key>'" — so `f"…{e}"` in a
+# 502 detail handed the station's access key to any editor's browser (and the audit of it).
+DIVERA_MEMBERS_UNAVAILABLE = "Failed to fetch members from Divera"
+DIVERA_GROUPS_UNAVAILABLE = "Divera-Gruppen konnten nicht geladen werden"
+
+
+def _upstream_error(e: Exception) -> str:
+    """A loggable account of a failed Divera read — the status or error type, never the URL."""
+    if isinstance(e, httpx.HTTPStatusError):
+        return f"HTTP {e.response.status_code}"
+    if isinstance(e, httpx.HTTPError):
+        return type(e).__name__
+    return str(e)  # our own ValueErrors ("success=false", "not configured") carry no URL
 
 
 # Type/priority inference lives in services.divera_intake so the webhook,
@@ -106,9 +123,17 @@ async def receive_divera_webhook(
             "auto_attached_incident_id": str(incident.id) if incident else None,
         }
 
-    except IntegrityError as e:
-        logger.error(f"Database integrity error: {e}")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists") from e
+    except IntegrityError:
+        # A concurrent delivery of the same alarm raced past the dedupe check above and won
+        # the unique `divera_id`. That is a duplicate, not a conflict: ack the winner exactly
+        # like the lookup would have, as FireHub and POST /api/alarms do. A 409 here made
+        # Divera log a failed delivery (and retry) for an alarm that is on the board.
+        await db.rollback()
+        if await divera_crud.get_divera_emergency_by_divera_id(db, payload.id):
+            logger.info("Concurrent Divera webhook ignored: ID %s", payload.id)
+            return {"status": "ok", "message": "Duplicate emergency ignored"}
+        logger.exception("Divera webhook hit an integrity error with no winner to ack: ID %s", payload.id)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists") from None
     except Exception as e:
         logger.error(f"Error processing Divera webhook: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing webhook") from e
@@ -185,6 +210,7 @@ async def attach_emergency_to_event(
     emergency_id: UUID,
     request_data: schemas.AttachEmergencyRequest,
     request: Request,
+    response: Response,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
@@ -192,22 +218,39 @@ async def attach_emergency_to_event(
     """
     Attach a Divera emergency to an Event by creating an Incident.
 
-    1. Fetches the Divera emergency
+    1. Fetches (and row-locks) the Divera emergency
     2. Verifies the Event exists
     3. Creates an Incident from the emergency data
-    4. Links the emergency to the Event and Incident
+    4. Links the emergency to the Event and Incident — in the same transaction as 3
     5. Broadcasts WebSocket update
+
+    Idempotent per event: attaching an alarm to the event it is already on answers 200 with
+    the incident it already made, instead of making a second one.
 
     Editor role required.
     """
-    # Get emergency
-    emergency = await divera_crud.get_divera_emergency_by_id(db, emergency_id)
+    # Locked, not just read: see crud.divera.lock_divera_emergency. A concurrent attach of the
+    # same alarm waits here until this one has committed its incident AND the link.
+    emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
     if not emergency:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera emergency not found")
 
-    # Prevent re-attachment to the same event
+    # Already on this event: hand back the card it made. This is the double click, or the
+    # second of two operators — both meant "put this alarm on that board", and it is there.
     if emergency.attached_to_event_id == request_data.event_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Emergency already attached to this event")
+        existing = (
+            await incidents_crud.get_incident(db, emergency.created_incident_id)
+            if emergency.created_incident_id
+            else None
+        )
+        if existing is None or existing.deleted_at is not None:
+            # Attached once, but the card has since been deleted: re-attaching to the same
+            # event stays refused, as it always was — that is a decision, not a double click.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Emergency already attached to this event"
+            )
+        response.status_code = status.HTTP_200_OK
+        return await incident_display.incident_with_display(db, existing)
 
     # Allow re-attachment to different events
 
@@ -238,7 +281,8 @@ async def attach_emergency_to_event(
         description_label_prefixes=await settings_service.get_alarm_description_label_prefixes(db),
     )
 
-    # Create the incident, carrying the alarm's provenance onto the board card
+    # Create the incident, carrying the alarm's provenance onto the board card. Not committed
+    # yet: the commit below releases the row lock, so incident and link land together.
     incident = await incidents_crud.create_incident(
         db=db,
         incident=incident_create,
@@ -246,9 +290,10 @@ async def attach_emergency_to_event(
         request=request,
         source=emergency.source or "divera",
         source_ref=emergency.source_id,
+        commit=False,
     )
 
-    # Link emergency to event and incident
+    # Link emergency to event and incident (commits both)
     try:
         await divera_crud.attach_emergency_to_event(
             db=db,
@@ -259,6 +304,7 @@ async def attach_emergency_to_event(
     except ValueError as e:
         logger.warning("Failed to attach emergency %s to event: %s", emergency_id, e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST) from e
+    await db.refresh(incident)
 
     # Convert to response schema
     incident_response = await incident_display.incident_with_display(db, incident)
@@ -296,14 +342,18 @@ async def bulk_attach_emergencies(
 
     created_incidents = []
     errors = []
+    # Read before the loop: a failed emergency rolls the session back (below), which expires
+    # every loaded object, and a lazy reload from async code is a MissingGreenlet.
+    event_is_training = event.training_flag
+    rolled_back = False
     # Read once, not per emergency — the station's description filters are the same for all.
     description_filters = await settings_service.get_alarm_description_filter_prefixes(db)
     description_labels = await settings_service.get_alarm_description_label_prefixes(db)
 
     for emergency_id in request_data.emergency_ids:
         try:
-            # Get emergency
-            emergency = await divera_crud.get_divera_emergency_by_id(db, emergency_id)
+            # Locked like the single attach — see crud.divera.lock_divera_emergency
+            emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
             if not emergency:
                 errors.append(f"Emergency {emergency_id} not found")
                 continue
@@ -317,7 +367,7 @@ async def bulk_attach_emergencies(
 
             # Simulated training alarms never become real incidents (the reverse
             # direction is allowed — see the note on the single-attach route)
-            if emergency.is_training and not event.training_flag:
+            if emergency.is_training and not event_is_training:
                 errors.append(f"Emergency {emergency_id}: Übungs-Alarm kann nur an eine Übung angehängt werden")
                 continue
 
@@ -336,21 +386,32 @@ async def bulk_attach_emergencies(
                 request=request,
                 source=emergency.source or "divera",
                 source_ref=emergency.source_id,
+                commit=False,
             )
 
-            # Link emergency
+            # Link emergency (commits incident and link together, releasing the lock)
             await divera_crud.attach_emergency_to_event(
                 db=db,
                 emergency_id=emergency_id,
                 event_id=request_data.event_id,
                 incident_id=incident.id,
             )
+            await db.refresh(incident)
 
             created_incidents.append(incident)
 
         except Exception as e:
             logger.error(f"Error attaching emergency {emergency_id}: {e}")
             errors.append(f"Emergency {emergency_id}: {e!s}")
+            # Drop this emergency's uncommitted incident (and its lock) — otherwise the NEXT
+            # emergency's commit would carry an unlinked card onto the board with it.
+            await db.rollback()
+            rolled_back = True
+
+    if rolled_back:
+        # The rollback expired the incidents committed before it; reload them explicitly.
+        for incident in created_incidents:
+            await db.refresh(incident)
 
     if errors:
         logger.warning(f"Bulk attach completed with errors: {errors}")
@@ -416,10 +477,10 @@ async def get_personnel_sync_preview(
     try:
         divera_members = await fetch_divera_members()
     except Exception as e:
-        logger.error(f"Failed to fetch Divera members: {e}")
+        logger.error("Failed to fetch Divera members: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch members from Divera: {e}",
+            detail=DIVERA_MEMBERS_UNAVAILABLE,
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
@@ -463,10 +524,10 @@ async def execute_personnel_sync(
     try:
         divera_members = await fetch_divera_members()
     except Exception as e:
-        logger.error(f"Failed to fetch Divera members: {e}")
+        logger.error("Failed to fetch Divera members: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch members from Divera: {e}",
+            detail=DIVERA_MEMBERS_UNAVAILABLE,
         ) from e
 
     existing = await personnel_crud.get_all_personnel(db)
@@ -769,10 +830,10 @@ async def list_divera_members(
     try:
         members = await fetch_divera_members()
     except Exception as e:
-        logger.error("Failed to fetch Divera members: %s", e)
+        logger.error("Failed to fetch Divera members: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch members from Divera: {e}",
+            detail=DIVERA_MEMBERS_UNAVAILABLE,
         ) from e
     members.sort(key=lambda m: m["name"].lower())
     return [schemas.DiveraMemberPreview(**m) for m in members]
@@ -794,10 +855,10 @@ async def list_divera_groups(
     try:
         groups = await fetch_divera_groups()
     except Exception as e:
-        logger.error("Failed to fetch groups from Divera: %s", e)
+        logger.error("Failed to fetch groups from Divera: %s", _upstream_error(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Divera-Gruppen konnten nicht geladen werden: {e}",
+            detail=DIVERA_GROUPS_UNAVAILABLE,
         ) from e
     return [schemas.DiveraGroupPreview(**g) for g in groups]
 
@@ -847,10 +908,10 @@ async def send_divera_message(
         try:
             known = {g["divera_id"]: g["name"] for g in await fetch_divera_groups()}
         except Exception as e:
-            logger.error("Failed to resolve Divera groups: %s", e)
+            logger.error("Failed to resolve Divera groups: %s", _upstream_error(e))
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Divera-Gruppen konnten nicht geladen werden: {e}",
+                detail=DIVERA_GROUPS_UNAVAILABLE,
             ) from e
         unknown = [gid for gid in request_data.group_ids if gid not in known]
         if unknown:

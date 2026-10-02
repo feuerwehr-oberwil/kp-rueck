@@ -129,22 +129,39 @@ class Backend:
         return result, -1, skipped
 
     def _cycle(self) -> None:
+        first_error: Exception | None = None
         for job in self.protocol.poll():
-            result, index, skipped = self._print_somewhere(job)
+            # Per job, not per cycle: an error while printing or reporting one job must not
+            # abandon the others this poll claimed — each would sit claimed until the backend
+            # gave up on it. (KP Rück now claims one per poll; the guard stays, because it is
+            # what keeps that property true for any protocol.) The first error is re-raised
+            # once the claimed jobs are through, so `run()` still backs off as before.
+            try:
+                self._handle(job)
+            except FatalError:
+                raise
+            except Exception as e:
+                log(f"[{self.name}] job {job.id}: WARN: {e}")
+                first_error = first_error or e
+        if first_error is not None:
+            raise first_error
 
-            if result.ok and index > 0:
-                # Printed, but not where it was supposed to. Both halves matter: where the
-                # paper is (somebody has to fetch it) and that the primary is down.
-                note = f"auf Ersatzdrucker gedruckt ({self.outputs[index].describe()}) — {skipped[0]}"
-                self.protocol.report(job.id, True, note=note)
-                log(f"[{self.name}] job {job.id}: printed on fallback #{index} — {'; '.join(skipped)}")
-            elif result.ok:
-                self.protocol.report(job.id, True)
-                log(f"[{self.name}] job {job.id}: printed")
-            else:
-                error = "; ".join(skipped) if len(skipped) > 1 else result.error
-                self.protocol.report(job.id, False, error, unreachable=result.unreachable)
-                log(f"[{self.name}] job {job.id}: FAILED — {error}")
+    def _handle(self, job) -> None:
+        result, index, skipped = self._print_somewhere(job)
+
+        if result.ok and index > 0:
+            # Printed, but not where it was supposed to. Both halves matter: where the
+            # paper is (somebody has to fetch it) and that the primary is down.
+            note = f"auf Ersatzdrucker gedruckt ({self.outputs[index].describe()}) — {skipped[0]}"
+            self.protocol.report(job.id, True, note=note)
+            log(f"[{self.name}] job {job.id}: printed on fallback #{index} — {'; '.join(skipped)}")
+        elif result.ok:
+            self.protocol.report(job.id, True)
+            log(f"[{self.name}] job {job.id}: printed")
+        else:
+            error = "; ".join(skipped) if len(skipped) > 1 else result.error
+            self.protocol.report(job.id, False, error, unreachable=result.unreachable)
+            log(f"[{self.name}] job {job.id}: FAILED — {error}")
 
     def run(self, stop: threading.Event, once: bool = False) -> None:
         log(f"[{self.name}] {self.describe()}")

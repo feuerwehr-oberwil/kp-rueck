@@ -771,6 +771,14 @@ async def complete_print_job(
     if not job:
         raise HTTPException(status_code=404, detail="Print job not found")
 
+    if job.status == update.status.value and job.status in ("completed", "failed"):
+        # A repeat of the report that already landed. The agent retries its completion report
+        # on a network error (tools/print-agent/protocols/rueck.py), and a lost RESPONSE looks
+        # exactly like a lost request from its side — so the first attempt may well have been
+        # recorded. Answer it as done, and change nothing: no second retry_count increment, no
+        # second toast in the operations room.
+        return job
+
     if job.status not in ("pending", "printing"):
         raise HTTPException(status_code=409, detail=f"Job cannot be completed (status: {job.status})")
 

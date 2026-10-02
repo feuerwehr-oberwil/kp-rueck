@@ -11,6 +11,7 @@ printer's refusal counts against the job.
 """
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -144,3 +145,43 @@ async def test_requeueing_stops_when_the_paper_would_be_pointless(db_session: As
     assert fresh.status == "pending", "a recent failure is still worth another printer"
     assert ancient.status == "failed", "an hour later nobody is waiting for this paper"
     assert MAX_PRINT_ATTEMPTS == 3, "the cap still governs failures the printer actually refused"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(
+    "report",
+    [
+        {"status": "completed", "error_message": None},
+        {"status": "failed", "error_message": "Papier leer"},
+    ],
+)
+async def test_a_repeated_report_is_answered_and_changes_nothing(
+    client: AsyncClient, agent_token_configured, claimed_job, report
+):
+    """The agent retries a report whose RESPONSE it lost — the first one may have landed.
+
+    Answering the repeat with 409 would make the agent log a failure for a job that is fine;
+    applying it twice would spend a second attempt on one refusal (and toast it twice).
+    """
+    url = f"/api/print/jobs/{claimed_job.id}/complete/"
+    first = await client.patch(url, headers=AGENT, json=report)
+    assert first.status_code == 200
+
+    with patch("app.api.print.broadcast_print_job_update", new_callable=AsyncMock) as broadcast:
+        again = await client.patch(url, headers=AGENT, json=report)
+
+    assert again.status_code == 200
+    assert again.json()["status"] == report["status"]
+    assert again.json()["retry_count"] == first.json()["retry_count"]
+    assert again.json()["completed_at"] == first.json()["completed_at"]
+    broadcast.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_contradicting_report_is_still_refused(client: AsyncClient, agent_token_configured, claimed_job):
+    """Only an identical repeat is idempotent; completed-then-failed stays a 409."""
+    url = f"/api/print/jobs/{claimed_job.id}/complete/"
+    assert (await client.patch(url, headers=AGENT, json={"status": "completed"})).status_code == 200
+    assert (await client.patch(url, headers=AGENT, json={"status": "failed"})).status_code == 409
