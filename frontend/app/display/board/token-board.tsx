@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiViewerData } from '@/lib/api-client'
+import { usePolling } from '@/lib/hooks/use-polling'
 import { Loader2, Eye, ChevronDown, ChevronRight } from 'lucide-react'
 import { DisplayStaleBanner } from '@/components/display/display-stale-banner'
 import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT } from '@/lib/kanban-utils'
@@ -187,15 +188,9 @@ export function TokenBoard({ token }: { token: string }) {
     }
   }, [token, t])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  useEffect(() => {
-    if (error) return
-    const interval = setInterval(loadData, 5000)
-    return () => clearInterval(interval)
-  }, [error, loadData])
+  // Unattended wall screen: never paused on visibility (see `usePolling`).
+  // An invalid link stops the loop — its first load already said so.
+  usePolling(loadData, { intervalMs: 5000, pauseWhenHidden: false, enabled: !error })
 
   // Detail dialog: rebuild the operation view-model (crew, materials, vehicles
   // from the payload's assignments) so tapping a card shows the full picture.

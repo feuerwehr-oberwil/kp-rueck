@@ -14,7 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ArrowDown, ArrowUp, CheckCircle2, XCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFnsLocale } from '@/lib/date-locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import type { SyncHistoryEntry } from '@/types/sync'
@@ -27,6 +27,7 @@ interface SyncHistoryCardProps {
 export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   const t = useTranslations('sync.history')
   const tCommon = useTranslations('sync.common')
+  const dateLocale = useDateFnsLocale()
   const [history, setHistory] = useState<SyncHistoryEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -105,7 +106,7 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
 
   const formatTimestamp = (timestamp: string) => {
     try {
-      return format(new Date(timestamp), 'dd.MM.yyyy HH:mm:ss', { locale: de })
+      return format(new Date(timestamp), 'dd.MM.yyyy HH:mm:ss', { locale: dateLocale })
     } catch {
       return tCommon('invalid')
     }

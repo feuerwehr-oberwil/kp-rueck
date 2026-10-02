@@ -402,6 +402,8 @@ export function ResourceAssignmentDialog({
       }
       return ranks
     }
+    // Ranks and categories are roster/inventory data: de-CH whatever the UI
+    // language, like every roster sort (see roster-order).
     return [...new Set(source)].sort((a, b) => a.localeCompare(b, 'de-CH'))
   }, [resourceType, selectablePersonnel, availableVehicles, selectableMaterials])
 
@@ -417,6 +419,7 @@ export function ResourceAssignmentDialog({
     }
     return [...byType.entries()]
       .map(([type, count]) => ({ type, count }))
+      // Inventory data — de-CH collation on purpose, as above.
       .sort((a, b) => a.type.localeCompare(b.type, 'de-CH'))
   }, [resourceType, selectableMaterials])
 

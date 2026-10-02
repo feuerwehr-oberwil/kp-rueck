@@ -45,6 +45,7 @@ interface MaterialsContextType {
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
   materialGroups: MaterialGroup[]
   isLoading: boolean
+  /** Same contract as `refreshPersonnel`: with skipStateUpdate a failed fetch rejects. */
   refreshMaterials: (options?: { skipStateUpdate?: boolean }) => Promise<Material[]>
   refreshMaterialGroups: () => Promise<void>
   /** Set or clear «Nicht einsatzbereit». The ONE write path for the flag on the
@@ -115,6 +116,10 @@ export function MaterialsProvider({ children }: { children: ReactNode }) {
             description: translateOutsideReact('notifications.materials.loadFailedDescription'),
           })
         }
+        // The board (skipStateUpdate) owns the state and must see the failure:
+        // an empty list here would read as «nobody checked in» and strip every
+        // crew off every card on the next reload.
+        if (options?.skipStateUpdate) throw error
         return []
       } finally {
         setIsLoading(false)

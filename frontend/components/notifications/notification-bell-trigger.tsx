@@ -1,6 +1,7 @@
 'use client'
 
 import { Bell } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -9,6 +10,7 @@ import { NotificationSidebar } from './notification-sidebar'
 import { cn } from '@/lib/utils'
 
 export function NotificationBellTrigger() {
+  const t = useTranslations('notifications.sidebar')
   const { unreadCount, toggleSidebar, isSidebarOpen } = useNotifications()
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
@@ -31,9 +33,9 @@ export function NotificationBellTrigger() {
         'relative h-9 w-9 md:h-10 md:w-10',
         isSidebarOpen && 'bg-muted'
       )}
-      aria-label={`Benachrichtigungen ${unreadCount > 0 ? `(${unreadCount} ungelesene)` : ''}`}
+      aria-label={t('bellAria', { unread: unreadCount > 0 ? t('bellUnread', { count: unreadCount }) : '' })}
       aria-pressed={isSidebarOpen}
-      title="Benachrichtigungen (B)"
+      title={t('bellTitle')}
     >
       <Bell className="size-4 md:size-5" />
       {unreadCount > 0 && (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useIntlLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Loader2, Binoculars, MapPin, Check } from 'lucide-react'
@@ -28,6 +29,7 @@ export default function RekoForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const t = useTranslations('reko.form')
+  const intlLocale = useIntlLocale()
 
   const incidentId = searchParams.get('incident_id')
   const token = searchParams.get('token')
@@ -478,7 +480,7 @@ export default function RekoForm() {
         ) : arrivedAt ? (
           <>
             <Check className="h-5 w-5" />
-            {t('arrivalReported', { time: arrivedAt.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}
+            {t('arrivalReported', { time: arrivedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }) })}
           </>
         ) : (
           <>
@@ -517,7 +519,7 @@ export default function RekoForm() {
               {lastSaved && (
                 <p className="text-sm">
                   {t('syncedAt', {
-                    time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+                    time: lastSaved.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
                   })}
                 </p>
               )}
@@ -530,7 +532,7 @@ export default function RekoForm() {
                 <p className="mt-0.5">
                   {lastSaved
                     ? t('unsentBody', {
-                        time: lastSaved.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
+                        time: lastSaved.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }),
                       })
                     : t('unsentBodyNever')}
                 </p>

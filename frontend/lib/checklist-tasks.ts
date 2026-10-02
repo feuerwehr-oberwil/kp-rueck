@@ -1,5 +1,4 @@
 import { LucideIcon, Binoculars, MessageCircle, Users, Truck, Package, Printer, Copy, LifeBuoy } from 'lucide-react'
-import { apiClient } from '@/lib/api-client'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { LAGEBLATT_AUTODOWNLOAD_KEY } from '@/lib/lageblatt'
 import { isBooleanRecord, readJson } from '@/lib/utils/safe-storage'
@@ -472,32 +471,48 @@ export function isTaskComplete(
 }
 
 /**
- * Fetch live state and summarise checklist completion using the SAME rules as
- * generateChecklistTasks (single source of truth). Used by the persistent
- * "Checkliste" badge so it stays live even when the popover is closed.
+ * The live facts every checklist row is judged on. They come off the board's own
+ * snapshot (`useChecklistFacts`) — the badge and the popover used to fetch all of
+ * this again every 5 s each, next to a board that already had it.
  */
-export async function summarizeEventChecklist(
-  eventId: string
-): Promise<{ completed: number; total: number; allComplete: boolean }> {
-  const [attendance, specialFunctions, vehicles, printerStatus, settings] = await Promise.all([
-    apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
-    apiClient.getEventSpecialFunctions(eventId).catch(() => []),
-    apiClient.getVehicles().catch(() => []),
-    apiClient.getPrinterStatus().catch(() => null),
-    apiClient.getAllSettings().catch(() => ({}) as Record<string, string>),
-  ])
+export interface ChecklistFacts {
+  checkedInPersonnel: number
+  specialFunctions: { function_type: string; vehicle_id: string | null }[]
+  vehicles: { id: string; name: string }[]
+  printerStatus: { enabled: boolean; agent_online: boolean } | null
+  settings: Record<string, string>
+}
 
-  const noop = () => {}
-  const tasks = generateChecklistTasks({
-    eventId,
-    checkedInPersonnel: attendance.personnel.filter((p) => p.checked_in).length,
+/** The counts `generateChecklistTasks` wants, derived from the facts in ONE place
+ *  so the badge and the popover cannot count differently. */
+export function checklistCounts(facts: ChecklistFacts) {
+  const { specialFunctions, vehicles, printerStatus, settings } = facts
+  return {
+    checkedInPersonnel: facts.checkedInPersonnel,
     totalVehicles: vehicles.length,
     driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
+    vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
     rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
     magazinStaff: specialFunctions.filter((f) => f.function_type === 'magazin').length,
     printerEnabled: printerStatus?.enabled ?? false,
     printerAgentOnline: printerStatus?.agent_online ?? false,
     fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
+  }
+}
+
+/**
+ * Summarise checklist completion using the SAME rules as generateChecklistTasks
+ * (single source of truth). Used by the persistent "Bereitschaft" badge so it
+ * stays live even when the popover is closed.
+ */
+export function summarizeChecklist(
+  eventId: string,
+  facts: ChecklistFacts
+): { completed: number; total: number; allComplete: boolean } {
+  const noop = () => {}
+  const tasks = generateChecklistTasks({
+    eventId,
+    ...checklistCounts(facts),
     onCopyCheckInLink: noop,
     onPrintCheckInLink: noop,
     onCopyAlarmLink: noop,
@@ -507,14 +522,13 @@ export async function summarizeEventChecklist(
     onTestPrint: noop,
     onOpenFallbackSettings: noop,
     onOpenVehicles: noop,
-    vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
     onOpenAttendance: noop,
     onOpenRekoPicker: noop,
   })
 
   // The station's own selection of steps — the badge must count what the
   // popover shows, so it is applied here too.
-  const visible = applyChecklistSettings(tasks, settings)
+  const visible = applyChecklistSettings(tasks, facts.settings)
 
   // Shares the validation used by the checklist component's reader, so a value
   // of the wrong shape can't crash one caller while the other shrugs it off.

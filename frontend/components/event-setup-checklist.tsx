@@ -19,13 +19,13 @@ import { MarkExistingRekoPersonnel } from '@/components/incidents/assign-reko-di
 import { useOperations } from '@/lib/contexts/operations-context'
 import type { Person } from '@/lib/contexts/personnel-context'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
+import { useChecklistFacts } from '@/lib/hooks/use-checklist-facts'
 import {
   generateChecklistTasks,
   applyChecklistSettings,
-  findVehiclesWithoutDriver,
+  checklistCounts,
   ChecklistTaskState,
   isTaskComplete,
-  isFallbackReady,
   checklistOverridesKey,
   resolveWhatsAppMessage,
   WHATSAPP_MESSAGE_1_KEY,
@@ -53,6 +53,9 @@ interface EventSetupChecklistProps {
   /** Opens the Reko picker (`RekoPickerDialog`). Owned by the page for the same
    *  unmount reason as the Divera dialog above. */
   onOpenRekoPicker?: () => void
+  /** A row was ticked or un-ticked by hand. Those overrides live in localStorage,
+   *  so the page's badge has no other way to hear about them. */
+  onOverridesChange?: () => void
 }
 
 export function EventSetupChecklist({
@@ -64,6 +67,7 @@ export function EventSetupChecklist({
   onOpenAttendance,
   onSendDiveraMessage,
   onOpenRekoPicker,
+  onOverridesChange,
 }: EventSetupChecklistProps) {
   const t = useTranslations('checklist.setup')
   const tPrint = useTranslations('print.toasts')
@@ -85,7 +89,7 @@ export function EventSetupChecklist({
   const diveraMessageAvailable = alertingConfigured && alertingEnabled
 
   // Which provider this station has, if any — configuration, not state, so it is
-  // asked once rather than on every five-second refresh of the rows.
+  // asked once rather than on every refresh of the rows.
   useEffect(() => {
     let cancelled = false
     apiClient
@@ -187,40 +191,26 @@ export function EventSetupChecklist({
       .catch(() => toast.error(t('copyError')))
   }
 
-  // Load checklist state
-  const loadChecklistState = useCallback(async () => {
+  // Checklist state, derived from the board's snapshot (see useChecklistFacts).
+  // It used to fetch five endpoints every 5 s for as long as the popover was
+  // open, next to a board that had all of it already.
+  const facts = useChecklistFacts()
+  useEffect(() => {
+    if (!facts) return
+    const { settings } = facts
     try {
-      setIsLoading(true)
-
-      const [attendance, specialFunctions, vehicles, settings, printerStatus] =
-        await Promise.all([
-          apiClient.getEventCheckInList(eventId).catch(() => ({ personnel: [] })),
-          apiClient.getEventSpecialFunctions(eventId).catch(() => []),
-          apiClient.getVehicles().catch(() => []),
-          apiClient.getAllSettings().catch(() => ({}) as Record<string, string>),
-          apiClient.getPrinterStatus().catch(() => null),
-        ])
-
       setWhatsappMessages({
         m1: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_1_KEY, DEFAULT_WHATSAPP_MESSAGE_1),
         m2: resolveWhatsAppMessage(settings, WHATSAPP_MESSAGE_2_KEY, DEFAULT_WHATSAPP_MESSAGE_2),
       })
 
-      // Read with the rest of the settings, which this poll refreshes anyway —
-      // the provider half is fetched once on mount (see the effect below).
+      // Read with the rest of the settings, which the board's snapshot refreshes
+      // anyway — the provider half is fetched once on mount (see the effect above).
       setAlertingEnabled(settings["alerting.enabled"] === "true")
 
       const updatedTasks = generateChecklistTasks({
         eventId,
-        checkedInPersonnel: attendance.personnel.filter((p) => p.checked_in).length,
-        totalVehicles: vehicles.length,
-        driverAssignments: specialFunctions.filter((f) => f.function_type === 'driver').length,
-        vehiclesWithoutDriver: findVehiclesWithoutDriver(vehicles, specialFunctions).length,
-        rekoOfficers: specialFunctions.filter((f) => f.function_type === 'reko').length,
-        magazinStaff: specialFunctions.filter((f) => f.function_type === 'magazin').length,
-        printerEnabled: printerStatus?.enabled ?? false,
-        printerAgentOnline: printerStatus?.agent_online ?? false,
-        fallbackReady: isFallbackReady(settings, printerStatus?.enabled ?? false),
+        ...checklistCounts(facts),
         onCopyCheckInLink: handleCopyCheckInLink,
         onPrintCheckInLink: handlePrintCheckInLink,
         onCopyAlarmLink: handleCopyAlarmLink,
@@ -259,13 +249,7 @@ export function EventSetupChecklist({
       setIsLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, onChecklistLoaded])
-
-  useEffect(() => {
-    loadChecklistState()
-    const interval = setInterval(loadChecklistState, 5000)
-    return () => clearInterval(interval)
-  }, [loadChecklistState])
+  }, [eventId, facts, onChecklistLoaded])
 
   // Load tick/un-tick overrides from localStorage
   useEffect(() => {
@@ -279,6 +263,7 @@ export function EventSetupChecklist({
     // Guarded: an unguarded setItem throws once localStorage is full, and this
     // runs in a click handler where the throw escapes React entirely.
     writeJson(checklistOverridesKey(eventId), next)
+    onOverridesChange?.()
   }
 
   // Derived progress (effective completion = override ?? auto-detected)

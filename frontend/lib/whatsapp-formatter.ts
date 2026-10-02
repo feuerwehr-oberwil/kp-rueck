@@ -139,6 +139,8 @@ export function formatWhatsAppMessage({
   auftrag,
   template,
 }: FormatWhatsAppMessageOptions): string {
+  // de-CH on purpose: this text goes to the crew's WhatsApp group, and the
+  // message template around it is German whatever this device's UI language.
   const timestamp = new Date().toLocaleString("de-CH", {
     day: "2-digit",
     month: "2-digit",

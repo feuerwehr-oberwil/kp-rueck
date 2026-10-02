@@ -22,6 +22,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { useTranslations } from 'next-intl'
+import { useIntlLocale } from '@/lib/date-locale'
 import { Check } from 'lucide-react'
 
 import {
@@ -126,6 +127,7 @@ export function IncidentTime({
   iconClassName,
 }: IncidentTimeProps) {
   const t = useTranslations('kanban.incidentTime')
+  const intlLocale = useIntlLocale()
   const { mode, setMode } = useIncidentTimeMode()
   useMinuteTick()
 
@@ -136,7 +138,7 @@ export function IncidentTime({
   const ageReference = incidentTimeReference(operation, 'column')
 
   const tooltip = t(`tooltips.${mode}`, {
-    since: incidentTimeReference(operation, mode).toLocaleString('de-CH'),
+    since: incidentTimeReference(operation, mode).toLocaleString(intlLocale),
   })
 
   // `lg` is for the detail header, where the chip is the primary read and the

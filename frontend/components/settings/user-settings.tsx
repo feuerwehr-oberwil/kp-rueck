@@ -48,6 +48,7 @@ import { Plus, Pencil, Key, UserX, UserCheck, Shield, User, Trash2, Loader2 } fr
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useTranslations } from 'next-intl';
+import { useIntlLocale } from '@/lib/date-locale';
 
 /** The three roles in the order the select offers them, with the label key each uses. */
 const ROLE_HINTS = [
@@ -80,6 +81,7 @@ function RoleHints() {
 
 export function UserSettings() {
   const t = useTranslations('settings');
+  const intlLocale = useIntlLocale();
   const { user: currentUser } = useAuth();
   const roleLabel = (role: string) =>
     role === 'admin' || role === 'editor' || role === 'viewer'
@@ -271,7 +273,7 @@ export function UserSettings() {
 
   const formatLastLogin = (lastLogin: string | null) => {
     if (!lastLogin) return t('users.never');
-    return new Date(lastLogin).toLocaleString('de-CH', {
+    return new Date(lastLogin).toLocaleString(intlLocale, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

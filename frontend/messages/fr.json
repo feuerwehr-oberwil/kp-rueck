@@ -2502,7 +2502,8 @@
       "emptyTitle": "Aucune notification active",
       "emptySubtitle": "Tout est en ordre",
       "dismissAria": "Fermer la notification",
-      "closePanel": "Fermer le panneau (B)"
+      "closePanel": "Fermer le panneau (B)",
+      "bellTitle": "Notifications (B)"
     },
     "card": {
       "severityCritical": "Critique",
