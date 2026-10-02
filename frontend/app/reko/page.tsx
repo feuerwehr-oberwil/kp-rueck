@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl'
 import RekoForm from '@/components/reko/reko-form'
 import { Button } from '@/components/ui/button'
 import { FeldIdentityBar, readFeldName } from '@/components/feld/feld-identity-bar'
-import { Loader2, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 
 export default function RekoPage() {
   const router = useRouter()
@@ -60,10 +61,11 @@ function RekoFormContent() {
 }
 
 function RekoFormSkeleton() {
+  const tLoading = useTranslations('common')
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     </div>
   )

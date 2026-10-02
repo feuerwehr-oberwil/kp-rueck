@@ -135,7 +135,7 @@ export function ToolbarOverflow({
       variant="ghost"
       className={cn(
         'px-2.5 transition-colors',
-        open ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground',
+        open ? 'bg-foreground/[0.09] text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
       title={moreTitle(overflow.length)}
       aria-label={moreTitle(overflow.length)}

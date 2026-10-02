@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { SearchInput } from '@/components/ui/search-input'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import { CheckCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
@@ -216,7 +217,9 @@ export default function CheckInPage() {
       {/* Personnel List */}
       <div className="max-w-2xl mx-auto space-y-2">
         {loading ? (
-          <div className="text-center py-8 text-muted-foreground">{t('loading')}</div>
+          <div className="flex justify-center py-8">
+            <LoadingStatus>{t('loading')}</LoadingStatus>
+          </div>
         ) : filteredPersonnel.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {t('noneFound')}

@@ -31,7 +31,6 @@ import {
   CircleAlert,
   FileText,
   Flag,
-  Loader2,
   MapPin,
   MessageSquare,
   RotateCcw,
@@ -44,6 +43,7 @@ import { apiClient, type ApiFeldAssignment, type ApiFieldReportState } from '@/l
 import { deliveryReducer, IDLE, isBusy, type FeldActionKind } from '@/lib/feld-delivery'
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
 import { rapportApplies } from '@/lib/rapport-visibility'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /**
  * Which follow-up panel is open. Exactly one at a time, so the phone never
@@ -282,7 +282,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
       {vehiclesOnSite.length > 0 ? (
         <div className="grid grid-cols-1 gap-2">
           <Button size="lg" disabled={busy} onClick={() => handlePickup(false)}>
-            {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
+            {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
             {tPickup('selfReturn')}
           </Button>
           <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(true)}>
@@ -295,7 +295,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
             {tPickup('selfReturn')}
           </Button>
           <Button size="lg" disabled={busy} onClick={() => handlePickup(true)}>
-            {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
+            {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
             {tPickup('needPickup')}
           </Button>
         </div>
@@ -316,15 +316,15 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
             const confirmOpen = panel === confirmPanelFor[step.key]
             return (
               <li key={step.key} className="relative flex items-start gap-2.5">
-                {/* Marker: emerald = done, red = the step owed now (same red
-                    as the button it points at), hollow grey = later. */}
+                {/* Marker: emerald = done, ink = the step owed now (same ink
+                    as the main button it points at), hollow grey = later. */}
                 <span
                   aria-hidden
                   className={`relative z-10 mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
                     step.done
                       ? 'border-emerald-500 bg-emerald-500 text-white'
                       : isCurrent
-                        ? 'border-primary bg-primary'
+                        ? 'border-action bg-action'
                         : 'border-border bg-secondary'
                   }`}
                 >
@@ -367,7 +367,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
                         onClick={step.key === 'arrived' ? handleArrived : handleComplete}
                       >
                         {isBusy(delivery, step.key === 'arrived' ? 'arrived' : 'complete') && (
-                          <Loader2 className="size-4 animate-spin" />
+                          <ShellLoader className="size-4" />
                         )}
                         {step.key === 'arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
                       </Button>
@@ -387,7 +387,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
                         onClick={() => setPanel(confirmPanelFor[step.key])}
                       >
                         {isBusy(delivery, step.key === 'arrived' ? 'arrived' : 'complete') ? (
-                          <Loader2 className="size-4 animate-spin" />
+                          <ShellLoader className="size-4" />
                         ) : step.key === 'arrived' ? (
                           <MapPin className="size-4" />
                         ) : (
@@ -430,7 +430,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
       <div aria-live="polite" role="status">
         {delivery.status === 'pending' && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 shrink-0 animate-spin" />
+            <ShellLoader className="size-4 shrink-0" />
             {t('sending', { label: delivery.label })}
           </p>
         )}
@@ -555,7 +555,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
             className="text-sm"
           />
           <Button size="lg" className="w-full" disabled={busy} onClick={() => handlePickup(true)}>
-            {isBusy(delivery, 'pickup') && <Loader2 className="size-4 animate-spin" />}
+            {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
             {pickupNeeded ? tPickup('updateNote') : tPickup('needPickup')}
           </Button>
         </div>
@@ -604,7 +604,7 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
               disabled={busy || !message.trim()}
               onClick={() => handleMessage(message)}
             >
-              {isBusy(delivery, 'message') ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
             </Button>
           </div>
         </div>

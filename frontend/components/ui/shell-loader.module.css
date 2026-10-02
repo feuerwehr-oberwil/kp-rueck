@@ -1,0 +1,21 @@
+/* The trail that runs along the snail's shell spiral (see shell-loader.tsx).
+   Only the motion lives here; size, colour and layout are Tailwind classes at the
+   call site, so a button's own icon sizing (`[&_svg]:size-4`) still applies. */
+.trail {
+  stroke-dasharray: 36 64;
+  animation: shell-trail 2.4s linear infinite;
+}
+
+@keyframes shell-trail {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* Static under reduced motion: the faint spiral plus a still segment of the
+   trail. The words next to it carry the message either way. */
+@media (prefers-reduced-motion: reduce) {
+  .trail {
+    animation: none;
+  }
+}

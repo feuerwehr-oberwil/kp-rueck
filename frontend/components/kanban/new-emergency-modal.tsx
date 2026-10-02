@@ -20,12 +20,19 @@
  * three bare icons. Rows carry no hairlines anywhere since the «Nur Abstand»
  * pick — the boxes and the whitespace do the separating. Same grammar,
  * different skin.
+ *
+ * ON A PHONE the rows stack (`stacked`): label above, control full width, switches
+ * label-left / switch-right — the grammar of every other phone form. The row's 120px
+ * label column left a 390px phone ~200px of control and read as a table. A field's
+ * message then sits full width under its control as well.
  */
 
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -52,6 +59,7 @@ export function NewEmergencyModal({
   defaultGroupId = null,
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')
+  const isMobile = useIsMobile()
   const [formData, setFormData] = useState({
     location: "",
     incidentType: "elementarereignis",
@@ -161,22 +169,9 @@ export function NewEmergencyModal({
     onOpenChange(false)
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
-          so a bare `max-w-*` loses to it at desktop widths and the form gets
-          crushed into ~440px — clipped selects, icon-only Einsatzort. */}
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-primary" />
-            <DialogTitle>{t('common.newIncident')}</DialogTitle>
-          </div>
-          <DialogDescription>
-            {t('newEmergency.description')}
-          </DialogDescription>
-        </DialogHeader>
-
+  // The form itself — the same rows in both shapes below.
+  const fields = (
+    <>
         {/* ONE column: the eight rows fit a laptop's height with room to spare,
             and a single reading direction beats filling width for its own sake —
             a second column made the eye jump mid-form. Was ist passiert first
@@ -189,7 +184,8 @@ export function NewEmergencyModal({
               address={formData.location}
               latitude={formData.coordinates?.[0] ?? null}
               longitude={formData.coordinates?.[1] ?? null}
-              dense
+              // phone: LocationInput's own stacked layout (label above), the /feld one
+              dense={!isMobile}
               boxed
               required
               onAddressChange={(address) => {
@@ -206,12 +202,12 @@ export function NewEmergencyModal({
               error={showLocationError}
             />
             {showLocationError && (
-              <p className={`${DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
+              <p className={`${isMobile ? "mt-1" : DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
                 {t('newEmergency.locationError')}
               </p>
             )}
 
-            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart stacked={isMobile}>
               <Textarea
                 id="notes"
                 placeholder={t('common.meldungPlaceholder')}
@@ -224,7 +220,7 @@ export function NewEmergencyModal({
 
             {/* One per line, Einsatzart and Priorität included: two half-width
                 controls sharing a row is how «Mittel» gets read as the Einsatzart. */}
-            <DetailField label={t('common.einsatzart')} htmlFor="incidentType">
+            <DetailField label={t('common.einsatzart')} htmlFor="incidentType" stacked={isMobile}>
               <Select
                 value={formData.incidentType}
                 onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
@@ -242,7 +238,7 @@ export function NewEmergencyModal({
               </Select>
             </DetailField>
 
-            <DetailField label={t('common.priority')} htmlFor="priority">
+            <DetailField label={t('common.priority')} htmlFor="priority" stacked={isMobile}>
               <Select
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
@@ -268,6 +264,7 @@ export function NewEmergencyModal({
               `DetailToggle`, as the Übersicht tab. The explanatory sentence under
               each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
+              stacked={isMobile}
 
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
@@ -278,6 +275,7 @@ export function NewEmergencyModal({
               }
             />
             <DetailToggle
+              stacked={isMobile}
 
               label={t('common.feldReported')}
               description={t('common.feldReportedDescription')}
@@ -288,7 +286,7 @@ export function NewEmergencyModal({
               }
             />
 
-            <DetailField label={t('common.contact')} htmlFor="contact">
+            <DetailField label={t('common.contact')} htmlFor="contact" stacked={isMobile}>
               <Input
                 id="contact"
                 placeholder={t('common.contactPlaceholder')}
@@ -297,7 +295,7 @@ export function NewEmergencyModal({
               />
             </DetailField>
 
-            <DetailField label={t('common.contactPhone')} htmlFor="contact-phone">
+            <DetailField label={t('common.contactPhone')} htmlFor="contact-phone" stacked={isMobile}>
               <Input
                 id="contact-phone"
                 type="tel"
@@ -313,19 +311,74 @@ export function NewEmergencyModal({
             </p>
         </div>
 
+    </>
+  )
+
+  const cancelButton = (
+    <Button variant="outline" onClick={() => onOpenChange(false)}>
+      {t('common.cancel')}
+    </Button>
+  )
+  const createButton = (
+    <Button
+      onClick={handleSubmit}
+      disabled={!formData.location}
+      className="hover-delight"
+    >
+      <Plus className="h-4 w-4" />
+      {t('newEmergency.create')}
+    </Button>
+  )
+
+  // PHONE: a bottom sheet standing on the keyboard's edge (ui/sheet.tsx → `--kb-inset`), the
+  // rows in their own scroll area and «Abbrechen» / «Einsatz erstellen» in a footer that stays
+  // above the keys. The centred 90vh dialog this replaces kept its buttons — and with the
+  // autofocused Einsatzort, the keyboard — at the bottom of the whole screen: whoever wanted to
+  // create the Einsatz had to put the keyboard away first. Swiping it down closes it like the
+  // ✕ does; what was typed stays in this component's state for the next open, as before.
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl">
+          <SheetHeader className="px-4 pt-5 pb-2 pr-12">
+            <div className="flex items-center gap-3">
+              <Plus className="h-6 w-6 text-primary" />
+              <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
+            </div>
+            <SheetDescription>{t('newEmergency.description')}</SheetDescription>
+          </SheetHeader>
+          <SheetBody className="px-4">{fields}</SheetBody>
+          <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
+            {cancelButton}
+            {createButton}
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
+          so a bare `max-w-*` loses to it at desktop widths and the form gets
+          crushed into ~440px — clipped selects, icon-only Einsatzort. */}
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <Plus className="h-6 w-6 text-primary" />
+            <DialogTitle>{t('common.newIncident')}</DialogTitle>
+          </div>
+          <DialogDescription>
+            {t('newEmergency.description')}
+          </DialogDescription>
+        </DialogHeader>
+
+        {fields}
+
         {/* Actions — Abbrechen left, primary right, like every other dialog. */}
         <DialogFooter className="pt-1">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!formData.location}
-            className="hover-delight"
-          >
-            <Plus className="h-4 w-4" />
-            {t('newEmergency.create')}
-          </Button>
+          {cancelButton}
+          {createButton}
         </DialogFooter>
       </DialogContent>
     </Dialog>

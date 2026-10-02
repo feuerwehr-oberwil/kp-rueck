@@ -83,6 +83,18 @@ const nextConfig = {
 
   // Webpack config to improve CSS hot reload stability
   webpack: (config, { dev }) => {
+    // `import svg from '…svg?raw'` → the file's text (types/svg-raw.d.ts). Only the shared
+    // loading snail uses it: it is the byte-identical copy of KP Front's mascot, and the
+    // boot screen needs it inline. Next's own image loader also claims `.svg`, so it is
+    // told to leave `?raw` alone; both rules applying would hand webpack a JS module as
+    // the "source". The rule has no `test` on purpose — Next treats a custom rule whose
+    // `test` matches `.svg` as an SVGR setup and drops `.svg` from its image loader.
+    const imageRule = config.module.rules.find(
+      (rule) => rule && typeof rule === 'object' && rule.loader === 'next-image-loader',
+    )
+    if (imageRule?.resourceQuery?.not) imageRule.resourceQuery.not.push(/raw/)
+    config.module.rules.push({ resourceQuery: /raw/, type: 'asset/source' })
+
     if (dev) {
       // Increase CSS chunk buffer to prevent 404s during hot reload
       config.optimization.splitChunks = {

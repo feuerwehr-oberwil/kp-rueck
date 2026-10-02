@@ -20,7 +20,8 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import { useTranslations } from "next-intl"
-import { AlertCircle, Check, Copy, Loader2, RotateCcw } from "lucide-react"
+import { AlertCircle, Check, Copy, RotateCcw } from "lucide-react"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 import { Button } from "@/components/ui/button"
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
@@ -128,7 +129,7 @@ export function FieldSaveStatus({
   if (entry.status === "pending" || entry.status === "saving") {
     return (
       <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
-        <Loader2 className="size-3 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        <ShellLoader className="size-4" />
         {t("saving")}
       </p>
     )

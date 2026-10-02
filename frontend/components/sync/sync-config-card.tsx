@@ -20,14 +20,16 @@ import {
   SettingRow,
 } from '@/components/settings/setting-row'
 import { SettingUnavailableNote } from '@/components/settings/setting-unavailable'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { apiClient } from '@/lib/api-client'
 import type { SyncConfig } from '@/types/sync'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 export function SyncConfigCard() {
   const t = useTranslations('sync.config')
+  const tLoading = useTranslations('common')
   const [config, setConfig] = useState<SyncConfig | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -98,7 +100,7 @@ export function SyncConfigCard() {
     <SettingCard title={t('title')} subtitle={t('subtitle')}>
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin" />
+          <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
         </div>
       ) : config?.is_production ? (
         /* Kein Formular, sondern die eine Auskunft, warum es hier keines gibt — im
@@ -198,7 +200,7 @@ export function SyncConfigCard() {
             <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
               {isSaving ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <ShellLoader className="size-4" />
                   {t('saving')}
                 </>
               ) : (

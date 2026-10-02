@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, Check, Copy, Loader2, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
+import { AlertTriangle, Check, Copy, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -68,6 +68,7 @@ import {
   toUpdate,
   type RapportFormData,
 } from '@/lib/rapport-draft'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 /**
  * The only thing that differs between the two mounts.
@@ -185,6 +186,7 @@ function formatDateTime(value: string | null): string {
 
 export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
+  const tLoading = useTranslations('common')
   const isKp = mount === 'kp'
 
   const [rapport, setRapport] = useState<ApiSchadenplatzRapport | null>(null)
@@ -528,7 +530,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
   }
@@ -910,7 +912,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             </div>
             {dirty && !readOnly && (
               <Button type="button" className="w-full" disabled={isSubmitting} onClick={handleSubmit}>
-                {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                {isSubmitting ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
                 {t('sendChanges')}
               </Button>
             )}
@@ -925,7 +927,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             // asking again there would ask about gaps that were a decision.
             onClick={() => (emptySections.length > 0 ? setConfirmGaps(true) : void handleSubmit())}
           >
-            {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            {isSubmitting ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
             {t('submit')}
           </Button>
         )}

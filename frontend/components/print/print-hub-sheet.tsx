@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { ClipboardList, FileSpreadsheet, FileText, LifeBuoy, Loader2, Printer, ReceiptText } from "lucide-react"
+import { ClipboardList, FileSpreadsheet, FileText, LifeBuoy, Printer, ReceiptText } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { PrintView, type PrintAuftrag, type PrintOptions } from "./print-view"
@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/contexts/auth-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import { apiClient, type ApiPersonnelListItem, type ApiVehicle } from "@/lib/api-client"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 /** What the thermal board snapshot contains. Sent to `POST /print/board`. */
 export interface ThermoPrintOptions {
@@ -310,7 +311,7 @@ export function PrintHubSheet({
                     disabled={isThermoPrinting}
                   >
                     {isThermoPrinting ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <ShellLoader className="size-3.5" />
                     ) : (
                       <Printer className="size-3.5" />
                     )}
@@ -372,7 +373,7 @@ export function PrintHubSheet({
                     {printReady || mapFailed ? (
                       <Printer className="size-3.5" />
                     ) : (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <ShellLoader className="size-3.5" />
                     )}
                     {printReady || mapFailed ? t("common.print") : t("map.loading")}
                   </Button>
@@ -438,7 +439,7 @@ export function PrintHubSheet({
                     disabled={!selectedEvent || exporting !== null}
                   >
                     {exporting === kind ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <ShellLoader className="size-3.5" />
                     ) : (
                       <Icon className="size-3.5" />
                     )}

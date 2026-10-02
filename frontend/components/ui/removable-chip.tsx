@@ -217,7 +217,7 @@ function ChipWithMenu({
         className={cn(
           "group relative transition-[color,box-shadow]",
           className,
-          open && "ring-2 ring-primary/50",
+          open && "ring-2 ring-foreground/30",
         )}
         title={title}
         role="button"

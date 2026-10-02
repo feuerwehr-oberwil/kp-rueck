@@ -229,7 +229,7 @@ function BoardDisplay() {
             >
               <span aria-hidden className={cn("h-0.5 w-full", accent?.dot)} />
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                 {ops.length}
                 {hasAlarm && (
                   <span
@@ -296,7 +296,7 @@ function BoardDisplay() {
                     className="h-2 w-2 flex-shrink-0 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
                   />
                 )}
-                <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-md bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+                <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                   {ops.length}
                 </span>
               </div>

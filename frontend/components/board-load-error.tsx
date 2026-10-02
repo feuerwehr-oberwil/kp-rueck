@@ -5,8 +5,8 @@ import { useTranslations } from "next-intl"
 import { CloudOff, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { cn } from "@/lib/utils"
 
 /**
  * What the board area shows when the board has NEVER loaded (`boardNeverLoaded`:
@@ -55,7 +55,7 @@ export function BoardLoadErrorPanel() {
         </h2>
         <p className="text-sm text-muted-foreground">{t("body")}</p>
         <Button className="mt-2" onClick={retry} disabled={retrying}>
-          <RefreshCw className={cn(retrying && "animate-spin")} aria-hidden="true" />
+          {retrying ? <ShellLoader /> : <RefreshCw aria-hidden="true" />}
           {t("retry")}
         </Button>
       </section>

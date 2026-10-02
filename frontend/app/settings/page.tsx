@@ -1065,7 +1065,7 @@ export default function SettingsPage() {
                             }`}
                           >
                             {selected && (
-                              <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary" />
+                              <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-sel-line" />
                             )}
                             {isFirstOfSection && (
                               <span className="flex items-center gap-2 pb-0.5 text-[11px] font-medium text-muted-foreground">
@@ -1164,8 +1164,8 @@ export default function SettingsPage() {
           )}
 
           {/* Content area – min-h-0 so it scrolls inside the flex column on
-              mobile; extra bottom padding so content clears the bottom nav. */}
-          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6">
+              mobile; `pb-nav-reserve` so the end clears the bottom nav by its measured height. */}
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 pb-nav-reserve md:p-6 md:pb-6">
             {/* Form sections keep a reading width; the four resource LISTS get
                 the whole screen — a five-column table squeezed to 896px on a
                 1920 board while half the page stood empty was the opposite of

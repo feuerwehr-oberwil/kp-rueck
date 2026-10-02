@@ -10,7 +10,7 @@
 import { Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -19,6 +19,7 @@ import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useEvent } from '@/lib/contexts/event-context'
 import { RoleBadge } from '@/components/auth/role-badge'
+import { useNavReserve } from '@/components/viewport-insets'
 
 interface MobileBottomNavigationProps {
   currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
@@ -48,6 +49,10 @@ export function MobileBottomNavigation({
   const router = useRouter()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [tapAnimation, setTapAnimation] = useState<string | null>(null)
+  // Publishes this bar's measured height as `--nav-reserve` — the one number every phone list
+  // pads its end by (`pb-nav-reserve`) and the toast lane clears.
+  const navRef = useRef<HTMLElement>(null)
+  useNavReserve(navRef)
 
   // Other active events the operator can quick-switch to (mobile has no top bar,
   // so event switching lives here in the bottom nav).
@@ -90,6 +95,7 @@ export function MobileBottomNavigation({
 
   return (
     <nav
+      ref={navRef}
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-sm md:hidden"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom, 0px)'
@@ -107,7 +113,7 @@ export function MobileBottomNavigation({
               onClick={() => !tab.disabled && handleTap(tab.id)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] rounded-lg transition-all touch-manipulation",
-                isActive && "text-primary scale-105",
+                isActive && "bg-foreground/[0.09] text-foreground scale-105",
                 !isActive && "text-muted-foreground hover:text-foreground",
                 tab.disabled && "opacity-40 pointer-events-none",
                 tapAnimation === tab.id && "animate-bounce-tap",
@@ -135,7 +141,7 @@ export function MobileBottomNavigation({
               onClick={() => handleTap('more')}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] rounded-lg transition-all touch-manipulation",
-                (currentPage === 'settings' || currentPage === 'help') && "text-primary scale-105",
+                (currentPage === 'settings' || currentPage === 'help') && "bg-foreground/[0.09] text-foreground scale-105",
                 (currentPage !== 'settings' && currentPage !== 'help') && "text-muted-foreground hover:text-foreground",
                 tapAnimation === 'more' && "animate-bounce-tap"
               )}
@@ -152,10 +158,8 @@ export function MobileBottomNavigation({
             // `animation-name` non-`none` on the *closed* sheet — which is exactly
             // what makes Radix's Presence hold the dismissed panel mounted (and
             // hit-testable) for another ~150ms. Measured; the entrance is unchanged.
-            className="modal-h-tall overflow-y-auto px-6"
-            style={{
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)'
-            }}
+            // It covers the nav, so its foot only pays the safe area (`pb-sheet-safe`).
+            className="modal-h-tall overflow-y-auto px-6 pb-sheet-safe"
           >
             <SheetHeader className="mb-4 -mx-6 px-6 pb-3 border-b">
               <SheetTitle>{t('moreFunctions')}</SheetTitle>
