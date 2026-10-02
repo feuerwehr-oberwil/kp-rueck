@@ -908,12 +908,13 @@
   }
 }
 
-/* The boot snail handed over by the Microsoft callback (lib/snail-clock.ts): until the
-   client lifts its pause, a server-rendered snail stands instead of holding at its arrival's
-   first frame (off-screen left) — it continues the previous document's snail, which already
-   arrived. All of its animations off = the drawing at rest, speed lines hidden. */
-html[data-snail='standing'] .firefighter-snail.snail-paused,
-html[data-snail='standing'] .firefighter-snail.snail-paused * {
+/* The boot snail handed over by the Microsoft callback (lib/snail-clock.ts): it continues
+   the previous document's snail, which already arrived, so from the first paint it stands
+   instead of starting a second arrival. All of its animations off = the drawing at rest,
+   speed lines hidden. The client drops the attribute and sets the clock before the next
+   paint. */
+html[data-snail='standing'] .firefighter-snail,
+html[data-snail='standing'] .firefighter-snail * {
   animation: none !important;
 }
 

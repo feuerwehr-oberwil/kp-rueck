@@ -2,8 +2,10 @@
  * One animation clock for every boot snail of a launch (KP Front's rule, lib/snailLaunch.ts
  * there: the arrival is shown ONCE, a later stage never replays it).
  *
- * Within one document a module variable is enough: the first snail starts the clock, a
- * snail mounted later (another boot stage, a remount) continues from there. A launch can
+ * The first snail of a launch IS the clock: it is server-rendered and starts its arrival at
+ * the first paint, and hydration adopts that running SVG untouched — the clock is read off
+ * its arrival animation (how far it has run), never imposed on it. A snail mounted later
+ * (another boot stage, a remount) is set to that clock instead of starting over. A launch can
  * also span two documents: the Microsoft callback redeems the code behind the snail and
  * then does a full page load of the app (it must — see app/auth/callback/page.tsx), whose
  * own start screen mounts a NEW snail in a NEW document. Without help that one drove in a
@@ -13,11 +15,12 @@
  * sessionStorage. Only an explicit handover counts, and only for a few seconds: a reload
  * the user asks for («Neu starten», F5) is a new launch and gets the arrival again.
  *
- * sessionStorage carries the exact clock, but only the client can read it — and the next
- * document's snail is server-rendered, paused (components/snail-loader.tsx), which holds it
- * off-screen at the arrival's first frame until hydration. So the handover also leaves a
- * short-lived cookie: the root layout turns it into `<html data-snail="standing">`, and
- * globals.css shows a paused snail STANDING there instead, from the very first paint.
+ * sessionStorage carries the exact clock, but only the client can read it, and the next
+ * document's snail would start its arrival at the first paint like any other. So the
+ * handover also leaves a short-lived cookie: the root layout turns it into
+ * `<html data-snail="standing">`, globals.css switches the snail's animations off there
+ * (the drawing at rest), and the first snail of that document drops the attribute and sets
+ * its freshly started animations to the handed-over clock — before the next paint.
  */
 
 /** Read by app/layout.tsx (server) to render `<html data-snail="standing">`. */
@@ -49,10 +52,29 @@ function takeHandover(): number {
   }
 }
 
-/** Milliseconds into this launch's snail animation; the first call starts the clock. */
-export function snailClockElapsed(): number {
-  if (startedAt === undefined) startedAt = performance.now() - takeHandover()
+/**
+ * Where a newly mounted snail's animations have to stand, in ms — or `null` when this snail
+ * is the launch's first and its running animation IS the clock (leave it alone).
+ * `runningMs` reads how far that snail's own arrival has run; it is only asked when the
+ * snail is the first, and after a handover has been taken (which re-creates them).
+ */
+export function snailClockFor(runningMs: () => number | null): number | null {
+  if (startedAt === undefined) {
+    const handedOver = takeHandover()
+    if (handedOver > 0) {
+      startedAt = performance.now() - handedOver
+      return handedOver
+    }
+    startedAt = performance.now() - (runningMs() ?? 0)
+    return null
+  }
   return Math.max(0, performance.now() - startedAt)
+}
+
+/** Milliseconds into this launch's snail animation (starting the clock if nothing has). */
+export function snailClockElapsed(): number {
+  if (startedAt === undefined) snailClockFor(() => 0)
+  return Math.max(0, performance.now() - (startedAt as number))
 }
 
 /** Call right before a full page load that continues the same start (see above). */

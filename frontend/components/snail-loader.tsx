@@ -2,18 +2,10 @@
 
 import { useId, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react'
 
-import { snailClockElapsed } from '@/lib/snail-clock'
+import { snailClockFor } from '@/lib/snail-clock'
 import { cn } from '@/lib/utils'
 
 import snailSvg from '../public/firefighter-snail-loader.svg?raw'
-
-// Rendered paused (the SVG's own `snail-paused` hook): the server-rendered snail must not
-// start its arrival before the client knows where this launch's clock stands — after the
-// Microsoft callback it is already past the arrival and has to appear standing. Paused at
-// 0 the arrival keyframe holds the snail off-screen to the left, so a start that is still
-// waiting for JS shows the wordmark and the phase, and the snail drives in once. Reduced
-// motion switches the animations off altogether, so the snail just stands there.
-const PAUSED_SVG = snailSvg.replace('class="firefighter-snail ', 'class="firefighter-snail snail-paused ')
 
 /**
  * The firefighter snail, inline. `public/firefighter-snail-loader.svg` is KP Front's
@@ -31,19 +23,19 @@ export function SnailLoader({ className }: { className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   // One object per instance: React re-writes innerHTML whenever it gets a NEW object, and
   // a re-inserted SVG restarts its animations (KP Front found this on 01.10.2026).
-  const html = useMemo(() => ({ __html: PAUSED_SVG.replaceAll('fs-', `fs${id}-`) }), [id])
-  // Before paint: put every animation where the launch's clock stands, then let it run.
-  // The first snail of a launch starts at 0 (one arrival); any later one — another boot
-  // stage, a remount, the next document after the Microsoft callback — continues the idle.
+  const html = useMemo(() => ({ __html: snailSvg.replaceAll('fs-', `fs${id}-`) }), [id])
+  // Before paint. The launch's first snail is adopted as it is: server-rendered, it has been
+  // arriving since the first paint, hydration keeps the same SVG (same markup, no remount),
+  // and its arrival's progress becomes the launch's clock. Any later snail — another boot
+  // stage, a remount, the next document after the Microsoft callback — is set to that clock,
+  // so it stands instead of driving in again.
   useLayoutEffect(() => {
     const svg = ref.current?.querySelector('svg')
     if (!svg) return
-    const elapsed = snailClockElapsed()
-    // Lift the pause FIRST: a handed-over snail stands with its animations switched off
-    // (globals.css, `data-snail="standing"`), and they only exist again once it is lifted.
-    svg.classList.remove('snail-paused')
+    const at = snailClockFor(() => arrivalProgress(svg))
+    if (at === null) return
     svg.getAnimations?.({ subtree: true }).forEach((animation) => {
-      animation.currentTime = elapsed
+      animation.currentTime = at
     })
   }, [])
   return (
@@ -55,4 +47,14 @@ export function SnailLoader({ className }: { className?: string }) {
       dangerouslySetInnerHTML={html}
     />
   )
+}
+
+/** How long this snail's own animations have run (ms), or null without any (reduced
+ *  motion). The arrival is a 630 ms one-shot whose clock stops at its end, so the time is
+ *  read from the longest-running animation — the idle loops keep counting from the start. */
+function arrivalProgress(svg: Element): number | null {
+  const times = (svg.getAnimations?.({ subtree: true }) ?? [])
+    .map((animation) => animation.currentTime)
+    .filter((time): time is number => typeof time === 'number')
+  return times.length ? Math.max(...times) : null
 }
