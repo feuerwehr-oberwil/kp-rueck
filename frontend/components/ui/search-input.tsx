@@ -39,10 +39,12 @@ type SearchInputSize = 'sm' | 'default' | 'lg'
 
 const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; clear: string; clearIcon: string; hint: string }> = {
   // Dense sidebar filters (personnel/materials lists).
-  sm: { icon: 'h-3.5 w-3.5', left: 'left-2.5', pad: 'pl-8 pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
-  default: { icon: 'h-4 w-4', left: 'left-3', pad: 'pl-9 pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
+  // Icon offset and text start moved 2px in with the shared field padding
+  // (Input px-3 → px-3.5, owner 02.10.); the icon→text gap stays the same.
+  sm: { icon: 'h-3.5 w-3.5', left: 'left-3', pad: 'pl-[34px] pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
+  default: { icon: 'h-4 w-4', left: 'left-3.5', pad: 'pl-[38px] pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
   // Phone surfaces (check-in), where the field is taller.
-  lg: { icon: 'h-5 w-5', left: 'left-3', pad: 'pl-10 pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
+  lg: { icon: 'h-5 w-5', left: 'left-3.5', pad: 'pl-[42px] pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
 }
 
 /** Phone / touch floors — see the header. Variants, so they outrank a caller's
