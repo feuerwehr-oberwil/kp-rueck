@@ -57,6 +57,12 @@ describe('toastDurationMs', () => {
     expect(toastDurationMs(chars(120), { hasAction: true })).toBe(1800 + 45 * 120)
   })
 
+  it('gives a failure at least 6 s, button or not', () => {
+    expect(toastDurationMs('Status konnte nicht geändert werden', { isFailure: true })).toBe(6000)
+    expect(toastDurationMs(chars(40), { isFailure: true, settingSeconds: 2 })).toBe(6000)
+    expect(toastDurationMs(chars(200), { isFailure: true })).toBe(10_000)
+  })
+
   it('scales by the setting, 8 s being 1×', () => {
     expect(toastDurationMs(chars(40), { settingSeconds: 16 })).toBe(7200)
     expect(toastDurationMs(chars(500), { settingSeconds: 16 })).toBe(20_000)
@@ -123,6 +129,14 @@ describe('installToastLifetime', () => {
     toast.info(chars(40), { description: chars(40) })
     // 81 characters with the joining space: 1800 + 45·81
     expect(recorded[0].data?.duration).toBe(1800 + 45 * 81)
+  })
+
+  it('holds an error without a button for the 6 s floor too', () => {
+    recorded.length = 0
+    toast.error('Status konnte nicht geändert werden')
+    toast.success('Status konnte nicht geändert werden')
+    expect(recorded[0].data?.duration).toBe(6000)
+    expect(recorded[1].data?.duration).toBe(1800 + 45 * 35)
   })
 
   it('leaves an explicit duration alone (and unscaled)', () => {

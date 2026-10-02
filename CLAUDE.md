@@ -343,7 +343,8 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   its injected CSS is unlayered and beats every Tailwind utility, so tone classes on a call site do
   nothing). Same neutral card for every type, tone only in the glyph; `toast.error` is the only
   tinted card, so use it for failures and nothing else. Don't pass `duration` unless you mean it:
-  the lifetime comes from the text length (`lib/toast-lifetime.ts`, Front's curve, scaled by the
+  the lifetime comes from the text length (`lib/toast-lifetime.ts`, Front's curve; errors and
+  toasts with a button get at least 6 s; scaled by the
   «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
   Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
 

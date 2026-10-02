@@ -7,7 +7,8 @@
  * KP Front's (`lib/ui.tsx · defaultToastDuration`): 1800 ms plus 45 ms per
  * character, at least 2.8 s — or 6 s when there is a button to press («Rückgängig»,
  * «Erneut versuchen»: nobody reaches for a button in under six seconds) — and at
- * most 10 s.
+ * most 10 s. A failure (`toast.error`) gets the 6 s floor too, button or not: a
+ * «konnte nicht …» that is gone in 3.4 s is a failure nobody saw.
  *
  * Rück's «Anzeigedauer» setting stays and keeps meaning «longer» or «shorter»: it
  * SCALES that curve, with its default of 8 s as 1×. 16 s gives every toast twice
@@ -33,9 +34,13 @@ export const TOAST_TIMED_CLASS = 'toast-timed'
 
 export function toastDurationMs(
   text: string,
-  { hasAction = false, settingSeconds = TOAST_SETTING_BASE_SECONDS }: { hasAction?: boolean; settingSeconds?: number } = {},
+  {
+    hasAction = false,
+    isFailure = false,
+    settingSeconds = TOAST_SETTING_BASE_SECONDS,
+  }: { hasAction?: boolean; isFailure?: boolean; settingSeconds?: number } = {},
 ): number {
-  const floor = hasAction ? TOAST_ACTION_MIN_MS : TOAST_MIN_MS
+  const floor = hasAction || isFailure ? TOAST_ACTION_MIN_MS : TOAST_MIN_MS
   const byLength = Math.min(TOAST_MAX_MS, Math.max(floor, 1800 + Array.from(text).length * 45))
   const seconds = Number.isFinite(settingSeconds) && settingSeconds > 0 ? settingSeconds : TOAST_SETTING_BASE_SECONDS
   return Math.max(floor, Math.round((byLength * seconds) / TOAST_SETTING_BASE_SECONDS))
@@ -71,11 +76,15 @@ export function setToastDurationSetting(seconds: number) {
   settingSeconds = seconds
 }
 
-function withLifetime(message: unknown, data?: ExternalToast): ExternalToast {
+function withLifetime(kind: string, message: unknown, data?: ExternalToast): ExternalToast {
   const hasAction = data?.action != null || data?.cancel != null
   const ms =
     data?.duration ??
-    toastDurationMs(`${toastText(message)} ${toastText(data?.description)}`.trim(), { hasAction, settingSeconds })
+    toastDurationMs(`${toastText(message)} ${toastText(data?.description)}`.trim(), {
+      hasAction,
+      isFailure: kind === 'error',
+      settingSeconds,
+    })
   return { ...data, ...toastLifetime(ms, data) }
 }
 
@@ -100,6 +109,6 @@ export function installToastLifetime() {
   target[INSTALLED] = true
   for (const kind of TIMED_KINDS) {
     const original = target[kind] as ToastFn
-    target[kind] = ((message, data) => original(message, withLifetime(message, data))) as ToastFn
+    target[kind] = ((message, data) => original(message, withLifetime(kind, message, data))) as ToastFn
   }
 }
