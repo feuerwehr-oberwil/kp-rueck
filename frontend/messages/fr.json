@@ -162,6 +162,13 @@
       "copied": "Copié",
       "copy": "Copier"
     },
+    "emptyState": {
+      "noHits": "Aucun résultat",
+      "noHitsFor": "Aucun résultat pour « {query} ».",
+      "clearSearch": "Effacer la recherche",
+      "resetFilters": "Réinitialiser les filtres",
+      "quoted": "« {name} »"
+    },
     "deleteConfirmDialog": {
       "confirm": "Supprimer",
       "cancel": "Annuler"
@@ -1228,8 +1235,11 @@
       "createTrainingIncident": "Créer une intervention d’exercice",
       "searchPlaceholder": "Rechercher une intervention …",
       "all": "Toutes ({count})",
-      "noResults": "Aucune intervention trouvée",
-      "noActive": "Aucune intervention en cours"
+      "noActive": "Aucune intervention en cours",
+      "noHitsFor": "Aucune intervention pour « {query} ».",
+      "searchScope": "Recherche dans le lieu, le type, les véhicules et l’équipe.",
+      "noneInFilter": "Aucune intervention au statut « {filter} ».",
+      "showAll": "Tout afficher"
     },
     "mobilePersonnel": {
       "title": "Personnel",

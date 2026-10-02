@@ -53,6 +53,13 @@
       "copied": "Kopiert",
       "copy": "Kopieren"
     },
+    "emptyState": {
+      "noHits": "Keine Treffer",
+      "noHitsFor": "Keine Treffer für «{query}».",
+      "clearSearch": "Suche leeren",
+      "resetFilters": "Filter zurücksetzen",
+      "quoted": "«{name}»"
+    },
     "deleteConfirmDialog": {
       "confirm": "Löschen",
       "cancel": "Abbrechen"
@@ -1194,8 +1201,11 @@
       "createTrainingIncident": "Übungs-Einsatz erstellen",
       "searchPlaceholder": "Einsatz suchen …",
       "all": "Alle ({count})",
-      "noResults": "Keine Einsätze gefunden",
-      "noActive": "Keine aktiven Einsätze"
+      "noActive": "Keine aktiven Einsätze",
+      "noHitsFor": "Keine Einsätze für «{query}».",
+      "searchScope": "Gesucht wird in Ort, Einsatzart, Fahrzeugen und Mannschaft.",
+      "noneInFilter": "Keine Einsätze mit Status «{filter}».",
+      "showAll": "Alle zeigen"
     },
     "mobilePersonnel": {
       "title": "Personal",
