@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fieldMessageProps } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -674,7 +675,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                     <Input
                       {...field}
                       id="personnel-name"
-                      aria-invalid={!!fieldState.error}
+                      {...fieldMessageProps('personnel-name', fieldState.error ? 'error' : null)}
                       placeholder={t('personnel.namePlaceholder')}
                       autoFocus
                     />
@@ -750,7 +751,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
                         <Input
                           {...field}
                           id="personnel-role"
-                          aria-invalid={!!fieldState.error}
+                          {...fieldMessageProps('personnel-role', fieldState.error ? 'error' : null)}
                           placeholder={t('personnel.roleExamplePlaceholder')}
                         />
                       )}

@@ -36,6 +36,7 @@ import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { fieldMessageProps, focusFirstBlockingField } from '@/components/ui/form-message'
 
 /**
  * Mirror of the backend slug (`slugify_event_name`, api/exports.py): lowercase,
@@ -133,6 +134,7 @@ export default function EventsPage() {
   const [targetEvent, setTargetEvent] = useState<Event | null>(null)
 
   const [newEventName, setNewEventName] = useState('')
+  const [nameMissing, setNameMissing] = useState(false)
   const [newEventTraining, setNewEventTraining] = useState(false)
   const [newEventAutoAttachDivera, setNewEventAutoAttachDivera] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
@@ -216,7 +218,13 @@ export default function EventsPage() {
   const archiveListOpen = archiveOpen || (searchQuery.trim() !== '' && filteredArchivedEvents.length > 0)
 
   const handleCreateEvent = async () => {
-    if (!newEventName.trim()) return
+    // A missing name is said under the field, and the cursor goes there — the
+    // button used to just stay grey without a word (#21, like «Neuer Einsatz»).
+    if (!newEventName.trim()) {
+      setNameMissing(true)
+      focusFirstBlockingField(['event-name'])
+      return
+    }
 
     setIsCreating(true)
     try {
@@ -424,6 +432,7 @@ export default function EventsPage() {
     setShowCreateDialog(open)
     // Reset form state when dialog is closed
     if (!open) {
+      setNameMissing(false)
       setNewEventName('')
       setNewEventTraining(false)
       setNewEventAutoAttachDivera(true)
@@ -641,7 +650,12 @@ export default function EventsPage() {
             </DialogHeader>
             {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal. */}
             <div className="space-y-1 py-2">
-              <DetailField label={t('createDialog.nameLabel')} htmlFor="event-name">
+              <DetailField
+                label={t('createDialog.nameLabel')}
+                htmlFor="event-name"
+                required
+                error={nameMissing && !newEventName.trim() ? t('createDialog.nameRequired') : undefined}
+              >
                 <Input
                   id="event-name"
                   value={newEventName}
@@ -649,10 +663,11 @@ export default function EventsPage() {
                   placeholder={t('createDialog.namePlaceholder')}
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newEventName.trim() && !isCreating) {
+                    if (e.key === 'Enter' && !isCreating) {
                       handleCreateEvent()
                     }
                   }}
+                  {...fieldMessageProps('event-name', nameMissing && !newEventName.trim() ? 'error' : null)}
                 />
               </DetailField>
               <DetailField label={t('createDialog.modeLabel')} alignStart>
@@ -696,7 +711,7 @@ export default function EventsPage() {
               <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
                 {t('createDialog.cancel')}
               </Button>
-              <Button onClick={handleCreateEvent} disabled={isCreating || !newEventName.trim()}>
+              <Button onClick={handleCreateEvent} disabled={isCreating}>
                 {isCreating && <ShellLoader className="size-4" />}
                 {isCreating ? t('createDialog.creating') : t('createDialog.create')}
               </Button>

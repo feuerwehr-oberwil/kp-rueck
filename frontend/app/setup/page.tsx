@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message';
 import { Eye, EyeOff } from 'lucide-react';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
@@ -59,12 +60,15 @@ export default function SetupPage() {
     e.preventDefault();
     setSubmitError('');
 
+    // Said under the field it is about, and the cursor goes there (#21).
     if (password.length < 12) {
       setFieldError('tooShort');
+      focusFirstBlockingField(['admin-password']);
       return;
     }
     if (password !== passwordRepeat) {
       setFieldError('mismatch');
+      focusFirstBlockingField(['admin-password-repeat']);
       return;
     }
     setFieldError(null);
@@ -172,6 +176,7 @@ export default function SetupPage() {
                         autoComplete="new-password"
                         disabled={submitting}
                         className="pr-10"
+                        {...fieldMessageProps('admin-password', fieldError === 'tooShort' ? 'error' : null)}
                       />
                       <Button
                         type="button"
@@ -190,7 +195,7 @@ export default function SetupPage() {
                       </Button>
                     </div>
                     {fieldError === 'tooShort' && (
-                      <p className="text-sm text-destructive">{t('errorTooShort')}</p>
+                      <FormMessage id={formMessageId('admin-password')}>{t('errorTooShort')}</FormMessage>
                     )}
                   </div>
 
@@ -206,9 +211,10 @@ export default function SetupPage() {
                       required
                       autoComplete="new-password"
                       disabled={submitting}
+                      {...fieldMessageProps('admin-password-repeat', fieldError === 'mismatch' ? 'error' : null)}
                     />
                     {fieldError === 'mismatch' && (
-                      <p className="text-sm text-destructive">{t('errorMismatch')}</p>
+                      <FormMessage id={formMessageId('admin-password-repeat')}>{t('errorMismatch')}</FormMessage>
                     )}
                   </div>
 

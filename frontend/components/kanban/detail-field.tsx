@@ -27,6 +27,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react"
 
+import { FormMessage, formMessageId } from "@/components/ui/form-message"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
@@ -64,8 +65,15 @@ interface DetailFieldProps {
    * existing incident's Übersicht has nothing to require, it already exists.
    */
   required?: boolean
-  /** Why the value was refused. Sits under the row, lined up with the control. */
+  /**
+   * Why the value was refused — BLOCKS saving. Sits under the row as a red
+   * `FormMessage` with the id `formMessageId(htmlFor)`; the control has to point
+   * at it (`fieldMessageProps(htmlFor, "error")`), since the row cannot reach it.
+   */
   error?: ReactNode
+  /** Something worth a second look that does NOT block — amber, polite. Same
+   *  id and wiring as `error`; `error` wins when both are set. */
+  advice?: ReactNode
   /** Anything else under the row at the same indent — a list of hints, a counter. */
   footer?: ReactNode
   /**
@@ -91,6 +99,13 @@ export const STACKED_LABEL = "mb-1.5 block text-sm font-semibold text-muted-fore
  */
 export const DETAIL_CONTROL_INDENT = "pl-[128px]"
 
+/**
+ * The message under a row starts under the CONTROL from `sm` up, and at the
+ * row's left edge on a phone: there the control column is ~210px wide, and a
+ * sentence squeezed into it ran to four lines next to an empty label column.
+ */
+export const DETAIL_MESSAGE_INDENT = "sm:pl-[128px]"
+
 export function DetailField({
   label,
   htmlFor,
@@ -99,6 +114,7 @@ export function DetailField({
   alignStart = false,
   required = false,
   error,
+  advice,
   footer,
   stacked = false,
   className,
@@ -119,13 +135,17 @@ export function DetailField({
           <div className="min-w-0 flex-1">{children}</div>
           {action}
         </div>
-        {/* full width under the control — see the row variant for `role="alert"` */}
-        {error && (
-          <p role="alert" className="mt-1 text-xs text-destructive">
-            {error}
-          </p>
+        {/* full width under the control — the same `FormMessage` (and id) as the row variant */}
+        {(error || advice) && (
+          <FormMessage
+            id={htmlFor ? formMessageId(htmlFor) : undefined}
+            tone={error ? "error" : "advice"}
+            className="mt-1"
+          >
+            {error || advice}
+          </FormMessage>
         )}
-        {footer && <div className="mt-1">{footer}</div>}
+        {footer && <div className="mt-1 empty:hidden">{footer}</div>}
       </div>
     )
   }
@@ -151,15 +171,17 @@ export function DetailField({
         <div className="min-w-0 flex-1">{children}</div>
         {action}
       </div>
-      {/* `role="alert"` because the row cannot reach the control to set
-          `aria-describedby` on it — the shadcn `FormControl` this replaced did
-          that from context. Without either, a screen reader announced «ungültig»
-          and never the reason. An alert is announced when it appears, which is
-          the moment it matters. */}
-      {error && (
-        <p role="alert" className={cn("mt-1 text-xs text-destructive", DETAIL_CONTROL_INDENT)}>
-          {error}
-        </p>
+      {/* A `FormMessage`: red `role="alert"` for an error, a polite amber
+          status for advice — with the id the control's `aria-describedby`
+          points at, so the reason is read with the field and not only once. */}
+      {(error || advice) && (
+        <FormMessage
+          id={htmlFor ? formMessageId(htmlFor) : undefined}
+          tone={error ? "error" : "advice"}
+          className={cn("mt-1", DETAIL_MESSAGE_INDENT)}
+        >
+          {error || advice}
+        </FormMessage>
       )}
       {/* `empty:hidden`: a footer that renders nothing right now (the save
           line between saves) must not leave its margin behind. */}

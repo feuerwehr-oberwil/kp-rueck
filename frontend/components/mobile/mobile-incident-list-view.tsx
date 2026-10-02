@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Sparkles } from "lucide-react"
+import { Plus, Sparkles, X } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -38,6 +39,21 @@ const statusOrder: Record<string, number> = {
   complete: 6,
 }
 
+/** The list's search — also asked on its own, so an empty list can tell «the
+ *  search found nothing» from «the status filter hides what it found». */
+function matchesSearch(op: Operation, raw: string): boolean {
+  const query = raw.trim().toLowerCase()
+  if (!query) return true
+  return (
+    op.location.toLowerCase().includes(query) ||
+    op.incidentType.toLowerCase().includes(query) ||
+    getIncidentTypeLabel(op.incidentType).toLowerCase().includes(query) ||
+    op.vehicles.some(v => v.toLowerCase().includes(query)) ||
+    op.crew.some(c => c.toLowerCase().includes(query)) ||
+    op.id.toLowerCase().includes(query)
+  )
+}
+
 // Status groups for filtering — labels render via t(`filters.${id}`)
 const statusGroups = [
   { id: "active", statuses: ["active", "enroute"] },
@@ -57,6 +73,7 @@ export function MobileIncidentListView({
   onNewIncident,
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
+  const tEmpty = useTranslations('common.emptyState')
   const { selectedEvent } = useEvent()
   // Fetched ONCE for the list and passed into every card — the rich card rows
   // (image #21) name each vehicle's driver.
@@ -69,6 +86,7 @@ export function MobileIncidentListView({
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   // Filter and sort operations
   const filteredOperations = useMemo(() => {
@@ -84,15 +102,7 @@ export function MobileIncidentListView({
 
     // Apply search filter
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(op =>
-        op.location.toLowerCase().includes(query) ||
-        op.incidentType.toLowerCase().includes(query) ||
-        getIncidentTypeLabel(op.incidentType).toLowerCase().includes(query) ||
-        op.vehicles.some(v => v.toLowerCase().includes(query)) ||
-        op.crew.some(c => c.toLowerCase().includes(query)) ||
-        op.id.toLowerCase().includes(query)
-      )
+      filtered = filtered.filter((op) => matchesSearch(op, searchQuery))
     }
 
     // Sort by status order, then by priority, then by time
@@ -172,11 +182,11 @@ export function MobileIncidentListView({
 
         {/* Search Bar */}
         <SearchInput
+          ref={searchRef}
           containerClassName="mb-3"
           placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onValueChange={setSearchQuery}
-          className="h-10"
         />
 
         {/* Status Filter Pills - 44px min height for touch targets (WCAG 2.5.5) */}
@@ -215,13 +225,30 @@ export function MobileIncidentListView({
             ))}
           </div>
         ) : filteredOperations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">
-              {searchQuery || activeFilter
-                ? t('noResults')
-                : t('noActive')}
-            </p>
-          </div>
+          // Why it is empty, and the one way out (#3): the search found
+          // nothing → «Suche leeren»; the status chip hides what it found →
+          // «Alle zeigen»; there is nothing at all → one quiet line.
+          searchQuery.trim() && !operations.some((op) => matchesSearch(op, searchQuery)) ? (
+            <EmptyState
+              title={t('noHitsFor', { query: searchQuery.trim() })}
+              description={t('searchScope')}
+              action={{
+                label: tEmpty('clearSearch'),
+                icon: X,
+                onClick: () => {
+                  setSearchQuery("")
+                  searchRef.current?.focus()
+                },
+              }}
+            />
+          ) : activeFilter ? (
+            <EmptyState
+              title={t('noneInFilter', { filter: t(`filters.${activeFilter}`) })}
+              action={{ label: t('showAll'), onClick: () => setActiveFilter(null) }}
+            />
+          ) : (
+            <EmptyState title={t('noActive')} />
+          )
         ) : (
           <div className="space-y-3 mt-4">
             {filteredOperations.map(operation => (

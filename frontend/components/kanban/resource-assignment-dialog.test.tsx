@@ -233,7 +233,7 @@ describe("special functions in the crew list", () => {
       person({ name: "Frei Anna" }),
     ])
 
-    await user.type(screen.getByPlaceholderText("Suchen …"), "kommandoposten")
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "kommandoposten")
 
     expect(screen.getByRole("button", { name: /Egger Olivier/ })).toBeDefined()
     expect(screen.queryByRole("button", { name: /Frei Anna/ })).toBeNull()

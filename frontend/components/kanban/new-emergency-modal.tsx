@@ -21,6 +21,14 @@
  * pick — the boxes and the whitespace do the separating. Same grammar,
  * different skin.
  *
+ * MESSAGES (#21): what is wrong is said UNDER the field, never in a toast and
+ * never by greying the button out. Red blocks (no Einsatzort), amber advises (a
+ * phone number with a digit count no Swiss number has) and lets the operator
+ * create anyway. «Einsatz erstellen» stays pressable: a press with the Ort
+ * missing shows the reason and puts the cursor into the field — the old
+ * disabled button said nothing, and its error only appeared after the field had
+ * been filled and emptied again.
+ *
  * ON A PHONE the rows stack (`stacked`): label above, control full width, switches
  * label-left / switch-right — the grammar of every other phone form. The row's 120px
  * label column left a 390px phone ~200px of control and read as a table. A field's
@@ -37,12 +45,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DETAIL_CONTROL_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
+import { DETAIL_MESSAGE_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
 import { Axe, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { LocationInput } from "@/components/location/location-input"
-import { toast } from "sonner"
+import {
+  FIELD_ADVICE_CLASS,
+  FormMessage,
+  fieldMessageProps,
+  focusFirstBlockingField,
+  formMessageId,
+} from "@/components/ui/form-message"
+import { phoneAdvice } from "@/lib/phone-plausibility"
+import { cn } from "@/lib/utils"
+
+/** LocationInput's own input id — the field a blocked submit focuses. */
+const LOCATION_FIELD_ID = "location_address"
+const PHONE_FIELD_ID = "contact-phone"
 
 interface NewEmergencyModalProps {
   open: boolean
@@ -113,16 +133,18 @@ export function NewEmergencyModal({
   // Validation rules
   const isLocationValid = formData.location.trim().length > 0
   const showLocationError = (touched.location || showValidationErrors) && !isLocationValid
-
+  // Advice only once the operator has left the field (or tried to create) —
+  // «079 1» is not a wrong number, it is a number being typed.
+  const phone = phoneAdvice(formData.contactPhone)
+  const showPhoneAdvice = !!phone && (touched.contactPhone || showValidationErrors)
 
   const handleSubmit = () => {
-    // Trigger validation display
+    // Show every message there is, then refuse only on the blocking ones —
+    // the phone advice is said, never waited on.
     setShowValidationErrors(true)
 
     if (!isLocationValid) {
-      toast.error(t('newEmergency.validationTitle'), {
-        description: t('newEmergency.validationDescription')
-      })
+      focusFirstBlockingField([LOCATION_FIELD_ID])
       return
     }
 
@@ -200,11 +222,16 @@ export function NewEmergencyModal({
               }
               autoFocus={open}
               error={showLocationError}
+              describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
             />
             {showLocationError && (
-              <p className={`${isMobile ? "mt-1" : DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
+              <FormMessage
+                id={formMessageId(LOCATION_FIELD_ID)}
+                tone="error"
+                className={isMobile ? "mt-1" : cn("mb-1", DETAIL_MESSAGE_INDENT)}
+              >
                 {t('newEmergency.locationError')}
-              </p>
+              </FormMessage>
             )}
 
             <DetailField label={t('common.meldung')} htmlFor="notes" alignStart stacked={isMobile}>
@@ -295,14 +322,26 @@ export function NewEmergencyModal({
               />
             </DetailField>
 
-            <DetailField label={t('common.contactPhone')} htmlFor="contact-phone" stacked={isMobile}>
+            <DetailField
+              label={t('common.contactPhone')}
+              htmlFor={PHONE_FIELD_ID}
+              stacked={isMobile}
+              advice={
+                showPhoneAdvice && phone
+                  ? t(phone.kind === 'short' ? 'newEmergency.phoneShort' : 'newEmergency.phoneLong', { digits: phone.digits })
+                  : undefined
+              }
+            >
               <Input
-                id="contact-phone"
+                id={PHONE_FIELD_ID}
                 type="tel"
                 inputMode="tel"
                 placeholder={t('common.contactPhonePlaceholder')}
                 value={formData.contactPhone}
                 onChange={(e) => setFormData({ ...formData, contactPhone: sanitizePhoneInput(e.target.value) })}
+                onBlur={() => setTouched((prev) => ({ ...prev, contactPhone: true }))}
+                className={cn(showPhoneAdvice && FIELD_ADVICE_CLASS)}
+                {...fieldMessageProps(PHONE_FIELD_ID, showPhoneAdvice ? 'advice' : null)}
               />
             </DetailField>
 
@@ -319,10 +358,11 @@ export function NewEmergencyModal({
       {t('common.cancel')}
     </Button>
   )
+  // Never disabled for a missing Ort: the press is how the operator finds out
+  // what is missing (see the header).
   const createButton = (
     <Button
       onClick={handleSubmit}
-      disabled={!formData.location}
       className="hover-delight"
     >
       <Plus className="h-4 w-4" />

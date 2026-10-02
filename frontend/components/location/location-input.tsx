@@ -45,6 +45,10 @@ interface LocationInputProps {
   geocodeInitialAddress?: boolean
   /** Show error styling for validation feedback */
   error?: boolean
+  /** Id of the `FormMessage` that explains `error` — wired as
+   *  `aria-describedby`, so the reason is read with the field, not only once
+   *  when it appears. */
+  describedBy?: string
   /** An extra icon button in the same row as the map and coordinate buttons.
    *  `/feld` puts "Standort übernehmen" there — a GPS action belongs with the
    *  other two ways of setting the location, not on a line of its own
@@ -76,6 +80,7 @@ export function LocationInput({
   autoFocus = false,
   geocodeInitialAddress = true,
   error = false,
+  describedBy,
   extraAction,
   dense = false,
   boxed = false,
@@ -443,6 +448,7 @@ export function LocationInput({
                   aria-autocomplete="list"
                   aria-controls="location-options"
                   aria-invalid={error}
+                  aria-describedby={describedBy}
                   autoComplete="off"
                   disabled={disabled}
                   placeholder={t('locationInput.addressPlaceholder')}

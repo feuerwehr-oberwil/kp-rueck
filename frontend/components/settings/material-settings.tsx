@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fieldMessageProps } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -429,7 +430,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                           <Input
                             {...field}
                             id="material-name"
-                            aria-invalid={!!fieldState.error}
+                            {...fieldMessageProps('material-name', fieldState.error ? 'error' : null)}
                             placeholder={t('materials.namePlaceholder')}
                             autoFocus
                           />
@@ -449,7 +450,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                             <Input
                               {...field}
                               id="material-type"
-                              aria-invalid={!!fieldState.error}
+                              {...fieldMessageProps('material-type', fieldState.error ? 'error' : null)}
                               placeholder={t('materials.typePlaceholder')}
                               className="flex-1"
                             />
@@ -494,7 +495,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                             <Input
                               {...field}
                               id="material-location"
-                              aria-invalid={!!fieldState.error}
+                              {...fieldMessageProps('material-location', fieldState.error ? 'error' : null)}
                               placeholder={t('materials.locationPlaceholder')}
                               className="flex-1"
                             />
