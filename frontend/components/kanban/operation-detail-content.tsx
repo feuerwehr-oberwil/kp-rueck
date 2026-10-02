@@ -30,6 +30,7 @@ import {
 } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useIncidentTimeline } from "@/lib/hooks/use-incident-timeline"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { useReleaseUndo } from '@/lib/hooks/use-release-undo'
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
@@ -219,7 +220,9 @@ export function OperationDetailContent({
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
   const { materialGroups } = useMaterials()
-  const { groups, getGroupResources, unassignResource, refreshGroups } = useGroups()
+  const { groups, getGroupResources, refreshGroups } = useGroups()
+  // Releasing a route resource here offers «Rückgängig» (lib/release-undo.ts).
+  const release = useReleaseUndo()
   // The «·» separator has to vanish with the chip, or a closed incident keeps an
   // orphan dot behind the id.
   const showIncidentTime = useIncidentTimeVisible(operation.status === "complete")
@@ -1490,7 +1493,7 @@ export function OperationDetailContent({
                 // no more self-explanatory than an incident's.
                 vehicleDrivers={vehicleDrivers}
                 onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
-                onUnassign={(assignmentId) => void unassignResource(auftrag.id, assignmentId)}
+                onUnassign={(assignmentId) => void release.releaseRouteResource(auftrag.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
                 readOnly={!canEdit || !onAssignResource}
               />

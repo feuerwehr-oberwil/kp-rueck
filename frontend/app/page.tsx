@@ -26,6 +26,7 @@ import { toast } from "sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useOperations, type Person, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
@@ -134,9 +135,11 @@ export default function FireStationDashboard() {
     unassignResource: unassignGroupResource,
     getGroupResources,
     createGroup,
-    removeStop: removeStopFromGroup,
     occupiedResourceIds,
   } = useGroups()
+  // The operator's own releases (card chips, detail panel, shortcut toggle) get
+  // «… gelöst · Rückgängig»; internal releases keep the raw context functions.
+  const release = useReleaseUndo()
 
   /**
    * The roster the board draws, with «steht auf einem Auftrag» folded in.
@@ -877,22 +880,25 @@ export default function FireStationDashboard() {
           }),
         )
       }
+      // Removing says itself — with «Rückgängig» — through the release toast.
       if (op.groupId) {
         const existing = getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id)
-        if (existing) unassignGroupResource(op.groupId, existing.assignmentId)
-        else assignGroupResource(op.groupId, "vehicle", vehicle.id)
-        notify(!existing)
+        if (existing) {
+          void release.releaseRouteResource(op.groupId, existing.assignmentId)
+        } else {
+          assignGroupResource(op.groupId, "vehicle", vehicle.id)
+          notify(true)
+        }
         return
       }
       if (op.vehicles.includes(vehicle.name)) {
-        removeVehicle(op.id, vehicle.name)
-        notify(false)
+        void release.releaseVehicle(op.id, vehicle.name)
       } else {
         assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
         notify(true)
       }
     },
-    [getGroupResources, unassignGroupResource, assignGroupResource, removeVehicle, assignVehicleToOperation, tCommon],
+    [getGroupResources, release, assignGroupResource, assignVehicleToOperation, tCommon],
   )
 
   /** Priority by keystroke — the card only shows it as a small chevron, so the
@@ -1719,7 +1725,7 @@ export default function FireStationDashboard() {
   const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
-    removeVehicle,
+    removeVehicle: release.releaseVehicle,
     assignVehicleToOperation,
     deleteOperation,
   })
@@ -1888,8 +1894,8 @@ export default function FireStationDashboard() {
     if (!auftragPickerIncidentId) return
     const op = operations.find((o) => o.id === auftragPickerIncidentId)
     if (!op?.groupId) return
-    const ok = await removeStopFromGroup(op.groupId, auftragPickerIncidentId)
-    if (ok) toast.success(tDash('removedFromAuftragToast'))
+    // The release toast («… von <Auftrag> gelöst · Rückgängig») says it.
+    await release.releaseStop(op.groupId, auftragPickerIncidentId)
   }
 
   // Route-level resource assign: open the standard assignment dialog scoped to the
@@ -2183,9 +2189,9 @@ export default function FireStationDashboard() {
                       key={column.id}
                       column={column}
                       operations={columnOps}
-                      onRemoveCrew={removeCrew}
-                      onRemoveMaterial={removeMaterial}
-                      onRemoveVehicle={removeVehicle}
+                      onRemoveCrew={release.releaseCrew}
+                      onRemoveMaterial={release.releaseMaterial}
+                      onRemoveVehicle={release.releaseVehicle}
                       onToggleDriverStay={handleToggleDriverStay}
                       onRemoveReko={removeReko}
                       onCardClick={handleCardClick}
@@ -2304,10 +2310,10 @@ export default function FireStationDashboard() {
               }
             } : undefined}
             onAssignVehicle={isEditor ? assignVehicleToOperation : undefined}
-            onRemoveVehicle={isEditor ? removeVehicle : undefined}
+            onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
             onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
-            onRemoveCrew={isEditor ? removeCrew : undefined}
-            onRemoveMaterial={isEditor ? removeMaterial : undefined}
+            onRemoveCrew={isEditor ? release.releaseCrew : undefined}
+            onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
             canEdit={isEditor}
             diveraEnabled={isEditor && diveraEnabled}
             onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}
@@ -2457,6 +2463,7 @@ export default function FireStationDashboard() {
         removeCrew={removeCrew}
         removeMaterial={removeMaterial}
         removeVehicle={removeVehicle}
+        release={release}
         requestCompletion={requestCompletion}
         requestStatusChange={requestStatusChange}
         routeAssign={routeAssign}

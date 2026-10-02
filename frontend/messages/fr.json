@@ -1523,7 +1523,6 @@
       "loading": "Chargement …",
       "stopsAddedToast": "{count, plural, one {# étape ajoutée à l’itinéraire} other {# étapes ajoutées à l’itinéraire}}",
       "distributedToast": "Réparti dans la mission « {name} »",
-      "removedFromAuftragToast": "Intervention retirée de la mission",
       "noEventSelected": "Aucun événement sélectionné",
       "training": "Exercice",
       "switchEvent": "Changer d’événement",
@@ -2545,6 +2544,21 @@
     },
     "messages": {
       "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées"
+    },
+    "release": {
+      "released": "{resource} retiré de {target}",
+      "releasedMany": "{count} × {resource} retirés de {target}",
+      "restored": "{resource} de retour sur {target}",
+      "restoreFailedTitle": "{resource} n’a pas pu être réaffecté",
+      "reason": {
+        "targetGone": "{target} n’est plus sur le tableau.",
+        "targetClosed": "{target} est déjà terminé.",
+        "alreadyBack": "{resource} est déjà de retour sur {target}.",
+        "elsewhere": "Entre-temps affecté à {where} – cette affectation plus récente est conservée.",
+        "outOfService": "{resource} n’est pas opérationnel.",
+        "resourceGone": "{resource} n’est plus dans l’inventaire ou s’est désinscrit.",
+        "unavailable": "{resource} est signalé comme indisponible."
+      }
     }
   },
   "print": {

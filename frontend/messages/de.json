@@ -418,7 +418,6 @@
       "loading": "Wird geladen …",
       "stopsAddedToast": "{count, plural, one {# Stopp zur Route hinzugefügt} other {# Stopps zur Route hinzugefügt}}",
       "distributedToast": "In Auftrag «{name}» verteilt",
-      "removedFromAuftragToast": "Einsatz aus Auftrag entfernt",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
       "switchEvent": "Ereignis wechseln",
@@ -2929,6 +2928,21 @@
     },
     "messages": {
       "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt"
+    },
+    "release": {
+      "released": "{resource} von {target} gelöst",
+      "releasedMany": "{count} × {resource} von {target} gelöst",
+      "restored": "{resource} wieder bei {target}",
+      "restoreFailedTitle": "{resource} konnte nicht zurückgeholt werden",
+      "reason": {
+        "targetGone": "{target} ist nicht mehr auf dem Board.",
+        "targetClosed": "{target} ist bereits abgeschlossen.",
+        "alreadyBack": "{resource} ist bereits wieder bei {target}.",
+        "elsewhere": "Inzwischen bei {where} eingeteilt – diese neuere Zuweisung bleibt.",
+        "outOfService": "{resource} ist nicht einsatzbereit.",
+        "resourceGone": "{resource} ist nicht mehr im Bestand oder abgemeldet.",
+        "unavailable": "{resource} ist als nicht verfügbar gemeldet."
+      }
     }
   },
   "help": {

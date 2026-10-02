@@ -78,6 +78,7 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "@/components/map/route-optimize"
 import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
@@ -156,12 +157,12 @@ export function AuftraegeSheet({
     updateGroup,
     deleteGroup,
     reorderGroupStops,
-    removeStop,
-    unassignResource,
     assignResource,
     getGroupResources,
     refreshGroups,
   } = useGroups()
+  // Releasing a stop or a route resource offers «Rückgängig» (lib/release-undo.ts).
+  const release = useReleaseUndo()
   const { operations } = useOperations()
   const { selectedEvent } = useEvent()
   // Who drives which Fahrzeug — one roster call for the whole sheet, only while
@@ -457,10 +458,10 @@ export function AuftraegeSheet({
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
-                onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
+                onUnassignResource={(assignmentId) => release.releaseRouteResource(group.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteLeader(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
-                onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
+                onRemoveStop={(incidentId) => release.releaseStop(group.id, incidentId)}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
                 canEdit={canEdit}
                 onSetStopStatus={onSetStopStatus}

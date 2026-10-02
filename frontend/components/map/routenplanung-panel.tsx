@@ -31,7 +31,7 @@ import { colorAccent } from "@/lib/kanban-utils"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { useGroups } from "@/lib/contexts/groups-context"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { RouteStopList } from "./route-stop-list"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "./route-optimize"
 
@@ -76,7 +76,8 @@ export function RoutenplanungPanel({
   const { group, operationsById, isAddingStop, reorder } = planning
   const optimizeAction = useRouteOptimizeAction(planning)
   const { updateOperation } = useOperations()
-  const { removeStop } = useGroups()
+  // Taking a stop off the route offers «Rückgängig» (lib/release-undo.ts).
+  const release = useReleaseUndo()
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
@@ -243,7 +244,7 @@ export function RoutenplanungPanel({
                   focusStopId={focusStopId}
                   onSelectStop={onFocusStopChange}
                   onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
-                  onRemoveStop={(incidentId) => void removeStop(group.id, incidentId)}
+                  onRemoveStop={(incidentId) => void release.releaseStop(group.id, incidentId)}
                   showStatusControl={false}
                   // The `/map` planner has no access to the dashboard completion
                   // flow (material prompt + returning-vehicle check), so don't
