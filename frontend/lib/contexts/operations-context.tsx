@@ -215,6 +215,18 @@ interface OperationsContextType {
    * never during the initial blank-before-fetch window. */
   isLoaded: boolean
   /**
+   * The board has never arrived: a load failed and no load has ever got
+   * through (`loadError` set, `lastSyncAt` null). `isLoaded` is true then too,
+   * so without this an unreachable server painted empty columns, «0» counts and
+   * «Niemand angemeldet» — an empty Ereignis. Empty states must check this
+   * before they say «nothing».
+   *
+   * Derived here rather than read off `useBoardSyncStatus()` on purpose: it
+   * flips at most twice a session, while the sync status ticks every poll, and
+   * the board page must not re-render on every tick to learn a boolean.
+   */
+  boardNeverLoaded: boolean
+  /**
    * Total incidents for the selected event, before the server's limit. Null when unknown
    * (older backend, or header stripped by a proxy) — never treat null as zero. Compare
    * against `operations.length` to tell whether the board is showing everything.
@@ -981,7 +993,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         // stale-data banner starts counting. `isLoaded` still flips on a failed
         // FIRST load — mutations key off it — which is why `loadError` exists:
         // an empty board and a board that never arrived are told apart there.
-        // ⚠️ Nothing renders `loadError` yet beyond the banner (mockup pending).
+        // The board page reads it as `boardNeverLoaded` (error panel instead of
+        // empty columns); the banner reads it for the stale case.
         setLoadError(error instanceof Error ? error : new Error(String(error)))
         setIsLoaded(true)
         isInitialLoadRef.current = false
@@ -2328,6 +2341,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const boardNeverLoaded = loadError !== null && lastSyncAt === null
+
   const value = useMemo<OperationsContextType>(
     () => ({
       personnel,
@@ -2339,6 +2354,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       homeCity,
       isLoading,
       isLoaded,
+      boardNeverLoaded,
       incidentTotal,
       formatLocation,
       refreshOperations,
@@ -2364,6 +2380,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       homeCity,
       isLoading,
       isLoaded,
+      boardNeverLoaded,
       incidentTotal,
       formatLocation,
       refreshOperations,

@@ -21,10 +21,11 @@
 
 import type { ComponentType, ReactNode } from "react"
 import { useTranslations } from "next-intl"
-import { Users, Truck, Package, Plus } from "lucide-react"
+import { Users, Truck, Package, Plus, UserMinus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RemovableChip } from "@/components/ui/removable-chip"
-import { LeaderBadge } from "@/components/kanban/leader-badge"
+import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
+import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { cn } from "@/lib/utils"
 import type { GroupResources } from "@/lib/types/groups"
@@ -366,6 +367,16 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
             onRemove={!readOnly ? () => onUnassign(p.assignmentId) : undefined}
             removeTitle={t("common.removeNamed", { name: p.name })}
             removeButtonClassName="ml-1"
+            // Touch: the same two actions the mouse has (EL stub, ✕), as rows.
+            menuTitle={p.name}
+            menuSubtitle={<PersonMenuSubtitle name={p.name} isLeader={Boolean(p.isLeader)} />}
+            menuActions={
+              !readOnly && onPromoteLeader && !p.isLeader
+                ? [{ label: t("leader.promote"), icon: <LeaderGlyph />, onSelect: () => onPromoteLeader(p.assignmentId) }]
+                : undefined
+            }
+            removeLabel={t("chipMenu.removeFromAuftrag")}
+            removeIcon={UserMinus}
           >
             <LeaderBadge
               isLeader={Boolean(p.isLeader)}
@@ -397,6 +408,9 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
               onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
               removeTitle={t("common.removeNamed", { name: v.name })}
               removeButtonClassName="ml-1"
+              menuTitle={v.name}
+              menuSubtitle={driverName}
+              removeLabel={t("chipMenu.removeFromAuftrag")}
             >
               {v.name}{driverName ? ` (${driverName})` : ""}
             </RemovableChip>
@@ -421,6 +435,9 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
             onRemove={!readOnly ? () => onUnassign(m.assignmentId) : undefined}
             removeTitle={t("common.removeNamed", { name: m.name })}
             removeButtonClassName="ml-1"
+            menuTitle={m.name}
+            menuSubtitle={m.location}
+            removeLabel={t("chipMenu.removeFromAuftrag")}
           >
             {m.name}
             {/* «Motorsäge» alone never said where to fetch it from. The

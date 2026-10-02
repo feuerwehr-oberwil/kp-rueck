@@ -32,7 +32,15 @@
     "staleDataBanner": {
       "connectionLost": "Verbindung verloren – Daten sind möglicherweise veraltet.",
       "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
-      "reconnect": "Neu verbinden"
+      "reconnect": "Neu verbinden",
+      "loadFailedAt": "Stand {time} – Aktualisierung fehlgeschlagen",
+      "showsLastLoaded": "Das Board zeigt den letzten geladenen Stand.",
+      "reload": "Erneut laden"
+    },
+    "boardLoadError": {
+      "title": "Einsätze konnten nicht geladen werden",
+      "body": "Der Server hat nicht geantwortet oder einen Fehler gemeldet. Das Board ist nicht leer – es ist noch nicht geladen.",
+      "retry": "Erneut laden"
     },
     "incidentTruncation": {
       "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
@@ -224,6 +232,12 @@
       "abbr": "EL",
       "is": "Einsatzleiter",
       "promote": "Als Einsatzleiter markieren"
+    },
+    "chipMenu": {
+      "openDetails": "Details öffnen",
+      "removeFromIncident": "Vom Einsatz entfernen",
+      "removeFromAuftrag": "Vom Auftrag entfernen",
+      "remove": "Entfernen"
     },
     "participants": {
       "title": "Bisher im Einsatz",
@@ -419,6 +433,7 @@
       "noPersonnelCheckedIn": "Niemand angemeldet",
       "personnelLoading": "Personal wird geladen",
       "materialLoading": "Material wird geladen",
+      "notLoaded": "Nicht geladen",
       "noPersonnelMatch": "Keine Person passt zu <term>«{query}»</term>",
       "groupFree": "Frei · {count}",
       "groupBound": "Gebunden · {count}",

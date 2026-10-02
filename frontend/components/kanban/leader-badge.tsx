@@ -27,6 +27,17 @@ import { cn } from "@/lib/utils"
 const BADGE_BASE =
   "inline-flex flex-shrink-0 items-center justify-center rounded-[3px] px-1 font-mono text-[10px] font-bold uppercase leading-[1.4] tracking-wide"
 
+/** The bare «EL» mark, for the chip menu's «Als Einsatzleiter markieren» row —
+ *  the same two letters the role carries everywhere else, never a star. */
+export function LeaderGlyph() {
+  const t = useTranslations("kanban.leader")
+  return (
+    <span className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-600 dark:text-amber-400")} aria-hidden="true">
+      {t("abbr")}
+    </span>
+  )
+}
+
 export function LeaderBadge({
   isLeader,
   onPromote,
@@ -69,10 +80,15 @@ export function LeaderBadge({
         BADGE_BASE,
         "transition-colors",
         isLeader
-          ? "bg-amber-400/20 text-amber-600 dark:text-amber-400"
+          ? // Without a mouse the whole chip is the menu's trigger, so a tap
+            // on the badge must fall through to it.
+            "bg-amber-400/20 text-amber-600 dark:text-amber-400 pointer-events-none pointer-fine:pointer-events-auto"
           : // Hidden until the row is hovered: on a twelve-person crew, twelve
-            // grey EL stubs compete with the names they annotate.
-            "text-muted-foreground/50 opacity-0 hover:bg-amber-400/10 hover:text-amber-600 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-amber-400",
+            // grey EL stubs compete with the names they annotate. Without a
+            // mouse there is no hover, so the stub is not there at all — it
+            // was invisible and still promoted whoever's chip a finger grazed.
+            // Touch promotes from the chip menu (decision 27 B, 2026-09-23).
+            "hidden pointer-fine:inline-flex text-muted-foreground/50 opacity-0 hover:bg-amber-400/10 hover:text-amber-600 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-amber-400",
         className,
       )}
     >

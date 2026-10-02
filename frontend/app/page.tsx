@@ -88,6 +88,7 @@ import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
+import { BoardLoadErrorPanel, ResourcesNotLoaded } from "@/components/board-load-error"
 import { SidePanel } from "@/components/kanban/side-panel"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -691,7 +692,8 @@ export default function FireStationDashboard() {
     deleteOperation,
     materialOnSite,
     isLoading,
-    isLoaded
+    isLoaded,
+    boardNeverLoaded,
   } = useOperations()
   // The board's roster is "everybody checked in", so the Appell writing an
   // attendance row changes it — see `onAttendanceChange` on the modal below.
@@ -2877,6 +2879,8 @@ export default function FireStationDashboard() {
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? (
                   <SidebarLoading label={tDash('personnelLoading')} />
+                ) : boardNeverLoaded ? (
+                  <ResourcesNotLoaded label={tDash('notLoaded')} />
                 ) : personnel.length === 0 ? (
                   /* Nobody is checked in for this Ereignis — the QR is the way in.
                      The test used to be "nobody is *available*", which meant a board
@@ -3013,7 +3017,7 @@ export default function FireStationDashboard() {
                       the station that were not true at the moment they were made.
                       While loading it says nothing («–/–»); while a search is
                       narrowing the list it counts what is on screen. */}
-                  {!isLoaded
+                  {!isLoaded || boardNeverLoaded
                     ? tCommon('counterLoading')
                     : effectivePersonnelQuery
                       ? tCommon('visibleCounter', { shown: filteredPersonnel.length, total: personnel.length })
@@ -3027,7 +3031,7 @@ export default function FireStationDashboard() {
                     above and counted as free here — «14 verfügbar» over nine
                     visible rows. Deliberately NOT broken down by function: this
                     is the line read in half a second, not a statistic. */}
-                {isLoaded && !effectivePersonnelQuery && (
+                {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
                   <div className="flex items-center justify-center gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
                       <Check className="size-3.5" />
@@ -3080,7 +3084,11 @@ export default function FireStationDashboard() {
                 : sidePanelMode === 'collapsed' ? "pr-4 2xl:pr-8" : "pr-4",
             )}
           >
-            {!isLoaded ? null : (
+            {/* A board that never arrived gets the error panel, not seven
+                empty columns counting «0» — see BoardLoadErrorPanel. */}
+            {!isLoaded ? null : boardNeverLoaded ? (
+              <BoardLoadErrorPanel />
+            ) : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
                   const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
@@ -3263,6 +3271,8 @@ export default function FireStationDashboard() {
               <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
                 {!isLoaded ? (
                   <SidebarLoading label={tDash('materialLoading')} />
+                ) : boardNeverLoaded ? (
+                  <ResourcesNotLoaded label={tDash('notLoaded')} />
                 ) : materials.length === 0 ? (
                   /* A fresh station: no Gerät has ever been recorded. The same
                      shape the Personal sidebar has always had for «niemand
@@ -3388,14 +3398,14 @@ export default function FireStationDashboard() {
                   including why it has three states. */}
               <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
                 <p className="text-xs text-muted-foreground text-center">
-                  {!isLoaded
+                  {!isLoaded || boardNeverLoaded
                     ? tCommon('counterLoading')
                     : effectiveMaterialQuery
                       ? tCommon('visibleCounter', { shown: filteredMaterials.length, total: materials.length })
                       : null}
                 </p>
                 {/* Same helper as the list filter — see the crew footer above. */}
-                {isLoaded && !effectiveMaterialQuery && (
+                {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
                   <div className="flex items-center justify-center gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
                       <Check className="size-3.5" />

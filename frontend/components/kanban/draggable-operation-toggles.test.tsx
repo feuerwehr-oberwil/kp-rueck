@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComponentProps } from 'react'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -16,6 +16,8 @@ import { CARD_VIEW_KEYS, CARD_VIEW_PRESETS, type CardViewSettings } from '@/lib/
  */
 
 const mockGroups: { id: string; name: string; stopIds: string[]; color: string | null }[] = []
+const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const updateAssignment = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 vi.mock('@/lib/contexts/materials-context', () => ({
   useMaterials: () => ({ materialGroups: [] }),
@@ -23,7 +25,12 @@ vi.mock('@/lib/contexts/materials-context', () => ({
 // The card asks the board which material is still standing at an address (§18.35).
 vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/contexts/operations-context')>()),
-  useOperations: () => ({ materialOnSite: new Map() }),
+  // `personnel`: the touch chip menu's header looks the rank up by name.
+  useOperations: () => ({
+    materialOnSite: new Map(),
+    personnel: [{ id: 'p-1', name: 'Muster Hans', role: 'Wachtmeister' }],
+    refreshOperations,
+  }),
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
   useGroups: () => ({ groups: mockGroups, getGroupResources: () => null }),
@@ -35,7 +42,7 @@ vi.mock('@/lib/contexts/event-context', () => ({
   useEvent: () => ({ selectedEvent: mockEvent }),
 }))
 vi.mock('@/lib/hooks/use-print-job-toast', () => ({ usePrintJobToast: () => vi.fn() }))
-vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
+vi.mock('@/lib/api-client', () => ({ apiClient: { updateAssignment } }))
 vi.mock('@atlaskit/pragmatic-drag-and-drop/element/adapter', () => ({
   draggable: () => () => {},
   dropTargetForElements: () => () => {},
@@ -341,6 +348,97 @@ describe('the card routes each block into the detail', () => {
     await userEvent.click(screen.getByText('Einsturzgefahr'))
     await userEvent.click(screen.getByText('Hauptstrasse 1'))
     expect(onClick).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Touch (no fine pointer): a chip has no ✕ and a tap opens its menu (decision
+ * 27 B). The block's own click — opening the detail at Ressourcen — moved into
+ * the menu as its first row, so it is still one tap further, not gone.
+ */
+describe('a chip on a touch screen', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({ matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  const mount = (props: Partial<CardProps> = {}) => {
+    const onClick = vi.fn()
+    renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation(), { onClick, ...props }))
+    return onClick
+  }
+
+  it('offers no hidden ✕ to brush against', () => {
+    mount()
+    expect(screen.queryByRole('button', { name: 'Muster Hans entfernen' })).not.toBeInTheDocument()
+  })
+
+  it('opens a menu on the person, and «Details öffnen» goes where the tap used to', async () => {
+    const onClick = mount()
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
+    const menu = await screen.findByRole('menu', { name: 'Muster Hans' })
+    expect(menu).toHaveTextContent('Wachtmeister')
+    expect(screen.getAllByRole('menuitem').map((row) => row.textContent)).toEqual([
+      'Details öffnen',
+      // The «EL» glyph, then the label.
+      'ELAls Einsatzleiter markieren',
+      'Vom Einsatz entfernen',
+    ])
+    expect(onClick).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Details öffnen' }))
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(onClick).toHaveBeenCalledWith('overview', 'resources')
+  })
+
+  it('promotes the person to Einsatzleiter with the detail\'s call, and navigates nowhere', async () => {
+    updateAssignment.mockClear()
+    refreshOperations.mockClear()
+    const onClick = vi.fn()
+    renderWithIntl(
+      card(CARD_VIEW_PRESETS.alles, operation({ crewAssignments: new Map([['Muster Hans', 'a-1']]) }), { onClick }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Als Einsatzleiter markieren/ }))
+    expect(updateAssignment).toHaveBeenCalledWith('incident-1', 'a-1', { is_leader: true })
+    await vi.waitFor(() => expect(refreshOperations).toHaveBeenCalledOnce())
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('offers no promotion to a viewer', async () => {
+    mount({ canDrag: false })
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
+    await screen.findByRole('menu', { name: 'Muster Hans' })
+    expect(screen.queryByRole('menuitem', { name: /Als Einsatzleiter markieren/ })).not.toBeInTheDocument()
+  })
+
+  it('offers no promotion on whoever already is the Einsatzleiter', async () => {
+    renderWithIntl(card(CARD_VIEW_PRESETS.alles, operation({ leaderName: 'Muster Hans' })))
+    await userEvent.click(screen.getByRole('button', { name: /Muster Hans/ }))
+    await screen.findByRole('menu', { name: 'Muster Hans' })
+    expect(screen.queryByRole('menuitem', { name: /Als Einsatzleiter markieren/ })).not.toBeInTheDocument()
+  })
+
+  it('removes the person from the menu, and navigates nowhere', async () => {
+    const onRemoveCrew = vi.fn()
+    const onClick = mount({ onRemoveCrew })
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Vom Einsatz entfernen' }))
+    expect(onRemoveCrew).toHaveBeenCalledWith('Muster Hans')
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('says «Fahrzeug entfernen» on a vehicle and names its state in the header', async () => {
+    const onRemoveVehicle = vi.fn()
+    mount({ onRemoveVehicle })
+    await userEvent.click(screen.getByRole('button', { name: /^TLF Oberwil/ }))
+    const menu = await screen.findByRole('menu', { name: 'TLF Oberwil' })
+    expect(menu).toHaveTextContent('fährt zurück')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Fahrzeug entfernen' }))
+    expect(onRemoveVehicle).toHaveBeenCalledWith('TLF Oberwil')
   })
 })
 
