@@ -1221,7 +1221,6 @@
     "mobileDetail": {
       "copied": "In Zwischenablage kopiert",
       "copyError": "Kopieren fehlgeschlagen",
-      "incidentId": "Einsatz-ID: {id}",
       "rekoBadge": "Reko",
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",

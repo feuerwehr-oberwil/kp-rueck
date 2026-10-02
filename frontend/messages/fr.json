@@ -1220,7 +1220,6 @@
     "mobileDetail": {
       "copied": "Copié dans le presse-papiers",
       "copyError": "Échec de la copie",
-      "incidentId": "ID de l’intervention : {id}",
       "rekoBadge": "Reco",
       "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
