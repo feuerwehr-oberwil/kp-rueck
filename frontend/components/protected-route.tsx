@@ -30,41 +30,8 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { checkBackendHealth } from '@/lib/auth-client';
-import { useEffect, useState, useRef } from 'react';
-import { Progress } from '@/components/ui/progress';
-import { Flame } from 'lucide-react';
-
-function AuthLoadingScreen({ message }: { message: string }) {
-  const [progress, setProgress] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setProgress(20), 100);
-    intervalRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 85) return prev;
-        return prev + Math.random() * 10;
-      });
-    }, 500);
-    return () => {
-      clearTimeout(timer);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-          <Flame className="h-7 w-7 text-primary" strokeWidth={1.5} />
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">KP Rück</h1>
-        <p className="text-sm text-muted-foreground mb-6">{message}</p>
-        <Progress value={progress} className="h-1 mx-auto max-w-48" />
-      </div>
-    </div>
-  );
-}
+import { useEffect, useState } from 'react';
+import { BootScreen } from '@/components/boot-screen';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const t = useTranslations('login.protectedRoute');
@@ -92,9 +59,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading || checkingBackend) {
     return (
-      <AuthLoadingScreen
-        message={loading ? t('preparingLogin') : t('checkingServer')}
-      />
+      <BootScreen phase={loading ? t('preparingLogin') : t('checkingServer')} />
     );
   }
 
