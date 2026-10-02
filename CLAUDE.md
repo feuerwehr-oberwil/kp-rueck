@@ -381,7 +381,7 @@ Firefighting command post operators (KP Rück) managing active incidents in high
 One colour, one meaning – decided in the 2026-10 UI review; tokens in `frontend/app/globals.css`.
 - **Selection = slate «A2»**, tonal, never a fill: a chosen chip/filter/preset/segment/current status = `--sel-wash` + `--sel-foreground` + 1px `--sel-edge` (`<Button variant="selected">`, or the `sel-choice` utility on borderless controls); switch/checkbox «an» = `--sel`; ticked row = wash + edge + slate ✓ (never emerald); selected Einsatz card = 2px `--sel-line` outline. Where-you-are (active tab, open popover/panel trigger) = ink tint `bg-foreground/[0.09]`.
 - **Red = priority and danger only.** It never fills an action: the main button is ink (`--action`), `destructive` is a red outline. Hoch cards keep their red edge, wash, ring and pulse.
-- **Green = frei / verfügbar** (resource dots, «nur verfügbare»). Don't use it for «selected».
+- **Green = frei / verfügbar** on the availability dots and badges themselves. Never for «selected» – a toggled filter such as «Nur verfügbare» uses the slate selected state like every other filter.
 - **Board column header lines are the status key** – they stay coloured; cards don't repeat the status as a tint (phone cards are neutral except Hoch).
 - **Focus = slate** (`--ring` = `--sel-line`), never red – a red ring reads as an error.
 
