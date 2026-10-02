@@ -49,6 +49,12 @@ import { toast } from "sonner"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import RekoReportSection from "@/components/reko/reko-report-section"
+import {
+  FieldSaveStatus,
+  FIELD_UNSAVED_CLASS,
+  useFieldSave,
+  useUnsavedDraftLeaveGuard,
+} from "@/components/kanban/field-save-status"
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -85,6 +91,15 @@ export function MobileIncidentDetailSheet({
   const [contactValue, setContactValue] = useState("")
   const notesRef = useRef<HTMLTextAreaElement>(null)
   const contactRef = useRef<HTMLInputElement>(null)
+  // What the field held when editing began: blur sends only a CHANGE. A kept
+  // draft that is merely focused and left again is not resent behind the
+  // operator's back — «Erneut speichern» is the way to do that.
+  const notesStartRef = useRef("")
+  const contactStartRef = useRef("")
+  // Save state per field (lib/field-save). Hooks before the early return.
+  const notesSave = useFieldSave(operation?.id ?? "", "notes", operation?.notes)
+  const contactSave = useFieldSave(operation?.id ?? "", "contact", operation?.contact)
+  const leaveGuard = useUnsavedDraftLeaveGuard(operation?.id)
 
   // Byte-identical fallback to the raw type value for unknown types
   const typeLabel = (type: string) => (type in incidentTypeLabels ? t(`types.${type}`) : type)
@@ -97,13 +112,18 @@ export function MobileIncidentDetailSheet({
     }
   }, [open, operation?.id])
 
-  // Sync local values when operation changes
+  // Sync local values when the incident changes — but never under the
+  // operator's fingers: a background reload landing mid-sentence used to put
+  // the server's text back into the field being typed in. And a held draft
+  // (pending or not saved) is what the field shows, not the board's value.
   useEffect(() => {
-    if (operation) {
-      setNotesValue(operation.notes || "")
-      setContactValue(operation.contact || "")
-    }
-  }, [operation?.id, operation?.notes, operation?.contact])
+    if (!editingNotes) setNotesValue(notesSave.value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operation?.id, notesSave.value])
+  useEffect(() => {
+    if (!editingContact) setContactValue(contactSave.value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operation?.id, contactSave.value])
 
   // Driver map (live-synced via WebSocket + custom event in useVehicleDrivers)
 
@@ -116,7 +136,7 @@ export function MobileIncidentDetailSheet({
 
   const handleNotesSave = () => {
     if (!operation || !onUpdateOperation) return
-    if (notesValue !== operation.notes) {
+    if (notesValue !== notesStartRef.current) {
       onUpdateOperation(operation.id, { notes: notesValue })
     }
     setEditingNotes(false)
@@ -124,23 +144,40 @@ export function MobileIncidentDetailSheet({
 
   const handleContactSave = () => {
     if (!operation || !onUpdateOperation) return
-    if (contactValue !== operation.contact) {
+    if (contactValue !== contactStartRef.current) {
       onUpdateOperation(operation.id, { contact: contactValue })
     }
     setEditingContact(false)
   }
 
+  const beginNotes = () => {
+    if (editingNotes) return
+    notesStartRef.current = notesSave.value
+    setNotesValue(notesSave.value)
+    setEditingNotes(true)
+  }
+
+  const beginContact = () => {
+    if (editingContact) return
+    contactStartRef.current = contactSave.value
+    setContactValue(contactSave.value)
+    setEditingContact(true)
+  }
+
   const startEditingNotes = () => {
     if (!isEditor || !onUpdateOperation) return
-    setEditingNotes(true)
+    beginNotes()
     setTimeout(() => notesRef.current?.focus(), 50)
   }
 
   const startEditingContact = () => {
     if (!isEditor || !onUpdateOperation) return
-    setEditingContact(true)
+    beginContact()
     setTimeout(() => contactRef.current?.focus(), 50)
   }
+
+  const retryNotes = (notes: string) => operation && onUpdateOperation?.(operation.id, { notes })
+  const retryContact = (contact: string) => operation && onUpdateOperation?.(operation.id, { contact })
 
   // Handler for copying WhatsApp message
   // Uses copyToClipboardAsync for Safari support - must call synchronously with a Promise
@@ -193,9 +230,18 @@ export function MobileIncidentDetailSheet({
   const priority = operation.priority || "low"
   const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority as Priority], chevron: PRIORITY_TEXT_CLASSES[priority as Priority] }
   const canEdit = isEditor && !!onUpdateOperation
+  // A text the server has not got stays an open field, red-edged, so the
+  // operator sees exactly what is missing and can retry or copy it.
+  const showNotesEditor = editingNotes || (canEdit && notesSave.failed)
+  const showContactEditor = editingContact || (canEdit && contactSave.failed)
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+    {leaveGuard.dialog}
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(true) : leaveGuard.guard(() => onOpenChange(false)))}
+    >
       <SheetContent
         side="bottom"
         // Covers the nav, so the foot pays only the safe area (`pb-sheet-safe`).
@@ -283,15 +329,17 @@ export function MobileIncidentDetailSheet({
           </div>
 
           {/* Notes/Meldung */}
-          <div>
-            {editingNotes ? (
+          <div className="space-y-1.5">
+            {showNotesEditor ? (
               <Textarea
                 ref={notesRef}
-                value={notesValue}
+                value={editingNotes ? notesValue : notesSave.value}
+                onFocus={beginNotes}
                 onChange={(e) => setNotesValue(e.target.value)}
                 onBlur={handleNotesSave}
                 placeholder={t('mobileDetail.notesPlaceholder')}
-                className="min-h-[80px] text-sm"
+                aria-invalid={notesSave.failed || undefined}
+                className={cn("min-h-[80px] text-sm", notesSave.failed && FIELD_UNSAVED_CLASS)}
               />
             ) : (
               <div
@@ -301,9 +349,9 @@ export function MobileIncidentDetailSheet({
                   canEdit && "cursor-pointer hover:bg-muted/70 transition-colors"
                 )}
               >
-                {operation.notes ? (
+                {notesSave.value ? (
                   <p className="text-sm text-foreground whitespace-pre-wrap">
-                    {operation.notes}
+                    {notesSave.value}
                   </p>
                 ) : canEdit ? (
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -313,6 +361,7 @@ export function MobileIncidentDetailSheet({
                 ) : null}
               </div>
             )}
+            <FieldSaveStatus view={notesSave} onRetry={retryNotes} />
           </div>
 
           {/* Danger warnings from Reko */}
@@ -449,15 +498,17 @@ export function MobileIncidentDetailSheet({
               <Phone className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{t('mobileDetail.contact')}</span>
             </div>
-            {editingContact ? (
+            {showContactEditor ? (
               <Input
                 ref={contactRef}
-                value={contactValue}
+                value={editingContact ? contactValue : contactSave.value}
+                onFocus={beginContact}
                 onChange={(e) => setContactValue(e.target.value)}
                 onBlur={handleContactSave}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleContactSave() }}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
                 placeholder={t('mobileDetail.contactPlaceholder')}
-                className="text-sm"
+                aria-invalid={contactSave.failed || undefined}
+                className={cn("text-sm", contactSave.failed && FIELD_UNSAVED_CLASS)}
               />
             ) : (
               <div
@@ -466,8 +517,8 @@ export function MobileIncidentDetailSheet({
                   canEdit && "cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 transition-colors"
                 )}
               >
-                {operation.contact ? (
-                  <p className="text-sm text-foreground">{operation.contact}</p>
+                {contactSave.value ? (
+                  <p className="text-sm text-foreground">{contactSave.value}</p>
                 ) : canEdit ? (
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
                     <Pencil className="h-3.5 w-3.5" />
@@ -478,6 +529,7 @@ export function MobileIncidentDetailSheet({
                 )}
               </div>
             )}
+            <FieldSaveStatus view={contactSave} onRetry={retryContact} className="mt-1.5" />
           </div>
 
           {/* Reko Report Section */}
@@ -511,5 +563,6 @@ export function MobileIncidentDetailSheet({
         </div>
       </SheetContent>
     </Sheet>
+    </>
   )
 }

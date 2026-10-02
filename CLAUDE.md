@@ -370,6 +370,17 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   toasts with a button get at least 6 s; scaled by the
   «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
   Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
+- **«Gespeichert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`).
+  The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
+  under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
+  when the PATCH carrying its NEWEST text answered; PATCHes run one at a time per incident
+  (`KeyedSerialQueue`) so the server sees edits in order. A failed text stays as a draft in the field —
+  render the control's `value` from `useFieldSave(...).value`, never straight from `operation`, or a
+  reload replaces it — and is sent again only via «Erneut speichern». No automatic resend, no offline
+  queue. Drafts are scoped to user + Ereignis; a user switch drops them and a queued write of the
+  previous user is not sent. A new free-text incident field goes into `SAVED_TEXT_FIELDS`.
+- **Stale banner**: a connected WebSocket only vouches for the board once a load got through AFTER it
+  came up (`BoardSyncStatus.liveSince`); «connected»/«connecting» alone never hide the warning.
 
 ## Important Files & Documentation
 

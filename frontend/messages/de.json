@@ -31,11 +31,12 @@
     },
     "staleDataBanner": {
       "connectionLost": "Verbindung verloren – Daten sind möglicherweise veraltet.",
-      "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
       "reconnect": "Neu verbinden",
       "loadFailedAt": "Stand {time} – Aktualisierung fehlgeschlagen",
       "showsLastLoaded": "Das Board zeigt den letzten geladenen Stand.",
-      "reload": "Erneut laden"
+      "reload": "Erneut laden",
+      "confirmedAt": "Stand {time}",
+      "notConfirmed": "Verbindung steht wieder – der aktuelle Stand ist noch nicht bestätigt."
     },
     "boardLoadError": {
       "title": "Einsätze konnten nicht geladen werden",
@@ -974,6 +975,32 @@
       "dispatchHint": "Wirklich neu ausrücken? «Neu disponieren …» öffnet den vollen Dialog mit Funkdurchsage und Aufgebot.",
       "dispatchAgain": "Neu disponieren …",
       "confirm": "Status korrigieren"
+    },
+    "fieldSave": {
+      "saving": "Wird gespeichert …",
+      "savedAt": "Gespeichert – {time}",
+      "failed": "Nicht gespeichert.",
+      "failedBody": "{reason} – der Text bleibt hier stehen.",
+      "reason": {
+        "network": "Keine Verbindung zum Server",
+        "session": "Die Anmeldung ist abgelaufen",
+        "forbidden": "Keine Berechtigung für diese Änderung",
+        "conflict": "Der Einsatz wurde inzwischen anderswo geändert",
+        "rejected": "Der Server hat die Eingabe abgelehnt",
+        "server": "Der Server hat einen Fehler gemeldet",
+        "unknown": "Unbekannter Fehler"
+      },
+      "serverNow": "Auf dem Server steht inzwischen: «{text}»",
+      "serverNowEmpty": "Auf dem Server ist das Feld inzwischen leer.",
+      "retry": "Erneut speichern",
+      "copy": "Text kopieren",
+      "copied": "Kopiert",
+      "leave": {
+        "title": "Text nicht gespeichert",
+        "description": "{count, plural, one {{fields} konnte} other {{fields} konnten}} nicht gespeichert werden. Der Text bleibt in diesem Fenster erhalten, bis die Seite neu geladen wird.",
+        "confirm": "Trotzdem schliessen",
+        "cancel": "Zurück zum Einsatz"
+      }
     }
   },
   "incidents": {

@@ -43,6 +43,7 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailGroupHeading, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { FieldSaveStatus, FIELD_UNSAVED_CLASS, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
@@ -257,6 +258,16 @@ export function OperationDetailContent({
     [refreshGroups, t],
   )
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // The text fields' save state (lib/field-save): what each one shows — the
+  // operator's draft while one is held, so neither a reload nor a remote
+  // update can replace text the server has not got — and the line under it.
+  const notesSave = useFieldSave(operation.id, 'notes', operation.notes)
+  const contactSave = useFieldSave(operation.id, 'contact', operation.contact)
+  const contactPhoneSave = useFieldSave(operation.id, 'contactPhone', operation.contactPhone)
+  const internalNotesSave = useFieldSave(operation.id, 'internalNotes', operation.internalNotes)
+  const nachbarhilfeNoteSave = useFieldSave(operation.id, 'nachbarhilfeNote', operation.nachbarhilfeNote)
+  const amWartenNoteSave = useFieldSave(operation.id, 'amWartenNote', operation.amWartenNote)
   // Reopening a Schadenplatz lands on the tab it was left on. An operator
   // working through the rapports of a storm night reopens the same card again
   // and again; sending them back to Übersicht every time is a click per visit.
@@ -1170,12 +1181,18 @@ export function OperationDetailContent({
               block above – the first row's label already says «Meldung». */}
           <div>
           <div className="space-y-1">
-          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+          <DetailField
+            label={t('common.meldung')}
+            htmlFor="notes"
+            alignStart
+            footer={<FieldSaveStatus view={notesSave} onRetry={(notes) => onUpdate({ notes })} />}
+          >
             <Textarea
               id="notes"
               placeholder={t('detail.meldungPlaceholder')}
-              value={operation.notes}
+              value={notesSave.value}
               disabled={!canEdit}
+              aria-invalid={notesSave.failed || undefined}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               // Grows with what is in it. `h-auto` is what makes that work:
               // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
@@ -1193,19 +1210,25 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                notesSave.failed && FIELD_UNSAVED_CLASS,
               )}
             />
           </DetailField>
 
           {/* Contact */}
-          <DetailField label={t('common.contact')} htmlFor="contact">
+          <DetailField
+            label={t('common.contact')}
+            htmlFor="contact"
+            footer={<FieldSaveStatus view={contactSave} onRetry={(contact) => onUpdate({ contact })} />}
+          >
             <Input
               id="contact"
               placeholder={t('common.contactPlaceholder')}
-              value={operation.contact}
+              value={contactSave.value}
               disabled={!canEdit}
+              aria-invalid={contactSave.failed || undefined}
               onChange={(e) => onUpdate({ contact: e.target.value })}
-              className={DENSE_CONTROL}
+              className={cn(DENSE_CONTROL, contactSave.failed && FIELD_UNSAVED_CLASS)}
             />
           </DetailField>
 
@@ -1213,6 +1236,9 @@ export function OperationDetailContent({
           <DetailField
             label={t('common.contactPhone')}
             htmlFor="contact-phone"
+            footer={
+              <FieldSaveStatus view={contactPhoneSave} onRetry={(contactPhone) => onUpdate({ contactPhone })} />
+            }
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
@@ -1228,10 +1254,11 @@ export function OperationDetailContent({
               type="tel"
               inputMode="tel"
               placeholder={t('common.contactPhonePlaceholder')}
-              value={operation.contactPhone}
+              value={contactPhoneSave.value}
               disabled={!canEdit}
+              aria-invalid={contactPhoneSave.failed || undefined}
               onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
-              className={DENSE_CONTROL}
+              className={cn(DENSE_CONTROL, contactPhoneSave.failed && FIELD_UNSAVED_CLASS)}
             />
           </DetailField>
 
@@ -1239,12 +1266,20 @@ export function OperationDetailContent({
               together with the fields above they are one reading — what this
               incident IS. The other column answers who is on it. */}
           {/* Internal Notes */}
-          <DetailField label={t('common.notes')} htmlFor="internalNotes" alignStart>
+          <DetailField
+            label={t('common.notes')}
+            htmlFor="internalNotes"
+            alignStart
+            footer={
+              <FieldSaveStatus view={internalNotesSave} onRetry={(internalNotes) => onUpdate({ internalNotes })} />
+            }
+          >
             <Textarea
               id="internalNotes"
               placeholder={t('common.internalNotesPlaceholder')}
-              value={operation.internalNotes}
+              value={internalNotesSave.value}
               disabled={!canEdit}
+              aria-invalid={internalNotesSave.failed || undefined}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
               // Same auto-grow as «Meldung» above — see there for why `h-auto`.
               className={cn(
@@ -1256,6 +1291,7 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                internalNotesSave.failed && FIELD_UNSAVED_CLASS,
               )}
             />
           </DetailField>
@@ -1304,11 +1340,18 @@ export function OperationDetailContent({
             note={
               <Input
                 placeholder={t('common.nachbarhilfePlaceholder')}
-                value={operation.nachbarhilfeNote || ''}
+                value={nachbarhilfeNoteSave.value}
                 disabled={!canEdit}
+                aria-invalid={nachbarhilfeNoteSave.failed || undefined}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="h-7 cursor-text text-sm select-text"
+                className={cn("h-7 cursor-text text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+              />
+            }
+            footer={
+              <FieldSaveStatus
+                view={nachbarhilfeNoteSave}
+                onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
               />
             }
           />
@@ -1325,12 +1368,16 @@ export function OperationDetailContent({
             note={
               <Input
                 placeholder={t('common.amWartenPlaceholder')}
-                value={operation.amWartenNote || ''}
+                value={amWartenNoteSave.value}
                 disabled={!canEdit}
+                aria-invalid={amWartenNoteSave.failed || undefined}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="h-7 cursor-text text-sm select-text"
+                className={cn("h-7 cursor-text text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
               />
+            }
+            footer={
+              <FieldSaveStatus view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
             }
           />
 

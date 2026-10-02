@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   STALE_BANNER_THRESHOLD_MS,
+  isLiveConfirmed,
   shouldShowStaleBanner,
 } from "./stale-data";
 
@@ -16,13 +17,101 @@ describe("shouldShowStaleBanner", () => {
     expect(result).toBe(false);
   });
 
-  it("stays hidden while the WebSocket is connecting (we are recovering)", () => {
+  it("does NOT stay hidden merely because the WebSocket is connecting", () => {
+    // Review idea #4: a socket still dialling after the threshold delivers
+    // nothing — the board on screen is as old as its last confirmed load.
     const result = shouldShowStaleBanner({
       wsStatus: "connecting",
       lastSyncAt: new Date(now.getTime() - 5 * 60_000),
       now,
     });
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+  });
+
+  it("gives a connecting socket the threshold, like any other gap", () => {
+    expect(
+      shouldShowStaleBanner({ wsStatus: "connecting", lastSyncAt: new Date(now.getTime() - 5_000), now }),
+    ).toBe(false);
+  });
+
+  describe("connected socket and confirmed data (review idea #4)", () => {
+    const liveSince = new Date(now.getTime() - 60_000);
+
+    it("stays hidden once a load got through after the socket came up, however old", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          liveSince: new Date(now.getTime() - 60 * 60_000),
+          lastSyncAt: new Date(now.getTime() - 59 * 60_000),
+          now,
+        }),
+      ).toBe(false);
+    });
+
+    it("the connection comes back but the reload has not got through: stays visible", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          liveSince,
+          lastSyncAt: new Date(liveSince.getTime() - 1),
+          now,
+        }),
+      ).toBe(true);
+    });
+
+    it("the connection comes back and the reload FAILS: the last confirmed state stays stale", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          liveSince,
+          lastSyncAt: new Date(liveSince.getTime() - 30_000),
+          now,
+          loadFailed: true,
+        }),
+      ).toBe(true);
+    });
+
+    it("clears with the first confirmed load since the reconnect", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          liveSince,
+          lastSyncAt: new Date(liveSince.getTime() + 500),
+          now,
+        }),
+      ).toBe(false);
+    });
+
+    it("a fresh poll confirms the board without any socket at all", () => {
+      expect(
+        shouldShowStaleBanner({ wsStatus: "error", liveSince: null, lastSyncAt: new Date(now.getTime() - 2_000), now }),
+      ).toBe(false);
+    });
+
+    it("a just-reconnected socket does not flash it while the resync is under way", () => {
+      expect(
+        shouldShowStaleBanner({
+          wsStatus: "connected",
+          liveSince: new Date(now.getTime() - 1_000),
+          lastSyncAt: new Date(now.getTime() - 4_000),
+          now,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe("isLiveConfirmed", () => {
+    it("needs the socket up and a load at or after it came up", () => {
+      const liveSince = new Date(now.getTime() - 10_000);
+      expect(isLiveConfirmed({ wsStatus: "connected", liveSince, lastSyncAt: liveSince })).toBe(true);
+      expect(isLiveConfirmed({ wsStatus: "connected", liveSince, lastSyncAt: new Date(liveSince.getTime() - 1) })).toBe(false);
+      expect(isLiveConfirmed({ wsStatus: "connecting", liveSince, lastSyncAt: now })).toBe(false);
+      expect(isLiveConfirmed({ wsStatus: "connected", liveSince: null, lastSyncAt: now })).toBe(false);
+    });
+
+    it("takes «connected» at its word for callers that do not know liveSince", () => {
+      expect(isLiveConfirmed({ wsStatus: "connected", lastSyncAt: now })).toBe(true);
+    });
   });
 
   it("stays hidden when there has never been a successful sync", () => {

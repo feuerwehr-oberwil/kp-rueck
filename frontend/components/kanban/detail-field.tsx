@@ -161,7 +161,9 @@ export function DetailField({
           {error}
         </p>
       )}
-      {footer && <div className={cn("mt-1", DETAIL_CONTROL_INDENT)}>{footer}</div>}
+      {/* `empty:hidden`: a footer that renders nothing right now (the save
+          line between saves) must not leave its margin behind. */}
+      {footer && <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>}
     </div>
   )
 }
@@ -184,6 +186,7 @@ export function DetailToggle({
   onToggle,
   disabled,
   note,
+  footer,
   stacked = false,
   className,
 }: {
@@ -196,6 +199,8 @@ export function DetailToggle({
   disabled?: boolean
   /** Rendered under the row while `checked` — the "warum" input. */
   note?: ReactNode
+  /** Under the row while `checked`, at the control indent — the note's save line. */
+  footer?: ReactNode
   /** Phone forms: label left, switch at the right edge (the phone settings norm), the note
    *  full width under the row while on. */
   stacked?: boolean
@@ -236,6 +241,7 @@ export function DetailToggle({
             {note}
           </div>
         )}
+        {checked && footer && <div className="mt-1 empty:hidden">{footer}</div>}
       </div>
     )
   }
@@ -277,6 +283,7 @@ export function DetailToggle({
           <div className="min-w-0 flex-1" />
         )}
       </div>
+      {checked && footer && <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>}
     </div>
   )
 }
