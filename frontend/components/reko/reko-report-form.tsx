@@ -23,7 +23,7 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, Loader2, Send } from 'lucide-react'
 
@@ -36,6 +36,7 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type { ApiDangersAssessment, ApiEffortEstimation, ApiRekoReportResponse } from '@/lib/api/types'
 
@@ -139,6 +140,8 @@ export function RekoReportForm({
   // board and start reading like the tab next door.
   const dense = isKp
   const [relevantMissing, setRelevantMissing] = useState(false)
+  // Ids, not a constant: the form can be mounted twice on one page.
+  const relevantId = `reko-relevant-${useId()}`
 
   // Local text mirror for the duration field: a controlled number input coerces
   // "0"/"0." to falsy and clears the field mid-typing, so we keep the raw string
@@ -184,6 +187,8 @@ export function RekoReportForm({
     // sent to answer.
     if (value.is_relevant === null) {
       setRelevantMissing(true)
+      // The reason is said under the question; the cursor goes to «Ja».
+      focusFirstBlockingField([relevantId])
       return
     }
     await onSubmit()
@@ -212,9 +217,11 @@ export function RekoReportForm({
                 return (
                   <button
                     key={String(answer)}
+                    id={index === 0 ? relevantId : undefined}
                     type="button"
                     disabled={disabled}
                     aria-pressed={selected}
+                    aria-describedby={relevantMissing ? formMessageId(relevantId) : undefined}
                     onClick={() => update('is_relevant', answer)}
                     className={cn(
                       "cursor-pointer px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
@@ -232,7 +239,7 @@ export function RekoReportForm({
             <span className="text-xs text-destructive" aria-hidden="true">*</span>
             {/* The required error sits ON the row it is about — a row list has
                 no second line under a field to put it on. */}
-            {relevantMissing && <span className="text-xs text-destructive">{t('relevantRequired')}</span>}
+            {relevantMissing && <FormMessage id={formMessageId(relevantId)}>{t('relevantRequired')}</FormMessage>}
           </div>
         </DetailField>
 
@@ -413,8 +420,10 @@ export function RekoReportForm({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Button
+            id={relevantId}
             type="button"
             variant={value.is_relevant === true ? 'default' : 'outline'}
+            aria-describedby={relevantMissing ? formMessageId(relevantId) : undefined}
             onClick={() => update('is_relevant', true)}
             disabled={disabled}
             size="lg"
@@ -425,6 +434,7 @@ export function RekoReportForm({
           <Button
             type="button"
             variant={value.is_relevant === false ? 'default' : 'outline'}
+            aria-describedby={relevantMissing ? formMessageId(relevantId) : undefined}
             onClick={() => update('is_relevant', false)}
             disabled={disabled}
             size="lg"
@@ -433,7 +443,7 @@ export function RekoReportForm({
             {t('no')}
           </Button>
         </div>
-        {relevantMissing && <p className="text-xs text-destructive">{t('relevantRequired')}</p>}
+        {relevantMissing && <FormMessage id={formMessageId(relevantId)}>{t('relevantRequired')}</FormMessage>}
       </div>
 
       <Separator />

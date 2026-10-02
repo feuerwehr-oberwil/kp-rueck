@@ -519,6 +519,7 @@
       "title": "Créer un nouvel événement",
       "nameLabel": "Nom",
       "namePlaceholder": "p. ex. Inondation 2026-02-19",
+      "nameRequired": "Le nom manque – sans nom, l’événement ne peut pas être créé.",
       "modeLabel": "Mode",
       "modeLive": "Intervention",
       "modeTraining": "Exercice",
@@ -1722,10 +1723,10 @@
       "kpMessageVerb": "à l’effectif"
     },
     "newEmergency": {
-      "validationTitle": "Remplis tous les champs obligatoires",
-      "validationDescription": "Le lieu d’intervention est obligatoire.",
       "description": "Saisis les détails de la nouvelle intervention",
       "locationError": "Saisis un lieu d’intervention",
+      "phoneShort": "Le numéro n’a que {digits} chiffres – à vérifier. La création reste possible.",
+      "phoneLong": "Le numéro a {digits} chiffres – à vérifier. La création reste possible.",
       "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-déposer une fois l’intervention créée.",
       "create": "Créer l’intervention"
     },

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fieldMessageProps } from '@/components/ui/form-message';
 import {
   Table,
   TableBody,
@@ -322,7 +323,7 @@ export function VehicleSettings() {
                       <Input
                         {...field}
                         id="vehicle-name"
-                        aria-invalid={!!fieldState.error}
+                        {...fieldMessageProps('vehicle-name', fieldState.error ? 'error' : null)}
                         placeholder={t('vehicles.namePlaceholder')}
                         autoFocus
                       />
@@ -343,7 +344,7 @@ export function VehicleSettings() {
                         id="vehicle-display-order"
                         type="number"
                         min={1}
-                        aria-invalid={!!fieldState.error}
+                        {...fieldMessageProps('vehicle-display-order', fieldState.error ? 'error' : null)}
                         value={Number.isFinite(field.value) ? field.value : ''}
                         onChange={(e) => {
                           const raw = e.target.value;
@@ -370,7 +371,7 @@ export function VehicleSettings() {
                       <Input
                         {...field}
                         id="vehicle-radio-call-sign"
-                        aria-invalid={!!fieldState.error}
+                        {...fieldMessageProps('vehicle-radio-call-sign', fieldState.error ? 'error' : null)}
                         placeholder={t('vehicles.radioPlaceholder')}
                       />
                     </DetailField>

@@ -618,10 +618,10 @@
       "kpMessageVerb": "an Trupp"
     },
     "newEmergency": {
-      "validationTitle": "Bitte fülle alle Pflichtfelder aus",
-      "validationDescription": "Der Einsatzort ist erforderlich.",
       "description": "Erfasse die Details zum neuen Einsatz",
-      "locationError": "Bitte gib einen Einsatzort ein",
+      "locationError": "Einsatzort fehlt – ohne Ort lässt sich der Einsatz nicht erstellen.",
+      "phoneShort": "Nummer hat nur {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
+      "phoneLong": "Nummer hat {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
       "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
       "create": "Einsatz erstellen"
     },
@@ -2230,6 +2230,7 @@
       "title": "Neues Ereignis erstellen",
       "nameLabel": "Name",
       "namePlaceholder": "z. B. Hochwasser 2026-02-19",
+      "nameRequired": "Name fehlt – ohne Namen lässt sich das Ereignis nicht erstellen.",
       "modeLabel": "Modus",
       "modeLive": "Einsatz",
       "modeTraining": "Übung",

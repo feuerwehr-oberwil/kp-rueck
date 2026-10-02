@@ -17,8 +17,27 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
  */
 
 vi.mock('@/components/location/location-input', () => ({
-  LocationInput: ({ address, onAddressChange }: { address: string; onAddressChange: (v: string) => void }) => (
-    <input aria-label="Ort" value={address} onChange={(e) => onAddressChange(e.target.value)} />
+  // The real field's id, invalid flag and description — what the modal's
+  // inline message (#21) wires and a blocked submit focuses.
+  LocationInput: ({
+    address,
+    onAddressChange,
+    error,
+    describedBy,
+  }: {
+    address: string
+    onAddressChange: (v: string) => void
+    error?: boolean
+    describedBy?: string
+  }) => (
+    <input
+      id="location_address"
+      aria-label="Ort"
+      aria-invalid={error}
+      aria-describedby={describedBy}
+      value={address}
+      onChange={(e) => onAddressChange(e.target.value)}
+    />
   ),
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }))
@@ -100,5 +119,57 @@ describe('NewEmergencyModal — Aktionsreihenfolge', () => {
 
     const labels = Array.from(footer!.querySelectorAll('button')).map((b) => b.textContent?.trim())
     expect(labels).toEqual(['Abbrechen', 'Einsatz erstellen'])
+  })
+})
+
+/**
+ * Messages under the field (#21): red blocks, amber advises. «Einsatz erstellen»
+ * is never greyed out for a missing Ort any more — a press says what is missing
+ * and puts the cursor there. No toast.
+ */
+describe('NewEmergencyModal — Meldungen im Formular', () => {
+  it('a press without Einsatzort says why, under the field, and focuses it', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation } = renderModal()
+
+    const create = screen.getByRole('button', { name: 'Einsatz erstellen' })
+    expect(create).toBeEnabled()
+    await user.click(create)
+
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toBe('Einsatzort fehlt – ohne Ort lässt sich der Einsatz nicht erstellen.')
+    const ort = screen.getByLabelText('Ort')
+    expect(ort).toHaveFocus()
+    expect(ort).toHaveAttribute('aria-invalid', 'true')
+    expect(ort).toHaveAccessibleDescription(alert.textContent!)
+    expect(onCreateOperation).not.toHaveBeenCalled()
+  })
+
+  it('advises on a short phone number once the field is left — and creates anyway', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation } = renderModal()
+
+    const phone = screen.getByLabelText('Telefonnummer')
+    await user.type(phone, '079 123 45')
+    // Still typing: a number being typed is not a wrong number.
+    expect(screen.queryByRole('status')).toBeNull()
+
+    await user.tab()
+    const advice = screen.getByRole('status')
+    expect(advice.textContent).toBe('Nummer hat nur 8 Ziffern – bitte prüfen. Erstellen geht trotzdem.')
+    expect(phone).toHaveAccessibleDescription(advice.textContent!)
+    expect(phone).not.toHaveAttribute('aria-invalid')
+
+    await submit(user)
+    expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ contactPhone: '079 123 45' }))
+  })
+
+  it('says nothing about a complete number', async () => {
+    const user = userEvent.setup()
+    renderModal()
+
+    await user.type(screen.getByLabelText('Telefonnummer'), '079 123 45 67')
+    await user.tab()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })
