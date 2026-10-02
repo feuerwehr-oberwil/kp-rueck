@@ -32,28 +32,35 @@ installToastLifetime()
  */
 const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] = {
   toast: cn(
-    'flex items-center gap-x-3 w-[var(--width)] min-h-14 rounded-lg border border-border',
-    'text-popover-foreground shadow-lg py-1.5 pl-4 pr-1.5 text-sm',
-    // phone: a button wraps onto its own row and the sentence gets the width
-    'max-md:flex-wrap max-md:gap-y-1',
+    // text · action · ✕ in one row; it wraps only when the text would get less
+    // than 8rem beside the button (see `content`) — then the button moves to a
+    // second row and the sentence gets the full width. Forcing that second row
+    // on every phone toast made «Einsatz gelöscht · Rückgängig» 110px tall and
+    // three toasts covered half the screen. The ✕ is pinned top right (see
+    // `closeButton`) and the padding keeps its column free, so it never wraps.
+    'flex flex-wrap items-center gap-x-2 md:gap-x-3 gap-y-1 w-[var(--width)] min-h-14 rounded-lg border border-border',
+    'text-popover-foreground shadow-lg py-1.5 pl-4 pr-4 has-[>[data-close-button]]:pr-14 text-sm',
   ),
-  content: 'flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 max-md:basis-[60%]',
+  content: 'flex min-w-0 grow basis-32 flex-col gap-0.5 py-1.5',
   title: 'font-semibold leading-snug',
   description: 'leading-snug text-muted-foreground',
   icon: 'relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-5',
   actionButton: cn(
-    'inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11 max-md:order-2 max-md:ml-auto',
+    'ml-auto inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11',
     'max-w-[min(240px,60vw)] whitespace-normal text-left text-sm font-semibold text-foreground',
     'cursor-pointer hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   cancelButton: cn(
-    'inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11 max-md:order-2',
+    'ml-auto inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11',
     'text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted hover:text-foreground',
     'outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
-  // sonner renders the ✕ first; it belongs at the right end, a full 44px target
+  // sonner renders the ✕ first; it belongs at the right end of the first row, a
+  // full 44px target. Pinned there (the toast itself is sonner's absolute box)
+  // rather than a flex item: as a flex item it was the thing that wrapped, and
+  // ended up alone at the left of a second row.
   closeButton: cn(
-    'order-last max-md:order-1 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground',
+    'absolute top-1.5 right-1.5 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground',
     'cursor-pointer hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   // tone = the glyph's colour; the card stays neutral … (the fill is set per
