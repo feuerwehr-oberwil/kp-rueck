@@ -135,13 +135,17 @@ export function DetailField({
           <div className="min-w-0 flex-1">{children}</div>
           {action}
         </div>
-        {/* full width under the control — see the row variant for `role="alert"` */}
-        {error && (
-          <p role="alert" className="mt-1 text-xs text-destructive">
-            {error}
-          </p>
+        {/* full width under the control — the same `FormMessage` (and id) as the row variant */}
+        {(error || advice) && (
+          <FormMessage
+            id={htmlFor ? formMessageId(htmlFor) : undefined}
+            tone={error ? "error" : "advice"}
+            className="mt-1"
+          >
+            {error || advice}
+          </FormMessage>
         )}
-        {footer && <div className="mt-1">{footer}</div>}
+        {footer && <div className="mt-1 empty:hidden">{footer}</div>}
       </div>
     )
   }
