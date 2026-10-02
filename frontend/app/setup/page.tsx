@@ -19,10 +19,12 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export default function SetupPage() {
   const t = useTranslations('setup.page');
+  const tLoading = useTranslations('common');
   const [stationName, setStationName] = useState('');
   const [password, setPassword] = useState('');
   const [passwordRepeat, setPasswordRepeat] = useState('');
@@ -117,7 +119,7 @@ export default function SetupPage() {
 
             {claimed === null && (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
               </div>
             )}
 
@@ -237,7 +239,7 @@ export default function SetupPage() {
                   )}
 
                   <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting && <Loader2 className="size-4 animate-spin" />}
+                    {submitting && <ShellLoader className="size-4" />}
                     {submitting ? t('submitting') : t('submit')}
                   </Button>
                 </form>

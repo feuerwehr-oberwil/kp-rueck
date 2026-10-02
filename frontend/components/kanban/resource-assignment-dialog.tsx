@@ -127,24 +127,22 @@ type Binding = OccupancyLabel & {
  *
  * Deliberately a rule and not a `<Separator/>` with a label beside it: the
  * heading has to be readable as "everything below this is spoken for" while the
- * eye is moving, which is why the busy one is amber and the free one is not.
+ * eye is moving. Both headings are neutral (owner decision 2026-10, «quieter»
+ * pass): the label says it, and the amber note on each busy row says where —
+ * an amber heading plus amber-tinted tiles turned half the dialog orange.
+ * `tone` stays as the semantic marker of the block.
  */
 function ListSection({ label, tone, children }: { label: string; tone: 'free' | 'busy'; children: React.ReactNode }) {
   return (
     <section>
       <h3
         className={cn(
-          "mb-2 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-wide",
-          tone === 'busy' ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+          "mb-2 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground",
         )}
+        data-tone={tone}
       >
         {label}
-        <span
-          className={cn(
-            "h-px flex-1",
-            tone === 'busy' ? "bg-amber-500/30" : "bg-border/60",
-          )}
-        />
+        <span className="h-px flex-1 bg-border/60" />
       </h3>
       {children}
     </section>
@@ -727,20 +725,20 @@ export function ResourceAssignmentDialog({
    * An occupied row was already amber-flagged, and that was the whole of it: the
    * flagged rows sat scattered through the grid, so finding three free people in
    * a roster of forty meant reading all forty. Sinking them under a heading
-   * turns that into one eye movement, and the amber line stays for the rows that
-   * still say *where* somebody is.
+   * turns that into one eye movement. The rows themselves are neutral tiles now;
+   * the small amber note (icon + text) that says *where* somebody is stays.
    *
    * Nothing is hidden and nothing is disabled — the bottom block is still
    * clickable and still opens the Doppelbelegung confirm. This orders the list;
    * it does not take a decision away from the operator.
    *
-   * "Busy" is exactly what the row already draws in amber: bound to another
+   * "Busy" is exactly what the row's amber note names: bound to another
    * Schadenplatz or Auftrag, or holding an Ereignis role (a Reko trupp, the
    * TLF 1's driver). A resource on THIS target is never busy — it is selected.
    *
    * Module groups stay whole and stay on top: a module is a unit, and splitting
    * its contents across two headings would be a worse lie than the scatter this
-   * fixes. Occupied items inside an expanded module keep the amber flag.
+   * fixes. Occupied items inside an expanded module keep the amber note.
    */
   const crewSections = (() => {
     const free: Person[] = []
@@ -1047,22 +1045,22 @@ export function ResourceAssignmentDialog({
     const isSelected = isPersonSelected(person.name)
     const wasJustAssigned = justAssigned === person.id
     const special = specialFunctionsOf(person)
-    // Already on another incident/Auftrag → amber flag with the
-    // reference, taking precedence over the special-function badge.
+    // Already on another incident/Auftrag → amber note with the
+    // reference, taking precedence over the special-function badge. The tile
+    // itself stays neutral: the note says where, no tinted block.
     const elsewhere = personElsewhereLabel(person)
     return (
       <button
         key={person.id}
         onClick={() => handleTogglePersonSelection(person)}
         className={cn(
-          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-          isSelected && "border-primary/30 bg-primary/5",
-          (elsewhere || special.length > 0) && !isSelected && "border-amber-500/40 bg-amber-500/5"
+          "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+          isSelected && "border-sel-edge bg-sel-wash",
         )}
       >
         {isSelected ? (
           <CheckCircle className={cn(
-            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            "h-5 w-5 text-sel-foreground flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
@@ -1111,8 +1109,8 @@ export function ResourceAssignmentDialog({
     // glyph and refuses the click. No error message — the target is simply not
     // grabbable, which is the same treatment the sidebar gives it.
     const isOutOfService = !!vehicle.outOfService && !isAssigned
-    // Already on another incident/Auftrag → amber flag with the
-    // reference, matching the crew special-function treatment.
+    // Already on another incident/Auftrag → amber note with the
+    // reference, matching the crew treatment (neutral tile, amber note).
     const elsewhere = vehicleElsewhereLabel(vehicle)
     // «bleibt vor Ort» vs «kehrt zurück». Assigning here used to
     // drop that decision on the floor: the flag exists from the
@@ -1128,9 +1126,8 @@ export function ResourceAssignmentDialog({
         key={vehicle.id}
         className={cn(
           "flex items-center gap-2 p-2.5 rounded-lg border border-border/50 transition-all",
-          !isOutOfService && "hover:border-primary/50 hover:bg-secondary/30 hover-delight",
-          isAssigned && "border-primary/30 bg-primary/5",
-          elsewhere && !isAssigned && "border-amber-500/40 bg-amber-500/5",
+          !isOutOfService && "hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          isAssigned && "border-sel-edge bg-sel-wash",
           isOutOfService && "border-dashed opacity-60"
         )}
       >
@@ -1146,7 +1143,7 @@ export function ResourceAssignmentDialog({
             <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
           ) : isAssigned ? (
             <CheckCircle className={cn(
-              "h-5 w-5 text-emerald-500 flex-shrink-0",
+              "h-5 w-5 text-sel-foreground flex-shrink-0",
               wasJustAssigned && "animate-check-appear"
             )} />
           ) : (
@@ -1233,9 +1230,8 @@ export function ResourceAssignmentDialog({
         disabled={isOutOfService}
         className={cn(
           "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
-          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-primary/50 hover:bg-secondary/30 hover-delight",
-          isSelected && "border-primary/30 bg-primary/5",
-          elsewhere && !isSelected && "border-amber-500/40 bg-amber-500/5",
+          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
+          isSelected && "border-sel-edge bg-sel-wash",
           vehicleOnScene && !isSelected && "border-emerald-500/30"
         )}
       >
@@ -1243,7 +1239,7 @@ export function ResourceAssignmentDialog({
           <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
         ) : isSelected ? (
           <CheckCircle className={cn(
-            "h-5 w-5 text-emerald-500 flex-shrink-0",
+            "h-5 w-5 text-sel-foreground flex-shrink-0",
             wasJustAssigned && "animate-check-appear"
           )} />
         ) : (
@@ -1449,7 +1445,7 @@ export function ResourceAssignmentDialog({
                 className={cn(
                   "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   categoryFilter === null
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
@@ -1469,7 +1465,7 @@ export function ResourceAssignmentDialog({
                     className={cn(
                       "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : vehiclePresent
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -1497,7 +1493,7 @@ export function ResourceAssignmentDialog({
                     className={cn(
                       "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >
@@ -1516,7 +1512,7 @@ export function ResourceAssignmentDialog({
                 className={cn(
                   "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
                   showOnlyAssignedVehicles
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
@@ -1571,12 +1567,12 @@ export function ResourceAssignmentDialog({
                           <button
                             onClick={onToggleZuFuss}
                             className={cn(
-                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-all text-left hover-delight",
-                              zuFuss && "border-primary/30 bg-primary/5"
+                              "flex cursor-pointer items-center gap-2.5 p-2.5 rounded-lg border border-border/50 hover:border-sel-edge hover:bg-secondary/30 transition-all text-left hover-delight",
+                              zuFuss && "border-sel-edge bg-sel-wash"
                             )}
                           >
                             {zuFuss ? (
-                              <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                              <CheckCircle className="h-5 w-5 text-sel-foreground flex-shrink-0" />
                             ) : (
                               <Footprints className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                             )}
@@ -1620,8 +1616,8 @@ export function ResourceAssignmentDialog({
                       <div key={`group-${groupId}`} className="space-y-1">
                         {/* Group header row */}
                         <div className={cn(
-                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:bg-secondary/30",
-                          allSelected && "border-primary/30 bg-primary/5"
+                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
+                          allSelected && "border-sel-edge bg-sel-wash"
                         )}>
                           {/* Expand/collapse toggle */}
                           <button
@@ -1646,11 +1642,11 @@ export function ResourceAssignmentDialog({
                             <div className="flex items-center gap-3">
                               {allSelected ? (
                                 <CheckCircle className={cn(
-                                  "h-5 w-5 text-emerald-500 flex-shrink-0",
+                                  "h-5 w-5 text-sel-foreground flex-shrink-0",
                                   wasJustAssigned && "animate-check-appear"
                                 )} />
                               ) : someSelected ? (
-                                <CheckCircle className="h-5 w-5 text-emerald-500/50 flex-shrink-0" />
+                                <CheckCircle className="h-5 w-5 text-sel-foreground/50 flex-shrink-0" />
                               ) : (
                                 <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                               )}
@@ -1732,7 +1728,7 @@ export function ResourceAssignmentDialog({
             >
               {t('common.done')}
               {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-primary-foreground/20 rounded">
+                <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-action-foreground/20 rounded">
                   {t('assignmentDialog.changes')}
                 </span>
               )}

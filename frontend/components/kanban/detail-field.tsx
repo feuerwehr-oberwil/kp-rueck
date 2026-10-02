@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils"
  * focus — only its colour moves.
  */
 export const DENSE_CONTROL =
-  "h-7 min-h-7 rounded-md border border-border/50 bg-transparent px-2 shadow-none transition-colors " +
+  "h-7 min-h-7 rounded-sm border border-border/50 bg-transparent px-2 shadow-none transition-colors " +
   "hover:border-border hover:bg-input/50 focus-visible:border-border focus-visible:bg-input " +
   "dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input"
 
@@ -76,9 +76,19 @@ interface DetailFieldProps {
   advice?: ReactNode
   /** Anything else under the row at the same indent — a list of hints, a counter. */
   footer?: ReactNode
+  /**
+   * Phone forms: the label ABOVE the control, the control (and its error/footer) full width
+   * underneath — the grammar of every other phone form (reko, /feld). A 120px label column
+   * leaves a phone's control about 200px and reads as a table, not a form. Desktop keeps the
+   * row.
+   */
+  stacked?: boolean
   className?: string
   children: ReactNode
 }
+
+/** The label of a stacked (phone) field — the same class the reko and /feld fields wear. */
+export const STACKED_LABEL = "mb-1.5 block text-sm font-semibold text-muted-foreground"
 
 /**
  * Left padding that lines a second line up with the control instead of the label:
@@ -106,9 +116,36 @@ export function DetailField({
   error,
   advice,
   footer,
+  stacked = false,
   className,
   children,
 }: DetailFieldProps) {
+  if (stacked) {
+    return (
+      <div className={cn("py-1.5", className)}>
+        <Label htmlFor={htmlFor} title={description} className={STACKED_LABEL}>
+          {label}
+          {required && (
+            <span className="text-destructive" aria-hidden="true">
+              {" "}*
+            </span>
+          )}
+        </Label>
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">{children}</div>
+          {action}
+        </div>
+        {/* full width under the control — see the row variant for `role="alert"` */}
+        {error && (
+          <p role="alert" className="mt-1 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+        {footer && <div className="mt-1">{footer}</div>}
+      </div>
+    )
+  }
+
   return (
     <div className={cn("py-1", className)}>
       <div className={cn("flex gap-2", alignStart ? "items-start" : "items-center")}>
@@ -142,7 +179,9 @@ export function DetailField({
           {error || advice}
         </FormMessage>
       )}
-      {footer && <div className={cn("mt-1", DETAIL_CONTROL_INDENT)}>{footer}</div>}
+      {/* `empty:hidden`: a footer that renders nothing right now (the save
+          line between saves) must not leave its margin behind. */}
+      {footer && <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>}
     </div>
   )
 }
@@ -165,6 +204,8 @@ export function DetailToggle({
   onToggle,
   disabled,
   note,
+  footer,
+  stacked = false,
   className,
 }: {
   label: string
@@ -176,6 +217,11 @@ export function DetailToggle({
   disabled?: boolean
   /** Rendered under the row while `checked` — the "warum" input. */
   note?: ReactNode
+  /** Under the row while `checked`, at the control indent — the note's save line. */
+  footer?: ReactNode
+  /** Phone forms: label left, switch at the right edge (the phone settings norm), the note
+   *  full width under the row while on. */
+  stacked?: boolean
   className?: string
 }) {
   // Switching one of these ON asks a question — «für welche Gemeinde?», «worauf
@@ -192,6 +238,31 @@ export function DetailToggle({
     }
     wasChecked.current = checked
   }, [checked])
+
+  if (stacked) {
+    return (
+      <div className={cn("py-1", className)}>
+        <div
+          className="flex min-h-11 cursor-pointer items-center gap-3 select-none"
+          onClick={() => !disabled && onToggle(!checked)}
+        >
+          <span title={description} className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-muted-foreground">
+            {icon}
+            {label}
+          </span>
+          <div onClick={(event) => event.stopPropagation()}>
+            <Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onToggle} />
+          </div>
+        </div>
+        {checked && note && (
+          <div ref={noteRef} className="mt-1">
+            {note}
+          </div>
+        )}
+        {checked && footer && <div className="mt-1 empty:hidden">{footer}</div>}
+      </div>
+    )
+  }
 
   return (
     <div className={cn("py-1", className)}>
@@ -230,6 +301,7 @@ export function DetailToggle({
           <div className="min-w-0 flex-1" />
         )}
       </div>
+      {checked && footer && <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>}
     </div>
   )
 }

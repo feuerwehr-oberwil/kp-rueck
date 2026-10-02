@@ -10,7 +10,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd } from "@/components/ui/kbd"
-import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Loader2, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle, ArrowRightLeft, Search, Check, ChevronRight, Link2, LayoutDashboard, Building2, Timer, Footprints, Undo2, Layers, Siren, Phone, Axe, Waypoints, Users, Truck, Package, UserMinus, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
@@ -43,6 +43,7 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
 import { DetailField, DetailGroupHeading, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { FieldSaveStatus, FIELD_UNSAVED_CLASS, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
@@ -68,6 +69,7 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import type { Incident } from "@/lib/types/incidents"
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
@@ -114,6 +116,7 @@ function ActionBarButton({
   dense,
   onClick,
   disabled,
+  busy = false,
   variant = 'outline',
   className,
 }: {
@@ -125,6 +128,8 @@ function ActionBarButton({
   dense: boolean
   onClick: () => void
   disabled?: boolean
+  /** Running: the shell trail takes the icon's place, beside the busy label. */
+  busy?: boolean
   variant?: 'outline' | 'ghost'
   className?: string
 }) {
@@ -137,7 +142,7 @@ function ActionBarButton({
       aria-label={label}
       className={className}
     >
-      <Icon className="size-3.5" />
+      {busy ? <ShellLoader className="size-3.5" /> : <Icon className="size-3.5" />}
       {!dense && (visibleLabel ?? label)}
     </Button>
   )
@@ -253,6 +258,16 @@ export function OperationDetailContent({
     [refreshGroups, t],
   )
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // The text fields' save state (lib/field-save): what each one shows — the
+  // operator's draft while one is held, so neither a reload nor a remote
+  // update can replace text the server has not got — and the line under it.
+  const notesSave = useFieldSave(operation.id, 'notes', operation.notes)
+  const contactSave = useFieldSave(operation.id, 'contact', operation.contact)
+  const contactPhoneSave = useFieldSave(operation.id, 'contactPhone', operation.contactPhone)
+  const internalNotesSave = useFieldSave(operation.id, 'internalNotes', operation.internalNotes)
+  const nachbarhilfeNoteSave = useFieldSave(operation.id, 'nachbarhilfeNote', operation.nachbarhilfeNote)
+  const amWartenNoteSave = useFieldSave(operation.id, 'amWartenNote', operation.amWartenNote)
   // Reopening a Schadenplatz lands on the tab it was left on. An operator
   // working through the rapports of a storm night reopens the same card again
   // and again; sending them back to Übersicht every time is a click per visit.
@@ -926,7 +941,7 @@ export function OperationDetailContent({
         // drop target leaves its parent "entered" too, and two rings around one
         // drop is a question about which of them takes it.
         isPanelDropOver && !isResourceDropOver &&
-          "rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background",
+          "rounded-lg ring-2 ring-sel-line ring-offset-2 ring-offset-background",
       )}
       data-testid="operation-detail-content"
       data-layout={layout}
@@ -1166,12 +1181,18 @@ export function OperationDetailContent({
               block above – the first row's label already says «Meldung». */}
           <div>
           <div className="space-y-1">
-          <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+          <DetailField
+            label={t('common.meldung')}
+            htmlFor="notes"
+            alignStart
+            footer={<FieldSaveStatus view={notesSave} onRetry={(notes) => onUpdate({ notes })} />}
+          >
             <Textarea
               id="notes"
               placeholder={t('detail.meldungPlaceholder')}
-              value={operation.notes}
+              value={notesSave.value}
               disabled={!canEdit}
+              aria-invalid={notesSave.failed || undefined}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               // Grows with what is in it. `h-auto` is what makes that work:
               // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
@@ -1189,19 +1210,25 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                notesSave.failed && FIELD_UNSAVED_CLASS,
               )}
             />
           </DetailField>
 
           {/* Contact */}
-          <DetailField label={t('common.contact')} htmlFor="contact">
+          <DetailField
+            label={t('common.contact')}
+            htmlFor="contact"
+            footer={<FieldSaveStatus view={contactSave} onRetry={(contact) => onUpdate({ contact })} />}
+          >
             <Input
               id="contact"
               placeholder={t('common.contactPlaceholder')}
-              value={operation.contact}
+              value={contactSave.value}
               disabled={!canEdit}
+              aria-invalid={contactSave.failed || undefined}
               onChange={(e) => onUpdate({ contact: e.target.value })}
-              className={DENSE_CONTROL}
+              className={cn(DENSE_CONTROL, contactSave.failed && FIELD_UNSAVED_CLASS)}
             />
           </DetailField>
 
@@ -1209,6 +1236,9 @@ export function OperationDetailContent({
           <DetailField
             label={t('common.contactPhone')}
             htmlFor="contact-phone"
+            footer={
+              <FieldSaveStatus view={contactPhoneSave} onRetry={(contactPhone) => onUpdate({ contactPhone })} />
+            }
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
@@ -1224,10 +1254,11 @@ export function OperationDetailContent({
               type="tel"
               inputMode="tel"
               placeholder={t('common.contactPhonePlaceholder')}
-              value={operation.contactPhone}
+              value={contactPhoneSave.value}
               disabled={!canEdit}
+              aria-invalid={contactPhoneSave.failed || undefined}
               onChange={(e) => onUpdate({ contactPhone: sanitizePhoneInput(e.target.value) })}
-              className={DENSE_CONTROL}
+              className={cn(DENSE_CONTROL, contactPhoneSave.failed && FIELD_UNSAVED_CLASS)}
             />
           </DetailField>
 
@@ -1235,12 +1266,20 @@ export function OperationDetailContent({
               together with the fields above they are one reading — what this
               incident IS. The other column answers who is on it. */}
           {/* Internal Notes */}
-          <DetailField label={t('common.notes')} htmlFor="internalNotes" alignStart>
+          <DetailField
+            label={t('common.notes')}
+            htmlFor="internalNotes"
+            alignStart
+            footer={
+              <FieldSaveStatus view={internalNotesSave} onRetry={(internalNotes) => onUpdate({ internalNotes })} />
+            }
+          >
             <Textarea
               id="internalNotes"
               placeholder={t('common.internalNotesPlaceholder')}
-              value={operation.internalNotes}
+              value={internalNotesSave.value}
               disabled={!canEdit}
+              aria-invalid={internalNotesSave.failed || undefined}
               onChange={(e) => onUpdate({ internalNotes: e.target.value })}
               // Same auto-grow as «Meldung» above — see there for why `h-auto`.
               className={cn(
@@ -1252,6 +1291,7 @@ export function OperationDetailContent({
                 "h-auto resize-none py-1",
                 // Three lines of floor: the field must READ as a textarea, not a textbox.
                 dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                internalNotesSave.failed && FIELD_UNSAVED_CLASS,
               )}
             />
           </DetailField>
@@ -1300,11 +1340,18 @@ export function OperationDetailContent({
             note={
               <Input
                 placeholder={t('common.nachbarhilfePlaceholder')}
-                value={operation.nachbarhilfeNote || ''}
+                value={nachbarhilfeNoteSave.value}
                 disabled={!canEdit}
+                aria-invalid={nachbarhilfeNoteSave.failed || undefined}
                 onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="h-7 cursor-text text-sm select-text"
+                className={cn("h-7 cursor-text text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+              />
+            }
+            footer={
+              <FieldSaveStatus
+                view={nachbarhilfeNoteSave}
+                onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
               />
             }
           />
@@ -1321,12 +1368,16 @@ export function OperationDetailContent({
             note={
               <Input
                 placeholder={t('common.amWartenPlaceholder')}
-                value={operation.amWartenNote || ''}
+                value={amWartenNoteSave.value}
                 disabled={!canEdit}
+                aria-invalid={amWartenNoteSave.failed || undefined}
                 onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="h-7 cursor-text text-sm select-text"
+                className={cn("h-7 cursor-text text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
               />
+            }
+            footer={
+              <FieldSaveStatus view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
             }
           />
 
@@ -1369,8 +1420,13 @@ export function OperationDetailContent({
                   <Button
                     key={col.id}
                     size="xs"
-                    variant={isCurrent ? "default" : "outline"}
+                    // The current status is a statement, not a dead button:
+                    // tonal «selected» at full opacity (disabled only stops the
+                    // no-op click), so it reads as «here» and not as greyed out.
+                    variant={isCurrent ? "selected" : "outline"}
                     disabled={isCurrent}
+                    aria-current={isCurrent ? "step" : undefined}
+                    className={isCurrent ? "disabled:opacity-100" : undefined}
                     onClick={() => onChangeStatus(operation.id, col.status[0])}
                   >
                     {t(`columns.${col.id}`)}
@@ -1391,7 +1447,7 @@ export function OperationDetailContent({
               // The drop ring sits OUTSIDE the block (`ring-offset`) so it reads
               // as "this whole list takes it" rather than as a field focus.
               "rounded-lg transition-colors",
-              isResourceDropOver && "ring-2 ring-primary ring-offset-4 ring-offset-background bg-primary/5"
+              isResourceDropOver && "ring-2 ring-sel-line ring-offset-4 ring-offset-background bg-sel-wash"
             )}
           >
             {/* «Kräfte» — the third of the mock's group headings: who and what
@@ -1611,7 +1667,7 @@ export function OperationDetailContent({
                           disabled={isCopyingRekoLink}
                         >
                           {isCopyingRekoLink ? (
-                            <Loader2 className="size-3 animate-spin" />
+                            <ShellLoader className="size-3" />
                           ) : rekoCopied === 'direct' ? (
                             <Check className="size-3 text-success" />
                           ) : (
@@ -1790,6 +1846,7 @@ export function OperationDetailContent({
             visibleLabel={isCopyingWhatsApp ? t('common.copying') : undefined}
             dense={dense}
             disabled={isCopyingWhatsApp}
+            busy={isCopyingWhatsApp}
             onClick={handleCopyWhatsApp}
           />
 

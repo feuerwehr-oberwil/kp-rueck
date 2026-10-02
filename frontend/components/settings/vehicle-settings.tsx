@@ -31,7 +31,7 @@ import {
 import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField } from '@/components/kanban/detail-field';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, Loader2, ArrowUp, ArrowDown, Ban, CircleSlash } from 'lucide-react';
+import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, ArrowUp, ArrowDown, Ban, CircleSlash } from 'lucide-react';
 import { apiClient, ApiError, ApiVehicle } from '@/lib/api-client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -44,6 +44,7 @@ import {
 } from '@/lib/schemas/vehicle';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import { ShellLoader } from '@/components/ui/shell-loader';
 
 type SortColumn = 'display_order' | 'name' | 'radio_call_sign' | 'status';
 
@@ -408,7 +409,7 @@ export function VehicleSettings() {
                     {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={isSaving}>
-                    {isSaving && <Loader2 className="size-4 animate-spin" />}
+                    {isSaving && <ShellLoader className="size-4" />}
                     {editingVehicle ? t('common.update') : t('common.create')}
                   </Button>
                 </DialogFooter>

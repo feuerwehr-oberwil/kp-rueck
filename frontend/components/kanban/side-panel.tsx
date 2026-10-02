@@ -12,6 +12,7 @@ import {
   type OperationDetailContentProps,
 } from "@/components/kanban/operation-detail-content"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
+import { useUnsavedDraftLeaveGuard } from "@/components/kanban/field-save-status"
 
 interface SidePanelProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active' | 'headerActions'> {
   mode: 'detail' | 'collapsed'
@@ -33,6 +34,8 @@ export function SidePanel({
   const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const [isWideEnough, setIsWideEnough] = useState<boolean | null>(null)
+  // Closing the panel over a text the server has not got asks first.
+  const leaveGuard = useUnsavedDraftLeaveGuard(selectedOperation?.id)
 
   useEffect(() => {
     const checkWidth = () => setIsWideEnough(window.innerWidth >= SIDE_PANEL_BREAKPOINT)
@@ -81,7 +84,7 @@ export function SidePanel({
           <Button
             variant="ghost"
             size="icon-xs"
-            onClick={() => onModeChange('collapsed')}
+            onClick={() => leaveGuard.guard(() => onModeChange('collapsed'))}
             aria-label={t('sidePanel.togglePanel')}
           >
             <PanelRightClose className="h-4 w-4" />
@@ -94,6 +97,7 @@ export function SidePanel({
 
   return (
     <aside className="flex w-[420px] flex-col border-l border-border bg-card/30 backdrop-blur-sm 2xl:w-[480px]">
+      {leaveGuard.dialog}
       {/* No bar of its own. Details/Karte and the close button ride in the
           detail's title row — three stacked control rows (bar, title, tabs) in a
           420px column spent ~200px before a single field appeared. The map,

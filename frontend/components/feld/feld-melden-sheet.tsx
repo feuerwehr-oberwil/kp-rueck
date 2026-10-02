@@ -34,7 +34,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight, Loader2, LocateFixed } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LocateFixed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,7 @@ import { PRIORITY_LABELS } from '@/lib/priority'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
 import { sanitizePhoneInput } from '@/lib/utils'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** The one label style the whole sheet uses — the same one `/alarm` uses, which
  *  is what stopped the location field (its own component) looking like a
@@ -359,7 +360,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
           </div>
 
           <Button size="lg" className="w-full" onClick={submit} disabled={sending}>
-            {sending && <Loader2 className="size-4 animate-spin" />}
+            {sending && <ShellLoader className="size-4" />}
             {editing ? t('editSubmit') : t('submit')}
           </Button>
           {/* Back, not "Abbrechen": the way out of the sheet is the sheet's own
@@ -445,7 +446,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                 title={t('useLocation')}
                 tabIndex={-1}
               >
-                {locating ? <Loader2 className="size-4 animate-spin" /> : <LocateFixed className="size-4" />}
+                {locating ? <ShellLoader className="size-4" /> : <LocateFixed className="size-4" />}
               </Button>
             )
           }
@@ -488,7 +489,8 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                   <Button
                     key={key}
                     type="button"
-                    variant={priority === key ? 'default' : 'outline'}
+                    variant={priority === key ? 'selected' : 'outline'}
+                    aria-pressed={priority === key}
                     onClick={() => setPriority(key)}
                   >
                     {label}

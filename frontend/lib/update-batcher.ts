@@ -62,3 +62,40 @@ export class UpdateBatcher<T> {
     if (batch && flusher) flusher(batch)
   }
 }
+
+/**
+ * One request at a time per key, in the order they were asked for.
+ *
+ * The batcher above merges keystrokes into one PATCH per incident, but it does
+ * not stop the NEXT batch from leaving while the previous one is still in
+ * flight — and on a slow uplink (exactly when this matters) two PATCHes of the
+ * same incident could reach the server in either order. The older text would
+ * then win on the server while the field had already said «Gespeichert» for
+ * the newer one. Chaining them per incident is what makes that word true.
+ *
+ * `jump` skips the line: a flush on `pagehide` must leave NOW, because the
+ * document may be gone before the request ahead of it settles.
+ */
+export class KeyedSerialQueue {
+  private tails = new Map<string, Promise<void>>()
+
+  run<T>(key: string, task: () => Promise<T>, options?: { jump?: boolean }): Promise<T> {
+    const ahead = options?.jump ? undefined : this.tails.get(key)
+    const result = ahead ? ahead.then(task) : task()
+    // The tail never rejects: one failed request must not poison the queue.
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    this.tails.set(key, tail)
+    void tail.then(() => {
+      if (this.tails.get(key) === tail) this.tails.delete(key)
+    })
+    return result
+  }
+
+  /** Whether a request for `key` is still in flight or waiting. */
+  isBusy(key: string): boolean {
+    return this.tails.has(key)
+  }
+}

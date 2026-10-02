@@ -7,6 +7,7 @@ import {
   type OperationDetailContentProps,
 } from "@/components/kanban/operation-detail-content"
 import type { Operation } from "@/lib/contexts/operations-context"
+import { useUnsavedDraftLeaveGuard } from "@/components/kanban/field-save-status"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
 interface OperationDetailModalProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active'> {
@@ -22,11 +23,18 @@ export function OperationDetailModal({
   ...contentProps
 }: OperationDetailModalProps) {
   const { selectedEvent } = useEvent()
+  // Closing over a text the server has not got asks first (see the hook).
+  const leaveGuard = useUnsavedDraftLeaveGuard(operation?.id)
 
   if (!operation) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    {leaveGuard.dialog}
+    <Dialog
+      open={open}
+      onOpenChange={(next) => (next ? onOpenChange(true) : leaveGuard.guard(() => onOpenChange(false)))}
+    >
       <DialogContent
         aria-describedby={undefined}
         // One inset on all four sides. It used to override the bottom alone
@@ -61,5 +69,6 @@ export function OperationDetailModal({
         />
       </DialogContent>
     </Dialog>
+    </>
   )
 }

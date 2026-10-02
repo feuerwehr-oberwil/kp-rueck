@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { DetailField } from '@/components/kanban/detail-field'
-import { Plus, Archive, Trash2, GraduationCap, Loader2, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package } from 'lucide-react'
+import { Plus, Archive, Trash2, GraduationCap, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -35,6 +35,7 @@ import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { ShellLoader } from '@/components/ui/shell-loader'
 import { fieldMessageProps, focusFirstBlockingField } from '@/components/ui/form-message'
 
 /**
@@ -382,7 +383,7 @@ export default function EventsPage() {
             disabled={busy}
             onClick={(e) => e.stopPropagation()}
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+            {busy ? <ShellLoader className="size-4" /> : <MoreHorizontal className="size-4" />}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -488,7 +489,7 @@ export default function EventsPage() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-auto p-4 pb-nav-reserve md:p-6">
           <div className="mx-auto max-w-[1100px]">
 
             {/* Search bar */}
@@ -501,14 +502,15 @@ export default function EventsPage() {
             </div>
 
             {/* The active event is not a row — it is a banner, pinned above the
-                list, with the only other red on the page and the Restliste
-                expanded here only. Search never hides "you are here". */}
+                list, with an ink edge (where-you-are is ink, not red — red means
+                danger) and the Restliste expanded here only. Search never hides
+                "you are here". */}
             {bannerEvent && (
               <div
                 data-testid="event-card"
                 className="relative mb-6 overflow-hidden rounded-lg border border-border bg-muted/30 p-4 pl-5"
               >
-                <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-primary" />
+                <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-foreground" />
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -679,7 +681,7 @@ export default function EventsPage() {
                     }}
                     className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left text-sm font-medium transition-colors ${
                       !newEventTraining
-                        ? 'border-primary bg-primary/5 text-primary'
+                        ? 'border-sel-line bg-sel-wash text-sel-foreground'
                         : 'border-muted hover:border-muted-foreground/25'
                     }`}
                   >
@@ -710,7 +712,7 @@ export default function EventsPage() {
                 {t('createDialog.cancel')}
               </Button>
               <Button onClick={handleCreateEvent} disabled={isCreating}>
-                {isCreating && <Loader2 className="size-4 animate-spin" />}
+                {isCreating && <ShellLoader className="size-4" />}
                 {isCreating ? t('createDialog.creating') : t('createDialog.create')}
               </Button>
             </DialogFooter>
@@ -802,7 +804,7 @@ export default function EventsPage() {
                     <label className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3 text-sm">
                       <input
                         type="checkbox"
-                        className="mt-0.5 accent-primary"
+                        className="mt-0.5 accent-sel"
                         checked={archiveCheckout}
                         onChange={(e) => setArchiveCheckout(e.target.checked)}
                       />
@@ -821,7 +823,7 @@ export default function EventsPage() {
               {t('archiveDialog.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleArchive} disabled={isArchiving}>
-              {isArchiving && <Loader2 className="size-4 animate-spin" />}
+              {isArchiving && <ShellLoader className="size-4" />}
               {archiveRestliste &&
               (archiveRestliste.open_incidents.length > 0 ||
                 archiveRestliste.open_pickups.length > 0 ||
@@ -854,7 +856,7 @@ export default function EventsPage() {
               {t('deleteDialog.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting && <Loader2 className="size-4 animate-spin" />}
+              {isDeleting && <ShellLoader className="size-4" />}
               {t('deleteDialog.confirm')}
             </Button>
           </DialogFooter>

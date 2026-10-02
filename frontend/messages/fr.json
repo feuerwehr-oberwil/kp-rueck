@@ -140,17 +140,24 @@
     },
     "staleDataBanner": {
       "connectionLost": "Liaison perdue – les données sont peut-être périmées.",
-      "lastUpdate": "Dernière actualisation il y a {time}. L’interrogation continue en arrière-plan.",
       "reconnect": "Se reconnecter",
       "loadFailedAt": "État à {time} – échec de la mise à jour",
       "showsLastLoaded": "Le tableau affiche le dernier état chargé.",
-      "reload": "Recharger"
+      "reload": "Recharger",
+      "confirmedAt": "État à {time}",
+      "notConfirmed": "Liaison rétablie – l’état actuel n’est pas encore confirmé."
     },
     "boardLoadError": {
       "title": "Impossible de charger les interventions",
       "body": "Le serveur n’a pas répondu ou a signalé une erreur. Le tableau n’est pas vide – il n’est pas encore chargé.",
       "retry": "Recharger"
     },
+    "bootScreen": {
+      "stuckTitle": "Le démarrage prend plus de temps que d’habitude",
+      "stuckHint": "Connexion faible ou serveur injoignable.",
+      "restart": "Redémarrer"
+    },
+    "loading": "Chargement …",
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },
@@ -234,6 +241,8 @@
       "description": "Vue d’ensemble des interventions pour l’engagement de l’effectif et du matériel des sapeurs-pompiers."
     },
     "dismissAllToasts": "Tout fermer",
+    "closeToast": "Fermer l’annonce",
+    "toastRegion": "Annonces",
     "redirecting": "Redirection …"
   },
   "display": {
@@ -1233,6 +1242,7 @@
       },
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
+      "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Rechercher une intervention …",
       "all": "Toutes ({count})",
       "noActive": "Aucune intervention en cours",
@@ -1546,8 +1556,8 @@
         "type": "Par genre"
       },
       "noPersonnelCheckedIn": "Personne n’est annoncé",
-      "personnelLoading": "Chargement du personnel",
-      "materialLoading": "Chargement du matériel",
+      "personnelLoading": "Chargement du personnel …",
+      "materialLoading": "Chargement du matériel …",
       "notLoaded": "Non chargé",
       "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
       "groupFree": "Libres · {count}",
@@ -2103,6 +2113,32 @@
       "dispatchHint": "Vraiment un nouvel engagement ? « Engager à nouveau … » ouvre le dialogue complet avec message radio et alarme.",
       "dispatchAgain": "Engager à nouveau …",
       "confirm": "Corriger le statut"
+    },
+    "fieldSave": {
+      "saving": "Enregistrement …",
+      "savedAt": "Enregistré – {time}",
+      "failed": "Non enregistré.",
+      "failedBody": "{reason} – le texte reste ici.",
+      "reason": {
+        "network": "Pas de liaison avec le serveur",
+        "session": "La session a expiré",
+        "forbidden": "Pas d’autorisation pour cette modification",
+        "conflict": "L’intervention a été modifiée ailleurs entre-temps",
+        "rejected": "Le serveur a refusé la saisie",
+        "server": "Le serveur a signalé une erreur",
+        "unknown": "Erreur inconnue"
+      },
+      "serverNow": "Sur le serveur entre-temps : «{text}»",
+      "serverNowEmpty": "Sur le serveur, le champ est entre-temps vide.",
+      "retry": "Enregistrer à nouveau",
+      "copy": "Copier le texte",
+      "copied": "Copié",
+      "leave": {
+        "title": "Texte non enregistré",
+        "description": "{count, plural, one {{fields} n’a pas pu être enregistré} other {{fields} n’ont pas pu être enregistrés}}. Le texte reste conservé dans cette fenêtre jusqu’au rechargement de la page.",
+        "confirm": "Fermer quand même",
+        "cancel": "Retour à l’intervention"
+      }
     }
   },
   "login": {
@@ -2509,7 +2545,7 @@
       "geofenceAlertsLabel": "Arrivée par géorepérage",
       "geofenceAlertsHint": "Notification lorsqu’un véhicule arrive sur le lieu d’intervention (GPS). Le rayon d’arrivée se règle sous Réglages → GPS.",
       "toastDurationLabel": "Durée d’affichage (s)",
-      "toastDurationHint": "Combien de temps une annonce reste visible en incrustation (2–30 s). Les annonces critiques restent jusqu’à ce qu’on les ferme.",
+      "toastDurationHint": "Valeur de base 8 s : les annonces courtes disparaissent plus vite, les longues restent plus longtemps. Une valeur plus élevée les prolonge toutes dans la même proportion (2–30 s). Les annonces critiques restent jusqu’à ce qu’on les ferme.",
       "timeLimitsTitle": "Limites de temps par statut",
       "timeLimitsSubtitle": "L’avertissement apparaît lorsqu’une intervention reste plus longtemps qu’indiqué dans un statut.",
       "liveTab": "Mode réel",
@@ -2533,8 +2569,6 @@
     },
     "toasts": {
       "criticalTitle": "Avertissement critique",
-      "warningTitle": "Avertissement",
-      "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
       "overflowAction": "Ouvrir",

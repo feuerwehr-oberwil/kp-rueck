@@ -31,17 +31,24 @@
     },
     "staleDataBanner": {
       "connectionLost": "Verbindung verloren – Daten sind möglicherweise veraltet.",
-      "lastUpdate": "Letzte Aktualisierung vor {time}. Polling läuft im Hintergrund.",
       "reconnect": "Neu verbinden",
       "loadFailedAt": "Stand {time} – Aktualisierung fehlgeschlagen",
       "showsLastLoaded": "Das Board zeigt den letzten geladenen Stand.",
-      "reload": "Erneut laden"
+      "reload": "Erneut laden",
+      "confirmedAt": "Stand {time}",
+      "notConfirmed": "Verbindung steht wieder – der aktuelle Stand ist noch nicht bestätigt."
     },
     "boardLoadError": {
       "title": "Einsätze konnten nicht geladen werden",
       "body": "Der Server hat nicht geantwortet oder einen Fehler gemeldet. Das Board ist nicht leer – es ist noch nicht geladen.",
       "retry": "Erneut laden"
     },
+    "bootScreen": {
+      "stuckTitle": "Start dauert länger als gewöhnlich",
+      "stuckHint": "Verbindung schwach oder Server nicht erreichbar.",
+      "restart": "Neu starten"
+    },
+    "loading": "Wird geladen …",
     "incidentTruncation": {
       "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
     },
@@ -125,6 +132,8 @@
       "description": "Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr."
     },
     "dismissAllToasts": "Alle schliessen",
+    "closeToast": "Meldung schliessen",
+    "toastRegion": "Meldungen",
     "redirecting": "Wird weitergeleitet …"
   },
   "nav": {
@@ -438,8 +447,8 @@
         "type": "Nach Typ"
       },
       "noPersonnelCheckedIn": "Niemand angemeldet",
-      "personnelLoading": "Personal wird geladen",
-      "materialLoading": "Material wird geladen",
+      "personnelLoading": "Personal wird geladen …",
+      "materialLoading": "Material wird geladen …",
       "notLoaded": "Nicht geladen",
       "noPersonnelMatch": "Keine Person passt zu <term>«{query}»</term>",
       "groupFree": "Frei · {count}",
@@ -995,6 +1004,32 @@
       "dispatchHint": "Wirklich neu ausrücken? «Neu disponieren …» öffnet den vollen Dialog mit Funkdurchsage und Aufgebot.",
       "dispatchAgain": "Neu disponieren …",
       "confirm": "Status korrigieren"
+    },
+    "fieldSave": {
+      "saving": "Wird gespeichert …",
+      "savedAt": "Gespeichert – {time}",
+      "failed": "Nicht gespeichert.",
+      "failedBody": "{reason} – der Text bleibt hier stehen.",
+      "reason": {
+        "network": "Keine Verbindung zum Server",
+        "session": "Die Anmeldung ist abgelaufen",
+        "forbidden": "Keine Berechtigung für diese Änderung",
+        "conflict": "Der Einsatz wurde inzwischen anderswo geändert",
+        "rejected": "Der Server hat die Eingabe abgelehnt",
+        "server": "Der Server hat einen Fehler gemeldet",
+        "unknown": "Unbekannter Fehler"
+      },
+      "serverNow": "Auf dem Server steht inzwischen: «{text}»",
+      "serverNowEmpty": "Auf dem Server ist das Feld inzwischen leer.",
+      "retry": "Erneut speichern",
+      "copy": "Text kopieren",
+      "copied": "Kopiert",
+      "leave": {
+        "title": "Text nicht gespeichert",
+        "description": "{count, plural, one {{fields} konnte} other {{fields} konnten}} nicht gespeichert werden. Der Text bleibt in diesem Fenster erhalten, bis die Seite neu geladen wird.",
+        "confirm": "Trotzdem schliessen",
+        "cancel": "Zurück zum Einsatz"
+      }
     }
   },
   "incidents": {
@@ -1221,6 +1256,7 @@
       },
       "trainingBadge": "Übung",
       "createTrainingIncident": "Übungs-Einsatz erstellen",
+      "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
       "all": "Alle ({count})",
       "noActive": "Keine aktiven Einsätze",
@@ -2893,7 +2929,7 @@
       "geofenceAlertsLabel": "Geofence-Ankunft",
       "geofenceAlertsHint": "Benachrichtigung wenn ein Fahrzeug am Einsatzort eintrifft (GPS). Der Ankunftsradius wird unter Einstellungen → GPS festgelegt.",
       "toastDurationLabel": "Anzeigedauer (Sek.)",
-      "toastDurationHint": "Wie lange eine Meldung als Einblendung sichtbar bleibt (2–30 Sek.). Kritische Meldungen bleiben, bis sie geschlossen werden.",
+      "toastDurationHint": "Grundwert 8 Sek.: Kurze Meldungen verschwinden schneller, lange bleiben länger. Ein höherer Wert verlängert alle im selben Verhältnis (2–30 Sek.). Kritische Meldungen bleiben, bis sie geschlossen werden.",
       "timeLimitsTitle": "Status-Zeitlimits",
       "timeLimitsSubtitle": "Warnung erscheint, wenn ein Einsatz länger als angegeben in einem Status verbleibt.",
       "liveTab": "Live-Modus",
@@ -2917,8 +2953,6 @@
     },
     "toasts": {
       "criticalTitle": "Kritische Warnung",
-      "warningTitle": "Warnung",
-      "infoTitle": "Information",
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
       "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
       "overflowAction": "Öffnen",

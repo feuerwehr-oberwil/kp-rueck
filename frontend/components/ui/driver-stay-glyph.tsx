@@ -13,8 +13,10 @@
  * bare 12px Undo2 at 40 % opacity, and the two states were told apart by
  * whoever already knew to look. Reading a board is not a memory game: both
  * states are now written out in full — «bleibt vor Ort» / «fährt zurück» — and
- * the one that costs something (a vehicle parked and blocked in at an address)
- * carries the amber the board uses everywhere else for exactly that. Short
+ * the word and the icon (pin / return arrow) carry the difference. Both are
+ * neutral muted chips since the «quieter cards» pass (2026-10): an amber chip
+ * on every crewed card was noise next to the Mittel edge and the Abholung
+ * chip, which are the ambers that ask for action. Short
  * forms exist for the two surfaces where the chip is also a button and space is
  * the constraint; a screen that can only be read gets the whole sentence.
  *
@@ -44,9 +46,7 @@ export function DriverStayGlyph({
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 whitespace-nowrap",
-        stays
-          ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
-          : "bg-muted-foreground/15 text-muted-foreground",
+        "bg-muted-foreground/15 text-muted-foreground",
         className,
       )}
     >

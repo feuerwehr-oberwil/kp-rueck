@@ -68,3 +68,32 @@ describe('MobileIncidentListView — empty states', () => {
     expect(screen.getAllByTestId('card')).toHaveLength(2)
   })
 })
+
+function renderBare(props: Partial<React.ComponentProps<typeof MobileIncidentListView>> = {}) {
+  return renderWithIntl(
+    <MobileIncidentListView operations={[]} materials={[]} formatLocation={(a) => a} {...props} />,
+  )
+}
+
+describe('MobileIncidentListView — «Neuer Einsatz»', () => {
+  it('gives the phone a visible way in that opens the form', async () => {
+    const onNewIncident = vi.fn()
+    renderBare({ isEditor: true, onNewIncident })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Neuer Einsatz' }))
+    expect(onNewIncident).toHaveBeenCalledOnce()
+  })
+
+  it('is not there without the handler (viewers)', () => {
+    renderBare({ isEditor: false })
+    expect(screen.queryByRole('button', { name: 'Neuer Einsatz' })).toBeNull()
+  })
+
+  it('stands below the training CTA in an Übung, above the search', () => {
+    renderBare({ isEditor: true, isTraining: true, onNewIncident: () => {} })
+    const training = screen.getByRole('button', { name: /Übungs-Einsatz erstellen/ })
+    const neu = screen.getByRole('button', { name: 'Neuer Einsatz' })
+    const search = screen.getByPlaceholderText('Einsatz suchen …')
+    expect(training.compareDocumentPosition(neu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(neu.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

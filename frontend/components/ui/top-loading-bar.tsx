@@ -19,6 +19,10 @@ let state: BarState = IDLE
 let count = 0
 let trickle: ReturnType<typeof setInterval> | null = null
 let finishTimer: ReturnType<typeof setTimeout> | null = null
+// Screens that are themselves the loading signal (the boot screen) hide the bar while they
+// are up, so the start never shows two signals at once. Ref-counted like the loads; the
+// loads keep running underneath and the bar reappears if one outlasts the screen.
+let suppressed = 0
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -69,6 +73,23 @@ export const topLoading = {
     }, 260)
   },
 
+  /** Hide the bar until the returned release is called (see BootScreen). */
+  suppress() {
+    suppressed += 1
+    emit()
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      suppressed -= 1
+      emit()
+    }
+  },
+
+  isSuppressed() {
+    return suppressed > 0
+  },
+
   subscribe(listener: () => void) {
     listeners.add(listener)
     return () => listeners.delete(listener)
@@ -92,6 +113,7 @@ export function TopLoadingBar() {
     topLoading.snapshot,
     () => IDLE,
   )
+  const hidden = useSyncExternalStore(topLoading.subscribe, topLoading.isSuppressed, () => false)
   const pathname = usePathname()
   const prevPath = useRef(pathname)
 
@@ -114,7 +136,7 @@ export function TopLoadingBar() {
         className="h-full bg-primary transition-[width,opacity] duration-200 ease-out"
         style={{
           width: `${state.progress}%`,
-          opacity: state.active ? 1 : 0,
+          opacity: state.active && !hidden ? 1 : 0,
           boxShadow: "0 0 8px var(--primary)",
         }}
       />
