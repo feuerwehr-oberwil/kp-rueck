@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 
 import { Button } from '@/components/ui/button'
 import { SnailLoader } from '@/components/snail-loader'
+import { topLoading } from '@/components/ui/top-loading-bar'
 
 /** How long a start may run quietly before the screen admits something is wrong (KP
  *  Front's Splash uses the same 9 s). Past a few seconds «alive and starting» stops
@@ -27,6 +28,12 @@ export const BOOT_STUCK_MS = 9_000
 export function BootScreen({ phase, restartHref }: { phase: string; restartHref?: string }) {
   const t = useTranslations('common.bootScreen')
   const [stuck, setStuck] = useState(false)
+
+  // The snail IS the loading signal here: the route bar at the top stays hidden while this
+  // screen is up (the session probe and the board's first loads would otherwise run it
+  // above the snail). Layout effect, so it is hidden before the first paint; the bar works
+  // as before once the screen is gone.
+  useLayoutEffect(() => topLoading.suppress(), [])
 
   useEffect(() => {
     const timer = setTimeout(() => setStuck(true), BOOT_STUCK_MS)

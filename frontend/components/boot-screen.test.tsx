@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
+import { topLoading } from '@/components/ui/top-loading-bar'
+
 import { BOOT_STUCK_MS, BootScreen } from './boot-screen'
 
 const location = { reload: vi.fn(), assign: vi.fn() }
@@ -64,5 +66,13 @@ describe('BootScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Neu starten' }))
     expect(location.assign).toHaveBeenCalledWith('/login')
     expect(location.reload).not.toHaveBeenCalled()
+  })
+
+  it('hides the route bar while it is up, and gives it back afterwards', () => {
+    expect(topLoading.isSuppressed()).toBe(false)
+    const { unmount } = renderWithIntl(<BootScreen phase="Anmeldung wird vorbereitet …" />)
+    expect(topLoading.isSuppressed()).toBe(true)
+    unmount()
+    expect(topLoading.isSuppressed()).toBe(false)
   })
 })
