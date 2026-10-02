@@ -27,6 +27,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SettingBlock, SettingCard } from '@/components/settings/setting-row'
 import { Textarea } from '@/components/ui/textarea'
@@ -136,7 +137,7 @@ function RouteOption({
       onClick={onPick}
       className={cn(
         'flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors',
-        picked ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+        picked ? 'border-sel-edge bg-sel-wash' : 'hover:bg-muted/50',
       )}
     >
       <span className="mt-0.5 text-muted-foreground">{icon}</span>
@@ -362,7 +363,7 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
         >
           <div className="space-y-3">
             {statusFailed && <p className="text-sm text-destructive">{t('loadError')}</p>}
-            {!status && !statusFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>}
+            {!status && !statusFailed && <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>}
 
             {status && (
               <>
@@ -375,16 +376,20 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
                      extra steps. */
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      variant={status.decided && !on ? 'default' : 'outline'}
+                      variant={status.decided && !on ? 'selected' : 'outline'}
                       size="sm"
+                      className="disabled:data-[current=true]:opacity-100"
+                      data-current={status.decided && !on}
                       disabled={busy || (status.decided && !on)}
                       onClick={() => void setConsent('off')}
                     >
                       {status.decided ? t('turnOff') : t('askNo')}
                     </Button>
                     <Button
-                      variant={status.decided && on ? 'default' : 'outline'}
+                      variant={status.decided && on ? 'selected' : 'outline'}
                       size="sm"
+                      className="disabled:data-[current=true]:opacity-100"
+                      data-current={status.decided && on}
                       disabled={busy || on}
                       onClick={() => void setConsent('errors')}
                     >

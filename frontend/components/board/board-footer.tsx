@@ -74,7 +74,9 @@ function ToolbarToggle({
         // Explicit px: these sit in a gap-less row, so the button's own padding
         // is the only thing keeping one item's label off the next item's icon.
         "px-2.5 transition-colors",
-        active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
+        // Where-you-are (an open panel) is an ink tint, not a colour: red means
+        // priority/danger here, slate means «chosen» (CLAUDE.md → Colour roles).
+        active ? "bg-foreground/[0.09] text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
       onPointerDown={(e) => {
         e.stopPropagation()

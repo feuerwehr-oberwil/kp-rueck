@@ -19,7 +19,7 @@ import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { FileText, Loader2, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
+import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
 import { WallClock } from "@/components/ui/event-clock"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
@@ -64,14 +64,14 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
+import { LoadingStatus } from "@/components/ui/shell-loader"
 
 // Dynamically import map to avoid SSR issues – MapLibre GL needs a browser (WebGL, workers)
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-muted rounded-lg">
-      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      <div className="text-sm text-muted-foreground">{translateOutsideReact('map.page.loading')}</div>
+    <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+      <LoadingStatus size="surface" className="text-sm">{translateOutsideReact('map.page.loading')}</LoadingStatus>
     </div>
   ),
 })
@@ -1043,7 +1043,7 @@ export default function MapPage() {
                     <button
                       className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${
                         !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority'
-                          ? 'border-primary/50 bg-secondary/50 text-foreground'
+                          ? 'border-sel-edge bg-secondary/50 text-foreground'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                       }`}
                       title={t('page.viewMenuLabel')}
@@ -1217,7 +1217,7 @@ export default function MapPage() {
                                   }`}
                                 >
                                   {isSelected && (
-                                    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary" />
+                                    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-sel-line" />
                                   )}
                                   <span
                                     className={`h-2 w-2 flex-shrink-0 rounded-full ${

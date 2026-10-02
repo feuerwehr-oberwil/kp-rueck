@@ -42,6 +42,7 @@ import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SearchInput } from '@/components/ui/search-input'
+import { ShellLoader } from '@/components/ui/shell-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
@@ -1078,7 +1079,7 @@ function FeldSurface() {
           <button
             type="button"
             onClick={() => setMeldenOpen(true)}
-            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg"
+            className="fixed bottom-5 right-4 z-40 flex h-13 items-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground shadow-lg"
           >
             <Plus className="size-4" />
             {functions.includes('telefondienst') ? t('melden.fabPhone') : t('melden.fab')}
@@ -1220,12 +1221,12 @@ function FeldSurface() {
                     codeError?.kind === 'wrong'
                       ? 'border-destructive'
                       : codeFocused && Math.min(codeInput.length, 3) === index && !locked
-                        ? 'border-primary ring-2 ring-primary/25'
+                        ? 'border-ring ring-2 ring-ring/25'
                         : 'border-border'
                   } ${locked ? 'opacity-60' : ''}`}
                 >
                   {unlocking && index === 3 && codeInput.length === 4 ? (
-                    <span className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                    <ShellLoader className="size-6 text-muted-foreground" />
                   ) : (
                     codeInput[index] ?? ''
                   )}

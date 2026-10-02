@@ -151,7 +151,7 @@ export function MobileIncidentListView({
             the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights). */}
         {isTraining && isEditor && (
           <Link href="/training" className="mb-2 block">
-            <Button className="w-full min-h-[48px] gap-2 bg-orange-600 text-white hover:bg-orange-700">
+            <Button variant="outline" className="w-full min-h-[48px] gap-2">
               <Sparkles className="h-4 w-4" />
               {t('createTrainingIncident')}
             </Button>
@@ -182,7 +182,8 @@ export function MobileIncidentListView({
         {/* Status Filter Pills - 44px min height for touch targets (WCAG 2.5.5) */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           <Button
-            variant={activeFilter === null ? "default" : "outline"}
+            variant={activeFilter === null ? "selected" : "outline"}
+            aria-pressed={activeFilter === null}
             size="sm"
             onClick={() => setActiveFilter(null)}
             className="flex-shrink-0 min-h-[44px] px-4"
@@ -192,7 +193,8 @@ export function MobileIncidentListView({
           {statusGroups.map(group => (
             <Button
               key={group.id}
-              variant={activeFilter === group.id ? "default" : "outline"}
+              variant={activeFilter === group.id ? "selected" : "outline"}
+              aria-pressed={activeFilter === group.id}
               size="sm"
               onClick={() => setActiveFilter(activeFilter === group.id ? null : group.id)}
               className="flex-shrink-0 min-h-[44px] px-4"

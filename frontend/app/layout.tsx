@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
 import './globals.css'
@@ -26,16 +26,22 @@ import { publicBackendOrigin } from '@/lib/env'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 import { ViewportInsets } from '@/components/viewport-insets'
 
-const geistSans = Geist({
-  subsets: ['latin'],
+// Sora + Spline Sans Mono — the same faces as KP Front and kp-rueck.ch, so the
+// two apps and the site read as one family. Self-hosted (variable woff2, Latin
+// subset, SIL OFL 1.1 — licences next to the files): a station that runs
+// offline must not depend on a font CDN, and next/font/google fetches at build
+// time. The variables feed `--font-sans` / `--font-mono` in globals.css.
+const sora = localFont({
+  src: [{ path: './fonts/sora.woff2', weight: '100 800', style: 'normal' }],
   display: 'swap',
-  variable: '--font-geist-sans',
+  variable: '--font-sora',
 })
 
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
+const splineSansMono = localFont({
+  src: [{ path: './fonts/spline-sans-mono.woff2', weight: '300 700', style: 'normal' }],
   display: 'swap',
-  variable: '--font-geist-mono',
+  variable: '--font-spline-sans-mono',
+  fallback: ['Courier New', 'monospace'],
 })
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -61,7 +67,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${sora.variable} ${splineSansMono.variable} font-sans antialiased`}>
         {/* Where the browser may open its WebSocket. Read here because API_URL is a RUNTIME
             variable — the same one the /backend-api proxy route uses — and this layout renders
             per request. Null on a deployment that sits behind one origin (compose/Caddy) or

@@ -1065,7 +1065,7 @@ export default function SettingsPage() {
                             }`}
                           >
                             {selected && (
-                              <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary" />
+                              <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-sel-line" />
                             )}
                             {isFirstOfSection && (
                               <span className="flex items-center gap-2 pb-0.5 text-[11px] font-medium text-muted-foreground">

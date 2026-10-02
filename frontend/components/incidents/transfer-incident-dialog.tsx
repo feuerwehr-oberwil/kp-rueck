@@ -13,12 +13,13 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, AlertCircle, Loader2 } from "lucide-react"
+import { MapPin, AlertCircle } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
 import { useTranslations } from "next-intl"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { STATUS_ACCENT } from "@/lib/kanban-utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 interface TransferIncidentDialogProps {
   open: boolean
@@ -212,7 +213,7 @@ export function TransferIncidentDialog({
             onClick={handleTransfer}
             disabled={!selectedIncidentId || isTransferring}
           >
-            {isTransferring && <Loader2 className="size-4 animate-spin" />}
+            {isTransferring && <ShellLoader className="size-4" />}
             {t('transfer.transfer')}
           </Button>
         </DialogFooter>

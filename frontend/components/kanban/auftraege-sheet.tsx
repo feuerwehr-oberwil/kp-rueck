@@ -644,7 +644,7 @@ function AuftragCard({
       // primary visual split is always between Aufträge, not within one.
       className={cn(
         "rounded-lg border border-l-[3px] bg-card transition-colors",
-        isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
+        isDropOver && "ring-2 ring-sel-line bg-sel-wash",
       )}
       style={{ borderLeftColor: group.color ?? "var(--border)" }}
     >
@@ -992,7 +992,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           // Column layout: [handle] [number] [status — fixed width] [address — flex].
           "flex items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
           stopStatusBorderClass(mirror),
-          isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
+          isDropOver && "ring-2 ring-sel-line bg-sel-wash",
         )}
       >
         {!readOnly && <button ref={handleRef} className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0" aria-label={t("dragStop")}>

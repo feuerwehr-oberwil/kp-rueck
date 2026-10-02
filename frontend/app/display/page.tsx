@@ -88,12 +88,12 @@ export default function DisplayIndexPage() {
                         className={cn(
                           "flex w-full items-center gap-2 rounded-lg border px-4 py-3 text-left transition-colors",
                           isSelected
-                            ? "border-primary bg-primary/10"
+                            ? "border-sel-edge bg-sel-wash"
                             : "border-border bg-card hover:bg-muted",
                         )}
                       >
                         <Check
-                          className={cn("h-4 w-4 shrink-0 text-primary", !isSelected && "invisible")}
+                          className={cn("h-4 w-4 shrink-0 text-sel-foreground", !isSelected && "invisible")}
                           aria-hidden="true"
                         />
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{event.name}</span>

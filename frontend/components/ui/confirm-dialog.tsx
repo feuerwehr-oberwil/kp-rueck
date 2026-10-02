@@ -2,7 +2,6 @@
 
 import { type ReactNode, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -97,7 +97,7 @@ export function ConfirmDialog({
             disabled={isConfirming}
             className={cn(buttonVariants({ variant }))}
           >
-            {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isConfirming && <ShellLoader className="mr-2 h-4 w-4" />}
             {confirmText ?? t('confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>

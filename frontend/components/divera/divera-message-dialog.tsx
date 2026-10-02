@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { MessageCircle, Loader2, AlertTriangle, Users, Megaphone, Check } from "lucide-react"
+import { MessageCircle, AlertTriangle, Users, Megaphone, Check } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { cn } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
 import { toast } from "sonner"
+import { ShellLoader, LoadingStatus } from "@/components/ui/shell-loader"
 
 interface DiveraMessageDialogProps {
   open: boolean
@@ -164,7 +165,7 @@ export function DiveraMessageDialog({
                 onClick={() => setTarget("groups")}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  target === "groups" ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                  target === "groups" ? "sel-choice" : "hover:bg-muted",
                 )}
               >
                 <Users className="size-4 shrink-0" />
@@ -175,7 +176,7 @@ export function DiveraMessageDialog({
               {target === "groups" && (
                 <div className="max-h-48 overflow-y-auto">
                   {isLoadingGroups ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">{t("loadingGroups")}</p>
+                    <LoadingStatus className="px-3 py-2 text-sm">{t("loadingGroups")}</LoadingStatus>
                   ) : groupsError ? (
                     <p className="px-3 py-2 text-sm text-muted-foreground">{t("groupsError")}</p>
                   ) : groups.length === 0 ? (
@@ -202,7 +203,7 @@ export function DiveraMessageDialog({
                 onClick={() => setTarget("all")}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  target === "all" ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                  target === "all" ? "sel-choice" : "hover:bg-muted",
                 )}
               >
                 <Megaphone className="size-4 shrink-0" />
@@ -246,7 +247,7 @@ export function DiveraMessageDialog({
               title={blockedReason ?? undefined}
               disabled={Boolean(blockedReason) || isSending || !recipientsChosen || !text.trim()}
             >
-              {isSending ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
+              {isSending ? <ShellLoader className="size-4" /> : <MessageCircle className="size-4" />}
               {target === "all" ? t("sendAll") : t("send", { count: selectedGroups.size })}
             </Button>
           </DialogFooter>

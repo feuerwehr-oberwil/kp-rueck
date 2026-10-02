@@ -49,7 +49,7 @@ export function CardViewMenu({
         <Button
           size="xs"
           variant="ghost"
-          className="px-2.5 text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
+          className="px-2.5 text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-foreground/[0.09] data-[state=open]:text-foreground"
           title={t('tooltip')}
           aria-label={t('label')}
         >
@@ -81,9 +81,9 @@ export function CardViewMenu({
               aria-pressed={preset === option}
               onClick={() => onApplyPreset(option)}
               className={cn(
-                'h-7 rounded-md border text-xs transition-colors',
+                'h-7 rounded-sm border text-xs transition-colors',
                 preset === option
-                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  ? 'border-sel-edge bg-sel-wash text-sel-foreground'
                   : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
@@ -101,7 +101,7 @@ export function CardViewMenu({
           {CARD_VIEW_KEYS.map((key) => (
             <label
               key={key}
-              className="flex h-7 cursor-pointer items-center justify-between gap-2 rounded-md px-1 text-xs text-foreground/90 hover:bg-muted/60"
+              className="flex h-7 cursor-pointer items-center justify-between gap-2 rounded-sm px-1 text-xs text-foreground/90 hover:bg-muted/60"
             >
               <span>{t(`block.${key}`)}</span>
               <Switch

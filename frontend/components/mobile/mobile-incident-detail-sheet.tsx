@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -503,7 +504,7 @@ export function MobileIncidentDetailSheet({
               size="lg"
               className="w-full gap-2"
             >
-              <MessageCircle className="h-4 w-4" />
+              {isCopyingWhatsApp ? <ShellLoader className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
               {isCopyingWhatsApp ? t('mobileDetail.copying') : t('mobileDetail.copyWhatsApp')}
             </Button>
           </div>

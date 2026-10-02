@@ -33,6 +33,7 @@ import { toast } from 'sonner'
 import { CheckCircle2, Circle, LogOut, Users } from 'lucide-react'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -291,7 +292,9 @@ export function AttendanceModal({
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {isLoading ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">{t('loading')}</p>
+              <div className="flex justify-center py-6">
+                <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>
+              </div>
             ) : visible.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">{t('noneFound')}</p>
             ) : (

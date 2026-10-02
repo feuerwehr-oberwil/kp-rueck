@@ -25,7 +25,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { CarTaxiFront, Check, Loader2 } from 'lucide-react'
+import { CarTaxiFront, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** Everything the chip does happens inside the chip — nothing above it reacts. */
 function stopEvent(event: { stopPropagation: () => void }) {
@@ -107,7 +108,7 @@ export function PickupBadge({
   const body = (
     <>
       {clearing ? (
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+        <ShellLoader className="h-3 w-3 shrink-0" />
       ) : (
         <CarTaxiFront className="h-3 w-3 shrink-0 group-hover/pickup:hidden" aria-hidden />
       )}
@@ -189,7 +190,7 @@ export function PickupBadge({
                   setConfirming(true)
                 }}
               >
-                {clearing && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+                {clearing && <ShellLoader className="size-3.5" />}
                 {t('clear')}
               </Button>
             </div>

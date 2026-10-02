@@ -6,6 +6,7 @@ import { PageNavigation } from '@/components/page-navigation';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { LoadingStatus } from '@/components/ui/shell-loader';
 import { SearchInput } from '@/components/ui/search-input'
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useEvent } from '@/lib/contexts/event-context';
@@ -223,7 +224,7 @@ export default function HelpPage() {
       const isInline = !className;
       if (isInline) {
         return (
-          <kbd className="bg-muted border border-border px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+          <kbd className="bg-muted border border-border px-1.5 py-0.5 rounded-sm text-sm font-mono" {...props}>
             {children}
           </kbd>
         );
@@ -391,7 +392,7 @@ export default function HelpPage() {
                           className={cn(
                             "text-left w-full text-sm py-1 px-2 rounded transition-colors hover:bg-muted",
                             activeSection === id
-                              ? "text-primary font-medium bg-muted"
+                              ? "text-foreground font-medium bg-foreground/[0.09]"
                               : "text-muted-foreground"
                           )}
                         >
@@ -410,9 +411,8 @@ export default function HelpPage() {
         <ScrollArea className="flex-1">
           <div className="max-w-3xl mx-auto px-4 md:px-8 pt-6 pb-nav-reserve md:py-8">
             {isLoading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <p className="mt-4 text-muted-foreground">{t('loading')}</p>
+              <div className="flex justify-center py-12">
+                <LoadingStatus size="surface">{t('loading')}</LoadingStatus>
               </div>
             ) : (
               <div className="prose prose-slate dark:prose-invert max-w-none">

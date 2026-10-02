@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Siren, Loader2 } from "lucide-react"
+import { Siren } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -31,6 +31,7 @@ import {
   DEFAULT_ALARM_TEXT_TEMPLATE,
 } from "@/lib/message-template"
 import { toast } from "sonner"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 const ENABLED_KEY = "alerting.enabled"
 
@@ -248,7 +249,7 @@ export function DiveraAlarmSettingsCard({
                 title={blockedReason ?? undefined}
                 disabled={Boolean(blockedReason) || !isEditor || isTesting || !testId}
               >
-                {isTesting ? <Loader2 className="size-4 animate-spin" /> : <Siren className="size-4" />}
+                {isTesting ? <ShellLoader className="size-4" /> : <Siren className="size-4" />}
                 {t("sendTest")}
               </Button>
             </div>

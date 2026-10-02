@@ -28,13 +28,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, MapPin, PackageCheck, Undo2 } from 'lucide-react'
+import { MapPin, PackageCheck, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/api-client'
 import type { ApiMaterialReturnUnit } from '@/lib/api/types'
 import { useOperations } from '@/lib/contexts/operations-context'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 interface MaterialReturnListProps {
   incidentId: string
@@ -121,7 +122,7 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
             ))}
           </ul>
           <Button size="sm" variant="outline" disabled={!canEdit || releasing} onClick={releaseAll}>
-            {releasing ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
+            {releasing ? <ShellLoader className="size-3.5" /> : <Undo2 className="size-3.5" />}
             {t('releaseAll', { count: returned.length })}
           </Button>
         </div>
