@@ -449,6 +449,7 @@ Firefighting command post operators (KP Rück) managing active incidents in high
 - **Visual tone**: Clean, information-dense, dark-mode-first. Inspired by Linear and Trello – minimal chrome, excellent information hierarchy, smooth interactions. Borrows density and seriousness from military C2 and dispatch systems but wrapped in modern, approachable UI patterns.
 - **Typography**: Sora (sans) + Spline Sans Mono – the faces KP Front and kp-rueck.ch use; see «Type & corners» below
 - **Color**: Red is the fire-service identity (logo) and the priority/danger signal – it is **not** the action or selection colour. Warm grays, slate selection, ink main button; status colors carry meaning and must be consistent. See «Colour roles» below.
+- **App icon**: the sibling of KP Front's (ink tile, white «kp», red «rück», the board glyph). Drawn ONLY in `scripts/build-icons.mjs`; it writes `frontend/app/icon.svg` and renders `frontend/public/icons/*.png` + `scripts/build-icons.lock.json` – rerun it after any artwork change, never edit the outputs (`--check` in `app/manifest.test.ts` fails otherwise). The home-screen icon must stay a PNG: iOS ignores an SVG apple-touch-icon.
 - **Anti-references**: Avoid playful/consumer aesthetics (Slack, Figma), gamification, decorative illustrations, or anything that undermines the seriousness of the operational context.
 
 ### Colour roles
