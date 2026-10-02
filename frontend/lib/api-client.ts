@@ -675,10 +675,17 @@ class ApiClient {
   }
 
   /** Persist the order of the stops within one Auftrag (204 No Content). */
-  async reorderGroupStops(groupId: string, orderedIds: string[]): Promise<void> {
+  /**
+   * Persist a stop order. With `expectedIds` the write is conditional: the server
+   * applies it only if the route's current order is exactly `expectedIds`, else it
+   * answers 409 (`ApiError.isConflict`) and changes nothing.
+   */
+  async reorderGroupStops(groupId: string, orderedIds: string[], expectedIds?: string[]): Promise<void> {
     await this.request<void>(`/api/incident-groups/${groupId}/stops/reorder`, {
       method: 'POST',
-      body: JSON.stringify({ ordered_ids: orderedIds }),
+      body: JSON.stringify(
+        expectedIds ? { ordered_ids: orderedIds, expected_ids: expectedIds } : { ordered_ids: orderedIds },
+      ),
     })
   }
 

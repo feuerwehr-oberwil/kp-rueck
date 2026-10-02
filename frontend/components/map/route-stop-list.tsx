@@ -29,7 +29,7 @@ import {
   type Edge,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge"
 import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box"
-import { GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X, Trash2, Wand2 } from "lucide-react"
+import { AlertTriangle, GripVertical, Check, CircleDashed, ChevronDown, Navigation, Flame, X, Trash2, Wand2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +51,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isLocated } from "@/lib/utils/route-geo"
 import { stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
-import type { RouteStartMode } from "@/lib/hooks/use-route-planning"
+import type { RouteStartMode } from "@/lib/route-start"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
 
@@ -61,9 +61,18 @@ export type StopState = "erledigt" | "laeuft" | "offen"
 // start anchors. Picking one runs `onOptimize(start)` immediately — there is no
 // preselected "Start ab" select anymore. Callers pass their own translated labels
 // + availability so the component stays i18n-namespace agnostic.
+//
+// Each anchor shows WHERE it would start before anything runs (provenance + time:
+// «Ersatzstandort – Magazin nicht eingerichtet», «TLF 1 · 14:32»), so choosing
+// is also correcting; `basisLabel` heads the menu with what the result is — a
+// straight-line suggestion, not a road route (see `lib/route-start.ts`).
 export interface RouteStartOption {
   value: RouteStartMode
   label: string
+  /** Second line: where exactly this anchor is and how fresh. */
+  detail?: string
+  /** Fallback / stale: rendered as a caution (icon + warning colour). */
+  caution?: boolean
   /** Disabled when the anchor is unavailable (e.g. no vehicle GPS fix). */
   disabled?: boolean
 }
@@ -71,6 +80,7 @@ export interface RouteStartOption {
 export function RouteOptimizeMenu({
   options,
   menuLabel,
+  basisLabel,
   optimizeLabel,
   disabled,
   onOptimize,
@@ -79,6 +89,8 @@ export function RouteOptimizeMenu({
   options: RouteStartOption[]
   /** Small heading above the start options (e.g. "Start ab"). */
   menuLabel: string
+  /** What the optimisation is based on, above everything (e.g. «Vorschlag nach Luftlinie · Planungshilfe»). */
+  basisLabel?: string
   /** Tooltip / aria-label on the wand trigger (e.g. "Reihenfolge optimieren"). */
   optimizeLabel: string
   disabled?: boolean
@@ -100,11 +112,30 @@ export function RouteOptimizeMenu({
           <Wand2 className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="z-[70]">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{menuLabel}</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="z-[70] max-w-[min(20rem,calc(100vw-2rem))]">
+        {basisLabel && (
+          <DropdownMenuLabel className="text-xs font-medium text-foreground">{basisLabel}</DropdownMenuLabel>
+        )}
+        <DropdownMenuLabel className="pt-0 text-xs font-normal text-muted-foreground">{menuLabel}</DropdownMenuLabel>
         {options.map((o) => (
-          <DropdownMenuItem key={o.value} disabled={o.disabled} onClick={() => onOptimize(o.value)}>
-            {o.label}
+          <DropdownMenuItem
+            key={o.value}
+            disabled={o.disabled}
+            onClick={() => onOptimize(o.value)}
+            className="flex-col items-start gap-0.5"
+          >
+            <span>{o.label}</span>
+            {o.detail && (
+              <span
+                className={cn(
+                  "flex items-start gap-1 text-xs leading-snug",
+                  o.caution ? "text-warning-foreground" : "text-muted-foreground",
+                )}
+              >
+                {o.caution && <AlertTriangle className="mt-px size-3 shrink-0" aria-hidden />}
+                {o.detail}
+              </span>
+            )}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

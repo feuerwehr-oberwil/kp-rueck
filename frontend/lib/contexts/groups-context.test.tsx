@@ -108,7 +108,8 @@ const getAllPersonnel = vi.fn()
 const assignGroupResource = vi.fn()
 const unassignGroupResource = vi.fn()
 
-vi.mock("@/lib/api-client", () => ({
+vi.mock("@/lib/api-client", async () => ({
+  ApiError: (await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")).ApiError,
   apiClient: {
     getIncidentGroups: (...a: unknown[]) => getIncidentGroups(...a),
     getSyncVersion: (...a: unknown[]) => getSyncVersion(...a),
@@ -256,6 +257,44 @@ describe("GroupsProvider — stop reorder sequencing", () => {
     expect(reorderGroupStops).toHaveBeenCalledTimes(2)
     await act(async () => { resolveSecond(); await second })
     expect(result.current.groups[0].stopIds).toEqual(["c", "b", "a"])
+  })
+})
+
+describe("GroupsProvider — guarded stop restore (route undo)", () => {
+  it("sends the expected order and applies the restore when the server accepts", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["c", "a", "b"] })])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+    reorderGroupStops.mockResolvedValueOnce(undefined)
+
+    let outcome!: string
+    await act(async () => {
+      outcome = await result.current.restoreGroupStops(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
+    })
+
+    expect(reorderGroupStops).toHaveBeenCalledWith(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
+    expect(outcome).toBe("restored")
+    expect(result.current.groups[0].stopIds).toEqual(["a", "b", "c"])
+  })
+
+  it("reports a conflict on 409, keeps the newer order and re-reads the route", async () => {
+    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
+    getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["b", "c", "a"] })])
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+    const loads = getIncidentGroups.mock.calls.length
+    reorderGroupStops.mockRejectedValueOnce(new ApiError("Auftrag wurde inzwischen geändert", 409, true))
+
+    let outcome!: string
+    await act(async () => {
+      outcome = await result.current.restoreGroupStops(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
+    })
+
+    expect(outcome).toBe("conflict")
+    expect(result.current.groups[0].stopIds).toEqual(["b", "c", "a"])
+    await waitFor(() => expect(getIncidentGroups.mock.calls.length).toBeGreaterThan(loads))
+    // The caller words the outcome; the context itself stays quiet.
+    expect(toastError).not.toHaveBeenCalled()
   })
 })
 

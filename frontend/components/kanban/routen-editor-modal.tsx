@@ -34,7 +34,8 @@ import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { BaseMap } from "@/components/map/base-map"
 import { MapTooltip } from "@/components/map/map-tooltip"
 import { GroupRoutes } from "@/components/map/group-routes"
-import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
+import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "@/components/map/route-optimize"
 import { useGroups } from "@/lib/contexts/groups-context"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { colorAccent } from "@/lib/kanban-utils"
@@ -42,7 +43,7 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { DEFAULT_CENTER_LATLNG, fitTo, type LatLngPoint } from "@/lib/map-view"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
-import { RouteStopList, RouteOptimizeMenu } from "../map/route-stop-list"
+import { RouteStopList } from "../map/route-stop-list"
 
 // Stable empty set — optimize now persists immediately, so no stop is ever in a
 // pending "changed" preview state.
@@ -150,10 +151,10 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     addStopAtLatLng,
     isAddingStop,
     reorder,
-    optimize,
-    magazinCoords,
-    vehicleStart,
+    optimizeFrom,
+    anchors,
   } = useRoutePlanning(groupId)
+  const optimizeAction = useRouteOptimizeAction({ group, anchors, optimizeFrom, reorder })
 
   // All routes + the add-by-incident-id path (the same `addStops` the "+ Stop"
   // picker persists through) — used for the map's context pins below.
@@ -254,25 +255,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     [canEdit, group, addStops, t],
   )
 
-  // Optimize applies immediately (no preview / Übernehmen step): compute the
-  // nearest-neighbour order from the chosen start anchor and persist it right away,
-  // with an undo toast.
-  const runOptimize = async (startMode: RouteStartMode) => {
-    if (!group) return
-    const previous = group.stopIds
-    const proposed = optimize(startMode)
-    if (proposed.length === 0) return
-    const unchanged = proposed.every((id, i) => id === previous[i])
-    if (unchanged) {
-      toast.info(t("previewUnchanged"))
-      return
-    }
-    const persisted = await reorder(proposed)
-    if (!persisted) return
-    toast.success(t("optimized"), {
-      action: { label: t("undo"), onClick: () => void reorder(previous) },
-    })
-  }
+  // Optimize applies immediately (no preview / Übernehmen step) — the shared
+  // action (`route-optimize.tsx`) saves, names the start used and offers the
+  // server-guarded undo.
 
   // The order shown in the list + on the map (now always the persisted order).
   const displayOrder = group?.stopIds ?? []
@@ -323,12 +308,6 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
       />
     </BaseMap>
   )
-
-  const startOptions = [
-    { value: "magazin" as const, label: t("startMagazin"), disabled: !magazinCoords },
-    { value: "vehicle" as const, label: t("startVehicle"), disabled: !vehicleStart },
-    { value: "first" as const, label: t("startFirst") },
-  ]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -384,14 +363,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
                   </span>
                 )}
               </span>
-              {canEdit && <RouteOptimizeMenu
-                options={startOptions}
-                menuLabel={t("optimizeStartHint")}
-                optimizeLabel={t("optimize")}
-                disabled={displayOrder.length < 2}
-                onOptimize={(start) => void runOptimize(start)}
-              />}
+              {canEdit && <RouteOptimizeButton action={optimizeAction} disabled={displayOrder.length < 2} />}
             </div>
+            <RouteOptimizeNote action={optimizeAction} className="mb-2" />
 
             <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-muted/20 p-2">
               <div className="space-y-0.5">
