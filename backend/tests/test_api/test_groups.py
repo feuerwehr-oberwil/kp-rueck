@@ -754,3 +754,25 @@ async def test_sync_version_changes_on_group_assignment_assign_and_unassign(
     assert after_assign != before
     await editor_client.post(f"/api/incident-groups/{group['id']}/unassign/{assigned.json()['id']}")
     assert await version() != after_assign
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_reorder_stops_with_expected_order(
+    editor_client: AsyncClient, test_event: Event, test_incident: Incident, second_incident: Incident
+):
+    """The optimise-undo path: conditional on the order the optimisation produced."""
+    group = await _create_group(editor_client, test_event)
+    first, second = str(test_incident.id), str(second_incident.id)
+    await editor_client.post(f"/api/incident-groups/{group['id']}/stops", json={"incident_ids": [first, second]})
+    url = f"/api/incident-groups/{group['id']}/stops/reorder"
+
+    # Still the expected order → applied.
+    response = await editor_client.post(url, json={"ordered_ids": [second, first], "expected_ids": [first, second]})
+    assert response.status_code == 204
+
+    # Stale expectation (the order is now [second, first]) → 409, nothing written.
+    response = await editor_client.post(url, json={"ordered_ids": [first, second], "expected_ids": [first, second]})
+    assert response.status_code == 409, response.text
+    groups = await editor_client.get(f"/api/incident-groups/?event_id={test_event.id}")
+    assert groups.json()[0]["stop_ids"] == [second, first]

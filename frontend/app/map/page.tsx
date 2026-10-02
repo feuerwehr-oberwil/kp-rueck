@@ -29,6 +29,7 @@ import { type Priority, PRIORITY_DOT_CLASSES } from "@/lib/priority"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenplanungPanel } from "@/components/map/routenplanung-panel"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
@@ -121,12 +122,13 @@ export default function MapPage() {
     groups,
     createGroup,
     addStops,
-    removeStop,
     assignResource: assignGroupResource,
     unassignResource: unassignGroupResource,
     getGroupResources,
     occupiedResourceIds,
   } = useGroups()
+  // The operator's own releases get «… gelöst · Rückgängig» (lib/release-undo.ts).
+  const release = useReleaseUndo()
   const searchParams = useSearchParams()
   const router = useRouter()
   const gPrefix = useGPrefixNavigation(router, '/map')
@@ -418,7 +420,7 @@ export default function MapPage() {
   const { handleOperationUpdate, handleVehicleRemove, handleOperationDelete } = useOperationHandlers({
     selectedOperation,
     updateOperation,
-    removeVehicle: removeVehicleFromOperation,
+    removeVehicle: release.releaseVehicle,
     assignVehicleToOperation,
     deleteOperation,
   })
@@ -564,8 +566,8 @@ export default function MapPage() {
     if (!auftragPickerIncidentId) return
     const operation = operations.find((item) => item.id === auftragPickerIncidentId)
     if (!operation?.groupId) return
-    const ok = await removeStop(operation.groupId, operation.id)
-    if (ok) toast.success(tKanban('dashboard.removedFromAuftragToast'))
+    // The release toast («… von <Auftrag> gelöst · Rückgängig») says it.
+    await release.releaseStop(operation.groupId, operation.id)
   }
 
   const assignmentOperation = assignmentOperationId
@@ -1298,8 +1300,8 @@ export default function MapPage() {
           onAssignVehicle={isEditor ? assignVehicleToIncidentWithConflict : undefined}
           onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
           onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
-          onRemoveCrew={isEditor ? removeCrew : undefined}
-          onRemoveMaterial={isEditor ? removeMaterial : undefined}
+          onRemoveCrew={isEditor ? release.releaseCrew : undefined}
+          onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
           canEdit={isEditor}
           diveraEnabled={isEditor && diveraEnabled}
           onSendDivera={isEditor ? setDiveraDialogOp : undefined}

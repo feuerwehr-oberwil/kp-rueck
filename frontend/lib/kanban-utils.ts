@@ -2,6 +2,7 @@ import { type Operation, type OperationStatus } from "./contexts/operations-cont
 import { getIncidentTypeLabel } from "./incident-types"
 import { PRIORITY_COLORS, PRIORITY_LABELS } from "./priority"
 import { INCIDENT_TYPE_MARKER_COLORS } from "./map-colors"
+import { formatDurationSince } from "./duration"
 
 /**
  * The one status colour table.
@@ -483,13 +484,8 @@ export function ageChipClass(date: Date): string {
   }
 }
 
-// Helper function to format time since a given date
+/** Time since `date` in the board's notation: `12'`, `1h 23'`, `1d 10h`
+ *  (see `lib/duration.ts`; clamps clock skew at 0). */
 export function getTimeSince(date: Date): string {
-  // Clamp at 0: minor clock/timezone skew can put the timestamp slightly in the
-  // future, which otherwise renders as "-1'" right after an incident is created.
-  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000 / 60))
-  if (minutes < 60) return `${minutes}'`
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  return `${hours}h ${mins}'`
+  return formatDurationSince(date)
 }

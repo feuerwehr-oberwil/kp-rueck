@@ -40,13 +40,21 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -69,8 +77,10 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { useRoutePlanning, type RouteStartMode } from "@/lib/hooks/use-route-planning"
-import { StopStatusControl, RouteOptimizeMenu, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
+import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
+import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "@/components/map/route-optimize"
+import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
 import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
@@ -147,12 +157,12 @@ export function AuftraegeSheet({
     updateGroup,
     deleteGroup,
     reorderGroupStops,
-    removeStop,
-    unassignResource,
     assignResource,
     getGroupResources,
     refreshGroups,
   } = useGroups()
+  // Releasing a stop or a route resource offers «Rückgängig» (lib/release-undo.ts).
+  const release = useReleaseUndo()
   const { operations } = useOperations()
   const { selectedEvent } = useEvent()
   // Who drives which Fahrzeug — one roster call for the whole sheet, only while
@@ -448,10 +458,10 @@ export function AuftraegeSheet({
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
-                onUnassignResource={(assignmentId) => unassignResource(group.id, assignmentId)}
+                onUnassignResource={(assignmentId) => release.releaseRouteResource(group.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteLeader(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
-                onRemoveStop={(incidentId) => removeStop(group.id, incidentId)}
+                onRemoveStop={(incidentId) => release.releaseStop(group.id, incidentId)}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
                 canEdit={canEdit}
                 onSetStopStatus={onSetStopStatus}
@@ -559,27 +569,10 @@ function AuftragCard({
   // sheet can optimize without opening the Routen-Editor modal (applies at once).
   const planning = useRoutePlanning(group.id)
 
-  const runOptimize = async (start: RouteStartMode) => {
-    const previous = group.stopIds
-    const proposed = planning.optimize(start)
-    if (proposed.length === 0) return
-    const unchanged = proposed.every((id, i) => id === previous[i])
-    if (unchanged) {
-      toast.info(t("optimizeUnchanged"))
-      return
-    }
-    const persisted = await planning.reorder(proposed)
-    if (!persisted) return
-    toast.success(t("optimized"), {
-      action: { label: t("undo"), onClick: () => void planning.reorder(previous) },
-    })
-  }
-
-  const optimizeStartOptions = [
-    { value: "magazin" as const, label: t("startMagazin"), disabled: !planning.magazinCoords },
-    { value: "vehicle" as const, label: t("startVehicle"), disabled: !planning.vehicleStart },
-    { value: "first" as const, label: t("startFirst") },
-  ]
+  // The shared optimise action: start anchors with provenance, the save, the
+  // toast naming the start used, and the server-guarded undo.
+  const optimizeAction = useRouteOptimizeAction(planning)
+  const tOptimize = useTranslations("map.routeOptimize")
 
   const opById = useMemo(() => new Map(operations.map((o) => [o.id, o] as const)), [operations])
 
@@ -754,10 +747,33 @@ function AuftragCard({
                     <Palette className="mr-2 h-4 w-4" />
                     {t("changeColor")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled={total < 2} onClick={() => void runOptimize("magazin")}>
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    {t("optimizeOrder")}
-                  </DropdownMenuItem>
+                  {/* A submenu, not a one-click «ab Magazin»: the start point is
+                      part of the decision, and each one shows where it is. */}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger disabled={total < 2}>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      {t("optimizeOrder")}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="max-w-80">
+                      <DropdownMenuLabel className="text-xs font-medium">{tOptimize("basis")}</DropdownMenuLabel>
+                      <DropdownMenuLabel className="pt-0 text-xs font-normal text-muted-foreground">
+                        {tOptimize("startHeading")}
+                      </DropdownMenuLabel>
+                      {optimizeAction.startOptions.map((o) => (
+                        <DropdownMenuItem
+                          key={o.value}
+                          disabled={o.disabled}
+                          className="flex-col items-start gap-0.5"
+                          onClick={() => void optimizeAction.runOptimize(o.value)}
+                        >
+                          <span>{o.label}</span>
+                          <span className={cn("text-xs", o.caution ? "text-warning-foreground" : "text-muted-foreground")}>
+                            {o.detail}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   <DropdownMenuItem onClick={onRepeatRadio}>
                     <Radio className="mr-2 h-4 w-4" />
                     {t("repeatRadio")}
@@ -781,10 +797,31 @@ function AuftragCard({
             <Palette className="mr-2 h-4 w-4" />
             {t("changeColor")}
           </ContextMenuItem>
-          <ContextMenuItem disabled={total < 2} onClick={() => void runOptimize("magazin")}>
-            <Wand2 className="mr-2 h-4 w-4" />
-            {t("optimizeOrder")}
-          </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger disabled={total < 2}>
+              <Wand2 className="mr-2 h-4 w-4" />
+              {t("optimizeOrder")}
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent className="max-w-80">
+              <ContextMenuLabel className="text-xs font-medium">{tOptimize("basis")}</ContextMenuLabel>
+              <ContextMenuLabel className="pt-0 text-xs font-normal text-muted-foreground">
+                {tOptimize("startHeading")}
+              </ContextMenuLabel>
+              {optimizeAction.startOptions.map((o) => (
+                <ContextMenuItem
+                  key={o.value}
+                  disabled={o.disabled}
+                  className="flex-col items-start gap-0.5 whitespace-normal"
+                  onClick={() => void optimizeAction.runOptimize(o.value)}
+                >
+                  <span>{o.label}</span>
+                  <span className={cn("text-xs", o.caution ? "text-warning-foreground" : "text-muted-foreground")}>
+                    {o.detail}
+                  </span>
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
           <ContextMenuItem onClick={onRepeatRadio}>
             <Radio className="mr-2 h-4 w-4" />
             {t("repeatRadio")}
@@ -841,16 +878,11 @@ function AuftragCard({
                     </Button>
                   )}
                   {/* Optimize wand — the menu picks the start anchor and runs immediately. */}
-                  {canEdit && <RouteOptimizeMenu
-                    options={optimizeStartOptions}
-                    menuLabel={t("optimizeStartHint")}
-                    optimizeLabel={t("optimizeOrder")}
-                    disabled={total < 2}
-                    onOptimize={(start) => void runOptimize(start)}
-                  />}
+                  {canEdit && <RouteOptimizeButton action={optimizeAction} disabled={total < 2} />}
                 </div>
               }
             />
+            <RouteOptimizeNote action={optimizeAction} className="mb-1" />
 
             <div className="space-y-0.5">
               {group.stopIds.length === 0 && <p className="py-2 text-xs text-muted-foreground">{t("noStops")}</p>}

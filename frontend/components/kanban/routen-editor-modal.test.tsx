@@ -180,6 +180,22 @@ describe("useRoutePlanning.optimize", () => {
     await expect(result.current.reorder(["B", "A"])).resolves.toBe(false)
   })
 
+  it("flags the built-in Magazin as a fallback when no station coords are set", async () => {
+    rp.groups = [{ id: "g1", stopIds: ["A", "B"], mode: "squad" }]
+    rp.operations = [makeOp("A"), makeOp("B")]
+    const { result } = renderHook(() => useRoutePlanning("g1"))
+    await waitFor(() => expect(result.current.anchors.magazin?.source).toBe("unset"))
+    expect(result.current.optimizeFrom("magazin").start).toMatchObject({ mode: "magazin", source: "unset" })
+  })
+
+  it("records the fallback to the first stop when the vehicle has no GPS fix", async () => {
+    rp.groups = [{ id: "g1", stopIds: ["B", "A"], mode: "squad" }]
+    rp.operations = [makeOp("A"), makeOp("B")]
+    const { result } = renderHook(() => useRoutePlanning("g1"))
+    await waitFor(() => expect(result.current.group).toBeDefined())
+    expect(result.current.optimizeFrom("vehicle").start).toMatchObject({ mode: "first", requested: "vehicle", label: "Stop B" })
+  })
+
   it("uses a route-owned vehicle assignment for the GPS start", async () => {
     rp.groups = [{
       id: "g1",
@@ -187,9 +203,11 @@ describe("useRoutePlanning.optimize", () => {
       vehicles: [{ assignmentId: "a1", resourceId: "stable-v1", name: "TLF 1", driverStay: false }],
     }]
     rp.operations = [makeOp("A"), makeOp("B")]
-    rp.positions = [{ device_id: 1, device_name: "TLF 1", latitude: 47.5, longitude: 7.6 }]
+    rp.positions = [{ device_id: 1, device_name: "TLF 1", latitude: 47.5, longitude: 7.6, last_update: "2026-10-02T12:32:00Z" }]
     const { result } = renderHook(() => useRoutePlanning("g1"))
     await waitFor(() => expect(result.current.vehicleStart).toEqual([47.5, 7.6]))
+    // The fix carries WHEN it was reported, so the label can say how old it is.
+    expect(result.current.anchors.vehicle?.reportedAt?.toISOString()).toBe("2026-10-02T12:32:00.000Z")
   })
 })
 

@@ -243,7 +243,12 @@
     "dismissAllToasts": "Tout fermer",
     "closeToast": "Fermer l’annonce",
     "toastRegion": "Annonces",
-    "redirecting": "Redirection …"
+    "redirecting": "Redirection …",
+    "duration": {
+      "days": "{count, plural, one {# jour} other {# jours}}",
+      "hours": "{count, plural, one {# heure} other {# heures}}",
+      "minutes": "{count, plural, one {# minute} other {# minutes}}"
+    }
   },
   "display": {
     "common": {
@@ -1165,7 +1170,8 @@
       "readyForOperation": "Prêt à intervenir",
       "changeDriver": "Changer de conducteur",
       "assignDriver": "Attribuer un conducteur",
-      "auftragLabel": "Mission « {name} »"
+      "auftragLabel": "Mission « {name} »",
+      "durationDaysHours": "{days} j {hours} h"
     },
     "gpsArrival": {
       "fallbackVehicle": "Véhicule",
@@ -1390,8 +1396,12 @@
       },
       "tooltips": {
         "start": "Heure de début de l’intervention",
-        "column": "Temps dans ce statut (depuis {since})",
-        "total": "Temps depuis l’alarme ({since})"
+        "column": "Temps dans ce statut : {duration} (depuis {since})",
+        "total": "Temps depuis l’alarme : {duration} ({since})"
+      },
+      "a11y": {
+        "column": "Depuis le changement de statut {duration}, depuis {since}",
+        "total": "Depuis l’alarme {duration}, depuis {since}"
       }
     },
     "cardView": {
@@ -1534,7 +1544,6 @@
       "loading": "Chargement …",
       "stopsAddedToast": "{count, plural, one {# étape ajoutée à l’itinéraire} other {# étapes ajoutées à l’itinéraire}}",
       "distributedToast": "Réparti dans la mission « {name} »",
-      "removedFromAuftragToast": "Intervention retirée de la mission",
       "noEventSelected": "Aucun événement sélectionné",
       "training": "Exercice",
       "switchEvent": "Changer d’événement",
@@ -1949,13 +1958,6 @@
       "removeStop": "Retirer l’étape",
       "changeColor": "Changer de couleur",
       "optimizeOrder": "Optimiser",
-      "optimizeStartHint": "Départ depuis",
-      "startMagazin": "Caserne",
-      "startVehicle": "GPS du véhicule",
-      "startFirst": "Première étape",
-      "optimized": "Ordre optimisé.",
-      "optimizeUnchanged": "L’ordre est déjà optimal.",
-      "undo": "Annuler",
       "repeatRadio": "Répéter le message",
       "repeatRadioTitle": "Répéter le message radio",
       "repeatRadioTitlePreview": "Message radio",
@@ -1991,21 +1993,12 @@
       "addStopToggle": "Ajouter une étape",
       "addStopHint": "Un clic sur la carte place une nouvelle étape.",
       "addingStop": "Ajout de l’étape …",
-      "optimizeStartHint": "Départ depuis",
-      "startMagazin": "Caserne",
-      "startVehicle": "GPS du véhicule",
-      "startFirst": "Première étape",
-      "optimize": "Optimiser l’ordre",
-      "previewUnchanged": "L’ordre est déjà optimal.",
-      "applied": "Ordre repris.",
       "done": "Terminé",
       "noStops": "Aucune étape dans cette mission pour l’instant.",
       "mapLoading": "Chargement de la carte …",
       "dragStop": "Déplacer l’étape",
       "noCoords": "Cette étape n’a pas de coordonnées et ne figure pas sur l’itinéraire.",
       "noCoordsBadge": "sans lieu",
-      "optimized": "Ordre optimisé.",
-      "undo": "Annuler",
       "removeStop": "Retirer l’étape",
       "contextOpen": "Ouvert",
       "contextInRoute": "Dans la mission « {name} »",
@@ -2220,17 +2213,8 @@
       "addStopHint": "Un clic sur la carte place une nouvelle étape.",
       "addingStop": "Ajout de l’étape …",
       "noStops": "Aucune étape dans cette mission pour l’instant.",
-      "optimizeStartHint": "Départ depuis",
-      "startMagazin": "Caserne",
-      "startVehicle": "GPS du véhicule",
-      "startFirst": "Première étape",
-      "optimize": "Optimiser l’ordre",
-      "previewUnchanged": "L’ordre est déjà optimal.",
-      "applied": "Ordre repris.",
       "stopAdded": "Étape ajoutée à l’itinéraire.",
       "stopAlreadyOnRoute": "Cette intervention est déjà sur l’itinéraire.",
-      "optimized": "Ordre optimisé.",
-      "undo": "Annuler",
       "noGroups": "Aucune mission pour l’instant"
     },
     "view": {
@@ -2323,7 +2307,34 @@
       "overwriteDescription": "{current} est déjà attribuée à cette intervention pour la reconnaissance. Remplacer par {next} ?",
       "overwriteConfirm": "Remplacer"
     },
-    "fitAll": "Ajuster à toutes les interventions"
+    "fitAll": "Ajuster à toutes les interventions",
+    "routeOptimize": {
+      "basis": "Proposition à vol d’oiseau · aide à la planification",
+      "startHeading": "Départ depuis",
+      "optimize": "Optimiser l’ordre",
+      "magazin": "Caserne",
+      "magazinConfigured": "Position issue des paramètres",
+      "magazinUnset": "Position de secours – caserne non configurée",
+      "magazinFailed": "Position de secours – paramètres non chargés",
+      "magazinLoading": "Chargement …",
+      "vehicle": "GPS du véhicule",
+      "vehicleAt": "{vehicle} · {time}",
+      "vehicleStale": "{vehicle} · état {time}, il y a {age}",
+      "vehicleNoTime": "{vehicle} · heure inconnue",
+      "vehicleMissing": "Aucun véhicule avec GPS sur cette mission",
+      "first": "Première étape",
+      "firstMissing": "Aucune étape avec coordonnées",
+      "fallbackToFirst": "{requested} indisponible – depuis {stop}",
+      "optimized": "Ordre proposé à vol d’oiseau",
+      "startLine": "Départ : {start} · aide à la planification, pas d’itinéraire routier",
+      "unchanged": "L’ordre est déjà le plus court à vol d’oiseau.",
+      "note": "Proposition à vol d’oiseau depuis {start} · aide à la planification",
+      "undo": "Annuler",
+      "undone": "Ordre précédent rétabli",
+      "undoConflict": "Annulation impossible – mission modifiée",
+      "undoConflictDetail": "L’ordre ou les étapes ont été modifiés entre-temps ; la modification la plus récente est conservée.",
+      "undoFailed": "L’ordre précédent n’a pas pu être rétabli"
+    }
   },
   "nav": {
     "userMenu": {
@@ -2600,6 +2611,21 @@
     },
     "messages": {
       "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées"
+    },
+    "release": {
+      "released": "{resource} retiré de {target}",
+      "releasedMany": "{count} × {resource} retirés de {target}",
+      "restored": "{resource} de retour sur {target}",
+      "restoreFailedTitle": "{resource} n’a pas pu être réaffecté",
+      "reason": {
+        "targetGone": "{target} n’est plus sur le tableau.",
+        "targetClosed": "{target} est déjà terminé.",
+        "alreadyBack": "{resource} est déjà de retour sur {target}.",
+        "elsewhere": "Entre-temps affecté à {where} – cette affectation plus récente est conservée.",
+        "outOfService": "{resource} n’est pas opérationnel.",
+        "resourceGone": "{resource} n’est plus dans l’inventaire ou s’est désinscrit.",
+        "unavailable": "{resource} est signalé comme indisponible."
+      }
     }
   },
   "print": {

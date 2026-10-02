@@ -244,10 +244,14 @@ interface OperationsContextType {
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   getNextOperationId: () => string
-  assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => void
+  /** The three resource assigns resolve true once the assignment landed (or ran
+   *  local-only) and false when nothing was assigned — refused (already there,
+   *  out of service), handed to the conflict prompt, or failed and rolled back
+   *  (they toast that themselves). Fire-and-forget callers can ignore it. */
+  assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => Promise<boolean>
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
-  assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => void
-  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
+  assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => Promise<boolean>
+  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
   /** The vehicle the driver prompt is asking about: set when a vehicle is assigned
    * to an incident and nobody is driving it. Exactly one at a time — the setup
    * checklist used to queue a run through every driverless vehicle here, and that
@@ -1618,12 +1622,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       .filter(op => op.id !== targetOperationId && holds(op))
       .map(op => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) }))
 
-  const assignPersonToOperation = async (personId: string, personName: string, operationId: string, force = false) => {
+  const assignPersonToOperation = async (personId: string, personName: string, operationId: string, force = false): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
     const person = personnel.find(p => p.id === personId)
 
     if (!operation || !person || operation.crew.includes(personName)) {
-      return
+      return false
     }
 
     // Somebody already on another incident is a question for the operator, not a
@@ -1646,7 +1650,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           targetOperationLabel: getIncidentRefLabel(operation),
           conflicts,
         })
-        return
+        return false
       }
     }
 
@@ -1686,6 +1690,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             return op
           })
         )
+        return true
       } catch (err) {
         console.error("Failed to assign person:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
@@ -1703,11 +1708,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         toast.error(translateOutsideReact('notifications.operations.assignFailedFollowupTitle'), {
           description: translateOutsideReact('notifications.operations.assignFailedDescription', { name: personName }),
         })
+        return false
       } finally {
         releaseAssignmentCooldown()
       }
     } else {
       releaseAssignmentCooldown(3000)
+      return true
     }
   }
 
@@ -1776,13 +1783,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const assignMaterialToOperation = async (materialId: string, operationId: string, force = false) => {
+  const assignMaterialToOperation = async (materialId: string, operationId: string, force = false): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
     const material = materials.find(m => m.id === materialId)
 
     const isConsumable = material?.consumable
     if (!operation || !material || operation.materials.includes(materialId)) {
-      return
+      return false
     }
 
     // «Nicht einsatzbereit» is a lock, not a note. The sidebar row is already
@@ -1792,7 +1799,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       toast.error(translateOutsideReact('notifications.materials.outOfServiceBlockedTitle', { name: material.name }), {
         description: translateOutsideReact('notifications.materials.outOfServiceBlockedDescription'),
       })
-      return
+      return false
     }
 
     // A consumable is not a single physical thing — several incidents can draw
@@ -1810,7 +1817,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           targetOperationLabel: getIncidentRefLabel(operation),
           conflicts,
         })
-        return
+        return false
       }
     }
 
@@ -1842,6 +1849,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             return op
           })
         )
+        return true
       } catch (err) {
         console.error("Failed to assign material:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
@@ -1855,25 +1863,27 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setMaterials((mats) =>
           mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
         )
+        return false
       } finally {
         releaseAssignmentCooldown()
       }
     } else {
       releaseAssignmentCooldown(3000)
+      return true
     }
   }
 
-  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string) => {
+  const assignVehicleToOperation = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
 
     if (!operation || operation.vehicles.includes(vehicleName)) {
-      return
+      return false
     }
 
     if (!vehicleId || vehicleId.trim() === '') {
       console.error('[ERROR] Invalid vehicleId:', { vehicleId, vehicleName, operationId })
       toast.error(translateOutsideReact('notifications.operations.errorTitle'), { description: translateOutsideReact('notifications.operations.vehicleInvalidIdDescription', { name: vehicleName }) })
-      return
+      return false
     }
 
     // «Nicht einsatzbereit» is a lock for vehicles too. The picker greys the row
@@ -1882,7 +1892,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       toast.error(translateOutsideReact('notifications.materials.outOfServiceBlockedTitle', { name: vehicleName }), {
         description: translateOutsideReact('notifications.materials.outOfServiceBlockedDescription'),
       })
-      return
+      return false
     }
 
     // A vehicle is a single physical asset — if it's still assigned elsewhere,
@@ -1898,16 +1908,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         targetOperationLabel: getIncidentRefLabel(operation),
         conflicts,
       })
-      return
+      return false
     }
 
-    await performVehicleAssign(vehicleId, vehicleName, operationId)
+    return performVehicleAssign(vehicleId, vehicleName, operationId)
   }
 
-  const performVehicleAssign = async (vehicleId: string, vehicleName: string, operationId: string) => {
+  const performVehicleAssign = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation || operation.vehicles.includes(vehicleName)) {
-      return
+      return false
     }
 
     armAssignmentCooldown()
@@ -1961,6 +1971,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
             console.error("Failed to check vehicle driver state:", err)
           }
         }
+        return true
       } catch (err) {
         console.error("Failed to assign vehicle:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
@@ -1971,12 +1982,14 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setOperations((ops) =>
           ops.map((op) => (op.id === operationId ? { ...op, vehicles: op.vehicles.filter(name => name !== vehicleName) } : op))
         )
+        return false
       } finally {
         // Clear cooldown after API response, with a small grace period
         releaseAssignmentCooldown()
       }
     } else {
       releaseAssignmentCooldown(3000)
+      return true
     }
   }
 

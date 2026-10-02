@@ -12,11 +12,15 @@
  * - `addStopAtLatLng(lat, lng)` — reverse-geocode a clicked point, create an
  *   incident already attached to the group (streamlined "+ Stop" path), refresh.
  * - `reorder(orderedIds)` — persist a new stop order via `reorderGroupStops`.
- * - `optimize(start)` — client-side greedy nearest-neighbour over located stops
- *   from a start point ('magazin' | 'vehicle' | 'first'); returns the proposed
- *   ordered ids for preview (caller confirms → `reorder`). Unlocated stops sink to
- *   the end preserving their relative order.
- * - `magazinCoords`, `vehicleStart` — resolved start anchors (null when unknown).
+ * - `optimize(start)` — client-side greedy nearest-neighbour by STRAIGHT-LINE
+ *   distance over located stops from a start point ('magazin' | 'vehicle' |
+ *   'first'); returns the proposed ordered ids. `optimizeFrom(start)` returns the
+ *   same plus the start point actually used (`RouteStart`, with provenance — see
+ *   `lib/route-start.ts`). Unlocated stops sink to the end preserving their
+ *   relative order.
+ * - `anchors` — Magazin (with source: settings / fallback), the route vehicle's
+ *   GPS fix (with its report time) and the first stop; `magazinCoords` /
+ *   `vehicleStart` are their bare coordinates (null when unknown).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -25,12 +29,23 @@ import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { haversineKm, isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import {
+  parseReportedAt,
+  resolveRouteStart,
+  type MagazinAnchor,
+  type RouteStart,
+  type RouteStartAnchors,
+  type RouteStartMode,
+  type VehicleAnchor,
+} from "@/lib/route-start"
 
-export type RouteStartMode = "magazin" | "vehicle" | "first"
+export type { RouteStartMode } from "@/lib/route-start"
 
 // Basel-Landschaft fallback base — mirrors map-view.tsx's default firestation
 // coordinates. Used so the "Magazin" start anchor is normally resolvable even
-// when no gps.station_* / firestation_* settings are configured yet.
+// when no gps.station_* / firestation_* settings are configured yet — but it is
+// labelled as a fallback (`MagazinSource` "unset" / "failed") wherever it shows,
+// never passed off as the real Magazin.
 const DEFAULT_STATION: [number, number] = [47.51637699933488, 7.561800450458299]
 
 export interface OrderedStop {
@@ -59,7 +74,7 @@ export function useRoutePlanning(groupId: string | null | undefined) {
   const { groups, reorderGroupStops, refreshGroups, getGroupResources } = useGroups()
   const { operations, createOperation, refreshOperations } = useOperations()
 
-  const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
+  const [magazin, setMagazin] = useState<MagazinAnchor | null>(null)
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [isAddingStop, setIsAddingStop] = useState(false)
 
@@ -87,15 +102,20 @@ export function useRoutePlanning(groupId: string | null | undefined) {
       try {
         const settings = await apiClient.getAllSettings()
         if (cancelled) return
-        const lat = parseFloat(settings["gps.station_lat"] ?? settings.firestation_latitude ?? "")
-        const lng = parseFloat(settings["gps.station_lng"] ?? settings.firestation_longitude ?? "")
-        if (Number.isFinite(lat) && Number.isFinite(lng)) setMagazinCoords([lat, lng])
+        // `||`, not `??`: an unset GPS key is stored as "" — with `??` that empty
+        // string shadowed a configured firestation_* pair and the route started
+        // from the built-in fallback instead (same lookup as the GPS simulator).
+        const lat = parseFloat(settings["gps.station_lat"] || settings.firestation_latitude || "")
+        const lng = parseFloat(settings["gps.station_lng"] || settings.firestation_longitude || "")
+        if (Number.isFinite(lat) && Number.isFinite(lng)) setMagazin({ coords: [lat, lng], source: "settings" })
         // Fall back to the same default base map-view uses so "Magazin" stays a
-        // usable start anchor even before any station coords are configured.
-        else setMagazinCoords(DEFAULT_STATION)
+        // usable start anchor even before any station coords are configured —
+        // flagged, so the menu and the result say «Ersatzstandort».
+        else setMagazin({ coords: DEFAULT_STATION, source: "unset" })
       } catch {
-        // Non-fatal: keep the default base so "Magazin" remains selectable.
-        setMagazinCoords(DEFAULT_STATION)
+        // Non-fatal: keep the default base so "Magazin" remains selectable, and
+        // say that the settings could not be read.
+        if (!cancelled) setMagazin({ coords: DEFAULT_STATION, source: "failed" })
       }
       try {
         const positions = await apiClient.getVehiclePositions()
@@ -111,11 +131,19 @@ export function useRoutePlanning(groupId: string | null | undefined) {
 
   // Resolve the route-owned assignment by its stable vehicle id. The group context
   // resolves that id to the current vehicle name used by Traccar positions.
-  const vehicleStart = useMemo<[number, number] | null>(() => {
+  const vehicleAnchor = useMemo<VehicleAnchor | null>(() => {
     if (!group) return null
     for (const vehicle of getGroupResources(group.id).vehicles) {
       const vp = findVehiclePosition(vehicle.name, vehiclePositions)
-      if (vp) return [vp.latitude, vp.longitude]
+      // Carry WHEN the tracker reported: a fix from an hour ago is not «where
+      // the vehicle is», and the start label has to be able to say so.
+      if (vp) {
+        return {
+          coords: [vp.latitude, vp.longitude],
+          vehicleName: vehicle.name,
+          reportedAt: parseReportedAt(vp.last_update),
+        }
+      }
     }
     return null
   }, [group, getGroupResources, vehiclePositions])
@@ -174,6 +202,15 @@ export function useRoutePlanning(groupId: string | null | undefined) {
     [group, createOperation, refreshGroups, refreshOperations],
   )
 
+  const anchors = useMemo<RouteStartAnchors>(() => {
+    const first = orderedStops.find((s): s is { id: string; op: LocatedOperation } => isLocated(s.op))
+    return {
+      magazin,
+      vehicle: vehicleAnchor,
+      firstStop: first ? { coords: first.op.coordinates, label: first.op.locationDisplay ?? first.op.location } : null,
+    }
+  }, [magazin, vehicleAnchor, orderedStops])
+
   const reorder = useCallback(
     async (orderedIds: string[]): Promise<boolean> => {
       if (!group) return false
@@ -187,19 +224,18 @@ export function useRoutePlanning(groupId: string | null | undefined) {
    * Returns proposed ordered ids (located first, then unlocated stops in their
    * original relative order). Pure — the caller previews then confirms via reorder.
    */
-  const optimize = useCallback(
-    (start: RouteStartMode): string[] => {
-      if (!group) return []
+  const optimizeFrom = useCallback(
+    (requested: RouteStartMode): { ids: string[]; start: RouteStart | null } => {
+      if (!group) return { ids: [], start: null }
 
       const located = orderedStops.filter((s): s is { id: string; op: LocatedOperation } => isLocated(s.op))
       const unlocated = orderedStops.filter((s) => !isLocated(s.op))
 
-      if (located.length <= 1) return group.stopIds
-
-      let anchor: [number, number] | null =
-        start === "magazin" ? magazinCoords : start === "vehicle" ? vehicleStart : located[0].op.coordinates
-      // Fall back to the first located stop when the requested anchor is unknown.
-      if (!anchor) anchor = located[0].op.coordinates
+      // Falls back to the first located stop when the requested anchor is
+      // unknown — and the returned `start` records that it did.
+      const start = resolveRouteStart(requested, anchors)
+      if (located.length <= 1 || !start) return { ids: group.stopIds, start }
+      const anchor = start.coords
 
       const remaining = [...located]
       const ordered: { id: string; op: Operation }[] = []
@@ -219,10 +255,12 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         current = next.op.coordinates
       }
 
-      return [...ordered.map((s) => s.id), ...unlocated.map((s) => s.id)]
+      return { ids: [...ordered.map((s) => s.id), ...unlocated.map((s) => s.id)], start }
     },
-    [group, orderedStops, magazinCoords, vehicleStart],
+    [group, orderedStops, anchors],
   )
+
+  const optimize = useCallback((start: RouteStartMode): string[] => optimizeFrom(start).ids, [optimizeFrom])
 
   return {
     group,
@@ -234,7 +272,9 @@ export function useRoutePlanning(groupId: string | null | undefined) {
     isAddingStop,
     reorder,
     optimize,
-    magazinCoords,
-    vehicleStart,
+    optimizeFrom,
+    anchors,
+    magazinCoords: magazin?.coords ?? null,
+    vehicleStart: vehicleAnchor?.coords ?? null,
   }
 }

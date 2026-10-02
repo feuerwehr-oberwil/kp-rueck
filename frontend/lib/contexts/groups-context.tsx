@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import {
   apiClient,
+  ApiError,
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
@@ -40,6 +41,8 @@ export interface AnnouncementInput {
   full: boolean
 }
 
+export type StopRestoreResult = "restored" | "conflict" | "failed"
+
 const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
 interface GroupsContextType {
@@ -55,6 +58,13 @@ interface GroupsContextType {
   deleteGroup: (id: string) => Promise<boolean>
   reorderGroups: (orderedIds: string[]) => Promise<boolean>
   reorderGroupStops: (groupId: string, orderedIds: string[]) => Promise<boolean>
+  /**
+   * Conditional stop reorder for undo: applied only if the route's order on the
+   * SERVER is still `expectedIds` (checked under the Auftrag lock). "conflict" =
+   * somebody changed the route meanwhile; the local copy is refreshed from the
+   * server. Not optimistic and never toasts — the caller words the outcome.
+   */
+  restoreGroupStops: (groupId: string, orderedIds: string[], expectedIds: string[]) => Promise<StopRestoreResult>
   addStops: (groupId: string, incidentIds: string[]) => Promise<boolean>
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
   /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
@@ -150,7 +160,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const activeEventIdRef = useRef<string | null>(null)
   const loadSequenceRef = useRef(0)
   const groupsRef = useRef<IncidentGroup[]>([])
-  const reorderQueuesRef = useRef(new Map<string, Promise<void>>())
+  const reorderQueuesRef = useRef(new Map<string, Promise<unknown>>())
 
   useEffect(() => {
     groupsRef.current = groups
@@ -520,6 +530,44 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const restoreGroupStops = useCallback(
+    async (groupId: string, orderedIds: string[], expectedIds: string[]): Promise<StopRestoreResult> => {
+      mutationEpochRef.current++
+      // Same per-route queue as reorderGroupStops: an undo must not overtake a
+      // drag that is still on its way to the server.
+      const previousRequest = reorderQueuesRef.current.get(groupId) ?? Promise.resolve()
+      const request = previousRequest.catch(() => {}).then(async (): Promise<StopRestoreResult> => {
+        try {
+          await apiClient.reorderGroupStops(groupId, orderedIds, expectedIds)
+          return "restored"
+        } catch (error) {
+          if (ApiError.isConflictError(error)) return "conflict"
+          console.error("Failed to restore stop order:", error)
+          return "failed"
+        }
+      })
+      reorderQueuesRef.current.set(groupId, request)
+      let outcome: StopRestoreResult
+      try {
+        outcome = await request
+      } finally {
+        if (reorderQueuesRef.current.get(groupId) === request) reorderQueuesRef.current.delete(groupId)
+      }
+      if (outcome === "restored") {
+        setGroups((gs) => {
+          const next = gs.map((g) => (g.id === groupId ? { ...g, stopIds: orderedIds } : g))
+          groupsRef.current = next
+          return next
+        })
+      } else if (outcome === "conflict") {
+        // Our copy is the stale one — show what the route looks like now.
+        void refreshGroups()
+      }
+      return outcome
+    },
+    [refreshGroups],
+  )
+
   const addStops = useCallback(async (groupId: string, incidentIds: string[]): Promise<boolean> => {
     mutationEpochRef.current++
 
@@ -746,6 +794,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         deleteGroup,
         reorderGroups,
         reorderGroupStops,
+        restoreGroupStops,
         addStops,
         removeStop,
         assignResource,

@@ -134,7 +134,12 @@
     "dismissAllToasts": "Alle schliessen",
     "closeToast": "Meldung schliessen",
     "toastRegion": "Meldungen",
-    "redirecting": "Wird weitergeleitet …"
+    "redirecting": "Wird weitergeleitet …",
+    "duration": {
+      "days": "{count, plural, one {# Tag} other {# Tage}}",
+      "hours": "{count, plural, one {# Stunde} other {# Stunden}}",
+      "minutes": "{count, plural, one {# Minute} other {# Minuten}}"
+    }
   },
   "nav": {
     "userMenu": {
@@ -281,8 +286,12 @@
       },
       "tooltips": {
         "start": "Startzeit des Einsatzes",
-        "column": "Zeit in diesem Status (seit {since})",
-        "total": "Zeit seit Alarmierung ({since})"
+        "column": "Zeit in diesem Status: {duration} (seit {since})",
+        "total": "Zeit seit Alarmierung: {duration} ({since})"
+      },
+      "a11y": {
+        "column": "Seit Statuswechsel {duration}, seit {since}",
+        "total": "Seit Alarmierung {duration}, seit {since}"
       }
     },
     "cardView": {
@@ -425,7 +434,6 @@
       "loading": "Wird geladen …",
       "stopsAddedToast": "{count, plural, one {# Stopp zur Route hinzugefügt} other {# Stopps zur Route hinzugefügt}}",
       "distributedToast": "In Auftrag «{name}» verteilt",
-      "removedFromAuftragToast": "Einsatz aus Auftrag entfernt",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
       "switchEvent": "Ereignis wechseln",
@@ -840,13 +848,6 @@
       "removeStop": "Stopp entfernen",
       "changeColor": "Farbe ändern",
       "optimizeOrder": "Optimieren",
-      "optimizeStartHint": "Start ab",
-      "startMagazin": "Magazin",
-      "startVehicle": "Fahrzeug-GPS",
-      "startFirst": "Erster Stopp",
-      "optimized": "Reihenfolge optimiert.",
-      "optimizeUnchanged": "Reihenfolge bereits optimal.",
-      "undo": "Rückgängig",
       "repeatRadio": "Durchsage wiederholen",
       "repeatRadioTitle": "Funkdurchsage wiederholen",
       "repeatRadioTitlePreview": "Funkdurchsage",
@@ -882,21 +883,12 @@
       "addStopToggle": "Stopp hinzufügen",
       "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
       "addingStop": "Stopp wird hinzugefügt …",
-      "optimizeStartHint": "Start ab",
-      "startMagazin": "Magazin",
-      "startVehicle": "Fahrzeug-GPS",
-      "startFirst": "Erster Stopp",
-      "optimize": "Reihenfolge optimieren",
-      "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
-      "applied": "Reihenfolge übernommen.",
       "done": "Fertig",
       "noStops": "Noch keine Stopps in diesem Auftrag.",
       "mapLoading": "Karte wird geladen …",
       "dragStop": "Stopp verschieben",
       "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Route.",
       "noCoordsBadge": "kein Ort",
-      "optimized": "Reihenfolge optimiert.",
-      "undo": "Rückgängig",
       "removeStop": "Stopp entfernen",
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
@@ -1179,7 +1171,8 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»"
+      "auftragLabel": "Auftrag «{name}»",
+      "durationDaysHours": "{days}d {hours}h"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
@@ -1322,17 +1315,8 @@
       "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
       "addingStop": "Stopp wird hinzugefügt …",
       "noStops": "Noch keine Stopps in diesem Auftrag.",
-      "optimizeStartHint": "Start ab",
-      "startMagazin": "Magazin",
-      "startVehicle": "Fahrzeug-GPS",
-      "startFirst": "Erster Stopp",
-      "optimize": "Reihenfolge optimieren",
-      "previewUnchanged": "Die Reihenfolge ist bereits optimal.",
-      "applied": "Reihenfolge übernommen.",
       "stopAdded": "Stopp zur Route hinzugefügt.",
       "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
-      "optimized": "Reihenfolge optimiert.",
-      "undo": "Rückgängig",
       "noGroups": "Noch keine Aufträge vorhanden"
     },
     "view": {
@@ -1425,7 +1409,34 @@
       "overwriteDescription": "{current} ist diesem Einsatz bereits als Reko zugewiesen. Durch {next} ersetzen?",
       "overwriteConfirm": "Ersetzen"
     },
-    "fitAll": "Alle Einsätze einpassen"
+    "fitAll": "Alle Einsätze einpassen",
+    "routeOptimize": {
+      "basis": "Vorschlag nach Luftlinie · Planungshilfe",
+      "startHeading": "Start ab",
+      "optimize": "Reihenfolge optimieren",
+      "magazin": "Magazin",
+      "magazinConfigured": "Standort aus den Einstellungen",
+      "magazinUnset": "Ersatzstandort – Magazin nicht eingerichtet",
+      "magazinFailed": "Ersatzstandort – Einstellungen nicht geladen",
+      "magazinLoading": "Wird geladen …",
+      "vehicle": "Fahrzeug-GPS",
+      "vehicleAt": "{vehicle} · {time}",
+      "vehicleStale": "{vehicle} · Stand {time}, vor {age}",
+      "vehicleNoTime": "{vehicle} · Zeitpunkt unbekannt",
+      "vehicleMissing": "Kein Fahrzeug mit GPS auf diesem Auftrag",
+      "first": "Erster Stopp",
+      "firstMissing": "Kein Stopp mit Koordinaten",
+      "fallbackToFirst": "{requested} nicht verfügbar – ab {stop}",
+      "optimized": "Reihenfolge nach Luftlinie vorgeschlagen",
+      "startLine": "Start: {start} · Planungshilfe, keine Strassenroute",
+      "unchanged": "Die Reihenfolge ist nach Luftlinie bereits die kürzeste.",
+      "note": "Vorschlag nach Luftlinie ab {start} · Planungshilfe",
+      "undo": "Rückgängig",
+      "undone": "Vorherige Reihenfolge wiederhergestellt",
+      "undoConflict": "Nicht mehr rückgängig machbar – Auftrag geändert",
+      "undoConflictDetail": "Reihenfolge oder Stopps wurden inzwischen geändert; die neuere Änderung bleibt.",
+      "undoFailed": "Vorherige Reihenfolge konnte nicht wiederhergestellt werden"
+    }
   },
   "settings": {
     "common": {
@@ -2984,6 +2995,21 @@
     },
     "messages": {
       "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt"
+    },
+    "release": {
+      "released": "{resource} von {target} gelöst",
+      "releasedMany": "{count} × {resource} von {target} gelöst",
+      "restored": "{resource} wieder bei {target}",
+      "restoreFailedTitle": "{resource} konnte nicht zurückgeholt werden",
+      "reason": {
+        "targetGone": "{target} ist nicht mehr auf dem Board.",
+        "targetClosed": "{target} ist bereits abgeschlossen.",
+        "alreadyBack": "{resource} ist bereits wieder bei {target}.",
+        "elsewhere": "Inzwischen bei {where} eingeteilt – diese neuere Zuweisung bleibt.",
+        "outOfService": "{resource} ist nicht einsatzbereit.",
+        "resourceGone": "{resource} ist nicht mehr im Bestand oder abgemeldet.",
+        "unavailable": "{resource} ist als nicht verfügbar gemeldet."
+      }
     }
   },
   "help": {

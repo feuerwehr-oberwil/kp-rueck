@@ -42,6 +42,7 @@ import {
   type IncidentTimeSource,
 } from '@/lib/incident-time'
 import { ageChipClass } from '@/lib/kanban-utils'
+import { formatDurationLong } from '@/lib/duration'
 import { cn } from '@/lib/utils'
 
 /* -------------------------------------------------------------------------- */
@@ -127,6 +128,7 @@ export function IncidentTime({
   iconClassName,
 }: IncidentTimeProps) {
   const t = useTranslations('kanban.incidentTime')
+  const tDuration = useTranslations('common.duration')
   const intlLocale = useIntlLocale()
   const { mode, setMode } = useIncidentTimeMode()
   useMinuteTick()
@@ -137,9 +139,15 @@ export function IncidentTime({
   const value = formatIncidentTime(operation, mode)
   const ageReference = incidentTimeReference(operation, 'column')
 
-  const tooltip = t(`tooltips.${mode}`, {
-    since: incidentTimeReference(operation, mode).toLocaleString(intlLocale),
-  })
+  // The chip is compact («1d 10h»); the tooltip and the accessible name carry
+  // the whole thing — what is measured, the full duration in words, and the
+  // original timestamp — so «seit Status» and «seit Alarm» can never be
+  // confused by ear or by hover.
+  const reference = incidentTimeReference(operation, mode)
+  const since = reference.toLocaleString(intlLocale)
+  const duration = formatDurationLong(Date.now() - reference.getTime(), tDuration)
+  const tooltip = t(`tooltips.${mode}`, { since, duration })
+  const fullLabel = mode === 'start' ? `${t(`modes.${mode}`)}: ${value}` : t(`a11y.${mode}`, { since, duration })
 
   // `lg` is for the detail header, where the chip is the primary read and the
   // card-sized version was too quiet to notice. The board keeps the dense one.
@@ -156,7 +164,8 @@ export function IncidentTime({
     return (
       <span className="inline-flex items-center gap-1" title={tooltip}>
         {showIcon && <Icon className={iconClasses} aria-hidden />}
-        <span className={valueClasses}>{value}</span>
+        <span className={valueClasses} aria-hidden>{value}</span>
+        <span className="sr-only">{fullLabel}</span>
       </span>
     )
   }
@@ -189,7 +198,7 @@ export function IncidentTime({
           // nothing beside it moves.
           className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 -mx-1.5 -my-1 transition-colors hover:bg-muted/60"
           title={tooltip}
-          aria-label={`${t(`modes.${mode}`)}: ${value}`}
+          aria-label={fullLabel}
         >
           {showIcon && <Icon className={iconClasses} aria-hidden />}
           <span className={valueClasses}>{value}</span>

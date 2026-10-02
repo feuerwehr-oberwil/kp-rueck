@@ -15,7 +15,6 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { toast } from "sonner"
 import { Plus, Route as RouteIcon, MousePointerClick, X, MapPinned } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,10 +29,11 @@ import {
 import { cn } from "@/lib/utils"
 import { colorAccent } from "@/lib/kanban-utils"
 import type { IncidentGroup } from "@/lib/types/groups"
-import type { RouteStartMode, useRoutePlanning } from "@/lib/hooks/use-route-planning"
+import type { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { useGroups } from "@/lib/contexts/groups-context"
-import { RouteStopList, RouteOptimizeMenu } from "./route-stop-list"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
+import { RouteStopList } from "./route-stop-list"
+import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "./route-optimize"
 import { ShellLoader } from "@/components/ui/shell-loader"
 
 // Same six-swatch palette as the Aufträge sheet so routes read apart at a glance.
@@ -74,9 +74,11 @@ export function RoutenplanungPanel({
   canEdit,
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
-  const { group, operationsById, isAddingStop, reorder, optimize, magazinCoords, vehicleStart } = planning
+  const { group, operationsById, isAddingStop, reorder } = planning
+  const optimizeAction = useRouteOptimizeAction(planning)
   const { updateOperation } = useOperations()
-  const { removeStop } = useGroups()
+  // Taking a stop off the route offers «Rückgängig» (lib/release-undo.ts).
+  const release = useReleaseUndo()
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
@@ -84,12 +86,6 @@ export function RoutenplanungPanel({
 
   const stopIds = group?.stopIds ?? []
   const displayOrder = stopIds
-
-  const startOptions = [
-    { value: "magazin" as const, label: t("startMagazin"), disabled: !magazinCoords },
-    { value: "vehicle" as const, label: t("startVehicle"), disabled: !vehicleStart },
-    { value: "first" as const, label: t("startFirst") },
-  ]
 
   const startCreate = () => {
     setNewName(t("defaultName", { n: groups.length + 1 }))
@@ -102,23 +98,6 @@ export function RoutenplanungPanel({
     if (!name) return
     setCreating(false)
     await onCreateGroup(name, newColor)
-  }
-
-  // Optimize applies immediately (no preview / Übernehmen step) with an undo toast.
-  const runOptimize = async (startMode: RouteStartMode) => {
-    const previous = stopIds
-    const proposed = optimize(startMode)
-    if (proposed.length === 0) return
-    const unchanged = proposed.every((id, i) => id === previous[i])
-    if (unchanged) {
-      toast.info(t("previewUnchanged"))
-      return
-    }
-    const persisted = await reorder(proposed)
-    if (!persisted) return
-    toast.success(t("optimized"), {
-      action: { label: t("undo"), onClick: () => void reorder(previous) },
-    })
   }
 
   return (
@@ -242,14 +221,9 @@ export function RoutenplanungPanel({
               the start anchor and runs optimize immediately). */}
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm font-semibold">{t("order")}</span>
-            {canEdit && <RouteOptimizeMenu
-              options={startOptions}
-              menuLabel={t("optimizeStartHint")}
-              optimizeLabel={t("optimize")}
-              disabled={displayOrder.length < 2}
-              onOptimize={(start) => void runOptimize(start)}
-            />}
+            {canEdit && <RouteOptimizeButton action={optimizeAction} disabled={displayOrder.length < 2} />}
           </div>
+          <RouteOptimizeNote action={optimizeAction} className="mb-2" />
 
           {/* Ordered stop list */}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border bg-muted/20 p-2">
@@ -271,7 +245,7 @@ export function RoutenplanungPanel({
                   focusStopId={focusStopId}
                   onSelectStop={onFocusStopChange}
                   onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
-                  onRemoveStop={(incidentId) => void removeStop(group.id, incidentId)}
+                  onRemoveStop={(incidentId) => void release.releaseStop(group.id, incidentId)}
                   showStatusControl={false}
                   // The `/map` planner has no access to the dashboard completion
                   // flow (material prompt + returning-vehicle check), so don't

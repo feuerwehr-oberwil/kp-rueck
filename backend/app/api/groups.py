@@ -149,12 +149,25 @@ async def reorder_stops(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> None:
-    """Persist the manual order of the stops within one Auftrag (editor only)."""
+    """Persist the manual order of the stops within one Auftrag (editor only).
+
+    With ``expected_ids`` the reorder is conditional (409 when the current order
+    differs) — used by the undo after a route optimisation.
+    """
     group = await crud.get_group(db, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Auftrag not found")
 
-    updated = await crud.reorder_group_stops(db, group_id, reorder.ordered_ids)
+    try:
+        updated = await crud.reorder_group_stops(db, group_id, reorder.ordered_ids, reorder.expected_ids)
+    except crud.StopOrderConflictError:
+        # Nothing was written (the check precedes the first write); get_db rolls
+        # back and releases the Auftrag lock. German like every API detail; the
+        # board shows its own localized text.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Auftrag wurde inzwischen geändert",
+        ) from None
 
     if updated:
         background_tasks.add_task(

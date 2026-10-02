@@ -45,6 +45,7 @@ import type { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import type { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import type { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+import type { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import type { Incident } from "@/lib/types/incidents"
 
@@ -169,6 +170,8 @@ export interface BoardDialogsProps {
   removeCrew: Ops["removeCrew"]
   removeMaterial: Ops["removeMaterial"]
   removeVehicle: Ops["removeVehicle"]
+  /** The operator's own releases from the detail modal: with «Rückgängig». */
+  release: ReturnType<typeof useReleaseUndo>
   requestCompletion: StatusWorkflow["requestCompletion"]
   requestStatusChange: StatusWorkflow["requestStatusChange"]
   routeAssign: RouteAssign | null
@@ -285,6 +288,7 @@ export function BoardDialogs({
   removeCrew,
   removeMaterial,
   removeVehicle,
+  release,
   requestCompletion,
   requestStatusChange,
   routeAssign,
@@ -337,8 +341,8 @@ export function BoardDialogs({
         onAssignVehicle={isEditor ? handleVehicleAssign : undefined}
         onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
         onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
-        onRemoveCrew={isEditor ? removeCrew : undefined}
-        onRemoveMaterial={isEditor ? removeMaterial : undefined}
+        onRemoveCrew={isEditor ? release.releaseCrew : undefined}
+        onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
         canEdit={isEditor}
         diveraEnabled={isEditor && diveraEnabled}
         onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}

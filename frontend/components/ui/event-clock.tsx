@@ -31,6 +31,7 @@ import { useIntlLocale } from '@/lib/date-locale'
 import { useEvent } from '@/lib/contexts/event-context'
 import { readItem, writeItem } from '@/lib/utils/safe-storage'
 import { cn } from '@/lib/utils'
+import { formatDuration } from '@/lib/duration'
 
 export type EventClockMode = 'duration' | 'time' | 'start'
 
@@ -42,13 +43,6 @@ function isMode(value: string | null): value is EventClockMode {
   return value === 'duration' || value === 'time' || value === 'start'
 }
 
-/** "1h 04m" / "12m" — hours only once there are any, so the common case stays short. */
-function formatDuration(ms: number): string {
-  const totalMinutes = Math.max(0, Math.floor(ms / 60_000))
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`
-}
 
 const PILL = 'flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-1.5'
 
@@ -93,7 +87,8 @@ export function EventClock({ className }: { className?: string }) {
     if (m === 'time') return wallClock
     if (!startedAt || !isMounted || !currentTime) return '--:--'
     if (m === 'start') return startedAt.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })
-    return formatDuration(currentTime.getTime() - startedAt.getTime())
+    // "12m" / "1h 04m" / "1d 10h" — the clock style of the shared formatter.
+    return formatDuration(currentTime.getTime() - startedAt.getTime(), 'clock')
   }
 
   const ActiveIcon = MODE_ICON[mode]
