@@ -49,7 +49,7 @@ export default function TrainingPage() {
             />
           </header>
 
-          <main className="flex-1 flex items-center justify-center p-4 pb-20 md:pb-4">
+          <main className="flex-1 flex items-center justify-center p-4 pb-nav-reserve md:pb-4">
             <Alert variant="destructive" className="max-w-md">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -80,7 +80,7 @@ export default function TrainingPage() {
           />
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-20 md:pb-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-nav-reserve md:pb-8">
           {/* Desktop (xl+): two columns so the whole console fits with minimal
               scrolling — left is "prepare the exercise" (generation incl.
               Automatik + Personal einchecken), right is "run the field"

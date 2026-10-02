@@ -197,10 +197,8 @@ export function MobileIncidentDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="modal-h-tall overflow-y-auto px-4"
-        style={{
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
-        }}
+        // Covers the nav, so the foot pays only the safe area (`pb-sheet-safe`).
+        className="modal-h-tall overflow-y-auto px-4 pb-sheet-safe"
       >
         <SheetHeader className="pb-4 border-b mb-4">
           <div className="flex items-start gap-3">

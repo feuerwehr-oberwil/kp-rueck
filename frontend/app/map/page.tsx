@@ -1176,9 +1176,9 @@ export default function MapPage() {
               </div>
 
               {/* On mobile the fixed bottom navbar overlays the page, so pad the
-                  scrollable list past it (nav height + safe-area) — otherwise the
-                  last incidents sit behind the bar and can't be scrolled into view. */}
-              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-3 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+5rem)]' : ''}`}>
+                  scrollable list past its measured height (`pb-nav-reserve`) —
+                  otherwise the last incidents sit behind the bar. */}
+              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-3 ${isMobile ? 'pb-nav-reserve' : ''}`}>
               {/* One-line rows in sections. The rail stopped repeating the
                   board's cards: detail lives on the marker's hover card and
                   behind «Details anzeigen» (double-click, or the icon that

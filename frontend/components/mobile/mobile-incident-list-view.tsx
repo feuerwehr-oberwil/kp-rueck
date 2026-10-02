@@ -188,9 +188,9 @@ export function MobileIncidentListView({
         </div>
       </div>
 
-      {/* Scrollable Incident List. Pad past the fixed bottom navbar (height +
-          safe-area) so the last card isn't stuck behind it when the list is long. */}
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
+      {/* Scrollable Incident List. Pad past the fixed bottom navbar by its MEASURED
+          height (`pb-nav-reserve`, globals.css) so the last card ends just above it. */}
+      <div className="flex-1 overflow-y-auto px-4 pb-nav-reserve">
         {isLoading ? (
           <div className="space-y-3 mt-4">
             {[...Array(5)].map((_, i) => (

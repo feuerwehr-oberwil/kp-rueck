@@ -408,7 +408,7 @@ export default function HelpPage() {
 
         {/* Main Content */}
         <ScrollArea className="flex-1">
-          <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 md:py-8">
+          <div className="max-w-3xl mx-auto px-4 md:px-8 pt-6 pb-nav-reserve md:py-8">
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
