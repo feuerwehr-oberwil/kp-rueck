@@ -8,12 +8,12 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { useDateFnsLocale } from "@/lib/date-locale";
 
 import { Button } from "@/components/ui/button";
+import { ShellLoader } from "@/components/ui/shell-loader";
 import { useBoardSyncStatus, useOperations } from "@/lib/contexts/operations-context";
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client";
 import { getRestReachable, onRestReachableChange } from "@/lib/api-client";
 import { shouldShowStaleBanner } from "@/lib/stale-data";
 import { formatClockTime } from "@/lib/incident-time";
-import { cn } from "@/lib/utils";
 
 /**
  * Top-of-app banner that warns operators when realtime updates have been
@@ -113,7 +113,7 @@ export function StaleDataBanner() {
           onClick={handleReconnect}
           disabled={reconnecting}
         >
-          <RefreshCw className={cn("size-3.5", reconnecting && "animate-spin")} aria-hidden="true" />
+          {reconnecting ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" aria-hidden="true" />}
           {t('reload')}
         </Button>
       </div>
@@ -150,7 +150,7 @@ export function StaleDataBanner() {
         onClick={handleReconnect}
         disabled={reconnecting}
       >
-        <RefreshCw className={cn("size-3.5", reconnecting && "animate-spin")} aria-hidden="true" />
+        {reconnecting ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" aria-hidden="true" />}
         {t('reconnect')}
       </Button>
     </div>

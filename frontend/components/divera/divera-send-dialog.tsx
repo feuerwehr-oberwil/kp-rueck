@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Siren, Loader2, Link2Off } from "lucide-react"
+import { Siren, Link2Off } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
 import { toast } from "sonner"
+import { ShellLoader } from "@/components/ui/shell-loader"
 
 interface DiveraSendDialogProps {
   open: boolean
@@ -293,7 +294,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
               disabled={Boolean(blockedReason) || isSending || selectedLinkedCount === 0 || !templatesReady}
             >
               {isSending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <ShellLoader className="size-4" />
               ) : (
                 <Siren className="size-4" />
               )}

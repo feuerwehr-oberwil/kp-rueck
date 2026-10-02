@@ -6,6 +6,7 @@ import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
@@ -300,8 +301,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4 modal-h-tall")}
-      style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
+      // phone: a modal sheet over the nav — only the safe area at its foot
+      className={cn("flex flex-col max-w-5xl mx-auto px-6 py-4 modal-h-tall", isMobile && "pb-sheet-safe")}
       // both roles: a Radix AlertDialog is role="alertdialog", and the vehicle-conflict prompt
       // that can appear from here is one — see the note in auftraege-sheet.tsx
       shouldPreventClose={(target) => !!target.closest('[role="dialog"], [role="alertdialog"]') || driverDialogOpen}
@@ -316,7 +317,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
             </div>
 
             <Button variant="outline" size="sm" onClick={handleManualRefresh} disabled={loading} className="flex-shrink-0">
-              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+              {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
               {t('vehicleStatus.refresh')}
             </Button>
           </div>
@@ -370,7 +371,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       "border-l-4",
                       getStatusBorderColor(vehicle.status, !!vehicle.incident_id || !!auftragName),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
-                      isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      isSelected && "ring-2 ring-sel-line ring-offset-2 ring-offset-background",
                       !isClickable && "opacity-75"
                     )}
                     tabIndex={isClickable ? 0 : -1}

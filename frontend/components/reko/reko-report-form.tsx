@@ -25,7 +25,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, Loader2, Send } from 'lucide-react'
+import { Check, Send } from 'lucide-react'
 
 import { DetailField, DENSE_CONTROL } from '@/components/kanban/detail-field'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
 import type { ApiDangersAssessment, ApiEffortEstimation, ApiRekoReportResponse } from '@/lib/api/types'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** The five hazards, in the order both mounts ask them. */
 const DANGER_KEYS = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const
@@ -220,7 +221,7 @@ export function RekoReportForm({
                       "cursor-pointer px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                       index > 0 && "border-l border-border",
                       selected
-                        ? "bg-primary font-semibold text-primary-foreground"
+                        ? "sel-choice font-semibold"
                         : "text-muted-foreground hover:bg-input/50",
                     )}
                   >
@@ -383,7 +384,7 @@ export function RekoReportForm({
           <Button type="submit" size="xs" disabled={disabled || isSubmitting || busy}>
             {isSubmitting ? (
               <>
-                <Loader2 className="size-3.5 animate-spin" />
+                <ShellLoader className="size-3.5" />
                 {t('submittingKp')}
               </>
             ) : (
@@ -414,7 +415,8 @@ export function RekoReportForm({
         <div className="grid grid-cols-2 gap-3">
           <Button
             type="button"
-            variant={value.is_relevant === true ? 'default' : 'outline'}
+            variant={value.is_relevant === true ? 'selected' : 'outline'}
+            aria-pressed={value.is_relevant === true}
             onClick={() => update('is_relevant', true)}
             disabled={disabled}
             size="lg"
@@ -424,7 +426,8 @@ export function RekoReportForm({
           </Button>
           <Button
             type="button"
-            variant={value.is_relevant === false ? 'default' : 'outline'}
+            variant={value.is_relevant === false ? 'selected' : 'outline'}
+            aria-pressed={value.is_relevant === false}
             onClick={() => update('is_relevant', false)}
             disabled={disabled}
             size="lg"
@@ -541,7 +544,8 @@ export function RekoReportForm({
             <Button
               key={option}
               type="button"
-              variant={value.power_supply === option ? 'default' : 'outline'}
+              variant={value.power_supply === option ? 'selected' : 'outline'}
+              aria-pressed={value.power_supply === option}
               onClick={() => update('power_supply', option)}
               disabled={disabled}
               className="text-sm"
@@ -611,7 +615,7 @@ export function RekoReportForm({
         <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-14 w-full" size="lg">
           {isSubmitting ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <ShellLoader className="h-5 w-5" />
               {t('submitting')}
             </>
           ) : (

@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import {
-  Loader2,
   Plus,
   Check,
   ChevronLeft,
@@ -28,6 +27,7 @@ import { PRIORITY_LABELS } from '@/lib/priority'
 import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn, sanitizePhoneInput } from '@/lib/utils'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 export default function AlarmPage() {
   return (
@@ -42,9 +42,10 @@ export default function AlarmPage() {
 }
 
 function CenteredSpinner() {
+  const t = useTranslations('common')
   return (
     <div className="flex items-center justify-center py-24">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>
     </div>
   )
 }
@@ -669,7 +670,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           <Button size="lg" className="w-full text-base" onClick={handleSubmit} disabled={submitting}>
             {submitting ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <ShellLoader className="h-5 w-5" />
                 {t('submitting')}
               </>
             ) : editing ? (
@@ -775,7 +776,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
             <Button
               key={key}
               type="button"
-              variant={priority === key ? 'default' : 'outline'}
+              variant={priority === key ? 'selected' : 'outline'}
+              aria-pressed={priority === key}
               onClick={() => setPriority(key)}
               size="lg"
               className="text-base"

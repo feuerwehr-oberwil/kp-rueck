@@ -42,6 +42,12 @@
       "body": "Der Server hat nicht geantwortet oder einen Fehler gemeldet. Das Board ist nicht leer – es ist noch nicht geladen.",
       "retry": "Erneut laden"
     },
+    "bootScreen": {
+      "stuckTitle": "Start dauert länger als gewöhnlich",
+      "stuckHint": "Verbindung schwach oder Server nicht erreichbar.",
+      "restart": "Neu starten"
+    },
+    "loading": "Wird geladen …",
     "incidentTruncation": {
       "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
     },
@@ -433,8 +439,8 @@
         "type": "Nach Typ"
       },
       "noPersonnelCheckedIn": "Niemand angemeldet",
-      "personnelLoading": "Personal wird geladen",
-      "materialLoading": "Material wird geladen",
+      "personnelLoading": "Personal wird geladen …",
+      "materialLoading": "Material wird geladen …",
       "notLoaded": "Nicht geladen",
       "noPersonnelMatch": "Keine Person passt zu <term>«{query}»</term>",
       "groupFree": "Frei · {count}",
@@ -1194,6 +1200,7 @@
       },
       "trainingBadge": "Übung",
       "createTrainingIncident": "Übungs-Einsatz erstellen",
+      "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
       "all": "Alle ({count})",
       "noResults": "Keine Einsätze gefunden",

@@ -4,11 +4,12 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { Camera, Check, Plus, Upload, X, Loader2 } from 'lucide-react'
+import { Camera, Check, Plus, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
+import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 /**
  * The longest edge a photo is sent at.
@@ -645,7 +646,7 @@ export default function PhotoUpload({
             aria-label={t('chooseFile')}
             className="flex size-24 shrink-0 cursor-pointer items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-input/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {preparing ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {preparing ? <ShellLoader className="size-4" /> : <Plus className="size-4" />}
           </button>
           {/* Says the two ways that are actually used at the board, and stands
               in for the «Noch keine Fotos» line — an empty row that only says
@@ -674,7 +675,7 @@ export default function PhotoUpload({
                     onClick={() => handleRemovePhoto(filename)}
                     disabled={disabled}
                     aria-label={t('removePhoto', { number: index + 1 })}
-                    className="absolute top-1 right-1 cursor-pointer p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-md disabled:hidden"
+                    className="absolute top-1 right-1 cursor-pointer p-1 bg-background/90 text-destructive ring-1 ring-destructive/50 rounded-full hover:bg-background transition-colors shadow-md disabled:hidden dark:text-red-400"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -686,9 +687,8 @@ export default function PhotoUpload({
           {/* Preparing: the canvas pass (HEIC → JPEG, downscale to 1920 px) before
               anything is queued. Everything after this has its own row above. */}
           {preparing && (
-            <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('uploading')}
+            <div className="flex items-center justify-center py-4">
+              <LoadingStatus className="text-sm">{t('uploading')}</LoadingStatus>
             </div>
           )}
 

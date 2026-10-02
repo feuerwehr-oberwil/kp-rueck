@@ -25,7 +25,7 @@ import { rapportApplies } from "@/lib/rapport-visibility"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
-import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_EDGE_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -55,7 +55,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
   const priority = (operation.priority || "low") as Priority
   const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority], chevron: PRIORITY_TEXT_CLASSES[priority] }
 
-  // Get column color for the card
+  // Status tint — only a Hoch card still carries it (under its red wash,
+  // exactly as before). Mittel/Niedrig are calm: neutral card, status is in
+  // the badge and the filter pill, priority in the left edge + chevron.
   const column = columns.find(col => col.status.includes(operation.status))
   const columnColor = column?.color || "bg-muted"
 
@@ -75,18 +77,26 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
     <Card
       className={cn(
         "p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
-        columnColor,
-        priority === "high" ? "border-red-500/40 border-2 bg-red-500/[0.04] dark:bg-red-500/[0.06]" : "border-border"
+        // Hoch stays exactly as it was: red tint, 2px red border, dot + chevron.
+        // Everything else is a neutral card — no status tint — with a 4px left
+        // edge that is amber for Mittel and plain border for Niedrig, the same
+        // reading as the board's cards (lib/priority.ts PRIORITY_EDGE_CLASSES).
+        priority === "high"
+          ? cn(columnColor, "border-red-500/40 border-2 bg-red-500/[0.04] dark:bg-red-500/[0.06]")
+          : cn("bg-card border border-border border-l-4", PRIORITY_EDGE_CLASSES[priority])
       )}
       onClick={onClick}
     >
       <div className="flex items-start gap-3">
         {/* Priority indicator */}
         <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-          <div
-            className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", priorityConfig?.dot)}
-            aria-hidden="true"
-          />
+          {/* The dot only where there is no coloured edge, i.e. on Hoch. */}
+          {priority === "high" && (
+            <div
+              className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", priorityConfig?.dot)}
+              aria-hidden="true"
+            />
+          )}
           {priority === "high" ? (
             <ChevronUp className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityHighAria")} />
           ) : priority === "medium" ? (
@@ -106,7 +116,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               </h3>
             )}
             {rapportMissing && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-2xs font-medium text-amber-700 dark:text-amber-300">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">
                 <FileWarning className="h-3 w-3" />
                 {tMobile("noRapport")}
               </span>
@@ -116,7 +126,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           {/* Einsatzleiter — who to raise on the radio. */}
           {operation.leaderName && (
             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-              <Star className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />
+              <Star className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
               {tMobile("leader", { name: operation.leaderName })}
             </p>
           )}

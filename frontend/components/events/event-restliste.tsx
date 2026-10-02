@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { CarTaxiFront, ChevronDown, ChevronRight, FileWarning, Loader2, Package, Printer } from 'lucide-react'
+import { CarTaxiFront, ChevronDown, ChevronRight, FileWarning, Package, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ import { PickupBadge } from '@/components/kanban/pickup-badge'
 import { apiClient, type ApiEventRestliste, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getActiveLocale } from '@/lib/i18n-messages'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 type Section = 'rapport' | 'material' | 'pickup'
 
@@ -187,7 +188,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                 title={t('printAbholliste')}
                 aria-label={t('printAbholliste')}
               >
-                {printing ? <Loader2 className="size-3.5 animate-spin" /> : <Printer className="size-3.5" />}
+                {printing ? <ShellLoader className="size-3.5" /> : <Printer className="size-3.5" />}
               </Button>
             )}
           </div>

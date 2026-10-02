@@ -5,13 +5,14 @@ import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react'
+import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useDateFnsLocale } from '@/lib/date-locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
 import type { SyncStatusResponse, SyncConfig } from '@/types/sync'
+import { ShellLoader } from '@/components/ui/shell-loader'
 
 interface SyncStatusCardProps {
   status: SyncStatusResponse | null
@@ -77,7 +78,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     if (isLoading) {
       return (
         <Badge variant="secondary" className="flex items-center gap-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <ShellLoader className="h-3 w-3" />
           {t('loading')}
         </Badge>
       )
@@ -95,7 +96,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
     if (status.is_syncing || isSyncing) {
       return (
         <Badge variant="secondary" className="flex items-center gap-1 bg-warning text-warning-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <ShellLoader className="h-3 w-3" />
           {tCommon('syncing')}
         </Badge>
       )
@@ -255,7 +256,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             disabled={isSyncing || !status?.railway_healthy || isLoading || config?.is_production}
           >
             {isSyncing ? (
-              <Loader2 className="size-4 animate-spin" />
+              <ShellLoader className="size-4" />
             ) : (
               <RefreshCw className="size-4" />
             )}
@@ -269,7 +270,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
               disabled={isSyncing || isLoading || config?.is_production}
             >
               {isSyncing ? (
-                <Loader2 className="size-4 animate-spin" />
+                <ShellLoader className="size-4" />
               ) : (
                 <ArrowUp className="size-4" />
               )}

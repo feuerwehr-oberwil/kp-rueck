@@ -151,6 +151,12 @@
       "body": "Le serveur n’a pas répondu ou a signalé une erreur. Le tableau n’est pas vide – il n’est pas encore chargé.",
       "retry": "Recharger"
     },
+    "bootScreen": {
+      "stuckTitle": "Le démarrage prend plus de temps que d’habitude",
+      "stuckHint": "Connexion faible ou serveur injoignable.",
+      "restart": "Redémarrer"
+    },
+    "loading": "Chargement …",
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },
@@ -1227,6 +1233,7 @@
       },
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
+      "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Rechercher une intervention …",
       "all": "Toutes ({count})",
       "noResults": "Aucune intervention trouvée",
@@ -1537,8 +1544,8 @@
         "type": "Par genre"
       },
       "noPersonnelCheckedIn": "Personne n’est annoncé",
-      "personnelLoading": "Chargement du personnel",
-      "materialLoading": "Chargement du matériel",
+      "personnelLoading": "Chargement du personnel …",
+      "materialLoading": "Chargement du matériel …",
       "notLoaded": "Non chargé",
       "noPersonnelMatch": "Aucune personne ne correspond à <term>« {query} »</term>",
       "groupFree": "Libres · {count}",

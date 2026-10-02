@@ -177,8 +177,8 @@ export function ExcelImportSection({ importer, demoMode }: { importer: ExcelImpo
                     onClick={() => selectImportMode(mode)}
                     className={`rounded-lg border-2 p-3 text-left transition-all ${
                       selected
-                        ? destructive ? 'border-destructive bg-destructive/5' : 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
+                        ? destructive ? 'border-destructive bg-destructive/5' : 'border-sel-edge bg-sel-wash'
+                        : 'border-border hover:border-sel-edge'
                     }`}
                   >
                     <div className="flex items-center gap-2">

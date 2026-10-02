@@ -310,8 +310,8 @@ export function AuftraegeSheet({
           // sidebar's edge instead of centering against the covered viewport.
           rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
-          className="flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall"
-          style={isMobile ? { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" } : undefined}
+          // phone: a modal sheet over the nav — only the safe area at its foot
+          className={cn("flex flex-col max-w-4xl mx-auto px-6 py-4 modal-h-tall", isMobile && "pb-sheet-safe")}
           onPointerDownOutside={(e) => {
             // A sonner toast is portalled outside this non-modal sheet, so clicking
             // its "Rückgängig" action counts as an outside interaction and would
@@ -644,7 +644,7 @@ function AuftragCard({
       // primary visual split is always between Aufträge, not within one.
       className={cn(
         "rounded-lg border border-l-[3px] bg-card transition-colors",
-        isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
+        isDropOver && "ring-2 ring-sel-line bg-sel-wash",
       )}
       style={{ borderLeftColor: group.color ?? "var(--border)" }}
     >
@@ -992,7 +992,7 @@ function StopRow({ groupId, incidentId, index, op, onRemove, onSetStatus, onOpen
           // Column layout: [handle] [number] [status — fixed width] [address — flex].
           "flex items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
           stopStatusBorderClass(mirror),
-          isDropOver && "ring-2 ring-primary/50 bg-primary/[0.04]",
+          isDropOver && "ring-2 ring-sel-line bg-sel-wash",
         )}
       >
         {!readOnly && <button ref={handleRef} className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0" aria-label={t("dragStop")}>

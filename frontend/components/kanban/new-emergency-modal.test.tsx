@@ -22,6 +22,9 @@ vi.mock('@/components/location/location-input', () => ({
   ),
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }))
+// Desktop (the centred dialog) unless a test says phone — jsdom has no matchMedia.
+const viewport = vi.hoisted(() => ({ mobile: false }))
+vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => viewport.mobile }))
 
 import { NewEmergencyModal } from '@/components/kanban/new-emergency-modal'
 
@@ -100,5 +103,35 @@ describe('NewEmergencyModal — Aktionsreihenfolge', () => {
 
     const labels = Array.from(footer!.querySelectorAll('button')).map((b) => b.textContent?.trim())
     expect(labels).toEqual(['Abbrechen', 'Einsatz erstellen'])
+  })
+})
+
+describe('NewEmergencyModal — Handy', () => {
+  it('is a bottom sheet on the keyboard edge with its actions in a footer that stays', () => {
+    viewport.mobile = true
+    try {
+      renderModal()
+      const sheet = document.querySelector<HTMLElement>('[data-slot="sheet-content"]')!
+      expect(sheet).toHaveAttribute('data-side', 'bottom')
+      expect(sheet.style.bottom).toBe('var(--kb-inset, 0px)')
+      // the rows scroll on their own; the footer is outside that scroller
+      const body = sheet.querySelector('[data-slot="sheet-body"]')!
+      expect(body).toContainElement(screen.getByLabelText('Ort'))
+      const footer = sheet.querySelector<HTMLElement>('[data-slot="sheet-footer"]')!
+      expect(body).not.toContainElement(footer)
+      const buttons = Array.from(footer.querySelectorAll('button')).map((b) => b.textContent?.trim())
+      expect(buttons[0]).toMatch(/Abbrechen/)
+      expect(buttons[1]).toMatch(/erstellen/)
+      expect(sheet.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
+      // labels ABOVE the fields on the phone: the label is its own block, the control below it
+      const meldung = screen.getByText('Meldung', { selector: 'label' })
+      expect(meldung).toHaveClass('block')
+      expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
+      // switches: label left, switch right, one row
+      const tel = screen.getByRole('switch', { name: 'Telefonisch' })
+      expect(tel.closest('.min-h-11')).toHaveTextContent('Telefonisch')
+    } finally {
+      viewport.mobile = false
+    }
   })
 })

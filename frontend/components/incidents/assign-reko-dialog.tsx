@@ -6,7 +6,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, User, Loader2, Binoculars, ArrowLeft, MapPin } from "lucide-react"
+import { Search, User, Binoculars, ArrowLeft, MapPin } from "lucide-react"
 import { apiClient, type ApiAvailableRekoPersonnel } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -14,6 +14,7 @@ import type { Person } from "@/lib/contexts/personnel-context"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
+import { ShellLoader, LoadingStatus } from "@/components/ui/shell-loader"
 
 interface MarkExistingRekoPersonnelProps {
   personnel: Person[]
@@ -73,7 +74,7 @@ export function MarkExistingRekoPersonnel({
                 onClick={() => handleSelect(person)}
                 disabled={marking !== null}
                 className={cn(
-                  "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left hover:border-primary/50 hover:bg-secondary/30",
+                  "w-full flex items-center justify-between p-3 rounded-lg border border-border transition-all text-left hover:border-sel-edge hover:bg-secondary/30",
                   marking === person.id && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -87,7 +88,7 @@ export function MarkExistingRekoPersonnel({
                   </div>
                 </div>
                 {marking === person.id
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  ? <ShellLoader className="h-4 w-4" />
                   : <Binoculars className="h-4 w-4 text-muted-foreground" />}
               </button>
             ))}
@@ -260,8 +261,7 @@ export function AssignRekoDialog({
                 />
             ) : loading ? (
               <div className="flex items-center justify-center h-[300px]">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">{t('loading')}</span>
+                <LoadingStatus size="surface" className="text-sm">{t('loading')}</LoadingStatus>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-[300px]">
@@ -300,7 +300,7 @@ export function AssignRekoDialog({
                         "w-full p-3 rounded-lg border transition-all text-left",
                         isCurrentlyAssigned
                           ? "border-success bg-success/10 cursor-default"
-                          : "border-border hover:border-primary/50 hover:bg-secondary/30",
+                          : "border-border hover:border-sel-edge hover:bg-secondary/30",
                         assigning === person.personnel_id && "opacity-50 cursor-not-allowed"
                       )}
                     >
@@ -361,7 +361,7 @@ export function AssignRekoDialog({
                             </>
                           )}
                           {assigning === person.personnel_id && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <ShellLoader className="h-4 w-4" />
                           )}
                         </div>
                       </div>

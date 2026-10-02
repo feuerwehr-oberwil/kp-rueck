@@ -182,3 +182,35 @@ describe("LoginPage – beide Anmeldewege", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("LoginPage while signing in", () => {
+  it("shows the busy button with words, and no made-up percentage", async () => {
+    mockGetDemoStatus.mockResolvedValue({ demo: false });
+    mockLogin.mockReturnValue(new Promise(() => {})); // the sign-in never answers
+    const user = userEvent.setup();
+    renderWithIntl(<LoginPage />);
+
+    await user.type(await screen.findByLabelText(/Benutzername/i), "editor");
+    await user.type(screen.getByLabelText(/Passwort/i), "editor");
+    await user.click(screen.getByRole("button", { name: "Anmelden" }));
+
+    const busy = await screen.findByRole("button", { name: /Wird angemeldet …/ });
+    expect(busy).toBeDisabled();
+    expect(busy.querySelector("[data-slot=shell-loader]")).not.toBeNull();
+    // It used to be a progress bar above the card creeping up by Math.random() to 85 %.
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("marks only the demo button that was pressed as busy", async () => {
+    mockLogin.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderWithIntl(<LoginPage />);
+
+    await user.click(await screen.findByRole("button", { name: /Als Editor einloggen/i }));
+
+    expect(await screen.findByRole("button", { name: /Wird angemeldet …/ })).toBeDisabled();
+    const viewer = screen.getByRole("button", { name: /Als Betrachter einloggen/i });
+    expect(viewer).toBeDisabled();
+    expect(viewer.querySelector("[data-slot=shell-loader]")).toBeNull();
+  });
+});
