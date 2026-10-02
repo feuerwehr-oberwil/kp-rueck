@@ -7,7 +7,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Sparkles } from "lucide-react"
+import { Plus, Sparkles } from "lucide-react"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
@@ -23,6 +23,8 @@ interface MobileIncidentListViewProps {
   isEditor?: boolean
   isTraining?: boolean
   isLoading?: boolean
+  /** Opens «Neuer Einsatz» (the keyboard-aware bottom sheet). Editors only — pass it only to them. */
+  onNewIncident?: () => void
 }
 
 // Status order for sorting (active incidents first)
@@ -52,6 +54,7 @@ export function MobileIncidentListView({
   isEditor = false,
   isTraining = false,
   isLoading = false,
+  onNewIncident,
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
   const { selectedEvent } = useEvent()
@@ -147,12 +150,24 @@ export function MobileIncidentListView({
             Surfaced prominently here so it's one tap away instead of buried in
             the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights). */}
         {isTraining && isEditor && (
-          <Link href="/training" className="mb-3 block">
+          <Link href="/training" className="mb-2 block">
             <Button className="w-full min-h-[48px] gap-2 bg-orange-600 text-white hover:bg-orange-700">
               <Sparkles className="h-4 w-4" />
               {t('createTrainingIncident')}
             </Button>
           </Link>
+        )}
+
+        {/* The phone's way into «Neuer Einsatz» — before this it was reachable only through
+            the board's N shortcut, i.e. not at all on a touch screen. Full width, the default
+            Button, editors only (the caller passes the handler only to them). In an Übung it
+            stands BELOW the training CTA: spawning a scenario stays the Übung's main task and
+            keeps its place under the thumb; typing a card by hand is the second way in. */}
+        {onNewIncident && (
+          <Button onClick={onNewIncident} className="mb-3 w-full min-h-[48px] gap-2">
+            <Plus className="h-4 w-4" />
+            {t('newIncident')}
+          </Button>
         )}
 
         {/* Search Bar */}

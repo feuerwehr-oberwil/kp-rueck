@@ -1192,6 +1192,7 @@
       },
       "trainingBadge": "Übung",
       "createTrainingIncident": "Übungs-Einsatz erstellen",
+      "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
       "all": "Alle ({count})",
       "noResults": "Keine Einsätze gefunden",

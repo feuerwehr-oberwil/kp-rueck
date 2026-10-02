@@ -2096,6 +2096,7 @@ export default function FireStationDashboard() {
             isEditor={isEditor}
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
+            onNewIncident={isEditor ? () => setNewEmergencyModalOpen(true) : undefined}
           />
         ) : (
           /* Desktop View */
