@@ -7,7 +7,7 @@
  * In demo mode, shows quick-login buttons for demo accounts.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { LogIn, Shield, Eye, Flame } from 'lucide-react';
 import {
@@ -36,12 +35,14 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  // Which way in is running. The busy button shows the shell trail and «Wird angemeldet …»;
+  // the others are disabled. This replaced a progress bar above the card that crept up by
+  // Math.random() to 85 % – a number that measured nothing (the request has no progress).
+  const [pending, setPending] = useState<'form' | 'editor' | 'viewer' | 'microsoft' | null>(null);
+  const loading = pending !== null;
   const [isDemo, setIsDemo] = useState<boolean | null>(null);
   const [msConfig, setMsConfig] = useState<MicrosoftAuthConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // The locale lives in a cookie the server never sees on this route, so the
   // switcher can only be rendered after mount – otherwise the server marks DE
   // active and the client disagrees.
@@ -74,36 +75,10 @@ export default function LoginPage() {
     ]).finally(() => setConfigLoading(false));
   }, []);
 
-  // Simulate progress during login
-  useEffect(() => {
-    if (loading) {
-      setProgress(0);
-      // Quick initial jump, then slow crawl
-      const timer = setTimeout(() => setProgress(30), 100);
-      progressRef.current = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 85) return prev;
-          return prev + Math.random() * 8;
-        });
-      }, 400);
-      return () => {
-        clearTimeout(timer);
-        if (progressRef.current) clearInterval(progressRef.current);
-      };
-    } else {
-      // Complete the bar briefly before resetting
-      if (progress > 0) {
-        setProgress(100);
-        const timer = setTimeout(() => setProgress(0), 300);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setPending('form');
 
     try {
       const loggedInUser = await login(username, password);
@@ -112,13 +87,13 @@ export default function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
-      setLoading(false);
+      setPending(null);
     }
   };
 
   const handleDemoLogin = async (role: 'editor' | 'viewer') => {
     setError('');
-    setLoading(true);
+    setPending(role);
     const demoUsername = role === 'editor' ? 'demo-editor' : 'demo-viewer';
 
     try {
@@ -140,19 +115,19 @@ export default function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t('demoLoginFailed'));
     } finally {
-      setLoading(false);
+      setPending(null);
     }
   };
 
   const handleMicrosoftLogin = async () => {
     if (!msConfig) return;
     setError('');
-    setLoading(true);
+    setPending('microsoft');
     try {
       window.location.href = await startMicrosoftLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginFailed'));
-      setLoading(false);
+      setPending(null);
     }
   };
 
@@ -162,14 +137,6 @@ export default function LoginPage() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/[0.03] via-transparent to-transparent" />
 
       <div className="relative w-full max-w-sm">
-        {/* Progress bar — pinned above card */}
-        <div className={cn(
-          'absolute -top-1 left-0 right-0 z-10 transition-opacity duration-200',
-          loading ? 'opacity-100' : 'opacity-0'
-        )}>
-          <Progress value={progress} className="h-1 rounded-t-xl rounded-b-none" />
-        </div>
-
         <Card className="border border-border bg-card/80 backdrop-blur-sm overflow-hidden">
           <div className="p-8">
             {/* Header */}
@@ -212,12 +179,12 @@ export default function LoginPage() {
                   onClick={() => handleDemoLogin('editor')}
                   disabled={loading}
                 >
-                  {loading ? (
+                  {pending === 'editor' ? (
                     <ShellLoader className="size-4" />
                   ) : (
                     <Shield className="size-4" />
                   )}
-                  {t('loginAsEditor')}
+                  {pending === 'editor' ? t('loggingIn') : t('loginAsEditor')}
                 </Button>
                 <Button
                   className="w-full"
@@ -225,12 +192,12 @@ export default function LoginPage() {
                   onClick={() => handleDemoLogin('viewer')}
                   disabled={loading}
                 >
-                  {loading ? (
+                  {pending === 'viewer' ? (
                     <ShellLoader className="size-4" />
                   ) : (
                     <Eye className="size-4" />
                   )}
-                  {t('loginAsViewer')}
+                  {pending === 'viewer' ? t('loggingIn') : t('loginAsViewer')}
                 </Button>
               </div>
             )}
@@ -245,13 +212,17 @@ export default function LoginPage() {
                     onClick={handleMicrosoftLogin}
                     disabled={loading}
                   >
-                    <svg className="size-4" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-                      <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-                      <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-                      <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
-                    </svg>
-                    {t('loginWithMicrosoft')}
+                    {pending === 'microsoft' ? (
+                      <ShellLoader className="size-4" />
+                    ) : (
+                      <svg className="size-4" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                        <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                      </svg>
+                    )}
+                    {pending === 'microsoft' ? t('loggingIn') : t('loginWithMicrosoft')}
                   </Button>
                 )}
 
@@ -314,12 +285,12 @@ export default function LoginPage() {
                       variant={msConfig ? 'outline' : 'default'}
                       disabled={loading}
                     >
-                      {loading ? (
+                      {pending === 'form' ? (
                         <ShellLoader className="size-4" />
                       ) : (
                         <LogIn className="size-4" />
                       )}
-                      {loading ? t('loggingIn') : t('submit')}
+                      {pending === 'form' ? t('loggingIn') : t('submit')}
                     </Button>
                   </form>
               </div>
