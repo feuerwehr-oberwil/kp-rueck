@@ -170,6 +170,16 @@ export const DEFAULT_COLLAPSED_COLUMN_IDS: OperationStatus[] = columns
  */
 export const COLUMN_HEADER_CLASS = "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
 
+/** How wall text that must not truncate breaks instead (the /display card titles, column
+ *  heads, the status list's addresses). Hyphenate at a syllable in the page's
+ *  `lang` — Sora is wider than Geist was, and «Mühlemattstrasse» alone (152px at
+ *  16px bold) no longer fits a 1280 column — with at least four letters either
+ *  side of the hyphen (`hyphenate-limit-chars`, so no «Al-terszentrum»), and
+ *  `break-words` only as the last resort for a fragment no dictionary splits.
+ *  `break-words` alone is what cut «Mühlemattstras|se» wherever the line ran out;
+ *  never `break-all`. */
+export const WALL_TEXT_WRAP = "break-words hyphens-auto [hyphenate-limit-chars:8_4_4]"
+
 
 // ── Map marker coloring ("Färben nach") ──────────────────────────────────────
 // Re-colors the map's incident markers by a chosen dimension so the operator can
