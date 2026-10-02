@@ -339,6 +339,21 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
+- **Undo never restores a snapshot blindly.** An undo is a new write that must still be valid
+  *now*: the route-optimisation undo sends `expected_ids` with `POST /incident-groups/{id}/stops/reorder`
+  (server compares under the Auftrag row lock → 409 «Auftrag geändert»; every stop add/remove/
+  detach takes that lock), and the release undo (`lib/hooks/use-release-undo.ts`) re-assigns
+  through the ordinary assign functions after `checkRestore` (`lib/release-undo.ts`) confirmed
+  nobody put the resource elsewhere meanwhile. Wrap the operator's *own* releases with
+  `useReleaseUndo`; internal releases (conflict «verschieben», completion) stay raw.
+- **Durations go through `lib/duration.ts`** (`formatDuration` / `formatDurationLong`) – no
+  hand-rolled minute maths. From one day on every compact clock reads `1d 10h`; the full value
+  («1 Tag 10 Stunden») goes into the accessible name/tooltip. The 60/120-minute age colours
+  (`ageLevel`) are a Fachentscheidung – formatting changes must not touch them.
+- **Route optimisation is a Luftlinie suggestion**: label it «Vorschlag nach Luftlinie ·
+  Planungshilfe» and show the start point with provenance (`lib/route-start.ts`: settings vs.
+  Ersatzstandort, GPS report time/age, fallback to the first stop). One action
+  (`components/map/route-optimize.tsx`) serves all three entry points – don't copy it.
 
 ## Important Files & Documentation
 
