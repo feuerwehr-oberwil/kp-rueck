@@ -123,6 +123,13 @@ describe('NewEmergencyModal — Handy', () => {
       expect(buttons[0]).toMatch(/Abbrechen/)
       expect(buttons[1]).toMatch(/erstellen/)
       expect(sheet.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
+      // labels ABOVE the fields on the phone: the label is its own block, the control below it
+      const meldung = screen.getByText('Meldung', { selector: 'label' })
+      expect(meldung).toHaveClass('block')
+      expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
+      // switches: label left, switch right, one row
+      const tel = screen.getByRole('switch', { name: 'Telefonisch' })
+      expect(tel.closest('.min-h-11')).toHaveTextContent('Telefonisch')
     } finally {
       viewport.mobile = false
     }

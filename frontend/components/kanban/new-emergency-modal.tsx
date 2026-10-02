@@ -20,6 +20,11 @@
  * three bare icons. Rows carry no hairlines anywhere since the «Nur Abstand»
  * pick — the boxes and the whitespace do the separating. Same grammar,
  * different skin.
+ *
+ * ON A PHONE the rows stack (`stacked`): label above, control full width, switches
+ * label-left / switch-right — the grammar of every other phone form. The row's 120px
+ * label column left a 390px phone ~200px of control and read as a table. A field's
+ * message then sits full width under its control as well.
  */
 
 import { useState, useEffect } from "react"
@@ -179,7 +184,8 @@ export function NewEmergencyModal({
               address={formData.location}
               latitude={formData.coordinates?.[0] ?? null}
               longitude={formData.coordinates?.[1] ?? null}
-              dense
+              // phone: LocationInput's own stacked layout (label above), the /feld one
+              dense={!isMobile}
               boxed
               required
               onAddressChange={(address) => {
@@ -196,12 +202,12 @@ export function NewEmergencyModal({
               error={showLocationError}
             />
             {showLocationError && (
-              <p className={`${DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
+              <p className={`${isMobile ? "mt-1" : DETAIL_CONTROL_INDENT} text-xs text-destructive`}>
                 {t('newEmergency.locationError')}
               </p>
             )}
 
-            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
+            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart stacked={isMobile}>
               <Textarea
                 id="notes"
                 placeholder={t('common.meldungPlaceholder')}
@@ -214,7 +220,7 @@ export function NewEmergencyModal({
 
             {/* One per line, Einsatzart and Priorität included: two half-width
                 controls sharing a row is how «Mittel» gets read as the Einsatzart. */}
-            <DetailField label={t('common.einsatzart')} htmlFor="incidentType">
+            <DetailField label={t('common.einsatzart')} htmlFor="incidentType" stacked={isMobile}>
               <Select
                 value={formData.incidentType}
                 onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
@@ -232,7 +238,7 @@ export function NewEmergencyModal({
               </Select>
             </DetailField>
 
-            <DetailField label={t('common.priority')} htmlFor="priority">
+            <DetailField label={t('common.priority')} htmlFor="priority" stacked={isMobile}>
               <Select
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
@@ -258,6 +264,7 @@ export function NewEmergencyModal({
               `DetailToggle`, as the Übersicht tab. The explanatory sentence under
               each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
+              stacked={isMobile}
 
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
@@ -268,6 +275,7 @@ export function NewEmergencyModal({
               }
             />
             <DetailToggle
+              stacked={isMobile}
 
               label={t('common.feldReported')}
               description={t('common.feldReportedDescription')}
@@ -278,7 +286,7 @@ export function NewEmergencyModal({
               }
             />
 
-            <DetailField label={t('common.contact')} htmlFor="contact">
+            <DetailField label={t('common.contact')} htmlFor="contact" stacked={isMobile}>
               <Input
                 id="contact"
                 placeholder={t('common.contactPlaceholder')}
@@ -287,7 +295,7 @@ export function NewEmergencyModal({
               />
             </DetailField>
 
-            <DetailField label={t('common.contactPhone')} htmlFor="contact-phone">
+            <DetailField label={t('common.contactPhone')} htmlFor="contact-phone" stacked={isMobile}>
               <Input
                 id="contact-phone"
                 type="tel"
