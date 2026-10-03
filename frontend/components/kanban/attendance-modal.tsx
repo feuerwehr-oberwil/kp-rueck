@@ -272,12 +272,14 @@ export function AttendanceModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center gap-2">
+          {/* Stacked on a phone: beside «Alle abmelden» the field was ~130px at 360 and its
+              own placeholder ended in «Such» (overflow sweep, 03.10.). */}
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <SearchInput
               value={search}
               onValueChange={setSearch}
               placeholder={tCommon('search')}
-              containerClassName="flex-1"
+              containerClassName="min-w-0 flex-1"
             />
             <Button
               variant="outline"

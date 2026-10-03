@@ -126,7 +126,7 @@ export function SyncConfigCard() {
                 // text input is nearest — which was the section search box.
                 // `new-password` is the same answer /setup already gives.
                 autoComplete="new-password"
-                placeholder="postgresql://user:pass@host:port/database"
+                placeholder="postgresql://…"
                 value={railwayDatabaseUrl}
                 onChange={(e) => setRailwayDatabaseUrl(e.target.value)}
                 className="pr-10"

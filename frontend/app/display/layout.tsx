@@ -246,7 +246,7 @@ function DisplayChrome({
               {t('layout.selectEvent')}
             </Link>
           ) : (
-            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate">{eventName}</h1>
+            <h1 className="min-w-0 max-w-[42vw] sm:max-w-none text-sm font-semibold tracking-tight text-foreground truncate" title={eventName}>{eventName}</h1>
           )}
           {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that
@@ -268,7 +268,9 @@ function DisplayChrome({
               value={query}
               onValueChange={setQuery}
               placeholder={t('layout.searchPlaceholder')}
-              containerClassName="ml-2 hidden w-40 shrink md:block lg:w-64"
+              // From lg up only: at 768 the bar had ~30px left for it, «Suchen …» cut to «Su»
+              // and the Ereignis name squeezed to an ellipsis (overflow sweep, 03.10.).
+              containerClassName="ml-2 hidden w-64 shrink-0 lg:block"
               className="h-7 text-sm"
               hint={<Kbd>S</Kbd>}
             />

@@ -294,10 +294,10 @@ describe('Einstellungen › Audit — Filter gehen an den Server, die Suche nich
     await screen.findByText('2 Einträge')
     const calls = api.getAuditLogs.mock.calls.length
 
-    await user.type(screen.getByPlaceholderText('Suche nach Aktion, Ressource, ID, Benutzer oder IP …'), '10.0.0.2')
+    await user.type(screen.getByPlaceholderText('Einträge suchen …'), '10.0.0.2')
     expect(await screen.findByText('1 Eintrag')).toBeInTheDocument()
-    await user.clear(screen.getByPlaceholderText('Suche nach Aktion, Ressource, ID, Benutzer oder IP …'))
-    await user.type(screen.getByPlaceholderText('Suche nach Aktion, Ressource, ID, Benutzer oder IP …'), 'nothing-matches')
+    await user.clear(screen.getByPlaceholderText('Einträge suchen …'))
+    await user.type(screen.getByPlaceholderText('Einträge suchen …'), 'nothing-matches')
     expect(await screen.findByText('Keine Einträge gefunden.')).toBeInTheDocument()
     expect(api.getAuditLogs).toHaveBeenCalledTimes(calls)
   })
