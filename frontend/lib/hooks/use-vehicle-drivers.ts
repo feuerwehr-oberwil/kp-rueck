@@ -15,7 +15,17 @@ import { wsClient } from "@/lib/websocket-client"
  * Pass `enabled` to gate fetching — e.g. only load while a modal is open.
  */
 export function useVehicleDrivers(eventId: string | null | undefined, enabled = true) {
+  return useVehicleDriverState(eventId, enabled).drivers
+}
+
+/**
+ * The same map plus whether it has loaded at least once for this event. A
+ * surface that says «Kein Fahrer» needs the flag: before the first answer an
+ * empty map means «not known yet», not «nobody is driving».
+ */
+export function useVehicleDriverState(eventId: string | null | undefined, enabled = true) {
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!enabled || !eventId) return
@@ -39,6 +49,7 @@ export function useVehicleDrivers(eventId: string | null | undefined, enabled = 
         })
 
       setVehicleDrivers(next)
+      setLoadedFor(eventId)
     } catch (error) {
       console.error("Failed to load vehicle drivers:", error)
     }
@@ -61,5 +72,5 @@ export function useVehicleDrivers(eventId: string | null | undefined, enabled = 
     }
   }, [enabled, load])
 
-  return vehicleDrivers
+  return { drivers: vehicleDrivers, loaded: !!eventId && loadedFor === eventId }
 }

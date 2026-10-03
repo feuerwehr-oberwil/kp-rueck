@@ -99,6 +99,7 @@ vi.mock("@/lib/contexts/event-context", () => ({
 }))
 vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({
   useVehicleDrivers: () => state.vehicleDrivers,
+  useVehicleDriverState: () => ({ drivers: state.vehicleDrivers, loaded: true }),
 }))
 
 // Force desktop layout (matchMedia is unimplemented in jsdom).

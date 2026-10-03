@@ -48,10 +48,14 @@ function buildVehicles(
     const displayName = callsign ? `${vehicleName} · ${callsign}` : vehicleName
     const parts = [displayName]
     if (driverName) parts.push(`Fahrer: ${driverName}`)
+    // With a driver map in hand, a vehicle nobody drives says so — the crew
+    // reading this must not assume somebody is behind the wheel. Without a map
+    // nothing is known and nothing is claimed.
+    else if (vehicleDrivers) parts.push("⚠ ohne Fahrer")
     if (driverStay !== undefined) {
       parts.push(driverStay ? "📍 bleibt vor Ort" : "↩ kehrt zurück")
     }
-    return driverName || driverStay !== undefined
+    return parts.length > 1
       ? `${parts[0]} (${parts.slice(1).join(", ")})`
       : parts[0]
   })
