@@ -905,6 +905,9 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
 }
 
 interface MapViewProps {
+  /** Once, when the map has drawn its first complete frame (MapLibre `idle`): style, the
+   *  visible tiles and the overlays. The Lagekarte's launch cover waits for it. */
+  onFirstIdle?: () => void
   /** A page's own map controls (the wall display's status pills + «Ansicht»). They share ONE
    *  top-right row with the map's «ohne Koordinaten» chip, which wraps instead of overlapping —
    *  laid over the map separately, the two piled onto each other (owner, 03.10.). */
@@ -986,6 +989,7 @@ export default function MapView({
   positionsOverride,
   onGpsAvailabilityChange,
   topRightControls,
+  onFirstIdle,
 }: MapViewProps) {
   const t = useTranslations('map')
   const tokenMode = incidentsOverride !== undefined
@@ -999,6 +1003,19 @@ export default function MapView({
   // The live map, handed over by <BaseMap> once it has loaded (and again after a GL recovery
   // remount). Everything that used to be a react-leaflet child with `useMap()` hangs off it.
   const [map, setMap] = useState<MlMap | null>(null)
+  const onFirstIdleRef = useRef(onFirstIdle)
+  onFirstIdleRef.current = onFirstIdle
+  useEffect(() => {
+    if (!map) return
+    const done = () => onFirstIdleRef.current?.()
+    // `idle` follows `load` (when <BaseMap> hands the map over); it can also have passed
+    // already if nothing was left to fetch.
+    if (map.loaded() && map.areTilesLoaded() && !map.isMoving()) done()
+    else map.once('idle', done)
+    return () => {
+      map.off('idle', done)
+    }
+  }, [map])
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
   const mapZoom = useMapZoom(map, 13)
   // Hovered incident → its label swaps to the rich detail card.

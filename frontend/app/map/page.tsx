@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useBootGate } from "@/lib/boot-cover"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -115,9 +116,15 @@ export default function MapPage() {
     assignRekoPersonToOperation,
     removeReko,
     requestResourceConflict,
-    deleteOperation
+    deleteOperation,
+    isLoaded: operationsLoaded,
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
+  // A launch onto the Lagekarte stays behind the snail until the incidents are in AND the map
+  // has drawn its first frame (`idle`: style, tiles and markers) — not an empty grey box.
+  const [mapIdle, setMapIdle] = useState(false)
+  const tBoot = useTranslations('map.page')
+  useBootGate('map', operationsLoaded && mapIdle, tBoot('loading'))
   // vehicle name → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
   const { isAuthenticated, isEditor } = useAuth()
@@ -990,6 +997,7 @@ export default function MapPage() {
           {/* Map - full height on desktop, ~45vh on mobile so the incident list gets real room */}
           <main className={`p-4 ${isMobile ? 'h-[45vh] flex-shrink-0' : 'flex-1'}`}>
             <MapView
+              onFirstIdle={() => setMapIdle(true)}
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
               // Not in the tap-modes: there a marker tap edits the route / the Reko, and a

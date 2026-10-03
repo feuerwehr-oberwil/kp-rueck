@@ -21,6 +21,7 @@ import { Plus, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, PanelRight 
 import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useBootGate } from "@/lib/boot-cover"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
@@ -338,6 +339,11 @@ export default function FireStationDashboard() {
   // The header clock ticks inside <EventClock/> now; this is only the mount flag
   // the rest of the board hangs SSR-sensitive rendering off.
   const { isMounted } = useCurrentTime()
+  // A launch onto the board stays behind the snail (components/boot-cover.tsx) until the
+  // board's first load is in — incidents, crew and material in one go — or there is no
+  // Ereignis to load. No «Wird geladen …» and no top bar under it on a launch.
+  const tBoot = useTranslations('common.bootScreen')
+  useBootGate('board', isMounted && isEventLoaded && isLoaded, tBoot('loadingBoard'))
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")

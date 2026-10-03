@@ -155,7 +155,8 @@
     "bootScreen": {
       "stuckTitle": "Le démarrage prend plus de temps que d’habitude",
       "stuckHint": "Connexion faible ou serveur injoignable.",
-      "restart": "Redémarrer"
+      "restart": "Redémarrer",
+      "loadingBoard": "Chargement des interventions …"
     },
     "loading": "Chargement …",
     "incidentTruncation": {

@@ -45,6 +45,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SearchInput } from '@/components/ui/search-input'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
+import { useBootGate } from '@/lib/boot-cover'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
   assignmentRapportApplies,
@@ -326,6 +327,10 @@ function FeldSurface() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
+  // A launch onto /feld stays behind the snail until the door has decided (code screen,
+  // picker or the list) and the crew's Aufträge are in — then the page appears complete.
+  const tLoading = useTranslations('common')
+  useBootGate('feld', !loading && !loadingAssignments, tLoading('loading'))
   const [error, setError] = useState<string | null>(null)
   /** Whether the error screen offers a way back. A missing token has none —
    *  there is no page behind it — but a failed claim does: the picker is still
