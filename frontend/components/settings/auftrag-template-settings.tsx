@@ -246,7 +246,8 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        {/* wraps on a phone: field, button and count in one row left the field 66px */}
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
@@ -257,7 +258,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
               }
             }}
             placeholder={t('newPlaceholder')}
-            className="h-9 max-w-xs"
+            className="h-9 min-w-[10rem] flex-1 sm:max-w-xs"
             disabled={readOnly || creating}
           />
           <Button

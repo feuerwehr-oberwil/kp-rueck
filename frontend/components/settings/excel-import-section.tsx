@@ -162,7 +162,9 @@ export function ExcelImportSection({ importer, demoMode }: { importer: ExcelImpo
                 <p className="text-xs text-muted-foreground">{t('page.import.modeStepHint')}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 ml-12">
+            {/* One column on a phone: two side by side were ~120px each at 360 and the hints
+                ran out of their cards. */}
+            <div className="grid grid-cols-1 gap-3 sm:ml-12 sm:grid-cols-2">
               {([
                 { mode: 'replace' as const, icon: Trash2 },
                 { mode: 'append' as const, icon: Plus },
