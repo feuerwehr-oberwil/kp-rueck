@@ -508,7 +508,7 @@ Tastaturkürzel und ist auch über das Benutzermenü ("Befehle & Tastaturkürzel
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
-Karte, Ereignisse, Einstellungen, Hilfe, Ressourcen, Übung, Alarmeingang, Audit. Sie ruhen,
+Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
 Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 

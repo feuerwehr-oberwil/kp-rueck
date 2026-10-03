@@ -511,7 +511,7 @@ avec leur raccourci et est également accessible depuis le menu utilisateur
 saisie a le focus.
 
 Les raccourcis globaux (`G …` et `?`) valent sur chaque page de l’interface – tableau,
-carte, événements, paramètres, aide, ressources, exercice, alarmes entrantes, audit. Ils se
+carte, événements, paramètres, aide, exercice, alarmes entrantes. Ils se
 taisent tant qu’un dialogue ou un menu est ouvert ; sur les affichages muraux (`/display`)
 et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontairement pas.
 
