@@ -35,6 +35,7 @@ import {
 } from '@/lib/api-client'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
+import { LinkPageHeader } from '@/components/link-page/link-page'
 import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
@@ -1321,19 +1322,18 @@ function FeldSurface() {
   // ---------------------------------------------------------------- list
   if (viewMode === 'list') {
     return (
-      <div className="min-h-screen bg-background p-4 pb-20">
+      <div className="min-h-screen bg-background pb-20">
         {/* The Ereignis is the heading. "Schadenplatz-Rapport" was the name of a
             FORM, printed over the screen where somebody looks for themselves in
             a list — and half the people reading it (Fahrer, Magazin, Telefon)
             never file one. What they want confirmed after scanning a poster is
             which Ereignis they just walked into. `t('title')` survives as the
-            fallback for the case that has no name yet. */}
-        <div className="max-w-md mx-auto mb-6">
-          <h1 className="text-2xl font-semibold text-center mb-1">{eventName || t('title')}</h1>
-          <p className="text-sm text-muted-foreground text-center mt-3">{t('picker.description')}</p>
-        </div>
+            fallback for the case that has no name yet. In the shared link-page
+            header, the same bar the list and the detail carry with the person. */}
+        <LinkPageHeader title={eventName || t('title')} />
 
-        <div className="max-w-md mx-auto">
+        <div className="max-w-md mx-auto px-4 pt-4">
+          <p className="mb-4 text-sm text-muted-foreground">{t('picker.description')}</p>
           <SearchInput
             value={searchTerm}
             onValueChange={setSearchTerm}
@@ -1401,7 +1401,7 @@ function FeldSurface() {
             Rapport, on a phone that gets handed around a vehicle, must be able
             to answer "whose page is this" without going back for it. */}
         <FeldIdentityBar name={selectedPerson?.name ?? ''} subtitle={selectedAssignment.incident_title}>
-          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="shrink-0 -ml-1">
+          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="min-h-11 shrink-0 -ml-1">
             <ArrowLeft className="size-3.5" />
             {tCommon('back')}
           </Button>
