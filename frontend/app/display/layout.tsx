@@ -221,7 +221,7 @@ function DisplayChrome({
           pages have, and on a share link it also carries the «Nur-Lesen» badge
           that used to sit in a second header of its own.
           Token/viewer mode omits the back link so there's no path to the editor. */}
-      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-card/50 backdrop-blur-sm px-3 py-2 sm:py-1.5 min-h-10 shrink-0">
+      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 py-2 sm:py-1.5 min-h-10 shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
             <>

@@ -76,9 +76,14 @@ class FeldContextResponse(BaseModel):
 
 
 class FeldUnlockRequest(BaseModel):
-    """The four digits from under the QR poster."""
+    """The four digits from under the QR poster — or none at all from a phone that is logged in.
 
-    code: str = Field(min_length=1, max_length=8)
+    ``code`` omitted (or null) asks to be let in on the caller's Rück session instead: a person
+    who has a login on this station is not who the code keeps out. Without a valid session that
+    is refused as ``code_required`` and counts as no attempt.
+    """
+
+    code: str | None = Field(default=None, min_length=1, max_length=8)
 
 
 class FeldUnlockResponse(BaseModel):

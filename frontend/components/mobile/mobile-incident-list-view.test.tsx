@@ -13,7 +13,10 @@ vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new
 vi.mock('@/components/mobile/mobile-incident-card', () => ({
   MobileIncidentCard: ({ operation }: { operation: Operation }) => <div data-testid="card">{operation.location}</div>,
 }))
-vi.mock('@/components/mobile/mobile-incident-detail-sheet', () => ({ MobileIncidentDetailSheet: () => null }))
+vi.mock('@/components/mobile/mobile-incident-detail-sheet', () => ({
+  MobileIncidentDetailSheet: ({ operation, open }: { operation: Operation | null; open: boolean }) =>
+    open && operation ? <div data-testid="phone-sheet">{operation.location}</div> : null,
+}))
 
 import { MobileIncidentListView } from '@/components/mobile/mobile-incident-list-view'
 
@@ -193,5 +196,24 @@ describe('MobileIncidentListView — the funnel filter', () => {
     expect((await row(/Aktiv/)).textContent).toContain('1')
     expect((await row(/Rückfahrt/)).textContent).toContain('1')
     expect((await row(/Neu/)).textContent).toContain('0')
+  })
+})
+
+describe('MobileIncidentListView — opened from outside (notification, ?detail=1)', () => {
+  it('an open request opens the phone Einsatz sheet of that incident', () => {
+    const operations = [op('1', 'Hauptstrasse 41', 'incoming'), op('2', 'Langegasse 97', 'incoming')]
+    const { rerender } = renderWithIntl(
+      <MobileIncidentListView operations={operations} materials={[]} formatLocation={(a) => a} />,
+    )
+    expect(screen.queryByTestId('phone-sheet')).toBeNull()
+    rerender(
+      <MobileIncidentListView
+        operations={operations}
+        materials={[]}
+        formatLocation={(a) => a}
+        openRequest={{ incidentId: '2', nonce: 1 }}
+      />,
+    )
+    expect(screen.getByTestId('phone-sheet').textContent).toBe('Langegasse 97')
   })
 })

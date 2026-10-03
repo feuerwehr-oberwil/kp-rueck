@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { GlobalShortcuts } from '@/lib/hooks/use-global-navigation'
+import { UpdateNotice } from '@/lib/hooks/use-update-notice'
 import { DemoBanner } from '@/components/demo-banner'
 import { DeploymentBanner } from '@/components/deployment-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
@@ -56,6 +57,7 @@ export function AppShell({ children }: AppShellProps) {
         {children}
         {isAuthenticated && <CommandPalette />}
       {isAuthenticated && <GlobalShortcuts />}
+      <UpdateNotice />
       </>
     )
   }
@@ -73,6 +75,7 @@ export function AppShell({ children }: AppShellProps) {
       </div>
       {isAuthenticated && <CommandPalette />}
       {isAuthenticated && <GlobalShortcuts />}
+      <UpdateNotice />
     </div>
   )
 }

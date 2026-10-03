@@ -69,6 +69,7 @@ import { EventSelectionEmptyState } from "@/components/empty-states/event-select
 import { BoardLoadErrorPanel } from "@/components/board-load-error"
 import { SidePanel } from "@/components/kanban/side-panel"
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
+import { boardDetailSurface, isPhoneViewport } from "@/lib/incident-detail"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
@@ -380,6 +381,8 @@ export default function FireStationDashboard() {
 
   /** `section` narrows the landing further than the tab does — today only
    *  Übersicht's Ressourcen block, which the panel has to scroll to. */
+  // The phone list's «open this sheet» request (see openIncidentDetail).
+  const [mobileOpenRequest, setMobileOpenRequest] = useState<{ incidentId: string; nonce: number } | null>(null)
   const openIncidentDetail = useCallback((
     operationId: string,
     tab?: OperationDetailTab,
@@ -389,13 +392,21 @@ export default function FireStationDashboard() {
     setOpenDetailOnTab(tab ? { tab, nonce: Date.now(), section } : null)
     setSelectedOperationId(operationId)
     setHoveredOperationId(operationId)
-    if (typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT) {
+    // Narrow viewport: only a notification earns an overlay. A sidebar binding would bury the
+    // list the operator is working through, and its answer — «this device is on THAT card» — is
+    // the ring, not a modal. On a phone the overlay is the phone Einsatz sheet, never the
+    // desktop modal (lib/incident-detail.ts).
+    const surface = boardDetailSurface({
+      phone: isPhoneViewport(),
+      wide: typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT,
+      allowModal,
+    })
+    if (surface === 'side-panel') {
       setDetailModalOpen(false)
       setSidePanelMode('detail')
-    } else if (allowModal) {
-      // Narrow viewport: only a notification earns the full-screen modal. A
-      // sidebar binding would bury the list the operator is working through, and
-      // its answer — «this device is on THAT card» — is the ring, not a modal.
+    } else if (surface === 'phone-sheet') {
+      setMobileOpenRequest({ incidentId: operationId, nonce: Date.now() })
+    } else if (surface === 'modal') {
       setDetailModalOpen(true)
     }
     // `setSidePanelMode` comes from `usePersistedState`; it is the plain
@@ -536,7 +547,10 @@ export default function FireStationDashboard() {
 
   useEffect(() => {
     const handleResize = () => {
-      if (!selectedOperationId) return
+      // A phone has neither panel nor modal: its detail is the phone Einsatz sheet. Without this
+      // a resize (the iOS URL bar collapsing, a rotation) promoted a remembered side-panel
+      // detail into the desktop modal over the phone list.
+      if (!selectedOperationId || isPhoneViewport()) return
       const usePanel = window.innerWidth >= SIDE_PANEL_BREAKPOINT
       if (usePanel && detailModalOpen) {
         setDetailModalOpen(false)
@@ -2036,7 +2050,7 @@ export default function FireStationDashboard() {
         {selectedEvent?.training_flag && <TrainingBand />}
         {/* Top header is desktop-only — on mobile everything routes through the
             bottom navbar (event switching lives in its "Mehr" sheet). */}
-        <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
+        <header className="hidden md:flex items-center justify-between border-b border-border bg-header px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* Event title doubles as an event switcher: switch events or create a
                 new one without first hunting through the user menu → Ereignisse. */}
@@ -2116,6 +2130,7 @@ export default function FireStationDashboard() {
             isTraining={selectedEvent?.training_flag}
             isLoading={isLoading}
             onNewIncident={isEditor ? () => setNewEmergencyModalOpen(true) : undefined}
+            openRequest={mobileOpenRequest}
           />
         ) : (
           /* Desktop View */
