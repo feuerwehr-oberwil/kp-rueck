@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 
 import { BootScreen } from '@/components/boot-screen'
-import { useBootGates } from '@/lib/boot-cover'
+import { launchCover, useBootGates } from '@/lib/boot-cover'
 import { cn } from '@/lib/utils'
 
 /** The longest a launch stays behind the snail. Below BootScreen's 9 s stuck hint on purpose: a
@@ -60,10 +60,21 @@ export function BootCover() {
   useEffect(() => {
     if (!release) return
     // One frame: the commit that opened the last gate paints under the cover first, and a gate
-    // that closes again in that frame (a page swapping its pieces) cancels this.
-    const frame = requestAnimationFrame(() => setPhase('leaving'))
-    return () => cancelAnimationFrame(frame)
+    // that closes again in that frame (a page swapping its pieces) cancels this. The timeout is
+    // the floor for a browser that withholds frames (a busy main thread, a background tab).
+    const go = () => setPhase('leaving')
+    const frame = requestAnimationFrame(go)
+    const timer = setTimeout(go, 100)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timer)
+    }
   }, [release])
+
+  // The boot stages below (ProtectedRoute) show their own boot screen again once this is gone.
+  useEffect(() => {
+    if (phase === 'off') launchCover.set(false)
+  }, [phase])
 
   useEffect(() => {
     if (phase !== 'leaving') return

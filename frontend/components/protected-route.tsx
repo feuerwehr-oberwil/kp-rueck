@@ -32,7 +32,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { checkBackendHealth } from '@/lib/auth-client';
 import { useEffect, useState } from 'react';
 import { BootScreen } from '@/components/boot-screen';
-import { useBootGate } from '@/lib/boot-cover';
+import { useBootGate, useLaunchCoverUp } from '@/lib/boot-cover';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const t = useTranslations('login.protectedRoute');
@@ -40,6 +40,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [checkingBackend, setCheckingBackend] = useState(false);
+  const coverUp = useLaunchCoverUp();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -69,6 +70,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 
   if (loading || checkingBackend) {
+    // On a launch the cover already shows the snail and this phase, over everything.
+    if (coverUp) return null;
     return (
       <BootScreen phase={loading ? t('preparingLogin') : t('checkingServer')} />
     );

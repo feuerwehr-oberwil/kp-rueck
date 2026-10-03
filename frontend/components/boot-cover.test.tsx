@@ -2,7 +2,7 @@ import { act, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import { bootGates, useBootGate } from '@/lib/boot-cover'
+import { bootGates, launchCover, useBootGate } from '@/lib/boot-cover'
 
 const nav = vi.hoisted(() => ({ pathname: '/' }))
 vi.mock('next/navigation', () => ({ usePathname: () => nav.pathname }))
@@ -58,8 +58,11 @@ describe('BootCover', () => {
     act(() => vi.advanceTimersByTime(20)) // the frame
     expect(cover()).toHaveAttribute('data-boot-cover', 'leaving')
     expect(cover()!.className).toContain('opacity-0')
+    expect(launchCover.isUp()).toBe(true)
     act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
     expect(cover()).toBeNull()
+    // …and the boot stages below may show their own boot screen again (session expiry later).
+    expect(launchCover.isUp()).toBe(false)
   })
 
   it('does not lift before any gate registered', () => {
@@ -91,6 +94,7 @@ describe('BootCover', () => {
     nav.pathname = '/login'
     renderWithIntl(<App session={false} />)
     expect(cover()).toBeNull()
+    expect(launchCover.isUp()).toBe(false)
   })
 
   it('stays gone for the rest of the visit: in-app switching keeps its own loaders', () => {
@@ -102,5 +106,20 @@ describe('BootCover', () => {
     rerender(<App session board={false} />) // the next page loads — not behind the snail
     act(() => vi.advanceTimersByTime(1_000))
     expect(cover()).toBeNull()
+  })
+})
+
+describe('ProtectedRoute under the launch cover', () => {
+  it('shows no second boot screen while the cover is up, and its own once the cover is gone', async () => {
+    vi.doMock('@/lib/contexts/auth-context', () => ({ useAuth: () => ({ user: null, loading: true }) }))
+    vi.doMock('next/navigation', () => ({ usePathname: () => nav.pathname, useRouter: () => ({ push: vi.fn() }) }))
+    vi.resetModules()
+    const { ProtectedRoute } = await import('./protected-route')
+    const lib = await import('@/lib/boot-cover')
+    const view = renderWithIntl(<ProtectedRoute><p>board</p></ProtectedRoute>)
+    expect(view.container.querySelector('.snail-loader')).toBeNull()
+    act(() => lib.launchCover.set(false))
+    expect(view.container.querySelector('.snail-loader')).not.toBeNull()
+    vi.doUnmock('@/lib/contexts/auth-context')
   })
 })

@@ -73,7 +73,35 @@ export const bootGates = {
   reset() {
     gates.clear()
     snapshot = NONE
+    coverUp = true
   },
+}
+
+/**
+ * Whether the launch cover is (still) up. Starts true: the server only ever renders a launch,
+ * and the client's first render must agree with it; BootCover clears it once it is gone, or at
+ * once on a launch it does not cover. A boot stage below the cover renders nothing while it is
+ * up — one snail on screen, not a second one hidden under the first.
+ */
+let coverUp = true
+const coverListeners = new Set<() => void>()
+export const launchCover = {
+  isUp: () => coverUp,
+  set(up: boolean) {
+    if (coverUp === up) return
+    coverUp = up
+    coverListeners.forEach((listener) => listener())
+  },
+  subscribe(listener: () => void) {
+    coverListeners.add(listener)
+    return () => {
+      coverListeners.delete(listener)
+    }
+  },
+}
+
+export function useLaunchCoverUp(): boolean {
+  return useSyncExternalStore(launchCover.subscribe, launchCover.isUp, () => true)
 }
 
 /** Hold the launch cover until `ready`. Harmless after the launch: nothing is listening. */
