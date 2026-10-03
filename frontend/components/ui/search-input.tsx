@@ -99,7 +99,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           value={value}
           disabled={disabled}
           onChange={(event) => onValueChange(event.target.value)}
-          className={cn(o.pad, reserveEnd ? o.padEnd : 'pr-3.5', className, size !== 'lg' && TOUCH_FIELD, size !== 'lg' && reserveEnd && TOUCH_END, showCount && 'pr-24 max-md:pr-24 pointer-coarse:pr-28')}
+          className={cn(o.pad, reserveEnd ? o.padEnd : 'pr-[var(--field-px)]', className, size !== 'lg' && TOUCH_FIELD, size !== 'lg' && reserveEnd && TOUCH_END, showCount && 'pr-24 max-md:pr-24 pointer-coarse:pr-28')}
           // A search box is never a credential. Without this, a browser that has
           // saved a KP login drops the username into the nearest text input the
           // moment a password field appears elsewhere on the page — opening
