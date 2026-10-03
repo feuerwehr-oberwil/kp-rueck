@@ -22,6 +22,8 @@ const routerPush = vi.hoisted(() => vi.fn())
 const getFeldPersonnel = vi.hoisted(() => vi.fn())
 const getFeldAssignments = vi.hoisted(() => vi.fn())
 const unlockFeld = vi.hoisted(() => vi.fn())
+// A phone that is not logged in to Rück: the session door answers «no», the code screen shows.
+const unlockFeldWithSession = vi.hoisted(() => vi.fn().mockResolvedValue(null))
 const claimFeldPerson = vi.hoisted(() => vi.fn())
 const mintFeldRekoLink = vi.hoisted(() => vi.fn())
 const getFeldMaterial = vi.hoisted(() => vi.fn())
@@ -41,6 +43,7 @@ vi.mock('@/lib/api-client', () => ({
     getFeldPersonnel,
     getFeldAssignments,
     unlockFeld,
+    unlockFeldWithSession,
     claimFeldPerson,
     mintFeldRekoLink,
     getFeldMaterial,
@@ -967,3 +970,33 @@ describe('/feld for a Magazin person who also has own work', () => {
     expect(await screen.findByText('Tauchpumpe')).toBeInTheDocument()
   })
 })
+
+describe('/feld on a phone that is logged in to Rück', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    for (const name of ['feld-device-token', 'feld-selected-person', 'feld-selected-incident']) {
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
+    }
+    setParams({ token: 'poster-token' })
+  })
+  afterEach(() => {
+    unlockFeldWithSession.mockResolvedValue(null)
+  })
+
+  it('skips the Feld-Code: the session opens the door straight to the picker', async () => {
+    unlockFeldWithSession.mockResolvedValue({ token: 'picker-token', personnel: [PERSON], event_name: 'Sturm' })
+    renderWithIntl(<FeldPage />)
+    expect(await screen.findByText('Muster Hans')).toBeInTheDocument()
+    expect(unlockFeldWithSession).toHaveBeenCalledWith('poster-token')
+    expect(screen.queryByRole('heading', { name: 'Code eingeben' })).not.toBeInTheDocument()
+    expect(unlockFeld).not.toHaveBeenCalled()
+  })
+
+  it('asks for the code as before when there is no (valid) session', async () => {
+    renderWithIntl(<FeldPage />)
+    expect(await screen.findByRole('heading', { name: 'Code eingeben' })).toBeInTheDocument()
+    expect(unlockFeldWithSession).toHaveBeenCalledWith('poster-token')
+  })
+})
+

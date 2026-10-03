@@ -676,10 +676,39 @@ function FeldSurface() {
       setDeviceToken(storedToken)
       setViewMode('assignments')
       loadAssignments(storedPerson, { token: storedToken })
-    } else {
-      setViewMode('code')
+      setLoading(false)
+      return
     }
-    setLoading(false)
+    // Logged in to Rück on this phone? Then the session counts instead of the four digits
+    // (server-side, /unlock without a code) and the door goes straight to the picker. Anything
+    // else — no session, an expired one, no network — lands on the code screen as before,
+    // without that attempt counting. `loading` stays up meanwhile, so the code screen does
+    // not flash for somebody who never needed it.
+    let alive = true
+    apiClient
+      .unlockFeldWithSession(linkToken)
+      .then((data) => {
+        if (!alive) return
+        if (data) {
+          setDeviceToken(data.token)
+          setPersonnel(data.personnel)
+          setEventName(data.event_name)
+          setViewMode('list')
+        } else {
+          setViewMode('code')
+        }
+      })
+      .catch((err) => {
+        if (!alive) return
+        setCodeError(err instanceof FeldUnlockError ? err.failure : null)
+        setViewMode('code')
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
     // Mount only: re-running this on every `loadAssignments` identity change
     // would drag a crew back out of whatever they had navigated to.
     // eslint-disable-next-line react-hooks/exhaustive-deps
