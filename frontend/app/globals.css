@@ -1150,3 +1150,20 @@ html.feld-no-zoom {
 html.feld-no-zoom :is(input, textarea, select) {
   font-size: max(16px, 1em);
 }
+
+/* The ✕ of a dialog or sheet sits absolute in the top-right corner, over whatever the header
+   puts there: «Anwesenheit · <Ereignis>», «Neues Ereignis erstellen», a sheet's description or
+   its «Aktualisieren» button ran under it on a phone (overflow sweep, 03.10.2026). The header
+   keeps 2.5rem clear at its end whenever the ✕ is there — enough for every content padding in
+   use (0 … p-6). A caller's padding cannot remove it, which is why it is not a utility on the
+   header: most call sites pass `p-0`. Centred phone headers get the same on the start side so
+   the title stays centred. Unlayered on purpose, so it beats the utilities. */
+[data-slot='dialog-content']:has(> [data-slot='dialog-close']) [data-slot='dialog-header'],
+[data-slot='sheet-content']:has(> [data-slot='sheet-close']) [data-slot='sheet-header'] {
+  padding-inline-end: 2.5rem;
+}
+@media (max-width: 639px) {
+  [data-slot='dialog-content']:has(> [data-slot='dialog-close']) [data-slot='dialog-header'] {
+    padding-inline-start: 2.5rem;
+  }
+}
