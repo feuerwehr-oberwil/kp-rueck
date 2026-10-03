@@ -1127,6 +1127,15 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
    (safe area included) or the keyboard, whichever covers more — never both added up, since the
    nav sits behind the keyboard — plus a small gap. Replaces the `env(safe-area-inset-bottom) +
    5rem` guesses that were retyped per list. 0 + gap on desktop, where the nav is hidden. */
+/* The page header's surface (board, Ereignisse, Lagekarte, Hilfe, Übungs-Steuerung, displays):
+   the colour the old `bg-card/50` over the page gave, but OPAQUE and without a backdrop blur.
+   On a phone the header is the first row under the status bar of the home-screen app, and a
+   frosted, half-transparent bar there is what read as «a blurred strip at the top» (owner,
+   03.10.) — iOS shows the system bar in the theme-color, then a frosted band right under it. */
+@utility bg-header {
+  background-color: color-mix(in oklab, var(--card) 50%, var(--background));
+}
+
 @utility pb-nav-reserve {
   padding-bottom: calc(max(var(--nav-reserve, 0px), var(--kb-inset, 0px)) + 0.75rem);
 }

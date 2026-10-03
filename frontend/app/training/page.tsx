@@ -39,7 +39,7 @@ export default function TrainingPage() {
     return (
       <ProtectedRoute>
         <div className="flex h-full flex-col bg-background text-foreground">
-          <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6 py-2 min-h-14">
+          <header className="flex items-center justify-between border-b border-border/50 bg-header px-6 py-2 min-h-14">
             <h1 className="text-2xl font-bold tracking-tight">{t("common.title")}</h1>
             <PageNavigation
               currentPage="training"
@@ -70,7 +70,7 @@ export default function TrainingPage() {
             Fixed and out of flow, like everywhere else, so the four surfaces
             cannot drift apart by 3px. */}
         <TrainingBand />
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 sm:px-6 py-2 min-h-14">
+        <header className="flex items-center justify-between border-b border-border/50 bg-header px-4 sm:px-6 py-2 min-h-14">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t("common.title")}</h1>
           <PageNavigation
             currentPage="training"
