@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "screenshots": "playwright test --config=playwright.screenshots.config.ts"
+    "screenshots": "playwright test --config=playwright.screenshots.config.ts",
+    "overflow-scan": "node scripts/overflow-scan.mjs"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^3.1.0",

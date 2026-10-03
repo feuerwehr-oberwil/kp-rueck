@@ -90,14 +90,15 @@ export function PersonnelSidebar({
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
         <button
           onClick={() => setShowLeftSidebar(false)}
-          className="absolute right-0 top-1/2 translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute right-0 top-1/2 translate-x-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleLeftSidebar')} ([)`}
           aria-label={tDash('toggleLeftSidebar')}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        {/* Search */}
-        <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
+        {/* Search. px-2 / gap-1 (both sidebars): with px-3 the field was 6px too narrow for
+            «Personal suchen …» beside its P hint and the toggle (overflow sweep, 03.10.). */}
+        <div className="flex items-center gap-1 px-2 pt-3 pb-2">
           <SearchInput
             id="personnel-search-input"
             size="sm"

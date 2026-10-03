@@ -207,6 +207,21 @@ kp-rueck/
 - **Phone filters = the search field + ONE square funnel** (`DropdownMenu` of checkable rows with
   counts, «Alle zeigen» first while something is ticked; on = `variant="selected"`, the ticks named
   in its `aria-label` and in a «Gefiltert: …» line; its width never changes) – no chip rows on the phone.
+- **Nothing overflows sideways – check with `pnpm overflow-scan`** (`frontend/scripts/overflow-scan.mjs`,
+  local stacks only: `BASE_URL=http://localhost:3000 SCAN_ADMIN=user:pass pnpm overflow-scan`; narrow
+  it with `SCAN_ONLY=help,feld SCAN_WIDTHS=360,393`, iPhone engine with `SCAN_BROWSER=webkit`). It
+  visits every route, the Feld flow, the public links and the openable dialogs at
+  360/393/768/1280/1920 in light + dark and writes `overflow-scan/findings.md`: page or list that
+  scrolls sideways, an sr-only/absolute box escaping its scroller, text out of its box, text or a
+  placeholder clipped without ellipsis, a control laid over text, ellipses nobody can read past.
+  Run it before a UI PR; add a visit when you add a route or dialog. Fix at the cause – let text
+  wrap (`break-words`, `min-w-0` on the flex child), stack or wrap on the phone, `truncate` only
+  with the full text in `title` – never a blanket `overflow-x: hidden`. Known traps: a `flex-1`
+  `TabsTrigger` gets an equal share, not its label's width; a scroller needs `relative` or its
+  rows' sr-only labels stretch the page; a dialog/sheet header keeps 2.5rem clear for the ✕
+  (globals.css); `ScrollArea` lays its content out at the viewport width (`[&>div]:!block`); at
+  exactly 768px the board is desktop but the ≤768 44px touch rule applies. `[data-overflow-ok]`
+  exempts a deliberate case – say why beside it.
 - **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)

@@ -118,7 +118,10 @@ export function AuditLogSection({
           seine eigene Karte mit. */}
       <SettingCard>
       <SearchInput
+        // short, so a phone shows it whole (the old one was cut at «Ressou»); what it
+        // searches stays one hover away
         placeholder={t('page.audit.searchPlaceholder')}
+        title={t('page.audit.searchScope')}
         value={auditSearchQuery}
         onValueChange={setAuditSearchQuery}
         className="w-full"

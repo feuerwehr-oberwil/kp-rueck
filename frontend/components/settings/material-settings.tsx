@@ -72,6 +72,9 @@ function rowState(material: ApiMaterialResource): RowState {
 
 type SortColumn = 'name' | 'type' | 'location' | 'status';
 
+/** A tab label that may take two lines on a phone rather than run out of its third. */
+const TAB_WRAP = 'h-auto min-h-[calc(2.25rem-7px)] whitespace-normal py-1 leading-tight'
+
 export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
   const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
@@ -374,10 +377,12 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="list" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="list">{t('materials.tabList')}</TabsTrigger>
-          <TabsTrigger value="groups">{t('materials.tabModules')}</TabsTrigger>
-          <TabsTrigger value="sort">{t('common.sortLocationsTab')}</TabsTrigger>
+        {/* Three equal thirds of a 360px phone are ~100px: «Standorte sortieren» ran out of
+            its tab. The labels wrap there instead (overflow sweep, 03.10.). */}
+        <TabsList className="grid h-auto min-h-9 w-full grid-cols-3">
+          <TabsTrigger value="list" className={TAB_WRAP}>{t('materials.tabList')}</TabsTrigger>
+          <TabsTrigger value="groups" className={TAB_WRAP}>{t('materials.tabModules')}</TabsTrigger>
+          <TabsTrigger value="sort" className={TAB_WRAP}>{t('common.sortLocationsTab')}</TabsTrigger>
         </TabsList>
 
         {/* Alle drei Reiter tragen eine Karte: Module und Sortierung brachten ihre

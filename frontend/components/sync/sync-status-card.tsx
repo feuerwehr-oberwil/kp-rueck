@@ -190,8 +190,9 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      {/* wraps on a phone: the badge goes under the title instead of squeezing it */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+        <div className="min-w-0 flex-[1_1_12rem]">
           <p className="font-medium">{t('title')}</p>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -275,7 +276,9 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
         )}
 
         {/* Manual Actions */}
-        <div className="flex gap-2 pt-2">
+        {/* wraps: «Von Railway synchronisieren» and «Zu Railway» side by side ran 184px past
+            a 393px phone (overflow sweep, 03.10.) */}
+        <div className="flex flex-wrap gap-2 pt-2">
           <Button
             variant="outline"
             onClick={handleSyncFromRailway}

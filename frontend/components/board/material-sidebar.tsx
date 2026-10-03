@@ -92,17 +92,20 @@ export function MaterialSidebar({
   const tDash = useTranslations('kanban.dashboard')
   return (
       <aside className="relative z-10 w-64 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col">
-        {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
+        {/* Collapse handle — small chevron centered on the sidebar's inner edge. `min-w-0`
+            (on all five edge tabs): the ≤768px 44px touch-target rule widened it to 44px at
+            exactly 768, where the board is still the desktop board, and it lay on the
+            «Depot» heading (overflow sweep, 03.10.). */}
         <button
           onClick={() => setShowRightSidebar(false)}
-          className="absolute left-0 top-1/2 -translate-x-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute left-0 top-1/2 -translate-x-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleRightSidebar')} (])`}
           aria-label={tDash('toggleRightSidebar')}
         >
           <ChevronRight className="h-4 w-4" />
         </button>
         {/* Search */}
-        <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
+        <div className="flex items-center gap-1 px-2 pt-3 pb-2">
           <SearchInput
             id="material-search-input"
             size="sm"

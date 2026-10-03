@@ -563,7 +563,7 @@ export default function EventsPage() {
                         className="flex min-h-[52px] cursor-pointer items-center gap-3 px-4 py-2 hover:bg-muted/50"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <span className="truncate text-[15px] font-medium">{event.name}</span>
+                          <span className="min-w-0 break-words text-[15px] font-medium">{event.name}</span>
                           {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
                         </div>
                         <RestlisteRowChips eventId={event.id} />
@@ -612,7 +612,7 @@ export default function EventsPage() {
                             className="flex min-h-[52px] items-center gap-3 px-4 py-2"
                           >
                             <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <span className="truncate text-[15px] font-medium text-muted-foreground">{event.name}</span>
+                              <span className="min-w-0 break-words text-[15px] font-medium text-muted-foreground">{event.name}</span>
                               {event.training_flag && <TrainingBadge label={tTraining('dashboard.training')} />}
                             </div>
                             <span className="hidden w-24 shrink-0 text-right text-sm tabular-nums text-muted-foreground sm:block">

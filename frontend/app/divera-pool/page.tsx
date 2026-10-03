@@ -246,10 +246,12 @@ export default function DiveraPoolPage() {
       </header>
 
       {/* Toolbar */}
-      <div className="border-b px-6 py-3">
+      <div className="border-b px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
+          {/* The field takes the free space itself — a flex-1 spacer beside it used to halve
+              it, «Suchen …» was 22px wide on a phone (overflow sweep, 03.10.). */}
           <SearchInput
-            containerClassName="flex-1 max-w-sm"
+            containerClassName="min-w-0 flex-1 sm:max-w-sm"
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onValueChange={setSearchQuery}
@@ -266,7 +268,7 @@ export default function DiveraPoolPage() {
             {loading ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" />}
           </Button>
 
-          <div className="flex-1" />
+          <div className="hidden flex-1 sm:block" />
 
           {isEditor && (
             <>

@@ -184,12 +184,14 @@ export function SettingCard({
   return (
     <Card className={cn('p-5', className)}>
       {(title || action) && (
-        <div className={cn('flex items-start gap-4', children && 'mb-3')}>
-          <div className="min-w-0 space-y-0.5">
+        // Wraps: when title and action do not both fit (a 360px phone), the action moves under
+        // the title instead of squeezing it to a column one word wide (overflow sweep, 03.10.).
+        <div className={cn('flex flex-wrap items-start gap-x-4 gap-y-2', children && 'mb-3')}>
+          <div className="min-w-0 flex-[1_1_12rem] space-y-0.5">
             {title && <p className="text-sm font-semibold">{title}</p>}
             {subtitle && <p className="text-xs leading-snug text-muted-foreground">{subtitle}</p>}
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
             {action}
           </div>
         </div>

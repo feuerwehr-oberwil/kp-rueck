@@ -1363,8 +1363,9 @@ function FeldSurface() {
                     <User className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{person.name.trim() || tKanbanCommon('unknownResource')}</div>
-                    {person.role && <div className="text-sm text-muted-foreground truncate">{person.role}</div>}
+                    {/* Wrapped, never cut: this is where a person finds their own name. */}
+                    <div className="font-medium break-words">{person.name.trim() || tKanbanCommon('unknownResource')}</div>
+                    {person.role && <div className="text-sm text-muted-foreground break-words">{person.role}</div>}
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <div className="text-sm font-medium">
@@ -1778,6 +1779,10 @@ function FeldSurface() {
                     <ChevronRight className="h-4 w-4 text-muted-foreground mt-0.5" />
                   </div>
                 </div>
+                {/* Everything under the address keeps clear of the «Navigation starten» button
+                    laid over the row's bottom-right corner — it sat on «Du bist EL – der
+                    Rapport ist deine Aufgabe.» on a 393px phone (overflow sweep, 03.10.). */}
+                <div className={rowNavigateUrl ? 'pr-11' : undefined}>
                 {/* Why this row is here at all, in a plain sentence — the tag
                     above is a marker, this is the explanation. Silent for an
                     own assignment and for a driver, which need none. */}
@@ -1841,6 +1846,7 @@ function FeldSurface() {
                       {tPickup('badge')}
                     </span>
                   )}
+                </div>
                 </div>
               </button>
               {/* Straight into the phone's maps app. Sits OVER the row rather

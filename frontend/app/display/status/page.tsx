@@ -366,7 +366,10 @@ function SituationBoard({
   const materialsNotReady = materialStates.filter((s) => s === "unavailable").length
 
   return (
-    <div className="h-full flex bg-background overflow-x-auto">
+    // `relative` here and on each column's list: the rows' sr-only labels need a positioned
+    // ancestor inside the scroller they sit in, or they escape it and widen the whole page
+    // (513px on a 393px iPhone, WebKit; overflow sweep, 03.10.)
+    <div className="relative h-full flex bg-background overflow-x-auto">
       {/* ── Column 1: Vehicles ── */}
       <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
         <PanelHeader
@@ -401,7 +404,7 @@ function SituationBoard({
 
           subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
-        <div className="flex-1 overflow-y-auto">
+        <div className="relative flex-1 overflow-y-auto">
           {/* Aufträge first — the grouping the radio talks in. Each route names
               its stops in the order they are driven, so «Stopp 2 von 3» is
               readable from across the room without opening anything. */}
@@ -468,7 +471,7 @@ function SituationBoard({
 
           subtitle={t('availableDeployed', { available: stats.personnelAvailable, deployed: assignedPersonnelCount })}
         />
-        <div className="flex-1 overflow-y-auto">
+        <div className="relative flex-1 overflow-y-auto">
           {groupedPersonnel.map(({ role, people }) => {
             const free = people.filter((p) => personResourceState(p) !== "assigned").length
             return (
@@ -515,7 +518,7 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
         />
-        <div className="flex-1 overflow-y-auto">
+        <div className="relative flex-1 overflow-y-auto">
           {groupedMaterials.map(({ category, items }) => {
             // «frei» means it can be sent out — neither on an Einsatz nor broken.
             const free = items.filter((m) => materialResourceState(m) === "available").length

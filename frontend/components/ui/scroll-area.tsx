@@ -18,7 +18,12 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
+        // `[&>div]:!block`: Radix wraps the children in a `display: table` div, which grows to
+        // the widest unbreakable line inside — one long code line in the Hilfe made the whole
+        // text column wider than the phone and cut every paragraph off at the right edge
+        // (overflow sweep, 03.10.). This area only ever scrolls vertically (one vertical
+        // ScrollBar below), so the content is laid out at the viewport's width instead.
+        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1 [&>div]:!block"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

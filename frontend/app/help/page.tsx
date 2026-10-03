@@ -220,7 +220,9 @@ export default function HelpPage() {
   const markdownComponents: Components = {
     // Code blocks (for kbd styling)
     code: ({ className, children, ...props }) => {
-      const isInline = !className;
+      // A fenced block without a language has no className either — it is told apart by
+      // its trailing newline. It used to become a <kbd> inside the <pre>.
+      const isInline = !className && !String(children).endsWith('\n');
       if (isInline) {
         return (
           <kbd className="bg-muted border border-border px-1.5 py-0.5 rounded-sm text-sm font-mono" {...props}>
@@ -234,6 +236,13 @@ export default function HelpPage() {
         </code>
       );
     },
+    // Code blocks scroll sideways on their own instead of widening the page (there is no
+    // typography plugin, so `prose` does not do this for us).
+    pre: ({ children, ...props }) => (
+      <pre className="my-4 overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm leading-relaxed" {...props}>
+        {children}
+      </pre>
+    ),
     // Tables
     table: ({ children, ...props }) => (
       <div className="overflow-x-auto my-6">
@@ -365,7 +374,7 @@ export default function HelpPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Table of Contents Sidebar - hidden on mobile */}
         {!isMobile && !isLoading && tableOfContents.length > 0 && (
-          <aside className="w-56 border-r border-border/50 bg-card/30 flex-shrink-0">
+          <aside className="w-60 border-r border-border/50 bg-card/30 flex-shrink-0">
             <ScrollArea className="h-full">
               <nav className="p-4">
                 <SearchInput
@@ -406,15 +415,17 @@ export default function HelpPage() {
           </aside>
         )}
 
-        {/* Main Content */}
-        <ScrollArea className="flex-1">
+        {/* Main Content. `min-w-0`: a flex item may not shrink below its content by default,
+            so one long code line made the column wider than the phone and the row's
+            overflow-hidden cut every paragraph off at the right (overflow sweep, 03.10.). */}
+        <ScrollArea className="min-w-0 flex-1">
           <div className="max-w-3xl mx-auto px-4 md:px-8 pt-6 pb-nav-reserve md:py-8">
             {isLoading ? (
               <div className="flex justify-center py-12">
                 <LoadingStatus size="surface">{t('loading')}</LoadingStatus>
               </div>
             ) : (
-              <div className="prose prose-slate dark:prose-invert max-w-none">
+              <div className="prose prose-slate dark:prose-invert max-w-none break-words">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[[rehypeHighlight, { query: searchQuery.trim() }]]}

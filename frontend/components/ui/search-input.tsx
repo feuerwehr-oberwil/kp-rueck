@@ -37,20 +37,24 @@ import { cn } from '@/lib/utils'
 
 type SearchInputSize = 'sm' | 'default' | 'lg'
 
-const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; clear: string; clearIcon: string; hint: string }> = {
+// `pad` is the start side; `padEnd` is the room for the ✕ (or the hint), reserved only while
+// one is there — kept always, it cut short placeholders: «Einstellung suchen …» lost 9px to an
+// empty clear slot in the Einstellungen sidebar (overflow sweep, 03.10.).
+const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; padEnd: string; clear: string; clearIcon: string; hint: string }> = {
   // Dense sidebar filters (personnel/materials lists).
   // The icon sits where every other field's first glyph starts (the shared
   // `--field-px` inset + the 1px border, globals.css); the text follows
-  // icon + 8px after it.
-  sm: { icon: 'h-3.5 w-3.5', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.375rem)] pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
-  default: { icon: 'h-4 w-4', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.5rem)] pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
+  // icon + 8px after it. `padEnd` (the ✕/hint room) is applied only while one is shown.
+  sm: { icon: 'h-3.5 w-3.5', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.375rem)]', padEnd: 'pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
+  default: { icon: 'h-4 w-4', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.5rem)]', padEnd: 'pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
   // Phone surfaces (check-in), where the field is taller.
-  lg: { icon: 'h-5 w-5', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.75rem)] pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
+  lg: { icon: 'h-5 w-5', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.75rem)]', padEnd: 'pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
 }
 
 /** Phone / touch floors — see the header. Variants, so they outrank a caller's
  *  unprefixed `h-8 text-sm` exactly where it matters and nowhere else. */
-const TOUCH_FIELD = 'max-md:min-h-11 max-md:text-base max-md:pr-11 pointer-coarse:min-h-11 pointer-coarse:text-base pointer-coarse:pr-11'
+const TOUCH_FIELD = 'max-md:min-h-11 max-md:text-base pointer-coarse:min-h-11 pointer-coarse:text-base'
+const TOUCH_END = 'max-md:pr-11 pointer-coarse:pr-11'
 const TOUCH_CLEAR = 'max-md:size-11 pointer-coarse:size-11'
 
 export interface SearchInputProps
@@ -80,6 +84,8 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 
     const hasValue = value.length > 0
     const showCount = count != null && count !== '' && count !== false
+    // something sits at the field's end: the ✕ (a value), the shortcut hint, or the count
+    const reserveEnd = (hasValue && !disabled) || !!hint || showCount
 
     return (
       <div className={cn('relative', containerClassName)}>
@@ -93,7 +99,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           value={value}
           disabled={disabled}
           onChange={(event) => onValueChange(event.target.value)}
-          className={cn(o.pad, className, size !== 'lg' && TOUCH_FIELD, showCount && 'pr-24 max-md:pr-24 pointer-coarse:pr-28')}
+          className={cn(o.pad, reserveEnd ? o.padEnd : 'pr-[var(--field-px)]', className, size !== 'lg' && TOUCH_FIELD, size !== 'lg' && reserveEnd && TOUCH_END, showCount && 'pr-24 max-md:pr-24 pointer-coarse:pr-28')}
           // A search box is never a credential. Without this, a browser that has
           // saved a KP login drops the username into the nearest text input the
           // moment a password field appears elsewhere on the page — opening

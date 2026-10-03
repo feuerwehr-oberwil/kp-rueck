@@ -458,7 +458,8 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
           <SettingCard
             action={
               <DemoLock active={demoMode}>
-                <div className="flex gap-2">
+                {/* wraps: both buttons side by side are wider than a 360px card */}
+                <div className="flex flex-wrap justify-end gap-2">
                   {!demoMode && (
                     <Button
                       variant="outline"
