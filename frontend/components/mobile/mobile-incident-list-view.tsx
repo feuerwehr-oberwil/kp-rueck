@@ -35,6 +35,9 @@ interface MobileIncidentListViewProps {
   isLoading?: boolean
   /** Opens «Neuer Einsatz» (the keyboard-aware bottom sheet). Editors only — pass it only to them. */
   onNewIncident?: () => void
+  /** Open this Einsatz's sheet from outside — a notification, the board's `?detail=1` link
+   *  (lib/incident-detail.ts). A new `nonce` re-opens the same id. */
+  openRequest?: { incidentId: string; nonce: number } | null
 }
 
 // Status order for sorting (active incidents first)
@@ -81,6 +84,7 @@ export function MobileIncidentListView({
   isTraining = false,
   isLoading = false,
   onNewIncident,
+  openRequest = null,
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
   const tEmpty = useTranslations('common.emptyState')
@@ -177,6 +181,12 @@ export function MobileIncidentListView({
     () => operations.find((op) => op.id === selectedOperationId) ?? null,
     [operations, selectedOperationId],
   )
+
+  useEffect(() => {
+    if (!openRequest) return
+    setSelectedOperationId(openRequest.incidentId)
+    setDetailSheetOpen(true)
+  }, [openRequest])
 
   const handleCardClick = (operation: Operation) => {
     setSelectedOperationId(operation.id)
