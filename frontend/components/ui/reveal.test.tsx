@@ -94,4 +94,14 @@ describe("Reveal", () => {
     expect(body.hidden).toBe(true)
     expect(body.querySelector("input")?.value).toBe("halb getippt")
   })
+
+  it("never grows wider than itself: one long line cannot widen a phone list", () => {
+    // jsdom has no layout, so this pins the two classes that do it: a grid item's minimum
+    // width is its content's min-content unless the track and the item both say otherwise.
+    render(<Reveal open><span className="truncate">Testalarm KP Front Verbindungstest Wandanzeige</span></Reveal>)
+    const clip = screen.getByText(/Testalarm/).parentElement as HTMLElement
+    const grid = clip.parentElement as HTMLElement
+    expect(grid.className).toContain("grid-cols-[minmax(0,1fr)]")
+    expect(clip.className).toContain("min-w-0")
+  })
 })

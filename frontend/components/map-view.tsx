@@ -824,7 +824,9 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
   if (incidents.length === 0) return null
 
   return (
-    <div className="absolute top-2.5 right-2.5 z-30 flex max-w-[min(18rem,calc(100%-4.5rem))] flex-col items-end">
+    // Not positioned itself: it is one item of the map's top-right control row (see MapView), so
+    // a page's own controls sit beside it instead of on top of it. The list hangs below the chip.
+    <div className="relative flex flex-col items-end">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -842,7 +844,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
       </button>
 
       {/* Slides open/closed (Reveal) — the list used to pop in at full height. */}
-      <Reveal open={isExpanded} className="w-full min-w-48">
+      <Reveal open={isExpanded} className="absolute right-0 top-full w-max min-w-48 max-w-[min(18rem,calc(100vw-5rem))]">
         <ul className="mt-1.5 w-full max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
           {incidents.map((incident) => (
             <li key={incident.id}>
@@ -866,6 +868,10 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
 }
 
 interface MapViewProps {
+  /** A page's own map controls (the wall display's status pills + «Ansicht»). They share ONE
+   *  top-right row with the map's «ohne Koordinaten» chip, which wraps instead of overlapping —
+   *  laid over the map separately, the two piled onto each other (owner, 03.10.). */
+  topRightControls?: ReactNode
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
   resetZoomTrigger?: number // Counter to trigger zoom reset
@@ -939,6 +945,7 @@ export default function MapView({
   vehiclesOverride,
   positionsOverride,
   onGpsAvailabilityChange,
+  topRightControls,
 }: MapViewProps) {
   const t = useTranslations('map')
   const tokenMode = incidentsOverride !== undefined
@@ -1481,11 +1488,16 @@ export default function MapView({
       {/* Fit-all sits over the map, not inside it — the map's own children are markers. */}
       <FitAllButton map={map} incidents={mappableIncidents} />
 
-      {/* Warning for incidents without location */}
-      <MissingLocationsWarning
-        incidents={incidentsWithoutLocation}
-        onIncidentClick={onMarkerClick}
-      />
+      {/* Top-right control row: the page's controls, then the warning for incidents without a
+          location. One flex row that wraps (right-aligned) and keeps clear of the zoom buttons
+          (`left-16`), so nothing in it can overlap at any width. Only its children take clicks. */}
+      <div className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-30 flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
+        {topRightControls}
+        <MissingLocationsWarning
+          incidents={incidentsWithoutLocation}
+          onIncidentClick={onMarkerClick}
+        />
+      </div>
 
       {/* Map Legend */}
       {/* An empty position list means no GPS is set up (or nothing is reporting) — the vehicle

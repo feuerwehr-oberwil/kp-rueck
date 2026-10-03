@@ -87,6 +87,13 @@ export function MobileBottomNavigation({
     { id: 'help', label: t('helpDocs'), icon: HelpCircle, href: '/help', category: 'Support' },
   ]
 
+  // «Schnellzugriff» only when it has something in it. The board passes its sheets (Links & QR,
+  // Personal, Fahrzeuge, Drucken); every other page — the Lagekarte, Einstellungen, Hilfe — passes
+  // none, so outside an Übung the heading stood alone over nothing (owner, 03.10.).
+  const hasQuickActions =
+    (isEditor && !!(onLinks || onPersonnel || onVehicleStatus || onPrint || (onThermo && printerEnabled)))
+    || !!selectedEvent?.training_flag
+
   // Handle tap animation
   const handleTap = (tabId: string) => {
     setTapAnimation(tabId)
@@ -226,7 +233,7 @@ export function MobileBottomNavigation({
               {/* Quick Actions Section — viewing-first: the QR/print/personnel
                   actions are editor-only, so viewers get a decluttered sheet.
                   The training link stays visible (spawning is the main mobile task). */}
-              {(isEditor || selectedEvent?.training_flag) && (
+              {hasQuickActions && (
               <>
               <div className="animate-category-fade">
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
