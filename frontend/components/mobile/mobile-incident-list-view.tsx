@@ -188,7 +188,7 @@ export function MobileIncidentListView({
     // so the footer and the list's end sit on the nav's top edge, never behind it.
     <div ref={rootRef} className="flex flex-col h-full pb-[var(--nav-reserve,0px)]">
       {/* Fixed Header with Search */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/50">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background sticky top-0 z-10 border-b border-border/50">
         {/* Current event as context — the top navbar is hidden on mobile, so the
             event name lives here; switching happens via the bottom nav. */}
         {selectedEvent && (
