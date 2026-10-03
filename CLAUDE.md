@@ -356,6 +356,14 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   `NEXT_LOCALE` cookie. The in-app help is a separate per-language Markdown file
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
+  **Renaming a key means renaming every call site**: next-intl renders a missing key as its
+  path instead of throwing. `lib/i18n-keys-used.test.ts` resolves every literal `t('…')` to its
+  `useTranslations` namespace and fails on keys absent from `de.json`; dynamic `${…}` keys
+  need an entry in the label-coverage tests instead.
+- **Wall text (`/display/*`) wraps, it doesn't truncate** – nobody at a wall can hover a
+  tooltip. Addresses, column heads and labels use `WALL_TEXT_WRAP` (`lib/kanban-utils.ts`:
+  hyphenate, `break-words` only as last resort, never `break-all`); a fact that still must fit
+  one line moves to its own line rather than ending in «…».
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 - **Loading states – one signal, always with words.** A full-screen start (auth probe, Microsoft
   callback) is `components/boot-screen.tsx`: snail + «KP RÜCK» + the phase, no percentage, and
