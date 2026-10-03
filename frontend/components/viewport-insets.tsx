@@ -5,11 +5,12 @@ import {
   keyboardGeometry,
   publishKeyboard,
   publishNavReserve,
+  revealFocusedField,
   sampleViewport,
 } from '@/lib/viewport-insets'
 
 /**
- * Keeps `--kb-inset` / `--vv-height` / `html[data-kb]` in step with the on-screen keyboard (the
+ * Keeps `--kb-inset` / `--vv-top` / `--vv-height` / `html[data-kb]` in step with the on-screen keyboard (the
  * contract is documented in lib/viewport-insets.ts). Mounted once in the root layout; renders
  * nothing and never re-renders anything — the geometry lives in CSS.
  *
@@ -27,10 +28,12 @@ export function ViewportInsets() {
     const measure = () => {
       pending = false
       const g = keyboardGeometry(sampleViewport())
-      const key = `${g.open}|${g.inset}|${g.visibleHeight}`
+      const key = `${g.open}|${g.inset}|${g.top}|${g.visibleHeight}`
       if (key === last) return
       last = key
       publishKeyboard(g)
+      // the sheet now fills the band; bring the caret's field back into its scroller
+      if (g.open) requestAnimationFrame(revealFocusedField)
     }
     const update = () => {
       if (pending) return

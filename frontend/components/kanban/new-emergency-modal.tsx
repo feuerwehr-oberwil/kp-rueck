@@ -29,8 +29,9 @@
  * disabled button said nothing, and its error only appeared after the field had
  * been filled and emptied again.
  *
- * ON A PHONE the rows stack (`stacked`): label above, control full width, switches
- * label-left / switch-right — the grammar of every other phone form. The row's 120px
+ * ON A PHONE the rows stack (DetailField does that by itself below 768px, see
+ * `useStackedFields`): label above, control full width, switches label-left /
+ * switch-right — the grammar of every other phone form. The row's 120px
  * label column left a 390px phone ~200px of control and read as a table. A field's
  * message then sits full width under its control as well.
  */
@@ -220,7 +221,9 @@ export function NewEmergencyModal({
                   coordinates: lat !== null && lon !== null ? [lat, lon] : null
                 }))
               }
-              autoFocus={open}
+              // Desktop: straight into the Einsatzort. Phone: no keyboard until a field is
+              // tapped — the sheet itself does not focus a field either (ui/sheet.tsx).
+              autoFocus={open && !isMobile}
               error={showLocationError}
               describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
             />
@@ -234,12 +237,14 @@ export function NewEmergencyModal({
               </FormMessage>
             )}
 
-            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart stacked={isMobile}>
+            <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
               <Textarea
                 id="notes"
                 placeholder={t('common.meldungPlaceholder')}
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                // Free text about the incident: no contact card, no address book.
+                autoComplete="off"
                 // Grows with what is in it, like the detail's Meldung.
                 className="min-h-[5rem] max-h-[16rem]"
               />
@@ -247,7 +252,7 @@ export function NewEmergencyModal({
 
             {/* One per line, Einsatzart and Priorität included: two half-width
                 controls sharing a row is how «Mittel» gets read as the Einsatzart. */}
-            <DetailField label={t('common.einsatzart')} htmlFor="incidentType" stacked={isMobile}>
+            <DetailField label={t('common.einsatzart')} htmlFor="incidentType">
               <Select
                 value={formData.incidentType}
                 onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
@@ -265,7 +270,7 @@ export function NewEmergencyModal({
               </Select>
             </DetailField>
 
-            <DetailField label={t('common.priority')} htmlFor="priority" stacked={isMobile}>
+            <DetailField label={t('common.priority')} htmlFor="priority">
               <Select
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value as "high" | "medium" | "low" })}
@@ -291,8 +296,6 @@ export function NewEmergencyModal({
               `DetailToggle`, as the Übersicht tab. The explanatory sentence under
               each switch is gone; it lives on as the label's `title`. */}
             <DetailToggle
-              stacked={isMobile}
-
               label={t('common.phoneReported')}
               description={t('common.phoneReportedDescription')}
               icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
@@ -302,8 +305,6 @@ export function NewEmergencyModal({
               }
             />
             <DetailToggle
-              stacked={isMobile}
-
               label={t('common.feldReported')}
               description={t('common.feldReportedDescription')}
               icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
@@ -313,19 +314,22 @@ export function NewEmergencyModal({
               }
             />
 
-            <DetailField label={t('common.contact')} htmlFor="contact" stacked={isMobile}>
+            <DetailField label={t('common.contact')} htmlFor="contact">
               <Input
                 id="contact"
                 placeholder={t('common.contactPlaceholder')}
                 value={formData.contact}
                 onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                // The Melder is somebody else: never offer the operator's own contact card.
+                autoComplete="off"
+                enterKeyHint="next"
               />
             </DetailField>
 
             <DetailField
               label={t('common.contactPhone')}
               htmlFor={PHONE_FIELD_ID}
-              stacked={isMobile}
+             
               advice={
                 showPhoneAdvice && phone
                   ? t(phone.kind === 'short' ? 'newEmergency.phoneShort' : 'newEmergency.phoneLong', { digits: phone.digits })
@@ -336,6 +340,9 @@ export function NewEmergencyModal({
                 id={PHONE_FIELD_ID}
                 type="tel"
                 inputMode="tel"
+                // the Melder's number, not the operator's own
+                autoComplete="off"
+                enterKeyHint="done"
                 placeholder={t('common.contactPhonePlaceholder')}
                 value={formData.contactPhone}
                 onChange={(e) => setFormData({ ...formData, contactPhone: sanitizePhoneInput(e.target.value) })}
@@ -380,12 +387,15 @@ export function NewEmergencyModal({
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl">
-          <SheetHeader className="px-4 pt-5 pb-2 pr-12">
+          {/* While typing, the head is as short as it can be: the band above the keys is
+              ~350px on an iPhone, and the sentence under the title is the one thing in it
+              nobody needs at that moment. */}
+          <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
             <div className="flex items-center gap-3">
               <Plus className="h-6 w-6 text-primary" />
               <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             </div>
-            <SheetDescription>{t('newEmergency.description')}</SheetDescription>
+            <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
           <SheetBody className="px-4">{fields}</SheetBody>
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">

@@ -109,7 +109,9 @@ const LANE_STYLE = {
 
 /** Room the «Alle schliessen» pill takes at the foot of the lane (44px + 8px gap). */
 const PILL_ROW = '52px'
-const PHONE_LANE_TOP = 'calc(env(safe-area-inset-top, 0px) + 8px)'
+// `--vv-top`: with the keyboard up iOS may have panned the visible band down the layout
+// viewport; the lane follows it (0 otherwise). lib/viewport-insets.ts.
+const PHONE_LANE_TOP = 'calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px) + 8px)'
 
 // Stable identities — a fresh object per render re-runs sonner's positioning
 // effect (toasts slid in from the wrong place during a burst).
@@ -139,8 +141,12 @@ export const MIN_ROOM_ABOVE_SHEET = 160
  * off the top of the screen. Then the lane moves to the top edge instead —
  * still clear of the sheet's buttons and the keyboard, which is the point.
  */
-export function laneFitsAboveSheet(sheetTopPx: number, viewportHeight: number): boolean {
-  return !(sheetTopPx > 0) || viewportHeight - sheetTopPx >= MIN_ROOM_ABOVE_SHEET
+export function laneFitsAboveSheet(sheetTopPx: number, viewportHeight: number, keyboardUp = false): boolean {
+  if (!(sheetTopPx > 0)) return true
+  // With the keyboard up a phone sheet fills the whole visible band (globals.css): there is
+  // no «above the sheet» on screen, so the lane goes to the band's top, over the sheet's head.
+  if (keyboardUp) return false
+  return viewportHeight - sheetTopPx >= MIN_ROOM_ABOVE_SHEET
 }
 
 type Lane = 'desktop' | 'bottom' | 'top'
@@ -155,11 +161,12 @@ function useLane(): Lane {
     // so a style mutation there is exactly when the answer can change.
     const check = () => {
       const raw = getComputedStyle(document.documentElement).getPropertyValue('--sheet-top')
-      setFits(laneFitsAboveSheet(parseFloat(raw) || 0, window.innerHeight))
+      const root = document.documentElement
+      setFits(laneFitsAboveSheet(parseFloat(raw) || 0, window.innerHeight, root.hasAttribute('data-kb')))
     }
     check()
     const observer = new MutationObserver(check)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class', 'data-kb'] })
     window.addEventListener('resize', check)
     return () => {
       observer.disconnect()
