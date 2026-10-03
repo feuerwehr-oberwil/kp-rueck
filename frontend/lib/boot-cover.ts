@@ -48,7 +48,9 @@ function recompute() {
     open = false
     if (!holding || gate.rank < holding.rank) holding = gate
   }
-  const label = holding?.label
+  // Once open, keep saying what was last loading: the cover still has a frame and a fade to
+  // go, and falling back to the first phase there read as the start beginning again.
+  const label = holding?.label ?? (open ? snapshot.label : undefined)
   if (snapshot.open !== open || snapshot.label !== label) snapshot = { open, label }
   listeners.forEach((listener) => listener())
 }

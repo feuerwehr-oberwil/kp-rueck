@@ -15,9 +15,11 @@ export const BOOT_COVER_MAX_MS = 8_000
 /** …and it lifts with a short fade, so the finished workspace appears rather than cuts in. */
 export const BOOT_COVER_FADE_MS = 240
 
-/** The routes a launch can land on that open a workspace. Everything else (login, the
- *  Microsoft callback, the wall displays, the public forms) brings its own first screen. */
-const COVERED_ROUTES = new Set(['/', '/map', '/feld', '/settings', '/events', '/training'])
+/** The routes a launch can land on that open a workspace — plus the Microsoft callback, which
+ *  is the first half of one (it redeems the code behind the snail, then loads the app, whose
+ *  cover continues the same snail). Everything else (login, the wall displays, the public
+ *  forms) brings its own first screen. */
+const COVERED_ROUTES = new Set(['/', '/map', '/feld', '/settings', '/events', '/training', '/auth/callback'])
 
 export function isCoveredRoute(pathname: string | null) {
   return pathname !== null && COVERED_ROUTES.has(pathname)
@@ -42,6 +44,7 @@ export function BootCover() {
   const pathname = usePathname()
   const tLogin = useTranslations('login.protectedRoute')
   const tCommon = useTranslations('common')
+  const tCallback = useTranslations('login.callback')
   const [phase, setPhase] = useState<Phase>(() => (isCoveredRoute(pathname) ? 'on' : 'off'))
   const [capped, setCapped] = useState(false)
   const gates = useBootGates()
@@ -85,7 +88,8 @@ export function BootCover() {
 
   if (phase === 'off') return null
 
-  const fallback = pathname === '/feld' ? tCommon('loading') : tLogin('preparingLogin')
+  const fallback =
+    pathname === '/feld' ? tCommon('loading') : pathname === '/auth/callback' ? tCallback('processing') : tLogin('preparingLogin')
   return (
     <div
       data-boot-cover={phase}

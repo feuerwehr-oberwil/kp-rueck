@@ -36,4 +36,10 @@ describe('boot gates', () => {
     bootGates.set('session', { ready: true, rank: 0 })
     expect(bootGates.snapshot()).toBe(a)
   })
+
+  it('keep the last phase once open, so the fade does not read as the start beginning again', () => {
+    bootGates.set('board', { ready: false, label: 'Einsätze werden geladen …', rank: 1 })
+    bootGates.set('board', { ready: true, label: 'Einsätze werden geladen …', rank: 1 })
+    expect(bootGates.snapshot()).toEqual({ open: true, label: 'Einsätze werden geladen …' })
+  })
 })
