@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -60,6 +60,13 @@ class SyncStatusResponse(BaseModel):
     is_syncing: bool
     records_pending: int = 0
     last_error: str | None = None
+    # «railway» = this instance IS the central Railway deployment: it has no peer
+    # to reach, so `railway_healthy` says nothing and the UI must not read it as
+    # «Railway offline». «station» = a local instance that syncs TO Railway.
+    instance_role: Literal["railway", "station"] = "station"
+    # A station with no `railway_database_url` has nothing to sync with — that is
+    # «nicht eingerichtet», not «offline».
+    peer_configured: bool = False
 
 
 class SyncLogResponse(BaseModel):

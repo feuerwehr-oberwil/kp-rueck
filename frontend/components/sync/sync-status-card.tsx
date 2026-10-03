@@ -5,13 +5,13 @@ import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check } from 'lucide-react'
+import { ArrowDown, ArrowUp, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check, Cloud } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useDateFnsLocale } from '@/lib/date-locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
-import type { SyncStatusResponse, SyncConfig } from '@/types/sync'
+import { isCentralInstance, isSyncUnconfigured, type SyncStatusResponse, type SyncConfig } from '@/types/sync'
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 interface SyncStatusCardProps {
@@ -102,6 +102,24 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
       )
     }
 
+    // The central Railway instance: nothing to reach, so nothing is offline.
+    if (isCentralInstance(status)) {
+      return (
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <Cloud className="h-3 w-3" />
+          {t('centralInstance')}
+        </Badge>
+      )
+    }
+
+    if (isSyncUnconfigured(status)) {
+      return (
+        <Badge variant="secondary" className="flex items-center gap-1 text-muted-foreground">
+          {tCommon('notConfigured')}
+        </Badge>
+      )
+    }
+
     if (!status.railway_healthy) {
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
@@ -179,7 +197,15 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
         </div>
         {getStatusBadge()}
       </div>
+      {isCentralInstance(status) ? (
+        // Railway itself: say what this instance is, and offer nothing that
+        // pretends there is a peer (no direction, no «Von/Zu Railway»).
+        <p className="text-sm text-muted-foreground">{t('centralInstanceHint')}</p>
+      ) : (
       <div className="space-y-4">
+        {isSyncUnconfigured(status) && (
+          <p className="text-sm text-muted-foreground">{t('notConfiguredHint')}</p>
+        )}
         {/* Status Details */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -279,6 +305,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
           )}
         </div>
       </div>
+      )}
     </Card>
   )
 }

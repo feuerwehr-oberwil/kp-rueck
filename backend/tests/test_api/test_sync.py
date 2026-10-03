@@ -907,3 +907,76 @@ class TestSyncConfigRedaction:
         assert result.scalar_one().value == new_url
         # And the response echoes the masked form, not the password.
         assert "newpassword" not in response.text
+
+
+# ============================================
+# Instance role — the Railway deployment has no peer
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_status_on_railway_reports_role_not_offline(sync_admin_client: AsyncClient):
+    """kp.fwo.li runs ON Railway: it is the sync target, so there is no peer to probe.
+
+    Before, the probe ran against an empty `railway_database_url` and the cloud
+    instance reported «Railway offline» about itself.
+    """
+    with (
+        patch("app.api.sync.is_railway", return_value=True),
+        patch("app.api.sync.create_sync_service") as mock_create,
+    ):
+        mock_service = AsyncMock()
+        mock_service.get_railway_database_url = AsyncMock(return_value="")
+        mock_service.check_railway_health = AsyncMock(return_value=False)
+        mock_create.return_value = mock_service
+
+        response = await sync_admin_client.get("/api/sync/status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["instance_role"] == "railway"
+    assert data["peer_configured"] is False
+    mock_service.check_railway_health.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_status_on_station_without_target_is_not_configured(sync_admin_client: AsyncClient):
+    """A station with no Railway URL is «nicht eingerichtet», and nothing is probed."""
+    with (
+        patch("app.api.sync.is_railway", return_value=False),
+        patch("app.api.sync.create_sync_service") as mock_create,
+    ):
+        mock_service = AsyncMock()
+        mock_service.get_railway_database_url = AsyncMock(return_value="")
+        mock_service.check_railway_health = AsyncMock(return_value=True)
+        mock_create.return_value = mock_service
+
+        response = await sync_admin_client.get("/api/sync/status")
+
+    data = response.json()
+    assert data["instance_role"] == "station"
+    assert data["peer_configured"] is False
+    assert data["railway_healthy"] is False
+    mock_service.check_railway_health.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_status_on_station_with_target_probes_it(sync_admin_client: AsyncClient):
+    with (
+        patch("app.api.sync.is_railway", return_value=False),
+        patch("app.api.sync.create_sync_service") as mock_create,
+    ):
+        mock_service = AsyncMock()
+        mock_service.get_railway_database_url = AsyncMock(return_value="postgresql://u:p@railway.example/db")
+        mock_service.check_railway_health = AsyncMock(return_value=False)
+        mock_create.return_value = mock_service
+
+        data = (await sync_admin_client.get("/api/sync/status")).json()
+
+    assert data["instance_role"] == "station"
+    assert data["peer_configured"] is True
+    assert data["railway_healthy"] is False
+    mock_service.check_railway_health.assert_awaited_once()

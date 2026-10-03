@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentAdmin, CurrentUser
 from app.database import get_db
+from app.environment import is_railway
 from app.models import SyncLog
 from app.schemas import SyncDirection, SyncLogResponse, SyncStatus, SyncStatusResponse
 from app.services.sync_service import SyncService, create_sync_service
@@ -58,6 +59,12 @@ async def get_sync_status(current_user: CurrentUser, db: AsyncSession = Depends(
         Current sync status including last sync time, direction, Railway health, and sync state.
     """
     sync_service = await create_sync_service(db)
+    # The Railway deployment is the sync TARGET, never a source: it has no
+    # `railway_database_url` of its own, so the peer check below always failed
+    # there and the cloud instance announced «Railway offline» about itself.
+    # `is_railway()`, not `settings.is_production`: a compose station runs with
+    # ENVIRONMENT=production too and is still a station.
+    on_railway = is_railway()
 
     # Get last successful sync
     result = await db.execute(
@@ -65,8 +72,9 @@ async def get_sync_status(current_user: CurrentUser, db: AsyncSession = Depends(
     )
     last_sync = result.scalar_one_or_none()
 
-    # Check Railway health
-    railway_healthy = await sync_service.check_railway_health()
+    # Check Railway health — only where there is a peer to check.
+    peer_configured = not on_railway and bool(await sync_service.get_railway_database_url())
+    railway_healthy = await sync_service.check_railway_health() if peer_configured else False
 
     # Calculate pending records (simplified - could be more sophisticated)
     records_pending = 0
@@ -86,6 +94,8 @@ async def get_sync_status(current_user: CurrentUser, db: AsyncSession = Depends(
         is_syncing=_is_syncing,
         records_pending=records_pending,
         last_error=last_error,
+        instance_role="railway" if on_railway else "station",
+        peer_configured=peer_configured,
     )
 
 

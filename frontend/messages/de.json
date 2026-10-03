@@ -188,7 +188,8 @@
       "commands": "Befehle & Tastaturkürzel",
       "help": "Hilfe",
       "logout": "Abmelden",
-      "openMenu": "Benutzermenü öffnen"
+      "openMenu": "Benutzermenü öffnen",
+      "statusNotConfigured": "Nicht eingerichtet"
     },
     "mobileBottomNav": {
       "incidents": "Einsätze",
@@ -3260,7 +3261,8 @@
       "invalid": "Ungültig",
       "syncing": "Wird synchronisiert …",
       "railwayOffline": "Railway offline",
-      "stale": "Daten veraltet"
+      "stale": "Daten veraltet",
+      "notConfigured": "Nicht eingerichtet"
     },
     "config": {
       "loadFailed": "Synchronisations-Konfiguration laden fehlgeschlagen",
@@ -3332,7 +3334,10 @@
       "pendingRecords": "{count, plural, one {# Datensatz wartet auf Synchronisation} other {# Datensätze warten auf Synchronisation}}",
       "connectionString": "Railway PostgreSQL Connection String",
       "syncFromButton": "Von Railway synchronisieren",
-      "syncToButton": "Zu Railway synchronisieren"
+      "syncToButton": "Zu Railway synchronisieren",
+      "centralInstance": "Zentrale Instanz",
+      "centralInstanceHint": "Diese Instanz läuft auf Railway und ist die zentrale Datenquelle. Die lokalen Stationen synchronisieren zu ihr – hier gibt es keine Gegenstelle, deren Verbindung angezeigt werden könnte.",
+      "notConfiguredHint": "Noch keine Railway-Verbindung eingetragen – siehe Synchronisations-Konfiguration unten."
     }
   },
   "checklist": {
