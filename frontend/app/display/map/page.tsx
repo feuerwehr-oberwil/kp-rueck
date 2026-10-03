@@ -198,7 +198,10 @@ function DisplayMapControls({
     || !options.showGroupRoutes || options.colorBy !== 'priority'
 
   return (
-    <div className="absolute top-4 right-4 z-30 flex flex-wrap items-center justify-end gap-2">
+    // No box of its own: the pills and «Ansicht» are items of MapView's top-right control row
+    // (`topRightControls`), next to its «ohne Koordinaten» chip. Positioned over the map on their
+    // own, they lay on top of that chip (owner, 03.10.).
+    <>
       {/* Status filters — pills, matching the normal map view */}
       <div className="inline-flex rounded-lg border border-border overflow-hidden shadow-md backdrop-blur-sm">
         {(['open', 'active', 'completed'] as StatusGroup[]).map((group, index) => (
@@ -291,7 +294,7 @@ function DisplayMapControls({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </>
   )
 }
 
@@ -398,16 +401,17 @@ function AuthenticatedDisplayMap({
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
         onGpsAvailabilityChange={onGpsAvailabilityChange}
-      />
-
-      <DisplayMapControls
-        options={options}
-        statusCounts={statusCounts}
-        onToggleStatusFilter={onToggleStatusFilter}
-        onToggleOption={onToggleOption}
-        onSetColorBy={onSetColorBy}
-        colorLegend={colorLegend}
-        gpsAvailable={gpsAvailable}
+        topRightControls={
+          <DisplayMapControls
+            options={options}
+            statusCounts={statusCounts}
+            onToggleStatusFilter={onToggleStatusFilter}
+            onToggleOption={onToggleOption}
+            onSetColorBy={onSetColorBy}
+            colorLegend={colorLegend}
+            gpsAvailable={gpsAvailable}
+          />
+        }
       />
 
       {/* The logged-in map, so the report endpoints answer. The modal still
@@ -554,16 +558,17 @@ function TokenDisplayMap({
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
         onGpsAvailabilityChange={onGpsAvailabilityChange}
-      />
-
-      <DisplayMapControls
-        options={options}
-        statusCounts={statusCounts}
-        onToggleStatusFilter={onToggleStatusFilter}
-        onToggleOption={onToggleOption}
-        onSetColorBy={onSetColorBy}
-        colorLegend={colorLegend}
-        gpsAvailable={gpsAvailable}
+        topRightControls={
+          <DisplayMapControls
+            options={options}
+            statusCounts={statusCounts}
+            onToggleStatusFilter={onToggleStatusFilter}
+            onToggleOption={onToggleOption}
+            onSetColorBy={onSetColorBy}
+            colorLegend={colorLegend}
+            gpsAvailable={gpsAvailable}
+          />
+        }
       />
 
       <IncidentDetailModal
