@@ -97,6 +97,7 @@ backend/.venv/
 # Playwright
 playwright-report/
 test-results/
+overflow-scan/
 *.html.report
 
 # Die Ein-Datei-Variante der Landingpage wird gebaut, nicht eingecheckt.

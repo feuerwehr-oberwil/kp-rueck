@@ -40,6 +40,18 @@ export default [
     },
   },
   {
+    // Node scripts. The overflow scanner also carries a function that runs IN the page
+    // (serialised by Playwright), hence the DOM names beside Node's.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        process: "readonly", console: "readonly", URL: "readonly",
+        window: "readonly", document: "readonly", getComputedStyle: "readonly", NodeFilter: "readonly", localStorage: "readonly",
+      },
+    },
+    rules: { "no-console": "off" },
+  },
+  {
     ignores: [
       ".next/**",
       "node_modules/**",
