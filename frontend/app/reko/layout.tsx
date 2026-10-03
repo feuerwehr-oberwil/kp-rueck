@@ -1,18 +1,6 @@
-import { LinkPageNoZoom } from '@/components/link-page/link-page'
-import { LINK_PAGE_VIEWPORT } from '@/lib/link-page-viewport'
-
 /**
- * A «Links & QR» page: laid out for the phone, so no pinch / double-tap / focus zoom — for this
- * route only, the board keeps its zoom. The frame is shared (components/link-page/link-page.tsx);
- * the root layout's theme-color is untouched (viewport fields merge).
+ * /reko — the Reko form opened from a link: a «Links & QR» page, so phone-laid-out and not zoomable (for this route
+ * only; the board keeps its zoom). Frame shared with the other link pages: components/link-page/.
  */
-export const viewport = LINK_PAGE_VIEWPORT
-
-export default function LinkPageLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <LinkPageNoZoom />
-      {children}
-    </>
-  )
-}
+export { LINK_PAGE_VIEWPORT as viewport } from '@/lib/link-page-viewport'
+export { default } from '@/components/link-page/link-page-layout'

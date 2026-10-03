@@ -15,8 +15,8 @@ describe('«Links & QR» pages: no zoom', () => {
     expect(LINK_PAGE_VIEWPORT).toMatchObject({ initialScale: 1, maximumScale: 1, userScalable: false })
     for (const route of ROUTES) {
       const layout = readFileSync(resolve(FRONTEND, `app/${route}/layout.tsx`), 'utf8')
-      expect(layout, route).toContain('export const viewport = LINK_PAGE_VIEWPORT')
-      expect(layout, route).toContain('<LinkPageNoZoom />')
+      expect(layout, route).toContain('export { LINK_PAGE_VIEWPORT as viewport }')
+      expect(layout, route).toContain("export { default } from '@/components/link-page/link-page-layout'")
     }
     expect(readFileSync(resolve(FRONTEND, 'app/layout.tsx'), 'utf8')).not.toContain('maximumScale')
   })
