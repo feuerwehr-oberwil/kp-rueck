@@ -52,6 +52,12 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
+# The build's commit for the version label (lib/build-info.ts). Optional: the release workflow
+# passes GIT_SHA, Railway provides RAILWAY_GIT_COMMIT_SHA to a declared ARG; without either
+# the label carries version + build date only.
+ARG GIT_SHA
+ARG RAILWAY_GIT_COMMIT_SHA
+
 RUN pnpm build
 
 # Runner stage

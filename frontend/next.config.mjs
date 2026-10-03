@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 import createNextIntlPlugin from 'next-intl/plugin'
@@ -10,11 +11,30 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
 // naming the wrong version is worse than one naming none.
 const appVersion = JSON.parse(readFileSync('./package.json', 'utf8')).version
 
+// Which build this is — for the version label (lib/build-info.ts) and the «Neue Version
+// verfügbar» check (/build-info). The commit is optional: a Docker build has no .git, so it
+// comes from a build arg (GIT_SHA from the release workflow, RAILWAY_GIT_COMMIT_SHA on
+// Railway) or stays empty. The build time is always there, which is what makes the id unique
+// per build even without a commit (KP Front learned that the hard way: `dev@dev` forever).
+function gitSha() {
+  const fromEnv = process.env.GIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.SOURCE_COMMIT
+  if (fromEnv) return fromEnv.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return ''
+  }
+}
+const gitShaShort = gitSha()
+const buildTime = new Date().toISOString()
+
 const nextConfig = {
   reactStrictMode: true,
 
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
+    NEXT_PUBLIC_GIT_SHA: gitShaShort,
+    NEXT_PUBLIC_BUILD_TIME: buildTime,
   },
   output: 'standalone',
 

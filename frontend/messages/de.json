@@ -139,6 +139,11 @@
       "days": "{count, plural, one {# Tag} other {# Tage}}",
       "hours": "{count, plural, one {# Stunde} other {# Stunden}}",
       "minutes": "{count, plural, one {# Minute} other {# Minuten}}"
+    },
+    "update": {
+      "available": "Neue Version verfügbar",
+      "hint": "Neu laden, sobald es passt – nichts geht verloren, was gespeichert ist.",
+      "reload": "Neu laden"
     }
   },
   "nav": {
@@ -187,7 +192,6 @@
       "lageblattA4": "Lageblatt (A4)",
       "commands": "Befehle & Tastaturkürzel",
       "help": "Hilfe",
-      "logout": "Abmelden",
       "openMenu": "Benutzermenü öffnen",
       "statusNotConfigured": "Nicht eingerichtet"
     },
@@ -214,7 +218,6 @@
       "management": "Verwaltung",
       "support": "Support",
       "account": "Konto",
-      "logout": "Abmelden",
       "linksAndQr": "Links & QR"
     },
     "pageNav": {
@@ -222,6 +225,15 @@
       "kanban": "Board",
       "map": "Lagekarte",
       "events": "Ereignisse"
+    },
+    "account": {
+      "signedInAs": "Angemeldet als {name}",
+      "logout": "Abmelden",
+      "logoutTitle": "Abmelden?",
+      "logoutDescription": "Dieses Gerät ist danach abgemeldet. Zum Weiterarbeiten meldet sich jemand wieder an.",
+      "cancel": "Abbrechen",
+      "version": "Version {label}",
+      "versionHint": "Stand dieser Installation: Version · Commit · Build-Datum"
     }
   },
   "kanban": {
@@ -2237,8 +2249,8 @@
       "demoBadge": "Demo-Modus",
       "loginFailed": "Anmeldung fehlgeschlagen. Bitte überprüfe Benutzername und Passwort.",
       "demoLoginFailed": "Demo-Anmeldung fehlgeschlagen.",
-      "loginAsEditor": "Als Editor einloggen",
-      "loginAsViewer": "Als Betrachter einloggen",
+      "loginAsEditor": "Anmelden als Bearbeiter",
+      "loginAsViewer": "Anmelden als Betrachter",
       "loginWithMicrosoft": "Mit Microsoft anmelden",
       "or": "oder",
       "usernameLabel": "Benutzername",
