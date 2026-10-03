@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import RekoForm from '@/components/reko/reko-form'
 import { Button } from '@/components/ui/button'
 import { FeldIdentityBar, readFeldName } from '@/components/feld/feld-identity-bar'
+import { LinkPageHeader } from '@/components/link-page/link-page'
 import { ArrowLeft } from 'lucide-react'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 
@@ -26,7 +27,7 @@ export default function RekoPage() {
   }
 
   const back = (
-    <Button variant="ghost" size="sm" onClick={handleBack} className="shrink-0 -ml-1">
+    <Button variant="ghost" size="sm" onClick={handleBack} className="min-h-11 shrink-0 -ml-1">
       <ArrowLeft className="size-3.5" />
       {t('back')}
     </Button>
@@ -39,14 +40,17 @@ export default function RekoPage() {
           as the crew could tell. The same bar rides along when the device knows
           who it is; a Reko opened from the board's own link still gets the bare
           back button, because there nobody has named themselves. */}
+      {/* Opened from the board's own link (nobody named on this device): the shared
+          link-page header with the back button, not a bare button over the form. */}
       {name ? (
         <FeldIdentityBar name={name} subtitle={t('title')}>
           {back}
         </FeldIdentityBar>
-      ) : null}
+      ) : (
+        <LinkPageHeader leading={back} title={t('title')} />
+      )}
 
       <div className="max-w-md mx-auto px-4 pt-4">
-        {!name && <div className="mb-4 -ml-3">{back}</div>}
 
         <Suspense fallback={<RekoFormSkeleton />}>
           <RekoFormContent />
