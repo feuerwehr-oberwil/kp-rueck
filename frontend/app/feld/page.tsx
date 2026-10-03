@@ -35,6 +35,7 @@ import {
 } from '@/lib/api-client'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
+import { LinkPageHeader } from '@/components/link-page/link-page'
 import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
@@ -44,6 +45,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SearchInput } from '@/components/ui/search-input'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
+import { useBootGate } from '@/lib/boot-cover'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
   assignmentRapportApplies,
@@ -325,6 +327,10 @@ function FeldSurface() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
+  // A launch onto /feld stays behind the snail until the door has decided (code screen,
+  // picker or the list) and the crew's Aufträge are in — then the page appears complete.
+  const tLoading = useTranslations('common')
+  useBootGate('feld', !loading && !loadingAssignments, tLoading('loading'))
   const [error, setError] = useState<string | null>(null)
   /** Whether the error screen offers a way back. A missing token has none —
    *  there is no page behind it — but a failed claim does: the picker is still
@@ -676,10 +682,39 @@ function FeldSurface() {
       setDeviceToken(storedToken)
       setViewMode('assignments')
       loadAssignments(storedPerson, { token: storedToken })
-    } else {
-      setViewMode('code')
+      setLoading(false)
+      return
     }
-    setLoading(false)
+    // Logged in to Rück on this phone? Then the session counts instead of the four digits
+    // (server-side, /unlock without a code) and the door goes straight to the picker. Anything
+    // else — no session, an expired one, no network — lands on the code screen as before,
+    // without that attempt counting. `loading` stays up meanwhile, so the code screen does
+    // not flash for somebody who never needed it.
+    let alive = true
+    apiClient
+      .unlockFeldWithSession(linkToken)
+      .then((data) => {
+        if (!alive) return
+        if (data) {
+          setDeviceToken(data.token)
+          setPersonnel(data.personnel)
+          setEventName(data.event_name)
+          setViewMode('list')
+        } else {
+          setViewMode('code')
+        }
+      })
+      .catch((err) => {
+        if (!alive) return
+        setCodeError(err instanceof FeldUnlockError ? err.failure : null)
+        setViewMode('code')
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
     // Mount only: re-running this on every `loadAssignments` identity change
     // would drag a crew back out of whatever they had navigated to.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1292,19 +1327,18 @@ function FeldSurface() {
   // ---------------------------------------------------------------- list
   if (viewMode === 'list') {
     return (
-      <div className="min-h-screen bg-background p-4 pb-20">
+      <div className="min-h-screen bg-background pb-20">
         {/* The Ereignis is the heading. "Schadenplatz-Rapport" was the name of a
             FORM, printed over the screen where somebody looks for themselves in
             a list — and half the people reading it (Fahrer, Magazin, Telefon)
             never file one. What they want confirmed after scanning a poster is
             which Ereignis they just walked into. `t('title')` survives as the
-            fallback for the case that has no name yet. */}
-        <div className="max-w-md mx-auto mb-6">
-          <h1 className="text-2xl font-semibold text-center mb-1">{eventName || t('title')}</h1>
-          <p className="text-sm text-muted-foreground text-center mt-3">{t('picker.description')}</p>
-        </div>
+            fallback for the case that has no name yet. In the shared link-page
+            header, the same bar the list and the detail carry with the person. */}
+        <LinkPageHeader title={eventName || t('title')} />
 
-        <div className="max-w-md mx-auto">
+        <div className="max-w-md mx-auto px-4 pt-4">
+          <p className="mb-4 text-sm text-muted-foreground">{t('picker.description')}</p>
           <SearchInput
             value={searchTerm}
             onValueChange={setSearchTerm}
@@ -1372,7 +1406,7 @@ function FeldSurface() {
             Rapport, on a phone that gets handed around a vehicle, must be able
             to answer "whose page is this" without going back for it. */}
         <FeldIdentityBar name={selectedPerson?.name ?? ''} subtitle={selectedAssignment.incident_title}>
-          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="shrink-0 -ml-1">
+          <Button variant="ghost" size="sm" onClick={leaveAssignment} className="min-h-11 shrink-0 -ml-1">
             <ArrowLeft className="size-3.5" />
             {tCommon('back')}
           </Button>

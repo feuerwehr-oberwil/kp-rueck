@@ -38,10 +38,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useBootGate } from "@/lib/boot-cover"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
+import { MobileIncidentDetailSheet } from "@/components/mobile/mobile-incident-detail-sheet"
+import { incidentDetailTarget } from "@/lib/incident-detail"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
@@ -50,7 +53,6 @@ import {
   IncidentStatusWorkflowDialogs,
   useIncidentStatusWorkflow,
 } from "@/components/kanban/incident-status-workflow"
-import type { Incident } from "@/lib/types/incidents"
 import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -114,9 +116,15 @@ export default function MapPage() {
     assignRekoPersonToOperation,
     removeReko,
     requestResourceConflict,
-    deleteOperation
+    deleteOperation,
+    isLoaded: operationsLoaded,
   } = useOperations()
   const { selectedEvent, isEventLoaded } = useEvent()
+  // A launch onto the Lagekarte stays behind the snail until the incidents are in AND the map
+  // has drawn its first frame (`idle`: style, tiles and markers) — not an empty grey box.
+  const [mapIdle, setMapIdle] = useState(false)
+  const tBoot = useTranslations('map.page')
+  useBootGate('map', operationsLoaded && mapIdle, tBoot('loading'))
   // vehicle name → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
   const { isAuthenticated, isEditor } = useAuth()
@@ -378,16 +386,30 @@ export default function MapPage() {
   }, [selectedIncidentId])
 
   /**
-   * «Details anzeigen» hands the incident back to the board.
+   * «Open this Einsatz» — the ONE function behind every entry point on the map: list row
+   * (double-click / double-tap), its «Details anzeigen» icon, the E/Enter shortcut and a marker
+   * double-click. Where it goes is `incidentDetailTarget` (lib/incident-detail.ts):
    *
-   * The detail belongs where the work is: next to the columns, in the panel or
-   * the modal the board already owns. Opening a second copy of it on top of the
-   * map meant two surfaces mounting the same forms — and the operator ending up
-   * on the map with a rapport open and no board behind it.
+   * - desktop: back to the board, into its detail side panel — the detail belongs next to the
+   *   columns, and a second copy over the map meant two surfaces mounting the same forms;
+   * - phone: the standard phone Einsatz sheet, right here over the Lagekarte. The board link
+   *   landed a phone on the board's narrow fallback (the desktop modal in a centred box) and off
+   *   the map (owner, 03.10.).
+   *
+   * The incident stays selected: a double-click is two clicks first, and the second one would
+   * otherwise have toggled the selection off again.
    */
-  const handleDetailsClick = useCallback((incident: Incident) => {
-    router.push(`/?highlight=${incident.id}&detail=1`)
-  }, [router])
+  const [phoneDetailId, setPhoneDetailId] = useState<string | null>(null)
+  const phoneDetailOperation = useMemo(
+    () => (phoneDetailId ? operations.find((op) => op.id === phoneDetailId) ?? null : null),
+    [phoneDetailId, operations],
+  )
+  const openIncidentDetail = useCallback((incidentId: string) => {
+    setSelectedIncidentId(incidentId)
+    const target = incidentDetailTarget(incidentId, { phone: isMobile })
+    if (target.kind === 'phone-sheet') setPhoneDetailId(target.incidentId)
+    else router.push(target.href)
+  }, [router, isMobile])
 
   // Zoom in on a vehicle by its 1-5 shortcut number
   const focusVehicleByNumber = (vehicleNumber: number) => {
@@ -446,7 +468,16 @@ export default function MapPage() {
   // rebuilt on every render, so depending on it re-registered the handler every
   // render — and registering is a setState in the notification context, which
   // renders again. That loop froze the whole Karte page, back button included.
-  const { registerFieldActionHandler } = useNotifications()
+  const { registerFieldActionHandler, registerNavigateHandler } = useNotifications()
+  // A notification tapped on the phone Lagekarte (toast, bell) opens the same phone Einsatz sheet
+  // as a double-tap, right here. Without a handler the context falls back to the board link,
+  // which took the phone off the map into the board's sheet. Desktop registers nothing: there the
+  // fallback is the board's side panel on the notification's tab, unchanged.
+  useEffect(() => {
+    if (!isMobile) return
+    registerNavigateHandler((incidentId) => openIncidentDetail(incidentId))
+    return () => registerNavigateHandler(null)
+  }, [isMobile, registerNavigateHandler, openIncidentDetail])
   // Same move as the board's handler and as the card's own nudge — see the note
   // on `registerFieldActionHandler` in app/page.tsx for why «beendet» stops at
   // Beendet / Rückfahrt instead of running the completion flow.
@@ -876,7 +907,7 @@ export default function MapPage() {
         e.preventDefault()
         const incident = incidents.find(inc => inc.id === selectedIncidentId)
         if (incident) {
-          handleDetailsClick(incident)
+          openIncidentDetail(incident.id)
         }
       }
       // 'r' or 'F5' key to refresh data
@@ -923,7 +954,7 @@ export default function MapPage() {
     window.addEventListener('keydown', handleKeyPress)
     // (the prefix timer is the hook's to clear)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, handleDetailsClick, vehicleTypes, gpsAvailable, setColorByPersisted])
+  }, [gPrefix, selectedIncidentId, incidents, refreshIncidents, router, openIncidentDetail, vehicleTypes, gpsAvailable, setColorByPersisted])
 
   return (
     <ProtectedRoute>
@@ -936,7 +967,7 @@ export default function MapPage() {
             mobile too. */}
         {selectedEvent?.training_flag && <TrainingBand />}
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
-        <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
+        <header className="hidden md:flex items-center justify-between border-b border-border bg-header px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             {/* The word next to the page title, in the same warning colour the
@@ -966,8 +997,12 @@ export default function MapPage() {
           {/* Map - full height on desktop, ~45vh on mobile so the incident list gets real room */}
           <main className={`p-4 ${isMobile ? 'h-[45vh] flex-shrink-0' : 'flex-1'}`}>
             <MapView
+              onFirstIdle={() => setMapIdle(true)}
               selectedIncidentId={selectedIncidentId}
               onMarkerClick={handleIncidentClick}
+              // Not in the tap-modes: there a marker tap edits the route / the Reko, and a
+              // double tap must not open a sheet on top of that.
+              onMarkerDoubleClick={planningActive || rekoModeActive ? undefined : openIncidentDetail}
               resetZoomTrigger={resetZoomTrigger}
               statusFilters={statusFilters}
               filterExceptionId={deepLinkExceptionId}
@@ -1256,7 +1291,7 @@ export default function MapPage() {
                                 <div
                                   id={`map-incident-card-${incident.id}`}
                                   onClick={() => handleIncidentClick(incident.id)}
-                                  onDoubleClick={() => handleDetailsClick(incident)}
+                                  onDoubleClick={() => openIncidentDetail(incident.id)}
                                   // ONE selected state (A2): the slate wash, nothing else. It
                                   // was a grey wash plus a 2px slate bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
@@ -1282,7 +1317,7 @@ export default function MapPage() {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          handleDetailsClick(incident)
+                                          openIncidentDetail(incident.id)
                                         }}
                                         className="hidden flex-shrink-0 rounded p-1 hover:bg-background/80 group-hover:block"
                                         aria-label={t('page.showDetails')}
@@ -1332,7 +1367,22 @@ export default function MapPage() {
           </aside>
         </div>
 
-        {/* Operation Detail Modal */}
+        {/* The phone's Einsatz detail (see openIncidentDetail) — the same sheet the board's phone
+            list opens. */}
+        {isMobile && (
+          <MobileIncidentDetailSheet
+            operation={phoneDetailOperation}
+            open={!!phoneDetailOperation}
+            onOpenChange={(open) => { if (!open) setPhoneDetailId(null) }}
+            materials={materials}
+            formatLocation={formatLocation}
+            onUpdateOperation={isEditor ? updateOperation : undefined}
+            isEditor={isEditor}
+          />
+        )}
+
+        {/* Operation Detail Modal — only for the status workflow's «… öffnen» (it needs a tab and
+            a section, and the half-done Abschluss lives on this page). */}
         <OperationDetailModal
           operation={selectedOperation}
           open={detailModalOpen}

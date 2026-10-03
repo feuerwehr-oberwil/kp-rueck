@@ -20,6 +20,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BootScreen } from '@/components/boot-screen';
 import { handOverSnailClock } from '@/lib/snail-clock';
+import { useBootGate, useLaunchCoverUp } from '@/lib/boot-cover';
 import { Flame } from 'lucide-react';
 
 export default function MicrosoftCallbackPage() {
@@ -70,7 +71,10 @@ export default function MicrosoftCallbackPage() {
   // While the code is being redeemed this is the same start screen as every other one
   // (snail, «KP RÜCK», the phase). «Neu starten» goes back to the login rather than
   // reloading: the single-use code is already gone from the URL, a reload could only fail.
-  if (!error) return <BootScreen phase={t('processing')} restartHref="/login" />;
+  // On a launch the cover already shows exactly this; it lifts only for the error below.
+  useBootGate('callback', !!error, t('processing'));
+  const coverUp = useLaunchCoverUp();
+  if (!error) return coverUp ? null : <BootScreen phase={t('processing')} restartHref="/login" />;
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-background p-4">

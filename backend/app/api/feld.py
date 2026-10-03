@@ -53,7 +53,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentEditor
+from ..auth.dependencies import CurrentEditor, OptionalUser
 from ..auth.login_throttle import LoginThrottle
 from ..config import settings
 from ..crud import events as events_crud
@@ -327,9 +327,17 @@ async def unlock_feld(
     request: Request,
     payload: schemas.FeldUnlockRequest,
     claims: FeldClaims,
+    user: OptionalUser,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.FeldUnlockResponse:
     """Step 2 of the door: trade the link token for an unlocked one.
+
+    **A Rück login counts instead of the code** (owner, 03.10.): a body without ``code`` is let
+    in on the caller's session — any active account, viewer included, because the code itself
+    grants nothing a viewer would not get: the same picker grant, for the same Ereignis (the
+    link token's), through the same claim step. No session (anonymous, expired, logged out) →
+    403 ``code_required``, which is not a failed attempt: the phone then shows the code screen
+    as before. A body WITH a code always takes the code path, session or not.
 
     The exchange is server-side on purpose (decision 13). A screen that merely
     asked for the code before rendering would be bypassed by anyone who kept the
@@ -365,6 +373,15 @@ async def unlock_feld(
             },
             headers={"Retry-After": str(wait)},
         )
+
+    if payload.code is None:
+        if user is None:
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "code_required", "message": "Bitte den Feld-Code eingeben"},
+            )
+        logger.info("Feld door for event %s opened on the session of %s (no code)", event.id, user.username)
+        return await _unlocked_response(db, event, claims)
 
     wait = await feld_code_throttle.retry_after(ip, scope)
     if wait:
@@ -403,6 +420,11 @@ async def unlock_feld(
     # A correct code clears the counter: the crew that just fumbled it twice
     # must not be carrying that against the next phone on the same Wi-Fi.
     await feld_code_throttle.record_success(ip, scope)
+    return await _unlocked_response(db, event, claims)
+
+
+async def _unlocked_response(db: AsyncSession, event: Event, claims: FeldTokenClaims) -> schemas.FeldUnlockResponse:
+    """The picker grant both doors of ``/unlock`` end in — code or session, the same thing."""
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
     unlock = await crud.create_unlock(db, event.id)
     return schemas.FeldUnlockResponse(

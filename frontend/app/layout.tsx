@@ -1,8 +1,9 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
 import { cookies } from 'next/headers'
+import { BootCover } from '@/components/boot-cover'
 import { SNAIL_STANDING_COOKIE } from '@/lib/snail-clock'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -49,17 +50,15 @@ const splineSansMono = localFont({
 })
 
 /**
- * The system bars take the page's own background per scheme (lib/theme-color.ts): on the iOS
- * home-screen app that is the status-bar strip above the first row — solid, instead of iOS's
- * frosted fallback for a page that declares no colour. `ThemeColorSync` corrects it when the user
- * picked a scheme other than the phone's.
+ * The status-bar strip of the home-screen app — KP Front's recipe, which does not show the
+ * blurred strip (its index.html): ONE `theme-color` meta, no media queries, set to the scheme the
+ * app shows by an inline script BEFORE first paint (`THEME_COLOR_BOOT`) and kept in step by
+ * `ThemeColorSync` when the scheme changes. A media-query pair follows the PHONE's scheme, not
+ * the app's, and is only corrected after hydration — the first frames of every cold start had
+ * the wrong bar. Rendered by hand in <head> rather than via `viewport.themeColor`, so Next's head
+ * management never puts the server value back after a navigation.
  */
-export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: THEME_COLOR.light },
-    { media: '(prefers-color-scheme: dark)', color: THEME_COLOR.dark },
-  ],
-}
+const THEME_COLOR_BOOT = `try{var t=localStorage.getItem('theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLOR.dark}':'${THEME_COLOR.light}')}catch(e){}`
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('common.meta')
@@ -73,10 +72,15 @@ export async function generateMetadata(): Promise<Metadata> {
       shortcut: '/icon.svg',
       apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     },
-    // The home-screen label; the page title («KP Rück Dashboard») would be cut off.
-    // `default`, said out loud: the web view starts below the status bar and the bar takes the
-    // theme-color above. `black-translucent` (content under the bar) is ignored since iOS 26.1.
-    appleWebApp: { title: 'KP Rück', statusBarStyle: 'default' },
+    // The installed-app tags exactly as KP Front ships them: capable + the home-screen label
+    // (the page title «KP Rück Dashboard» would be cut off), and NO status-bar-style — Next's
+    // `appleWebApp` always writes one (`default`), Front deliberately writes none (its
+    // black-translucent attempt was ignored by iOS 26.1, and the bar takes the theme-color).
+    other: {
+      'apple-mobile-web-app-capable': 'yes',
+      'mobile-web-app-capable': 'yes',
+      'apple-mobile-web-app-title': 'KP Rück',
+    },
   }
 }
 
@@ -94,6 +98,12 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning data-snail={snailStanding ? 'standing' : undefined}>
+      <head>
+        {/* `suppressHydrationWarning`: the boot script below rewrites `content` before React
+            hydrates — that difference is the point. */}
+        <meta name="theme-color" content={THEME_COLOR.dark} suppressHydrationWarning />
+        <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_BOOT }} />
+      </head>
       <body className={`${sora.variable} ${splineSansMono.variable} font-sans antialiased`}>
         {/* Where the browser may open its WebSocket. Read here because API_URL is a RUNTIME
             variable — the same one the /backend-api proxy route uses — and this layout renders
@@ -119,6 +129,8 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <ThemeColorSync />
+          {/* A launch opens behind the snail: over everything until the workspace is usable. */}
+          <BootCover />
           <AuthProvider>
             <EventProvider>
               <PersonnelProvider>

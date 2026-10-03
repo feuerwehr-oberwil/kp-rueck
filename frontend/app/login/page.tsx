@@ -28,6 +28,7 @@ import {
   type SupportedLocale,
 } from '@/lib/i18n-messages';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
+import { launchCover, useBootGate } from '@/lib/boot-cover';
 
 export default function LoginPage() {
   const t = useTranslations('login.page');
@@ -43,6 +44,9 @@ export default function LoginPage() {
   const [isDemo, setIsDemo] = useState<boolean | null>(null);
   const [msConfig, setMsConfig] = useState<MicrosoftAuthConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
+  // On a launch onto /login the boot cover stays up until the sign-in options are known, so
+  // the form appears complete instead of behind a loader of its own.
+  useBootGate('login', !configLoading);
   // The locale lives in a cookie the server never sees on this route, so the
   // switcher can only be rendered after mount – otherwise the server marks DE
   // active and the client disagrees.
@@ -82,6 +86,8 @@ export default function LoginPage() {
 
     try {
       const loggedInUser = await login(username, password);
+      // Signed in: what follows is a launch — the snail covers until the workspace is usable.
+      launchCover.arm(window.location.pathname);
       // Viewer-role accounts get the read-only display board (kiosk/shared PCs)
       router.push(loggedInUser.role === 'viewer' ? '/display/board' : '/');
     } catch (err) {
@@ -98,6 +104,7 @@ export default function LoginPage() {
 
     try {
       await login(demoUsername, 'demo123');
+      launchCover.arm(window.location.pathname);
 
       // Every demo visitor — editor and viewer — gets their own sandbox event
       // so simultaneous visitors don't share a board and nobody lands on a

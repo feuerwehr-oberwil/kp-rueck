@@ -1,5 +1,6 @@
 'use client'
 
+import { LinkPageHeader } from '@/components/link-page/link-page'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -159,17 +160,11 @@ export default function CheckInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 pt-6 pb-24">
-      {/* Header */}
-      <div className="max-w-2xl mx-auto mb-6">
-        <h1 className="text-2xl font-bold mb-2">
-          {t('title')}
-        </h1>
-        {eventName && (
-          <p className="text-lg text-muted-foreground mb-3">
-            {t('eventLabel')} <span className="font-semibold text-foreground">{eventName}</span>
-          </p>
-        )}
+    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom,0px)+6rem)]">
+      {/* The shared link-page header (the same bar as /feld and /reko), the Ereignis as its
+          context line; the counts stay with the list they count. */}
+      <LinkPageHeader title={t('title')} subtitle={eventName || undefined} />
+      <div className="max-w-md mx-auto px-4 pt-4 mb-4">
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>{t('statsTotal', { count: stats.total })}</span>
           <span className="text-blue-500 font-semibold">
@@ -180,7 +175,7 @@ export default function CheckInPage() {
       </div>
 
       {/* Search and Add Button */}
-      <div className="max-w-2xl mx-auto mb-4 space-y-3">
+      <div className="max-w-md mx-auto px-4 mb-4 space-y-3">
         <SearchInput
           size="lg"
           placeholder={t('searchPlaceholder')}
@@ -215,7 +210,7 @@ export default function CheckInPage() {
       </div>
 
       {/* Personnel List */}
-      <div className="max-w-2xl mx-auto space-y-2">
+      <div className="max-w-md mx-auto px-4 space-y-2">
         {loading ? (
           <div className="flex justify-center py-8">
             <LoadingStatus>{t('loading')}</LoadingStatus>
