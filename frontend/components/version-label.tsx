@@ -9,8 +9,13 @@ export function VersionLabel({ className }: { className?: string }) {
   const t = useTranslations('nav.account');
   const label = buildLabel();
   return (
-    <p className={cn('select-text text-xs tabular-nums text-muted-foreground', className)} title={t('versionHint')}>
-      {t('version', { label })}
+    // The bare label («v0.7.0 · …») fits the menu on one line; the word is in the name.
+    <p
+      className={cn('select-text truncate text-xs tabular-nums text-muted-foreground', className)}
+      title={t('versionHint')}
+      aria-label={t('version', { label })}
+    >
+      {label}
     </p>
   );
 }

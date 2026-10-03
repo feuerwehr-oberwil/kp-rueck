@@ -142,7 +142,7 @@
     },
     "update": {
       "available": "Neue Version verfügbar",
-      "hint": "Neu laden, sobald es passt – nichts geht verloren, was gespeichert ist.",
+      "hint": "Neu laden, sobald es passt.",
       "reload": "Neu laden"
     }
   },
