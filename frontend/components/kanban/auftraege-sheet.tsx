@@ -74,7 +74,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
@@ -168,7 +168,8 @@ export function AuftraegeSheet({
   const { selectedEvent } = useEvent()
   // Who drives which Fahrzeug — one roster call for the whole sheet, only while
   // it is open, kept live by the hook's WebSocket + same-tab listeners.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  // `loaded` gates the «Kein Fahrer» notes: an unloaded map is not «nobody».
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, open)
 
   // The route owns the people, so this is where a route's Einsatzleiter is set.
   // The backend demotes the previous holder in the same transaction — one call,
@@ -438,6 +439,7 @@ export function AuftraegeSheet({
                 operations={operations}
                 resources={getGroupResources(group.id)}
                 vehicleDrivers={vehicleDrivers}
+                vehicleDriversLoaded={vehicleDriversLoaded}
                 expanded={expanded.has(group.id)}
                 onToggle={() => toggleExpanded(group.id)}
                 isRenaming={renamingId === group.id}
@@ -508,6 +510,8 @@ interface AuftragCardProps {
   resources: GroupResources
   /** vehicle name → driver name, for the Fahrzeuge chips. */
   vehicleDrivers: ReadonlyMap<string, string>
+  /** False until the driver map has answered — no «Kein Fahrer» before that. */
+  vehicleDriversLoaded?: boolean
   expanded: boolean
   onToggle: () => void
   isRenaming: boolean
@@ -536,6 +540,7 @@ function AuftragCard({
   operations,
   resources,
   vehicleDrivers,
+  vehicleDriversLoaded = true,
   expanded,
   onToggle,
   isRenaming,
@@ -569,6 +574,8 @@ function AuftragCard({
   // Shared routing hook — powers the in-row "Reihenfolge optimieren" action so the
   // sheet can optimize without opening the Routen-Editor modal (applies at once).
   const planning = useRoutePlanning(group.id)
+  // «Fahrer wählen» on a driverless route vehicle opens the board's driver prompt.
+  const { requestVehicleDriver } = useOperations()
 
   // The shared optimise action: start anchors with provenance, the save, the
   // toast naming the start used, and the server-guarded undo.
@@ -852,6 +859,8 @@ function AuftragCard({
             onAssign={onAssignRouteResource}
             onUnassign={onUnassignResource}
             onPromoteLeader={onPromoteLeader}
+            onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
+            driversKnown={vehicleDriversLoaded}
             readOnly={!canEdit}
           />
 

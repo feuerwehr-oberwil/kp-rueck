@@ -58,7 +58,10 @@ vi.mock("@/lib/contexts/personnel-context", () => ({ usePersonnel: () => ({ pers
 vi.mock("@/lib/contexts/materials-context", () => ({ useMaterials: () => ({ materials: [] }) }))
 // Readiness («Nicht einsatzbereit») comes from the operations context — the
 // assign guard reads this set. Mutable so a test can flag a vehicle.
-const operationsState = vi.hoisted(() => ({ outOfServiceVehicleIds: new Set<string>() }))
+const operationsState = vi.hoisted(() => ({
+  outOfServiceVehicleIds: new Set<string>(),
+  requestVehicleDriver: vi.fn(),
+}))
 vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => operationsState }))
 
 // Controllable WebSocket stub mirroring the shape operations-context uses:
@@ -107,6 +110,7 @@ const removeStopFromGroup = vi.fn()
 const getAllPersonnel = vi.fn()
 const assignGroupResource = vi.fn()
 const unassignGroupResource = vi.fn()
+const getEventSpecialFunctions = vi.fn()
 
 vi.mock("@/lib/api-client", async () => ({
   ApiError: (await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")).ApiError,
@@ -124,6 +128,7 @@ vi.mock("@/lib/api-client", async () => ({
     removeStopFromGroup: (...a: unknown[]) => removeStopFromGroup(...a),
     assignGroupResource: (...a: unknown[]) => assignGroupResource(...a),
     unassignGroupResource: (...a: unknown[]) => unassignGroupResource(...a),
+    getEventSpecialFunctions: (...a: unknown[]) => getEventSpecialFunctions(...a),
   },
 }))
 
@@ -143,6 +148,8 @@ const wrapper = ({ children }: { children: React.ReactNode }) => <GroupsProvider
 beforeEach(() => {
   eventState.selectedEvent = { id: EVENT_ID }
   operationsState.outOfServiceVehicleIds = new Set()
+  operationsState.requestVehicleDriver.mockReset()
+  getEventSpecialFunctions.mockReset().mockResolvedValue([])
   ws.reset()
   getIncidentGroups.mockReset().mockResolvedValue([])
   getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
@@ -352,6 +359,41 @@ describe("GroupsProvider — assign / unassign route resources", () => {
     expect(assignGroupResource).toHaveBeenCalledWith(GROUP_ID, { resource_type: "vehicle", resource_id: "v1" })
     await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
     expect(result.current.groups[0].assignments[0].resourceId).toBe("v1")
+  })
+
+  it("opens the driver prompt for a route vehicle nobody drives (same rule as an Einsatz)", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
+    getVehicles.mockResolvedValue([{ id: "v1", name: "TLF" }])
+    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+    getIncidentGroups.mockResolvedValue([
+      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" })] }),
+    ])
+
+    await act(async () => {
+      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
+    })
+
+    await waitFor(() =>
+      expect(operationsState.requestVehicleDriver).toHaveBeenCalledWith({ vehicleId: "v1", vehicleName: "TLF", groupId: GROUP_ID }),
+    )
+    expect(getEventSpecialFunctions).toHaveBeenCalledWith(EVENT_ID)
+  })
+
+  it("does not prompt when the vehicle already has a driver", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
+    getEventSpecialFunctions.mockResolvedValue([{ function_type: "driver", vehicle_id: "v1" }])
+    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
+    })
+
+    await waitFor(() => expect(getEventSpecialFunctions).toHaveBeenCalled())
+    expect(operationsState.requestVehicleDriver).not.toHaveBeenCalled()
   })
 
   it("refuses an out-of-service vehicle before it reaches the route", async () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Copy, Check, Printer, X, Radio, Route, Siren } from "lucide-react"
+import { AlertTriangle, Copy, Check, Printer, X, Radio, Route, Siren } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import { apiClient } from "@/lib/api-client"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { auftragRadio, routeDeployment, stopAddress } from "@/lib/auftrag-radio"
 import { deploymentSegments, incidentAnnouncement, stopSpecial } from "@/lib/radio-announcement"
 import { findAuftragForStop } from "@/lib/kanban-utils"
@@ -60,11 +60,11 @@ export function DisponierTransitionDialog({
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
   const { groups, getGroupResources, recordAnnouncement } = useGroups()
-  const { operations, changeStatusToTop } = useOperations()
+  const { operations, changeStatusToTop, requestVehicleDriver, vehicles: fleet } = useOperations()
   const { selectedEvent } = useEvent()
   // Driver names weren't reaching the message before (the prop was never passed),
   // so the WhatsApp "Fahrer:" line was always blank — load them here.
-  const liveVehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  const { drivers: liveVehicleDrivers, loaded: liveDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, open)
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   // The full-vs-short decision is frozen when the dialog opens, because opening
@@ -166,7 +166,8 @@ export function DisponierTransitionDialog({
     const message = formatWhatsAppMessage({
       operation,
       materials,
-      vehicleDrivers: effectiveVehicleDrivers,
+      // Only a loaded map may say «ohne Fahrer»; before that nothing is known.
+      vehicleDrivers: driversKnown ? effectiveVehicleDrivers : undefined,
       groupResources: groupRes,
       auftrag: auftragCtx,
       template: whatsappIncident,
@@ -193,6 +194,16 @@ export function DisponierTransitionDialog({
   // grouped stop, so the union is what's really assigned).
   const deployment = routeDeployment(operation, groupRes ?? NO_ROUTE_RESOURCES, materials)
   const hasResources = deploymentSegments(t, deployment).length > 0
+
+  // Vehicles going out with nobody driving them — the Einsatz's own and the
+  // Auftrag's alike. Said here, where the dispatch is passed on (radio,
+  // WhatsApp, slip), with the fix one tap away; never a block.
+  const driversKnown = vehicleDrivers !== undefined || liveDriversLoaded
+  const driverlessVehicles = driversKnown && !deployment.zuFuss
+    ? deployment.vehicles
+        .filter((vehicle) => !effectiveVehicleDrivers.get(vehicle.name))
+        .map((vehicle) => ({ name: vehicle.name, id: fleet.find((v) => v.name === vehicle.name)?.id }))
+    : []
 
   // Home-town-free address for the dialog text and Funkdurchsage quote.
   const location = stopAddress(operation, addressPlaceholder)
@@ -241,6 +252,29 @@ export function DisponierTransitionDialog({
               </p>
             )}
           </div>
+
+          {driverlessVehicles.length > 0 && (
+            <div className="space-y-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+              {driverlessVehicles.map((vehicle) => (
+                <div key={vehicle.name} className="flex items-center justify-between gap-2">
+                  <p className="flex min-w-0 items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="truncate">{t("driverNote.missingNamed", { vehicle: vehicle.name })}</span>
+                  </p>
+                  {vehicle.id && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => requestVehicleDriver({ vehicleId: String(vehicle.id), vehicleName: vehicle.name })}
+                    >
+                      {t("driverNote.pick")}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* The rest of the route, offered once — see `offerBatch`. Above the
               copy/print row because it is a decision about the Einsatz, not a

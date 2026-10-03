@@ -44,6 +44,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { FooterSheet } from '@/components/ui/footer-sheet'
+import { SheetBody, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { apiClient, type ApiFeldIncidentCreated, type ApiFeldOwnReport } from '@/lib/api-client'
 import { reverseGeocode } from '@/lib/geocoding'
@@ -57,6 +59,20 @@ import { ShellLoader } from '@/components/ui/shell-loader'
  *  is what stopped the location field (its own component) looking like a
  *  different form bolted into the middle of this one. */
 const LABEL = 'text-sm font-semibold text-muted-foreground'
+
+/** The two fields «Weiter» can be refused on — the ids it focuses. */
+const LOCATION_FIELD_ID = 'location_address'
+const MESSAGE_FIELD_ID = 'feld-melden-title'
+
+/**
+ * The sheet's shape on a phone: head, a body that scrolls, a footer with the one action that
+ * is always on screen — and, with the keyboard up, the whole visible band (ui/sheet.tsx +
+ * globals.css). It was one tall column: 847px on a 659px screen, title cut off at the top and
+ * «Weiter» below the bottom edge. `max-w-md mx-auto` keeps it a column on a wide screen.
+ */
+const SHEET_CLASS = 'mx-auto max-w-md modal-h-tall gap-0 rounded-t-2xl p-0'
+const HEAD_CLASS = 'px-4 pt-5 pb-2 pr-12'
+const FOOT_CLASS = 'mt-0 gap-2 border-t px-4 pt-3 pb-sheet-safe'
 
 /**
  * The four a storm night is actually made of, in the order they come up.
@@ -148,6 +164,9 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
    *  incomplete form — the step button carries the same rule the send button
    *  used to. */
   const [step, setStep] = useState<'form' | 'review'>('form')
+  /** «Weiter» was pressed with something missing: from then on the reasons stand under their
+   *  fields. Not before — a red field before anybody typed is a complaint about nothing. */
+  const [tried, setTried] = useState(false)
 
   // The phone desk never gets the switch either: they are sitting at a phone,
   // not standing in front of the thing.
@@ -166,6 +185,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
     setContact('')
     setContactPhone('')
     setStep('form')
+    setTried(false)
   }
 
   /** Closing the sheet always comes back to the form. The typed text survives —
@@ -209,20 +229,21 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
   const messageMissing = Boolean(isPhoneDesk) && !title.trim()
   const incomplete = locationMissing || messageMissing
   /**
-   * Why «Weiter» is grey, in one line under the button.
-   *
-   * Under the button and not as a toast: the reason belongs to the button and
-   * has to disappear with the reason, not after five seconds. And it names the
-   * CONSEQUENCE — the KP cannot send anybody — rather than the rule, because
-   * "Pflichtfeld" is the vocabulary of the form, not of the person standing in
-   * front of a fallen tree. The button stays disabled: a button that accepts
-   * the tap and then complains is a second failed attempt in the rain.
+   * «Weiter» is never greyed out (the #120 rule). A press with something missing says why
+   * UNDER the field it is about and puts the cursor there: a grey button with a red sentence
+   * under it named the reason a whole form away from the field that fixes it. The sentence
+   * still names the CONSEQUENCE — the KP cannot send anybody — not the rule.
    */
-  const blockedReason = locationMissing
-    ? t('needLocation')
-    : messageMissing
-      ? t('needMessage')
-      : null
+  const showLocationError = tried && locationMissing
+  const showMessageError = tried && messageMissing
+  const next = () => {
+    if (incomplete) {
+      setTried(true)
+      focusFirstBlockingField([locationMissing && LOCATION_FIELD_ID, messageMissing && MESSAGE_FIELD_ID])
+      return
+    }
+    setStep('review')
+  }
 
   /** The reporter is standing there, so their own position is the best address
    *  they have — and typing a street name one-handed in the rain is the worst. */
@@ -335,15 +356,17 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
   // the form again with a more confident heading.
   if (step === 'review') {
     return (
-      <FooterSheet open={open} onOpenChange={handleOpenChange} className="max-w-md mx-auto px-4 py-4">
-        <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>{t('review.stepForm')}</span>
-          <ChevronRight className="size-3" />
-          <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
-        </p>
-        <h2 className="mb-3 text-lg font-semibold">{editing ? t('review.editTitle') : t('review.title')}</h2>
+      <FooterSheet open={open} onOpenChange={handleOpenChange} className={SHEET_CLASS}>
+        <SheetHeader className={HEAD_CLASS}>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{t('review.stepForm')}</span>
+            <ChevronRight className="size-3" />
+            <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
+          </p>
+          <SheetTitle className="text-lg">{editing ? t('review.editTitle') : t('review.title')}</SheetTitle>
+        </SheetHeader>
 
-        <div className="space-y-4">
+        <SheetBody className="px-4 pb-3">
           <div className="overflow-hidden rounded-xl border border-border">
             {reviewRows.map(row => (
               <div
@@ -358,7 +381,9 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
               </div>
             ))}
           </div>
+        </SheetBody>
 
+        <SheetFooter className={FOOT_CLASS}>
           <Button size="lg" className="w-full" onClick={submit} disabled={sending}>
             {sending && <ShellLoader className="size-4" />}
             {editing ? t('editSubmit') : t('submit')}
@@ -370,22 +395,24 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             <ChevronLeft className="size-4" />
             {t('review.back')}
           </Button>
-        </div>
+        </SheetFooter>
       </FooterSheet>
     )
   }
 
   return (
-    <FooterSheet open={open} onOpenChange={handleOpenChange} className="max-w-md mx-auto px-4 py-4">
-      <h2 className="mb-3 text-lg font-semibold">
-        {editing ? t('editTitle') : isPhoneDesk ? t('titlePhone') : t('title')}
-      </h2>
-      {/* When it was sent, and that it can still be changed. The window closes
-          the moment the KP disponiert — saying so here is what stops a crew
-          discovering it at the "zu spät" toast. */}
-      {editing && <p className="-mt-2 mb-3 text-xs text-muted-foreground">{t('editHint')}</p>}
+    <FooterSheet open={open} onOpenChange={handleOpenChange} className={SHEET_CLASS}>
+      <SheetHeader className={HEAD_CLASS}>
+        <SheetTitle className="text-lg">
+          {editing ? t('editTitle') : isPhoneDesk ? t('titlePhone') : t('title')}
+        </SheetTitle>
+        {/* When it was sent, and that it can still be changed. The window closes
+            the moment the KP disponiert — saying so here is what stops a crew
+            discovering it at the "zu spät" toast. */}
+        {editing && <p className="text-xs text-muted-foreground">{t('editHint')}</p>}
+      </SheetHeader>
 
-      <div className="space-y-4">
+      <SheetBody className="space-y-4 px-4 pt-1 pb-4">
         {/* Four options in the rain, all thirteen at the desk. A Select rather
             than the old pill row: four pills wrapped onto two ragged lines on a
             phone, and «Elementarereignis» is the right default on a storm night
@@ -426,38 +453,40 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             setLng(nextLng)
           }}
           disabled={sending}
-          // The field the whole Meldung hangs on, marked as such: the red
-          // outline and the star are the same pair the phone-desk fields
-          // already wear, and this is the one that actually blocks «Weiter».
-          error={locationMissing}
-          // Third way of setting the same field, so it sits with the other two
-          // rather than on a line of its own underneath. Only for somebody
-          // standing in front of the thing: the phone desk's own position is
-          // the fire station, so the button would confidently fill in the
-          // wrong address.
-          extraAction={
-            isPhoneDesk ? undefined : (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={locate}
-                disabled={locating || sending}
-                title={t('useLocation')}
-                tabIndex={-1}
-              >
-                {locating ? <ShellLoader className="size-4" /> : <LocateFixed className="size-4" />}
-              </Button>
-            )
-          }
+          // Map + coordinates INSIDE the field's right edge, like the board's own
+          // «Neuer Einsatz»: three square buttons beside it left a 360px phone
+          // ~170px of address.
+          boxed
+          // Red only once «Weiter» was refused for it, with the reason under it.
+          error={showLocationError}
+          describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
         />
-        {/* The three ways in, named once. The field offers all of them and
-            looked like it only took typing — and the GPS button is an icon
-            whose label is a tooltip nobody sees on a phone. Only while the
-            field is empty: once there is an address it is an instruction for
-            work already done. */}
-        {locationMissing && (
-          <p className="-mt-3 text-xs text-muted-foreground">
+        {showLocationError && (
+          <FormMessage id={formMessageId(LOCATION_FIELD_ID)} tone="error" className="-mt-3">
+            {t('needLocation')}
+          </FormMessage>
+        )}
+        {/* «Standort übernehmen» as words under the field, not a third icon beside
+            it: the GPS button's label was a tooltip nobody sees on a phone, and it
+            is the crew's best address. Only for somebody standing in front of the
+            thing — the phone desk's own position is the fire station. */}
+        {!isPhoneDesk && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="-mt-2 min-h-10"
+            onClick={locate}
+            disabled={locating || sending}
+          >
+            {locating ? <ShellLoader className="size-4" /> : <LocateFixed className="size-4" />}
+            {t('useLocation')}
+          </Button>
+        )}
+        {/* The ways in, named once — only while the field is empty and nothing
+            was refused yet: then the red sentence is the one to read. */}
+        {locationMissing && !showLocationError && (
+          <p className="-mt-2 text-xs text-muted-foreground">
             {isPhoneDesk ? t('locationHintPhone') : t('locationHint')}
           </p>
         )}
@@ -468,16 +497,25 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         {isPhoneDesk && (
           <>
             <div>
-              <Label htmlFor="feld-melden-title" className={LABEL}>
+              <Label htmlFor={MESSAGE_FIELD_ID} className={LABEL}>
                 {t('message')} <span className="text-destructive" aria-hidden="true">*</span>
               </Label>
               <Input
-                id="feld-melden-title"
+                id={MESSAGE_FIELD_ID}
                 value={title}
                 onChange={event => setTitle(event.target.value)}
                 placeholder={t('messagePlaceholder')}
                 className="mt-2"
+                autoComplete="off"
+                enterKeyHint="next"
+                aria-invalid={showMessageError || undefined}
+                aria-describedby={showMessageError ? formMessageId(MESSAGE_FIELD_ID) : undefined}
               />
+              {showMessageError && (
+                <FormMessage id={formMessageId(MESSAGE_FIELD_ID)} tone="error" className="mt-1">
+                  {t('needMessage')}
+                </FormMessage>
+              )}
             </div>
 
             <div>
@@ -538,6 +576,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
               onChange={event => setDescription(event.target.value)}
               placeholder={t('descriptionPlaceholder')}
               className="mt-2 min-h-20"
+              autoComplete="off"
             />
           </div>
         )}
@@ -554,6 +593,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             onChange={event => setNotes(event.target.value)}
             placeholder={t('notesPlaceholder')}
             className="mt-2 min-h-16"
+            autoComplete="off"
           />
         </div>
 
@@ -576,6 +616,9 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                 value={contact}
                 onChange={event => setContact(event.target.value)}
                 className="mt-2"
+                // somebody else's name: no «AutoFill Contact» with the crew's own card
+                autoComplete="off"
+                enterKeyHint="next"
               />
             </div>
             <div>
@@ -591,6 +634,8 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
                 value={contactPhone}
                 onChange={event => setContactPhone(sanitizePhoneInput(event.target.value))}
                 className="mt-2"
+                autoComplete="off"
+                enterKeyHint="done"
               />
             </div>
         </>
@@ -599,32 +644,29 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             the person who can do it. What it does depends on what they are
             already working — the server decides and the confirmation says so. */}
         {offerTakeOver && (
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+          // A plain switch row, label left / switch right like every phone switch. It
+          // sat in a red-tinted box: red is priority and danger, and taking a job on
+          // is neither.
+          <label className="flex min-h-11 cursor-pointer items-center gap-3">
             {/* No explanatory line under it: what it does depends on what the
                 crew is already working, the confirmation says which, and a
                 sentence that has to hedge is worse than the four words. */}
-            <div className="min-w-0 flex-1 text-sm font-medium">{t('takeOver')}</div>
+            <div className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">{t('takeOver')}</div>
             <Switch checked={takeOver} onCheckedChange={setTakeOver} className="shrink-0" />
           </label>
         )}
 
-        {/* Not "absetzen": this button does not send anything, and a button that
-            claims it does is the fat-finger this step exists to catch. */}
-        <div className="space-y-2">
-          <Button size="lg" className="w-full" onClick={() => setStep('review')} disabled={sending || incomplete}>
-            {t('review.next')}
-            <ChevronRight className="size-4" />
-          </Button>
-          {/* Grey button, stated reason — or, once it is ready, what the tap
-              leads to. A dead button that says nothing is the complaint this
-              answers. */}
-          <p
-            className={`text-center text-xs ${blockedReason ? 'text-destructive' : 'text-muted-foreground'}`}
-          >
-            {blockedReason ?? t('nextStepHint')}
-          </p>
-        </div>
-      </div>
+      </SheetBody>
+
+      {/* Not "absetzen": this button does not send anything, and a button that
+          claims it does is the fat-finger this step exists to catch. In the
+          footer, so it is on screen however long the form — and on the keys. */}
+      <SheetFooter className={FOOT_CLASS}>
+        <Button size="lg" className="w-full" onClick={next} disabled={sending}>
+          {t('review.next')}
+          <ChevronRight className="size-4" />
+        </Button>
+      </SheetFooter>
     </FooterSheet>
   )
 }

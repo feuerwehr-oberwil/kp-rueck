@@ -55,6 +55,7 @@ import { sortCrewByLeader } from "@/lib/crew-order"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
+import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { cn } from "@/lib/utils"
 
 /** Same two boundaries the kanban card draws — Ressourcen and Reko — and the
@@ -191,7 +192,9 @@ export function DisplayIncidentCard({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-bold text-base text-foreground leading-tight break-words">
+              {/* Size unchanged: read from across the room, a smaller title is
+                  the worse trade. It hyphenates instead (WALL_TEXT_WRAP). */}
+              <h3 className={cn("font-bold text-base text-foreground leading-tight", WALL_TEXT_WRAP)}>
                 {getIncidentLocationLabel(operation)}
               </h3>
               {/* A crew standing at the kerb is the last thing a wall display
@@ -208,7 +211,9 @@ export function DisplayIncidentCard({
           </div>
           {/* The status glyphs — the row that told the operator at a glance what
               kind of card this is, and was missing here entirely. */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* `empty:hidden`: with no glyph to show, the empty box still took
+              the head's 8px gap away from the title. */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 empty:hidden">
             {operation.source === "intake" && (
               <div className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30" title={t("card.intakeTooltip")}>
                 <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
@@ -258,20 +263,27 @@ export function DisplayIncidentCard({
         {/* Einsatzart and time on one row, each half independently switchable —
             the board's own three branches. `readOnly`: the mode follows the
             station setting, and nobody works a dropdown on a wall. */}
+        {/* Unlike the kanban card, the label WRAPS instead of truncating: a wall
+            has nobody to hover the tooltip, and at 1280 the shared line left
+            «Brandbekämpfung» ~40px («Bran…»). `flex-wrap` keeps label and time
+            on one line wherever both fit (a 1920 wall, bar the longest labels);
+            where they don't, the time moves under the label, right-aligned and
+            never cut, and the label gets the full width — wrapping onto a second
+            line itself only for the longest labels in a 1280 column. */}
         {cardView.einsatzart && cardView.zeiten ? (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="truncate text-xs text-muted-foreground" title={getIncidentTypeLabel(operation.incidentType)}>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <div className="flex min-w-0 items-start gap-1.5">
+              <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
+              <span className="min-w-0 break-words text-xs text-muted-foreground">
                 {getIncidentTypeLabel(operation.incidentType)}
               </span>
             </div>
-            <IncidentTimeRow operation={operation} readOnly colorByAge className="flex-shrink-0" />
+            <IncidentTimeRow operation={operation} readOnly colorByAge className="ml-auto flex-shrink-0" />
           </div>
         ) : cardView.einsatzart ? (
-          <div className="flex items-center gap-1.5">
-            <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+          <div className="flex items-start gap-1.5">
+            <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
+            <span className="min-w-0 break-words text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
         ) : cardView.zeiten ? (
           <IncidentTimeRow operation={operation} readOnly colorByAge className="justify-between" />

@@ -188,6 +188,15 @@ export interface Operation {
  * Context interface for managing operations, personnel, and materials.
  * Personnel and materials are delegated to their own contexts but exposed here for backward compatibility.
  */
+/** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
+ *  where it was just assigned, so dismissing can ask whether it comes back off. */
+export interface VehicleNeedingDriver {
+  vehicleId: string
+  vehicleName: string
+  incidentId?: string
+  groupId?: string
+}
+
 interface OperationsContextType {
   // Delegated from PersonnelContext
   personnel: Person[]
@@ -257,9 +266,13 @@ interface OperationsContextType {
    * checklist used to queue a run through every driverless vehicle here, and that
    * went to the Fahrzeuge sheet instead, where the whole fleet is visible at once.
    * The user may dismiss the prompt to leave the vehicle without a driver. */
-  vehicleNeedingDriver: { vehicleId: string; vehicleName: string; incidentId?: string } | null
+  vehicleNeedingDriver: VehicleNeedingDriver | null
   /** Close the prompt — both after assigning and on dismissal. */
   clearVehicleNeedingDriver: () => void
+  /** Open the same driver prompt from elsewhere: an Auftrag that just got a
+   *  driverless vehicle (`groupId`), or a «Fahrer wählen» action (no target —
+   *  the operator asked, so dismissing asks nothing back). */
+  requestVehicleDriver: (request: VehicleNeedingDriver) => void
   /** Set when a resource is being assigned to an incident while it is still
    * assigned to one or more other incidents. The UI prompts the operator to
    * either move it (remove from the others) or keep the double booking;
@@ -444,10 +457,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // null. It was a queue while the setup checklist walked every driverless vehicle
   // through the same prompt; that run is gone, and a queue that can only ever hold
   // one entry is a queue pretending.
-  const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<
-    { vehicleId: string; vehicleName: string; incidentId?: string } | null
-  >(null)
+  const [vehicleNeedingDriver, setVehicleNeedingDriver] = useState<VehicleNeedingDriver | null>(null)
   const clearVehicleNeedingDriver = useCallback(() => setVehicleNeedingDriver(null), [])
+  const requestVehicleDriver = useCallback((request: VehicleNeedingDriver) => setVehicleNeedingDriver(request), [])
   const [resourceConflict, setResourceConflict] = useState<OperationsContextType["resourceConflict"]>(null)
   const [materialOnSite, setMaterialOnSite] = useState<OperationsContextType["materialOnSite"]>(new Map())
   const [outOfServiceVehicleIds, setOutOfServiceVehicleIds] = useState<Set<string>>(new Set())
@@ -2267,6 +2279,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setBoardDragging,
       vehicleNeedingDriver,
       clearVehicleNeedingDriver,
+      requestVehicleDriver,
       resourceConflict,
       outOfServiceVehicleIds,
       materialOnSite,
@@ -2293,6 +2306,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setBoardDragging,
       vehicleNeedingDriver,
       clearVehicleNeedingDriver,
+      requestVehicleDriver,
       resourceConflict,
       outOfServiceVehicleIds,
       materialOnSite,

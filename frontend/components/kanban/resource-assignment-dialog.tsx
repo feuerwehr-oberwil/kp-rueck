@@ -7,7 +7,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -1175,11 +1175,15 @@ export function ResourceAssignmentDialog({
                 whether the vehicle can actually roll. */}
             <p
               className={cn(
-                "truncate text-2xs",
-                driver ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400",
+                "flex items-center gap-1 truncate text-2xs",
+                driver ? "text-muted-foreground" : "font-medium text-amber-700 dark:text-amber-400",
               )}
               title={driver ? t('assignmentDialog.vehicleDriver', { name: driver }) : undefined}
             >
+              {/* Same amber triangle as the Auftrag's «Kein Fahrer» note — not
+                  colour alone. Picking it anyway opens the driver prompt right
+                  after (incident: performVehicleAssign, Auftrag: promptIfDriverless). */}
+              {!driver && <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />}
               {driver
                 ? t('assignmentDialog.vehicleDriver', { name: driver })
                 : t('assignmentDialog.vehicleNoDriver')}

@@ -133,6 +133,8 @@ GPS-TEST-PROTOCOL.md
 # frontend image, showing a UI two design-system refactors out of date. Regenerate when the
 # help page actually renders them, and commit only what it uses.
 frontend/public/help/images/
+# MapLibre's worker, copied from node_modules before dev/build (frontend/scripts/copy-maplibre-worker.mjs)
+frontend/public/maplibre/
 
 # The print agent has no required dependencies (the core is stdlib) and its image installs
 # with `uv pip install`, not from a lock. `uv run` still drops a lock here — a byproduct, not

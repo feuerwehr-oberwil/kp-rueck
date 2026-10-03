@@ -541,7 +541,8 @@
       "driverlessTitle": "Fahrzeug ohne Fahrer?",
       "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?",
       "driverlessRemove": "Fahrzeug entfernen",
-      "driverlessKeep": "Ohne Fahrer lassen"
+      "driverlessKeep": "Ohne Fahrer lassen",
+      "driverlessRouteDescription": "«{vehicle}» ist dem Auftrag «{auftrag}» zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?"
     },
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
@@ -1022,6 +1023,12 @@
         "confirm": "Trotzdem schliessen",
         "cancel": "Zurück zum Einsatz"
       }
+    },
+    "driverNote": {
+      "missing": "Kein Fahrer",
+      "missingNamed": "{vehicle} ohne Fahrer",
+      "pick": "Fahrer wählen",
+      "pickFor": "Kein Fahrer – Fahrer für {vehicle} wählen"
     }
   },
   "incidents": {
@@ -1221,7 +1228,6 @@
     "mobileDetail": {
       "copied": "In Zwischenablage kopiert",
       "copyError": "Kopieren fehlgeschlagen",
-      "incidentId": "Einsatz-ID: {id}",
       "rekoBadge": "Reko",
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
@@ -1251,12 +1257,15 @@
       "createTrainingIncident": "Übungs-Einsatz erstellen",
       "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
-      "all": "Alle ({count})",
       "noActive": "Keine aktiven Einsätze",
       "noHitsFor": "Keine Einsätze für «{query}».",
       "searchScope": "Gesucht wird in Ort, Einsatzart, Fahrzeugen und Mannschaft.",
       "noneInFilter": "Keine Einsätze mit Status «{filter}».",
-      "showAll": "Alle zeigen"
+      "showAll": "Alle zeigen",
+      "filter": "Filtern",
+      "filterOn": "Filtern – {filters}",
+      "filterSummary": "Gefiltert: {filters}",
+      "filterGroupStatus": "Status"
     },
     "mobilePersonnel": {
       "title": "Personal",
@@ -1298,6 +1307,7 @@
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
+      "modesMenuLabel": "Modus",
       "modes": "Modus"
     },
     "planning": {
@@ -1325,8 +1335,8 @@
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
-      "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
-      "clickToExpand": "Klicken zum Erweitern",
+      "missingCoordsAria": "{count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
+      "missingCoordsChip": "{count} ohne Koordinaten",
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
@@ -2344,7 +2354,6 @@
     "emptyState": {
       "title": "Noch kein Ereignis ausgewählt?",
       "description": "Kein Problem! Erstelle ein neues Ereignis oder wähle ein bestehendes aus, um loszulegen.",
-      "ready": "Bereit für deinen ersten Einsatz",
       "createButton": "Neues Ereignis erstellen",
       "viewButton": "Ereignisse anzeigen"
     },
@@ -2682,7 +2691,8 @@
       "unknownAddress": "Ohne Adresse",
       "footer": "KP Rück - Notfall-Ausdruck",
       "fahrerCol": "Fahrer",
-      "ortCol": "Ort"
+      "ortCol": "Ort",
+      "noDriver": "ohne Fahrer"
     },
     "map": {
       "loadFailed": "Karte konnte nicht geladen werden. Ohne Karte drucken oder später erneut versuchen.",
@@ -2963,11 +2973,20 @@
       "disabledForEveryone": "{what} erscheinen jetzt auf keinem Bildschirm mehr – auch nicht auf dem Wanddisplay im Magazin."
     },
     "toasts": {
-      "criticalTitle": "Kritische Warnung",
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
       "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
       "overflowAction": "Öffnen",
-      "openIncident": "Einsatz öffnen"
+      "openIncident": "Einsatz öffnen",
+      "fieldReport": "Neuer Schadenplatz",
+      "fieldReportDirect": "Neuer Schadenplatz – Trupp fährt direkt hin",
+      "critical": "Kritisch",
+      "source": {
+        "feld": "Meldung vom Feld",
+        "reko": "Reko",
+        "vehicle": "Fahrzeug",
+        "alarm": "Übung",
+        "time": "Zeitlimit überschritten"
+      }
     },
     "sidebar": {
       "title": "Benachrichtigungen",
@@ -3947,7 +3966,6 @@
       "notesPlaceholder": "Zufahrt, Schlüssel, Kontakt vor Ort …",
       "needLocation": "Ohne Einsatzort kann der KP niemanden schicken.",
       "needMessage": "Ohne Meldung weiss der KP nicht, worum es geht.",
-      "nextStepHint": "Nächster Schritt: Meldung prüfen.",
       "locationHint": "Adresse eintippen, auf der Karte tippen oder «Standort übernehmen».",
       "locationHintPhone": "Adresse eintippen oder auf der Karte tippen."
     },

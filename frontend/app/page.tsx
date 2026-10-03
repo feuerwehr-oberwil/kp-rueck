@@ -1994,12 +1994,18 @@ export default function FireStationDashboard() {
     }
   }
 
-  // Don't render drag and drop until client-side to avoid hydration errors
+  // Don't render drag and drop until client-side to avoid hydration errors.
+  // Inside ProtectedRoute like every other branch, so all three share ONE ProtectedRoute at
+  // the root: on a cold start the server-rendered boot screen (snail, «KP RÜCK», phase) is
+  // the same element that stays up until the session probe answers. It used to be a bare
+  // «Wird geladen …» here, and the snail only mounted after hydration — a second stage.
   if (!isMounted) {
     return (
-      <div className="flex h-full items-center justify-center bg-background text-foreground">
-        <LoadingStatus size="surface" className="text-sm">{tDash('loading')}</LoadingStatus>
-      </div>
+      <ProtectedRoute>
+        <div className="flex h-full items-center justify-center bg-background text-foreground">
+          <LoadingStatus size="surface" className="text-sm">{tDash('loading')}</LoadingStatus>
+        </div>
+      </ProtectedRoute>
     )
   }
 

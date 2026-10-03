@@ -1,13 +1,22 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Sparkles, X } from "lucide-react"
+import { Filter, Plus, Sparkles, X } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/ui/empty-state"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -54,7 +63,8 @@ function matchesSearch(op: Operation, raw: string): boolean {
   )
 }
 
-// Status groups for filtering — labels render via t(`filters.${id}`)
+// Status groups for filtering — labels render via t(`filters.${id}`). One row each in the
+// funnel menu; ticking several shows the union.
 const statusGroups = [
   { id: "active", statuses: ["active", "enroute"] },
   { id: "incoming", statuses: ["incoming", "reko", "reko_done"] },
@@ -85,19 +95,37 @@ export function MobileIncidentListView({
   // closed and re-opened.
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
-  const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  // The ticked status groups (ids from `statusGroups`); empty = everything.
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set())
+  const filtering = ticked.size > 0
   const searchRef = useRef<HTMLInputElement>(null)
+  // The footer's measured height, published on the root as `--list-foot` so the list's scroll
+  // reserve can account for it while the keyboard is up (see the scroller's padding).
+  const rootRef = useRef<HTMLDivElement>(null)
+  const footRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = rootRef.current
+    const foot = footRef.current
+    if (!root) return
+    if (!foot) {
+      root.style.setProperty('--list-foot', '0px')
+      return
+    }
+    const measure = () => root.style.setProperty('--list-foot', `${foot.getBoundingClientRect().height}px`)
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(foot)
+    return () => ro?.disconnect()
+  }, [onNewIncident])
 
   // Filter and sort operations
   const filteredOperations = useMemo(() => {
     let filtered = operations
 
-    // Apply status filter
-    if (activeFilter) {
-      const group = statusGroups.find(g => g.id === activeFilter)
-      if (group) {
-        filtered = filtered.filter(op => group.statuses.includes(op.status))
-      }
+    // Apply the status filter: any ticked group
+    if (ticked.size > 0) {
+      const statuses = new Set(statusGroups.filter(g => ticked.has(g.id)).flatMap(g => g.statuses))
+      filtered = filtered.filter(op => statuses.has(op.status))
     }
 
     // Apply search filter
@@ -120,16 +148,30 @@ export function MobileIncidentListView({
       // Then by time (newest first)
       return b.dispatchTime.getTime() - a.dispatchTime.getTime()
     })
-  }, [operations, searchQuery, activeFilter])
+  }, [operations, searchQuery, ticked])
 
-  // Count operations by status group
+  // The menu's counts: over what the list would show WITHOUT the ticks (the search applies), so
+  // a row's number is what ticking it adds — KP Front's Verlauf filter does the same.
+  const searchHits = useMemo(
+    () => operations.filter(op => matchesSearch(op, searchQuery)),
+    [operations, searchQuery],
+  )
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     statusGroups.forEach(group => {
-      counts[group.id] = operations.filter(op => group.statuses.includes(op.status)).length
+      counts[group.id] = searchHits.filter(op => group.statuses.includes(op.status)).length
     })
     return counts
-  }, [operations])
+  }, [searchHits])
+  const tickedLabels = statusGroups.filter(g => ticked.has(g.id)).map(g => t(`filters.${g.id}`)).join(' · ')
+  const toggleGroup = (id: string, on: boolean) =>
+    setTicked(prev => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  const showAll = () => setTicked(new Set())
 
   const selectedOperation = useMemo(
     () => operations.find((op) => op.id === selectedOperationId) ?? null,
@@ -142,9 +184,11 @@ export function MobileIncidentListView({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    // Stands ABOVE the fixed bottom nav: its measured height is this column's bottom padding,
+    // so the footer and the list's end sit on the nav's top edge, never behind it.
+    <div ref={rootRef} className="flex flex-col h-full pb-[var(--nav-reserve,0px)]">
       {/* Fixed Header with Search */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-2 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/50">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/50">
         {/* Current event as context — the top navbar is hidden on mobile, so the
             event name lives here; switching happens via the bottom nav. */}
         {selectedEvent && (
@@ -158,9 +202,12 @@ export function MobileIncidentListView({
 
         {/* Primary mobile task for training events: spawn a new training incident.
             Surfaced prominently here so it's one tap away instead of buried in
-            the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights). */}
+            the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights).
+            It stays up here and does not join «Neuer Einsatz» in the footer: side by side at
+            390px each half is ~175px, and «Übungs-Einsatz erstellen» needs ~230px — two
+            truncated labels would be worse than one action per place. */}
         {isTraining && isEditor && (
-          <Link href="/training" className="mb-2 block">
+          <Link href="/training" className="mb-3 block">
             <Button variant="outline" className="w-full min-h-[48px] gap-2">
               <Sparkles className="h-4 w-4" />
               {t('createTrainingIncident')}
@@ -168,56 +215,91 @@ export function MobileIncidentListView({
           </Link>
         )}
 
-        {/* The phone's way into «Neuer Einsatz» — before this it was reachable only through
-            the board's N shortcut, i.e. not at all on a touch screen. Full width, the default
-            Button, editors only (the caller passes the handler only to them). In an Übung it
-            stands BELOW the training CTA: spawning a scenario stays the Übung's main task and
-            keeps its place under the thumb; typing a card by hand is the second way in. */}
-        {onNewIncident && (
-          <Button onClick={onNewIncident} className="mb-3 w-full min-h-[48px] gap-2">
-            <Plus className="h-4 w-4" />
-            {t('newIncident')}
-          </Button>
-        )}
-
-        {/* Search Bar */}
-        <SearchInput
-          ref={searchRef}
-          containerClassName="mb-3"
-          placeholder={t('searchPlaceholder')}
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-        />
-
-        {/* Status Filter Pills - 44px min height for touch targets (WCAG 2.5.5) */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-          <Button
-            variant={activeFilter === null ? "selected" : "outline"}
-            aria-pressed={activeFilter === null}
-            size="sm"
-            onClick={() => setActiveFilter(null)}
-            className="flex-shrink-0 min-h-[44px] px-4"
-          >
-            {t('all', { count: operations.length })}
-          </Button>
-          {statusGroups.map(group => (
-            <Button
-              key={group.id}
-              variant={activeFilter === group.id ? "selected" : "outline"}
-              aria-pressed={activeFilter === group.id}
-              size="sm"
-              onClick={() => setActiveFilter(activeFilter === group.id ? null : group.id)}
-              className="flex-shrink-0 min-h-[44px] px-4"
-            >
-              {t(`filters.${group.id}`)} ({statusCounts[group.id]})
-            </Button>
-          ))}
+        {/* Search + ONE funnel (owner, 02.10.2026 — like KP Front's Verlauf): the chip row it
+            replaces ran off the right edge at 390px. The funnel is a square that never changes
+            width; an active filter is the slate choice state, and WHAT is ticked is in its name
+            and in the line below — never printed on the button. */}
+        <div className="flex items-center gap-2">
+          <SearchInput
+            ref={searchRef}
+            containerClassName="min-w-0 flex-1"
+            placeholder={t('searchPlaceholder')}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={filtering ? "selected" : "outline"}
+                size="icon"
+                className="size-11 shrink-0"
+                aria-label={filtering ? t('filterOn', { filters: tickedLabels }) : t('filter')}
+                title={filtering ? t('filterOn', { filters: tickedLabels }) : t('filter')}
+              >
+                <Filter aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {/* «Alle zeigen» only while something is ticked; it is an action and closes the menu.
+                  The rows are checkboxes and keep it open — a selection is several ticks. */}
+              {filtering && (
+                <>
+                  <DropdownMenuItem onSelect={showAll} className="min-h-11">
+                    <span className="flex-1">{t('showAll')}</span>
+                    <span className="tabular-nums text-muted-foreground">{searchHits.length}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuLabel className="text-xs text-muted-foreground">{t('filterGroupStatus')}</DropdownMenuLabel>
+              {statusGroups.map(group => (
+                <DropdownMenuCheckboxItem
+                  key={group.id}
+                  checked={ticked.has(group.id)}
+                  onCheckedChange={(on) => toggleGroup(group.id, on === true)}
+                  onSelect={(event) => event.preventDefault()}
+                  className="min-h-11 data-[state=checked]:sel-choice"
+                >
+                  <span className="flex-1">{t(`filters.${group.id}`)}</span>
+                  <span className="tabular-nums text-muted-foreground">{statusCounts[group.id]}</span>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
+        {/* What is filtered, readable without opening the menu, and the one way back — not
+            twice: an emptied list offers the same «Alle zeigen» as its one action. */}
+        {filtering ? (
+          <div className="mt-1 -mb-1 flex min-h-8 min-w-0 items-center gap-2 text-xs text-muted-foreground" data-testid="filter-summary">
+            <span className="min-w-0 truncate">{t('filterSummary', { filters: tickedLabels })}</span>
+            {filteredOperations.length > 0 && (
+              <button
+                type="button"
+                onClick={showAll}
+                className="inline-flex min-h-8 shrink-0 cursor-pointer items-center underline underline-offset-2 decoration-muted-foreground/50 hover:text-foreground"
+              >
+                {t('showAll')}
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
 
-      {/* Scrollable Incident List. Pad past the fixed bottom navbar by its MEASURED
-          height (`pb-nav-reserve`, globals.css) so the last card ends just above it. */}
-      <div className="flex-1 overflow-y-auto px-4 pb-nav-reserve">
+      {/* Scrollable Incident List. The root already stands above the fixed bottom nav (its
+          `--nav-reserve` padding) and the footer is in flow, so the list ends at the footer by
+          itself. What is left to reserve is the keyboard: it covers the nav AND the footer, so
+          only what it covers beyond both — `--kb-inset − --nav-reserve − --list-foot` — plus the
+          usual small gap. `relative` keeps the cards' `sr-only` texts inside this scroller: as
+          absolute boxes with no positioned ancestor they escaped to the document and made the
+          whole page scroll (2500px on a 21-card list). */}
+      <div
+        className="relative flex-1 overflow-y-auto px-4"
+        style={{
+          paddingBottom:
+            'calc(max(var(--kb-inset, 0px) - var(--nav-reserve, 0px) - var(--list-foot, 0px), 0px) + 0.75rem)',
+        }}
+      >
         {isLoading ? (
           <div className="space-y-3 mt-4">
             {[...Array(5)].map((_, i) => (
@@ -241,10 +323,10 @@ export function MobileIncidentListView({
                 },
               }}
             />
-          ) : activeFilter ? (
+          ) : filtering ? (
             <EmptyState
-              title={t('noneInFilter', { filter: t(`filters.${activeFilter}`) })}
-              action={{ label: t('showAll'), onClick: () => setActiveFilter(null) }}
+              title={t('noneInFilter', { filter: tickedLabels })}
+              action={{ label: t('showAll'), onClick: showAll }}
             />
           ) : (
             <EmptyState title={t('noActive')} />
@@ -263,6 +345,18 @@ export function MobileIncidentListView({
           </div>
         )}
       </div>
+
+      {/* The list's ONE action, in a footer directly above the bottom nav (owner, 02.10.2026):
+          under the thumb, and in flow — the list ends at its top edge instead of scrolling under a
+          floating button. Editors only (the caller passes the handler only to them). */}
+      {onNewIncident && (
+        <div ref={footRef} className="flex-shrink-0 border-t border-border/50 bg-background px-4 py-3">
+          <Button onClick={onNewIncident} className="w-full min-h-[48px] gap-2">
+            <Plus className="h-4 w-4" />
+            {t('newIncident')}
+          </Button>
+        </div>
+      )}
 
       {/* Detail Sheet */}
       <MobileIncidentDetailSheet

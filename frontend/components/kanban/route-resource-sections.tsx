@@ -19,9 +19,9 @@
  * `ResourceSourceBlock` below.
  */
 
-import type { ComponentType, ReactNode } from "react"
+import { Fragment, type ComponentType, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
-import { Users, Truck, Package, Plus, UserMinus } from "lucide-react"
+import { AlertTriangle, Users, Truck, Package, Plus, UserMinus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
@@ -343,9 +343,17 @@ interface RouteResourceSectionsProps {
    *  so for a grouped incident this is where the leader is set — one squad on
    *  one route has one leader, not one per stop. */
   onPromoteLeader?: (assignmentId: string) => void
+  /** Open the driver picker for a route vehicle that has nobody driving it —
+   *  the «Fahrer wählen» action beside its amber «Kein Fahrer» note. */
+  onPickDriver?: (vehicle: { resourceId: string; name: string }) => void
+  /** Whether `vehicleDrivers` has actually loaded. Defaults to «a map was
+   *  passed»; callers with a loading map pass the real flag so a vehicle does
+   *  not flash «Kein Fahrer» before the first answer. */
+  driversKnown?: boolean
 }
 
-export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader }: RouteResourceSectionsProps) {
+export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader, onPickDriver, driversKnown }: RouteResourceSectionsProps) {
+  const knowsDrivers = driversKnown ?? Boolean(vehicleDrivers)
   const t = useTranslations("kanban")
   return (
     <>
@@ -400,9 +408,14 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
           // «TLF 1 (M. Muster)» — the same chip wording the incident detail
           // uses for a standalone Einsatz, so a route reads the same way.
           const driverName = vehicleDrivers?.get(v.name)
+          // Nobody driving it: an amber reminder, not a block (a driver is
+          // sometimes named a minute later) — and fixing it is one tap from
+          // here. Only when the caller passed the driver map: without it «no
+          // driver» and «not known» would look the same.
+          const driverless = knowsDrivers && !driverName
           return (
+            <Fragment key={v.assignmentId}>
             <RemovableChip
-              key={v.assignmentId}
               variant="outline"
               className={RESOURCE_CHIP}
               onRemove={!readOnly ? () => onUnassign(v.assignmentId) : undefined}
@@ -414,6 +427,26 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
             >
               {v.name}{driverName ? ` (${driverName})` : ""}
             </RemovableChip>
+            {driverless &&
+              (!readOnly && onPickDriver ? (
+                <button
+                  type="button"
+                  onClick={() => onPickDriver({ resourceId: v.resourceId, name: v.name })}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+                  aria-label={t("driverNote.pickFor", { vehicle: v.name })}
+                >
+                  <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+                  {t("driverNote.missing")}
+                  <span aria-hidden>·</span>
+                  <span className="underline underline-offset-2">{t("driverNote.pick")}</span>
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+                  {t("driverNote.missing")}
+                </span>
+              ))}
+            </Fragment>
           )
         })}
       </ResourceRow>
