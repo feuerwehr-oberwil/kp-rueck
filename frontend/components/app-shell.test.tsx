@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -95,3 +98,14 @@ describe("AppShell – top edge of the installed app", () => {
     expect(document.querySelector('[data-slot="app-shell"]')).toBeNull();
   });
 });
+
+describe("AppShell – on paper", () => {
+  it("goes back in flow for print, so the A4 view is not clipped to one page", () => {
+    // A fixed shell would be the containing block of the absolute `.print-view` and clip it to a
+    // viewport-high page (measured: 5 A4 pages → 1); and a fixed box repeats on every sheet.
+    const css = readFileSync(resolve(__dirname, "../app/globals.css"), "utf8");
+    const print = css.slice(css.indexOf("@media print {"));
+    expect(print).toMatch(/\[data-slot="app-shell"\] \{\s*position: static !important;[\s\S]*?overflow: visible !important;/);
+  });
+});
+

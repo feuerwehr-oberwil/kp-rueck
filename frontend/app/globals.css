@@ -835,6 +835,17 @@
     color-scheme: light;
   }
 
+  /* The app shell is `position: fixed; inset: 0` on screen (app-shell.tsx: it keeps iOS 26's
+     edge blur off the installed app). On paper that would make it the containing block of the
+     absolutely placed `.print-view` and clip the A4 flow to one viewport-high page — and a fixed
+     box repeats on every sheet. Back in flow for print, as it was before. */
+  [data-slot="app-shell"] {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   /* Hide everything on the page */
   body * {
     visibility: hidden;
