@@ -17,6 +17,9 @@ vi.mock("@/lib/contexts/auth-context", () => ({
 vi.mock("@/components/ui/command-palette", () => ({
   CommandPalette: () => <div data-testid="command-palette" />,
 }));
+vi.mock("@/lib/hooks/use-global-navigation", () => ({
+  GlobalShortcuts: () => <div data-testid="global-shortcuts" />,
+}));
 vi.mock("@/components/demo-banner", () => ({ DemoBanner: () => null }));
 vi.mock("@/components/deployment-banner", () => ({ DeploymentBanner: () => null }));
 vi.mock("@/components/stale-data-banner", () => ({ StaleDataBanner: () => null }));
@@ -57,5 +60,15 @@ describe("AppShell – Kommandopalette", () => {
     mockUseAuth.mockReturnValue({ isAuthenticated: true });
     render(<AppShell>content</AppShell>);
     expect(screen.getByTestId("command-palette")).toBeInTheDocument();
+  });
+
+  it("mounts the global G-chords once, only when signed in", () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: true });
+    const { unmount } = render(<AppShell>content</AppShell>);
+    expect(screen.getAllByTestId("global-shortcuts")).toHaveLength(1);
+    unmount();
+    mockUseAuth.mockReturnValue({ isAuthenticated: false });
+    render(<AppShell>content</AppShell>);
+    expect(screen.queryByTestId("global-shortcuts")).not.toBeInTheDocument();
   });
 });
