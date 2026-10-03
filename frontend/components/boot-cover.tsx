@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 
 import { BootScreen } from '@/components/boot-screen'
-import { launchCover, useBootGates } from '@/lib/boot-cover'
+import { launchCover, useBootGates, useLaunchArm } from '@/lib/boot-cover'
 import { cn } from '@/lib/utils'
 
 /** The longest a launch stays behind the snail. Below BootScreen's 9 s stuck hint on purpose: a
@@ -17,9 +17,10 @@ export const BOOT_COVER_FADE_MS = 240
 
 /** The routes a launch can land on that open a workspace — plus the Microsoft callback, which
  *  is the first half of one (it redeems the code behind the snail, then loads the app, whose
- *  cover continues the same snail). Everything else (login, the wall displays, the public
- *  forms) brings its own first screen. */
-const COVERED_ROUTES = new Set(['/', '/map', '/feld', '/settings', '/events', '/training', '/auth/callback'])
+ *  cover continues the same snail) — and the login page, whose sign-in options load behind it
+ *  (no loader of its own in front of the form). Everything else (the wall displays, the public
+ *  forms, the setup wizard) brings its own first screen. */
+const COVERED_ROUTES = new Set(['/', '/map', '/feld', '/settings', '/events', '/training', '/auth/callback', '/login'])
 
 export function isCoveredRoute(pathname: string | null) {
   return pathname !== null && COVERED_ROUTES.has(pathname)
@@ -48,17 +49,28 @@ export function BootCover() {
   const [phase, setPhase] = useState<Phase>(() => (isCoveredRoute(pathname) ? 'on' : 'off'))
   const [capped, setCapped] = useState(false)
   const gates = useBootGates()
+  const arm = useLaunchArm()
+
+  // Signed in on the login page: a launch again, from here (lib/boot-cover.ts, `arm`).
+  useEffect(() => {
+    if (arm.seq === 0) return
+    setCapped(false)
+    setPhase('on')
+  }, [arm.seq])
 
   useEffect(() => {
     if (phase !== 'on') return
-    // From the launch, not from hydration: performance.now() counts from the navigation.
-    const timer = setTimeout(() => setCapped(true), Math.max(0, BOOT_COVER_MAX_MS - performance.now()))
+    // From the launch: performance.now() counts from the navigation, `arm.at` from the sign-in.
+    const timer = setTimeout(() => setCapped(true), Math.max(0, BOOT_COVER_MAX_MS - (performance.now() - arm.at)))
     return () => clearTimeout(timer)
-  }, [phase])
+  }, [phase, arm.at])
 
-  // A launch that leaves the covered routes (signed out → /login, a viewer → /display/board)
-  // is not opening a workspace any more; that page shows itself.
-  const release = phase === 'on' && (gates.open || capped || !isCoveredRoute(pathname))
+  // An armed cover first waits for the app to leave the page that armed it: that page's own
+  // gate is open, and it is not the workspace.
+  const movedOn = arm.path === null || pathname !== arm.path
+  // A launch that leaves the covered routes (a viewer → /display/board, an unclaimed board →
+  // /setup) is not opening a workspace any more; that page shows itself.
+  const release = phase === 'on' && (capped || (movedOn && (gates.open || !isCoveredRoute(pathname))))
 
   useEffect(() => {
     if (!release) return
@@ -89,7 +101,11 @@ export function BootCover() {
   if (phase === 'off') return null
 
   const fallback =
-    pathname === '/feld' ? tCommon('loading') : pathname === '/auth/callback' ? tCallback('processing') : tLogin('preparingLogin')
+    pathname === '/feld' || pathname === '/login'
+      ? tCommon('loading')
+      : pathname === '/auth/callback'
+        ? tCallback('processing')
+        : tLogin('preparingLogin')
   return (
     <div
       data-boot-cover={phase}

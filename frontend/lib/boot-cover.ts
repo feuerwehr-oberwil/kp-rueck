@@ -76,6 +76,7 @@ export const bootGates = {
     gates.clear()
     snapshot = NONE
     coverUp = true
+    arm = UNARMED
   },
 }
 
@@ -87,6 +88,19 @@ export const bootGates = {
  */
 let coverUp = true
 const coverListeners = new Set<() => void>()
+
+/** A launch that starts inside the app: «signed in» on the login page → the first workspace. */
+export interface LaunchArm {
+  /** 0 = never armed. */
+  seq: number
+  /** The page that armed it (it lies under the cover until the app has moved on). */
+  path: string | null
+  /** performance.now() at arming — the cap counts from here. */
+  at: number
+}
+const UNARMED: LaunchArm = { seq: 0, path: null, at: 0 }
+let arm: LaunchArm = UNARMED
+
 export const launchCover = {
   isUp: () => coverUp,
   set(up: boolean) {
@@ -94,12 +108,30 @@ export const launchCover = {
     coverUp = up
     coverListeners.forEach((listener) => listener())
   },
+  /**
+   * Treat what follows as a launch: the cover comes up again over `fromPath` and stays until
+   * the workspace the app moves on to is usable (the same gates), then fades once. Called by
+   * the login page the moment the sign-in has succeeded, before it navigates — a password or
+   * demo login is a client-side page change, and without this the board assembled itself in
+   * view with its in-app loaders. Its snail continues the launch's clock.
+   */
+  arm(fromPath: string) {
+    arm = { seq: arm.seq + 1, path: fromPath, at: performance.now() }
+    coverUp = true
+    coverListeners.forEach((listener) => listener())
+  },
+  armSnapshot: () => arm,
+  armServerSnapshot: () => UNARMED,
   subscribe(listener: () => void) {
     coverListeners.add(listener)
     return () => {
       coverListeners.delete(listener)
     }
   },
+}
+
+export function useLaunchArm(): LaunchArm {
+  return useSyncExternalStore(launchCover.subscribe, launchCover.armSnapshot, launchCover.armServerSnapshot)
 }
 
 export function useLaunchCoverUp(): boolean {

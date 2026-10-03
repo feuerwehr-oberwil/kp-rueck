@@ -81,9 +81,9 @@ describe('BootCover', () => {
     expect(screen.queryByText('Start dauert länger als gewöhnlich')).toBeNull()
   })
 
-  it('lifts when the launch leaves the workspace (signed out → /login)', () => {
+  it('lifts when the launch leaves the workspace (a viewer → /display/board)', () => {
     const { rerender } = renderWithIntl(<App session={false} />)
-    nav.pathname = '/login'
+    nav.pathname = '/display/board'
     rerender(<App session={false} />)
     act(() => vi.advanceTimersByTime(20))
     act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
@@ -91,7 +91,7 @@ describe('BootCover', () => {
   })
 
   it('never covers a route that brings its own first screen', () => {
-    nav.pathname = '/login'
+    nav.pathname = '/display/board'
     renderWithIntl(<App session={false} />)
     expect(cover()).toBeNull()
     expect(launchCover.isUp()).toBe(false)
@@ -106,6 +106,64 @@ describe('BootCover', () => {
     rerender(<App session board={false} />) // the next page loads — not behind the snail
     act(() => vi.advanceTimersByTime(1_000))
     expect(cover()).toBeNull()
+  })
+})
+
+describe('BootCover after a sign-in on the login page', () => {
+  function Login({ ready = true }: { ready?: boolean }) {
+    useBootGate('login', ready)
+    return null
+  }
+
+  function launchOntoLogin() {
+    nav.pathname = '/login'
+    const view = renderWithIntl(<><BootCover /><Login /></>)
+    act(() => vi.advanceTimersByTime(20))
+    act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
+    return view
+  }
+
+  it('covers a launch onto /login only until its sign-in options are known', () => {
+    nav.pathname = '/login'
+    const { rerender } = renderWithIntl(<><BootCover /><Login ready={false} /></>)
+    act(() => vi.advanceTimersByTime(1_000))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    rerender(<><BootCover /><Login ready /></>)
+    act(() => vi.advanceTimersByTime(20))
+    act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
+    expect(cover()).toBeNull()
+  })
+
+  it('comes back over the form when the sign-in succeeds and holds until the board is in', () => {
+    const { rerender } = launchOntoLogin()
+    expect(cover()).toBeNull()
+    act(() => launchCover.arm('/login'))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    expect(launchCover.isUp()).toBe(true)
+    // Still on /login, whose own gate is open: not the workspace, the cover stays.
+    act(() => vi.advanceTimersByTime(500))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    // The app moves on; the board mounts and loads under the cover.
+    nav.pathname = '/'
+    rerender(<><BootCover /><Gate id="session" ready rank={0} /><Gate id="board" ready={false} /></>)
+    act(() => vi.advanceTimersByTime(2_000))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    rerender(<><BootCover /><Gate id="session" ready rank={0} /><Gate id="board" ready /></>)
+    act(() => vi.advanceTimersByTime(20))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'leaving')
+    act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
+    expect(cover()).toBeNull()
+  })
+
+  it('caps an armed launch from the sign-in, not from the page load', () => {
+    launchOntoLogin()
+    act(() => vi.advanceTimersByTime(20_000)) // the form sat there for a while
+    act(() => launchCover.arm('/login'))
+    act(() => vi.advanceTimersByTime(BOOT_COVER_MAX_MS - 100))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    act(() => vi.advanceTimersByTime(100))
+    act(() => vi.advanceTimersByTime(20))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'leaving')
   })
 })
 
