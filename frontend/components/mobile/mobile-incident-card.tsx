@@ -111,7 +111,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
           {/* Location + the one debt that survives completion (image #21) */}
           <div className="flex items-start justify-between gap-2">
             {formatLocation(operation.location) && (
-              <h3 className="font-semibold text-base truncate leading-tight">
+              // Two lines, never cut: the address is what the card is for. On a 360px phone
+              // «Allschwilerstrasse 20» ended in an ellipsis (overflow sweep, 03.10.).
+              <h3 className="min-w-0 font-semibold text-base line-clamp-2 break-words leading-tight">
                 {formatLocation(operation.location)}
               </h3>
             )}

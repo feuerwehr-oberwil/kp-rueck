@@ -195,14 +195,15 @@ export function MobileBottomNavigation({
                     <Button
                       key={event.id}
                       variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight"
+                      className="h-auto w-full justify-start gap-3 whitespace-normal py-2.5 text-left touch-manipulation hover-delight"
                       onClick={() => {
                         setSelectedEvent(event)
                         setSheetOpen(false)
                       }}
                     >
                       <ChevronRight className="size-4 text-muted-foreground" />
-                      <span className="truncate">{event.name}</span>
+                      {/* Wrapped, not cut: two events can share a long prefix */}
+                      <span className="min-w-0 break-words">{event.name}</span>
                     </Button>
                   ))}
                   <Button
