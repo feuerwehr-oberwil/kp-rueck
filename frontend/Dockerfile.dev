@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:26-alpine
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
