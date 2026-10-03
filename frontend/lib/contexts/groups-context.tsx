@@ -127,7 +127,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { materials } = useMaterials()
   // Readiness lives in the operations context (refreshed with every poll).
   // GroupsProvider sits inside OperationsProvider in the root layout.
-  const { outOfServiceVehicleIds } = useOperations()
+  const { outOfServiceVehicleIds, requestVehicleDriver } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
@@ -180,7 +180,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       // A local mutation landed while this reload was fetching — its optimistic
       // state is newer than this snapshot. Discard the stale result.
       if (mutationEpochRef.current !== epochAtStart || activeEventIdRef.current !== eventId || sequence !== loadSequenceRef.current) return
-      setGroups(apiGroups.map(apiGroupToGroup))
+      const next = apiGroups.map(apiGroupToGroup)
+      // Synchronously too: a caller awaiting this refresh (promptIfDriverless)
+      // reads the ref before the sync effect has run.
+      groupsRef.current = next
+      setGroups(next)
       hasShownErrorRef.current = false
     } catch (error) {
       console.error("Failed to load Aufträge:", error)
@@ -633,6 +637,34 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [groups])
 
+  /**
+   * The board's rule for an Einsatz, now for an Auftrag too: a vehicle that
+   * was just put on a route with nobody driving it opens the driver prompt
+   * (`VehicleDriverPrompt`). Not a block — a driver is sometimes named a minute
+   * later on the forecourt — but the one moment to fix it in one tap. Fresh
+   * special functions, like `performVehicleAssign`: the board snapshot can lag
+   * a driver set a second ago on another device. Non-fatal on any failure: the
+   * Auftrag still shows «Kein Fahrer» on the vehicle.
+   */
+  const promptIfDriverless = useCallback(
+    async (groupId: string, vehicleId: string) => {
+      const eventId = selectedEvent?.id
+      if (!eventId || !requestVehicleDriver) return
+      try {
+        const functions = await apiClient.getEventSpecialFunctions(eventId)
+        if (functions.some((f) => f.function_type === "driver" && f.vehicle_id === vehicleId)) return
+        // Still on the route? (assign → release race, as on the incident path)
+        const group = groupsRef.current.find((g) => g.id === groupId)
+        if (!group?.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId)) return
+        const vehicleName = vehicles.find((v) => String(v.id) === vehicleId)?.name ?? vehicleId
+        requestVehicleDriver({ vehicleId, vehicleName, groupId })
+      } catch (error) {
+        console.error("Failed to check the route vehicle's driver:", error)
+      }
+    },
+    [selectedEvent, requestVehicleDriver, vehicles],
+  )
+
   const assignResource = useCallback(
     async (groupId: string, resourceType: GroupResourceType, resourceId: string): Promise<boolean> => {
       const previous = groups.find((g) => g.id === groupId)
@@ -666,6 +698,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         await apiClient.assignGroupResource(groupId, { resource_type: resourceType, resource_id: resourceId })
         // Reconcile with the server truth (canonical assignment id + progress).
         await refreshGroups()
+        if (resourceType === "vehicle") void promptIfDriverless(groupId, resourceId)
         return true
       } catch (error) {
         console.error("Failed to assign route resource:", error)
@@ -678,7 +711,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         return false
       }
     },
-    [groups, refreshGroups, outOfServiceVehicleIds, vehicles],
+    [groups, refreshGroups, outOfServiceVehicleIds, vehicles, promptIfDriverless],
   )
 
   const unassignResource = useCallback(

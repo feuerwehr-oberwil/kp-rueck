@@ -23,6 +23,8 @@ import { useOperations } from '@/lib/contexts/operations-context'
 import { fieldNudgeForNotification } from '@/lib/notification-field-action'
 import { formatNotificationTime } from '@/lib/notification-time'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
+import { notificationDetail, notificationParts } from '@/lib/notification-format'
+import { NOTIFICATION_SOURCE_ICON } from './notification-source-icon'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { cn } from '@/lib/utils'
@@ -31,6 +33,8 @@ type SeverityStyle = {
   border: string
   bg: string
   icon: React.ReactNode
+  /** The severity's colour and size, for a source glyph drawn instead of `icon`. */
+  iconClass: string
   badge: string
 }
 
@@ -43,6 +47,7 @@ function severityStyles(severity: NotificationSeverity, compact: boolean): Sever
         border: 'border-l-2 border-l-destructive/40',
         bg: 'bg-destructive/5',
         icon: <AlertCircle className={cn(iconSize, 'text-destructive/50')} />,
+        iconClass: cn(iconSize, 'text-destructive/50'),
         badge: 'bg-destructive/10 text-destructive/80',
       }
     case 'warning':
@@ -50,6 +55,7 @@ function severityStyles(severity: NotificationSeverity, compact: boolean): Sever
         border: 'border-l-2 border-l-warning/50',
         bg: 'bg-warning/10',
         icon: <AlertTriangle className={cn(iconSize, 'text-warning-foreground')} />,
+        iconClass: cn(iconSize, 'text-warning-foreground'),
         badge: 'bg-warning/10 text-warning-foreground',
       }
     case 'info':
@@ -57,6 +63,7 @@ function severityStyles(severity: NotificationSeverity, compact: boolean): Sever
         border: 'border-l-2 border-l-muted-foreground/40',
         bg: 'bg-muted/30',
         icon: <Info className={cn(iconSize, 'text-muted-foreground/70')} />,
+        iconClass: cn(iconSize, 'text-muted-foreground/70'),
         badge: 'bg-muted text-muted-foreground',
       }
   }
@@ -85,6 +92,7 @@ export function NotificationCard({
 }: NotificationCardProps) {
   const t = useTranslations('notifications.card')
   const tSidebar = useTranslations('notifications.sidebar')
+  const tToasts = useTranslations('notifications.toasts')
   const compact = variant === 'compact'
   const styles = severityStyles(notification.severity, compact)
   const { isEditor } = useAuth()
@@ -99,6 +107,15 @@ export function NotificationCard({
         : t('severityInfo')
 
   const isClickable = !!notification.incident_id && !!onClickIncident
+
+  // Same reading as the toast: what is asked, then where · who (lib/notification-format.ts).
+  const parts = notificationParts(notification, {
+    fieldReport: tToasts('fieldReport'),
+    fieldReportDirect: tToasts('fieldReportDirect'),
+  })
+  const detail = notificationDetail(parts)
+  // the source glyph (Feld, Reko, …) in the severity's colour — the same one the toast drew
+  const SourceIcon = NOTIFICATION_SOURCE_ICON[parts.source]
 
   // The move this notification is asking for, if it is still open. Nothing is
   // offered for a card that has already been moved — by a drag, by the nudge on
@@ -133,7 +150,9 @@ export function NotificationCard({
       }}
     >
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex-shrink-0">{styles.icon}</div>
+        <div className="mt-0.5 flex-shrink-0">
+          {SourceIcon ? <SourceIcon className={styles.iconClass} aria-hidden="true" /> : styles.icon}
+        </div>
 
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-2">
@@ -145,7 +164,8 @@ export function NotificationCard({
             </span>
           </div>
 
-          <p className="text-sm leading-snug break-words text-foreground">{notification.message}</p>
+          <p className="text-sm font-medium leading-snug break-words text-foreground">{parts.what}</p>
+          {detail && <p className="mt-0.5 text-xs leading-snug break-words text-muted-foreground">{detail}</p>}
 
           {showAction && (
             <Button

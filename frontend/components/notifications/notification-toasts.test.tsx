@@ -87,9 +87,6 @@ function firedToast(notification: Notification) {
   return mocks.toastCalls[0]
 }
 
-/** The message is the toast's title — no «Information» heading above it. */
-const toastMessage = (notification: Notification): unknown => firedToast(notification).title
-
 describe("NotificationToasts", () => {
   beforeEach(() => {
     mocks.toastCalls.length = 0
@@ -109,45 +106,68 @@ describe("NotificationToasts", () => {
     })
   })
 
-  it("opens the incident on the Rapport tab when the message is clicked", () => {
+  it("opens the incident on the Rapport tab from anywhere on the toast", () => {
     const notification = fieldMessage()
-    const message = toastMessage(notification)
+    const fired = firedToast(notification)
 
-    render(<>{message as ReactNode}</>)
-    fireEvent.click(screen.getByRole("button", { name: notification.message }))
+    render(<>{fired.title as ReactNode}</>)
+    // the source is said to screen readers, the text is what is asked
+    const open = screen.getByRole("button", { name: "Meldung vom Feld: Baum liegt quer" })
+    // no dotted underline any more — the whole toast is the target (stretched ::after)
+    expect(open.className).not.toMatch(/underline/)
+    expect(open.className).toMatch(/after:absolute after:inset-0/)
+    fireEvent.click(open)
 
     expect(mocks.navigateToIncident).toHaveBeenCalledWith("incident-1", "rapport")
     // The toast goes with the click; its onDismiss clears the notification.
     expect(mocks.dismiss).toHaveBeenCalledWith(notification.id)
   })
 
-  it("leaves the message as plain text when the notification carries no incident", () => {
-    expect(toastMessage(fieldMessage({ incident_id: undefined }))).toBe(
-      "Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer",
-    )
-  })
-
-  it("leaves the message as plain text when no page is listening for the navigation", () => {
-    mocks.canNavigateToIncident = false
-    expect(typeof toastMessage(fieldMessage())).toBe("string")
-  })
-
-  it("leads with the message itself, the tone left to the glyph", () => {
-    const fired = firedToast(fieldMessage({ incident_id: undefined, severity: "warning" }))
-    expect(fired.level).toBe("warning")
-    expect(fired.title).toBe("Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer")
-    expect(fired.options.description).toBeUndefined()
+  it("reads what is asked first, then where · who, with the field glyph", () => {
+    const fired = firedToast(fieldMessage({ incident_id: undefined }))
+    render(<>{fired.title as ReactNode}</>)
+    expect(screen.queryByRole("button")).toBeNull()
+    expect(screen.getByText("Baum liegt quer")).toBeInTheDocument()
+    expect(fired.options.description).toBe("Hauptstrasse 1 · Muster")
+    expect(fired.options.icon).toBeTruthy()
     // no fixed duration: the lifetime comes from the length (lib/toast-lifetime.ts)
     expect(fired.options.duration).toBeUndefined()
   })
 
-  it("keeps a critical one up with its heading, closed by its ✕ alone", () => {
-    const fired = firedToast(fieldMessage({ incident_id: undefined, severity: "critical" }))
+  it("stays plain text when no page is listening for the navigation", () => {
+    mocks.canNavigateToIncident = false
+    const fired = firedToast(fieldMessage())
+    render(<>{fired.title as ReactNode}</>)
+    expect(screen.queryByRole("button")).toBeNull()
+  })
+
+  it("keeps the warning tone and leaves a system notification one line, glyph by severity", () => {
+    const fired = firedToast(
+      fieldMessage({ type: "no_personnel", severity: "warning", incident_id: undefined, message: "Kein Personal mehr verfügbar" }),
+    )
+    expect(fired.level).toBe("warning")
+    render(<>{fired.title as ReactNode}</>)
+    expect(screen.getByText("Kein Personal mehr verfügbar")).toBeInTheDocument()
+    expect(fired.options.description).toBeUndefined()
+    expect(fired.options.icon).toBeUndefined()
+  })
+
+  it("keeps a critical one red and up until its ✕, in the same two lines", () => {
+    const fired = firedToast(
+      fieldMessage({
+        type: "training_emergency" as Notification["type"],
+        severity: "critical",
+        incident_id: undefined,
+        message: "Lage verschärft: Wasser im Keller – Wasser steigt",
+      }),
+    )
     expect(fired.level).toBe("error")
-    expect(fired.title).toBe("Kritische Warnung")
-    expect(fired.options.description).toBe("Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer")
     expect(fired.options.duration).toBe(Infinity)
     expect(fired.options.action).toBeUndefined()
+    expect(fired.options.description).toBe("Wasser im Keller")
+    render(<>{fired.title as ReactNode}</>)
+    expect(screen.getByText("Kritisch · Übung:", { exact: false })).toBeInTheDocument()
+    expect(screen.getByText("Lage verschärft – Wasser steigt")).toBeInTheDocument()
   })
 
   it("silences a new-emergency notification once the board has overtaken it", () => {

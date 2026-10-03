@@ -54,7 +54,10 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     refreshGroups: vi.fn(async () => {}),
   }),
 }))
-vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({ useVehicleDrivers: () => new Map() }))
+vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({
+  useVehicleDrivers: () => new Map(),
+  useVehicleDriverState: () => ({ drivers: new Map(), loaded: false }),
+}))
 vi.mock("@/lib/hooks/use-reko-link-actions", () => ({
   useRekoLinkActions: () => ({
     copied: null,

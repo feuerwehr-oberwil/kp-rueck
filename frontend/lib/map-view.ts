@@ -43,6 +43,12 @@ export const DEFAULT_CENTER_LATLNG: readonly [number, number] = [
  * The dialog maps (Routen-Editor, Einsatz-Picker) keep their own small local scales – separate
  * maps, no incident markers, no reason to couple them.
  */
+/**
+ * Where MapLibre's worker is served from: `public/maplibre/`, filled from node_modules by
+ * `scripts/copy-maplibre-worker.mjs` before every `dev` and `build`. See `base-map.tsx`.
+ */
+export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
+
 export const Z = {
   station: 10,
   vehicle: 40,

@@ -451,6 +451,9 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
                             const head = callsign ? `${vName} · ${callsign}` : vName
                             const detail: string[] = []
                             if (driverName) detail.push(`${t("driverPrefix")}: ${driverName}`)
+                            // Printed for a crew without a board: a driverless
+                            // vehicle says so instead of just lacking the line.
+                            else if (vehicleDrivers) detail.push(t("noDriver"))
                             if (stays !== undefined) detail.push(stays ? t("driverStays") : t("driverReturns"))
                             return detail.length > 0 ? `${head} (${detail.join(", ")})` : head
                           }).join(", ")}

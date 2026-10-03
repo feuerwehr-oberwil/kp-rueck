@@ -37,7 +37,7 @@ import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
-import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
@@ -220,7 +220,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations } = useOperations()
+  const { formatLocation, refreshOperations, requestVehicleDriver } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
@@ -295,7 +295,7 @@ export function OperationDetailContent({
     [operation.id],
   )
   const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, active)
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
   const [isTransferring, setIsTransferring] = useState(false)
@@ -1551,6 +1551,8 @@ export function OperationDetailContent({
                 onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
                 onUnassign={(assignmentId) => void release.releaseRouteResource(auftrag.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
+                onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
+                driversKnown={vehicleDriversLoaded}
                 readOnly={!canEdit || !onAssignResource}
               />
             </ResourceSourceBlock>
