@@ -113,9 +113,37 @@ describe('bottom Sheet swipe-to-dismiss', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('stands an undocked bottom sheet on the keyboard edge', () => {
+  it('leaves an undocked bottom sheet\'s geometry to the keyboard rule (no inline bottom)', () => {
+    // globals.css moves it into the visible band while a keyboard is up; an inline `bottom`
+    // would beat that rule
     render(<BottomSheet onOpenChange={() => {}} />)
-    expect(content()!.style.bottom).toBe('var(--kb-inset, 0px)')
+    expect(content()!.style.bottom).toBe('')
+    expect(content()).not.toHaveAttribute('data-docked')
+  })
+
+  it('does not focus a field when a phone sheet opens (no keyboard until a tap)', () => {
+    render(
+      <Sheet open onOpenChange={() => {}}>
+        <SheetContent side="bottom" aria-describedby={undefined}>
+          <SheetTitle>Neuer Einsatz</SheetTitle>
+          <input aria-label="Einsatzort" />
+        </SheetContent>
+      </Sheet>,
+    )
+    expect(screen.getByLabelText('Einsatzort')).not.toHaveFocus()
+    expect(content()).toHaveFocus()
+  })
+
+  it('still focuses the first field of a side sheet', () => {
+    render(
+      <Sheet open onOpenChange={() => {}}>
+        <SheetContent side="right" aria-describedby={undefined}>
+          <SheetTitle>Filter</SheetTitle>
+          <input aria-label="Suche" />
+        </SheetContent>
+      </Sheet>,
+    )
+    expect(screen.getByLabelText('Suche')).toHaveFocus()
   })
 
   it('asks instead of closing when the form guards its onOpenChange (dirty)', async () => {

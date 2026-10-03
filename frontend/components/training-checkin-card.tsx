@@ -71,18 +71,20 @@ export function TrainingCheckinCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="flex items-center gap-2">
+        {/* Phone: Anzahl + Tempo on one line, the button full width under them — in one
+            row at 390px «Einchecken» ran out of its box. From md up, one row as before. */}
+        <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-2 md:flex">
           <Input
             type="number"
             min={1}
             max={50}
             value={count}
             onChange={(e) => setCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-            className="w-20"
+            className="w-full md:w-20"
             aria-label={t('countAria')}
           />
           <Select value={String(minutes)} onValueChange={(v) => setMinutes(parseInt(v))}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-full md:w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -97,7 +99,7 @@ export function TrainingCheckinCard() {
             disabled={isCheckingIn}
             variant="outline"
             size="sm"
-            className="flex-1"
+            className="col-span-2 min-h-10 md:min-h-0 md:flex-1"
           >
             <Users className="size-3.5" />
             {isCheckingIn ? t('checkingIn') : t('checkin')}

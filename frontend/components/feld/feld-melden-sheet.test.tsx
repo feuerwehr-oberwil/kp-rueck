@@ -15,7 +15,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 // needs "an address went in", so it is reduced to the one input it wraps.
 vi.mock('@/components/location/location-input', () => ({
   LocationInput: ({ address, onAddressChange }: { address: string | null; onAddressChange: (v: string) => void }) => (
-    <input aria-label="Ort" value={address ?? ''} onChange={e => onAddressChange(e.target.value)} />
+    <input id="location_address" aria-label="Ort" value={address ?? ''} onChange={e => onAddressChange(e.target.value)} />
   ),
 }))
 
@@ -98,9 +98,40 @@ describe('FeldMeldenSheet', () => {
     expect(createFeldIncident).not.toHaveBeenCalled()
   })
 
-  it('cannot reach the review step without a location', async () => {
+  it('cannot reach the review step without a location — and says why AT the field', async () => {
+    const user = userEvent.setup()
     render()
-    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+    // never greyed out (#120): the press is what explains
+    const weiter = screen.getByRole('button', { name: 'Weiter' })
+    expect(weiter).toBeEnabled()
+    // nothing red before anybody tried
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.click(weiter)
+    expect(screen.queryByText('Stimmt das so?')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Ohne Einsatzort kann der KP niemanden schicken.')
+    expect(screen.getByLabelText('Ort')).toHaveFocus()
+
+    // the action sits in the sheet's footer, outside the scrolling body
+    const footer = document.querySelector('[data-slot="sheet-footer"]')!
+    expect(footer).toContainElement(weiter)
+    expect(document.querySelector('[data-slot="sheet-body"]')).toContainElement(screen.getByLabelText('Ort'))
+  })
+
+  it('asks the phone desk for the Meldung under its own field', async () => {
+    const user = userEvent.setup()
+    render({ isPhoneDesk: true })
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Ohne Meldung weiss der KP nicht, worum es geht.')
+    expect(screen.getByRole('textbox', { name: /^Meldung/ })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: /^Meldung/ })).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('offers the takeover as a plain switch row — no red box', () => {
+    render()
+    const row = screen.getByRole('switch').closest('label')!
+    expect(row.className).not.toMatch(/primary|destructive|bg-|border/)
   })
 
   it('starts the phone desk at Niedrig and offers the number pad', async () => {
@@ -112,7 +143,7 @@ describe('FeldMeldenSheet', () => {
     expect(screen.getByLabelText('Telefon')).toHaveAttribute('type', 'tel')
 
     await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
-    await user.type(screen.getByLabelText(/Meldung/), 'Wasser im Keller')
+    await user.type(screen.getByRole('textbox', { name: /^Meldung/ }), 'Wasser im Keller')
     await user.click(screen.getByRole('button', { name: 'Weiter' }))
 
     // Most Meldungen are ordinary; «Mittel» on every new card says nothing.

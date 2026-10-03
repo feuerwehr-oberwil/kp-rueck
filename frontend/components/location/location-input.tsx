@@ -23,6 +23,7 @@ import { SHEET_LAYER_ATTR } from "@/components/ui/footer-sheet"
 import { MapPin, Check, AlertCircle, ArrowUpDown, X, Map, Navigation } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { useStackedFields } from "@/components/ui/use-stacked-fields"
 import { searchAddress, geocodeAddress } from "@/lib/geocoding"
 import { parseCoordinates, checkRegion } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
@@ -87,6 +88,7 @@ export function LocationInput({
   required = false,
 }: LocationInputProps) {
   const t = useTranslations('map')
+  const stackedOnPhone = useStackedFields()
   const [addressSearchOpen, setAddressSearchOpen] = useState(false)
   const [addressSearchQuery, setAddressSearchQuery] = useState("")
   const [addressResults, setAddressResults] = useState<SearchResult[]>([])
@@ -151,6 +153,8 @@ export function LocationInput({
   useEffect(() => {
     if (!editing) setAddressSearchQuery(address ?? "")
   }, [address, editing])
+
+  const denseRow = dense && !stackedOnPhone
 
   // Auto-focus: focus the address field when autoFocus is true. The focus
   // handler opens the suggestion list; a short delay lets the modal render.
@@ -405,17 +409,19 @@ export function LocationInput({
       {/* Address Input with Autocomplete */}
       {/* No hairline under the dense row — like every DetailField row since the
           «Nur Abstand» pick: whitespace separates, headings group. */}
-      <div className={cn(dense ? "flex items-center gap-2 py-1" : "min-h-[40px]")}>
-        <div className={cn("flex items-center gap-1", dense && "w-[120px] shrink-0")}>
+      {/* `denseRow`: the label-left row only off the phone — on a phone even the dense mount
+          stacks (label above, field full width), like every DetailField (useStackedFields). */}
+      <div className={cn(denseRow ? "flex items-center gap-2 py-1" : "min-h-[40px]")}>
+        <div className={cn("flex items-center gap-1", denseRow && "w-[120px] shrink-0")}>
           <Label
             htmlFor="location_address"
             className={cn(
-              dense
+              denseRow
                 ? "text-xs font-normal text-muted-foreground"
                 : "text-sm font-semibold text-muted-foreground",
             )}
           >
-            {dense ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
+            {denseRow ? t('locationInput.addressLabelShort') : t('locationInput.addressLabel')}
           </Label>
           {required && (
             <span className="text-destructive" title={t('locationInput.requiredField')}>*</span>
@@ -426,7 +432,7 @@ export function LocationInput({
             input — the suggestion list is portalled and the coordinate drawer
             is a SIBLING of this row further down, not a child — so centring
             here cannot push either of them out of place. */}
-        <div className={cn("flex items-center gap-2", dense ? "min-w-0 flex-1" : "mt-2")}>
+        <div className={cn("flex items-center gap-2", denseRow ? "min-w-0 flex-1" : "mt-2")}>
           {/* One field, not two. The input IS the search box: what you type is
               what the geocoder gets, and what is committed is what the field
               shows afterwards. The old shape put a read-only combobox button in
@@ -449,7 +455,11 @@ export function LocationInput({
                   aria-controls="location-options"
                   aria-invalid={error}
                   aria-describedby={describedBy}
+                  // `off`: an Einsatzort is never the operator's own address — iOS offers
+                  // «AutoFill Contact» on anything that looks like one otherwise.
                   autoComplete="off"
+                  // Enter picks the suggestion / commits what is typed (handleAddressKeyDown)
+                  enterKeyHint="done"
                   disabled={disabled}
                   placeholder={t('locationInput.addressPlaceholder')}
                   value={addressSearchQuery}

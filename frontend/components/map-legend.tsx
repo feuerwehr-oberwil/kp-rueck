@@ -101,11 +101,16 @@ export function MapLegend({
   // folded form either way.
   const expanded = open ?? !isMobile
 
+  // `bottom-11 right-2.5`: the legend stands just ABOVE the map's attribution ⓘ (bottom-right,
+  // 10px in), never on it. They used to overlap and the ⓘ only won because map controls leaked
+  // above everything; now that the map is isolated (MAP_STACKING in base-map.tsx) the legend
+  // would bury the OSM attribution.
+
   if (!expanded) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="absolute bottom-4 right-4 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-card/95 backdrop-blur-sm border border-border shadow-lg hover:bg-card"
+        className="absolute bottom-11 right-2.5 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-card/95 backdrop-blur-sm border border-border shadow-lg hover:bg-card"
         aria-label={t('legend.show')}
         title={t('legend.title')}
       >
@@ -115,7 +120,7 @@ export function MapLegend({
   }
 
   return (
-    <div className="absolute bottom-4 right-4 max-h-[calc(100%-2rem)] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-30">
+    <div className="absolute bottom-11 right-2.5 max-h-[calc(100%-3.5rem)] w-52 overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-30">
       <button
         onClick={() => setOpen(false)}
         className="flex items-center justify-between w-full mb-3"

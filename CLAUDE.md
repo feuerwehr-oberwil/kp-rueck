@@ -183,14 +183,24 @@ kp-rueck/
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
-- **Phone geometry (one source)**: `--kb-inset`, `--vv-height`, `--nav-reserve`, `--sheet-top`
-  and `html[data-kb]` are measured and published on `<html>` (contract in
-  `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard: a phone list under
-  the nav ends with `pb-nav-reserve`, a sheet's foot with `pb-sheet-safe` (a modal sheet covers
-  the nav — no nav reserve inside it), and anything fixed at the bottom stands on
+- **Phone geometry (one source)**: `--kb-inset`, `--vv-top`, `--vv-height`, `--nav-reserve`,
+  `--sheet-top` and `html[data-kb]` are measured and published on `<html>` (contract + the iOS
+  model in `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard: a phone list
+  under the nav ends with `pb-nav-reserve`, a sheet's foot with `pb-sheet-safe` (a modal sheet
+  covers the nav — no nav reserve inside it), and a bar fixed at the bottom stands on
   `var(--kb-inset)`. A phone form goes in a bottom `SheetContent` (`SheetBody` scrolls, footer
-  stays) — it stands on the keyboard and gets grip + swipe-to-dismiss for free; the swipe closes
-  through `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`).
+  stays): while a keyboard is up it FILLS the visible band exactly (`top: var(--vv-top)`,
+  `height: var(--vv-height)` — iOS never shrinks the layout viewport, so never bottom-anchor
+  and never reserve room above it), footer on the keys; it opens without focusing a field (no
+  keyboard until a tap) and gets grip + swipe-to-dismiss for free; the swipe closes through
+  `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`). Fields
+  that are not the operator's own data (Meldung, Einsatzort, Melder, Telefon) carry
+  `autoComplete="off"`, or iOS offers «AutoFill Contact».
+- **Phone forms: labels ABOVE their field**, never beside it. `DetailField`, `DetailToggle`,
+  `SettingRow` and `LocationInput` stack by themselves below 768px (`useStackedFields` in
+  `components/ui/use-stacked-fields.ts`; switches stay label-left / switch-right). Build forms
+  from them; never hand-roll a `w-[120px]` label gutter or a label|control flex row. Desktop
+  keeps the side-by-side rows.
 - **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)
@@ -392,6 +402,17 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   keeps the search and every tick), truly nothing (what would fill it), everything taken (a line
   above the spoken-for block, not a replacement). Title + one line + at most one action, no big
   icons; the repeated board columns keep their single grey sentence.
+- **Maps never rise above overlays.** Every map goes through `components/map/base-map.tsx`, whose
+  wrapper is `isolate`: markers (z up to 1000) and controls (z 2000) only compete inside the map.
+  Map chrome laid over a map from outside (chips, legend, fit-all) sits in a wrapper that is
+  `isolate` too. Never give map content a z-index meant for the page.
+- **MapLibre's worker is a served file**: `scripts/copy-maplibre-worker.mjs` copies it to
+  `public/maplibre/` (gitignored) before `dev`/`build`, and `base-map.tsx` calls `setWorkerUrl`.
+  Without it MapLibre 6 under webpack spawns the page as its worker – the basemap still draws,
+  but no GeoJSON layer loads and `load` never fires (no fit, pan, routes, lines, trails).
+- **Lagekarte labels on a phone** (`lib/map-labels.ts`, ≤767px or coarse pointer): no permanent
+  labels below zoom 16 – a tap shows the selected marker's label/card; from 16 on, only labels
+  that collide with no other label or dot. Desktop keeps every label.
 - **Search fields**: every «type to narrow this list» is `components/ui/search-input.tsx` – its
   ✕ is «Suche leeren» and keeps focus, it is ≥44px with 16px text on a phone or coarse pointer
   whatever `className` says, focus is the `Input` ring (no own ring), `count` is the optional
