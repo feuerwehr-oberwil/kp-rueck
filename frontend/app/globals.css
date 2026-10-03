@@ -34,6 +34,13 @@
   /* Corners (review step C2): 12px on every box, 8px on controls under 32px
      tall (`rounded-sm`: badges, kbd, h-5…h-7 chips), pills stay pills. */
   --radius: 0.75rem;
+  /* The ONE horizontal inset of every text-like control — Input, Textarea,
+     SelectTrigger, the detail panel's dense fields, LocationInput,
+     SearchInput (icon sits at it), the command search. The first glyph (or
+     leading icon) of every field starts the same distance from its edge, so
+     a text field and a select stacked under each other line up (owner
+     03.10.). Use `px-(--field-px)`; never hand-pick a field's padding. */
+  --field-px: 0.875rem;
   /* Disclosure motion (collapsibles, «▶ mehr» bodies, revealed notes): one
      duration and one curve for all of them — components/ui/reveal.tsx and
      the Radix CollapsibleContent below. */
