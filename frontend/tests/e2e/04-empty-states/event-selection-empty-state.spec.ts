@@ -23,23 +23,22 @@ test.describe('Event Selection Empty State', () => {
     await expect(authenticatedPage.locator('text=Kein Problem! Erstelle ein neues Ereignis')).toBeVisible();
   });
 
-  test('displays calendar icon with gentle pulse animation', async ({ authenticatedPage }) => {
-    // Verify calendar icon is present
-    const calendarIcon = authenticatedPage.locator('[class*="animate-gentle-pulse"]').locator('svg[class*="lucide-calendar"]');
+  test('shows a calm, neutral calendar tile — no pulse, no red tagline', async ({ authenticatedPage }) => {
+    // Red is priority/danger and a pulse means «something is happening» (CLAUDE.md → Colour
+    // roles); an empty start screen is neither.
+    const calendarIcon = authenticatedPage.locator('svg[class*="lucide-calendar"][class*="text-muted-foreground"]').first();
     await expect(calendarIcon).toBeVisible();
-
-    // Verify icon has animation class
-    const pulseContainer = authenticatedPage.locator('[class*="animate-gentle-pulse"]');
-    await expect(pulseContainer).toBeVisible();
+    await expect(authenticatedPage.locator('[class*="animate-gentle-pulse"]')).toHaveCount(0);
+    await expect(authenticatedPage.locator('svg[class*="lucide-sparkles"]')).toHaveCount(0);
   });
 
-  test('shows motivational message with sparkles icon', async ({ authenticatedPage }) => {
-    // Verify sparkles icon is present
-    const sparklesIcon = authenticatedPage.locator('svg[class*="lucide-sparkles"]').first();
-    await expect(sparklesIcon).toBeVisible();
-
-    // Verify motivational text
-    await expect(authenticatedPage.locator('text=Bereit für deinen ersten Einsatz')).toBeVisible();
+  test('fits the viewport: the page itself does not scroll', async ({ authenticatedPage }) => {
+    await expect(authenticatedPage.locator('h1:has-text("Noch kein Ereignis ausgewählt?")')).toBeVisible();
+    const overflow = await authenticatedPage.evaluate(() => {
+      const main = document.querySelector('main');
+      return main ? main.scrollHeight - main.clientHeight : 0;
+    });
+    expect(overflow).toBeLessThanOrEqual(1);
   });
 
   test('displays "Create New Event" button', async ({ authenticatedPage }) => {

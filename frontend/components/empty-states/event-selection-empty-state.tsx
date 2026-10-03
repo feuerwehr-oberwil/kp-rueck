@@ -1,6 +1,6 @@
 "use client"
 
-import { Calendar, ChevronRight, Sparkles } from 'lucide-react'
+import { Calendar, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,17 +11,21 @@ export function EventSelectionEmptyState() {
   const router = useRouter()
 
   return (
-    <div className="flex h-screen items-center justify-center bg-background p-4">
+    // `min-h-full` of the shell's <main>, never `h-screen`: the shell is `h-dvh`, and on iOS
+    // Safari 100vh is the LARGE viewport (toolbar collapsed) — taller than the dvh <main> it sits
+    // in while the toolbar shows, so a screen that fits scrolled by the difference (owner,
+    // iPhone, 02.10.2026). `min-` so a short landscape phone can still scroll to the buttons.
+    <div className="flex min-h-full items-center justify-center bg-background p-4">
       <Card className="max-w-2xl w-full animate-fade-in-up">
-        <CardContent className="p-8 md:p-12 text-center space-y-5">
-          {/* Icon with gentle pulse */}
+        <CardContent className="p-6 md:p-12 text-center space-y-5">
+          {/* A neutral tile, standing still: red means priority and danger here, and a pulse
+              says «something is happening» — neither is true of an empty start screen. */}
           <div className="flex justify-center">
-            <div className="rounded-full bg-primary/10 p-5 animate-gentle-pulse">
-              <Calendar className="h-14 w-14 text-primary" />
+            <div className="rounded-full bg-muted p-4 md:p-5">
+              <Calendar className="h-10 w-10 md:h-14 md:w-14 text-muted-foreground" aria-hidden="true" />
             </div>
           </div>
 
-          {/* Heading with friendlier copy */}
           <div className="space-y-3">
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
               {t('emptyState.title')}
@@ -29,13 +33,8 @@ export function EventSelectionEmptyState() {
             <p className="text-base text-muted-foreground max-w-md mx-auto">
               {t('emptyState.description')}
             </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-primary/80">
-              <Sparkles className="h-4 w-4" />
-              <span>{t('emptyState.ready')}</span>
-            </div>
           </div>
 
-          {/* Primary Actions with hover delight */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button
               size="lg"

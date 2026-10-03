@@ -575,7 +575,6 @@
     "emptyState": {
       "title": "Aucun événement sélectionné ?",
       "description": "Pas de problème ! Crée un nouvel événement ou choisis-en un existant pour démarrer.",
-      "ready": "Prêt pour ta première intervention",
       "createButton": "Créer un nouvel événement",
       "viewButton": "Afficher les événements"
     },
@@ -1248,12 +1247,15 @@
       "createTrainingIncident": "Créer une intervention d’exercice",
       "newIncident": "Nouvelle intervention",
       "searchPlaceholder": "Rechercher une intervention …",
-      "all": "Toutes ({count})",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
       "searchScope": "Recherche dans le lieu, le type, les véhicules et l’équipe.",
       "noneInFilter": "Aucune intervention au statut « {filter} ».",
-      "showAll": "Tout afficher"
+      "showAll": "Tout afficher",
+      "filter": "Filtrer",
+      "filterOn": "Filtrer – {filters}",
+      "filterSummary": "Filtré : {filters}",
+      "filterGroupStatus": "Statut"
     },
     "mobilePersonnel": {
       "title": "Personnel",

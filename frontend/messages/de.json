@@ -1257,12 +1257,15 @@
       "createTrainingIncident": "Übungs-Einsatz erstellen",
       "newIncident": "Neuer Einsatz",
       "searchPlaceholder": "Einsatz suchen …",
-      "all": "Alle ({count})",
       "noActive": "Keine aktiven Einsätze",
       "noHitsFor": "Keine Einsätze für «{query}».",
       "searchScope": "Gesucht wird in Ort, Einsatzart, Fahrzeugen und Mannschaft.",
       "noneInFilter": "Keine Einsätze mit Status «{filter}».",
-      "showAll": "Alle zeigen"
+      "showAll": "Alle zeigen",
+      "filter": "Filtern",
+      "filterOn": "Filtern – {filters}",
+      "filterSummary": "Gefiltert: {filters}",
+      "filterGroupStatus": "Status"
     },
     "mobilePersonnel": {
       "title": "Personal",
@@ -2351,7 +2354,6 @@
     "emptyState": {
       "title": "Noch kein Ereignis ausgewählt?",
       "description": "Kein Problem! Erstelle ein neues Ereignis oder wähle ein bestehendes aus, um loszulegen.",
-      "ready": "Bereit für deinen ersten Einsatz",
       "createButton": "Neues Ereignis erstellen",
       "viewButton": "Ereignisse anzeigen"
     },
