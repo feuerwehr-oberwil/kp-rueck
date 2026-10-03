@@ -183,14 +183,24 @@ kp-rueck/
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
-- **Phone geometry (one source)**: `--kb-inset`, `--vv-height`, `--nav-reserve`, `--sheet-top`
-  and `html[data-kb]` are measured and published on `<html>` (contract in
-  `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard: a phone list under
-  the nav ends with `pb-nav-reserve`, a sheet's foot with `pb-sheet-safe` (a modal sheet covers
-  the nav — no nav reserve inside it), and anything fixed at the bottom stands on
+- **Phone geometry (one source)**: `--kb-inset`, `--vv-top`, `--vv-height`, `--nav-reserve`,
+  `--sheet-top` and `html[data-kb]` are measured and published on `<html>` (contract + the iOS
+  model in `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard: a phone list
+  under the nav ends with `pb-nav-reserve`, a sheet's foot with `pb-sheet-safe` (a modal sheet
+  covers the nav — no nav reserve inside it), and a bar fixed at the bottom stands on
   `var(--kb-inset)`. A phone form goes in a bottom `SheetContent` (`SheetBody` scrolls, footer
-  stays) — it stands on the keyboard and gets grip + swipe-to-dismiss for free; the swipe closes
-  through `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`).
+  stays): while a keyboard is up it FILLS the visible band exactly (`top: var(--vv-top)`,
+  `height: var(--vv-height)` — iOS never shrinks the layout viewport, so never bottom-anchor
+  and never reserve room above it), footer on the keys; it opens without focusing a field (no
+  keyboard until a tap) and gets grip + swipe-to-dismiss for free; the swipe closes through
+  `onOpenChange`, so a form with unsaved input guards that (`useUnsavedChangesWarning`). Fields
+  that are not the operator's own data (Meldung, Einsatzort, Melder, Telefon) carry
+  `autoComplete="off"`, or iOS offers «AutoFill Contact».
+- **Phone forms: labels ABOVE their field**, never beside it. `DetailField`, `DetailToggle`,
+  `SettingRow` and `LocationInput` stack by themselves below 768px (`useStackedFields` in
+  `components/ui/use-stacked-fields.ts`; switches stay label-left / switch-right). Build forms
+  from them; never hand-roll a `w-[120px]` label gutter or a label|control flex row. Desktop
+  keeps the side-by-side rows.
 - **WebSocket + polling sync**: Socket.IO pushes incident, driver, and assignment updates from `backend/app/websocket_manager.py`; client polls every ~5s as a fallback when the socket is down or for entities not yet wired to WS events
 
 ### Database Schema (Key Tables)

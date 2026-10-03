@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ShellLoader } from "@/components/ui/shell-loader"
@@ -244,6 +244,9 @@ export function MobileIncidentDetailSheet({
     >
       <SheetContent
         side="bottom"
+        // No description line: it used to print the Einsatz-ID (two lines of UUID) under the
+        // title — a database key nobody on a phone reads, says or types.
+        aria-describedby={undefined}
         // Covers the nav, so the foot pays only the safe area (`pb-sheet-safe`).
         className="modal-h-tall overflow-y-auto px-4 pb-sheet-safe"
       >
@@ -267,9 +270,6 @@ export function MobileIncidentDetailSheet({
               <SheetTitle className="text-xl text-left">
                 {formatLocation(operation.location) || typeLabel(operation.incidentType)}
               </SheetTitle>
-              <SheetDescription className="text-left mt-1">
-                {t('mobileDetail.incidentId', { id: operation.id })}
-              </SheetDescription>
             </div>
           </div>
         </SheetHeader>

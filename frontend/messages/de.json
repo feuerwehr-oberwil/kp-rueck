@@ -1221,7 +1221,6 @@
     "mobileDetail": {
       "copied": "In Zwischenablage kopiert",
       "copyError": "Kopieren fehlgeschlagen",
-      "incidentId": "Einsatz-ID: {id}",
       "rekoBadge": "Reko",
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
@@ -3947,7 +3946,6 @@
       "notesPlaceholder": "Zufahrt, Schlüssel, Kontakt vor Ort …",
       "needLocation": "Ohne Einsatzort kann der KP niemanden schicken.",
       "needMessage": "Ohne Meldung weiss der KP nicht, worum es geht.",
-      "nextStepHint": "Nächster Schritt: Meldung prüfen.",
       "locationHint": "Adresse eintippen, auf der Karte tippen oder «Standort übernehmen».",
       "locationHintPhone": "Adresse eintippen oder auf der Karte tippen."
     },
