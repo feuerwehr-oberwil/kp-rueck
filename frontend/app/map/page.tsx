@@ -461,7 +461,16 @@ export default function MapPage() {
   // rebuilt on every render, so depending on it re-registered the handler every
   // render — and registering is a setState in the notification context, which
   // renders again. That loop froze the whole Karte page, back button included.
-  const { registerFieldActionHandler } = useNotifications()
+  const { registerFieldActionHandler, registerNavigateHandler } = useNotifications()
+  // A notification tapped on the phone Lagekarte (toast, bell) opens the same phone Einsatz sheet
+  // as a double-tap, right here. Without a handler the context falls back to the board link,
+  // which took the phone off the map into the board's sheet. Desktop registers nothing: there the
+  // fallback is the board's side panel on the notification's tab, unchanged.
+  useEffect(() => {
+    if (!isMobile) return
+    registerNavigateHandler((incidentId) => openIncidentDetail(incidentId))
+    return () => registerNavigateHandler(null)
+  }, [isMobile, registerNavigateHandler, openIncidentDetail])
   // Same move as the board's handler and as the card's own nudge — see the note
   // on `registerFieldActionHandler` in app/page.tsx for why «beendet» stops at
   // Beendet / Rückfahrt instead of running the completion flow.
