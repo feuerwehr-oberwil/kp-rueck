@@ -529,7 +529,7 @@ const md = [
   '',
   '| kind | visit | widths | selector | text | what |',
   '|---|---|---|---|---|---|',
-  ...rows.map((r) => `| ${r.kind} | ${r.visit} | ${r.at.join(' ')} | \`${r.sel.replace(/\|/g, '\\|')}\` | ${r.text.replace(/\|/g, '/')} | ${r.what.replace(/\|/g, '/')} |`),
+  ...rows.map((r) => `| ${r.kind} | ${r.visit} | ${r.at.join(' ')} | \`${r.sel.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')}\` | ${r.text.replace(/\|/g, '/')} | ${r.what.replace(/\|/g, '/')} |`),
   '',
   errors.length ? '## Visits that failed\n\n' + errors.map((e) => `- ${e}`).join('\n') : '',
 ].join('\n')
