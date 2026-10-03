@@ -7,12 +7,13 @@ const toast = vi.hoisted(() => vi.fn())
 vi.mock("sonner", () => ({ toast }))
 
 import { BUILD_ID } from "@/lib/build-info"
-import { UPDATE_CHECK_INTERVAL_MS, fetchServerBuildId, useUpdateNotice } from "./use-update-notice"
+import { RELOADED_FOR_KEY, UPDATE_CHECK_INTERVAL_MS, fetchServerBuildId, newBuildLoads, useUpdateNotice } from "./use-update-notice"
 
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve() })
 
 beforeEach(() => {
   vi.useFakeTimers()
+  localStorage.clear()
   nav.pathname = "/"
   toast.mockClear()
 })
@@ -54,16 +55,61 @@ describe("useUpdateNotice", () => {
     expect(fetchId).toHaveBeenCalledTimes(2)
   })
 
-  it("a wall display reloads itself instead of waiting for a tap", async () => {
+  it("a wall display reloads itself — once — when the new build really loads", async () => {
     nav.pathname = "/display/map"
     const reload = vi.fn()
     vi.stubGlobal("location", { ...window.location, reload })
-    renderHook(() => useUpdateNotice(async () => "other@build"))
+    const confirm = vi.fn(async () => true)
+    renderHook(() => useUpdateNotice(async () => "other@build", confirm))
     await flush()
+    expect(confirm).toHaveBeenCalledWith("other@build")
     expect(toast).not.toHaveBeenCalled()
     await act(async () => { vi.advanceTimersByTime(30_000) })
     expect(reload).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(RELOADED_FOR_KEY)).toBe("other@build")
     vi.unstubAllGlobals()
+  })
+
+  it("no loop: after reloading for a build, a display still served another one shows the notice", async () => {
+    nav.pathname = "/display/board"
+    localStorage.setItem(RELOADED_FOR_KEY, "other@build") // the reload already happened
+    const reload = vi.fn()
+    vi.stubGlobal("location", { ...window.location, reload })
+    const confirm = vi.fn(async () => true)
+    renderHook(() => useUpdateNotice(async () => "other@build", confirm))
+    await flush()
+    await act(async () => { vi.advanceTimersByTime(60_000) })
+    expect(reload).not.toHaveBeenCalled()
+    expect(confirm).not.toHaveBeenCalled()
+    expect(toast).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
+  })
+
+  it("a failed load check never reloads a display — it gets the quiet notice", async () => {
+    nav.pathname = "/display/status"
+    const reload = vi.fn()
+    vi.stubGlobal("location", { ...window.location, reload })
+    renderHook(() => useUpdateNotice(async () => "other@build", async () => false))
+    await flush()
+    await act(async () => { vi.advanceTimersByTime(60_000) })
+    expect(reload).not.toHaveBeenCalled()
+    expect(toast).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(RELOADED_FOR_KEY)).toBeNull()
+    vi.unstubAllGlobals()
+  })
+})
+
+describe("newBuildLoads", () => {
+  const json = (id: string) => new Response(JSON.stringify({ id }), { status: 200 })
+  it("needs the page AND the same new build id from this origin", async () => {
+    const ok = vi.fn(async (url: string) => (url === "/" ? new Response("<html>", { status: 200 }) : json("new@1")))
+    expect(await newBuildLoads("new@1", ok as unknown as typeof fetch)).toBe(true)
+    const pageDown = vi.fn(async (url: string) => (url === "/" ? new Response("", { status: 502 }) : json("new@1")))
+    expect(await newBuildLoads("new@1", pageDown as unknown as typeof fetch)).toBe(false)
+    const flapping = vi.fn(async (url: string) => (url === "/" ? new Response("<html>", { status: 200 }) : json("old@0")))
+    expect(await newBuildLoads("new@1", flapping as unknown as typeof fetch)).toBe(false)
+    const offline = vi.fn(async () => { throw new TypeError("offline") })
+    expect(await newBuildLoads("new@1", offline as unknown as typeof fetch)).toBe(false)
   })
 })
 
