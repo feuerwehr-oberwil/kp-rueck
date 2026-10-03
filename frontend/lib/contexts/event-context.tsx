@@ -64,13 +64,20 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
       // skipToast: this is a bootstrap probe; a stale event in localStorage
       // shouldn't surface as an "API Fehler" toast — we just clear it.
+      // «Loaded» and the restored Ereignis land in ONE callback, never as two steps: a render
+      // that saw «loaded, no Ereignis» even once would let the board declare itself loaded and
+      // empty, and the launch cover would lift onto «Kein Ereignis ausgewählt» (owner, prod,
+      // 03.10.2026: that frame, then the restored board).
       apiClient.getEvent(savedEventId, { skipToast: true })
-        .then(apiEvent => setSelectedEventState(apiEventToEvent(apiEvent)))
+        .then(apiEvent => {
+          setSelectedEventState(apiEventToEvent(apiEvent))
+          setIsEventLoaded(true)
+        })
         .catch(err => {
           console.warn('Stale event in localStorage, clearing:', err)
           localStorage.removeItem(SELECTED_EVENT_KEY)
+          setIsEventLoaded(true)
         })
-        .finally(() => setIsEventLoaded(true))
     } else {
       setIsEventLoaded(true)
     }
