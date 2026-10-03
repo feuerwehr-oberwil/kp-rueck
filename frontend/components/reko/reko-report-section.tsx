@@ -52,6 +52,7 @@ import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
 import { getIntlLocale } from '@/lib/date-locale'
 import { LoadingStatus } from '@/components/ui/shell-loader'
+import { Reveal } from "@/components/ui/reveal"
 
 interface RekoReportSectionProps {
   incidentId: string
@@ -296,11 +297,9 @@ export default function RekoReportSection({
                 {/* Unfolded, the older report is the SAME rows as the current
                     one, indented onto the label column — there is no second
                     card design for «alt». */}
-                {open && (
-                  <div className={DETAIL_CONTROL_INDENT}>
-                    <RekoReportBody report={report} incidentId={incidentId} dense />
-                  </div>
-                )}
+                <Reveal open={open} innerClassName={DETAIL_CONTROL_INDENT}>
+                  <RekoReportBody report={report} incidentId={incidentId} dense />
+                </Reveal>
               </Fragment>
             )
           })}

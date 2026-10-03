@@ -52,6 +52,7 @@ import {
   type TemplateResourceType,
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { Reveal } from '@/components/ui/reveal';
 
 /** The Aufträge-Slide-up's own six swatches — a Vorlage must not be able to
  *  produce a colour the manual create dialog cannot. */
@@ -350,7 +351,7 @@ function TemplateRow({
     <div
       ref={rowRef}
       className={cn(
-        'relative space-y-2 rounded-lg border border-border p-3',
+        'relative rounded-lg border border-border p-3',
         !template.auto_create && 'opacity-70',
         dragging && 'opacity-50',
       )}
@@ -394,7 +395,9 @@ function TemplateRow({
         />
       </div>
 
-      {expanded && (
+      {/* Slides open (Reveal); the 8px under the header is padding inside the
+          clip, so the card grows with the slide instead of snapping. */}
+      <Reveal open={expanded} innerClassName="pt-2">
         <div className="space-y-3 pl-6">
           <div>
             <div className="mb-1.5 text-xs font-semibold text-muted-foreground">{t('nameLabel')}</div>
@@ -534,7 +537,7 @@ function TemplateRow({
             {t('delete')}
           </Button>
         </div>
-      )}
+      </Reveal>
 
       {closestEdge && <DropIndicator edge={closestEdge} />}
     </div>

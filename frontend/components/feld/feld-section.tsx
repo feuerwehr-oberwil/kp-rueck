@@ -25,6 +25,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Reveal, REVEAL_MS } from '@/components/ui/reveal'
 
 /**
  * How full the section is — read by the dot AND spelled out in the summary
@@ -88,7 +89,11 @@ export function FeldSection({
   useEffect(() => {
     if (!open || !shouldReveal.current) return
     shouldReveal.current = false
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // After the body's slide (Reveal), so the page is already tall enough
+    // for the header to reach the top — scrolling while it still grows
+    // stopped short at the old page end.
+    const id = setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), REVEAL_MS)
+    return () => clearTimeout(id)
   }, [open])
 
   useEffect(() => {
@@ -135,13 +140,14 @@ export function FeldSection({
           <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         )}
       </button>
-      <div
-        id={bodyId}
-        hidden={!open}
-        className={cn('space-y-3 border-t border-border/60 px-3', dense ? 'pb-3 pt-2' : 'pb-4 pt-3')}
-      >
-        {children}
-      </div>
+      {/* Slides open/closed (Reveal). `keepMounted`: a closed section keeps
+          its body (and whatever was typed into it) — it is hidden, not
+          unmounted, exactly as before. */}
+      <Reveal open={open} keepMounted id={bodyId}>
+        <div className={cn('space-y-3 border-t border-border/60 px-3', dense ? 'pb-3 pt-2' : 'pb-4 pt-3')}>
+          {children}
+        </div>
+      </Reveal>
     </section>
   )
 }

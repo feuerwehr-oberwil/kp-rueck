@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, MapPin } from "lucide-react"
 
 import type { Material } from "@/lib/contexts/materials-context"
 import { getTimeSince } from "@/lib/kanban-utils"
+import { Reveal } from "@/components/ui/reveal"
 
 /** Where one unit is standing — the shape `operations-context` keys by material id. */
 export interface MaterialOnSiteLocation {
@@ -112,7 +113,7 @@ export function MaterialOnSitePanel({ entries, onOpenIncident }: MaterialOnSiteP
         <span className="truncate">{t("toggle", { count: entries.length })}</span>
       </button>
 
-      {expanded && (
+      <Reveal open={expanded}>
         <ul className="mt-0.5 max-h-44 space-y-0.5 overflow-y-auto overscroll-y-contain pl-2">
           {entries.map((entry) => (
             <li key={entry.materialId}>
@@ -141,7 +142,7 @@ export function MaterialOnSitePanel({ entries, onOpenIncident }: MaterialOnSiteP
             </li>
           ))}
         </ul>
-      )}
+      </Reveal>
     </div>
   )
 }

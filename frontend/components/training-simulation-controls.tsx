@@ -437,12 +437,9 @@ export function TrainingSimulationControls() {
             most-overdue first. Due rows are highlighted; a tap advances. */}
         <SettingGroup
           className="mt-0"
-          title={
-            <span className="flex items-center gap-2">
-              <ChevronRight className="h-4 w-4" />
-              {t('nextActions')}
-            </span>
-          }
+          // No chevron: this is the console itself, not a fold — a chevron
+          // promised an open/close that never happened (owner 02.10.).
+          title={t('nextActions')}
           hint={rows.length > 0 ? t('footer') : undefined}
           action={
             /* Bulk rapports stay one click for storm drills (plan 25 §16):

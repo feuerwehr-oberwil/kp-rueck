@@ -28,6 +28,7 @@ import { apiClient } from '@/lib/api-client'
 import { getApiUrl } from '@/lib/env'
 import { cn, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
+import { Reveal } from '@/components/ui/reveal'
 
 export default function AlarmPage() {
   return (
@@ -766,8 +767,10 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         {t('detailsToggle')}
       </button>
 
-      {detailsOpen && (
-      <>
+      {/* Slides open/closed (Reveal). Its own block margin is zeroed and the
+          gap to the next field is padding INSIDE the clip, so the page below
+          moves with the slide instead of snapping by the space-y gap. */}
+      <Reveal open={detailsOpen} className="mb-0" innerClassName="space-y-6 pb-6">
       {/* Priority — three quick buttons (mobile-friendly, like the Reko form) */}
       <div>
         <Label className="text-sm font-semibold text-muted-foreground">{t('priorityLabel')}</Label>
@@ -849,8 +852,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
             than one that says so. */}
         {editing && <p className="mt-1.5 text-xs text-muted-foreground">{t('hintsCorrectionHelp')}</p>}
       </div>
-      </>
-      )}
+      </Reveal>
 
       {/* Contact (Melder / Anrufer) */}
       <div>

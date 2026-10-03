@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Reveal } from "@/components/ui/reveal"
 
 /**
  * One foldable section of a viewer column (a board status, a Funktion, a
@@ -61,7 +62,7 @@ export function CollapsibleSection({
           {count}
         </span>
       </button>
-      {!collapsed && children}
+      <Reveal open={!collapsed}>{children}</Reveal>
     </div>
   )
 }

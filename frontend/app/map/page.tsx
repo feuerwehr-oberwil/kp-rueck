@@ -58,6 +58,7 @@ import { toast } from "sonner"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+import { Reveal } from "@/components/ui/reveal"
 // The board's shortcut hook owns the canonical "should this keystroke reach the
 // page?" rules; the map answers the same questions and reuses them.
 import { isActivationTarget, isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
@@ -1236,7 +1237,7 @@ export default function MapPage() {
                         />
                         {t(`statusGroups.${group}`)} · {statusGroupCounts[group]}
                       </button>
-                      {enabled && rows.length > 0 && (
+                      <Reveal open={enabled && rows.length > 0}>
                         <div className="space-y-0.5">
                           {rows.map((incident) => {
                             const isSelected = selectedIncidentId === incident.id
@@ -1306,7 +1307,7 @@ export default function MapPage() {
                             )
                           })}
                         </div>
-                      )}
+                      </Reveal>
                     </div>
                   )
                 })}

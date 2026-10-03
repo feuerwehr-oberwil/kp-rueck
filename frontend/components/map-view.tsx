@@ -38,6 +38,7 @@ import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
 import { estimateLabelWidth, labelMode, pickVisibleLabels } from "@/lib/map-labels"
+import { Reveal } from "@/components/ui/reveal"
 
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -840,8 +841,9 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
         />
       </button>
 
-      {isExpanded && (
-        <ul className="mt-1.5 w-full min-w-48 max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
+      {/* Slides open/closed (Reveal) — the list used to pop in at full height. */}
+      <Reveal open={isExpanded} className="w-full min-w-48">
+        <ul className="mt-1.5 w-full max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
           {incidents.map((incident) => (
             <li key={incident.id}>
               <button
@@ -858,7 +860,7 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
             </li>
           ))}
         </ul>
-      )}
+      </Reveal>
     </div>
   )
 }

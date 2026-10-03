@@ -1340,19 +1340,31 @@ export function OperationDetailContent({
             checked={operation.nachbarhilfe || false}
             disabled={!canEdit}
             onToggle={(checked) => canEdit && onUpdate({ nachbarhilfe: checked })}
+            // Save state INSIDE the field (trail / ✓ at its trailing edge) so
+            // the row keeps its height while saving and after; only a failure
+            // opens the line below — an error may take space (owner 02.10.).
             note={
-              <Input
-                placeholder={t('common.nachbarhilfePlaceholder')}
-                value={nachbarhilfeNoteSave.value}
-                disabled={!canEdit}
-                aria-invalid={nachbarhilfeNoteSave.failed || undefined}
-                onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
-                className={cn("h-7 cursor-text text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
-              />
+              <div className="relative">
+                <Input
+                  placeholder={t('common.nachbarhilfePlaceholder')}
+                  value={nachbarhilfeNoteSave.value}
+                  disabled={!canEdit}
+                  aria-invalid={nachbarhilfeNoteSave.failed || undefined}
+                  onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn("h-7 cursor-text rounded-sm pr-7 text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                />
+                <FieldSaveStatus
+                  part="mark"
+                  view={nachbarhilfeNoteSave}
+                  onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
+                  className="absolute top-1/2 right-2 -translate-y-1/2"
+                />
+              </div>
             }
             footer={
               <FieldSaveStatus
+                part="failure"
                 view={nachbarhilfeNoteSave}
                 onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
               />
@@ -1369,18 +1381,26 @@ export function OperationDetailContent({
             disabled={!canEdit}
             onToggle={(checked) => canEdit && onUpdate({ amWarten: checked })}
             note={
-              <Input
-                placeholder={t('common.amWartenPlaceholder')}
-                value={amWartenNoteSave.value}
-                disabled={!canEdit}
-                aria-invalid={amWartenNoteSave.failed || undefined}
-                onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
-                className={cn("h-7 cursor-text text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
-              />
+              <div className="relative">
+                <Input
+                  placeholder={t('common.amWartenPlaceholder')}
+                  value={amWartenNoteSave.value}
+                  disabled={!canEdit}
+                  aria-invalid={amWartenNoteSave.failed || undefined}
+                  onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn("h-7 cursor-text rounded-sm pr-7 text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                />
+                <FieldSaveStatus
+                  part="mark"
+                  view={amWartenNoteSave}
+                  onRetry={(amWartenNote) => onUpdate({ amWartenNote })}
+                  className="absolute top-1/2 right-2 -translate-y-1/2"
+                />
+              </div>
             }
             footer={
-              <FieldSaveStatus view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
+              <FieldSaveStatus part="failure" view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
             }
           />
 

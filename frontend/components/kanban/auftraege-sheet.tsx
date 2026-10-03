@@ -86,6 +86,7 @@ import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
 import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import { isToastLayer } from "@/lib/toast-layer"
 import type { GroupResources } from "@/lib/types/groups"
+import { Reveal } from "@/components/ui/reveal"
 
 // Six-swatch palette for the inline create / colour picker. Kept small and
 // distinct so routes read apart at a glance on board + map.
@@ -847,7 +848,7 @@ function AuftragCard({
           RouteResourceSections; Zugewiesene Einsätze is the fourth sibling. There
           is deliberately no "Ressourcen vs Einsätze" grouping — the Auftrag card
           itself is the only strong boundary. */}
-      {expanded && (
+      <Reveal open={expanded}>
         <div className="border-t px-3 pb-3 pt-1">
           {/* Mannschaft / Fahrzeuge / Material — shared per-type resource sections
               (icon + count heading + "+ Hinzufügen" + chips). All assign/remove
@@ -923,7 +924,7 @@ function AuftragCard({
             </div>
           </div>
         </div>
-      )}
+      </Reveal>
     </div>
   )
 }

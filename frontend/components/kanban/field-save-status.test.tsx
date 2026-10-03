@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, screen } from "@testing-library/react"
+import { act, fireEvent, screen, within } from "@testing-library/react"
 
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import {
@@ -41,6 +41,22 @@ function Field({ server, onRetry = () => {} }: { server: string; onRetry?: (draf
   )
 }
 
+/** A toggle note: the state as a mark inside the field, only a failure below it. */
+function NoteField({ server }: { server: string }) {
+  const view = useFieldSave("inc-1", "notes", server)
+  return (
+    <div>
+      <div data-testid="row">
+        <input aria-label="Notiz" value={view.value} readOnly />
+        <FieldSaveStatus part="mark" view={view} onRetry={() => {}} />
+      </div>
+      <div data-testid="below">
+        <FieldSaveStatus part="failure" view={view} onRetry={() => {}} />
+      </div>
+    </div>
+  )
+}
+
 beforeEach(() => {
   resetFieldSaveForTests()
   setFieldSaveScope("user-a:event-1")
@@ -56,6 +72,34 @@ function edit(value: string, server = "Keller") {
 }
 
 describe("FieldSaveStatus", () => {
+  it("part=mark keeps saving/saved inside the row and opens the line below only on failure", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] })
+    vi.setSystemTime(new Date(2026, 9, 2, 9, 41, 0))
+    renderWithIntl(<NoteField server="" />)
+    const row = screen.getByTestId("row")
+    const below = screen.getByTestId("below")
+
+    edit("FW Therwil", "")
+    expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Wird gespeichert …")
+    expect(below).toBeEmptyDOMElement()
+
+    let ticket!: ReturnType<typeof noteFieldSend>
+    act(() => {
+      ticket = noteFieldSend("inc-1", ["notes"])
+    })
+    act(() => noteFieldSettled(ticket, { ok: true }))
+    expect(row.querySelector("[role=status]")).toHaveAttribute("title", "Gespeichert – 09:41")
+    expect(below).toBeEmptyDOMElement()
+
+    edit("FW Therwil, Kdt.", "FW Therwil")
+    act(() => {
+      ticket = noteFieldSend("inc-1", ["notes"])
+    })
+    act(() => noteFieldSettled(ticket, { ok: false, reason: "network" }))
+    expect(within(below).getByRole("button", { name: "Erneut speichern" })).toBeInTheDocument()
+    expect(row.querySelector("[title='Nicht gespeichert.']")).not.toBeNull()
+  })
+
   it("is quiet until something is edited", () => {
     const { container } = renderWithIntl(<Field server="Keller" />)
     expect(container.querySelector("[role=status]")).toBeNull()
