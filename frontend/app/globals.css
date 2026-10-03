@@ -41,6 +41,13 @@
      a text field and a select stacked under each other line up (owner
      03.10.). Use `px-(--field-px)`; never hand-pick a field's padding. */
   --field-px: 0.875rem;
+  /* ...and ONE height per form (owner 03.10.: a 28px text field over a 36px
+     select read as «no padding»). `--field-h` for regular forms (Neuer
+     Einsatz, settings, dialogs), `--field-h-dense` for the Einsatz detail's
+     compact rows — every Input/Select/LocationInput/toggle note there meets
+     it. On a phone both are 44px, the touch floor. */
+  --field-h: 2.25rem;
+  --field-h-dense: 2rem;
   /* Disclosure motion (collapsibles, «▶ mehr» bodies, revealed notes): one
      duration and one curve for all of them — components/ui/reveal.tsx and
      the Radix CollapsibleContent below. */
@@ -249,6 +256,13 @@
   background-color: var(--sel-wash);
   color: var(--sel-foreground);
   box-shadow: inset 0 0 0 1px var(--sel-edge);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --field-h: 2.75rem;
+    --field-h-dense: 2.75rem;
+  }
 }
 
 @layer base {

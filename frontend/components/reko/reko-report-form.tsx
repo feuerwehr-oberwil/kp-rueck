@@ -280,7 +280,7 @@ export function RekoReportForm({
               // Same auto-grow rule the Übersicht's Meldung uses: DENSE_CONTROL
               // sets an explicit `h-7`, and only `h-auto` lets the box follow
               // what is typed into it.
-              className={cn(DENSE_CONTROL, "h-auto min-h-7 py-1 text-sm")}
+              className={cn(DENSE_CONTROL, "h-auto min-h-(--field-h-dense) py-1 text-sm")}
               rows={1}
             />
           </div>
@@ -365,7 +365,7 @@ export function RekoReportForm({
             disabled={disabled}
             onChange={e => update('additional_notes', e.target.value)}
             placeholder={t('notesPlaceholder')}
-            className={cn(DENSE_CONTROL, "h-auto max-h-[14rem] min-h-7 py-1 text-sm")}
+            className={cn(DENSE_CONTROL, "h-auto max-h-[14rem] min-h-(--field-h-dense) py-1 text-sm")}
             rows={1}
           />
         </DetailField>

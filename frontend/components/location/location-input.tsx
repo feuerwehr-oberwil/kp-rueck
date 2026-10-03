@@ -671,7 +671,9 @@ export function LocationInput({
                 disabled={disabled || !showCoordinates}
                 aria-invalid={!!coordinateError}
                 className={cn(
-                  dense && "h-7",
+                  // The same height as the address field above it: dense rows
+                  // (detail) and boxed/regular forms (Neuer Einsatz) differ.
+                  dense && !boxed && "h-(--field-h-dense)",
                   coordinateWarning && !coordinateError && "border-warning"
                 )}
               />

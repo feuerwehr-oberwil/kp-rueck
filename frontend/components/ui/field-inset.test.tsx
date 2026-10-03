@@ -45,4 +45,22 @@ describe("one field inset", () => {
     expect(icon.getAttribute("class")).toContain("left-[calc(var(--field-px)+1px)]")
     expect(screen.getByLabelText("Suche").className).toContain("pl-[calc(var(--field-px)+1.5rem)]")
   })
+
+  it("one height token per form: Input/Select at --field-h, the dense skin at --field-h-dense", () => {
+    render(
+      <>
+        <Input aria-label="Kontakt" />
+        <Select>
+          <SelectTrigger aria-label="Priorität">
+            <SelectValue placeholder="Priorität" />
+          </SelectTrigger>
+        </Select>
+      </>,
+    )
+    expect(screen.getByLabelText("Kontakt").className).toContain("h-(--field-h)")
+    expect(screen.getByLabelText("Priorität").className).toContain("data-[size=default]:h-(--field-h)")
+    // the dense skin pins the select's size variant too, or the select stays taller
+    expect(DENSE_CONTROL).toContain("h-(--field-h-dense)")
+    expect(DENSE_CONTROL).toContain("data-[size=default]:h-(--field-h-dense)")
+  })
 })
