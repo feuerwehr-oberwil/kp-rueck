@@ -45,12 +45,34 @@ describe('theme-color', () => {
     expect(THEME_COLOR.dark).toBe(backgroundOf(css, '.dark'))
   })
 
-  it('is declared per scheme by the root layout, with the default status bar', () => {
+  it('is ONE meta, set before first paint, with Front\'s installed-app tags and no status-bar-style', () => {
     const layout = readFileSync(resolve(FRONTEND, 'app/layout.tsx'), 'utf8')
-    expect(layout).toContain("{ media: '(prefers-color-scheme: light)', color: THEME_COLOR.light }")
-    expect(layout).toContain("{ media: '(prefers-color-scheme: dark)', color: THEME_COLOR.dark }")
-    expect(layout).toContain("statusBarStyle: 'default'")
+    expect(layout.match(/<meta name="theme-color"/g)).toHaveLength(1)
+    expect(layout).not.toContain('themeColor:')
+    expect(layout).not.toMatch(/appleWebApp:/)
+    expect(layout).not.toMatch(/statusBarStyle:/)
+    expect(layout).toContain("'apple-mobile-web-app-capable': 'yes'")
     expect(layout).toContain('<ThemeColorSync />')
+  })
+
+  it('boot script picks the stored scheme, the phone\'s under «System», before React runs', () => {
+    const layout = readFileSync(resolve(FRONTEND, 'app/layout.tsx'), 'utf8')
+    const src = layout.match(/const THEME_COLOR_BOOT = `([^`]+)`/)![1]
+      .replace("${THEME_COLOR.dark}", THEME_COLOR.dark)
+      .replace("${THEME_COLOR.light}", THEME_COLOR.light)
+    const run = (stored: string | null, phoneDark: boolean) => {
+      document.head.innerHTML = '<meta name="theme-color" content="#000000">'
+      if (stored) localStorage.setItem('theme', stored)
+      else localStorage.removeItem('theme')
+      const matchMedia = () => ({ matches: phoneDark }) as MediaQueryList
+      new Function('localStorage', 'matchMedia', 'document', src)(localStorage, matchMedia, document)
+      return document.querySelector('meta[name="theme-color"]')!.getAttribute('content')
+    }
+    expect(run('dark', false)).toBe(THEME_COLOR.dark)
+    expect(run('light', true)).toBe(THEME_COLOR.light)
+    expect(run('system', true)).toBe(THEME_COLOR.dark)
+    expect(run(null, false)).toBe(THEME_COLOR.light)
+    localStorage.removeItem('theme')
   })
 
   it('rewrites every theme-color meta to the scheme the app shows', () => {

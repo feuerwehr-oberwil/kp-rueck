@@ -936,7 +936,7 @@ export default function MapPage() {
             mobile too. */}
         {selectedEvent?.training_flag && <TrainingBand />}
         {/* Top header is desktop-only — mobile uses the bottom navbar. */}
-        <header className="hidden md:flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
+        <header className="hidden md:flex items-center justify-between border-b border-border bg-header px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
             {/* The word next to the page title, in the same warning colour the

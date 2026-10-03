@@ -12977,7 +12977,7 @@
           "feld"
         ],
         "summary": "Unlock Feld",
-        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns a single-use, five-minute picker grant in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\n**A Rück login counts instead of the code** (owner, 03.10.): a body without ``code`` is let\nin on the caller's session — any active account, viewer included, because the code itself\ngrants nothing a viewer would not get: the same picker grant, for the same Ereignis (the\nlink token's), through the same claim step. No session (anonymous, expired, logged out) →\n403 ``code_required``, which is not a failed attempt: the phone then shows the code screen\nas before. A body WITH a code always takes the code path, session or not.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns a single-use, five-minute picker grant in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
         "operationId": "unlock_feld_api_feld_unlock_post",
         "parameters": [
           {
@@ -12990,6 +12990,38 @@
               "title": "Token"
             },
             "description": "Access token from the generated /feld link"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
           }
         ],
         "requestBody": {
@@ -23694,18 +23726,22 @@
       "FeldUnlockRequest": {
         "properties": {
           "code": {
-            "type": "string",
-            "maxLength": 8,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Code"
           }
         },
         "type": "object",
-        "required": [
-          "code"
-        ],
         "title": "FeldUnlockRequest",
-        "description": "The four digits from under the QR poster."
+        "description": "The four digits from under the QR poster — or none at all from a phone that is logged in.\n\n``code`` omitted (or null) asks to be let in on the caller's Rück session instead: a person\nwho has a login on this station is not who the code keeps out. Without a valid session that\nis refused as ``code_required`` and counts as no attempt."
       },
       "FeldUnlockResponse": {
         "properties": {

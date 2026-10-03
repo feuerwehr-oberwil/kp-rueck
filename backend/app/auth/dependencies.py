@@ -175,7 +175,30 @@ async def get_current_admin(current_user: Annotated[User, Depends(get_current_us
     return current_user
 
 
+async def get_optional_user(
+    request: Request,
+    access_token: Annotated[str | None, Cookie()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """
+    The logged-in user, or None for an anonymous caller or a session that is no longer valid.
+
+    For the doors a person with a Rück login does not have to knock on (the Feld-Code): the
+    session counts IN PLACE OF the code, never in addition to it, and every check
+    `get_current_user` makes (expiry, logout, deactivation, session version) still decides —
+    an expired session is simply «no session», and the caller falls back to the code.
+    """
+    try:
+        return await get_current_user(request, access_token, authorization, db)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
+
+
 # Convenience type aliases
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentEditor = Annotated[User, Depends(get_current_editor)]
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]

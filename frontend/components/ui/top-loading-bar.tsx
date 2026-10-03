@@ -137,7 +137,8 @@ export function TopLoadingBar() {
         style={{
           width: `${state.progress}%`,
           opacity: state.active && !hidden ? 1 : 0,
-          boxShadow: "0 0 8px var(--primary)",
+          // No glow. An 8px halo on a line pinned to the top edge is a blurred red band right
+          // under the status bar of the home-screen app, on every navigation.
         }}
       />
     </div>

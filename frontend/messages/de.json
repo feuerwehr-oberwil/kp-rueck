@@ -3568,6 +3568,7 @@
       "contactPhoneLabel": "Telefonnummer",
       "contactPhonePlaceholder": "z. B. 079 123 45 67",
       "missingLocation": "Ohne Einsatzort kann der KP niemanden schicken.",
+      "missingMessage": "Ohne Meldung weiss der KP nicht, worum es geht.",
       "submitting": "Wird übermittelt …",
       "submit": "Alarm absenden",
       "review": {

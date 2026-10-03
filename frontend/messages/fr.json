@@ -1289,6 +1289,7 @@
       "contactPhoneLabel": "Numéro de téléphone",
       "contactPhonePlaceholder": "p. ex. 079 123 45 67",
       "missingLocation": "Sans lieu d’intervention, le PC ne peut envoyer personne.",
+      "missingMessage": "Sans message, le PC ne sait pas de quoi il s’agit.",
       "submitting": "Transmission …",
       "submit": "Envoyer l’alarme",
       "review": {

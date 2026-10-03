@@ -29,18 +29,51 @@ import { getApiUrl } from '@/lib/env'
 import { cn, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 import { Reveal } from '@/components/ui/reveal'
+import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
+import { LinkPageHeader } from '@/components/link-page/link-page'
 
 export default function AlarmPage() {
   return (
-    <div className="min-h-screen bg-background px-4 pt-6 pb-24">
-      <div className="mx-auto max-w-md">
-        <Suspense fallback={<CenteredSpinner />}>
-          <AlarmIntake />
-        </Suspense>
-      </div>
+    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom,0px)+6rem)]">
+      <Suspense fallback={<AlarmBody><CenteredSpinner /></AlarmBody>}>
+        <AlarmIntake />
+      </Suspense>
     </div>
   )
 }
+
+/** The page column under the header — the same column /check-in, /feld and /reko use. */
+function AlarmBody({ children }: { children: React.ReactNode }) {
+  return <div className="mx-auto max-w-md px-4 pt-4">{children}</div>
+}
+
+/**
+ * The /alarm frame: the shared link-page header (solid, 56px, the same bar as /check-in, /feld
+ * and /reko) with the Ereignis as its context line, then the column. The screens put their
+ * title in the bar instead of a 24px heading of their own.
+ */
+function AlarmFrame({ title, eventName, children }: { title: string; eventName: string; children: React.ReactNode }) {
+  return (
+    <>
+      <LinkPageHeader title={title} subtitle={eventName || undefined} />
+      <AlarmBody>{children}</AlarmBody>
+    </>
+  )
+}
+
+/** «Übung» under the header — the mode of the whole Ereignis, said on every screen that sends. */
+function TrainingNote({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
+      <AlertTriangle className="h-3.5 w-3.5" />
+      {label}
+    </span>
+  )
+}
+
+/** The fields «Weiter» can be refused on, in form order — the ids it focuses. */
+const LOCATION_FIELD_ID = 'location_address'
+const MESSAGE_FIELD_ID = 'title'
 
 function CenteredSpinner() {
   const t = useTranslations('common')
@@ -254,10 +287,11 @@ function AlarmIntake() {
     }
   }, [token])
 
-  if (status === 'loading') return <CenteredSpinner />
+  if (status === 'loading') return <AlarmBody><CenteredSpinner /></AlarmBody>
 
   if (status === 'invalid') {
     return (
+      <AlarmBody>
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
         <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-destructive" />
         <h1 className="text-lg font-semibold">{t('invalidTitle')}</h1>
@@ -265,6 +299,7 @@ function AlarmIntake() {
           {t('invalidDescription')}
         </p>
       </div>
+      </AlarmBody>
     )
   }
 
@@ -406,6 +441,7 @@ function ReceiptScreen({
             : tReports('stateDispatched')
 
   return (
+    <AlarmFrame title={t('title')} eventName={eventName}>
     <div className="space-y-4">
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
         <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15">
@@ -462,6 +498,7 @@ function ReceiptScreen({
         {t('another')}
       </Button>
     </div>
+    </AlarmFrame>
   )
 }
 
@@ -524,7 +561,13 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
    *  produce — the address input says «required», so the gate enforces it.
    *  A map pin counts: not every meadow has a street. */
   const hasLocation = Boolean(address?.trim()) || (lat !== null && lng !== null)
-  const incomplete = !message.trim() || !hasLocation
+  const messageMissing = !message.trim()
+  const incomplete = messageMissing || !hasLocation
+  /** «Weiter» was pressed with something missing (the #120 rule: never greyed out). From then
+   *  on each reason stands under its field, red, and the cursor went to the first one. */
+  const [tried, setTried] = useState(false)
+  const showLocationError = tried && !hasLocation
+  const showMessageError = tried && messageMissing
 
   /** What the review step lists, in the order the form asked for it. Empty rows
    *  are dropped rather than shown blank — a dash next to «Melder» is a field
@@ -630,23 +673,17 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
   // with editable fields in it is the form again with a bolder heading.
   if (step === 'review') {
     return (
+      <AlarmFrame title={t('review.title')} eventName={eventName}>
       <div className="space-y-6">
-        <div>
-          <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+        {/* Which board this is about to land on: the Ereignis rides in the header,
+            the step that actually sends must not say less than the form. */}
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span>{t('review.stepForm')}</span>
             <ChevronRight className="size-3" />
             <span className="font-medium text-foreground">{t('review.stepCheck')}</span>
           </p>
-          <h1 className="text-2xl font-bold">{t('review.title')}</h1>
-          {/* Which board this is about to land on. The form says it in its own
-              header, and the step that actually sends must not say less. */}
-          <p className="mt-1 text-sm text-muted-foreground">{eventName}</p>
-          {trainingFlag && (
-            <span className="mt-2 inline-flex items-center gap-2 rounded border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {t('trainingMode')}
-            </span>
-          )}
+          {trainingFlag && <TrainingNote label={t('trainingMode')} />}
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border">
@@ -694,30 +731,26 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           </Button>
         </div>
       </div>
+      </AlarmFrame>
     )
   }
 
   return (
+    <AlarmFrame title={editing ? t('correct') : t('title')} eventName={eventName}>
     <form
+      noValidate
       onSubmit={e => {
         e.preventDefault()
-        if (!incomplete) setStep('review')
+        if (incomplete) {
+          setTried(true)
+          focusFirstBlockingField([!hasLocation && LOCATION_FIELD_ID, messageMissing && MESSAGE_FIELD_ID])
+          return
+        }
+        setStep('review')
       }}
       className="space-y-6"
     >
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          {editing ? <Pencil className="h-6 w-6 text-primary" /> : <Plus className="h-6 w-6 text-primary" />}
-          {editing ? t('correct') : t('title')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{eventName}</p>
-        {trainingFlag && (
-          <span className="mt-2 inline-flex items-center gap-2 rounded border border-warning/20 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {t('trainingMode')}
-          </span>
-        )}
-      </header>
+      {trainingFlag && <TrainingNote label={t('trainingMode')} />}
 
       {/* Location — first, so the address isn't repeated in the message */}
       <LocationInput
@@ -735,7 +768,14 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         // Meldung below, so the operator typed the address into the wrong field
         // or reached for the mouse before the sentence was finished.
         autoFocus
+        error={showLocationError}
+        describedBy={showLocationError ? formMessageId(LOCATION_FIELD_ID) : undefined}
       />
+      {showLocationError && (
+        <FormMessage id={formMessageId(LOCATION_FIELD_ID)} tone="error" className="-mt-4">
+          {t('missingLocation')}
+        </FormMessage>
+      )}
 
       {/* Meldung — what was reported (not the address, that's the location above) */}
       <div>
@@ -743,13 +783,20 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           {t('messageLabel')} <span className="text-destructive" aria-hidden="true">*</span>
         </Label>
         <Input
-          id="title"
+          id={MESSAGE_FIELD_ID}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder={t('messagePlaceholder')}
           className="mt-2 h-12 text-base"
-          required
+          aria-required="true"
+          aria-invalid={showMessageError || undefined}
+          aria-describedby={showMessageError ? formMessageId(MESSAGE_FIELD_ID) : undefined}
         />
+        {showMessageError && (
+          <FormMessage id={formMessageId(MESSAGE_FIELD_ID)} tone="error" className="mt-1">
+            {t('missingMessage')}
+          </FormMessage>
+        )}
       </div>
 
       {/* Details — Priorität, Einsatzart and Hinweise behind one fold. Wo and
@@ -886,15 +933,13 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
 
       {/* Not "absenden": this button sends nothing, and a button that claims it
           does is the fat-finger the review step exists to catch. */}
-      <Button type="submit" size="lg" className="w-full text-base" disabled={incomplete}>
+      {/* Never greyed out (#120): a press with something missing says why under the
+          field it is about and puts the cursor there — the reason no longer stands
+          under the button, a whole form away from the field that fixes it. */}
+      <Button type="submit" size="lg" className="w-full text-base">
         {t('review.next')}
         <ChevronRight className="size-4" />
       </Button>
-      {/* Name the missing piece instead of leaving a dead button: the message
-          field is visibly empty on its own, the location gate is not. */}
-      {!hasLocation && (
-        <p className="text-center text-sm text-muted-foreground">{t('missingLocation')}</p>
-      )}
       {/* Only on a correction: the way out of an edit nobody wanted after all.
           The alarm itself is already at the KP and stays there. */}
       {editing && onCancel && (
@@ -903,5 +948,6 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         </Button>
       )}
     </form>
+    </AlarmFrame>
   )
 }

@@ -118,7 +118,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'startGpsSimulation', 'stopGpsSimulation', 'submitRekoReport', 'transferAssignments',
     'transferRekoAssignments', 'triggerImmediateSync', 'triggerSyncFromRailway', 'triggerSyncToRailway',
     'unarchiveEvent', 'unassignGroupResource', 'unassignRekoPersonnel', 'unassignResource',
-    'unassignSpecialFunction', 'unlockFeld', 'updateAssignment', 'updateAuftragTemplate', 'updateEvent',
+    'unassignSpecialFunction', 'unlockFeld', 'unlockFeldWithSession', 'updateAssignment', 'updateAuftragTemplate', 'updateEvent',
     'updateFeldReport', 'updateGroupAssignment', 'updateIncident', 'updateIncidentGroup',
     'updateIncidentStatus', 'updateMaterialCategorySortOrder', 'updateMaterialGroup',
     'updateMaterialResource', 'updatePersonnel', 'updatePersonnelCategorySortOrder', 'updateRekoReport',
