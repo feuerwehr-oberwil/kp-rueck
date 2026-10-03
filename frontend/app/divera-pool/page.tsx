@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +39,6 @@ import { getDateFnsLocale } from '@/lib/date-locale';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export default function DiveraPoolPage() {
-  useGlobalNavigation();
   const t = useTranslations('divera.pool');
   const { isAuthenticated, isEditor } = useAuth();
   const { selectedEvent: currentEvent } = useEvent();

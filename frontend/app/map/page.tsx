@@ -16,6 +16,7 @@ import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
+import { openCommandPalette } from "@/components/ui/command-palette"
 import { Badge } from "@/components/ui/badge"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
@@ -844,6 +845,13 @@ export default function MapPage() {
       // `s` alone focuses the search, `G S` opens the settings, and only the hook
       // knows which of the two a keystroke is.
       if (gPrefix.handleKey(e)) return
+
+      // `?` opens the command palette here too — the help lists it as global.
+      if (e.key === '?') {
+        e.preventDefault()
+        openCommandPalette()
+        return
+      }
 
       // '/' or 'S' key to focus search (S for Suche - Swiss-German keyboard friendly)
       if (e.key === '/' || ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey)) {

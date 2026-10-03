@@ -4,7 +4,7 @@ Remplacement numérique du tableau magnétique du poste de commandement. Gère l
 
 ## Vues
 
-### Tableau kanban (`G K`)
+### Tableau (Board) (`G B`)
 Vue principale au chargement de l’application. Affiche toutes les interventions dans sept colonnes de statut (Reçu → Clôturé). À gauche la barre latérale du personnel, à droite le matériel et les véhicules.
 
 **La vue reste telle qu’on l’a réglée.** Les barres latérales repliées, le panneau latéral et une liste de mise en route écartée survivent à un rechargement – mémorisés par appareil, comme les autres réglages d’affichage.
@@ -510,11 +510,16 @@ avec leur raccourci et est également accessible depuis le menu utilisateur
 (« Commandes et raccourcis clavier »). Les raccourcis sont inactifs tant qu’un champ de
 saisie a le focus.
 
+Les raccourcis globaux (`G …` et `?`) valent sur chaque page de l’interface – tableau,
+carte, événements, paramètres, aide, ressources, exercice, alarmes entrantes, audit. Ils se
+taisent tant qu’un dialogue ou un menu est ouvert ; sur les affichages muraux (`/display`)
+et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontairement pas.
+
 ### Global
 | Raccourci | Action |
 |----------|--------|
 | `Cmd/Ctrl+K` ou `?` | Ouvrir/fermer la palette de commandes |
-| `G K` | Tableau kanban |
+| `G B` ou `G K` | Tableau (Board) |
 | `G M` | Vue carte |
 | `G E` | Événements |
 | `G S` | Réglages |

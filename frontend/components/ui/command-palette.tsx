@@ -51,6 +51,9 @@ import {
 import { useCommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+// Hints come from the one chord table — they said «G K» for weeks after the
+// chord had moved to G B.
+import { gPrefixHint } from "@/lib/hooks/use-g-prefix-navigation"
 
 /** Window event that opens the palette (for mouse entry points like the welcome card). */
 export const OPEN_COMMAND_PALETTE_EVENT = "kp:open-command-palette"
@@ -177,35 +180,35 @@ export function CommandPalette() {
               >
                 <Home className="mr-2 h-4 w-4" />
                 <span>{t('kanbanView')}</span>
-                <span className="ml-auto text-xs text-muted-foreground">G K</span>
+                <span className="ml-auto text-xs text-muted-foreground">{gPrefixHint("/")}</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/map"))}
               >
                 <Map className="mr-2 h-4 w-4" />
                 <span>{t('mapView')}</span>
-                <span className="ml-auto text-xs text-muted-foreground">G M</span>
+                <span className="ml-auto text-xs text-muted-foreground">{gPrefixHint("/map")}</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/events"))}
               >
                 <Calendar className="mr-2 h-4 w-4" />
                 <span>{t('eventSelection')}</span>
-                <span className="ml-auto text-xs text-muted-foreground">G E</span>
+                <span className="ml-auto text-xs text-muted-foreground">{gPrefixHint("/events")}</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/help"))}
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 <span>{t('helpDocs')}</span>
-                <span className="ml-auto text-xs text-muted-foreground">G H</span>
+                <span className="ml-auto text-xs text-muted-foreground">{gPrefixHint("/help")}</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => router.push("/settings"))}
               >
                 <Settings className="mr-2 h-4 w-4" />
                 <span>{t('settings')}</span>
-                <span className="ml-auto text-xs text-muted-foreground">G S</span>
+                <span className="ml-auto text-xs text-muted-foreground">{gPrefixHint("/settings")}</span>
               </CommandItem>
             </CommandGroup>
 

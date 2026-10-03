@@ -174,3 +174,24 @@ describe("useGPrefixNavigation", () => {
     expect(push).not.toHaveBeenCalled();
   });
 });
+
+describe("the chord table", () => {
+  it("G B goes to the Board, and the old G K still does", async () => {
+    const { G_PREFIX_TARGETS, gPrefixHint } = await import("./use-g-prefix-navigation");
+    expect(G_PREFIX_TARGETS.b).toBe("/");
+    expect(G_PREFIX_TARGETS.k).toBe("/");
+    expect(gPrefixHint("/")).toBe("G B");
+    expect(gPrefixHint("/map")).toBe("G M");
+  });
+
+  it("'G K' navigates to the Board from another page", () => {
+    const { result } = renderHook(() => useGPrefixNavigation({ push }, "/settings"));
+    act(() => {
+      result.current.handleKey(makeEvent("g"));
+    });
+    act(() => {
+      result.current.handleKey(makeEvent("k"));
+    });
+    expect(push).toHaveBeenCalledWith("/");
+  });
+});

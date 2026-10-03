@@ -100,7 +100,9 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLTextAreaElement) return true
   if (target instanceof HTMLSelectElement) return true
   if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
+  // The attribute too, not only `isContentEditable`: a key typed into a child
+  // of an editor (a <span> inside a rich-text field) must count as typing.
+  if (target.isContentEditable || target.closest('[contenteditable]:not([contenteditable="false"])')) return true
   const role = target.getAttribute("role")
   return role === "combobox" || role === "listbox" || role === "option"
 }

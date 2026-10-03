@@ -9,16 +9,34 @@ export interface GPrefixRouter {
 const PREFIX_TIMEOUT_MS = 1500
 
 /**
+ * The navigation chords, ONE table for the state machine, the command palette's
+ * hints and the help page (a test holds the help text to it). The chord moved
+ * from G K to G B with the «Board» copy pass, but the palette and the help kept
+ * saying G K — so the documented chord did nothing anywhere. B is the chord;
+ * K stays as an alias, because that is what operators learned and what the help
+ * said for months, and it costs nothing (no other G-target starts with K).
+ */
+export const G_PREFIX_SHORTCUTS = [
+  { key: "b", aliases: ["k"], path: "/" }, // Board
+  { key: "m", aliases: [], path: "/map" }, // Karte
+  { key: "e", aliases: [], path: "/events" }, // Ereignisse
+  { key: "s", aliases: [], path: "/settings" }, // Einstellungen
+  { key: "h", aliases: [], path: "/help" }, // Hilfe
+] as const satisfies readonly { key: string; aliases: readonly string[]; path: string }[]
+
+/**
  * Maps the second key after `g` to its destination path. Every entry is a real
  * path — "already here" is not baked in, it falls out of comparing the target
  * against the caller's `currentPath`, which is why one table serves every page.
  */
-export const G_PREFIX_TARGETS: Record<string, string> = {
-  b: "/", // Board
-  m: "/map",
-  e: "/events",
-  s: "/settings",
-  h: "/help",
+export const G_PREFIX_TARGETS: Record<string, string> = Object.fromEntries(
+  G_PREFIX_SHORTCUTS.flatMap((s) => [s.key, ...s.aliases].map((key) => [key, s.path] as const)),
+)
+
+/** «G B» — the hint the palette and the help show for a destination. */
+export function gPrefixHint(path: string): string | undefined {
+  const shortcut = G_PREFIX_SHORTCUTS.find((s) => s.path === path)
+  return shortcut ? `G ${shortcut.key.toUpperCase()}` : undefined
 }
 
 export interface UseGPrefixNavigation {
@@ -37,7 +55,7 @@ export interface UseGPrefixNavigation {
 /**
  * Vim-style "G then X" navigation state machine.
  *
- *   G B → the Board (/)
+ *   G B → the Board (/)   (G K too — the old chord, still accepted)
  *   G M → /map
  *   G E → /events
  *   G S → /settings
