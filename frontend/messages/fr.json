@@ -2391,7 +2391,8 @@
       "commands": "Commandes et raccourcis clavier",
       "help": "Aide",
       "logout": "Se déconnecter",
-      "openMenu": "Ouvrir le menu utilisateur"
+      "openMenu": "Ouvrir le menu utilisateur",
+      "statusNotConfigured": "Non configuré"
     },
     "mobileBottomNav": {
       "incidents": "Interventions",
@@ -3792,7 +3793,8 @@
       "invalid": "Non valable",
       "syncing": "Synchronisation …",
       "railwayOffline": "Railway hors ligne",
-      "stale": "Données périmées"
+      "stale": "Données périmées",
+      "notConfigured": "Non configuré"
     },
     "config": {
       "loadFailed": "Échec du chargement de la configuration de synchronisation",
@@ -3864,7 +3866,10 @@
       "pendingRecords": "{count, plural, one {# enregistrement en attente de synchronisation} other {# enregistrements en attente de synchronisation}}",
       "connectionString": "Chaîne de connexion PostgreSQL Railway",
       "syncFromButton": "Synchroniser depuis Railway",
-      "syncToButton": "Synchroniser vers Railway"
+      "syncToButton": "Synchroniser vers Railway",
+      "centralInstance": "Instance centrale",
+      "centralInstanceHint": "Cette instance tourne sur Railway et constitue la source de données centrale. Les stations locales se synchronisent vers elle – il n’y a ici aucun correspondant dont la connexion pourrait être affichée.",
+      "notConfiguredHint": "Aucune connexion Railway saisie – voir la configuration de synchronisation ci-dessous."
     }
   },
   "training": {

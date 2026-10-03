@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation'
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
 import { apiClient } from '@/lib/api-client'
@@ -123,7 +122,6 @@ export default function EventsPage() {
   // The board's own «Übung» wording, so one drill is not called two things.
   const tTraining = useTranslations('kanban')
   const router = useRouter()
-  useGlobalNavigation()
   const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
   const isMobile = useIsMobile()
@@ -439,8 +437,8 @@ export default function EventsPage() {
     }
   }
 
-  // Esc leaves a field – the g-prefix shortcuts themselves live in
-  // useGlobalNavigation (one state machine, see use-g-prefix-navigation).
+  // Esc leaves a field – the g-prefix shortcuts themselves are global
+  // (GlobalShortcuts in the AppShell, see use-global-navigation).
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return

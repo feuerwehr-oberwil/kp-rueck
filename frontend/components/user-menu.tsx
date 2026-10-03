@@ -21,7 +21,7 @@ import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { apiClient } from '@/lib/api-client';
 import type { ApiDiveraPollingStatus } from '@/lib/api/types';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
-import type { SyncConfig } from '@/types/sync';
+import { isCentralInstance, isRailwayConfig, isSyncUnconfigured, type SyncConfig } from '@/types/sync';
 import { RoleBadge } from '@/components/auth/role-badge';
 import { openCommandPalette } from '@/components/ui/command-palette';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
@@ -137,6 +137,11 @@ export function UserMenu({
   // Sync status
   const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
   useRailwayRecovery(syncStatus);
+  // No sync dot on the central Railway instance: it has no peer, and «Sync:
+  // Offline» there (it was shown to everyone who is not admin, since only admins
+  // may read the sync config) described a connection that cannot exist. The
+  // status itself now says which instance this is.
+  const showSyncStatus = !isRailwayConfig(syncConfig) && !isCentralInstance(syncStatus);
 
   // Load config to check if we're on Railway
   useEffect(() => {
@@ -262,6 +267,10 @@ export function UserMenu({
       return "bg-warning";
     }
 
+    if (isSyncUnconfigured(syncStatus)) {
+      return "bg-muted-foreground";
+    }
+
     if (!syncStatus.railway_healthy) {
       return "bg-destructive";
     }
@@ -277,6 +286,8 @@ export function UserMenu({
     if (syncLoading) return t('statusChecking');
     if (syncError) return t('statusError');
     if (!syncStatus) return t('statusUnknown');
+
+    if (isSyncUnconfigured(syncStatus)) return t('statusNotConfigured');
 
     if (!syncStatus.railway_healthy) {
       return t('statusOffline');
@@ -414,7 +425,7 @@ export function UserMenu({
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
                       <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
-                      {!syncConfig?.is_production && (
+                      {showSyncStatus && (
                         <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
                       )}
                       <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
@@ -434,7 +445,7 @@ export function UserMenu({
                   <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
                   <span>{t('websocketLabel')}: {getWsStatusText()}</span>
                 </div>
-                {!syncConfig?.is_production && (
+                {showSyncStatus && (
                   <div className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
                     <span>{t('syncLabel')}: {getSyncStatusText()}</span>

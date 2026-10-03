@@ -50,7 +50,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useGlobalNavigation } from '@/lib/hooks/use-global-navigation';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Settings2,
@@ -279,7 +278,6 @@ const SETTING_CONFIGS: SettingConfig[] = [
 ];
 
 export default function SettingsPage() {
-  useGlobalNavigation();
   const t = useTranslations('settings');
   const intlLocale = useIntlLocale();
   const searchParams = useSearchParams();

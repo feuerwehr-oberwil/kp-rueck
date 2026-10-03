@@ -14,10 +14,8 @@ import { AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useTranslations } from "next-intl"
-import { useGlobalNavigation } from "@/lib/hooks/use-global-navigation"
 
 export default function TrainingPage() {
-  useGlobalNavigation()
   const t = useTranslations("training")
   const { selectedEvent, isEventLoaded } = useEvent()
   const router = useRouter()

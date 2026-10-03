@@ -30665,6 +30665,20 @@
               }
             ],
             "title": "Last Error"
+          },
+          "instance_role": {
+            "type": "string",
+            "enum": [
+              "railway",
+              "station"
+            ],
+            "title": "Instance Role",
+            "default": "station"
+          },
+          "peer_configured": {
+            "type": "boolean",
+            "title": "Peer Configured",
+            "default": false
           }
         },
         "type": "object",

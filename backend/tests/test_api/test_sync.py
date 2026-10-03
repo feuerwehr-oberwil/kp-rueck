@@ -907,3 +907,150 @@ class TestSyncConfigRedaction:
         assert result.scalar_one().value == new_url
         # And the response echoes the masked form, not the password.
         assert "newpassword" not in response.text
+
+
+# ============================================
+# Instance role — the Railway deployment has no peer
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_status_on_railway_reports_role_not_offline(sync_admin_client: AsyncClient):
+    """kp.fwo.li runs ON Railway: it is the sync target, so there is no peer to probe.
+
+    Before, the probe ran against an empty `railway_database_url` and the cloud
+    instance reported «Railway offline» about itself.
+    """
+    with (
+        patch("app.api.sync.is_railway", return_value=True),
+        patch("app.api.sync.create_sync_service") as mock_create,
+    ):
+        mock_service = AsyncMock()
+        mock_service.get_railway_database_url = AsyncMock(return_value="")
+        mock_service.check_railway_health = AsyncMock(return_value=False)
+        mock_create.return_value = mock_service
+
+        response = await sync_admin_client.get("/api/sync/status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["instance_role"] == "railway"
+    assert data["peer_configured"] is False
+    mock_service.check_railway_health.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_status_on_station_without_target_is_not_configured(sync_admin_client: AsyncClient):
+    """A station with no Railway URL is «nicht eingerichtet», and nothing is probed."""
+    with (
+        patch("app.api.sync.is_railway", return_value=False),
+        patch("app.api.sync.create_sync_service") as mock_create,
+    ):
+        mock_service = AsyncMock()
+        mock_service.get_railway_database_url = AsyncMock(return_value="")
+        mock_service.check_railway_health = AsyncMock(return_value=True)
+        mock_create.return_value = mock_service
+
+        response = await sync_admin_client.get("/api/sync/status")
+
+    data = response.json()
+    assert data["instance_role"] == "station"
+    assert data["peer_configured"] is False
+    assert data["railway_healthy"] is False
+    mock_service.check_railway_health.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_sync_status_on_station_with_target_probes_it(sync_admin_client: AsyncClient):
+    with (
+        patch("app.api.sync.is_railway", return_value=False),
+        patch("app.api.sync.create_sync_service") as mock_create,
+    ):
+        mock_service = AsyncMock()
+        mock_service.get_railway_database_url = AsyncMock(return_value="postgresql://u:p@railway.example/db")
+        mock_service.check_railway_health = AsyncMock(return_value=False)
+        mock_create.return_value = mock_service
+
+        data = (await sync_admin_client.get("/api/sync/status")).json()
+
+    assert data["instance_role"] == "station"
+    assert data["peer_configured"] is True
+    assert data["railway_healthy"] is False
+    mock_service.check_railway_health.assert_awaited_once()
+
+
+# ============================================
+# «Is this the Railway instance?» — real env detection
+# ============================================
+
+_RAILWAY_VARS = (
+    "RAILWAY_ENVIRONMENT",
+    "RAILWAY_PROJECT_ID",
+    "RAILWAY_SERVICE_ID",
+    "RAILWAY_STATIC_URL",
+    "RAILWAY_PUBLIC_DOMAIN",
+)
+
+
+def _deployment(monkeypatch, kind: str) -> None:
+    """railway = Railway runtime vars; station = self-hosted, ENVIRONMENT=production; dev = neither."""
+    for name in _RAILWAY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    if kind == "railway":
+        monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+        monkeypatch.setenv("ENVIRONMENT", "production")
+    elif kind == "station":
+        monkeypatch.setenv("ENVIRONMENT", "production")
+
+
+async def _status(client: AsyncClient, target_url: str, healthy: bool = True) -> dict:
+    with (
+        patch("app.services.sync_service.SyncService.get_railway_database_url", AsyncMock(return_value=target_url)),
+        patch("app.services.sync_service.SyncService.check_railway_health", AsyncMock(return_value=healthy)),
+    ):
+        response = await client.get("/api/sync/status")
+    assert response.status_code == 200
+    return response.json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_railway_env_is_the_central_instance(sync_admin_client: AsyncClient, monkeypatch):
+    _deployment(monkeypatch, "railway")
+    data = await _status(sync_admin_client, target_url="")
+    assert data["instance_role"] == "railway"
+    assert data["peer_configured"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("kind", ["station", "dev"])
+async def test_self_hosted_production_station_stays_a_station(sync_admin_client: AsyncClient, monkeypatch, kind):
+    """ENVIRONMENT=production is the normal setting of a self-hosted station — not Railway."""
+    _deployment(monkeypatch, kind)
+
+    configured = await _status(sync_admin_client, target_url="postgresql://u:p@railway.example:5432/railway")
+    assert configured["instance_role"] == "station"
+    assert configured["peer_configured"] is True
+    assert configured["railway_healthy"] is True
+
+    unconfigured = await _status(sync_admin_client, target_url="")
+    assert unconfigured["instance_role"] == "station"
+    assert unconfigured["peer_configured"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(("kind", "on_railway"), [("railway", True), ("station", False), ("dev", False)])
+async def test_sync_config_marks_only_railway_as_production(
+    sync_admin_client: AsyncClient, monkeypatch, kind, on_railway
+):
+    """The config's «is_production» (read by the UI as «this is Railway») keeps a station's sync controls."""
+    _deployment(monkeypatch, kind)
+    data = (await sync_admin_client.get("/api/sync/config")).json()
+    assert data["is_production"] is on_railway
+    assert data["is_railway"] is on_railway

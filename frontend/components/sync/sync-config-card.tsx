@@ -24,7 +24,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { apiClient } from '@/lib/api-client'
-import type { SyncConfig } from '@/types/sync'
+import { isRailwayConfig, type SyncConfig } from '@/types/sync'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 
 export function SyncConfigCard() {
@@ -102,7 +102,7 @@ export function SyncConfigCard() {
         <div className="flex items-center justify-center py-8">
           <LoadingStatus className="text-sm">{tLoading('loading')}</LoadingStatus>
         </div>
-      ) : config?.is_production ? (
+      ) : isRailwayConfig(config) ? (
         /* Kein Formular, sondern die eine Auskunft, warum es hier keines gibt — im
            selben Kasten, in dem jede andere Karte «geht hier nicht» sagt. */
         <SettingUnavailableNote>

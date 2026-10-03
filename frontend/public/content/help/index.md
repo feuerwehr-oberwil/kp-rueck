@@ -4,7 +4,7 @@ Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze
 
 ## Ansichten
 
-### Kanban-Board (`G K`)
+### Board (`G B`)
 Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (Eingegangen → Abgeschlossen). Links die Personal-Seitenleiste, rechts Material und Fahrzeuge.
 
 **Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
@@ -507,11 +507,16 @@ Drücken Sie `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle sa
 Tastaturkürzel und ist auch über das Benutzermenü ("Befehle & Tastaturkürzel")
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
+Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
+Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
+solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
+Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
+
 ### Global
 | Shortcut | Aktion |
 |----------|--------|
 | `Cmd/Ctrl+K` oder `?` | Befehlspalette öffnen/schliessen |
-| `G K` | Kanban-Board |
+| `G B` oder `G K` | Board |
 | `G M` | Kartenansicht |
 | `G E` | Ereignisse |
 | `G S` | Einstellungen |

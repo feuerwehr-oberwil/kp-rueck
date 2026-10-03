@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { CommandPalette } from '@/components/ui/command-palette'
+import { GlobalShortcuts } from '@/lib/hooks/use-global-navigation'
 import { DemoBanner } from '@/components/demo-banner'
 import { DeploymentBanner } from '@/components/deployment-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
@@ -26,7 +27,9 @@ const DOCUMENT_FLOW_ROUTES = ['/reko', '/alarm', '/check-in', '/feld']
  * sibling of <main>, below the banners, so it makes room for itself (no overlay
  * margin hack) and never slides under the demo/stale banners. On mobile the
  * sidebar renders nothing (a Sheet overlay is used instead). Also includes the
- * global CommandPalette for keyboard shortcuts.
+ * global CommandPalette for keyboard shortcuts, and — once, for every signed-in
+ * page — the global G-chords (`GlobalShortcuts`, which knows the pages that
+ * handle them themselves or should not have them).
  *
  * The palette is mounted ONLY for a signed-in user. It used to be mounted for
  * everybody, so ⌘K opened a list of the board's actions and Auftrag names on the
@@ -52,6 +55,7 @@ export function AppShell({ children }: AppShellProps) {
         <IncidentTruncationBanner />
         {children}
         {isAuthenticated && <CommandPalette />}
+      {isAuthenticated && <GlobalShortcuts />}
       </>
     )
   }
@@ -68,6 +72,7 @@ export function AppShell({ children }: AppShellProps) {
         <PersistentNotificationSidebar />
       </div>
       {isAuthenticated && <CommandPalette />}
+      {isAuthenticated && <GlobalShortcuts />}
     </div>
   )
 }
