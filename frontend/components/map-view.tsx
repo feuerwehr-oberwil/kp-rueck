@@ -32,10 +32,12 @@ import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
-import { Maximize, Truck, Users } from "lucide-react"
+import { ChevronDown, Maximize, AlertTriangle, Truck, Users } from "lucide-react"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
+import { useCompactMap } from "@/lib/hooks/use-compact-map"
+import { estimateLabelWidth, labelMode, pickVisibleLabels } from "@/lib/map-labels"
 
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -111,9 +113,7 @@ function IncidentPin({
   // D8: tabbable + screen-reader-friendly marker. Enter/Space activate it directly now —
   // under Leaflet the icon was an HTML string, so the key had to be caught on the map wrapper
   // and re-dispatched as a synthetic click.
-  const a11yLabel =
-    (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
-    || incident.title
+  const a11yLabel = shortAddressOf(incident)
   const shadowId = `marker-shadow-${incident.id}`
 
   return (
@@ -600,6 +600,66 @@ function IncidentLabel({
   )
 }
 
+/** What a short label (and the marker's aria-label) calls the incident. */
+function shortAddressOf(incident: Incident): string {
+  return (
+    (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
+    || incident.title
+  )
+}
+
+const NO_LABELS: ReadonlySet<string> = new Set()
+// The incident dot at rest (IncidentPin), which no kept label may cover.
+const INCIDENT_DOT_SIZE = 24
+
+/**
+ * The phone's collision-checked labels (label mode `fit`, see `lib/map-labels.ts`): which ids may
+ * draw a permanent label at the current view. Recomputed when the map comes to rest – the DOM
+ * labels ride along with their markers while it moves, so nothing jumps mid-gesture.
+ */
+function useFitLabels(
+  map: MlMap | null,
+  active: boolean,
+  incidents: Incident[],
+  offsets: Map<string, number>,
+): ReadonlySet<string> {
+  const [visible, setVisible] = useState<ReadonlySet<string>>(NO_LABELS)
+  useEffect(() => {
+    if (!map || !active) return
+    const compute = () => {
+      const container = map.getContainer()
+      const candidates = incidents.map((incident) => {
+        const point = map.project([incident.location_lng!, incident.location_lat!])
+        const personnel = (incident as { assigned_personnel?: unknown[] }).assigned_personnel?.length ?? 0
+        const counters = (incident.assigned_vehicles.length > 0 ? 1 : 0) + (personnel > 0 ? 1 : 0)
+        return {
+          id: incident.id,
+          x: point.x,
+          y: point.y,
+          dy: offsets.get(incident.id) ?? 0,
+          width: estimateLabelWidth(shortAddressOf(incident), counters),
+          priority: incident.priority,
+        }
+      })
+      const next = pickVisibleLabels(candidates, {
+        labelOffsetX: LABEL_LEADER_DX,
+        labelHeight: LABEL_HEIGHT,
+        dotSize: INCIDENT_DOT_SIZE,
+        viewport: { width: container.clientWidth, height: container.clientHeight },
+      })
+      // Same answer, same object: the incident list is a new array on every poll (and every
+      // render of the context), so a fresh Set each time would re-render forever.
+      setVisible((previous) =>
+        previous.size === next.size && [...next].every((id) => previous.has(id)) ? previous : next,
+      )
+    }
+    compute()
+    map.on("moveend", compute)
+    return () => { map.off("moveend", compute) }
+  }, [map, active, incidents, offsets])
+  return active ? visible : NO_LABELS
+}
+
 // --- Map controls -----------------------------------------------------------
 
 /** Every located incident as a `[lat, lng]` point — what `fitTo` frames. */
@@ -735,7 +795,10 @@ function FitAllButton({ map, incidents }: { map: MlMap | null; incidents: Incide
       onDoubleClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
-      className="absolute left-3 top-[88px] z-[1000] flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card"
+      // Under the zoom buttons, which are 44px tall each on a touch screen (top-[106px]). It sat
+      // at 88px over the «−» for as long as nobody saw it: the button never rendered until the
+      // map fired `load`, and that never happened before the worker fix (base-map.tsx).
+      className="absolute left-3 top-[88px] pointer-coarse:top-[106px] pointer-coarse:size-11 z-[1000] flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card"
       title={t('fitAll')}
       aria-label={t('fitAll')}
     >
@@ -744,7 +807,15 @@ function FitAllButton({ map, incidents }: { map: MlMap | null; incidents: Incide
   )
 }
 
-// Warning banner for incidents without valid coordinates
+/**
+ * Incidents without valid coordinates: a compact chip in the map's top-right corner.
+ *
+ * It used to be a centred amber banner that wrapped to three lines on a phone and sat over the
+ * middle of the map – exactly where the markers are (owner, iPhone, 02.10.2026). Now one line:
+ * the amber glyph carries the tone (the surface stays neutral, like every message surface), the
+ * count and «ohne Koordinaten» say what it is, and a tap opens the same list as before. The zoom
+ * buttons own the top-left corner, the ⓘ and the legend the bottom-right.
+ */
 function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: Incident[]; onIncidentClick?: (incidentId: string) => void }) {
   const t = useTranslations('map')
   const [isExpanded, setIsExpanded] = useState(false)
@@ -752,37 +823,38 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
   if (incidents.length === 0) return null
 
   return (
-    // Centre-anchored, so an over-wide banner clips on BOTH edges with no scrollbar to say
-    // so. `max-w-md` is 448px against ~358px of usable width inside the map's padding on a
-    // phone — and /map is a mobile bottom-nav tab. The clamp is relative to the map, which
-    // is what this is centred in.
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-warning/15 border border-warning text-warning-foreground px-4 py-2 rounded-lg shadow-md z-30 max-w-[min(28rem,calc(100%-2rem))] backdrop-blur-sm">
-      <div
-        className="flex items-center gap-2 cursor-pointer select-none"
+    <div className="absolute top-2.5 right-2.5 z-30 flex max-w-[min(18rem,calc(100%-4.5rem))] flex-col items-end">
+      <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        title={t('view.clickToExpand')}
+        aria-expanded={isExpanded}
+        aria-label={t('view.missingCoordsAria', { count: incidents.length })}
+        title={t('view.missingCoordsAria', { count: incidents.length })}
+        className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card/95 pl-2.5 pr-2 text-xs font-medium text-foreground shadow-md backdrop-blur-sm hover:bg-card pointer-coarse:h-9"
       >
-        <span className="font-semibold">
-          {t('view.missingCoords', { count: incidents.length })}
-        </span>
-        <span className="text-sm ml-auto">
-          {isExpanded ? "▼" : "▶"}
-        </span>
-      </div>
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
+        <span className="tabular-nums">{t('view.missingCoordsChip', { count: incidents.length })}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
 
       {isExpanded && (
-        <ul className="mt-3 space-y-1 text-sm border-t border-warning/50 pt-2 max-h-60 overflow-y-auto">
+        <ul className="mt-1.5 w-full min-w-48 max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
           {incidents.map((incident) => (
-            <li
-              key={incident.id}
-              className="hover:bg-warning/20 px-2 py-1.5 rounded cursor-pointer transition-colors min-w-0 break-words"
-              onClick={(e) => {
-                e.stopPropagation()
-                onIncidentClick?.(incident.id)
-              }}
-              title={t('view.clickToNavigate')}
-            >
-              <span className="font-medium">• {incident.title}</span>
+            <li key={incident.id}>
+              <button
+                type="button"
+                className="w-full min-w-0 break-words rounded px-2 py-1.5 text-left font-medium transition-colors hover:bg-muted"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onIncidentClick?.(incident.id)
+                }}
+                title={t('view.clickToNavigate')}
+              >
+                {incident.title}
+              </button>
             </li>
           ))}
         </ul>
@@ -1173,6 +1245,11 @@ export default function MapView({
     if (!showLabels) return new Map<string, number>()
     return stackSharedAddresses(mappableIncidents)
   }, [showLabels, mappableIncidents])
+  // …except on a phone, where thirty permanent bubbles are a heap: no permanent labels at the
+  // default zoom (a tap shows the one you want), collision-checked ones from street level.
+  const compactMap = useCompactMap()
+  const permanentLabels = labelMode({ showLabels, compact: compactMap, zoom: mapZoom })
+  const fitLabelIds = useFitLabels(map, permanentLabels === "fit", mappableIncidents, labelOffsets)
 
   // …and the legend says so, listing the routes by name. A legend that still
   // reads «Priorität» while the markers carry route colours is worse than none.
@@ -1218,8 +1295,10 @@ export default function MapView({
   const vehicleScale = vehicleStackScale(mapZoom)
 
   return (
+    // `isolate`: the fit-all button (z-1000), the hint chip and the legend are map chrome and
+    // stay inside the map's layer — see MAP_STACKING in base-map.tsx. No overlay is ever below.
     <div
-      className="relative w-full h-full rounded-lg overflow-hidden"
+      className="relative isolate w-full h-full rounded-lg overflow-hidden"
       role="region"
       aria-label={t('view.mapAria')}
     >
@@ -1314,9 +1393,11 @@ export default function MapView({
             ? groups?.find((g) => g.id === hoverOperation.groupId)
             : undefined
           const dy = labelOffsets.get(incident.id) ?? 0
-          const shortAddress =
-            (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
-            || incident.title
+          const shortAddress = shortAddressOf(incident)
+          // A permanent label by the surface's rule — or this incident's own, because it is the
+          // selected one (a phone's only way to read a label at the default zoom).
+          const permanent =
+            permanentLabels === "all" || (permanentLabels === "fit" && fitLabelIds.has(incident.id))
           // Split, not summed: a bare "(3)" hid whether that was three people,
           // three vehicles or a mix — an icon each answers it without a click.
           const vehicleCount = incident.assigned_vehicles.length
@@ -1345,13 +1426,13 @@ export default function MapView({
                 onHoverEnd={hoverEnd}
               />
 
-              {/* Labels hidden: no permanent label, but hovering still reveals the detail card
-                  when we can resolve the operation. */}
-              {(showLabels || hoverOperation) && (
+              {/* No permanent label: hovering still reveals the detail card when we can resolve
+                  the operation, and the selected incident always shows its label/card. */}
+              {(permanent || pinned || hoverOperation) && (
                 <IncidentLabel
                   latitude={incident.location_lat!}
                   longitude={incident.location_lng!}
-                  dy={showLabels ? dy : 0}
+                  dy={permanent ? dy : 0}
                   hovered={hovered}
                   selected={isHighlighted}
                   onSelect={select}

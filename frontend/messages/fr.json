@@ -2194,6 +2194,7 @@
       "routePlanning": "Planification d’itinéraire",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
+      "modesMenuLabel": "Mode",
       "modes": "Mode"
     },
     "planning": {
@@ -2221,8 +2222,8 @@
       "firestationFallback": "Sapeurs-pompiers",
       "crewSummary": "{vehicles, plural, one {# véhicule} other {# véhicules}}, {personnel, plural, one {# personne attribuée} other {# personnes attribuées}}",
       "magazin": "Caserne",
-      "missingCoords": "⚠️ {count, plural, one {# intervention sans coordonnées valables} other {# interventions sans coordonnées valables}}",
-      "clickToExpand": "Cliquer pour agrandir",
+      "missingCoordsAria": "{count, plural, one {# intervention sans coordonnées valables} other {# interventions sans coordonnées valables}}",
+      "missingCoordsChip": "{count} sans coordonnées",
       "clickToNavigate": "Cliquer pour naviguer vers l’intervention",
       "retry": "Réessayer",
       "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner",
