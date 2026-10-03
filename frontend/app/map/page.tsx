@@ -52,7 +52,6 @@ import {
   IncidentStatusWorkflowDialogs,
   useIncidentStatusWorkflow,
 } from "@/components/kanban/incident-status-workflow"
-import type { Incident } from "@/lib/types/incidents"
 import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
