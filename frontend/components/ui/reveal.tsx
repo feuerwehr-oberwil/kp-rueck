@@ -133,14 +133,18 @@ export function Reveal({
       data-state={expanded ? "open" : "closed"}
       inert={!open || undefined}
       className={cn(
-        "grid transition-[grid-template-rows,opacity] duration-[var(--reveal-duration)] ease-[var(--ease)] motion-reduce:transition-none",
+        // `grid-cols-[minmax(0,1fr)]` + `min-w-0` on the clip box: a grid item's minimum width
+        // is its content's min-content by default, so one long `truncate` line (a finished
+        // Einsatz's title in the Lagekarte list) widened the whole column past the screen and the
+        // phone list scrolled sideways. The body is exactly as wide as the Reveal, never wider.
+        "grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows,opacity] duration-[var(--reveal-duration)] ease-[var(--ease)] motion-reduce:transition-none",
         expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         className,
       )}
     >
       {/* The clip box carries NO padding or border: at `0fr` it has to reach a
           true zero height, and padding on it would keep a sliver showing. */}
-      <div className={cn("min-h-0", expanded && settled ? "overflow-visible" : "overflow-hidden")}>
+      <div className={cn("min-h-0 min-w-0", expanded && settled ? "overflow-visible" : "overflow-hidden")}>
         {innerClassName ? <div className={innerClassName}>{children}</div> : children}
       </div>
     </div>

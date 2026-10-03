@@ -54,7 +54,10 @@ export function FeldIdentityBar({
 }) {
   const t = useTranslations('feld')
   return (
-    <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    // Opaque, no backdrop blur: the bar is the first row under the status bar of the home-screen
+    // app, and a frosted bar there read as a blurred strip at the top of the screen whenever the
+    // page scrolled under it. The status bar takes the same colour (lib/theme-color.ts).
+    <div className="sticky top-0 z-30 border-b border-border bg-background">
       <div className="mx-auto flex max-w-md items-center gap-2 px-3 py-2">
         {children}
         <div className="flex min-w-0 flex-1 items-center gap-2">
