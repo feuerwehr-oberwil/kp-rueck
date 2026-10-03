@@ -1011,7 +1011,10 @@ export default function SettingsPage() {
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
           {/* Sidebar - Desktop */}
           {!isMobile && (
-            <aside className="w-56 border-r bg-muted/30 p-4 overflow-y-auto">
+            <aside className="w-60 shrink-0 border-r bg-muted/30 p-4 overflow-y-auto">
+              {/* w-60 (was w-56): Sora is wider than Geist, and at 224px the longest
+                  labels («Benachrichtigungen», «Ausfallsicherheit») squeezed their
+                  icon away or wrapped. */}
               {/* Suche über Abschnittsnamen UND Katalogtexte. Eine Gliederung beantwortet
                   «wo gehört das hin», nicht «wo war noch mal der Port» – siehe
                   lib/settings-search.ts. Die Trefferliste ersetzt die Navigation, solange
@@ -1110,18 +1113,31 @@ export default function SettingsPage() {
                       {groupSections.map((section) => {
                         const Icon = section.icon;
                         const isActive = activeSection === section.id;
+                        const label = t(`page.sections.${section.id}`);
+                        // One nav, one «where you are»: the current section is an
+                        // ink tint (location = ink, selection = slate — CLAUDE.md →
+                        // Colour roles), hover a much fainter one. It used to be
+                        // `bg-background` for current and `bg-background/50` for
+                        // hover, which on the dark sidebar are the same dark pill —
+                        // two rows looked current at once. The icon never shrinks
+                        // and the label is a left-aligned, truncating span with the
+                        // full text as `title`: as a bare text node in a flex
+                        // button a long label squeezed the icon to nothing or
+                        // wrapped onto two CENTRED lines (button text-align).
                         return (
                           <button
                             key={section.id}
                             onClick={() => navigateToSection(section.id)}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                            aria-current={isActive ? 'page' : undefined}
+                            title={label}
+                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                               isActive
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                                ? 'bg-foreground/[0.09] font-medium text-foreground'
+                                : 'text-muted-foreground hover:bg-foreground/[0.03] hover:text-foreground'
                             }`}
                           >
-                            <Icon className="h-4 w-4" />
-                            {t(`page.sections.${section.id}`)}
+                            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            <span className="min-w-0 flex-1 truncate">{label}</span>
                           </button>
                         );
                       })}

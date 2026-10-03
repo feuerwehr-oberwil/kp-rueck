@@ -67,7 +67,15 @@ describe('the field briefing (§18.22)', () => {
     )
 
     expect(screen.getByText('Wasser im Keller, Steigleitung defekt')).toBeInTheDocument()
-    expect(screen.getByText('Muster Hans, Frey Marc')).toBeInTheDocument()
+    // Mannschaft and Material are bullet lists, one entry per line — not a comma run
+    const crewList = screen.getByText('Muster Hans').closest('ul')!
+    expect(Array.from(crewList.querySelectorAll('li')).map((li) => li.textContent)).toEqual(['Muster Hans', 'Frey Marc'])
+    const materialList = screen.getByText('2 × Tauchpumpe').closest('ul')!
+    expect(materialList.querySelectorAll('li')).toHaveLength(2)
+    // every row is icon · label · content, Meldung included
+    const meldung = screen.getByText('Wasser im Keller, Steigleitung defekt').closest('.flex.items-start')!
+    expect(meldung.querySelector('svg')).not.toBeNull()
+    expect(meldung).toHaveTextContent('Meldung')
     // One line per vehicle, each naming its driver: a crew at the address has to
     // be able to say who is sitting in the TLF. A vehicle without a named driver
     // stays a bare name rather than "Fahrer: –".
