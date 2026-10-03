@@ -917,3 +917,100 @@ async def test_concurrent_claim_requests_can_consume_a_picker_grant_only_once(te
             await db.execute(delete(Event).where(Event.id == event.id))
             await db.execute(delete(Personnel).where(Personnel.id == person.id))
             await db.commit()
+
+
+class TestSessionInsteadOfCode:
+    """A Rück login opens the Feld door without the four digits (owner, 03.10.2026).
+
+    The session counts INSTEAD of the code: the same picker grant, for the link's Ereignis, through
+    the same claim step. Anything that is not a valid session falls back to the code — without
+    the attempt counting as a failure.
+    """
+
+    @staticmethod
+    async def _login(client: AsyncClient, db: AsyncSession, role: str) -> None:
+        from app.auth.security import hash_password
+        from tests.conftest import TEST_PASSWORD
+
+        db.add(User(id=uuid.uuid4(), username=f"door_{role}", password_hash=hash_password(TEST_PASSWORD), role=role))
+        await db.commit()
+        response = await client.post("/api/auth/login", data={"username": f"door_{role}", "password": TEST_PASSWORD})
+        assert response.status_code == 200, response.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.parametrize("role", ["editor", "viewer", "admin"])
+    async def test_a_logged_in_phone_gets_the_picker_without_a_code(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User, role: str
+    ):
+        person = await _person_on_an_incident(db_session, test_event, test_user)
+        await self._login(client, db_session, role)
+
+        response = await client.post(f"/api/feld/unlock?token={generate_feld_token(test_event.id)}", json={})
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["event_id"] == str(test_event.id)
+        assert [p["personnel_id"] for p in body["personnel"]] == [str(person.id)]
+        claims = validate_feld_token(body["token"])
+        assert claims is not None and claims.unlocked is True and claims.personnel_id is None
+        assert claims.event_id == test_event.id
+        # ... and it is the ordinary picker grant: the claim step takes it as from a code
+        claim = await client.post(f"/api/feld/claim?token={body['token']}", json={"personnel_id": str(person.id)})
+        assert claim.status_code == 200, claim.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_an_anonymous_phone_is_asked_for_the_code_and_it_costs_no_attempt(
+        self, client: AsyncClient, test_event: Event
+    ):
+        token = generate_feld_token(test_event.id)
+        for _ in range(8):  # more than the per-phone budget of failures
+            response = await client.post(f"/api/feld/unlock?token={token}", json={})
+            assert response.status_code == 403
+            assert response.json()["detail"]["error"] == "code_required"
+        # still a full budget: the right code opens at once
+        response = await client.post(f"/api/feld/unlock?token={token}", json={"code": test_event.feld_code})
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_an_expired_or_logged_out_session_falls_back_to_the_code(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        await self._login(client, db_session, "editor")
+        assert (await client.post("/api/auth/logout")).status_code in (200, 204)
+        response = await client.post(f"/api/feld/unlock?token={generate_feld_token(test_event.id)}", json={})
+        assert response.status_code == 403
+        assert response.json()["detail"]["error"] == "code_required"
+
+        # a stale cookie that no longer decodes is no session either
+        client.cookies.set("access_token", "not-a-jwt")
+        response = await client.post(f"/api/feld/unlock?token={generate_feld_token(test_event.id)}", json={})
+        assert response.json()["detail"]["error"] == "code_required"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_code_sent_by_a_logged_in_phone_is_still_checked(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        # The session replaces a MISSING code; it never turns a wrong one into a right one.
+        await self._login(client, db_session, "editor")
+        wrong = "0000" if test_event.feld_code != "0000" else "1111"
+        response = await client.post(
+            f"/api/feld/unlock?token={generate_feld_token(test_event.id)}", json={"code": wrong}
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"]["error"] == "wrong_code"
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_the_session_does_not_reach_past_the_link(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        # Without a link token there is no Ereignis to open — a login alone is not a Feld link.
+        await self._login(client, db_session, "editor")
+        assert (await client.post("/api/feld/unlock", json={})).status_code in (401, 422)
+        # ... and an expired link stays expired, session or not
+        expired = generate_feld_token(test_event.id, expires_hours=-1)
+        assert (await client.post(f"/api/feld/unlock?token={expired}", json={})).status_code == 401

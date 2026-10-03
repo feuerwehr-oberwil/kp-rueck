@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { User } from 'lucide-react'
 
+import { LINK_PAGE_HEADER_CLASS, LINK_PAGE_HEADER_ROW_CLASS } from '@/components/link-page/link-page'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -57,8 +58,8 @@ export function FeldIdentityBar({
     // Opaque, no backdrop blur: the bar is the first row under the status bar of the home-screen
     // app, and a frosted bar there read as a blurred strip at the top of the screen whenever the
     // page scrolled under it. The status bar takes the same colour (lib/theme-color.ts).
-    <div className="sticky top-0 z-30 border-b border-border bg-background">
-      <div className="mx-auto flex max-w-md items-center gap-2 px-3 py-2">
+    <div className={LINK_PAGE_HEADER_CLASS}>
+      <div className={LINK_PAGE_HEADER_ROW_CLASS}>
         {children}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -77,7 +78,7 @@ export function FeldIdentityBar({
           </div>
         </div>
         {onNotMe && (
-          <Button variant="ghost" size="sm" onClick={onNotMe} className="shrink-0">
+          <Button variant="ghost" size="sm" onClick={onNotMe} className="min-h-11 shrink-0">
             {t('assignments.notMe')}
           </Button>
         )}

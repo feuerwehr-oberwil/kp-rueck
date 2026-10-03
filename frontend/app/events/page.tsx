@@ -464,7 +464,7 @@ export default function EventsPage() {
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
+        <header className="flex items-center justify-between border-b border-border/50 bg-header px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>
           </div>

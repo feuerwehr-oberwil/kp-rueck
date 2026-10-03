@@ -2027,6 +2027,32 @@ class ApiClient {
    *  sleep on a locked-out phone before reporting anything at all.
    *
    *  Rejects with `FeldUnlockError` and never with anything else. */
+  /**
+   * The Feld door for a phone that is logged in to Rück: `/unlock` without a code, let in on
+   * the session cookie (server-side; any active account). Null when that is not on — no
+   * session, an expired one, an older backend, no network — and the code screen takes over as
+   * before; a refused attempt here costs no try. Only an expired LINK is said out loud
+   * (`expired`), because no code fixes that either.
+   */
+  async unlockFeldWithSession(token: string): Promise<ApiFeldUnlockResponse | null> {
+    const url = `${this.getBaseUrl()}/api/feld/unlock?token=${encodeURIComponent(token)}`
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch {
+      return null
+    }
+    if (response.ok) return (await response.json()) as ApiFeldUnlockResponse
+    if (response.status === 401 || response.status === 404) throw new FeldUnlockError({ kind: 'expired' })
+    return null
+  }
+
   async unlockFeld(token: string, code: string): Promise<ApiFeldUnlockResponse> {
     const url = `${this.getBaseUrl()}/api/feld/unlock?token=${encodeURIComponent(token)}`
     let response: Response

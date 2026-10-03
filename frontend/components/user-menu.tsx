@@ -10,7 +10,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,7 +21,9 @@ import { apiClient } from '@/lib/api-client';
 import type { ApiDiveraPollingStatus } from '@/lib/api/types';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
 import { isCentralInstance, isRailwayConfig, isSyncUnconfigured, type SyncConfig } from '@/types/sync';
-import { RoleBadge } from '@/components/auth/role-badge';
+import { AccountBlock } from '@/components/auth/account-block';
+import { VersionLabel } from '@/components/version-label';
+import { useLogout } from '@/lib/hooks/use-logout';
 import { openCommandPalette } from '@/components/ui/command-palette';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
 import {
@@ -61,9 +62,10 @@ export function UserMenu({
   onPrint,
 }: UserMenuProps = {}) {
   const t = useTranslations('nav.userMenu');
-  const { user, logout, isEditor, isAuthenticated } = useAuth();
+  const { user, isEditor, isAuthenticated } = useAuth();
+  const tAccount = useTranslations('nav.account');
+  const { requestLogout, logoutDialog } = useLogout();
   const { selectedEvent } = useEvent();
-  const router = useRouter();
   const cmdHint = useCommandPaletteHint();
 
   // Quick per-event export of the currently selected event (Verwaltung → Export).
@@ -227,10 +229,6 @@ export function UserMenu({
     return null;
   }
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/login');
-  };
 
   const getStatusColor = () => {
     switch (status) {
@@ -358,6 +356,7 @@ export function UserMenu({
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label={t('openMenu')}>
@@ -365,12 +364,9 @@ export function UserMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-          {/* User Info with Role Badge */}
+          {/* Who is logged in — the same block as the phone's Mehr sheet. */}
           <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-2">
-              <p className="text-sm font-medium leading-none">{user.username}</p>
-              <RoleBadge />
-            </div>
+            <AccountBlock />
           </DropdownMenuLabel>
 
           <DropdownMenuSeparator />
@@ -576,11 +572,15 @@ export function UserMenu({
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem onClick={requestLogout} className="text-destructive focus:text-destructive">
             <LogOut className="mr-2 h-4 w-4" />
-            <span>{t('logout')}</span>
+            <span>{tAccount('logout')}</span>
           </DropdownMenuItem>
+          {/* The one version line, under the account actions (phone: same place). */}
+          <VersionLabel className="px-2 pb-1.5 pt-1" />
         </DropdownMenuContent>
     </DropdownMenu>
+    {logoutDialog}
+    </>
   );
 }

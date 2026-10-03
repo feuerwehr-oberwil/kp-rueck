@@ -27,7 +27,7 @@ vi.mock('@/components/location/location-input', () => ({
     onCoordinatesChange: (lat: number | null, lng: number | null) => void
   }) => (
     <div>
-      <input aria-label="Ort" value={address ?? ''} onChange={e => onAddressChange(e.target.value)} />
+      <input id="location_address" aria-label="Ort" value={address ?? ''} onChange={e => onAddressChange(e.target.value)} />
       <button type="button" onClick={() => onCoordinatesChange(47.51666, 7.56234)}>Pin setzen</button>
       <button type="button" onClick={() => onCoordinatesChange(null, null)}>Pin löschen</button>
     </div>
@@ -137,9 +137,21 @@ describe('AlarmPage', () => {
     expect(createIntakeAlarm.mock.calls[0][1]).toMatchObject({ priority: 'low' })
   })
 
-  it('cannot reach the review step without a Meldung', async () => {
+  it('cannot reach the review step without a Meldung — and says so under the field (#120)', async () => {
+    const user = userEvent.setup()
     await renderForm()
-    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+    // never greyed out: the press is what explains
+    const weiter = screen.getByRole('button', { name: 'Weiter' })
+    expect(weiter).toBeEnabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.click(weiter)
+    expect(screen.queryByText('Stimmt das so?')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Ohne Meldung weiss der KP nicht, worum es geht.')
+    const meldung = screen.getByRole('textbox', { name: /^Meldung/ })
+    expect(meldung).toHaveFocus()
+    expect(meldung).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('cannot reach the review step without an Einsatzort – a pin counts', async () => {
@@ -147,16 +159,25 @@ describe('AlarmPage', () => {
     await renderForm()
 
     // A Meldung alone is not enough: a Schadenplatz with no location is the
-    // one thing this form must not produce.
-    await user.type(screen.getByLabelText(/Meldung/), 'Baum auf der Fahrbahn')
-    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
-    // The gate names itself instead of leaving a dead button.
-    expect(screen.getByText('Ohne Einsatzort kann der KP niemanden schicken.')).toBeInTheDocument()
+    // one thing this form must not produce. The press says why AT the field
+    // and puts the cursor there.
+    await user.type(screen.getByRole('textbox', { name: /^Meldung/ }), 'Baum auf der Fahrbahn')
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Ohne Einsatzort kann der KP niemanden schicken.')
+    expect(screen.getByLabelText('Ort')).toHaveFocus()
 
     // Not every meadow has a street: a map pin satisfies the gate too.
     await user.click(screen.getByRole('button', { name: 'Pin setzen' }))
-    expect(screen.getByRole('button', { name: 'Weiter' })).toBeEnabled()
     expect(screen.queryByText('Ohne Einsatzort kann der KP niemanden schicken.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+    expect(await screen.findByText('Stimmt das so?')).toBeInTheDocument()
+  })
+
+  it('wears the shared link-page header with the Ereignis as its context line', async () => {
+    await renderForm()
+    const header = document.querySelector('[data-slot="link-page-header"]')!
+    expect(header).toHaveTextContent('Alarm erfassen')
+    expect(screen.getByRole('heading', { name: 'Alarm erfassen' })).toBeInTheDocument()
   })
 
   it('offers the number pad for the phone number', async () => {
