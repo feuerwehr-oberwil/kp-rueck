@@ -27,7 +27,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Binoculars, MapPin, Package, Phone, TriangleAlert, Truck, Undo2, Users, Waypoints } from 'lucide-react'
+import { Binoculars, MapPin, MessageSquareText, Package, Phone, TriangleAlert, Truck, Undo2, Users, Waypoints } from 'lucide-react'
 
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
@@ -96,7 +96,10 @@ function rekoLabel(t: (key: string, values?: Record<string, string>) => string, 
   return t('reko')
 }
 
-/** One labelled row of the detail section. Renders nothing when it has nothing. */
+/**
+ * One labelled row of the detail section: icon · label · content, the same for every row —
+ * Meldung included, which used to be the one row without an icon and stood out of the column.
+ */
 function BriefingRow({
   icon: Icon,
   label,
@@ -114,6 +117,22 @@ function BriefingRow({
         <div className="text-sm">{children}</div>
       </div>
     </div>
+  )
+}
+
+/**
+ * A bullet list inside a row (Mannschaft, Material): one entry per line, a long entry wraps
+ * under its own text (hanging indent), never under the bullet.
+ */
+function BriefingList({ items }: { items: { key: string; content: React.ReactNode }[] }) {
+  return (
+    <ul className="list-disc space-y-0.5 pl-4 marker:text-muted-foreground">
+      {items.map(item => (
+        <li key={item.key} className="break-words pl-0.5">
+          {item.content}
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -152,12 +171,11 @@ export function FeldBriefing({
     <>
 
       {description && (
-        <div>
-          <p className="text-xs text-muted-foreground">{t('meldung')}</p>
+        <BriefingRow icon={MessageSquareText} label={t('meldung')}>
           {/* `whitespace-pre-line`: a dispatch text arrives with its own line
               breaks and losing them turns three facts into one sentence. */}
-          <p className="whitespace-pre-line text-sm">{description}</p>
-        </div>
+          <p className="whitespace-pre-line">{description}</p>
+        </BriefingRow>
       )}
 
       {(contact || phone) && (
@@ -174,9 +192,12 @@ export function FeldBriefing({
         </BriefingRow>
       )}
 
+      {/* One person per line, as a list: «Aebi Lionel, Aebischer Yannick, Bühlmann
+          Carina, …» broke names across lines at 360px and made counting heads a
+          reading exercise. The same bullet list as the material below. */}
       {crew.length > 0 && (
         <BriefingRow icon={Users} label={t('crew')}>
-          {crew.join(', ')}
+          <BriefingList items={crew.map((name) => ({ key: name, content: name }))} />
         </BriefingRow>
       )}
 
@@ -233,16 +254,17 @@ export function FeldBriefing({
           vehicle lines above give their driver. */}
       {materials.length > 0 && (
         <BriefingRow icon={Package} label={t('material')}>
-          <div className="space-y-1">
-            {materials.map(line => (
-              <p key={`${line.name}·${line.location ?? ''}`}>
-                <span>{materialLabel(line)}</span>
-                {line.location && (
-                  <span className="text-muted-foreground"> · {line.location}</span>
-                )}
-              </p>
-            ))}
-          </div>
+          <BriefingList
+            items={materials.map(line => ({
+              key: `${line.name}·${line.location ?? ''}`,
+              content: (
+                <>
+                  <span>{materialLabel(line)}</span>
+                  {line.location && <span className="text-muted-foreground"> · {line.location}</span>}
+                </>
+              ),
+            }))}
+          />
         </BriefingRow>
       )}
 
