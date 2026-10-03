@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -72,3 +75,37 @@ describe("AppShell – Kommandopalette", () => {
     expect(screen.queryByTestId("global-shortcuts")).not.toBeInTheDocument();
   });
 });
+
+/**
+ * iOS 26 draws a progressive blur over the top ~40pt of an installed web app unless the element
+ * at the top edge sits in a position:fixed/sticky container spanning the viewport with an opaque
+ * background — then it takes that colour instead (WebKit's fixed-container-edge sampling). The
+ * shell is that container; in flow (`h-dvh`) it was not, and the owner's «Einstellungen» heading
+ * came out soft in the home-screen app.
+ */
+describe("AppShell – top edge of the installed app", () => {
+  it("is a viewport-spanning fixed container with the page colour", () => {
+    pathname = "/settings";
+    render(<AppShell>content</AppShell>);
+    const shell = document.querySelector('[data-slot="app-shell"]')!;
+    expect(shell).toHaveClass("fixed", "inset-0", "bg-background");
+    expect(shell).not.toHaveClass("h-dvh");
+  });
+
+  it("leaves the link pages in document flow (their sticky header is the edge container)", () => {
+    pathname = "/feld";
+    render(<AppShell>content</AppShell>);
+    expect(document.querySelector('[data-slot="app-shell"]')).toBeNull();
+  });
+});
+
+describe("AppShell – on paper", () => {
+  it("goes back in flow for print, so the A4 view is not clipped to one page", () => {
+    // A fixed shell would be the containing block of the absolute `.print-view` and clip it to a
+    // viewport-high page (measured: 5 A4 pages → 1); and a fixed box repeats on every sheet.
+    const css = readFileSync(resolve(__dirname, "../app/globals.css"), "utf8");
+    const print = css.slice(css.indexOf("@media print {"));
+    expect(print).toMatch(/\[data-slot="app-shell"\] \{\s*position: static !important;[\s\S]*?overflow: visible !important;/);
+  });
+});
+

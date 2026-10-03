@@ -62,8 +62,17 @@ export function AppShell({ children }: AppShellProps) {
     )
   }
 
+  // `fixed inset-0` + an opaque background, not `h-dvh` in flow: the box looks the same, but it
+  // is what keeps iOS 26's scroll-edge blur off the top of the home-screen app. WebKit only
+  // skips that progressive blur (~40pt under the status bar) when the element at the top edge
+  // sits in a position:fixed/sticky container spanning the viewport, and takes that
+  // container's (or the first opaque box's on the way) colour instead. A page in flow had none,
+  // so «Einstellungen» and every header under the status bar came out soft in the installed
+  // app (a Safari tab draws no such effect). KP Front is immune for the same reason: its body
+  // and `.app` are `position: fixed; inset: 0` with the app background. See
+  // _fix3/feld/edge-effect.md in the fix-round notes and app-shell.test.tsx.
   return (
-    <div className="flex flex-col h-dvh overflow-hidden">
+    <div data-slot="app-shell" className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <DemoBanner />
       <StaleDataBanner />
       <IncidentTruncationBanner />
