@@ -37,9 +37,9 @@ export function globalShortcutsEnabled(pathname: string | null): boolean {
  * signed-in page that has no keyboard handler of its own.
  *
  * Mounted ONCE, in the AppShell, instead of per page: it used to be called page
- * by page, so every page that forgot it (Ressourcen, Audit, Import …) simply had
- * no chords — «G+K doesn't work everywhere». The Board and /map keep driving the
- * same state machine from their own handlers (see `OWN_HANDLER_ROUTES`).
+ * by page with a guard of its own, so each new page had to remember it and the
+ * stand-down rules differed from the Board's. The Board and /map keep driving
+ * the same state machine from their own handlers (see `OWN_HANDLER_ROUTES`).
  *
  * Same stand-down rules as those handlers: never while typing into a field
  * (`isTypingTarget` — inputs, textareas, selects, contenteditable, comboboxes),
