@@ -1,5 +1,6 @@
 'use client';
 
+import { VersionLabel } from '@/components/version-label';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { PageNavigation } from '@/components/page-navigation';
@@ -423,6 +424,8 @@ export default function HelpPage() {
                 </ReactMarkdown>
               </div>
             )}
+            {/* Which build this help belongs to — the same label as the user menu. */}
+            <VersionLabel className="mt-10 border-t border-border/50 pt-4" />
           </div>
         </ScrollArea>
       </div>

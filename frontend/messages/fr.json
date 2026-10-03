@@ -248,6 +248,11 @@
       "days": "{count, plural, one {# jour} other {# jours}}",
       "hours": "{count, plural, one {# heure} other {# heures}}",
       "minutes": "{count, plural, one {# minute} other {# minutes}}"
+    },
+    "update": {
+      "available": "Nouvelle version disponible",
+      "hint": "Recharger quand cela convient.",
+      "reload": "Recharger"
     }
   },
   "display": {
@@ -2391,7 +2396,6 @@
       "lageblattA4": "Feuille de situation (A4)",
       "commands": "Commandes et raccourcis clavier",
       "help": "Aide",
-      "logout": "Se déconnecter",
       "openMenu": "Ouvrir le menu utilisateur",
       "statusNotConfigured": "Non configuré"
     },
@@ -2418,7 +2422,6 @@
       "management": "Administration",
       "support": "Support",
       "account": "Compte",
-      "logout": "Se déconnecter",
       "linksAndQr": "Liens & QR"
     },
     "pageNav": {
@@ -2426,6 +2429,15 @@
       "kanban": "Tableau",
       "map": "Carte de situation",
       "events": "Événements"
+    },
+    "account": {
+      "signedInAs": "Connecté en tant que {name}",
+      "logout": "Se déconnecter",
+      "logoutTitle": "Se déconnecter ?",
+      "logoutDescription": "Cet appareil sera ensuite déconnecté. Pour continuer, quelqu’un se reconnecte.",
+      "cancel": "Annuler",
+      "version": "Version {label}",
+      "versionHint": "État de cette installation : version · commit · date du build"
     }
   },
   "notifications": {
