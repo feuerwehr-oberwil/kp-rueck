@@ -2245,7 +2245,7 @@ export default function FireStationDashboard() {
           {!showLeftSidebar && (
             <button
               onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute left-1 top-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleLeftSidebar')} ([)`}
               aria-label={tDash('toggleLeftSidebar')}
             >
@@ -2258,7 +2258,7 @@ export default function FireStationDashboard() {
           {sidePanelMode === 'collapsed' && (
             <button
               onClick={() => setSidePanelMode('detail')}
-              className="absolute right-1 top-3 z-20 hidden h-12 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+              className="absolute right-1 top-3 z-20 hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
               title={`${tSidePanel('railLabel')} (\\)`}
               aria-label={tSidePanel('railLabel')}
             >
@@ -2270,7 +2270,7 @@ export default function FireStationDashboard() {
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={
                 materialOnSiteEntries.length > 0
                   ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
