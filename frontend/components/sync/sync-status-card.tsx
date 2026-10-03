@@ -11,7 +11,7 @@ import { useDateFnsLocale } from '@/lib/date-locale'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
-import { isCentralInstance, isSyncUnconfigured, type SyncStatusResponse, type SyncConfig } from '@/types/sync'
+import { isCentralInstance, isRailwayConfig, isSyncUnconfigured, type SyncStatusResponse, type SyncConfig } from '@/types/sync'
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 interface SyncStatusCardProps {
@@ -279,7 +279,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
           <Button
             variant="outline"
             onClick={handleSyncFromRailway}
-            disabled={isSyncing || !status?.railway_healthy || isLoading || config?.is_production}
+            disabled={isSyncing || !status?.railway_healthy || isLoading || isRailwayConfig(config)}
           >
             {isSyncing ? (
               <ShellLoader className="size-4" />
@@ -293,7 +293,7 @@ export function SyncStatusCard({ status, isLoading, error, isStale, onSyncComple
             <Button
               variant="default"
               onClick={handleSyncToRailway}
-              disabled={isSyncing || isLoading || config?.is_production}
+              disabled={isSyncing || isLoading || isRailwayConfig(config)}
             >
               {isSyncing ? (
                 <ShellLoader className="size-4" />

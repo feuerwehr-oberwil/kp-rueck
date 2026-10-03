@@ -980,3 +980,69 @@ async def test_sync_status_on_station_with_target_probes_it(sync_admin_client: A
     assert data["peer_configured"] is True
     assert data["railway_healthy"] is False
     mock_service.check_railway_health.assert_awaited_once()
+
+
+# ============================================
+# «Is this the Railway instance?» — real env detection
+# ============================================
+
+_RAILWAY_VARS = ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID", "RAILWAY_STATIC_URL", "RAILWAY_PUBLIC_DOMAIN")
+
+
+def _deployment(monkeypatch, kind: str) -> None:
+    """railway = Railway runtime vars; station = self-hosted, ENVIRONMENT=production; dev = neither."""
+    for name in _RAILWAY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    if kind == "railway":
+        monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+        monkeypatch.setenv("ENVIRONMENT", "production")
+    elif kind == "station":
+        monkeypatch.setenv("ENVIRONMENT", "production")
+
+
+async def _status(client: AsyncClient, target_url: str, healthy: bool = True) -> dict:
+    with (
+        patch("app.services.sync_service.SyncService.get_railway_database_url", AsyncMock(return_value=target_url)),
+        patch("app.services.sync_service.SyncService.check_railway_health", AsyncMock(return_value=healthy)),
+    ):
+        response = await client.get("/api/sync/status")
+    assert response.status_code == 200
+    return response.json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_railway_env_is_the_central_instance(sync_admin_client: AsyncClient, monkeypatch):
+    _deployment(monkeypatch, "railway")
+    data = await _status(sync_admin_client, target_url="")
+    assert data["instance_role"] == "railway"
+    assert data["peer_configured"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize("kind", ["station", "dev"])
+async def test_self_hosted_production_station_stays_a_station(sync_admin_client: AsyncClient, monkeypatch, kind):
+    """ENVIRONMENT=production is the normal setting of a self-hosted station — not Railway."""
+    _deployment(monkeypatch, kind)
+
+    configured = await _status(sync_admin_client, target_url="postgresql://u:p@railway.example:5432/railway")
+    assert configured["instance_role"] == "station"
+    assert configured["peer_configured"] is True
+    assert configured["railway_healthy"] is True
+
+    unconfigured = await _status(sync_admin_client, target_url="")
+    assert unconfigured["instance_role"] == "station"
+    assert unconfigured["peer_configured"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(("kind", "on_railway"), [("railway", True), ("station", False), ("dev", False)])
+async def test_sync_config_marks_only_railway_as_production(sync_admin_client: AsyncClient, monkeypatch, kind, on_railway):
+    """The config's «is_production» (read by the UI as «this is Railway») keeps a station's sync controls."""
+    _deployment(monkeypatch, kind)
+    data = (await sync_admin_client.get("/api/sync/config")).json()
+    assert data["is_production"] is on_railway
+    assert data["is_railway"] is on_railway

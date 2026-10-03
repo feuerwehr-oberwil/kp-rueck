@@ -276,9 +276,14 @@ async def get_sync_config(current_user: CurrentAdmin, db: AsyncSession = Depends
     auto_sync_on_create = await get_setting_value(db, "auto_sync_on_create", "true")
     sync_conflict_buffer_seconds = await get_setting_value(db, "sync_conflict_buffer_seconds", "5")
 
-    # When running on Railway (production), show Railway's own database URL
-    # When running locally, show the Railway sync target URL from settings
-    if settings.is_production:
+    # On Railway, show Railway's own database URL; on a station, its sync TARGET.
+    # `is_railway()` — the RAILWAY_* runtime variables — and NOT
+    # `settings.is_production`: a self-hosted station runs with
+    # ENVIRONMENT=production as its normal setting, and keying this off that hid
+    # the station's sync controls («nur lokal verfügbar») and showed its own
+    # database instead of the Railway target.
+    on_railway = is_railway()
+    if on_railway:
         # Convert asyncpg driver back to standard postgres:// format for display
         database_url = settings.database_url
         if database_url.startswith("postgresql+asyncpg://"):
@@ -293,7 +298,9 @@ async def get_sync_config(current_user: CurrentAdmin, db: AsyncSession = Depends
         # Never return the raw URL — it contains the database password.
         "railway_database_url": _redact_database_url(railway_database_url),
         "sync_conflict_buffer_seconds": int(sync_conflict_buffer_seconds),
-        "is_production": settings.is_production,  # True if running on Railway
+        # Historical name, read by the frontend as «this IS the Railway instance».
+        "is_production": on_railway,
+        "is_railway": on_railway,
     }
 
 

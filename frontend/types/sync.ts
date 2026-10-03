@@ -49,7 +49,16 @@ export interface SyncConfig {
   auto_sync_on_create: boolean;
   railway_database_url: string;
   sync_conflict_buffer_seconds?: number;
-  is_production?: boolean;  // True if running on Railway (production)
+  /** Historical name: true only on the Railway instance (RAILWAY_* runtime vars),
+   *  never merely because ENVIRONMENT=production — a self-hosted station has that. */
+  is_production?: boolean;
+  /** Same signal under its real name. */
+  is_railway?: boolean;
+}
+
+/** «This IS the Railway instance» per the sync config (no sync controls there). */
+export function isRailwayConfig(config: SyncConfig | null | undefined): boolean {
+  return Boolean(config?.is_railway ?? config?.is_production)
 }
 
 export interface SyncResult {

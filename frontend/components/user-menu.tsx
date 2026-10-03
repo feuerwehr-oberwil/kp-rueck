@@ -21,7 +21,7 @@ import { useRailwayRecovery } from '@/lib/hooks/use-railway-recovery';
 import { apiClient } from '@/lib/api-client';
 import type { ApiDiveraPollingStatus } from '@/lib/api/types';
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client';
-import { isCentralInstance, isSyncUnconfigured, type SyncConfig } from '@/types/sync';
+import { isCentralInstance, isRailwayConfig, isSyncUnconfigured, type SyncConfig } from '@/types/sync';
 import { RoleBadge } from '@/components/auth/role-badge';
 import { openCommandPalette } from '@/components/ui/command-palette';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
@@ -141,7 +141,7 @@ export function UserMenu({
   // Offline» there (it was shown to everyone who is not admin, since only admins
   // may read the sync config) described a connection that cannot exist. The
   // status itself now says which instance this is.
-  const showSyncStatus = !syncConfig?.is_production && !isCentralInstance(syncStatus);
+  const showSyncStatus = !isRailwayConfig(syncConfig) && !isCentralInstance(syncStatus);
 
   // Load config to check if we're on Railway
   useEffect(() => {
