@@ -2963,11 +2963,20 @@
       "disabledForEveryone": "{what} erscheinen jetzt auf keinem Bildschirm mehr – auch nicht auf dem Wanddisplay im Magazin."
     },
     "toasts": {
-      "criticalTitle": "Kritische Warnung",
       "overflowTitle": "{count, plural, one {# weitere Meldung} other {# weitere Meldungen}}",
       "overflowDescription": "Im Benachrichtigungs-Panel ansehen.",
       "overflowAction": "Öffnen",
-      "openIncident": "Einsatz öffnen"
+      "openIncident": "Einsatz öffnen",
+      "fieldReport": "Neuer Schadenplatz",
+      "fieldReportDirect": "Neuer Schadenplatz – Trupp fährt direkt hin",
+      "critical": "Kritisch",
+      "source": {
+        "feld": "Meldung vom Feld",
+        "reko": "Reko",
+        "vehicle": "Fahrzeug",
+        "alarm": "Übung",
+        "time": "Zeitlimit überschritten"
+      }
     },
     "sidebar": {
       "title": "Benachrichtigungen",

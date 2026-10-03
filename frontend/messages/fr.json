@@ -2578,11 +2578,20 @@
       "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
     },
     "toasts": {
-      "criticalTitle": "Avertissement critique",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
       "overflowAction": "Ouvrir",
-      "openIncident": "Ouvrir l’intervention"
+      "openIncident": "Ouvrir l’intervention",
+      "fieldReport": "Nouvelle place de sinistre",
+      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement",
+      "critical": "Critique",
+      "source": {
+        "feld": "Du terrain",
+        "reko": "Reconnaissance",
+        "vehicle": "Véhicule",
+        "alarm": "Exercice",
+        "time": "Délai dépassé"
+      }
     },
     "sidebar": {
       "title": "Notifications",
