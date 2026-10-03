@@ -338,7 +338,9 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             <div className="mb-2 flex h-8 items-center">
               <span className="text-sm font-semibold">{t("mapHeading")}</span>
             </div>
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
+            {/* `isolate`: the hint pill (z-1000) belongs to this map, not to the page – see
+                MAP_STACKING in base-map.tsx. */}
+            <div className="relative isolate min-h-0 flex-1 overflow-hidden rounded-lg border">
               {mapNode}
               {addMode && (
                 <div className="pointer-events-none absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-full bg-foreground px-3 py-1 text-xs font-medium text-background shadow-md">

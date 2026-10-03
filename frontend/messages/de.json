@@ -1221,7 +1221,6 @@
     "mobileDetail": {
       "copied": "In Zwischenablage kopiert",
       "copyError": "Kopieren fehlgeschlagen",
-      "incidentId": "Einsatz-ID: {id}",
       "rekoBadge": "Reko",
       "notesPlaceholder": "Notiz hinzufügen …",
       "dangers": "Gefahren",
@@ -1298,6 +1297,7 @@
       "routePlanning": "Routenplanung",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
+      "modesMenuLabel": "Modus",
       "modes": "Modus"
     },
     "planning": {
@@ -1325,8 +1325,8 @@
       "firestationFallback": "Feuerwehr",
       "crewSummary": "{vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {personnel, plural, one {# Person} other {# Personen}} zugewiesen",
       "magazin": "Magazin",
-      "missingCoords": "⚠️ {count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
-      "clickToExpand": "Klicken zum Erweitern",
+      "missingCoordsAria": "{count, plural, one {# Einsatz} other {# Einsätze}} ohne gültige Koordinaten",
+      "missingCoordsChip": "{count} ohne Koordinaten",
       "clickToNavigate": "Klicken um zu Einsatz zu navigieren",
       "retry": "Erneut versuchen",
       "mapAria": "Einsatzkarte – Pfeiltasten zum Verschieben, Tab zum Markieren",
@@ -3947,7 +3947,6 @@
       "notesPlaceholder": "Zufahrt, Schlüssel, Kontakt vor Ort …",
       "needLocation": "Ohne Einsatzort kann der KP niemanden schicken.",
       "needMessage": "Ohne Meldung weiss der KP nicht, worum es geht.",
-      "nextStepHint": "Nächster Schritt: Meldung prüfen.",
       "locationHint": "Adresse eintippen, auf der Karte tippen oder «Standort übernehmen».",
       "locationHintPhone": "Adresse eintippen oder auf der Karte tippen."
     },

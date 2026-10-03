@@ -30,6 +30,7 @@ import { useEffect, useRef, type ReactNode } from "react"
 import { FormMessage, formMessageId } from "@/components/ui/form-message"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { useStackedFields } from "@/components/ui/use-stacked-fields"
 import { cn } from "@/lib/utils"
 
 /**
@@ -77,10 +78,10 @@ interface DetailFieldProps {
   /** Anything else under the row at the same indent — a list of hints, a counter. */
   footer?: ReactNode
   /**
-   * Phone forms: the label ABOVE the control, the control (and its error/footer) full width
-   * underneath — the grammar of every other phone form (reko, /feld). A 120px label column
-   * leaves a phone's control about 200px and reads as a table, not a form. Desktop keeps the
-   * row.
+   * The label ABOVE the control, the control (and its error/footer) full width underneath — the
+   * grammar of every other phone form (reko, /feld). A 120px label column leaves a phone's
+   * control about 200px and reads as a table, not a form. Default: stacked on the phone, the
+   * row on desktop (`useStackedFields`); pass a boolean only to force one.
    */
   stacked?: boolean
   className?: string
@@ -116,10 +117,11 @@ export function DetailField({
   error,
   advice,
   footer,
-  stacked = false,
+  stacked: stackedProp,
   className,
   children,
 }: DetailFieldProps) {
+  const stacked = useStackedFields(stackedProp)
   if (stacked) {
     return (
       <div className={cn("py-1.5", className)}>
@@ -209,7 +211,7 @@ export function DetailToggle({
   disabled,
   note,
   footer,
-  stacked = false,
+  stacked: stackedProp,
   className,
 }: {
   label: string
@@ -224,10 +226,11 @@ export function DetailToggle({
   /** Under the row while `checked`, at the control indent — the note's save line. */
   footer?: ReactNode
   /** Phone forms: label left, switch at the right edge (the phone settings norm), the note
-   *  full width under the row while on. */
+   *  full width under the row while on. Default: on the phone (`useStackedFields`). */
   stacked?: boolean
   className?: string
 }) {
+  const stacked = useStackedFields(stackedProp)
   // Switching one of these ON asks a question — «für welche Gemeinde?», «worauf
   // wartet er?» — and the field that answers it appears in the same instant.
   // Focusing it is what turns two actions into one: the operator has already
