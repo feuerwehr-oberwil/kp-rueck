@@ -269,6 +269,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* The page colour on <html> too (KP Front does the same): iOS shows html's background in the
+     overscroll and safe-area bands around the installed app, white without this. */
+  html {
+    @apply bg-background;
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
