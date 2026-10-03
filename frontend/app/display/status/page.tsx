@@ -8,7 +8,7 @@ import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStatusData, type VehicleWithStatus } from "@/lib/hooks/use-status-data"
-import { ageLevel, columns, STATUS_ACCENT } from "@/lib/kanban-utils"
+import { ageLevel, columns, STATUS_ACCENT, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
@@ -680,7 +680,10 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
             title={statusLabel}
           />
           <div className="min-w-0">
-            <p className="text-sm xl:text-base font-semibold leading-tight truncate" title={locationLabel}>{locationLabel}</p>
+            {/* Two lines, hyphenated, instead of one truncated: «Mühlemattstrasse …»
+                is not an address anybody can act on, and a wall has no pointer for
+                the title attribute. */}
+            <p className={cn("text-sm xl:text-base font-semibold leading-tight line-clamp-2", WALL_TEXT_WRAP)} title={locationLabel}>{locationLabel}</p>
             <p className="text-[11px] xl:text-xs text-muted-foreground mt-0.5">{getIncidentTypeLabel(op.incidentType)}</p>
           </div>
         </div>

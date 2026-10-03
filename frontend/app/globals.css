@@ -908,6 +908,16 @@
   }
 }
 
+/* The boot snail handed over by the Microsoft callback (lib/snail-clock.ts): it continues
+   the previous document's snail, which already arrived, so from the first paint it stands
+   instead of starting a second arrival. All of its animations off = the drawing at rest,
+   speed lines hidden. The client drops the attribute and sets the clock before the next
+   paint. */
+html[data-snail='standing'] .firefighter-snail,
+html[data-snail='standing'] .firefighter-snail * {
+  animation: none !important;
+}
+
 /* Reduced motion on the shared overlays: a dialog appears without zooming, a sheet or
    popover without sliding — they still fade, which is not movement. Done through
    tw-animate's own variables rather than `transform: none`, so nothing that POSITIONS an
@@ -1028,19 +1038,29 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
    contract is documented in lib/viewport-insets.ts. These are the no-JS defaults. */
 :root {
   --kb-inset: 0px;
+  --vv-top: 0px;
   --vv-height: 100dvh;
   --nav-reserve: 0px;
   --sheet-top: 0px;
 }
 
-/* While the keyboard is up an undocked bottom sheet (it stands on `bottom: var(--kb-inset)`,
-   see ui/sheet.tsx) is never taller than the band of screen left above the keys, minus 5rem:
-   room for one message above the sheet's edge (the toast lane reads `--sheet-top`) and a strip
-   of backdrop to tap. Capped to the band's own height, never «layout height minus the foot»:
-   that one grows as iOS pans and starts the pan/re-aim loop documented in lib/viewport-insets.
-   Unlayered on purpose, so it wins over the `modal-h-*` utility on the same element. */
+/* While the keyboard is up an undocked (phone) bottom sheet FILLS the visible band exactly: top
+   on the band's top edge, foot on the keyboard. `top`/`height` from the measured band
+   (`--vv-top` = visualViewport.offsetTop in layout px, `--vv-height` = its height; see the iOS
+   model in lib/viewport-insets.ts), never bottom-anchoring: on iOS the band is a window into a
+   layout viewport that does not shrink, and only top + height say where that window is.
+   No reserve above the sheet — every pixel goes to the form; the toast lane moves to the band's
+   top edge and may overlay the sheet's header meanwhile (ui/sonner.tsx).
+   The box-shadow is a skirt in the sheet's colour under its foot: Safari 26 keeps a strip for
+   its URL pill between the band and the accessory bar, and the page under it would otherwise
+   show through between the footer and the keys. Elsewhere the keyboard covers it.
+   Unlayered on purpose, so it wins over the `bottom-0` / `modal-h-*` utilities. */
 :root[data-kb] [data-slot='sheet-content'][data-side='bottom']:not([data-docked]) {
-  max-height: calc(var(--vv-height) - 5rem);
+  top: var(--vv-top, 0px);
+  bottom: auto;
+  height: var(--vv-height);
+  max-height: none;
+  box-shadow: 0 8rem 0 0 var(--background);
 }
 
 /* The ONE scroll reserve for a phone list under the fixed bottom nav: the nav's measured height

@@ -252,6 +252,7 @@ function SheetContent({
   nonModal = false,
   swipeToClose = true,
   onInteractOutside,
+  onOpenAutoFocus,
   style,
   ref,
   ...props
@@ -278,6 +279,20 @@ function SheetContent({
   // stand on, no grip, no swipe — a mouse has the ✕ and the backdrop.
   const docked = isBottom && (!!overlayOffset || nonModal)
   const swipe = isBottom && !docked && swipeToClose
+  const phoneSheet = isBottom && !docked
+
+  // A phone sheet never raises the keyboard by itself: Radix would focus the first field, and
+  // on a phone that is half the screen gone before the operator chose a field. Focus goes to
+  // the sheet (keyboard users Tab on from there); a caller's own handler still wins.
+  const handleOpenAutoFocus = React.useCallback(
+    (event: Event) => {
+      onOpenAutoFocus?.(event)
+      if (!phoneSheet || event.defaultPrevented) return
+      event.preventDefault()
+      if (event.target instanceof HTMLElement) event.target.focus({ preventScroll: true })
+    },
+    [onOpenAutoFocus, phoneSheet],
+  )
   const closeRef = React.useRef<HTMLButtonElement | null>(null)
 
   // One callback ref does the per-mount work: Radix mounts the Content only while open, so
@@ -320,6 +335,7 @@ function SheetContent({
         // Dismissing a toast must never dismiss the slide-up behind it; any
         // other outside interaction still reaches the caller's own guard.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
+        onOpenAutoFocus={handleOpenAutoFocus}
         className={cn(
           // The slide-out goes with it. The closed Content was measured lingering
           // over 375x587 with `pointer-events: auto` for the full 300ms — and
@@ -334,7 +350,7 @@ function SheetContent({
           side === 'top' &&
             'data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
           side === 'bottom' &&
-            'data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t rounded-t-lg',
+            'data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t rounded-t-lg outline-none',
           className,
         )}
         // Merge instead of letting a caller-provided `style` (even undefined,
@@ -343,10 +359,9 @@ function SheetContent({
         // behind the footer toolbar.
         style={{
           ...(side === 'bottom' && overlayOffset ? { bottom: overlayOffset } : undefined),
-          // An undocked bottom sheet stands ON the on-screen keyboard (0 without one), so its
-          // footer and the focused field stay visible; globals.css caps its height to the
-          // visible band while the keyboard is up. See lib/viewport-insets.ts.
-          ...(side === 'bottom' && !overlayOffset ? { bottom: 'var(--kb-inset, 0px)' } : undefined),
+          // An undocked bottom sheet sits on `bottom-0`; while a keyboard is up globals.css
+          // moves it into the visible band (`top: --vv-top; height: --vv-height`), footer on
+          // the keys. Not inline: an inline `bottom` would beat that rule. lib/viewport-insets.ts.
           ...(side === 'bottom' && rightInset ? { right: rightInset } : undefined),
           ...style,
         }}

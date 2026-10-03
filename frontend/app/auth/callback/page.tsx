@@ -19,6 +19,7 @@ import { microsoftLogin } from '@/lib/auth-client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BootScreen } from '@/components/boot-screen';
+import { handOverSnailClock } from '@/lib/snail-clock';
 import { Flame } from 'lucide-react';
 
 export default function MicrosoftCallbackPage() {
@@ -55,6 +56,9 @@ export default function MicrosoftCallbackPage() {
     window.history.replaceState(null, '', window.location.pathname);
     microsoftLogin(code, state)
       .then((user) => {
+        // The app's own start screen takes over in the next document; it continues this
+        // snail instead of driving it in a second time (lib/snail-clock.ts).
+        handOverSnailClock();
         window.location.href = user.role === 'viewer' ? '/display/board' : '/';
       })
       .catch((err) => {

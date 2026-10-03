@@ -15,7 +15,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
-import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT } from "@/lib/kanban-utils"
+import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { DisplayIncidentCard } from "@/components/display/incident-card"
@@ -270,7 +270,12 @@ function BoardDisplay() {
             // card read from across the room beats a column that is not on the
             // screen at all. At 1920 — the wall this surface is actually sized
             // for — the floor never binds and columns stay 300px, unchanged.
-            className="flex flex-1 flex-col min-w-[160px] overflow-hidden"
+            //
+            // On a phone (below `sm`) the floor is 85vw instead: seven 160px
+            // columns scroll sideways there anyway, and 160 left a card title
+            // 75px — two letters a line. One column and a peek of the next is
+            // the phone's board. The token board uses the same two floors.
+            className="flex flex-1 flex-col min-w-[160px] max-sm:min-w-[85vw] overflow-hidden"
           >
             {/* The accent as a 2px rule above the header, not a wash behind
                 it — the header is a line of the board now, not a box on it.
@@ -288,16 +293,20 @@ function BoardDisplay() {
             >
               <div className="flex items-center gap-2">
                 <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <h2 className={cn("flex-1 truncate", COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                {hasAlarm && (
-                  <span
-                    title={alarmTitle}
-                    aria-label={alarmTitle}
-                    className="h-2 w-2 flex-shrink-0 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
-                  />
-                )}
-                <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+                {/* Wraps instead of truncating: in Sora, at 1280, «DISPONIERT / …»
+                    and «REKO ABGESC…» were all a wall could read of three headers.
+                    The overdue dot rides on the count badge, as on the folded
+                    strip, instead of taking 16px of the label's line. */}
+                <h2 className={cn("min-w-0 flex-1 leading-tight", WALL_TEXT_WRAP, COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
+                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
                   {ops.length}
+                  {hasAlarm && (
+                    <span
+                      title={alarmTitle}
+                      aria-label={alarmTitle}
+                      className="absolute -right-1 -top-1 h-2 w-2 cursor-help rounded-full bg-red-500 transition-[transform,box-shadow] hover:scale-150 hover:shadow-[0_0_0_3px_oklch(from_var(--color-red-500)_l_c_h/0.25)]"
+                    />
+                  )}
                 </span>
               </div>
             </button>

@@ -950,7 +950,6 @@
       "notesPlaceholder": "Accès, clé, contact sur place …",
       "needLocation": "Sans lieu d'intervention, le PC ne peut envoyer personne.",
       "needMessage": "Sans message, le PC ne sait pas de quoi il s'agit.",
-      "nextStepHint": "Étape suivante : vérifier l'annonce.",
       "locationHint": "Saisir l'adresse, toucher la carte ou « Utiliser ma position ».",
       "locationHintPhone": "Saisir l'adresse ou toucher la carte."
     },
@@ -1220,7 +1219,6 @@
     "mobileDetail": {
       "copied": "Copié dans le presse-papiers",
       "copyError": "Échec de la copie",
-      "incidentId": "ID de l’intervention : {id}",
       "rekoBadge": "Reco",
       "notesPlaceholder": "Ajouter une note …",
       "dangers": "Dangers",
@@ -2203,6 +2201,7 @@
       "routePlanning": "Planification d’itinéraire",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
+      "modesMenuLabel": "Mode",
       "modes": "Mode"
     },
     "planning": {
@@ -2230,8 +2229,8 @@
       "firestationFallback": "Sapeurs-pompiers",
       "crewSummary": "{vehicles, plural, one {# véhicule} other {# véhicules}}, {personnel, plural, one {# personne attribuée} other {# personnes attribuées}}",
       "magazin": "Caserne",
-      "missingCoords": "⚠️ {count, plural, one {# intervention sans coordonnées valables} other {# interventions sans coordonnées valables}}",
-      "clickToExpand": "Cliquer pour agrandir",
+      "missingCoordsAria": "{count, plural, one {# intervention sans coordonnées valables} other {# interventions sans coordonnées valables}}",
+      "missingCoordsChip": "{count} sans coordonnées",
       "clickToNavigate": "Cliquer pour naviguer vers l’intervention",
       "retry": "Réessayer",
       "mapAria": "Carte des interventions – flèches pour déplacer, tabulation pour sélectionner",
@@ -2586,11 +2585,20 @@
       "disabledForEveryone": "{what} n’apparaissent plus sur aucun écran – pas même sur l’écran mural du dépôt."
     },
     "toasts": {
-      "criticalTitle": "Avertissement critique",
       "overflowTitle": "{count, plural, one {# autre annonce} other {# autres annonces}}",
       "overflowDescription": "À consulter dans le panneau des notifications.",
       "overflowAction": "Ouvrir",
-      "openIncident": "Ouvrir l’intervention"
+      "openIncident": "Ouvrir l’intervention",
+      "fieldReport": "Nouvelle place de sinistre",
+      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement",
+      "critical": "Critique",
+      "source": {
+        "feld": "Du terrain",
+        "reko": "Reconnaissance",
+        "vehicle": "Véhicule",
+        "alarm": "Exercice",
+        "time": "Délai dépassé"
+      }
     },
     "sidebar": {
       "title": "Notifications",
