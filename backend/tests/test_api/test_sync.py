@@ -986,7 +986,13 @@ async def test_sync_status_on_station_with_target_probes_it(sync_admin_client: A
 # «Is this the Railway instance?» — real env detection
 # ============================================
 
-_RAILWAY_VARS = ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID", "RAILWAY_STATIC_URL", "RAILWAY_PUBLIC_DOMAIN")
+_RAILWAY_VARS = (
+    "RAILWAY_ENVIRONMENT",
+    "RAILWAY_PROJECT_ID",
+    "RAILWAY_SERVICE_ID",
+    "RAILWAY_STATIC_URL",
+    "RAILWAY_PUBLIC_DOMAIN",
+)
 
 
 def _deployment(monkeypatch, kind: str) -> None:
@@ -1040,7 +1046,9 @@ async def test_self_hosted_production_station_stays_a_station(sync_admin_client:
 @pytest.mark.asyncio
 @pytest.mark.api
 @pytest.mark.parametrize(("kind", "on_railway"), [("railway", True), ("station", False), ("dev", False)])
-async def test_sync_config_marks_only_railway_as_production(sync_admin_client: AsyncClient, monkeypatch, kind, on_railway):
+async def test_sync_config_marks_only_railway_as_production(
+    sync_admin_client: AsyncClient, monkeypatch, kind, on_railway
+):
     """The config's «is_production» (read by the UI as «this is Railway») keeps a station's sync controls."""
     _deployment(monkeypatch, kind)
     data = (await sync_admin_client.get("/api/sync/config")).json()
