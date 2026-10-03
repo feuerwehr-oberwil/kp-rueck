@@ -46,7 +46,8 @@
     "bootScreen": {
       "stuckTitle": "Start dauert länger als gewöhnlich",
       "stuckHint": "Verbindung schwach oder Server nicht erreichbar.",
-      "restart": "Neu starten"
+      "restart": "Neu starten",
+      "loadingBoard": "Einsätze werden geladen …"
     },
     "loading": "Wird geladen …",
     "incidentTruncation": {

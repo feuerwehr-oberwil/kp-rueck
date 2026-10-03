@@ -3,6 +3,7 @@ import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
 import { cookies } from 'next/headers'
+import { BootCover } from '@/components/boot-cover'
 import { SNAIL_STANDING_COOKIE } from '@/lib/snail-clock'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -119,6 +120,8 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <ThemeColorSync />
+          {/* A launch opens behind the snail: over everything until the workspace is usable. */}
+          <BootCover />
           <AuthProvider>
             <EventProvider>
               <PersonnelProvider>

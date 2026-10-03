@@ -1,0 +1,106 @@
+import { act, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { renderWithIntl } from '@/test-utils/render-with-intl'
+import { bootGates, useBootGate } from '@/lib/boot-cover'
+
+const nav = vi.hoisted(() => ({ pathname: '/' }))
+vi.mock('next/navigation', () => ({ usePathname: () => nav.pathname }))
+
+import { BOOT_COVER_FADE_MS, BOOT_COVER_MAX_MS, BootCover } from './boot-cover'
+
+function Gate({ id, ready, label, rank }: { id: string; ready: boolean; label?: string; rank?: number }) {
+  useBootGate(id, ready, label, rank)
+  return null
+}
+
+const cover = () => document.querySelector<HTMLElement>('[data-boot-cover]')
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'Date'] })
+  nav.pathname = '/'
+  bootGates.reset()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+function App({ session = true, board = false }: { session?: boolean; board?: boolean }) {
+  return (
+    <>
+      <BootCover />
+      <Gate id="session" ready={session} label="Anmeldung wird vorbereitet …" rank={0} />
+      <Gate id="board" ready={board} label="Einsätze werden geladen …" />
+    </>
+  )
+}
+
+describe('BootCover', () => {
+  it('covers a launch onto the board with the snail and the phase, and nothing else', () => {
+    renderWithIntl(<App session={false} />)
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    expect(cover()!.querySelector('.snail-loader svg')).not.toBeNull()
+    expect(screen.getByText('Anmeldung wird vorbereitet …')).toBeInTheDocument()
+  })
+
+  it('holds while the session is decided but the board is still loading, then names that', () => {
+    renderWithIntl(<App session board={false} />)
+    act(() => vi.advanceTimersByTime(3_000))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    expect(screen.getByText('Einsätze werden geladen …')).toBeInTheDocument()
+  })
+
+  it('lifts once every gate is ready: one frame, a fade, gone', () => {
+    const { rerender } = renderWithIntl(<App session board={false} />)
+    act(() => vi.advanceTimersByTime(500))
+    rerender(<App session board />)
+    act(() => vi.advanceTimersByTime(20)) // the frame
+    expect(cover()).toHaveAttribute('data-boot-cover', 'leaving')
+    expect(cover()!.className).toContain('opacity-0')
+    act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
+    expect(cover()).toBeNull()
+  })
+
+  it('does not lift before any gate registered', () => {
+    renderWithIntl(<BootCover />)
+    act(() => vi.advanceTimersByTime(2_000))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+  })
+
+  it('gives up at the cap, below the 9 s stuck hint, and reveals whatever is there', () => {
+    renderWithIntl(<App session board={false} />)
+    act(() => vi.advanceTimersByTime(BOOT_COVER_MAX_MS - 100))
+    expect(cover()).toHaveAttribute('data-boot-cover', 'on')
+    act(() => vi.advanceTimersByTime(100))
+    act(() => vi.advanceTimersByTime(20)) // the frame
+    expect(cover()).toHaveAttribute('data-boot-cover', 'leaving')
+    expect(screen.queryByText('Start dauert länger als gewöhnlich')).toBeNull()
+  })
+
+  it('lifts when the launch leaves the workspace (signed out → /login)', () => {
+    const { rerender } = renderWithIntl(<App session={false} />)
+    nav.pathname = '/login'
+    rerender(<App session={false} />)
+    act(() => vi.advanceTimersByTime(20))
+    act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
+    expect(cover()).toBeNull()
+  })
+
+  it('never covers a route that brings its own first screen', () => {
+    nav.pathname = '/login'
+    renderWithIntl(<App session={false} />)
+    expect(cover()).toBeNull()
+  })
+
+  it('stays gone for the rest of the visit: in-app switching keeps its own loaders', () => {
+    const { rerender } = renderWithIntl(<App session board />)
+    act(() => vi.advanceTimersByTime(20))
+    act(() => vi.advanceTimersByTime(BOOT_COVER_FADE_MS))
+    expect(cover()).toBeNull()
+    nav.pathname = '/map'
+    rerender(<App session board={false} />) // the next page loads — not behind the snail
+    act(() => vi.advanceTimersByTime(1_000))
+    expect(cover()).toBeNull()
+  })
+})
