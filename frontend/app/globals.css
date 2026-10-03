@@ -1140,3 +1140,13 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
     padding-bottom: 0.75rem;
   }
 }
+
+/* /feld: no zoom (app/feld/layout.tsx, components/feld/feld-no-zoom.tsx). Pan only — a pinch or a
+   double tap does nothing, a map's own gestures (JS) still work. Fields at 16px or more: iOS
+   zooms into any focused input below that. */
+html.feld-no-zoom {
+  touch-action: pan-x pan-y;
+}
+html.feld-no-zoom :is(input, textarea, select) {
+  font-size: max(16px, 1em);
+}

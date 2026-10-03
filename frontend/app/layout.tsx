@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
@@ -27,6 +27,8 @@ import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
 import { publicBackendOrigin } from '@/lib/env'
 import { TopLoadingBar } from '@/components/ui/top-loading-bar'
 import { ViewportInsets } from '@/components/viewport-insets'
+import { ThemeColorSync } from '@/components/theme-color-sync'
+import { THEME_COLOR } from '@/lib/theme-color'
 
 // Sora + Spline Sans Mono — the same faces as KP Front and kp-rueck.ch, so the
 // two apps and the site read as one family. Self-hosted (variable woff2, Latin
@@ -46,6 +48,19 @@ const splineSansMono = localFont({
   fallback: ['Courier New', 'monospace'],
 })
 
+/**
+ * The system bars take the page's own background per scheme (lib/theme-color.ts): on the iOS
+ * home-screen app that is the status-bar strip above the first row — solid, instead of iOS's
+ * frosted fallback for a page that declares no colour. `ThemeColorSync` corrects it when the user
+ * picked a scheme other than the phone's.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: THEME_COLOR.light },
+    { media: '(prefers-color-scheme: dark)', color: THEME_COLOR.dark },
+  ],
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('common.meta')
   return {
@@ -59,7 +74,9 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     },
     // The home-screen label; the page title («KP Rück Dashboard») would be cut off.
-    appleWebApp: { title: 'KP Rück' },
+    // `default`, said out loud: the web view starts below the status bar and the bar takes the
+    // theme-color above. `black-translucent` (content under the bar) is ignored since iOS 26.1.
+    appleWebApp: { title: 'KP Rück', statusBarStyle: 'default' },
   }
 }
 
@@ -101,6 +118,7 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ThemeColorSync />
           <AuthProvider>
             <EventProvider>
               <PersonnelProvider>
