@@ -14,7 +14,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
-import type { Map as MlMap, RequestTransformFunction } from 'maplibre-gl'
+import { setWorkerUrl, type Map as MlMap, type RequestTransformFunction } from 'maplibre-gl'
 import Map, {
   Layer,
   Source,
@@ -24,7 +24,7 @@ import Map, {
   type ViewStateChangeEvent,
 } from 'react-map-gl/maplibre'
 
-import { DARK_BASE_PAINT, DAY_BASE_PAINT, EMPTY_STYLE, NIGHT_BASE_PAINT } from '@/lib/map-view'
+import { DARK_BASE_PAINT, DAY_BASE_PAINT, EMPTY_STYLE, MAPLIBRE_WORKER_URL, NIGHT_BASE_PAINT } from '@/lib/map-view'
 import { offlineBasemapFor, useMapMode } from '@/lib/hooks/use-map-mode'
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability'
 import { useGlRecovery } from '@/lib/hooks/use-gl-recovery'
@@ -33,6 +33,13 @@ import { reportClientError } from '@/lib/report-error'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { MapAttribution } from './map-attribution'
+
+// MapLibre's worker, from a real same-origin file. Left to itself MapLibre 6 derives the URL from
+// `import.meta.url`, which webpack turns into a build-machine `file://` path – it then spawns the
+// page as a worker, no GeoJSON source ever loads and the map never fires `load` (see
+// `scripts/copy-maplibre-worker.mjs`). Must run before the first map is created; every map
+// surface imports this module.
+if (typeof window !== 'undefined') setWorkerUrl(MAPLIBRE_WORKER_URL)
 
 /** Ids of the basemap source/layer pair. Surface layers stay above it by rendering after it. */
 export const BASE_SOURCE_ID = 'kp-basemap'
@@ -103,6 +110,19 @@ const VECTOR_CANVAS_FILTER =
 const CONTROL_Z_ORDER =
   '[&_.maplibregl-ctrl-top-left]:z-[2000]! [&_.maplibregl-ctrl-top-right]:z-[2000]! ' +
   '[&_.maplibregl-ctrl-bottom-left]:z-[2000]! [&_.maplibregl-ctrl-bottom-right]:z-[2000]!'
+
+/**
+ * …and all of that stays INSIDE the map.
+ *
+ * Those z-indices (markers up to 1000, controls 2000) only mean something against each other.
+ * Without a stacking context of its own the wrapper let them compete with the page: on the
+ * phone the zoom buttons, the address labels and the ⓘ drew over the «Mehr» sheet, the
+ * «Ansicht» menu and every other overlay (z-50) that opened above the Lagekarte (owner, iPhone,
+ * 02.10.2026). `isolation: isolate` makes the whole map ONE layer in the page's order – nothing
+ * inside it can rise above an overlay, whatever its z-index – while popups, hover cards and
+ * controls keep their order relative to the tiles. Every map surface goes through this wrapper.
+ */
+const MAP_STACKING = 'isolate'
 
 /** The view a map opens at. No bearing – the board never rotates. */
 export interface BaseMapViewState {
@@ -393,6 +413,7 @@ export function BaseMap({
       data-testid="base-map"
       className={cn(
         'relative h-full w-full',
+        MAP_STACKING,
         CONTROL_Z_ORDER,
         offline?.kind === 'vector' && VECTOR_CANVAS_FILTER,
         className,

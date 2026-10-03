@@ -46,12 +46,14 @@ const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] 
   description: 'leading-snug text-muted-foreground',
   icon: 'relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-5',
   actionButton: cn(
-    'ml-auto inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11',
+    // `relative z-10` (and the ✕'s `z-10`): a toast that opens its Einsatz is a
+    // tap target edge to edge (NotificationToasts), and its buttons sit above that
+    'relative z-10 ml-auto inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11',
     'max-w-[min(240px,60vw)] whitespace-normal text-left text-sm font-semibold text-foreground',
     'cursor-pointer hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   cancelButton: cn(
-    'ml-auto inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11',
+    'relative z-10 ml-auto inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11',
     'text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted hover:text-foreground',
     'outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
@@ -60,7 +62,7 @@ const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] 
   // rather than a flex item: as a flex item it was the thing that wrapped, and
   // ended up alone at the left of a second row.
   closeButton: cn(
-    'absolute top-1.5 right-1.5 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground',
+    'absolute top-1.5 right-1.5 z-10 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground',
     'cursor-pointer hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   // tone = the glyph's colour; the card stays neutral … (the fill is set per
@@ -107,7 +109,9 @@ const LANE_STYLE = {
 
 /** Room the «Alle schliessen» pill takes at the foot of the lane (44px + 8px gap). */
 const PILL_ROW = '52px'
-const PHONE_LANE_TOP = 'calc(env(safe-area-inset-top, 0px) + 8px)'
+// `--vv-top`: with the keyboard up iOS may have panned the visible band down the layout
+// viewport; the lane follows it (0 otherwise). lib/viewport-insets.ts.
+const PHONE_LANE_TOP = 'calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px) + 8px)'
 
 // Stable identities — a fresh object per render re-runs sonner's positioning
 // effect (toasts slid in from the wrong place during a burst).
@@ -137,8 +141,12 @@ export const MIN_ROOM_ABOVE_SHEET = 160
  * off the top of the screen. Then the lane moves to the top edge instead —
  * still clear of the sheet's buttons and the keyboard, which is the point.
  */
-export function laneFitsAboveSheet(sheetTopPx: number, viewportHeight: number): boolean {
-  return !(sheetTopPx > 0) || viewportHeight - sheetTopPx >= MIN_ROOM_ABOVE_SHEET
+export function laneFitsAboveSheet(sheetTopPx: number, viewportHeight: number, keyboardUp = false): boolean {
+  if (!(sheetTopPx > 0)) return true
+  // With the keyboard up a phone sheet fills the whole visible band (globals.css): there is
+  // no «above the sheet» on screen, so the lane goes to the band's top, over the sheet's head.
+  if (keyboardUp) return false
+  return viewportHeight - sheetTopPx >= MIN_ROOM_ABOVE_SHEET
 }
 
 type Lane = 'desktop' | 'bottom' | 'top'
@@ -153,11 +161,12 @@ function useLane(): Lane {
     // so a style mutation there is exactly when the answer can change.
     const check = () => {
       const raw = getComputedStyle(document.documentElement).getPropertyValue('--sheet-top')
-      setFits(laneFitsAboveSheet(parseFloat(raw) || 0, window.innerHeight))
+      const root = document.documentElement
+      setFits(laneFitsAboveSheet(parseFloat(raw) || 0, window.innerHeight, root.hasAttribute('data-kb')))
     }
     check()
     const observer = new MutationObserver(check)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class', 'data-kb'] })
     window.addEventListener('resize', check)
     return () => {
       observer.disconnect()

@@ -16,6 +16,8 @@ import {
   TOAST_BURST_LIMIT,
 } from '@/lib/notification-policy'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
+import { notificationDetail, notificationParts } from '@/lib/notification-format'
+import { NOTIFICATION_SOURCE_ICON } from './notification-source-icon'
 
 const TOAST_DATA_KEY = 'shownToastData'
 const LEGACY_TOAST_IDS_KEY = 'shownToastIds'
@@ -188,20 +190,51 @@ export function NotificationToasts() {
       writeJson(TOAST_DATA_KEY, storedData)
 
       toBeToasted.forEach((notification) => {
-        // «Meldung vom Feld – Hauptstrasse 1: …» named a Schadenplatz the
-        // operator then had to find by hand while the toast was still on
-        // screen. The message itself opens it, on the tab the notification is
-        // about — the same path the bell takes (§18.27).
+        // Line 1 = what is asked, line 2 = where · who (lib/notification-format.ts).
+        // The whole sentence used to be one bold, dotted-underlined block — the
+        // thing to act on came last, behind channel, person and address (owner,
+        // 02.10.2026). The channel is the glyph now, and the screen-reader prefix.
+        const parts = notificationParts(notification, {
+          fieldReport: tToasts('fieldReport'),
+          fieldReportDirect: tToasts('fieldReportDirect'),
+        })
+        const Icon = NOTIFICATION_SOURCE_ICON[parts.source]
+        const spoken = [
+          notification.severity === 'critical' ? tToasts('critical') : null,
+          parts.source === 'system' ? null : tToasts(`source.${parts.source}`),
+        ]
+          .filter(Boolean)
+          .join(' · ')
+        const what = (
+          <>
+            {/* the space outside the span: inside it, accessible-name computation drops it */}
+            {spoken && <span className="sr-only">{spoken}:</span>}
+            {spoken && ' '}
+            {parts.what}
+          </>
+        )
+
+        // A notification about a Schadenplatz opens it, on the tab it is about —
+        // the same path the bell takes (§18.27). It was the dotted text that
+        // opened it; now the whole toast is the target (a stretched button: its
+        // ::after covers the toast, the ✕ and any button sit above it), so there
+        // is nothing to aim at and nothing underlined.
         //
         // Only when there is somewhere to go: the notification has to carry an
         // incident, and a page has to be listening (the board registers the
         // handler, the map does not).
         const target = canNavigateToIncident ? notification.incident_id : undefined
-        const message = target ? (
+        const title = target ? (
           <button
             type="button"
             title={tToasts('openIncident')}
-            className="cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current rounded-xs"
+            data-toast-open=""
+            className={
+              'cursor-pointer text-left font-semibold outline-none ' +
+              "after:absolute after:inset-0 after:rounded-lg after:content-[''] " +
+              'hover:after:bg-foreground/[0.04] active:after:bg-foreground/[0.08] ' +
+              'focus-visible:after:ring-2 focus-visible:after:ring-ring'
+            }
             onClick={() => {
               // Dismissing the toast runs `onDismiss` below, which clears the
               // notification too — reading it and acting on it is the same act.
@@ -209,34 +242,28 @@ export function NotificationToasts() {
               navigateToIncident(target, detailTabForNotification(notification.type))
             }}
           >
-            {notification.message}
+            {what}
           </button>
         ) : (
-          notification.message
+          what
         )
 
         const toastOptions = {
           id: notification.id,
+          description: notificationDetail(parts),
+          icon: Icon ? <Icon aria-hidden="true" /> : undefined,
           // Dismiss notification when toast is closed by any means
           onDismiss: () => dismissNotification(notification.id),
         }
 
-        // The message IS the toast. A heading «Warnung» / «Information» above it
-        // said nothing the glyph does not (the tone lives in the glyph now). Only
-        // the critical one keeps its heading: it stays until somebody closes it
-        // (its ✕ — a «Schliessen» button beside the ✕ was the same act twice),
-        // and the heading says why it does not go away. The others get their
-        // lifetime from their length (lib/toast-lifetime.ts).
+        // Critical ones stay red and stay up until somebody closes them (their
+        // ✕). The others get their lifetime from their length (lib/toast-lifetime.ts).
         if (notification.severity === 'critical') {
-          toast.error(tToasts('criticalTitle'), {
-            ...toastOptions,
-            description: message,
-            duration: Infinity, // Manual dismiss only
-          })
+          toast.error(title, { ...toastOptions, duration: Infinity })
         } else if (notification.severity === 'warning') {
-          toast.warning(message, toastOptions)
+          toast.warning(title, toastOptions)
         } else {
-          toast.info(message, toastOptions)
+          toast.info(title, toastOptions)
         }
       })
 
