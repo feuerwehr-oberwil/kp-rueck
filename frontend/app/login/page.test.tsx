@@ -81,7 +81,7 @@ describe("LoginPage demo sandbox flow", () => {
     const user = userEvent.setup();
     renderWithIntl(<LoginPage />);
 
-    await user.click(await screen.findByRole("button", { name: /Als Editor einloggen/i }));
+    await user.click(await screen.findByRole("button", { name: /Anmelden als Bearbeiter/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/"));
     expect(mockLogin).toHaveBeenCalledWith("demo-editor", "demo123");
@@ -96,7 +96,7 @@ describe("LoginPage demo sandbox flow", () => {
     const user = userEvent.setup();
     renderWithIntl(<LoginPage />);
 
-    await user.click(await screen.findByRole("button", { name: /Als Editor einloggen/i }));
+    await user.click(await screen.findByRole("button", { name: /Anmelden als Bearbeiter/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/"));
     expect(mockSetSelectedEvent).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe("LoginPage demo sandbox flow", () => {
     const user = userEvent.setup();
     renderWithIntl(<LoginPage />);
 
-    await user.click(await screen.findByRole("button", { name: /Als Betrachter einloggen/i }));
+    await user.click(await screen.findByRole("button", { name: /Anmelden als Betrachter/i }));
 
     // Viewers also get their own Demo-Lage (not a shared base event), then land
     // on the read-only board.
@@ -135,7 +135,7 @@ describe("LoginPage first-run gating", () => {
     mockGetSetupStatus.mockResolvedValue(null);
     renderWithIntl(<LoginPage />);
 
-    await screen.findByRole("button", { name: /Als Editor einloggen/i });
+    await screen.findByRole("button", { name: /Anmelden als Bearbeiter/i });
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
@@ -206,10 +206,10 @@ describe("LoginPage while signing in", () => {
     const user = userEvent.setup();
     renderWithIntl(<LoginPage />);
 
-    await user.click(await screen.findByRole("button", { name: /Als Editor einloggen/i }));
+    await user.click(await screen.findByRole("button", { name: /Anmelden als Bearbeiter/i }));
 
     expect(await screen.findByRole("button", { name: /Wird angemeldet …/ })).toBeDisabled();
-    const viewer = screen.getByRole("button", { name: /Als Betrachter einloggen/i });
+    const viewer = screen.getByRole("button", { name: /Anmelden als Betrachter/i });
     expect(viewer).toBeDisabled();
     expect(viewer.querySelector("[data-slot=shell-loader]")).toBeNull();
   });

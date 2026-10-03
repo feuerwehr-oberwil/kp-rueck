@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
+import { useLogout } from "@/lib/hooks/use-logout"
 import { ArrowLeft, Check, LogOut, Map, LayoutGrid, BarChart3, type LucideIcon } from "lucide-react"
 
 import { useEvent } from "@/lib/contexts/event-context"
@@ -37,9 +38,11 @@ import { cn } from "@/lib/utils"
 export default function DisplayIndexPage() {
   const t = useTranslations('display.layout')
   const te = useTranslations('events.page')
-  const tn = useTranslations('nav.userMenu')
   const { selectedEvent, setSelectedEvent, events, refreshEvents } = useEvent()
-  const { isAuthenticated, logout } = useAuth()
+  const { isAuthenticated } = useAuth()
+  // Same «Abmelden?» as the user menu and the Mehr sheet, then /login.
+  const { requestLogout, logoutDialog } = useLogout()
+  const tAccount = useTranslations('nav.account')
   const token = useSearchParams().get("token")
 
   // The provider loads the list once on mount; a kiosk that has been up for
@@ -144,16 +147,17 @@ export default function DisplayIndexPage() {
           {isAuthenticated && (
             <button
               type="button"
-              onClick={() => void logout()}
+              onClick={requestLogout}
               className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-destructive"
             >
               <LogOut className="h-3.5 w-3.5" />
-              {tn('logout')}
+              {tAccount('logout')}
             </button>
           )}
         </div>
         )}
       </div>
+      {logoutDialog}
     </div>
   )
 }

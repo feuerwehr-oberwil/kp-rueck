@@ -21,6 +21,7 @@
  * verbatim, straight out of the outbox table.
  */
 
+import { buildLabel } from '@/lib/build-info'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ArrowRight, Github, Info, Mail, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -93,7 +94,8 @@ interface ReportEnv {
  *  server-rendered first, where `navigator` and `window` do not exist. */
 function readEnv(): ReportEnv {
   return {
-    build: process.env.NEXT_PUBLIC_APP_VERSION ?? 'unknown',
+    // The same label the menu shows, so a report and a screen can be matched.
+    build: buildLabel(),
     locale: navigator.language,
     userAgent: navigator.userAgent,
     viewport: `${window.innerWidth}×${window.innerHeight}`,

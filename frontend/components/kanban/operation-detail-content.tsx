@@ -1201,7 +1201,7 @@ export function OperationDetailContent({
               aria-invalid={notesSave.failed || undefined}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               // Grows with what is in it. `h-auto` is what makes that work:
-              // DENSE_CONTROL's `h-7` is an explicit height, and an explicit
+              // DENSE_CONTROL's height is an explicit one, and an explicit
               // height beats the base Textarea's `field-sizing-content` — which
               // is how a dictated Meldung ended up scrolling inside five rems
               // and clipped mid-word. The floor is ONE line — an empty Meldung
@@ -1355,7 +1355,7 @@ export function OperationDetailContent({
                   aria-invalid={nachbarhilfeNoteSave.failed || undefined}
                   onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
                   onClick={(e) => e.stopPropagation()}
-                  className={cn("h-7 cursor-text rounded-sm pr-7 text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                  className={cn("h-(--field-h-dense) cursor-text rounded-sm pr-7 text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
                 />
                 <FieldSaveStatus
                   part="mark"
@@ -1392,7 +1392,7 @@ export function OperationDetailContent({
                   aria-invalid={amWartenNoteSave.failed || undefined}
                   onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
                   onClick={(e) => e.stopPropagation()}
-                  className={cn("h-7 cursor-text rounded-sm pr-7 text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                  className={cn("h-(--field-h-dense) cursor-text rounded-sm pr-7 text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
                 />
                 <FieldSaveStatus
                   part="mark"

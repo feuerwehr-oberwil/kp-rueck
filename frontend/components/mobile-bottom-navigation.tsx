@@ -18,7 +18,9 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useEvent } from '@/lib/contexts/event-context'
-import { RoleBadge } from '@/components/auth/role-badge'
+import { AccountBlock } from '@/components/auth/account-block'
+import { VersionLabel } from '@/components/version-label'
+import { useLogout } from '@/lib/hooks/use-logout'
 import { useNavReserve } from '@/components/viewport-insets'
 
 interface MobileBottomNavigationProps {
@@ -44,7 +46,9 @@ export function MobileBottomNavigation({
   printerEnabled = false,
 }: MobileBottomNavigationProps) {
   const t = useTranslations('nav.mobileBottomNav')
-  const { isEditor, logout } = useAuth()
+  const { isEditor } = useAuth()
+  const tAccount = useTranslations('nav.account')
+  const { requestLogout, logoutDialog } = useLogout()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
   const router = useRouter()
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -170,9 +174,6 @@ export function MobileBottomNavigation({
           >
             <SheetHeader className="mb-4 -mx-6 px-6 pb-3 border-b">
               <SheetTitle>{t('moreFunctions')}</SheetTitle>
-              <div className="flex items-center gap-2 pt-2">
-                <RoleBadge />
-              </div>
             </SheetHeader>
 
             <div className="space-y-4 pb-4">
@@ -402,22 +403,26 @@ export function MobileBottomNavigation({
                   {t('account')}
                 </h3>
                 <div className="space-y-2">
+                  {/* Who is logged in — the same block as the desktop user menu. */}
+                  <AccountBlock className="px-3 py-1" />
                   <Button
                     variant="ghost"
                     className="w-full justify-start gap-3 touch-manipulation hover-delight text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => {
-                      logout()
                       setSheetOpen(false)
+                      requestLogout()
                     }}
                   >
                     <LogOut className="size-4" />
-                    <span>{t('logout')}</span>
+                    <span>{tAccount('logout')}</span>
                   </Button>
+                  <VersionLabel className="px-3" />
                 </div>
               </div>
             </div>
           </SheetContent>
         </Sheet>
+        {logoutDialog}
       </div>
     </nav>
   )

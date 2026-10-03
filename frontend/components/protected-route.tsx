@@ -32,6 +32,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { checkBackendHealth } from '@/lib/auth-client';
 import { useEffect, useState } from 'react';
 import { BootScreen } from '@/components/boot-screen';
+import { useBootGate, useLaunchCoverUp } from '@/lib/boot-cover';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const t = useTranslations('login.protectedRoute');
@@ -39,6 +40,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [checkingBackend, setCheckingBackend] = useState(false);
+  const coverUp = useLaunchCoverUp();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -57,7 +59,19 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
+  // The launch cover (components/boot-cover.tsx) waits for the session before anything else:
+  // decided means signed in as an editor, or the server-unreachable screen. Signed out and
+  // viewers are on their way to another route, which lifts the cover by itself.
+  useBootGate(
+    'session',
+    !loading && !checkingBackend && (user ? user.role !== 'viewer' : !backendAvailable),
+    loading ? t('preparingLogin') : t('checkingServer'),
+    0,
+  );
+
   if (loading || checkingBackend) {
+    // On a launch the cover already shows the snail and this phase, over everything.
+    if (coverUp) return null;
     return (
       <BootScreen phase={loading ? t('preparingLogin') : t('checkingServer')} />
     );

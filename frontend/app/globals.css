@@ -34,6 +34,20 @@
   /* Corners (review step C2): 12px on every box, 8px on controls under 32px
      tall (`rounded-sm`: badges, kbd, h-5…h-7 chips), pills stay pills. */
   --radius: 0.75rem;
+  /* The ONE horizontal inset of every text-like control — Input, Textarea,
+     SelectTrigger, the detail panel's dense fields, LocationInput,
+     SearchInput (icon sits at it), the command search. The first glyph (or
+     leading icon) of every field starts the same distance from its edge, so
+     a text field and a select stacked under each other line up (owner
+     03.10.). Use `px-(--field-px)`; never hand-pick a field's padding. */
+  --field-px: 0.875rem;
+  /* ...and ONE height per form (owner 03.10.: a 28px text field over a 36px
+     select read as «no padding»). `--field-h` for regular forms (Neuer
+     Einsatz, settings, dialogs), `--field-h-dense` for the Einsatz detail's
+     compact rows — every Input/Select/LocationInput/toggle note there meets
+     it. On a phone both are 44px, the touch floor. */
+  --field-h: 2.25rem;
+  --field-h-dense: 2rem;
   /* Disclosure motion (collapsibles, «▶ mehr» bodies, revealed notes): one
      duration and one curve for all of them — components/ui/reveal.tsx and
      the Radix CollapsibleContent below. */
@@ -242,6 +256,13 @@
   background-color: var(--sel-wash);
   color: var(--sel-foreground);
   box-shadow: inset 0 0 0 1px var(--sel-edge);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --field-h: 2.75rem;
+    --field-h-dense: 2.75rem;
+  }
 }
 
 @layer base {
@@ -1127,6 +1148,15 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
    (safe area included) or the keyboard, whichever covers more — never both added up, since the
    nav sits behind the keyboard — plus a small gap. Replaces the `env(safe-area-inset-bottom) +
    5rem` guesses that were retyped per list. 0 + gap on desktop, where the nav is hidden. */
+/* The page header's surface (board, Ereignisse, Lagekarte, Hilfe, Übungs-Steuerung, displays):
+   the colour the old `bg-card/50` over the page gave, but OPAQUE and without a backdrop blur.
+   On a phone the header is the first row under the status bar of the home-screen app, and a
+   frosted, half-transparent bar there is what read as «a blurred strip at the top» (owner,
+   03.10.) — iOS shows the system bar in the theme-color, then a frosted band right under it. */
+@utility bg-header {
+  background-color: color-mix(in oklab, var(--card) 50%, var(--background));
+}
+
 @utility pb-nav-reserve {
   padding-bottom: calc(max(var(--nav-reserve, 0px), var(--kb-inset, 0px)) + 0.75rem);
 }
@@ -1141,13 +1171,13 @@ body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) foote
   }
 }
 
-/* /feld: no zoom (app/feld/layout.tsx, components/feld/feld-no-zoom.tsx). Pan only — a pinch or a
-   double tap does nothing, a map's own gestures (JS) still work. Fields at 16px or more: iOS
-   zooms into any focused input below that. */
-html.feld-no-zoom {
+/* The «Links & QR» pages (/feld, /check-in, /reko, /alarm): no zoom
+   (components/link-page/link-page.tsx). Pan only — a pinch or a double tap does nothing, a map's
+   own gestures (JS) still work. Fields at 16px or more: iOS zooms into any focused input below. */
+html.link-page-no-zoom {
   touch-action: pan-x pan-y;
 }
-html.feld-no-zoom :is(input, textarea, select) {
+html.link-page-no-zoom :is(input, textarea, select) {
   font-size: max(16px, 1em);
 }
 

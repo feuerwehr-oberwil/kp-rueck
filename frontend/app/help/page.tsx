@@ -1,5 +1,6 @@
 'use client';
 
+import { VersionLabel } from '@/components/version-label';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { PageNavigation } from '@/components/page-navigation';
@@ -358,7 +359,7 @@ export default function HelpPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 py-2 min-h-14">
+      <header className="flex items-center justify-between border-b border-border/50 bg-header px-4 md:px-6 py-2 min-h-14">
         <div className="flex items-center gap-3">
           <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('title')}</h1>
         </div>
@@ -434,6 +435,8 @@ export default function HelpPage() {
                 </ReactMarkdown>
               </div>
             )}
+            {/* Which build this help belongs to — the same label as the user menu. */}
+            <VersionLabel className="mt-10 border-t border-border/50 pt-4" />
           </div>
         </ScrollArea>
       </div>

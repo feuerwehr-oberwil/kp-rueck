@@ -49,7 +49,7 @@ import { Reveal } from "@/components/ui/reveal"
  * focus — only its colour moves.
  */
 export const DENSE_CONTROL =
-  "h-7 min-h-7 rounded-sm border border-border/50 bg-transparent px-2.5 shadow-none transition-colors " +
+  "h-(--field-h-dense) min-h-(--field-h-dense) data-[size=default]:h-(--field-h-dense) rounded-sm border border-border/50 bg-transparent px-(--field-px) shadow-none transition-colors " +
   "hover:border-border hover:bg-input/50 focus-visible:border-border focus-visible:bg-input " +
   "dark:bg-transparent dark:hover:bg-input/50 dark:focus-visible:bg-input"
 
@@ -292,13 +292,13 @@ export function DetailToggle({
 
   return (
     <div className={cn("py-1", className)}>
-      {/* `min-h-7`: the row is as tall OFF as ON. The «warum» input that
-          appears beside the switch is 28px (h-7) — taller than the switch and
-          the label — so a row sized by its content grew by ~4px the moment the
-          switch was flipped and pushed every row below it down. Reserving the
-          input's height keeps the form still. */}
+      {/* `min-h-(--field-h-dense)`: the row is as tall OFF as ON. The
+          «warum» input that appears beside the switch is a dense field —
+          taller than the switch and the label — so a row sized by its content
+          grew the moment the switch was flipped and pushed every row below it
+          down. Reserving the input's height keeps the form still. */}
       <div
-        className="flex min-h-7 cursor-pointer items-center gap-2 select-none"
+        className="flex min-h-(--field-h-dense) cursor-pointer items-center gap-2 select-none"
         onClick={() => !disabled && onToggle(!checked)}
       >
         {/* The SAME gutter as `DetailField`, so a switch starts exactly where

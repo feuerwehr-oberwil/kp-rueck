@@ -42,12 +42,13 @@ type SearchInputSize = 'sm' | 'default' | 'lg'
 // empty clear slot in the Einstellungen sidebar (overflow sweep, 03.10.).
 const ORNAMENTS: Record<SearchInputSize, { icon: string; left: string; pad: string; padEnd: string; clear: string; clearIcon: string; hint: string }> = {
   // Dense sidebar filters (personnel/materials lists).
-  // Icon offset and text start moved 2px in with the shared field padding
-  // (Input px-3 → px-3.5, owner 02.10.); the icon→text gap stays the same.
-  sm: { icon: 'h-3.5 w-3.5', left: 'left-3', pad: 'pl-[34px]', padEnd: 'pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
-  default: { icon: 'h-4 w-4', left: 'left-3.5', pad: 'pl-[38px]', padEnd: 'pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
+  // The icon sits where every other field's first glyph starts (the shared
+  // `--field-px` inset + the 1px border, globals.css); the text follows
+  // icon + 8px after it. `padEnd` (the ✕/hint room) is applied only while one is shown.
+  sm: { icon: 'h-3.5 w-3.5', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.375rem)]', padEnd: 'pr-8', clear: 'size-7', clearIcon: 'h-3 w-3', hint: 'right-2' },
+  default: { icon: 'h-4 w-4', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.5rem)]', padEnd: 'pr-9', clear: 'size-8', clearIcon: 'h-3.5 w-3.5', hint: 'right-2.5' },
   // Phone surfaces (check-in), where the field is taller.
-  lg: { icon: 'h-5 w-5', left: 'left-3.5', pad: 'pl-[42px]', padEnd: 'pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
+  lg: { icon: 'h-5 w-5', left: 'left-[calc(var(--field-px)+1px)]', pad: 'pl-[calc(var(--field-px)+1.75rem)]', padEnd: 'pr-11', clear: 'size-11', clearIcon: 'h-4 w-4', hint: 'right-3' },
 }
 
 /** Phone / touch floors — see the header. Variants, so they outrank a caller's

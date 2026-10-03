@@ -150,6 +150,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha,scope=frontend
+          # The commit the version label shows (frontend/lib/build-info.ts).
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           tags: ${{ steps.tags.outputs.frontend }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

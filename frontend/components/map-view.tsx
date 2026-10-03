@@ -170,6 +170,33 @@ function IncidentPin({
   )
 }
 
+/**
+ * A double-click on a marker or its label opens the Einsatz (`onOpen`) — and only that.
+ *
+ * Native listener, not React's `onDoubleClick`: MapLibre's double-click zoom listens on the
+ * canvas container, which the DOM markers sit in, and React's synthetic events are handled at
+ * the root — after the container already zoomed. Stopping the native event here keeps the map
+ * where it is while the detail opens.
+ */
+function useOpenOnDoubleClick(onOpen?: () => void) {
+  const ref = useRef<HTMLDivElement>(null)
+  const latest = useRef(onOpen)
+  useEffect(() => { latest.current = onOpen }, [onOpen])
+  const enabled = !!onOpen
+  useEffect(() => {
+    const element = ref.current
+    if (!element || !enabled) return
+    const handler = (event: MouseEvent) => {
+      event.stopPropagation()
+      event.preventDefault()
+      latest.current?.()
+    }
+    element.addEventListener("dblclick", handler)
+    return () => element.removeEventListener("dblclick", handler)
+  }, [enabled])
+  return ref
+}
+
 /** The incident dot as a map marker. A component for readability only – the hover state lives in
  *  the parent, so hovering one marker re-renders them all. Fine at a board's handful of pins. */
 function IncidentMarker({
@@ -178,6 +205,7 @@ function IncidentMarker({
   accentColor,
   zIndex,
   onSelect,
+  onOpen,
   onHoverStart,
   onHoverEnd,
 }: {
@@ -186,10 +214,13 @@ function IncidentMarker({
   accentColor?: string | null
   zIndex: number
   onSelect: () => void
+  /** Double-click: open the Einsatz (see useOpenOnDoubleClick). */
+  onOpen?: () => void
   onHoverStart: () => void
   onHoverEnd: () => void
 }) {
   const size = highlighted ? 32 : 24
+  const doubleClickRef = useOpenOnDoubleClick(onOpen)
   return (
     <Marker
       longitude={incident.location_lng!}
@@ -204,6 +235,7 @@ function IncidentMarker({
     >
       {/* `.custom-marker` is what the small-screen scale-down in globals.css hangs on. */}
       <div
+        ref={doubleClickRef}
         className="custom-marker"
         style={{ position: "relative", width: size, height: size }}
         onMouseEnter={onHoverStart}
@@ -556,6 +588,7 @@ function IncidentLabel({
   hovered,
   selected,
   onSelect,
+  onOpen,
   onHoverStart,
   onHoverEnd,
   children,
@@ -569,10 +602,13 @@ function IncidentLabel({
    *  in front of its neighbours then too, not only under the pointer. */
   selected: boolean
   onSelect: () => void
+  /** Double-click: open the Einsatz, like a double-click on its dot. */
+  onOpen?: () => void
   onHoverStart: () => void
   onHoverEnd: () => void
   children: ReactNode
 }) {
+  const doubleClickRef = useOpenOnDoubleClick(onOpen)
   return (
     <Marker
       longitude={longitude}
@@ -587,6 +623,7 @@ function IncidentLabel({
     >
       <div style={{ position: "relative", width: 0, height: 0 }}>
         <div
+          ref={doubleClickRef}
           style={{ ...LABEL_BUBBLE, transform: `translate(${LABEL_LEADER_DX}px, calc(-50% + ${dy}px))` }}
           onMouseEnter={onHoverStart}
           onMouseLeave={onHoverEnd}
@@ -868,12 +905,17 @@ function MissingLocationsWarning({ incidents, onIncidentClick }: { incidents: In
 }
 
 interface MapViewProps {
+  /** Once, when the map has drawn its first complete frame (MapLibre `idle`): style, the
+   *  visible tiles and the overlays. The Lagekarte's launch cover waits for it. */
+  onFirstIdle?: () => void
   /** A page's own map controls (the wall display's status pills + «Ansicht»). They share ONE
    *  top-right row with the map's «ohne Koordinaten» chip, which wraps instead of overlapping —
    *  laid over the map separately, the two piled onto each other (owner, 03.10.). */
   topRightControls?: ReactNode
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
+  /** Double-click on a marker or its label: open the Einsatz (the page decides the surface). */
+  onMarkerDoubleClick?: (incidentId: string) => void
   resetZoomTrigger?: number // Counter to trigger zoom reset
   panTrigger?: number // Counter to trigger pan to selected (for re-clicks)
   statusFilters?: Record<StatusGroup, boolean> // Status group visibility filters
@@ -919,6 +961,7 @@ interface MapViewProps {
 export default function MapView({
   selectedIncidentId,
   onMarkerClick,
+  onMarkerDoubleClick,
   resetZoomTrigger = 0,
   panTrigger = 0,
   statusFilters = { open: true, active: true, completed: false },
@@ -946,6 +989,7 @@ export default function MapView({
   positionsOverride,
   onGpsAvailabilityChange,
   topRightControls,
+  onFirstIdle,
 }: MapViewProps) {
   const t = useTranslations('map')
   const tokenMode = incidentsOverride !== undefined
@@ -959,6 +1003,19 @@ export default function MapView({
   // The live map, handed over by <BaseMap> once it has loaded (and again after a GL recovery
   // remount). Everything that used to be a react-leaflet child with `useMap()` hangs off it.
   const [map, setMap] = useState<MlMap | null>(null)
+  const onFirstIdleRef = useRef(onFirstIdle)
+  onFirstIdleRef.current = onFirstIdle
+  useEffect(() => {
+    if (!map) return
+    const done = () => onFirstIdleRef.current?.()
+    // `idle` follows `load` (when <BaseMap> hands the map over); it can also have passed
+    // already if nothing was left to fetch.
+    if (map.loaded() && map.areTilesLoaded() && !map.isMoving()) done()
+    else map.once('idle', done)
+    return () => {
+      map.off('idle', done)
+    }
+  }, [map])
   // Tracks live zoom so vehicle markers can shrink when zoomed out.
   const mapZoom = useMapZoom(map, 13)
   // Hovered incident → its label swaps to the rich detail card.
@@ -1412,6 +1469,7 @@ export default function MapView({
           const vehicleCount = incident.assigned_vehicles.length
           const personnelCount = ("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0
           const select = () => onMarkerClick?.(incident.id)
+          const openDetail = onMarkerDoubleClick ? () => onMarkerDoubleClick(incident.id) : undefined
           const hoverStart = () => handleHoverStart(incident.id)
           const hoverEnd = () => handleHoverEnd(incident.id)
 
@@ -1431,6 +1489,7 @@ export default function MapView({
                       : Z.incident
                 }
                 onSelect={select}
+                onOpen={openDetail}
                 onHoverStart={hoverStart}
                 onHoverEnd={hoverEnd}
               />
@@ -1445,6 +1504,7 @@ export default function MapView({
                   hovered={hovered}
                   selected={isHighlighted}
                   onSelect={select}
+                  onOpen={openDetail}
                   onHoverStart={hoverStart}
                   onHoverEnd={hoverEnd}
                 >
