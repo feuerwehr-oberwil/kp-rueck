@@ -1,0 +1,372 @@
+{
+  "notice": "Questa translaziun en Rumantsch Grischun n’è anc betg vegnida controllada d’ina persuna rumantscha spezialisada en il sectur dals pumpiers – <a href=\"#kontakt\">propostas e correcturas</a> èn bainvegnidas. La versiun demo da KP Rück è disponibla per tudestg e franzos.",
+  "meta": {
+    "title": "KP Rück – Tavla d’acziun per il post da commando",
+    "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
+    "ogTitle": "KP Rück – Tavla d’acziun per il post da commando",
+    "ogDescription": "La tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source."
+  },
+  "nav": {
+    "aria": "Navigaziun principala",
+    "features": "Funcziuns",
+    "contact": "Contact",
+    "demo": "Demo",
+    "githubAria": "KP Rück sin GitHub",
+    "languageAria": "Lingua"
+  },
+  "notFound": {
+    "pageTitle": "Pagina betg chattada – KP Rück",
+    "code": "Errur 404",
+    "title": "Questa pagina n’exista betg.",
+    "body": "Forsa ina errur da tippar en l’adressa, forsa in link vegl.",
+    "home": "A la pagina da partenza",
+    "demo": "Avrir la demo"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Svizra",
+    "h1": "La tavla d’acziun per il post da commando.",
+    "lede": "KP Rück digitalisescha la tavla magnetica dal post da commando posteriur:\n      <strong>acziuns, persunal, vehichels e material</strong> sin ina tavla –\n      en temp real sin mintga apparat.",
+    "cta": "Avrir la demo",
+    "ctaNote": "Senza conto – tscherner ina rolla e cumenzar",
+    "frameAddr": "BOARD · UNWETTER · 17 EINSÄTZE AKTIV",
+    "frameAlt": "Tavla d’acziun: colonnas tenor fasa d’acziun cun las cartas d’acziun, a sanestra il persunal, a dretga il material"
+  },
+  "fit": {
+    "whoLabel": "Per tgi",
+    "who": [
+      "Corps da pumpiers da milissa",
+      "Corps da pumpiers locals",
+      "Corps da pumpiers da basa",
+      "Corps da pumpiers professiunals"
+    ],
+    "whatLabel": "Per tge",
+    "what": [
+      "Acziuns quotidianas",
+      "Situaziuns da malaura",
+      "Plirs eveniments a medem temp"
+    ],
+    "note": "Sviluppà or dal manaschi real d’acziun dals\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a>\n        – là testà e sviluppà vinavant cuntinuadamain.",
+    "own": {
+      "h2": "Vossas datas restan tar vus.",
+      "p": "KP Rück è open source e funcziuna en voss magazin u en vossa atgna cloud. Acziuns, persunal, vehichels e material restan sut vossa controlla.",
+      "items": [
+        "Nagins custs da licenza",
+        "Nagina dependenza d’in producider",
+        "Manar e sviluppar vinavant sezs"
+      ]
+    }
+  },
+  "tenet": {
+    "eyebrow": "La mesira",
+    "quote": "«Sche la rait croda ora, maina il <em>palpiri</em>»",
+    "expl": "Ina tavla che daventa naira tar ina panna da current n’è nagin instrument da direcziun.\n        Perquai è integrada ina redundanza sin plirs stgalims – <strong>mintga stgalim\n        funcziuna senza quel sura</strong>.",
+    "stages": [
+      {
+        "n": "Stgalim 1",
+        "h3": "Plirs apparats sin il medem stadi",
+        "p": "Tablets, vistas da projectur e telefonins èn colliads en temp real cun la medema tavla.\n            Sche in apparat croda ora u sa blocchescha, cuntinuescha in auter – i na dat nagut da\n            salvar e nagut da registrar pli tard."
+      },
+      {
+        "n": "Stgalim 2",
+        "h3": "Ina segunda instanza en il magazin",
+        "p": "KP Rück po vegnir manà supplementarmain local. La sincronisaziun integrada mantegna\n            eveniments, acziuns, persunal, vehichels, material e configuraziuns al medem stadi tranter\n            cloud e banca da datas locala. La charta deriva dal server local ed il stampader è collià\n            cun la rait locala."
+      },
+      {
+        "n": "Stgalim 3",
+        "h3": "Il palpiri maina",
+        "p": "Il stadi da la tavla vegn stampà periodicamain sin il stampader termic, il fegl da\n            situaziun sin squitsch d’in buttun. Sche tut falla, daventa l’ultim fegl la tavla. Suenter\n            il restart transferescha <strong>ina</strong> persuna las modificaziuns fatgas a maun en l’applicaziun."
+      }
+    ]
+  },
+  "incident": {
+    "eyebrow": "Da l’alarm fin al rapport",
+    "h2": "In eveniment, ina tavla.",
+    "lede": "Uschia vesa ina notg da malaura en il post da commando ora – quai che capita sin la tavla\n        vegn integrà pli tard en il rapport d’acziun.",
+    "entries": [
+      {
+        "time": "21:14",
+        "tag": "Entrada d’alarm",
+        "h3": "Las annunzias arrivan.",
+        "p": "Sur il formular d’annunzia, per telefon u sur l’interfatscha averta dal sistem d’alarm\n            (p.&nbsp;ex. Divera u FireHub). Il sustegn da direcziun surpiglia l’annunzia cun in clic –\n            e quella daventa in’acziun sin la tavla."
+      },
+      {
+        "time": "21:19",
+        "tag": "Disposiziun",
+        "h3": "Persunal e vehichels èn attribuids.",
+        "p": "Attribuir persunal, vehichels e material cun drag-and-drop. Il sistem gida a far visiblas\n            attribuziuns dublas, resursas mancantas e cuntradicziuns. Tgi che arriva sa registrescha\n            cun in code QR."
+      },
+      {
+        "time": "21:26",
+        "tag": "Charta",
+        "h3": "Tgi è nua.",
+        "p": "Tut las acziuns sin ina charta, cun posiziuns GPS dals vehichels sco opziun. Cur ch’in\n            vehichel arriva al lieu, propona la tavla la midada da status."
+      },
+      {
+        "time": "21:48",
+        "tag": "Reko",
+        "h3": "La gruppa da reko rapporta.",
+        "p": "La gruppa empla il formular sin l’agen telefonin, inclusiv fotografias. L’annunzia resta\n            colliada cun l’acziun correcta."
+      },
+      {
+        "time": "23:30",
+        "tag": "Tavla",
+        "h3": "Tuts vesan la medema tavla.",
+        "p": "Il projectur en il post da commando, il tablet sin maisa ed il telefonin dal fourier mussan\n            il medem stadi – senza actualisaziun manuala."
+      },
+      {
+        "time": "06:40",
+        "tag": "Rapport",
+        "h3": "Il rapport sa scriva durant l’acziun.",
+        "p": "Il diari d’acziun ed ils temps da reacziun vegnan registrads durant l’acziun e daventan in PDF.\n            Correcturas vegnan fatgas cun novas endataziuns."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Ord la demo",
+    "h2": "Uschia vesa quai ora.",
+    "lede": "Tut ils maletgs derivan da la demo publica.",
+    "note": "La versiun demo da KP Rück è disponibla per tudestg e franzos. Ils screenshots derivan da la medema instanza; maletgs inscenads fissan mo ina pretensiun.",
+    "items": [
+      {
+        "alt": "Vista da projectur: tut las fasas d’acziun ina sper l’autra sin in visur",
+        "title": "Vista da projectur",
+        "sub": "Per la paraid en il post da commando stgir: tut las fasas ina sper l’autra, senza elements da cumond"
+      },
+      {
+        "alt": "Vista da status: vehichels, acziuns, persunal e material cun disponibilitad ed attribuziun",
+        "title": "Status",
+        "sub": "Vehichels, acziuns, persunal e material ina sper l’auter – tgi è liber, tgi è occupà e tgi è nua"
+      },
+      {
+        "alt": "Vista da la charta: acziuns tenor prioritad, posiziuns dals vehichels ed attribuziuns",
+        "title": "Charta",
+        "sub": "Tut las acziuns tenor prioritad, cun las posiziuns dals vehichels e las attribuziuns tranter ellas"
+      },
+      {
+        "alt": "Status dals vehichels: vehichels cun num da radio, manischunz, destinaziun e status",
+        "title": "Vehichels",
+        "sub": "Num da radio, manischunz, destinaziun e status da mintga vehichel en ina survista"
+      },
+      {
+        "alt": "Formular d’annunzia: adressa, annunzia, prioritad, tip d’acziun ed indicaziuns davart la persuna che annunzia",
+        "title": "Formular d’annunzia",
+        "sub": "Registrar structuradamain annunzias per telefon e persunas che vegnan al spurtegl – cun link u code QR, senza conto"
+      },
+      {
+        "alt": "Formular da reko: acziun, «Jau sun al lieu» e privels da marcar",
+        "title": "Formular da reko",
+        "sub": "Sin il telefonin da la reko: rapportar dal lieu, marcar privels ed agiuntar fotografias"
+      },
+      {
+        "alt": "Vista dal lieu: l’agen lieu d’acziun cun las annunzias al post da commando, la situaziun ed il persunal",
+        "title": "Vista dal lieu",
+        "sub": "Mintga gruppa vesa mo ses agens lieus d’acziun – annunziar arriv, transport e fin da l’acziun senza radio"
+      },
+      {
+        "alt": "Incumbensas: pliras acziuns reunidas ad ina ruta",
+        "title": "Incumbensas",
+        "sub": "Pliras acziuns sco ina ruta cun persunal e meds, en ina successiun optimada da la tavla tenor distanza"
+      },
+      {
+        "alt": "Direcziun d’exercizi: generar acziuns singulas u specificas, automatica e simulaziun dal lieu",
+        "title": "Exercizi",
+        "sub": "Importar situaziuns d’exercizi empè d’inventar ellas – separadas cleramain dal cas real"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Midada",
+    "h2": "Tge che sa mida.",
+    "lede": "Nagut da quai n’è oz defect – la tavla magnetica funcziuna dapi decennis.\n        KP Rück prenda la medema plazza, mo senza copiar a maun.",
+    "headToday": "Oz",
+    "headWith": "Cun KP Rück",
+    "rows": [
+      {
+        "today": "Tavla magnetica vi da la paraid",
+        "with": "Tavla digitala sin mintga apparat"
+      },
+      {
+        "today": "Notizias telefonicas sin fegls",
+        "with": "Formular collià cun l’acziun"
+      },
+      {
+        "today": "Glista Excel per persunal e vehichels",
+        "with": "Survista en temp real che sa actualisescha"
+      },
+      {
+        "today": "Gruppa WhatsApp per respostas",
+        "with": "Annunzias structuradas cun fotografias"
+      },
+      {
+        "today": "Messadi da radio per mintga midada da status",
+        "with": "Status ed annunzias directamain da la gruppa"
+      },
+      {
+        "today": "Rapport suenter l’acziun",
+        "with": "Rapport che sa furma durant l’acziun"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Volumen da funcziuns",
+    "h2": "Tge che fa part.",
+    "lede": "Il volumen da funcziuns è creschì en eveniments ed exercizis reals e betg sin basa d’ina glista\n        da funcziuns. Tut quai che vegn da servetschs externs – alarmaziun, GPS, stampaders – è\n        <strong>opziunal</strong>: KP Rück funcziuna cumplettamain era senza questas colliaziuns.",
+    "groups": [
+      {
+        "h3": "Tavla &amp; disposiziun",
+        "items": [
+          "<strong>Las colonnas èn las fasas d’acziun</strong> – las cartas sa movan cun drag-and-drop da sanestra a dretga",
+          "Attribuir persunal, vehichels e material – e far visiblas attribuziuns dublas, resursas mancantas e cuntradicziuns",
+          "Material al lieu d’acziun cun attribuziun e durada",
+          "Prioritad, durada e termin per mintga acziun",
+          "Reunir pliras acziuns ad ina ruta per ina gruppa ed optimar tenor distanza",
+          "Preparar incumbensas recurrentas",
+          "Registraziun cun code QR",
+          "Fegl d’acziun cun code QR per gruppas e manischunzs",
+          "Vista da projectur senza elements da cumond per la paraid dal post da commando",
+          "Paletta da cumonds e scursanidas da tastatura"
+        ]
+      },
+      {
+        "h3": "Alarm &amp; annunzias",
+        "items": [
+          "<strong>Interfatscha averta</strong> per sistems da disposiziun",
+          "Surpigliar alarms da Divera u FireHub <span class=\"opt\">opziunal</span>",
+          "Formular d’annunzia accessibel cun link u code QR, per annunzias per telefon u al spurtegl",
+          "Entrada en in pool ed utilisaziun sco acziun cun in clic",
+          "Alarmar il persunal directamain da la tavla <span class=\"opt\">opziunal</span>",
+          "Rapports da reko cun fotografias, colliads cun l’acziun correcta",
+          "Vista dal lieu per gruppas: annunziar arriv, fin, transport e rapports al post da commando – mintga gruppa vesa mo ses agens lieus"
+        ]
+      },
+      {
+        "h3": "Charta &amp; vehichels",
+        "items": [
+          "Tut las acziuns tenor prioritad e status sin ina charta",
+          "Posiziuns GPS dals vehichels <span class=\"opt\">opziunal</span>",
+          "Proposta da midada da status cur ch’in vehichel arriva al lieu",
+          "Attribuziuns mussadas sco lingias",
+          "Chartas era dal server local en il magazin"
+        ]
+      },
+      {
+        "h3": "Suenter &amp; manaschi",
+        "items": [
+          "<strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun",
+          "Protocol cuntinuà che vegn mo cumplettà e mai surscrit; correcturas vegnan fatgas cun novas endataziuns",
+          "Glista da chaussas avertas fin a la conclusiun",
+          "<strong>Atgna administraziun</strong> per persunal, parc da vehichels, material, tips d’acziun e prioritads",
+          "Import ed export cun Excel",
+          "Stampa termica en il magazin <span class=\"opt\">opziunal</span>",
+          "Rollas per modifitgar u mo leger",
+          "Modus d’exercizi separà cleramain dal cas real, cun scenaris e viadis simulads"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Project parent",
+    "h2": "KP Rück mantegna la survista davos. KP Front maina davant.",
+    "p": "<strong>KP Front</strong> digitalisescha al lieu d’acziun la charta da situaziun e la maisa\n          da direcziun: segns tactics, plans d’object e surveglianza da la protecziun respiratorica,\n          era senza rait. Las duas applicaziuns pon transmetter alarms, ma funcziunan independentamain.",
+    "cta": "Vesair KP Front",
+    "setup": {
+      "h3": "Manar omaduas applicaziuns – senza configurar tut duas giadas",
+      "rows": [
+        {
+          "dt": "Alarmaziun",
+          "dd": "Las medemas datas d’alarm per omaduas. La colliaziun cun il sistem d’alarmaziun vegn realisada ina giada; mintga applicaziun survegn sia atgna adressa."
+        },
+        {
+          "dt": "Access a Divera",
+          "dd": "Ina clav per omaduas applicaziuns – ils medems alarms, la medema glista dal persunal. <span class=\"opt\">opziunal</span>"
+        },
+        {
+          "dt": "Agent da stampa",
+          "dd": "In servetsch en il magazin serva omaduas applicaziuns e las duas sorts da stampa: PDF e stampa directa."
+        },
+        {
+          "dt": "Glista dal persunal",
+          "dd": "La medema funtauna ed il medem format da datoteca – la medema persuna en omaduas applicaziuns."
+        },
+        {
+          "dt": "Chavazzins d’alarm",
+          "dd": "La medema glista procura per la medema classificaziun en omaduas applicaziuns."
+        }
+      ],
+      "foot": "<strong>Bancas da datas, actualisaziuns e logins restan separads.</strong> Nagina da las duas applicaziuns dovra l’autra per funcziunar.",
+      "link": "Instrucziun per manar omaduas sin in server"
+    }
+  },
+  "faq": {
+    "eyebrow": "Dumondas &amp; respostas",
+    "h2": "Dumondas frequentas.",
+    "items": [
+      {
+        "q": "Pertge midar?",
+        "a": "Naginas attribuziuns dublas pli, naginas annunzias persas, damain traffic da radio e la\n          medema situaziun visibla per tuts. Il rapport è gia preparà al return."
+      },
+      {
+        "q": "A tgi appartegnan las datas?",
+        "a": "A vus. Mintga corps da pumpiers maina sia atgna instanza da KP Rück e decida nua che las\n          datas vegnan memorisadas."
+      },
+      {
+        "q": "Tge custa quai?",
+        "a": "La software sezza na custa nagut. KP Rück è open source (AGPL) – <strong>nagina\n          licenza, nagin abunament, nagins custs per apparat</strong>. Restan ils agens custs per manaschi,\n          infrastructura ed eventual sustegn extern."
+      },
+      {
+        "q": "Tge dovri per il manaschi?",
+        "a": "In pitschen mini-PC u server en il magazin basta. Per l’installaziun, actualisaziuns e\n          backups dovri ina persuna cun experientscha da Docker e da la lingia da commandos, saja quai\n          en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il\n          sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas;\n          las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv."
+      },
+      {
+        "q": "Po l’applicaziun vegnir adattada?",
+        "a": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: tips d’acziun, prioritads,\n          persunal, parc da vehichels e glistas da material pon vegnir configurads libramain; import ed\n          export vegnan fatgs cun Excel. Perquai che l’entir code è publitgà sin\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
+      },
+      {
+        "q": "Co cumenzar?",
+        "a": "Cun la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza conto. Tscherner ina rolla e cumenzar. Suenter testar durant in exercizi."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "h2": "Ans scrivai tge che vus pensais.",
+    "p": "Vulais testar KP Rück en voss corps da pumpiers? Manca insatge u na funcziuna insatge betg\n          sco spetgà? As annunziai.",
+    "alt": "Per dumondas ed ideas avertas datti las\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/discussions\" target=\"_blank\" rel=\"noopener\">discussiuns sin GitHub</a>.",
+    "bug": {
+      "t": "Annunziar in defect",
+      "s": "Tge è capità e tge avais vus spetgà? Screenshots pon vegnir tratgs directamain en il formular."
+    },
+    "idea": {
+      "t": "Proponer ina funcziun",
+      "s": "Manca in pass che fa part da voss process? Descrivai il cas d’applicaziun e betg mo la soluziun."
+    },
+    "mail": {
+      "t": "Scriver directamain",
+      "s": "Senza conto GitHub, u sch’insatge na duai betg esser public – era per «nus vulessan testar quai tar nus»."
+    },
+    "form": {
+      "honeypot": "Laschar vid quest champ",
+      "name": "Num",
+      "namePlaceholder": "Tgi scriva?",
+      "mail": "E-mail",
+      "mailPlaceholder": "Per che nus possian respunder",
+      "message": "Messadi",
+      "messagePlaceholder": "Da tge sa tracti?",
+      "send": "Trametter il messadi",
+      "sending": "Vegn tramess …",
+      "ok": "Grazia – il messadi è arrivà. Nus ans annunziain.",
+      "error": "Quai n’ha betg funcziunà. Scrivai per plaschair directamain a bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Serrar",
+    "prev": "Maletg precedent",
+    "next": "Proxim maletg",
+    "zoom": "Engrondir"
+  },
+  "footer": {
+    "origin": "Nascì dal manaschi d’acziun dals <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a> –\n      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns\n      sparpagliadas ed errurs da transcripziun a maun.\n      Mintga corps da pumpiers maina ses agen KP Rück cun agen persunal, agens vehichels ed atgnas datas.",
+    "demo": "Demo",
+    "contact": "Contact"
+  }
+}

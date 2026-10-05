@@ -1,0 +1,716 @@
+<!doctype html>
+<!-- Built from site/index.template.html + site/content/rm.json.
+     Edits here are lost on the next `node site/build.mjs`. -->
+<html lang="rm">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>KP Rück – Tavla d’acziun per il post da commando</title>
+<meta name="description" content="KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.">
+<link rel="canonical" href="https://kp-rueck.ch/rm/">
+<link rel="alternate" hreflang="de-CH" href="https://kp-rueck.ch/">
+<link rel="alternate" hreflang="fr-CH" href="https://kp-rueck.ch/fr/">
+<link rel="alternate" hreflang="it-CH" href="https://kp-rueck.ch/it/">
+<link rel="alternate" hreflang="rm-CH" href="https://kp-rueck.ch/rm/">
+<link rel="alternate" hreflang="en" href="https://kp-rueck.ch/en/">
+<link rel="alternate" hreflang="x-default" href="https://kp-rueck.ch/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Crect x='3.5' y='10.5' width='7' height='11' rx='2' fill='%23e8392b'/%3E%3Crect x='12.5' y='10.5' width='7' height='11' rx='2' fill='%23ffffff'/%3E%3Crect x='21.5' y='10.5' width='7' height='11' rx='2' fill='%23b8c4d3'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="KP Rück – Tavla d’acziun per il post da commando">
+<meta property="og:description" content="La tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.">
+<meta property="og:url" content="https://kp-rueck.ch/rm/">
+<meta property="og:image" content="https://kp-rueck.ch/shots/board.jpg">
+<meta property="og:image:width" content="1500">
+<meta property="og:image:height" content="937">
+<meta property="og:locale" content="rm_CH">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://kp-rueck.ch/#app",
+      "name": "KP Rück",
+      "url": "https://kp-rueck.ch/rm/",
+      "description": "KP Rück è la tavla magnetica digitala dal post da commando posteriur: acziuns, persunal, vehichels e material – en temp real sin mintga apparat, open source.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web browser",
+      "inLanguage": [
+        "de-CH",
+        "fr-CH",
+        "it-CH",
+        "rm-CH",
+        "en"
+      ],
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-rueck",
+      "screenshot": "https://kp-rueck.ch/shots/board.jpg",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CHF"
+      },
+      "publisher": {
+        "@id": "https://kp-rueck.ch/#org"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://kp-rueck.ch/#org",
+      "name": "Feuerwehr Oberwil BL",
+      "url": "https://www.feuerwehr-oberwil.ch",
+      "sameAs": [
+        "https://github.com/feuerwehr-oberwil"
+      ]
+    }
+  ]
+}
+</script>
+<link rel="preload" href="../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../landing.css">
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-gh" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 16 16">
+    <path d="M4.5 3.1a.7.7 0 0 1 1.05-.6l7.2 4.9a.7.7 0 0 1 0 1.2l-7.2 4.9a.7.7 0 0 1-1.05-.6z"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16">
+    <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
+  </symbol>
+  <symbol id="i-bug" viewBox="0 0 16 16">
+    <path d="M8 1.2A6.8 6.8 0 1 0 8 14.8 6.8 6.8 0 0 0 8 1.2zm0 3.1a.95.95 0 0 1 .95 1l-.22 3.4a.73.73 0 0 1-1.46 0l-.22-3.4a.95.95 0 0 1 .95-1zm0 6.2a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1z"/>
+  </symbol>
+  <symbol id="i-idea" viewBox="0 0 16 16">
+    <path d="M8 1.2a4.8 4.8 0 0 0-2.95 8.58c.4.32.63.75.7 1.22l.08.5h4.34l.08-.5c.07-.47.3-.9.7-1.22A4.8 4.8 0 0 0 8 1.2zM6.25 12.9a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5z"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 16 16">
+    <path d="M2 4.6c0-.77.63-1.4 1.4-1.4h9.2c.77 0 1.4.63 1.4 1.4v.2L8 8.4 2 4.8zm0 1.95 5.6 3.36c.25.15.55.15.8 0L14 6.55v4.85c0 .77-.63 1.4-1.4 1.4H3.4A1.4 1.4 0 0 1 2 11.4z"/>
+  </symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1b2330"/>
+        <g>
+          <rect x="5.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#e8392b"/>
+          <rect x="5.5" y="14" width="6.5" height="5.2" rx="1.5" fill="#e7edf4"/>
+          <rect x="5.5" y="21" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+          <rect x="13.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#ffffff"/>
+          <rect x="13.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+          <rect x="21.5" y="7" width="6.5" height="5.2" rx="1.5" fill="#d8e1ec"/>
+          <rect x="21.5" y="14" width="6.5" height="4" rx="1.5" fill="#c4cedb" opacity=".5"/>
+        </g>
+      </svg>
+      <span>KP Rück</span></a>
+    <nav aria-label="Navigaziun principala">
+      <a href="#funktionen">Funcziuns</a>
+      <a href="#kontakt">Contact</a>
+      <span class="langs" role="group" aria-label="Lingua"><a class="lang" href="../" hreflang="de" lang="de"><abbr title="Deutsch">DE</abbr></a><a class="lang" href="../fr/" hreflang="fr" lang="fr"><abbr title="Français">FR</abbr></a><a class="lang" href="../it/" hreflang="it" lang="it"><abbr title="Italiano">IT</abbr></a><a class="lang on" href="../rm/" hreflang="rm" lang="rm" aria-current="page"><abbr title="Rumantsch">RM</abbr></a><a class="lang" href="../en/" hreflang="en" lang="en"><abbr title="English">EN</abbr></a></span>
+      <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener" aria-label="KP Rück sin GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
+      <a class="cta" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
+    </nav>
+  </div>
+</header>
+
+<div class="notice">
+  <p class="wrap">Questa translaziun en Rumantsch Grischun n’è anc betg vegnida controllada d’ina persuna rumantscha spezialisada en il sectur dals pumpiers – <a href="#kontakt">propostas e correcturas</a> èn bainvegnidas. La versiun demo da KP Rück è disponibla per tudestg e franzos.</p>
+</div>
+<main>
+  <section class="hero wrap">
+    <p class="eyebrow">Open source&nbsp;· Svizra</p>
+    <h1>La tavla d’acziun per il post da commando.</h1>
+    <p class="lede">KP Rück digitalisescha la tavla magnetica dal post da commando posteriur:
+      <strong>acziuns, persunal, vehichels e material</strong> sin ina tavla –
+      en temp real sin mintga apparat.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-rueck.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Avrir la demo</a>
+      <span class="cta-note">Senza conto – tscherner ina rolla e cumenzar</span>
+    </div>
+    <figure class="frame">
+      <div class="frame-bar" aria-hidden="true">
+        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
+        <span class="addr">BOARD · UNWETTER · 17 EINSÄTZE AKTIV</span>
+      </div>
+      <img src="../shots/board.webp"
+           srcset="../shots/board-992.webp 992w, ../shots/board.webp 1500w"
+           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
+           alt="Tavla d’acziun: colonnas tenor fasa d’acziun cun las cartas d’acziun, a sanestra il persunal, a dretga il material" width="1500" height="937" fetchpriority="high">
+    </figure>
+  </section>
+
+  <section class="fit">
+    <div class="wrap fit-split">
+      <div>
+        <div class="fit-row">
+          <p class="fit-k">Per tgi</p>
+          <ul class="fit-v">
+            <li>Corps da pumpiers da milissa</li>
+            <li>Corps da pumpiers locals</li>
+            <li>Corps da pumpiers da basa</li>
+            <li>Corps da pumpiers professiunals</li>
+          </ul>
+        </div>
+        <div class="fit-row">
+          <p class="fit-k">Per tge</p>
+          <ul class="fit-v">
+            <li>Acziuns quotidianas</li>
+            <li>Situaziuns da malaura</li>
+            <li>Plirs eveniments a medem temp</li>
+          </ul>
+        </div>
+        <p class="fit-note">Sviluppà or dal manaschi real d’acziun dals
+        <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">pumpiers d’Oberwil BL</a>
+        – là testà e sviluppà vinavant cuntinuadamain.</p>
+      </div>
+      <div class="fit-panel">
+        <h2>Vossas datas restan tar vus.</h2>
+        <p>KP Rück è open source e funcziuna en voss magazin u en vossa atgna cloud. Acziuns, persunal, vehichels e material restan sut vossa controlla.</p>
+        <ul>
+          <li>Nagins custs da licenza</li>
+          <li>Nagina dependenza d’in producider</li>
+          <li>Manar e sviluppar vinavant sezs</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">La mesira</p>
+      <blockquote>«Sche la rait croda ora, maina il <em>palpiri</em>»</blockquote>
+      <p class="expl">Ina tavla che daventa naira tar ina panna da current n’è nagin instrument da direcziun.
+        Perquai è integrada ina redundanza sin plirs stgalims – <strong>mintga stgalim
+        funcziuna senza quel sura</strong>.</p>
+      <div class="stages">
+        <div class="stage">
+          <p class="stage-n">Stgalim 1</p>
+          <h3>Plirs apparats sin il medem stadi</h3>
+          <p>Tablets, vistas da projectur e telefonins èn colliads en temp real cun la medema tavla.
+            Sche in apparat croda ora u sa blocchescha, cuntinuescha in auter – i na dat nagut da
+            salvar e nagut da registrar pli tard.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Stgalim 2</p>
+          <h3>Ina segunda instanza en il magazin</h3>
+          <p>KP Rück po vegnir manà supplementarmain local. La sincronisaziun integrada mantegna
+            eveniments, acziuns, persunal, vehichels, material e configuraziuns al medem stadi tranter
+            cloud e banca da datas locala. La charta deriva dal server local ed il stampader è collià
+            cun la rait locala.</p>
+        </div>
+        <div class="stage">
+          <p class="stage-n">Stgalim 3</p>
+          <h3>Il palpiri maina</h3>
+          <p>Il stadi da la tavla vegn stampà periodicamain sin il stampader termic, il fegl da
+            situaziun sin squitsch d’in buttun. Sche tut falla, daventa l’ultim fegl la tavla. Suenter
+            il restart transferescha <strong>ina</strong> persuna las modificaziuns fatgas a maun en l’applicaziun.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="einsatz">
+    <div class="sec-head">
+      <p class="eyebrow">Da l’alarm fin al rapport</p>
+      <h2>In eveniment, ina tavla.</h2>
+      <p>Uschia vesa ina notg da malaura en il post da commando ora – quai che capita sin la tavla
+        vegn integrà pli tard en il rapport d’acziun.</p>
+    </div>
+    <div class="verlauf-list">
+      <article class="entry">
+        <div class="time">21:14</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Entrada d’alarm</p>
+          <h3>Las annunzias arrivan.</h3>
+          <p>Sur il formular d’annunzia, per telefon u sur l’interfatscha averta dal sistem d’alarm
+            (p.&nbsp;ex. Divera u FireHub). Il sustegn da direcziun surpiglia l’annunzia cun in clic –
+            e quella daventa in’acziun sin la tavla.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:19</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Disposiziun</p>
+          <h3>Persunal e vehichels èn attribuids.</h3>
+          <p>Attribuir persunal, vehichels e material cun drag-and-drop. Il sistem gida a far visiblas
+            attribuziuns dublas, resursas mancantas e cuntradicziuns. Tgi che arriva sa registrescha
+            cun in code QR.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:26</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Charta</p>
+          <h3>Tgi è nua.</h3>
+          <p>Tut las acziuns sin ina charta, cun posiziuns GPS dals vehichels sco opziun. Cur ch’in
+            vehichel arriva al lieu, propona la tavla la midada da status.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">21:48</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Reko</p>
+          <h3>La gruppa da reko rapporta.</h3>
+          <p>La gruppa empla il formular sin l’agen telefonin, inclusiv fotografias. L’annunzia resta
+            colliada cun l’acziun correcta.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">23:30</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Tavla</p>
+          <h3>Tuts vesan la medema tavla.</h3>
+          <p>Il projectur en il post da commando, il tablet sin maisa ed il telefonin dal fourier mussan
+            il medem stadi – senza actualisaziun manuala.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">06:40</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Rapport</p>
+          <h3>Il rapport sa scriva durant l’acziun.</h3>
+          <p>Il diari d’acziun ed ils temps da reacziun vegnan registrads durant l’acziun e daventan in PDF.
+            Correcturas vegnan fatgas cun novas endataziuns.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Ord la demo</p>
+      <h2>Uschia vesa quai ora.</h2>
+      <p>Tut ils maletgs derivan da la demo publica.</p>
+      <p class="sec-note">La versiun demo da KP Rück è disponibla per tudestg e franzos. Ils screenshots derivan da la medema instanza; maletgs inscenads fissan mo ina pretensiun.</p>
+    </div>
+    <div class="shots-grid">
+      <figure class="shot">
+        <img src="../shots/display.webp" alt="Vista da projectur: tut las fasas d’acziun ina sper l’autra sin in visur" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Vista da projectur</div>
+          <div class="cap-s">Per la paraid en il post da commando stgir: tut las fasas ina sper l’autra, senza elements da cumond</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/status.webp" alt="Vista da status: vehichels, acziuns, persunal e material cun disponibilitad ed attribuziun" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Status</div>
+          <div class="cap-s">Vehichels, acziuns, persunal e material ina sper l’auter – tgi è liber, tgi è occupà e tgi è nua</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/karte.webp" alt="Vista da la charta: acziuns tenor prioritad, posiziuns dals vehichels ed attribuziuns" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Charta</div>
+          <div class="cap-s">Tut las acziuns tenor prioritad, cun las posiziuns dals vehichels e las attribuziuns tranter ellas</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/disposition.webp" alt="Status dals vehichels: vehichels cun num da radio, manischunz, destinaziun e status" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Vehichels</div>
+          <div class="cap-s">Num da radio, manischunz, destinaziun e status da mintga vehichel en ina survista</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/meldung.webp" alt="Formular d’annunzia: adressa, annunzia, prioritad, tip d’acziun ed indicaziuns davart la persuna che annunzia" width="900" height="562" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Formular d’annunzia</div>
+          <div class="cap-s">Registrar structuradamain annunzias per telefon e persunas che vegnan al spurtegl – cun link u code QR, senza conto</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/reko.webp" alt="Formular da reko: acziun, «Jau sun al lieu» e privels da marcar" width="900" height="562" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Formular da reko</div>
+          <div class="cap-s">Sin il telefonin da la reko: rapportar dal lieu, marcar privels ed agiuntar fotografias</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/feld.webp" alt="Vista dal lieu: l’agen lieu d’acziun cun las annunzias al post da commando, la situaziun ed il persunal" width="900" height="562" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Vista dal lieu</div>
+          <div class="cap-s">Mintga gruppa vesa mo ses agens lieus d’acziun – annunziar arriv, transport e fin da l’acziun senza radio</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/auftraege.webp" alt="Incumbensas: pliras acziuns reunidas ad ina ruta" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Incumbensas</div>
+          <div class="cap-s">Pliras acziuns sco ina ruta cun persunal e meds, en ina successiun optimada da la tavla tenor distanza</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="../shots/training.webp" alt="Direcziun d’exercizi: generar acziuns singulas u specificas, automatica e simulaziun dal lieu" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Exercizi</div>
+          <div class="cap-s">Importar situaziuns d’exercizi empè d’inventar ellas – separadas cleramain dal cas real</div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="aenderung">
+    <div class="sec-head">
+      <p class="eyebrow">Midada</p>
+      <h2>Tge che sa mida.</h2>
+      <p>Nagut da quai n’è oz defect – la tavla magnetica funcziuna dapi decennis.
+        KP Rück prenda la medema plazza, mo senza copiar a maun.</p>
+    </div>
+    <div class="change-wrap">
+      <table class="change">
+        <thead>
+          <tr><th scope="col">Oz</th><th scope="col">Cun KP Rück</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tavla magnetica vi da la paraid</td><td>Tavla digitala sin mintga apparat</td></tr>
+          <tr><td>Notizias telefonicas sin fegls</td><td>Formular collià cun l’acziun</td></tr>
+          <tr><td>Glista Excel per persunal e vehichels</td><td>Survista en temp real che sa actualisescha</td></tr>
+          <tr><td>Gruppa WhatsApp per respostas</td><td>Annunzias structuradas cun fotografias</td></tr>
+          <tr><td>Messadi da radio per mintga midada da status</td><td>Status ed annunzias directamain da la gruppa</td></tr>
+          <tr><td>Rapport suenter l’acziun</td><td>Rapport che sa furma durant l’acziun</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap" id="funktionen">
+    <div class="sec-head">
+      <p class="eyebrow">Volumen da funcziuns</p>
+      <h2>Tge che fa part.</h2>
+      <p>Il volumen da funcziuns è creschì en eveniments ed exercizis reals e betg sin basa d’ina glista
+        da funcziuns. Tut quai che vegn da servetschs externs – alarmaziun, GPS, stampaders – è
+        <strong>opziunal</strong>: KP Rück funcziuna cumplettamain era senza questas colliaziuns.</p>
+    </div>
+    <div class="feature-cols">
+      <div class="fgroup">
+        <h3>Tavla &amp; disposiziun</h3>
+        <ul class="flist">
+          <li><strong>Las colonnas èn las fasas d’acziun</strong> – las cartas sa movan cun drag-and-drop da sanestra a dretga</li>
+          <li>Attribuir persunal, vehichels e material – e far visiblas attribuziuns dublas, resursas mancantas e cuntradicziuns</li>
+          <li>Material al lieu d’acziun cun attribuziun e durada</li>
+          <li>Prioritad, durada e termin per mintga acziun</li>
+          <li>Reunir pliras acziuns ad ina ruta per ina gruppa ed optimar tenor distanza</li>
+          <li>Preparar incumbensas recurrentas</li>
+          <li>Registraziun cun code QR</li>
+          <li>Fegl d’acziun cun code QR per gruppas e manischunzs</li>
+          <li>Vista da projectur senza elements da cumond per la paraid dal post da commando</li>
+          <li>Paletta da cumonds e scursanidas da tastatura</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Alarm &amp; annunzias</h3>
+        <ul class="flist">
+          <li><strong>Interfatscha averta</strong> per sistems da disposiziun</li>
+          <li>Surpigliar alarms da Divera u FireHub <span class="opt">opziunal</span></li>
+          <li>Formular d’annunzia accessibel cun link u code QR, per annunzias per telefon u al spurtegl</li>
+          <li>Entrada en in pool ed utilisaziun sco acziun cun in clic</li>
+          <li>Alarmar il persunal directamain da la tavla <span class="opt">opziunal</span></li>
+          <li>Rapports da reko cun fotografias, colliads cun l’acziun correcta</li>
+          <li>Vista dal lieu per gruppas: annunziar arriv, fin, transport e rapports al post da commando – mintga gruppa vesa mo ses agens lieus</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Charta &amp; vehichels</h3>
+        <ul class="flist">
+          <li>Tut las acziuns tenor prioritad e status sin ina charta</li>
+          <li>Posiziuns GPS dals vehichels <span class="opt">opziunal</span></li>
+          <li>Proposta da midada da status cur ch’in vehichel arriva al lieu</li>
+          <li>Attribuziuns mussadas sco lingias</li>
+          <li>Chartas era dal server local en il magazin</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Suenter &amp; manaschi</h3>
+        <ul class="flist">
+          <li><strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun</li>
+          <li>Protocol cuntinuà che vegn mo cumplettà e mai surscrit; correcturas vegnan fatgas cun novas endataziuns</li>
+          <li>Glista da chaussas avertas fin a la conclusiun</li>
+          <li><strong>Atgna administraziun</strong> per persunal, parc da vehichels, material, tips d’acziun e prioritads</li>
+          <li>Import ed export cun Excel</li>
+          <li>Stampa termica en il magazin <span class="opt">opziunal</span></li>
+          <li>Rollas per modifitgar u mo leger</li>
+          <li>Modus d’exercizi separà cleramain dal cas real, cun scenaris e viadis simulads</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sibling">
+    <div class="wrap">
+      <div class="sibling-grid">
+        <div class="sibling-txt">
+          <p class="eyebrow">Project parent</p>
+          <h2>KP Rück mantegna la survista davos. KP Front maina davant.</h2>
+          <p><strong>KP Front</strong> digitalisescha al lieu d’acziun la charta da situaziun e la maisa
+          da direcziun: segns tactics, plans d’object e surveglianza da la protecziun respiratorica,
+          era senza rait. Las duas applicaziuns pon transmetter alarms, ma funcziunan independentamain.</p>
+          <a class="btn btn-ghost" href="https://kp-front.ch">Vesair KP Front<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+        </div>
+
+        <div class="setup-card">
+          <h3>Manar omaduas applicaziuns – senza configurar tut duas giadas</h3>
+          <dl>
+            <div class="setup-row">
+              <dt>Alarmaziun</dt>
+              <dd>Las medemas datas d’alarm per omaduas. La colliaziun cun il sistem d’alarmaziun vegn realisada ina giada; mintga applicaziun survegn sia atgna adressa.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Access a Divera</dt>
+              <dd>Ina clav per omaduas applicaziuns – ils medems alarms, la medema glista dal persunal. <span class="opt">opziunal</span></dd>
+            </div>
+            <div class="setup-row">
+              <dt>Agent da stampa</dt>
+              <dd>In servetsch en il magazin serva omaduas applicaziuns e las duas sorts da stampa: PDF e stampa directa.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Glista dal persunal</dt>
+              <dd>La medema funtauna ed il medem format da datoteca – la medema persuna en omaduas applicaziuns.</dd>
+            </div>
+            <div class="setup-row">
+              <dt>Chavazzins d’alarm</dt>
+              <dd>La medema glista procura per la medema classificaziun en omaduas applicaziuns.</dd>
+            </div>
+          </dl>
+          <p class="setup-foot"><strong>Bancas da datas, actualisaziuns e logins restan separads.</strong> Nagina da las duas applicaziuns dovra l’autra per funcziunar.
+            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Instrucziun per manar omaduas sin in server →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="fragen">
+    <div class="sec-head">
+      <p class="eyebrow">Dumondas &amp; respostas</p>
+      <h2>Dumondas frequentas.</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>Pertge midar?</h3>
+        <p>Naginas attribuziuns dublas pli, naginas annunzias persas, damain traffic da radio e la
+          medema situaziun visibla per tuts. Il rapport è gia preparà al return.</p>
+      </div>
+      <div class="faq-item">
+        <h3>A tgi appartegnan las datas?</h3>
+        <p>A vus. Mintga corps da pumpiers maina sia atgna instanza da KP Rück e decida nua che las
+          datas vegnan memorisadas.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Tge custa quai?</h3>
+        <p>La software sezza na custa nagut. KP Rück è open source (AGPL) – <strong>nagina
+          licenza, nagin abunament, nagins custs per apparat</strong>. Restan ils agens custs per manaschi,
+          infrastructura ed eventual sustegn extern.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Tge dovri per il manaschi?</h3>
+        <p>In pitschen mini-PC u server en il magazin basta. Per l’installaziun, actualisaziuns e
+          backups dovri ina persuna cun experientscha da Docker e da la lingia da commandos, saja quai
+          en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il
+          sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas;
+          las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Po l’applicaziun vegnir adattada?</h3>
+        <p>Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: tips d’acziun, prioritads,
+          persunal, parc da vehichels e glistas da material pon vegnir configurads libramain; import ed
+          export vegnan fatgs cun Excel. Perquai che l’entir code è publitgà sin
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
+          pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Co cumenzar?</h3>
+        <p>Cun la <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">demo</a>,
+          senza conto. Tscherner ina rolla e cumenzar. Suenter testar durant in exercizi.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="kontakt">
+    <div class="contact-grid">
+      <div class="contact-side">
+        <p class="eyebrow">Contact</p>
+        <h2>Ans scrivai tge che vus pensais.</h2>
+        <p>Vulais testar KP Rück en voss corps da pumpiers? Manca insatge u na funcziuna insatge betg
+          sco spetgà? As annunziai.</p>
+        <p class="alt">Per dumondas ed ideas avertas datti las
+          <a href="https://github.com/feuerwehr-oberwil/kp-rueck/discussions" target="_blank" rel="noopener">discussiuns sin GitHub</a>.</p>
+      </div>
+      <div class="contact-ways">
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Annunziar in defect</span>
+            <span class="way-s">Tge è capità e tge avais vus spetgà? Screenshots pon vegnir tratgs directamain en il formular.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-rueck/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Proponer ina funcziun</span>
+            <span class="way-s">Manca in pass che fa part da voss process? Descrivai il cas d’applicaziun e betg mo la soluziun.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+          <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
+          <div class="way-body">
+            <span class="way-t">Scriver directamain</span>
+            <span class="way-s">Senza conto GitHub, u sch’insatge na duai betg esser public – era per «nus vulessan testar quai tar nus».</span>
+            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+            <input type="hidden" name="subject" value="KP Rück – Landingpage (rm)">
+            <p class="hp"><label>Laschar vid quest champ
+              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+            <div class="f-fields">
+              <div class="f-row">
+                <label class="f-lab" for="f-name">Num</label>
+                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Tgi scriva?">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-mail">E-mail</label>
+                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Per che nus possian respunder">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-msg">Messadi</label>
+                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="Da tge sa tracti?"></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary f-send" type="submit">Trametter il messadi</button>
+            <p class="f-note" role="status" hidden></p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-origin">Nascì dal manaschi d’acziun dals <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">pumpiers d’Oberwil BL</a> –
+      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns
+      sparpagliadas ed errurs da transcripziun a maun.
+      Mintga corps da pumpiers maina ses agen KP Rück cun agen persunal, agens vehichels ed atgnas datas.</p>
+    <div class="foot-row">
+      <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <a href="https://github.com/feuerwehr-oberwil/kp-rueck" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://demo.kp-rueck.ch" target="_blank" rel="noopener">Demo</a>
+      <a href="https://kp-front.ch">KP Front</a>
+      <a href="#kontakt">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
+  // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
+  document.documentElement.classList.add('js');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .stage, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -60px' });
+    els.forEach(function (el) {
+      el.classList.add('reveal');
+      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      else io.observe(el);
+    });
+  }
+
+  // Kontaktformular. Ohne JS bleibt es ein gewöhnlicher POST – der Absender
+  // landet dann auf der Bestätigungsseite des Dienstes. Mit JS senden wir im
+  // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
+  // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
+  (function () {
+    var form = document.querySelector('.way-form');
+    if (!form || !window.fetch || !window.FormData) return;
+    var fields = form.querySelector('.f-fields');
+    var note = form.querySelector('.f-note');
+    var send = form.querySelector('.f-send');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var hp = form.querySelector('input[name="website"]');
+      if (hp && hp.value) return;
+
+      send.disabled = true;
+      note.hidden = false;
+      note.className = 'f-note';
+      note.textContent = 'Vegn tramess …';
+
+      fetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function (r) {
+          if (!r.ok) throw new Error(String(r.status));
+          fields.hidden = true;
+          send.hidden = true;
+          note.className = 'f-note ok';
+          note.textContent = 'Grazia – il messadi è arrivà. Nus ans annunziain.';
+        })
+        .catch(function () {
+          send.disabled = false;
+          note.className = 'f-note err';
+          note.textContent = 'Quai n’ha betg funcziunà. Scrivai per plaschair directamain a bastian.eichenberger@feuerwehr-oberwil.ch.';
+        });
+    });
+  })();
+
+  // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
+  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
+  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  (function () {
+    var shots = [].slice.call(document.querySelectorAll('.shot'));
+    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'lb';
+    dlg.innerHTML =
+      '<button class="lb-x" type="button" aria-label="Serrar">×</button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="Maletg precedent">‹</button>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="Proxim maletg">›</button>' +
+      '<figure class="lb-fig"><img alt=""><figcaption></figcaption></figure>';
+    document.body.appendChild(dlg);
+
+    var img = dlg.querySelector('.lb-fig img');
+    var cap = dlg.querySelector('.lb-fig figcaption');
+    var idx = 0;
+
+    var show = function (i) {
+      idx = (i + shots.length) % shots.length;
+      var s = shots[idx];
+      var src = s.querySelector('img');
+      img.src = src.src;
+      img.alt = src.alt;
+      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
+        + s.querySelector('.cap-s').textContent;
+    };
+
+    shots.forEach(function (s, i) {
+      var im = s.querySelector('img');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shot-zoom';
+      btn.setAttribute('aria-label', 'Engrondir: ' + s.querySelector('.cap-t').textContent);
+      im.parentNode.insertBefore(btn, im);
+      btn.appendChild(im);
+      btn.addEventListener('click', function () { show(i); dlg.showModal(); });
+    });
+
+    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    // Klick auf den Hintergrund schliesst, ein Klick aufs Bild nicht.
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+    // Escape erledigt <dialog> selber; hier nur das Blättern.
+    dlg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+    });
+  })();
+</script>
