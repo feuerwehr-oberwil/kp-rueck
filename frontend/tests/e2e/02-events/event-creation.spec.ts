@@ -83,9 +83,18 @@ test.describe('Event Creation', () => {
   test('should not allow creating event with empty name', async () => {
     await eventsPage.clickNewEvent();
 
-    // Try to submit without name
-    const isDisabled = await eventsPage.createButton.isDisabled();
-    expect(isDisabled).toBeTruthy();
+    // The button is no longer greyed out without a word (#21): it stays
+    // clickable, and a click without a name says why under the field, puts the
+    // cursor there and keeps the dialog open — nothing is created.
+    await expect(eventsPage.createButton).toBeEnabled();
+    await eventsPage.createButton.click();
+
+    await expect(eventsPage.createDialog).toBeVisible();
+    await expect(eventsPage.createDialog).toContainText(
+      'Name fehlt – ohne Namen lässt sich das Ereignis nicht erstellen.',
+    );
+    await expect(eventsPage.eventNameInput).toHaveAttribute('aria-invalid', 'true');
+    await expect(eventsPage.eventNameInput).toBeFocused();
   });
 
   test('should cancel event creation', async () => {

@@ -29,8 +29,14 @@ const DISPATCH_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** `getTimeSince`: minutes with an apostrophe, or `Xh Y'` past the hour. */
 const ELAPSED = /^(\d+'|\d+h \d+')$/;
 
-/** Every mode label, so the chip can be found whichever one is active. */
-const ANY_MODE = /^(Startzeit|In diesem Status|Seit Alarmierung):/;
+/**
+ * Every mode's accessible name, so the chip can be found whichever one is
+ * active (`kanban.incidentTime` in messages/de.json). Since `56daf355` only
+ * «Startzeit» keeps the `<mode>: <value>` shape; the two durations are spoken
+ * in full — «Seit Statuswechsel 3 Minuten, seit …», «Seit Alarmierung …» — so
+ * status age and alarm age cannot be confused by ear.
+ */
+const ANY_MODE = /^(Startzeit: |Seit Statuswechsel |Seit Alarmierung )/;
 
 /** A distinct icon per mode, so the chip itself says which of the three it is. */
 const CLOCK = 'svg.lucide-clock'; // start

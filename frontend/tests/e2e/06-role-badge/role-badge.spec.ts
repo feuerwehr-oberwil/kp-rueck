@@ -4,13 +4,21 @@ import { dismissOverlays } from '../07-viewer-role/viewer-role.helpers';
 
 /**
  * Role Badge Tests
- * Tests the role badge component that displays Editor/Viewer status
+ * Tests the role badge component that displays the user's role
  * (`components/auth/role-badge.tsx`).
  *
- * The badge is NOT in the navigation bar. It lives in two dropdowns, both of
+ * Since bca38bdb the badge always says its role in words — the translated
+ * `settings.users.roles` label (Admin / Bearbeiter / Betrachter), never the old
+ * English «Editor»/«Viewer» — and always in the neutral `secondary` variant:
+ * red is priority and danger only, a role is neither. The icon (Shield for
+ * anyone who may edit, Eye for viewers) is what still tells the two apart.
+ * The suite logs in as the seeded `admin`, so the editor-side label is «Admin».
+ *
+ * The badge is NOT in the navigation bar. It lives in the `AccountBlock`
+ * (`components/auth/account-block.tsx`), which sits in two places, both of
  * which Radix keeps unmounted while closed:
- *   - desktop: inside the UserMenu dropdown (`components/user-menu.tsx`)
- *   - mobile:  inside the bottom navigation's "Mehr" sheet
+ *   - desktop: at the top of the UserMenu dropdown (`components/user-menu.tsx`)
+ *   - mobile:  in the «Konto» section of the bottom navigation's "Mehr" sheet
  *              (`components/mobile-bottom-navigation.tsx`)
  * Every assertion below therefore has to open the containing menu first.
  *
@@ -58,6 +66,11 @@ const ROLE_BADGE =
 const roleBadge = (container: Locator | Page): Locator =>
   container.locator(ROLE_BADGE);
 
+/** Label of the seeded `admin` account the suite logs in as (`settings.users.roles.admin`). */
+const ADMIN_LABEL = 'Admin';
+/** Label of the seeded `viewer` account (`settings.users.roles.viewer`). */
+const VIEWER_LABEL = 'Betrachter';
+
 /**
  * `/` renders an "Ereignis auswählen" empty state — with no navigation and so
  * no user menu — until an event is picked. Pick whichever one the seed left
@@ -87,7 +100,7 @@ test.describe('Role Badge - Editor', () => {
     await expect(roleBadge(authenticatedPage)).toHaveCount(0);
 
     const menu = await openUserMenu(authenticatedPage);
-    await expect(roleBadge(menu)).toHaveText('Editor');
+    await expect(roleBadge(menu)).toHaveText(ADMIN_LABEL);
   });
 
   test('editor badge shows Shield icon', async ({ authenticatedPage }) => {
@@ -99,16 +112,16 @@ test.describe('Role Badge - Editor', () => {
     await expect(badge.locator('svg[class*="lucide-eye"]')).toHaveCount(0);
   });
 
-  test('editor badge uses the default (primary) variant', async ({
+  test('editor badge uses the neutral (secondary) variant, not red', async ({
     authenticatedPage,
   }) => {
     const menu = await openUserMenu(authenticatedPage);
     const badge = roleBadge(menu);
 
-    // Editor = <Badge variant="default">, viewer = variant="secondary".
-    // The variant is what carries the "you may change things" signal.
-    await expect(badge).toHaveClass(/bg-primary/);
-    await expect(badge).not.toHaveClass(/bg-secondary/);
+    // Every role gets <Badge variant="secondary">: the red `default` variant
+    // is reserved for priority and danger. The icon carries the difference.
+    await expect(badge).toHaveClass(/bg-secondary/);
+    await expect(badge).not.toHaveClass(/bg-primary/);
   });
 });
 
@@ -121,7 +134,7 @@ test.describe('Role Badge - Editor on Multiple Pages', () => {
       await authenticatedPage.goto(path);
 
       const menu = await openUserMenu(authenticatedPage);
-      await expect(roleBadge(menu)).toHaveText('Editor');
+      await expect(roleBadge(menu)).toHaveText(ADMIN_LABEL);
     });
   }
 });
@@ -132,7 +145,7 @@ test.describe('Role Badge - Mobile Behavior', () => {
     await selectAnyEvent(authenticatedPage);
   });
 
-  test('editor badge shows icon-only in the mobile "Mehr" sheet', async ({
+  test('editor badge shows icon and label in the mobile "Mehr" sheet', async ({
     authenticatedPage,
   }) => {
     // The desktop nav (and with it the UserMenu) is `hidden md:flex`, so on a
@@ -147,8 +160,10 @@ test.describe('Role Badge - Mobile Behavior', () => {
     await expect(badge).toBeVisible();
     await expect(badge.locator('svg[class*="lucide-shield"]')).toBeVisible();
 
-    // The label is `hidden sm:inline-block`: below 640px only the icon shows.
-    await expect(badge.getByText('Editor')).toBeHidden();
+    // The phone used to show the icon alone, which nobody could read; the
+    // badge now says its role at every width.
+    await expect(badge).toHaveText(ADMIN_LABEL);
+    await expect(badge.getByText(ADMIN_LABEL)).toBeVisible();
   });
 });
 
@@ -166,7 +181,7 @@ test.describe('Role Badge - Viewer', () => {
     const menu = await openUserMenu(viewerPage);
     const badge = roleBadge(menu);
 
-    await expect(badge).toHaveText('Viewer');
+    await expect(badge).toHaveText(VIEWER_LABEL);
     await expect(badge.locator('svg[class*="lucide-eye"]')).toBeVisible();
     await expect(badge.locator('svg[class*="lucide-shield"]')).toHaveCount(0);
   });

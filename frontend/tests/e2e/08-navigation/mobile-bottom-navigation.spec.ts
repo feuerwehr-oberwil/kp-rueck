@@ -117,11 +117,11 @@ test.describe('Mobile Bottom Navigation - Active Tab Highlighting', () => {
   test('kanban tab is highlighted when on root page', async ({ authenticatedPage }) => {
     const kanbanTab = authenticatedPage.locator('nav.fixed.bottom-0 a[href="/"]');
 
-    // Check for primary text color (active state)
-    const hasActiveClass = await kanbanTab.evaluate(el =>
-      el.className.includes('text-primary')
-    );
-    expect(hasActiveClass).toBeTruthy();
+    // «Chosen» is marked in slate, not in the red primary (d73d6e4a): red is
+    // reserved for priority and danger.
+    await expect(kanbanTab).toHaveAttribute('aria-current', 'page');
+    await expect(kanbanTab).toHaveClass(/text-foreground/);
+    await expect(kanbanTab).not.toHaveClass(/text-primary/);
   });
 
   test('map tab is highlighted when on map page', async ({ authenticatedPage }) => {
@@ -131,11 +131,10 @@ test.describe('Mobile Bottom Navigation - Active Tab Highlighting', () => {
 
     const mapTab = authenticatedPage.locator('nav.fixed.bottom-0 a[href="/map"]');
 
-    // Check for primary text color (active state)
-    const hasActiveClass = await mapTab.evaluate(el =>
-      el.className.includes('text-primary')
-    );
-    expect(hasActiveClass).toBeTruthy();
+    // Active = slate, not the red primary (d73d6e4a).
+    await expect(mapTab).toHaveAttribute('aria-current', 'page');
+    await expect(mapTab).toHaveClass(/text-foreground/);
+    await expect(mapTab).not.toHaveClass(/text-primary/);
   });
 
   test('inactive tabs have muted text color', async ({ authenticatedPage }) => {
@@ -230,12 +229,12 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
     const sheet = authenticatedPage.locator('[role="dialog"]');
     await expect(sheet).toBeVisible({ timeout: 3000 });
 
-    // Check for safe area padding
-    const hasSafeArea = await sheet.evaluate(el => {
-      const style = el.getAttribute('style');
-      return style?.includes('safe-area-inset-bottom') || false;
-    });
-    expect(hasSafeArea).toBeTruthy();
+    // The safe-area padding moved from an inline style to the shared
+    // `pb-sheet-safe` utility (eb097e7f, app/globals.css), which also drops it
+    // while the keyboard is up. Headless Chromium reports a zero inset, so the
+    // utility's 0.75rem floor is what shows.
+    await expect(sheet).toHaveClass(/\bpb-sheet-safe\b/);
+    await expect(sheet).toHaveCSS('padding-bottom', '12px');
   });
 
   test('more sheet shows role badge', async ({ authenticatedPage }) => {
@@ -248,8 +247,7 @@ test.describe('Mobile Bottom Navigation - More Sheet', () => {
 
     // Verify role badge is present. `[class*="badge"]` matched nothing — the
     // shadcn Badge carries no class of that name, it carries `data-slot="badge"`.
-    // On a phone the badge is icon-only (`hidden sm:inline-block` on the label),
-    // so the shield/eye icon is what identifies it.
+    // The shield/eye icon is what identifies it as the role badge.
     const roleBadge = sheet.locator('[data-slot="badge"]').filter({
       has: authenticatedPage.locator('svg.lucide-shield, svg.lucide-eye'),
     });

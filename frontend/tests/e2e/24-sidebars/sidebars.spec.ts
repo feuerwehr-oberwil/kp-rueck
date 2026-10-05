@@ -73,7 +73,9 @@ test('Personal: free above bound, and the search narrows — or says why nothing
 
   await search.fill(`niemand-${stamp}`);
   await expect(sidebar).toContainText(`Keine Person passt zu «niemand-${stamp}»`);
-  await sidebar.getByRole('button', { name: 'Suche zurücksetzen' }).click();
+  // «Suche zurücksetzen» became «Suche leeren» app-wide in 4a768589. The search
+  // field's own ✕ carries the same name, so pick the empty state's action.
+  await sidebar.getByRole('button', { name: 'Suche leeren' }).last().click();
   await expect(search).toHaveValue('');
   await expect(sidebar.getByTitle(bound.name, { exact: true })).toBeVisible();
 });
@@ -91,7 +93,11 @@ test('Personal: «Nur Verfügbare» hides the bound, and toggles back', async ({
 });
 
 test('[ and ] fold the sidebars, and the fold survives a reload', async ({ authenticatedPage: page }) => {
-  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  // Shortcuts are ignored while a field has focus, so make sure none does. This
+  // used to click <body> at (5, 5), but since 4166c02c the app shell is
+  // `position: fixed; inset: 0` and <body> has no height of its own — Playwright
+  // rightly refuses to click an element with an empty box.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('[');
   await expect(page.locator('#personnel-search-input')).toHaveCount(0);
   await page.keyboard.press(']');
