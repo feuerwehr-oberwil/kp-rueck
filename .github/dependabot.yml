@@ -6,6 +6,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # The types describe the runtime, and the runtime is Node 24 (frontend/Dockerfile). A
+      # major ahead of it (#104 proposed 26) types APIs the image does not have. Bump this by
+      # hand together with the base image.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # Keep noise down: batch non-major bumps into one PR.
       minor-and-patch:
@@ -51,6 +57,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Node majors move by hand, LTS to LTS, together with NODE_VERSION in the workflows and
+      # @types/node. Node 25 and later no longer ship corepack, which both frontend
+      # Dockerfiles use to install pnpm, so #98 (20 → 26) could not even build.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
