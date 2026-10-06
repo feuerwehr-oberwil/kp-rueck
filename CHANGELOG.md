@@ -41,6 +41,16 @@ will keep holding.
   from the home screen the app runs without the address bar and, on iOS, with its own storage:
   log in once more after adding it.
 
+### Fixed
+
+- **A busy board no longer asks the server once per card for every change.** Looking for new
+  Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
+  every reload, so each change made by another device cost one request per card on every open
+  board (about a tenth of all traffic on prod). It now asks once, with the summary it already
+  loads for the whole Ereignis. On a long Ereignis (378 Einsätze) an idle board sends 40
+  requests a minute instead of almost 800, and another device's change shows a third sooner.
+  A new Reko report also lists «Brandgefahr» among its dangers again.
+
 ### Security
 
 - **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per
