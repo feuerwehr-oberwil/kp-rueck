@@ -341,7 +341,12 @@ test.describe('Resource summary — assigned state', () => {
 
     await search.fill('gibtesnichtxyz');
     await expect(row).toHaveCount(0);
-    await expect(dialog.getByText('Versuche einen anderen Suchbegriff')).toBeVisible();
+    // The empty state names the query and where it searched (9ce9a644), and
+    // offers the way back — no generic «try another term» any more.
+    const empty = dialog.locator('[data-slot="empty-state"]');
+    await expect(empty.getByText('Keine Treffer für «gibtesnichtxyz».')).toBeVisible();
+    await expect(empty.getByText('Gesucht wird in Name, Standort und Modul.')).toBeVisible();
+    await expect(empty.getByRole('button', { name: 'Suche leeren' })).toBeVisible();
 
     await search.fill(material.name);
     await expect(row).toHaveCount(1);

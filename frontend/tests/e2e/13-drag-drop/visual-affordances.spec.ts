@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/auth.fixture';
-import { setupBoard } from '../../helpers/api.helper';
+import { incidentCards, MOBILE_VIEWPORT, setupBoard } from '../../helpers/api.helper';
 import { MainPage } from '../../pages/main.page';
 
 /**
@@ -215,12 +215,34 @@ test.describe('Drag-Drop Visual Affordances - Mobile', () => {
   // Mobile rendering of the incident list is covered in 15-time-indicators and
   // 16-sprint3-integration.
 
-  test('columns are horizontally scrollable on mobile', async ({ authenticatedPage }) => {
-    await authenticatedPage.setViewportSize({ width: 375, height: 667 });
+  // Was «columns are horizontally scrollable on mobile», asserting only that SOME
+  // element with an `overflow-x-auto` class was visible. Below 768px there are no
+  // columns: `app/page.tsx` renders `MobileIncidentListView`, one vertical list.
+  // The test passed only while an unrelated toolbar happened to carry that class.
+  // Assert the phone layout as it is meant to be.
+  test('the phone shows one vertical list, not side-scrolling columns', async ({
+    authenticatedPage,
+  }) => {
+    await authenticatedPage.setViewportSize(MOBILE_VIEWPORT);
 
-    await setupBoard(authenticatedPage, 'Mobile Scroll Test', { count: 0 });
-    const scrollContainer = authenticatedPage.locator('[class*="overflow-x-auto"]').first();
-    await expect(scrollContainer).toBeVisible();
+    await setupBoard(authenticatedPage, 'Mobile Scroll Test', { count: 2, layout: 'mobile' });
+
+    // The kanban board is not rendered at all on a phone.
+    await expect(authenticatedPage.locator('#kanban-main')).toHaveCount(0);
+
+    // The cards stack top to bottom in one column.
+    const cards = incidentCards(authenticatedPage, 'mobile');
+    await expect(cards).toHaveCount(2);
+    const first = (await cards.nth(0).boundingBox())!;
+    const second = (await cards.nth(1).boundingBox())!;
+    expect(Math.abs(second.x - first.x)).toBeLessThan(1);
+    expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+
+    // And nothing pushes the page sideways.
+    const overflowsSideways = await authenticatedPage.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(overflowsSideways).toBe(false);
   });
 });
 
