@@ -53,6 +53,8 @@ will keep holding.
 
 ### Security
 
+- **sharp 0.35.5** (Next.js image pipeline): its bundled librsvg had a high-severity advisory
+  (CVE-2026-96889, 06.10.2026).
 - **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per
   address (five per quarter-hour), so a poster link tried from many addresses could work through
   all 10,000 four-digit codes. Now every wrong code against an Ereignis counts towards one
