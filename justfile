@@ -819,6 +819,12 @@ test-ui:
     @echo "\033[1;34m→ Starting Playwright UI mode...\033[0m"
     cd frontend && pnpm test:e2e:ui
 
+# Play a large/long Ereignis into a throwaway stack and open it on a throttled browser
+# (presets: real long large extreme; default: real large). A measurement, not a gate:
+# compare against the recorded run in docs/testing/fat-event.md.
+fat-perf *presets:
+    bash scripts/fat-perf.sh {{presets}}
+
 # Lint all code (backend + frontend)
 lint:
     @echo "\033[1;34m→ Linting backend...\033[0m"

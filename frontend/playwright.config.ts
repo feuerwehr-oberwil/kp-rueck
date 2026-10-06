@@ -21,7 +21,8 @@ export default defineConfig({
     ? [['list'], ['github'], ['html', { open: 'never' }]]
     : 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    // `just fat-perf` serves a production build on its own port
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -31,9 +32,19 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // `just fat-perf <preset>`: a measurement, skipped unless FAT_PRESET is set
+    // (tests/perf/fat-event.perf.ts). No trace: it would record every one of the thousands of
+    // API calls and become the bottleneck. A tablet-sized landscape viewport, like the KP's.
+    {
+      name: 'perf',
+      testMatch: '**/*.perf.ts',
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 1024 }, trace: 'off', screenshot: 'off' },
+    },
   ],
 
-  webServer: {
+  // the perf run brings its own production build (scripts/fat-perf.sh)
+  webServer: process.env.FAT_PRESET ? undefined : {
     command: 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
