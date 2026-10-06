@@ -28,6 +28,15 @@ will keep holding.
 
 ## [Unreleased]
 
+### Changed
+
+- **Railway: no more `railway.json`.** Railway stops reading config-as-code files on
+  2026-12-01, so the builder, start command, healthcheck, restart policy, replica count and app
+  sleeping now live only in each service's settings. `backend/railway.json` and
+  `frontend/railway.json` are gone. *If you run KP Rück on Railway, set the values in
+  docs/RAILWAY.md §3.2/§3.3 (and staging's two differences, §8.2) on your services before your
+  next deploy.* Compose is not affected.
+
 ## [0.8.0] – 2026-10-10
 
 ### Added
