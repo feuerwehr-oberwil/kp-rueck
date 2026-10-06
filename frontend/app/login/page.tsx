@@ -19,7 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { LogIn, Shield, Eye, Flame } from 'lucide-react';
+import { LogIn, Shield, Eye } from 'lucide-react';
+import { BrandMark } from '@/components/brand-mark';
 import {
   AVAILABLE_LOCALES,
   LOCALE_NAMES,
@@ -148,9 +149,7 @@ export default function LoginPage() {
           <div className="p-8">
             {/* Header */}
             <div className="mb-8 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-                <Flame className="h-7 w-7 text-primary" strokeWidth={1.5} />
-              </div>
+              <BrandMark className="mx-auto mb-4" />
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 KP Rück
               </h1>

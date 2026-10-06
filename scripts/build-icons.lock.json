@@ -1,18 +1,18 @@
 {
   "frontend/public/icons/apple-touch-icon.png": {
-    "source": "61139149d74ea22d275ec0dd8e10122ba19e7c22ccc9741b6c8a9a5b1a458b62",
-    "png": "c2c2e06458718823589091c6b26161e693d43546f4a526fbce8ffdf603aabe3a"
+    "source": "f6d481076a3b80ff79b1240fb24794be33876f53c9fda967f68b0dc5b1922c64",
+    "png": "f583672db3b7f027054deb92b55b41904ab1bfdefaad2e7c3cdb025683a375f3"
   },
   "frontend/public/icons/icon-192.png": {
-    "source": "165d5cf34bcb6de96d07d32f4bad9c7d68e8c136d8a4e3101cc049cf49af3302",
-    "png": "90f4ba147a48d7db47f974c76155e773b55c4c803ec158eab0ad1b33e766a8ff"
+    "source": "6f4850100fd1978227251b31a988ed62ca4ab948f04f1abf5abab0492d64a7e3",
+    "png": "f6573f04966a8bc873b66844072ef9b10e5875b61aab934f20a8dcdc52e6639e"
   },
   "frontend/public/icons/icon-512.png": {
-    "source": "50ac18bbfa79536e6a67fca9f3c290d7722bf55ca2378d93e77a7005e1ae2b17",
-    "png": "268ff008f38b102034f2429a914da266c7c445cda92a90d667990fdc0355bfce"
+    "source": "cbbda42cb1aa38ac8fae000eb01908badda29deeac08d5d2bb37efcf4f32c747",
+    "png": "b3cd8d2761ab6b86800a7d4ad9573bf3862562a5fb0ef3e3cb04eca07b56e654"
   },
   "frontend/public/icons/icon-maskable-512.png": {
-    "source": "ac049b5894c4099d322009726974bb415d5622dfccf9bb90d9ed947df97727d0",
-    "png": "7cfb6979cf502c542f2ad7c4b014c8729864975b5bc43718c4dacf7c5ac68c8a"
+    "source": "ecee1247e569f1aa5d561d18a89902cba3adf027a398106dad0bc8f946401fa5",
+    "png": "48cdf640f3aec7cdd74782e00f2ebaacb4c13d8d8139c3a80cdb8251b985e7b9"
   }
 }
