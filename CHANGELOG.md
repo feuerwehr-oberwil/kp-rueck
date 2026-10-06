@@ -34,12 +34,14 @@ will keep holding.
   iPhone showed a screenshot of the page: the icon was an SVG, which iOS does not accept there,
   and there was no web manifest, so Android offered no app at all. There is now a PNG set (180 for
   iOS, 192 and 512 for Android, a maskable 512 that survives Android's round crop) and a manifest
-  named «KP Rück» that opens full-screen. The mark is the sibling of KP Front's – same ink tile,
-  same red, «kp rück» above a magnet board with a red card where Front has its pin – so the two
-  apps read as one family on the same phone. Favicon, home-screen icon and manifest icons are
-  drawn in one place (`scripts/build-icons.mjs`), and a test fails if they drift apart. Opened
-  from the home screen the app runs without the address bar and, on iOS, with its own storage:
-  log in once more after adding it.
+  named «KP Rück» that opens full-screen. The mark is the sibling of KP Front's map and pin – same
+  ink tile, same red, same illustration style: the magnet board on its easel, one card red because
+  something is running. No lettering in the icon; the phone prints the name under it. The login
+  shows the same mark (it had a generic flame), and so do kp-rueck.ch's header and favicon.
+  Favicon, login mark, home-screen icon, manifest icons and the site's mark are drawn in one place
+  (`scripts/build-icons.mjs`, with its own small cut for 16 px tabs), and a test fails if they
+  drift apart. Opened from the home screen the app runs without the address bar and, on iOS, with
+  its own storage: log in once more after adding it.
 
 ### Fixed
 

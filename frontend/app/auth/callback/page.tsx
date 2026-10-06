@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { BootScreen } from '@/components/boot-screen';
 import { handOverSnailClock } from '@/lib/snail-clock';
 import { useBootGate, useLaunchCoverUp } from '@/lib/boot-cover';
-import { Flame } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 
 export default function MicrosoftCallbackPage() {
   const t = useTranslations('login.callback');
@@ -83,7 +83,7 @@ export default function MicrosoftCallbackPage() {
         <Card className="border border-border bg-card/80 backdrop-blur-sm overflow-hidden">
           <div className="p-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-destructive/10 border border-destructive/20">
-              <Flame className="h-7 w-7 text-destructive" strokeWidth={1.5} />
+              <TriangleAlert className="h-7 w-7 text-destructive" strokeWidth={1.5} />
             </div>
             <div className="mb-1 text-base font-semibold text-foreground">{t('loginFailed')}</div>
             <p className="mb-6 text-sm text-muted-foreground">{error}</p>
