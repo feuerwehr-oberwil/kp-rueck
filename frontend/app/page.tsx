@@ -435,7 +435,7 @@ export default function FireStationDashboard() {
     ),
   )
 
-  useRekoNotifications(operations, handleOpenIncidentFromNotification, handleUpdateOperationReko)
+  useRekoNotifications(handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string; status: string }>>([])
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
