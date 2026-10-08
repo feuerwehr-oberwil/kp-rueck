@@ -69,6 +69,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
 
   return {
     id: incident.id,
+    number: incident.number ?? null,
     location: incident.location_address || incident.title,
     locationDisplay: incident.location_display ?? undefined,
     vehicle: null,

@@ -242,6 +242,8 @@ class IncidentResponse(IncidentBase):
 
     id: UUID
     event_id: UUID
+    # The incident's number within its Ereignis («14»), assigned by the database.
+    number: int | None = None
     position: int = 0
     # Auftrag (incident group) membership + order of this stop within it.
     group_id: UUID | None = None

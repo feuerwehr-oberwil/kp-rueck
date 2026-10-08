@@ -577,7 +577,19 @@ function DraggableOperationBase({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-base text-foreground leading-tight break-words">{locationLabel}</h3>
+                <h3 className="font-bold text-base text-foreground leading-tight break-words">
+                  {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
+                      mono, so the address stays the heading. */}
+                  {operation.number != null && (
+                    <span
+                      className="mr-1.5 font-mono text-xs font-medium tabular-nums text-muted-foreground"
+                      title={t('card.numberTitle', { number: operation.number })}
+                    >
+                      {operation.number}
+                    </span>
+                  )}
+                  {locationLabel}
+                </h3>
                 {/* Abholung. Deliberately NOT gated on status: completing the
                     card auto-releases the crew while they are still standing at
                     the address, so this is the moment it matters most. */}
@@ -1393,6 +1405,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
 
   return (
     prevProps.operation.id === nextProps.operation.id &&
+    prevProps.operation.number === nextProps.operation.number &&
     prevProps.operation.status === nextProps.operation.status &&
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&

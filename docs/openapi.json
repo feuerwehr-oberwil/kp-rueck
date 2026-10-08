@@ -25241,6 +25241,17 @@
             "format": "uuid",
             "title": "Event Id"
           },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
           "position": {
             "type": "integer",
             "title": "Position",

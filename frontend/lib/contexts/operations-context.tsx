@@ -91,6 +91,10 @@ export interface RekoSummary {
 
 export interface Operation {
   id: string
+  /** The incident's number within its Ereignis — «14» on the card and in ⌘K
+   *  («14 tlf meier»). Server-assigned and never reused; absent on an optimistic
+   *  card until the POST answers, and from a backend that predates it. */
+  number?: number | null
   location: string
   /** Server-computed short location label (home city stripped). Absent on
    *  locally-created optimistic operations until the next server sync. */
@@ -1593,6 +1597,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
           vehicleDriverStay: new Map(),
           groupId: apiIncident.group_id ?? null,
           groupPosition: apiIncident.group_position ?? 0,
+          number: apiIncident.number ?? null,
         }
         // Invalidate reloads that started before the POST landed — they'd
         // overwrite the board without the new incident.

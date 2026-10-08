@@ -72,6 +72,7 @@ const wrapper = ({ children }: { children: ReactNode }) => <OperationsProvider>{
 const FULL: ApiIncident = {
   id: "inc-full",
   event_id: EVENT,
+  number: 14,
   title: "Wasser im Keller",
   type: "elementarereignis",
   priority: "high",
@@ -298,6 +299,7 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     const board = await loaded()
     expect(board.operations[0]).toEqual({
       id: "inc-full",
+      number: 14,
       location: "Hauptstrasse 12, 4104 Oberwil",
       locationDisplay: "Hauptstrasse 12",
       vehicle: null,
@@ -362,6 +364,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     const board = await loaded()
     expect(board.operations[1]).toEqual({
       id: "inc-bare",
+      // An older backend sends no number: null, never undefined.
+      number: null,
       location: "Baum auf Strasse",
       locationDisplay: undefined,
       vehicle: null,

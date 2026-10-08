@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    FetchedValue,
     ForeignKey,
     Index,
     Integer,
@@ -19,9 +20,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import event as sa_event
 from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -600,6 +603,16 @@ class Incident(Base):
     event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     event: Mapped["Event"] = relationship("Event", back_populates="incidents")
 
+    # The incident's number within its Ereignis – «14» on the card, what an
+    # operator types into ⌘K («14 tlf meier») and says on the radio. Assigned by
+    # the database on INSERT (trigger `incidents_assign_number`, see
+    # INCIDENT_NUMBER_TRIGGER_SQL below) so every creation path – board, intake,
+    # Feld, alarm webhook, training generator, seed – gets one without knowing
+    # about it. Never reused within an Ereignis: soft-deleted incidents keep
+    # theirs. Nullable only so a row inserted with an explicit NULL is not
+    # refused; the trigger fills NULL.
+    number: Mapped[int | None] = mapped_column(Integer, nullable=True, server_default=FetchedValue())
+
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -750,6 +763,8 @@ class Incident(Base):
         Index("idx_incidents_event_status_position", "event_id", "status", "position"),
         # Supports ORDER BY group_position within an Auftrag (incident group).
         Index("idx_incidents_group_position", "group_id", "group_position"),
+        # MAX(number) per Ereignis for the numbering trigger, and the ⌘K lookup.
+        Index("idx_incidents_event_number", "event_id", "number"),
         Index(
             "uq_incidents_group_position_active",
             "group_id",
@@ -758,6 +773,43 @@ class Incident(Base):
             postgresql_where=sa_text("group_id IS NOT NULL AND deleted_at IS NULL"),
         ),
     )
+
+
+# The per-Ereignis incident number (`Incident.number`). One trigger rather than
+# a line in each of the seven places that create an incident: a creation path
+# added later cannot forget it. The advisory lock serialises the MAX()+1 of
+# concurrent inserts into the same Ereignis (an alarm webhook burst) until the
+# inserting transaction ends; other Ereignisse are not blocked. A row inserted
+# with an explicit number (a restore) keeps it. Installed by `create_all` (the
+# test schema) from here; the migration `d9a4c2e7b1f3` carries a frozen copy —
+# changing this means a new migration too.
+INCIDENT_NUMBER_TRIGGER_SQL = (
+    """
+CREATE OR REPLACE FUNCTION incidents_assign_number() RETURNS trigger AS $$
+BEGIN
+    IF NEW.number IS NULL THEN
+        PERFORM pg_advisory_xact_lock(hashtext('incident_number:' || NEW.event_id::text));
+        SELECT COALESCE(MAX(number), 0) + 1 INTO NEW.number
+          FROM incidents WHERE event_id = NEW.event_id;
+    END IF;
+    RETURN NEW;
+END
+$$ LANGUAGE plpgsql
+""",
+    """
+CREATE TRIGGER incidents_assign_number
+    BEFORE INSERT ON incidents
+    FOR EACH ROW EXECUTE FUNCTION incidents_assign_number()
+""",
+)
+
+
+def _install_incident_number_trigger(_table: Any, connection: Connection, **_kw: Any) -> None:
+    for statement in INCIDENT_NUMBER_TRIGGER_SQL:
+        connection.exec_driver_sql(statement)
+
+
+sa_event.listen(Incident.__table__, "after_create", _install_incident_number_trigger)
 
 
 # ============================================

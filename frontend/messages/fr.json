@@ -235,7 +235,33 @@
       "deleteIncident": "Supprimer l’intervention",
       "linksAndQr": "Liens & QR",
       "rapporte": "Ouvrir les rapports",
-      "mapColorBy": "Colorer par : {mode}"
+      "mapColorBy": "Colorer par : {mode}",
+      "dispatch": {
+        "placeholder": "Rechercher une commande … ou « 14 tlf meier »",
+        "group": "Exécuter",
+        "incidentTitle": "Intervention {number}",
+        "arrowAssign": "reçoit",
+        "alreadyHere": "déjà là",
+        "elsewhere": "sur {numbers}",
+        "outOfService": "hors service",
+        "ignored": "Ne compte pas – en double ou remplacé",
+        "unknown": "Inconnu – ignoré",
+        "ambiguousCount": "{count} résultats",
+        "actionRun": "exécuter",
+        "actionOpen": "ouvrir",
+        "actionJump": "afficher",
+        "readOnly": "Réservé aux droits d’édition",
+        "nothingToDo": "déjà fait",
+        "pickBelow": "choisir ci-dessous",
+        "unknownIncident": "Aucune intervention {number}",
+        "needsIncident": "Commencer par le numéro, p. ex. « 14 tlf meier »",
+        "choiceFor": "pour « {text} »",
+        "toastTitle": "Intervention {number} · {name}",
+        "toastAssigned": "{names} attribué(s)",
+        "toastStatus": "→ {status}",
+        "toastPriority": "Priorité {priority}",
+        "toastUndone": "Annulé"
+      }
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -1735,7 +1761,8 @@
       "moreMaterialTitle": "{count, plural, one {# engin de plus} other {# engins de plus}} – ouvrir l’intervention",
       "deleteIncident": "Supprimer l'intervention",
       "realAlarmBadge": "Alarme réelle",
-      "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs."
+      "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs.",
+      "numberTitle": "Intervention {number}"
     },
     "column": {
       "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",

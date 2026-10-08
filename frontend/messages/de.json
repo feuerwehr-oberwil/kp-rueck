@@ -126,7 +126,33 @@
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
       "rapporte": "Rapporte öffnen",
-      "mapColorBy": "Färben nach: {mode}"
+      "mapColorBy": "Färben nach: {mode}",
+      "dispatch": {
+        "placeholder": "Befehl suchen … oder «14 tlf meier»",
+        "group": "Ausführen",
+        "incidentTitle": "Einsatz {number}",
+        "arrowAssign": "bekommt",
+        "alreadyHere": "schon da",
+        "elsewhere": "auf {numbers}",
+        "outOfService": "nicht einsatzbereit",
+        "ignored": "Zählt nicht – doppelt oder ersetzt",
+        "unknown": "Unbekannt – wird ignoriert",
+        "ambiguousCount": "{count} Treffer",
+        "actionRun": "ausführen",
+        "actionOpen": "öffnen",
+        "actionJump": "zeigen",
+        "readOnly": "Nur mit Bearbeitungsrecht",
+        "nothingToDo": "schon so",
+        "pickBelow": "unten wählen",
+        "unknownIncident": "Kein Einsatz {number}",
+        "needsIncident": "Einsatznummer voranstellen, z. B. «14 tlf meier»",
+        "choiceFor": "für «{text}»",
+        "toastTitle": "Einsatz {number} · {name}",
+        "toastAssigned": "{names} zugewiesen",
+        "toastStatus": "→ {status}",
+        "toastPriority": "Priorität {priority}",
+        "toastUndone": "Rückgängig gemacht"
+      }
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -632,7 +658,8 @@
       "moreMaterialTitle": "{count, plural, one {# weiteres Gerät} other {# weitere Geräte}} – Einsatz öffnen",
       "deleteIncident": "Einsatz löschen",
       "realAlarmBadge": "Echt-Alarm",
-      "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger."
+      "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger.",
+      "numberTitle": "Einsatz {number}"
     },
     "column": {
       "ariaLabelWithCount": "Spalte {title} ({count, plural, one {# Einsatz} other {# Einsätze}})",
