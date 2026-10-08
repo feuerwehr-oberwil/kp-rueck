@@ -83,6 +83,11 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
         resource_notifications = await _check_resource_alerts(db, event_id, settings)
         notifications.extend(resource_notifications)
 
+    # Time on duty: ONE notification for the whole crew, kept up to date in place rather
+    # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
+    # so switching those off resolves it like the others.
+    await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
+
     # Data quality alerts
     if settings.enabled_data_quality_alerts:
         data_quality_notifications = await _check_data_quality_alerts(db, event_id)
@@ -287,36 +292,6 @@ async def _check_resource_alerts(
                 )
             )
 
-    # Check personnel fatigue (assigned > threshold hours)
-    now = datetime.now(UTC)
-    fatigue_threshold_minutes = settings.fatigue_hours * 60
-
-    assignment_result = await db.execute(
-        select(IncidentAssignment, Personnel.name)
-        .join(Personnel, IncidentAssignment.resource_id == Personnel.id)
-        # Explicit onclause: incidents now carries its own FKs to personnel
-        # (field_complete_reported_by, pickup_requested_by), so the implicit join
-        # from the personnel-joined selectable is ambiguous.
-        .join(Incident, IncidentAssignment.incident_id == Incident.id)
-        .where(Incident.event_id == event_id)
-        .where(IncidentAssignment.resource_type == "personnel")
-        .where(IncidentAssignment.unassigned_at.is_(None))
-    )
-    active_assignments = assignment_result.all()
-
-    for assignment, personnel_name in active_assignments:
-        duration_minutes = (now - assignment.assigned_at).total_seconds() / 60
-        if duration_minutes > fatigue_threshold_minutes:
-            hours = int(duration_minutes // 60)
-            notifications.append(
-                Notification(
-                    type="personnel_fatigue",
-                    severity="warning",
-                    message=f"{personnel_name} ist seit {hours} Stunden im Einsatz",
-                    event_id=event_id,
-                )
-            )
-
     # Check material depletion by location (e.g., 'Depot', 'TLF', 'MoWa')
     # Skip material locations with threshold -1 (disabled)
     # Note: Material.status tracks if the item is broken/unavailable, NOT if it's assigned.
@@ -375,6 +350,144 @@ async def _check_resource_alerts(
             )
 
     return notifications
+
+
+#: How many names the grouped time-on-duty notification spells out before «und N weitere».
+FATIGUE_NAMES_SHOWN = 5
+
+
+def fatigue_message(over: list[tuple[str, int]], fatigue_hours: int) -> str:
+    """The one sentence for everybody past the time-on-duty threshold.
+
+    ``over`` is ``(name, minutes on duty)``, longest first. Whole hours only: the sentence
+    is rewritten in place whenever it changes, and a minute in it would rewrite the row
+    every poll for a number the board already shows live on the person chip.
+
+    «Seit über 4 h im Einsatz: Müller Hans (6 h)» /
+    «3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (5 h), Huber Max (4 h)»
+    (frontend/lib/notification-format.ts takes it apart again — keep the two in step).
+    """
+    shown = ", ".join(f"{name} ({minutes // 60} h)" for name, minutes in over[:FATIGUE_NAMES_SHOWN])
+    rest = len(over) - FATIGUE_NAMES_SHOWN
+    if rest > 0:
+        shown += f" und {rest} weitere"
+    head = (
+        f"Seit über {fatigue_hours} h im Einsatz"
+        if len(over) == 1
+        else f"{len(over)} Personen seit über {fatigue_hours} h im Einsatz"
+    )
+    return f"{head}: {shown}"
+
+
+async def _sync_fatigue_notification(
+    db: AsyncSession, event_id: UUID, settings: NotificationSettings, *, enabled: bool = True
+) -> Notification | None:
+    """Keep the ONE time-on-duty notification of this Ereignis in step with the crew.
+
+    Time on duty is measured from ``EventAttendance.checked_in_at`` — when the person
+    arrived, not when their current assignment began. It used to be the latter, so moving
+    somebody to another Schadenplatz reset their clock to zero, and the person who had
+    worked three incidents back to back never reached the threshold. It also emitted one
+    warning per person, whose text changed with every hour, so a long night rang the bell
+    for each name every hour.
+
+    Now:
+    - Everybody checked in for at least ``fatigue_hours`` is named in one notification.
+    - While it is open, it is rewritten in place (same id: no new toast, no new bell row).
+    - Dismissing it acknowledges everybody who had crossed the threshold by then. A NEW
+      one is raised only when somebody crosses it after the last dismissal — or, with
+      re-alarming switched on, once that interval has passed.
+    - When nobody is past the threshold any more (checked out), it resolves itself.
+
+    ``fatigue_hours`` <= 0 switches the check off. Returns the open notification, if any.
+    """
+    from ..models import EventAttendance
+
+    now = datetime.now(UTC)
+    threshold_minutes = settings.fatigue_hours * 60
+
+    over: list[tuple[str, int]] = []
+    newest_crossing: datetime | None = None
+    if enabled and threshold_minutes > 0:
+        rows = await db.execute(
+            select(Personnel.name, EventAttendance.checked_in_at)
+            .join(Personnel, EventAttendance.personnel_id == Personnel.id)
+            .where(EventAttendance.event_id == event_id)
+            .where(EventAttendance.checked_in)
+            .where(EventAttendance.checked_in_at.isnot(None))
+        )
+        for name, checked_in_at in rows.all():
+            minutes = int((now - checked_in_at).total_seconds() // 60)
+            if minutes < threshold_minutes:
+                continue
+            over.append((name, minutes))
+            crossing = checked_in_at + timedelta(minutes=threshold_minutes)
+            if newest_crossing is None or crossing > newest_crossing:
+                newest_crossing = crossing
+        # Longest on duty first, then by name, so the sentence does not reshuffle.
+        over.sort(key=lambda item: (-item[1], item[0]))
+
+    active_result = await db.execute(
+        select(Notification)
+        .where(Notification.event_id == event_id)
+        .where(Notification.type == "personnel_fatigue")
+        .where(Notification.dismissed == False)  # noqa: E712
+        .order_by(Notification.created_at.desc())
+    )
+    active = list(active_result.scalars().all())
+
+    if not over:
+        # Condition gone: auto-resolve (dismissed_by stays NULL, like every auto-resolve).
+        for stale in active:
+            stale.dismissed = True
+            stale.dismissed_at = now
+        if active:
+            await db.commit()
+        return None
+
+    message = fatigue_message(over, settings.fatigue_hours)
+
+    if active:
+        current, *extra = active
+        changed = bool(extra)
+        # Rows from before the grouping (one per person) fold into the newest one.
+        for stale in extra:
+            stale.dismissed = True
+            stale.dismissed_at = now
+        if current.message != message:
+            current.message = message
+            changed = True
+        if changed:
+            await db.commit()
+        return current
+
+    last_dismissed_at = (
+        await db.execute(
+            select(func.max(Notification.dismissed_at))
+            .where(Notification.event_id == event_id)
+            .where(Notification.type == "personnel_fatigue")
+            .where(Notification.dismissed)
+        )
+    ).scalar_one_or_none()
+
+    if last_dismissed_at is not None and newest_crossing is not None and newest_crossing <= last_dismissed_at:
+        # Everybody on the list was already past the threshold when it was dismissed.
+        re_alarm_due = settings.re_alarm_interval_min > 0 and now - last_dismissed_at >= timedelta(
+            minutes=settings.re_alarm_interval_min
+        )
+        if not re_alarm_due:
+            return None
+
+    notification = Notification(
+        type="personnel_fatigue",
+        severity="warning",
+        message=message,
+        event_id=event_id,
+    )
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
+    return notification
 
 
 async def _check_data_quality_alerts(db: AsyncSession, event_id: UUID) -> list[Notification]:
@@ -620,10 +733,11 @@ async def _deduplicate_and_save(
         # Build suppression logic based on re-alarm settings
         now = datetime.now(UTC)
 
-        # Use longer suppression intervals where the condition is slow-moving and repeating it
-        # is pure noise: a tired person (2 h) and a full disk (6 h — nobody frees storage
-        # mid-incident, and the condition persists until someone acts on it).
-        suppression_by_type = {"personnel_fatigue": 120, "event_size_limit": 360}
+        # Use a longer suppression interval where the condition is slow-moving and repeating
+        # it is pure noise: a full disk (6 h — nobody frees storage mid-incident, and the
+        # condition persists until someone acts on it).
+        # (`personnel_fatigue` no longer passes through here — `_sync_fatigue_notification`.)
+        suppression_by_type = {"event_size_limit": 360}
         suppression_minutes = suppression_by_type.get(notification.type, 30)
 
         if re_alarm_enabled:
@@ -699,10 +813,10 @@ async def _auto_resolve_stale_notifications(
     for notification in active_notifications:
         # For material depletion notifications, check if the message is still in the current set
         # If not, the condition has been resolved (materials back above threshold)
-        if (
-            notification.type in ("no_materials", "personnel_fatigue", "no_personnel")
-            and notification.message not in current_messages
-        ):
+        # `personnel_fatigue` is resolved by `_sync_fatigue_notification`: its message is
+        # rewritten in place as people cross the threshold, so «not in the current set» says
+        # nothing about it.
+        if notification.type in ("no_materials", "no_personnel") and notification.message not in current_messages:
             notifications_to_resolve.append(notification)
 
     # Auto-dismiss resolved notifications

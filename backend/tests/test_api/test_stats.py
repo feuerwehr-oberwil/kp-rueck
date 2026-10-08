@@ -432,3 +432,136 @@ async def test_get_stats_utilization_rounded(
     if "." in str(utilization):
         decimal_places = len(str(utilization).split(".")[1])
         assert decimal_places <= 1
+
+
+# ============================================
+# Time on duty (personnel_activity)
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_activity_time_on_duty_and_einsaetze(
+    db_session: AsyncSession, authenticated_client: AsyncClient, test_event: Event, test_user: User
+):
+    """Who is here, since when, how long, how many Einsätze, and where now.
+
+    The clock runs from check-in, not from the current assignment; an Einsatz is a
+    distinct incident (or Auftrag) worked, finished or current; a mis-drag released
+    within a minute is not one.
+    """
+    from app.models import IncidentGroup, IncidentGroupAssignment
+
+    now = datetime.now(UTC)
+    veteran = Personnel(id=uuid4(), name="Müller Hans", role="Wm", status="available")
+    fresh = Personnel(id=uuid4(), name="Frisch Eva", role="Sdt", status="available")
+    gone = Personnel(id=uuid4(), name="Weg Paul", role="Sdt", status="available")
+    db_session.add_all([veteran, fresh, gone])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            EventAttendance(
+                event_id=test_event.id, personnel_id=veteran.id, checked_in=True, checked_in_at=now - timedelta(hours=5)
+            ),
+            EventAttendance(
+                event_id=test_event.id,
+                personnel_id=fresh.id,
+                checked_in=True,
+                checked_in_at=now - timedelta(minutes=20),
+            ),
+            # Came back after going home: the old check-out stamp stays, and they are here.
+            EventAttendance(
+                event_id=test_event.id,
+                personnel_id=gone.id,
+                checked_in=True,
+                checked_in_at=now - timedelta(hours=1),
+                checked_out_at=now - timedelta(hours=2),
+            ),
+        ]
+    )
+
+    def incident(title: str, address: str | None) -> Incident:
+        return Incident(
+            id=uuid4(),
+            event_id=test_event.id,
+            title=title,
+            type="brandbekaempfung",
+            status="active",
+            priority="medium",
+            location_address=address,
+        )
+
+    done_a, done_b, misdrag, current = (
+        incident("Keller A", "Bahnhofstrasse 1"),
+        incident("Keller B", "Hauptstrasse 2"),
+        incident("Keller C", "Hauptstrasse 3"),
+        incident("Baum", "Mühlemattstrasse 18"),
+    )
+    db_session.add_all([done_a, done_b, misdrag, current])
+    route = IncidentGroup(id=uuid4(), event_id=test_event.id, name="Sturmrunde Nord")
+    db_session.add(route)
+    await db_session.flush()
+
+    def worked(inc: Incident, start_h: float, end_h: float | None) -> IncidentAssignment:
+        return IncidentAssignment(
+            incident_id=inc.id,
+            resource_type="personnel",
+            resource_id=veteran.id,
+            assigned_at=now - timedelta(hours=start_h),
+            unassigned_at=None if end_h is None else now - timedelta(hours=end_h),
+        )
+
+    db_session.add_all(
+        [
+            worked(done_a, 4.5, 3.5),
+            # Same incident twice (moved off and back): still ONE Einsatz.
+            worked(done_a, 3.4, 3.0),
+            worked(done_b, 2.9, 2.0),
+            IncidentAssignment(
+                incident_id=misdrag.id,
+                resource_type="personnel",
+                resource_id=veteran.id,
+                assigned_at=now - timedelta(minutes=90),
+                unassigned_at=now - timedelta(minutes=90) + timedelta(seconds=40),
+            ),
+            # The current assignment is only minutes old — time on duty is still 5 h.
+            worked(current, 0.05, None),
+            IncidentGroupAssignment(
+                incident_group_id=route.id,
+                resource_type="personnel",
+                resource_id=veteran.id,
+                assigned_at=now - timedelta(hours=1.9),
+                unassigned_at=now - timedelta(hours=1),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await authenticated_client.get(f"/api/events/{test_event.id}/stats")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["personnel_total"] == 3
+    rows = data["personnel_activity"]
+    assert [r["name"] for r in rows] == ["Müller Hans", "Weg Paul", "Frisch Eva"]
+
+    hans = rows[0]
+    assert 299 <= hans["active_duration_minutes"] <= 301
+    assert hans["assignment_count"] == 4  # Keller A, Keller B, Baum, Sturmrunde Nord
+    assert hans["status"] == "assigned"
+    assert hans["current_incident_title"] == "Mühlemattstrasse 18"
+    assert hans["checked_in_at"] is not None
+
+    eva = rows[2]
+    assert eva["assignment_count"] == 0
+    assert eva["current_incident_title"] is None
+    assert eva["status"] == "available"
+    assert 19 <= eva["active_duration_minutes"] <= 21
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_activity_empty_without_attendance(authenticated_client: AsyncClient, test_event: Event):
+    response = await authenticated_client.get(f"/api/events/{test_event.id}/stats")
+    assert response.status_code == 200
+    assert response.json()["personnel_activity"] == []

@@ -27564,7 +27564,7 @@
           "assignment_count"
         ],
         "title": "PersonnelActivity",
-        "description": "Personnel activity tracking for fatigue monitoring."
+        "description": "One checked-in person's time on duty (``GET /events/{id}/stats``, `api/stats.py`)."
       },
       "PersonnelCheckInResponse": {
         "properties": {
