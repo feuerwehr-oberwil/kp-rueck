@@ -69,6 +69,12 @@ will keep holding.
   reads the same labels the board shows, in the device's language (German or French); the code
   still works as a whole word. A finished Reko is found by typing «reko» – before, any query that
   was a piece of the word («r», «e», «ko») matched every card with a Reko.
+- **The viewer share link from the API opens the display.** `POST /api/viewer/generate-link`
+  returned `link` / `full_url` as `/viewer?token=…`, a page that does not exist – anyone (an
+  integration, a script) using the URL as returned landed on «Seite nicht gefunden». It now
+  returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
+  forwards the token to the board, map and status wall pages. The sheet now uses that `link`
+  instead of building its own.
 
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
@@ -80,6 +86,10 @@ will keep holding.
 
 ### Security
 
+- **`/health/detailed` no longer repeats error messages.** Outside production the endpoint
+  answers without a login, and a failed component's entry carried the exception text, which can
+  include a database URL or a host name. It now names only the error type; the full error goes
+  to the backend log. (Production never served this endpoint.)
 - **sharp 0.35.5** (Next.js image pipeline): its bundled librsvg had a high-severity advisory
   (CVE-2026-96889, 06.10.2026).
 - **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per

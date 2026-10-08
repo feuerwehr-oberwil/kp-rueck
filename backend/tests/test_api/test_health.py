@@ -155,6 +155,34 @@ async def test_detailed_health_check_degraded_on_db_failure():
         app.dependency_overrides.clear()
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_detailed_health_names_the_failure_without_its_text():
+    """The endpoint is unauthenticated: a failed component says WHAT failed, not the message.
+
+    An exception's text can carry a DSN, a host or a path. It goes to the log; the response
+    carries only the exception class.
+    """
+
+    async def failing_db():
+        mock_session = AsyncMock()
+        mock_session.execute.side_effect = ConnectionError("postgresql://kprueck:s3cret@db-host:5432/kprueck")
+        yield mock_session
+
+    app.dependency_overrides[get_db] = failing_db
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/health/detailed")
+            assert response.status_code == 200
+            database = response.json()["components"]["database"]
+            assert database == {"status": "unhealthy", "error": "ConnectionError"}
+            assert "s3cret" not in response.text
+            assert "db-host" not in response.text
+    finally:
+        app.dependency_overrides.clear()
+
+
 # ============================================
 # Pool Statistics Tests
 # ============================================

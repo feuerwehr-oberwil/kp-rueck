@@ -3,6 +3,7 @@
 import asyncio
 import io
 import logging
+import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -85,9 +86,24 @@ class PhotoStorageService:
         self.quality = 85  # JPEG quality (1-100)
         self.output_format = "JPEG"  # Convert all images to JPEG
 
+    def _inside_photos_dir(self, *parts: str) -> Path:
+        """Join ``parts`` under photos_dir and refuse anything that resolves outside it.
+
+        Written as realpath + prefix check on purpose: it is the containment test CodeQL's
+        path-injection query recognises, so the analysis sees the same guard a reader does
+        (a ``Path.resolve().is_relative_to()`` check was equally correct, but invisible to it
+        and kept eight alerts open). The trailing separator stops ``/photos-evil`` from
+        passing as ``/photos``.
+        """
+        base = os.path.realpath(self.photos_dir)
+        full = os.path.realpath(os.path.join(base, *parts))
+        if not full.startswith(base + os.sep):
+            raise HTTPException(status_code=400, detail="Path traversal detected")
+        return Path(full)
+
     def _get_incident_dir(self, incident_id: uuid.UUID) -> Path:
         """Get photo directory for incident (creates if needed)."""
-        incident_dir = self.photos_dir / str(incident_id)
+        incident_dir = self._inside_photos_dir(str(incident_id))
         incident_dir.mkdir(parents=True, exist_ok=True)
         return incident_dir
 
@@ -340,15 +356,8 @@ class PhotoStorageService:
         if not re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$", filename):
             raise HTTPException(status_code=400, detail="Invalid filename format: must be UUID.jpg")
 
-        file_path = self.photos_dir / str(incident_id) / filename
-
-        # Ensure resolved path is within photos_dir (prevents traversal)
-        try:
-            if not file_path.resolve().is_relative_to(self.photos_dir.resolve()):
-                raise HTTPException(status_code=400, detail="Path traversal detected")
-        except ValueError:
-            # is_relative_to() raises ValueError if paths are on different drives
-            raise HTTPException(status_code=400, detail="Invalid path") from None
+        # Ensure the resolved path is within photos_dir (prevents traversal)
+        file_path = self._inside_photos_dir(str(incident_id), filename)
 
         return file_path if file_path.exists() else None
 

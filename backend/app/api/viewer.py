@@ -71,9 +71,12 @@ async def generate_viewer_link(
 
     Returns shareable link for read-only access to an event's incidents.
     Anyone with this link can view the current state without logging in.
+
+    The link opens the `/display` overview, which forwards the token to the
+    board, map and status wall pages — there is no `/viewer` page.
     """
     token = generate_viewer_token(event_id)
-    link = f"/viewer?token={token}"
+    link = f"/display?token={token}"
 
     # Get base URL from request
     base_url = str(request.base_url).rstrip("/")

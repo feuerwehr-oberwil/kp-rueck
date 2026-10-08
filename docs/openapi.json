@@ -19145,7 +19145,7 @@
           "viewer"
         ],
         "summary": "Generate Viewer Link",
-        "description": "Generate viewer link (editor only).\n\nReturns shareable link for read-only access to an event's incidents.\nAnyone with this link can view the current state without logging in.",
+        "description": "Generate viewer link (editor only).\n\nReturns shareable link for read-only access to an event's incidents.\nAnyone with this link can view the current state without logging in.\n\nThe link opens the `/display` overview, which forwards the token to the\nboard, map and status wall pages — there is no `/viewer` page.",
         "operationId": "generate_viewer_link_api_viewer_generate_link_post",
         "parameters": [
           {

@@ -92,9 +92,10 @@ export function LinksQrSheet({
     if (key === "display") {
       // The read-only share token, pointed at the /display OVERVIEW rather than
       // one wall page: the picker there forwards the token to board/map/status,
-      // so one link covers all three and the sub-link picker could go.
+      // so one link covers all three and the sub-link picker could go. The
+      // backend's `link` is that same `/display?token=…` path.
       const response = await apiClient.generateViewerLink(id)
-      return `${window.location.origin}/display?token=${response.token}`
+      return `${window.location.origin}${response.link}`
     }
     if (key === "feld") {
       const response = await apiClient.generateFeldLink(id)
