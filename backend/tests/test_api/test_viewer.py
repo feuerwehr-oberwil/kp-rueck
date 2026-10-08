@@ -699,3 +699,28 @@ async def test_viewer_token_opens_no_other_endpoint(client: AsyncClient, test_ev
 
     reports = await client.get(f"/api/reko/incident/{test_incident.id}?token={token}")
     assert reports.status_code in (401, 404)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_link_requires_an_editor(client: AsyncClient, test_event: Event):
+    response = await client.post(f"/api/viewer/generate-link?event_id={test_event.id}")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_generate_link_points_at_the_display_page(editor_client: AsyncClient, test_event: Event):
+    """The share link opens `/display` (the frontend has no `/viewer` page), and its token opens the data."""
+    response = await editor_client.post(f"/api/viewer/generate-link?event_id={test_event.id}")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["link"] == f"/display?token={body['token']}"
+    assert body["full_url"].endswith(body["link"])
+    assert body["qr_code_data"] == body["link"]
+    assert "/viewer" not in body["full_url"]
+
+    data = await editor_client.get(f"/api/viewer/data?token={body['token']}")
+    assert data.status_code == 200
+    assert data.json()["event"]["id"] == str(test_event.id)

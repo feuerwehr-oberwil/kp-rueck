@@ -45,6 +45,13 @@ will keep holding.
 
 ### Fixed
 
+- **The viewer share link from the API opens the display.** `POST /api/viewer/generate-link`
+  returned `link` / `full_url` as `/viewer?token=…`, a page that does not exist – anyone (an
+  integration, a script) using the URL as returned landed on «Seite nicht gefunden». It now
+  returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
+  forwards the token to the board, map and status wall pages. The sheet now uses that `link`
+  instead of building its own.
+
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open
