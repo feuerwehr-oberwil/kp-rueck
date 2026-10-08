@@ -322,6 +322,7 @@ function visits(links) {
     { id: 'auftraege', path: '/', desktopOnly: true, act: (p) => click(p, /Aufträge/) },
     { id: 'personnel', path: '/', phoneOnly: true, act: async (p) => { await openMehr(p); await click(p, /^Personal/) } },
     { id: 'vehicles', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Fahrzeug/) } },
+    { id: 'journal', path: '/', act: async (p, w) => { if (phone(w)) { await openMehr(p); await click(p, /^Einsatztagebuch/, { wait: 1500 }) } else { await p.keyboard.press('j'); await p.waitForTimeout(1500) } } },
     { id: 'print', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Drucken/) } },
     { id: 'map', path: '/map' },
     { id: 'events', path: '/events' },

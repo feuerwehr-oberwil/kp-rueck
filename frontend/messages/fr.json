@@ -4079,7 +4079,7 @@
     "correct": "Corriger l'entrée",
     "correcting": "Correction de «{text}» – l'original reste visible.",
     "cancelCorrection": "Annuler la correction",
-    "placeholder": "Entrée … (# lie une intervention)",
+    "placeholder": "Entrée … #intervention",
     "placeholderCorrect": "Nouveau libellé",
     "inputLabel": "Nouvelle entrée du journal",
     "submit": "Inscrire",

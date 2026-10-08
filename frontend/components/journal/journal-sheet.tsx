@@ -101,7 +101,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
       onOpenChange={onOpenChange}
       className="flex flex-col gap-0 max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-sheet-safe sm:pb-4 modal-h-tall"
     >
-      <SheetHeader className="flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 p-0 pr-10 sm:pr-0 shrink-0">
+      <SheetHeader className="flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 p-0 pr-14 sm:pr-0 shrink-0">
         <div className="flex min-w-0 items-baseline gap-2">
           <SheetTitle className="text-base">{t("title")}</SheetTitle>
           <SheetDescription className="hidden truncate text-xs sm:block">{t("description")}</SheetDescription>
@@ -208,8 +208,11 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
                 key={line.entry.id}
                 line={line}
                 incidentLabel={line.entry.incident_id ? labels.get(line.entry.incident_id) : undefined}
+                stacked={isMobile}
                 onOpenIncident={
-                  onOpenIncident && line.entry.incident_id && labels.has(line.entry.incident_id)
+                  // The phone views; a tap target there is 44px, and a 44px chip in every row
+                  // is a list of chips. The desktop chip opens the Einsatz.
+                  !isMobile && onOpenIncident && line.entry.incident_id && labels.has(line.entry.incident_id)
                     ? () => onOpenIncident(line.entry.incident_id!)
                     : undefined
                 }
@@ -240,11 +243,14 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
 function JournalRow({
   line,
   incidentLabel,
+  stacked = false,
   onOpenIncident,
   onCorrect,
 }: {
   line: JournalLine
   incidentLabel?: string
+  /** Phone: the Einsatz on a line of its own above the text, not a chip inside it. */
+  stacked?: boolean
   onOpenIncident?: () => void
   onCorrect?: () => void
 }) {
@@ -253,17 +259,32 @@ function JournalRow({
   const [showOriginal, setShowOriginal] = useState(false)
   const lastCorrection = line.corrections[line.corrections.length - 1]
   const incidentName = incidentLabel ?? entry.incident_title
+  // Who wrote it — for what a PERSON said (a manual line, a Reko report). On the board's own
+  // rows it would read «Demo Bearbeiter» three hundred times (the PDF dropped it for that);
+  // there it is the row's tooltip instead.
+  const author = entry.kind === "manual" || entry.kind === "reko" ? entry.author_name : null
   return (
-    <li className="group flex gap-3 py-2 text-sm" data-kind={entry.kind} data-testid="journal-row">
+    <li
+      className="group flex gap-3 py-2 text-sm"
+      data-kind={entry.kind}
+      data-testid="journal-row"
+      title={!author && entry.author_name && entry.kind !== "message" ? entry.author_name : undefined}
+    >
       <time
         dateTime={entry.occurred_at}
-        className="w-[4.5rem] shrink-0 pt-px font-mono text-xs tabular-nums text-muted-foreground"
+        className="min-w-[2.75rem] shrink-0 whitespace-nowrap pt-px font-mono text-xs tabular-nums text-muted-foreground"
       >
         {formatJournalTime(entry.occurred_at)}
       </time>
       <div className="min-w-0 flex-1">
+        {stacked && incidentName && (
+          <p className="truncate text-xs font-medium text-muted-foreground" title={incidentName}>
+            {incidentName}
+          </p>
+        )}
         <p className="break-words">
-          {incidentName &&
+          {!stacked &&
+            incidentName &&
             (onOpenIncident ? (
               <button
                 type="button"
@@ -280,9 +301,9 @@ function JournalRow({
             ))}
           <JournalText entry={entry} text={line.text} />
         </p>
-        {(entry.author_name || lastCorrection) && (
+        {(author || lastCorrection) && (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            {entry.author_name && entry.kind !== "message" && <span>{entry.author_name}</span>}
+            {author && <span>{author}</span>}
             {lastCorrection && (
               <button
                 type="button"
