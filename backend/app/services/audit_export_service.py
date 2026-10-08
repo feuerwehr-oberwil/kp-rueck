@@ -15,7 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
-    AuditLog,
     Event,
     EventAttendance,
     Incident,
@@ -30,11 +29,8 @@ from ..models import (
     User,
     Vehicle,
 )
-
-# Audit actions that are journal-worthy for the Einsatztagebuch chapter in the
-# PDF report. Deliberately a whitelist: field-level updates, logins, exports,
-# settings changes etc. must never leak into the after-action journal.
-JOURNAL_AUDIT_ACTIONS: tuple[str, ...] = ("divera_alarm", "delete", "restore")
+from ..schemas.journal import JournalEntryOut
+from .journal import journal_rows
 
 
 @dataclass
@@ -53,8 +49,9 @@ class EventReportData:
     assignments: list[IncidentAssignment]
     transitions: list[StatusTransition]
     reko_reports: list[RekoReport]
-    # Journal-worthy audit rows (see JOURNAL_AUDIT_ACTIONS), incident-scoped.
-    audit_entries: list[AuditLog] = field(default_factory=list)
+    # The Einsatztagebuch: the Ereignis' journal log (`journal_entries`), oldest seq first,
+    # read through the same function as the board's journal drawer.
+    journal: list[JournalEntryOut] = field(default_factory=list)
     # Schadenplatz-Rapporte (plan 25), at most one per incident. Drafts included:
     # a half-filled rapport is still what the crew said, and the outputs mark it.
     schadenplatz_reports: list[SchadenplatzReport] = field(default_factory=list)
@@ -230,20 +227,8 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
     attendance = list(attendance_result.scalars().all())
     personnel_ids.update(a.personnel_id for a in attendance)
 
-    # Load journal-worthy audit entries (Einsatztagebuch). Audit rows carry no
-    # event scoping, only resource_type/resource_id — so we scope them via the
-    # event's incident ids and restrict to the whitelisted action types.
-    audit_entries: list[AuditLog] = []
-    if incident_ids:
-        audit_result = await db.execute(
-            select(AuditLog)
-            .where(AuditLog.resource_type == "incident")
-            .where(AuditLog.resource_id.in_(incident_ids))
-            .where(AuditLog.action_type.in_(JOURNAL_AUDIT_ACTIONS))
-            .order_by(AuditLog.timestamp.asc())
-        )
-        audit_entries = list(audit_result.scalars().all())
-        user_ids.update(a.user_id for a in audit_entries if a.user_id)
+    # The Einsatztagebuch — one read, shared with the journal drawer (single source).
+    journal = await journal_rows(db, event_id)
 
     # ========== 6. Batch load resources and users ==========
     personnel_map: dict[uuid.UUID, Personnel] = {}
@@ -272,7 +257,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         assignments=assignments,
         transitions=transitions,
         reko_reports=reko_reports,
-        audit_entries=audit_entries,
+        journal=journal,
         schadenplatz_reports=schadenplatz_reports,
         attendance=attendance,
         incident_groups=incident_groups,

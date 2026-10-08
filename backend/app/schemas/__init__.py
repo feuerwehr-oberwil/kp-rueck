@@ -15,6 +15,7 @@ from .events import *  # noqa: F403
 from .feld import *  # noqa: F403
 from .groups import *  # noqa: F403
 from .incidents import *  # noqa: F403
+from .journal import *  # noqa: F403
 from .materials import *  # noqa: F403
 from .notifications import *  # noqa: F403
 from .personnel import *  # noqa: F403

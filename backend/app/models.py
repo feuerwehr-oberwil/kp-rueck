@@ -7,10 +7,12 @@ from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Numeric,
@@ -1336,6 +1338,92 @@ class IncidentFieldMessage(Base):
 
 
 # ============================================
+# EINSATZTAGEBUCH (journal)
+# ============================================
+
+
+class JournalEntry(Base):
+    """One line of an Ereignis' Einsatztagebuch — append-only (idea R8, 08.10.2026).
+
+    Two kinds of writer, one log:
+
+    * the board itself. ``services/journal.py`` watches every flush and turns the facts
+      worth keeping — a status change, a resource (un)assigned, a Meldung from or to the
+      field, a Reko report, a Divera alarm, an Einsatz created/deleted/restored, the field
+      notifications that report something HAPPENED (arrived, done, pickup) — into rows
+      here, in the same transaction as the fact. No call site has to remember it.
+    * the operator: a manual line that belongs to no card («Gemeindepräsident
+      informiert», «Strom Quartier X aus»), optionally linked to one Einsatz.
+
+    Rows are never updated or deleted by the app. A wrong manual line is corrected by a
+    NEW row whose ``corrects_id`` points at it — the screen and the PDF show the newest
+    text and say «korrigiert», the original stays readable. Same idea as KP Front's
+    Verlauf (`journal_entries`, row_json): one log, written once.
+
+    Derived rows keep a German-free shape: ``kind`` + structured ``data`` (status keys,
+    resource name as it was at the time). The app renders them per locale, the PDF in
+    German. ``text`` holds only what a person wrote (manual line, Meldung) or a server
+    sentence that is already German everywhere (a field notification).
+
+    Kept apart from ``audit_log`` on purpose: the audit log is swept after
+    ``AUDIT_RETENTION_DAYS`` and is about who pressed which button; this is the record of
+    the Ereignis and lives as long as the Ereignis does.
+    """
+
+    __tablename__ = "journal_entries"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # Global, monotonic: the read cursor (`?since_seq=`) a polling client resumes from.
+    # Display order is `occurred_at`, not this — a backfilled row is old but new here.
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(always=False), nullable=False, unique=True)
+    event_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    # SET NULL: an Einsatz that is purged must not take the record of what happened to it.
+    incident_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # When it HAPPENED (the transition's timestamp, the release time …). `created_at` is
+    # when the row was written; they differ for the backfill and for a dictated line.
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # Who — as a name at the time, like `incident_field_messages.author_name`: a crew
+    # member has no login, and the name as it was is the honest record.
+    author_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    corrects_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=True
+    )
+    # Manual rows: the client's id for the line, so a retried POST after a lost answer
+    # does not write it twice. Derived rows: NULL.
+    client_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Derived rows: where the fact came from (`status:<transition id>` …). Traceability
+    # only — deliberately NOT unique, so a journal hiccup can never fail a board write.
+    source_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    # Set by the flush hook so a row for an Einsatz created in the same flush is inserted
+    # after it. No back-populates: nothing on Incident/Event should load the log.
+    incident: Mapped[Optional["Incident"]] = relationship("Incident", foreign_keys=[incident_id])
+    event: Mapped["Event"] = relationship("Event", foreign_keys=[event_id])
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('manual', 'status', 'incident', 'assignment', 'message', 'field', 'reko', 'alarm')",
+            name="valid_journal_kind",
+        ),
+        CheckConstraint("kind = 'manual' OR corrects_id IS NULL", name="journal_only_manual_corrects"),
+        UniqueConstraint("event_id", "client_id", name="uq_journal_event_client_id"),
+        Index("idx_journal_event_occurred", "event_id", "occurred_at"),
+        Index("idx_journal_incident", "incident_id"),
+    )
+
+
+# ============================================
 # AUDIT LOGGING
 # ============================================
 
@@ -1757,3 +1845,10 @@ class TelemetryOutbox(Base):
     last_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     __table_args__ = (Index("ix_telemetry_outbox_pending", "sent_at", "created_at"),)
+
+
+# The Einsatztagebuch's flush hook (services/journal.py) is part of the model layer: every
+# session that writes these models must also write their journal rows, whichever entry point
+# (API, scheduler, seed script, test) imported the models. Imported last — it needs the
+# classes above.
+from .services import journal as _journal  # noqa: E402,F401

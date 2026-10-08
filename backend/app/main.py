@@ -40,6 +40,7 @@ from .api.help import router as help_router
 from .api.incidents import router as incidents_router
 from .api.intake import router as intake_router
 from .api.integrations import router as integrations_router
+from .api.journal import router as journal_router
 from .api.materials import groups_router as material_groups_router
 from .api.materials import router as materials_router
 from .api.notifications import router as notifications_router
@@ -544,6 +545,7 @@ app.include_router(auftrag_templates_router, prefix=settings.api_v1_prefix)
 app.include_router(diag_router, prefix=settings.api_v1_prefix)
 app.include_router(divera_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
+app.include_router(journal_router, prefix=settings.api_v1_prefix)
 app.include_router(firehub_router, prefix=settings.api_v1_prefix)
 app.include_router(geocoding_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)

@@ -572,6 +572,12 @@ async def broadcast_kp_message_update(message_data: dict[str, Any], action: str 
     await ws_manager.broadcast_update("kp_message_update", {"action": action, "data": message_data}, room="operations")
 
 
+async def broadcast_journal_update(data: dict[str, Any]) -> None:
+    """A manual Einsatztagebuch line (or its correction) was written. An open journal
+    drawer fetches `since_seq` at once instead of waiting for its next poll."""
+    await ws_manager.broadcast_update("journal_update", {"action": "created", "data": data}, room="operations")
+
+
 async def broadcast_vehicle_positions(positions_data: list[dict[str, Any]]) -> None:
     """Broadcast GPS position updates to all clients in operations room."""
     await ws_manager.broadcast_update("vehicle_positions_update", {"data": positions_data}, room="operations")
