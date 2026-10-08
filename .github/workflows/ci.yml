@@ -67,7 +67,8 @@ name: CI
 #         with `AUTH_BYPASS_AUTH_DEV=false` or the role assertions mean nothing) plus the
 #         nightly schedule in e2e-nightly.yml.
 #
-# Coverage: min 35% (target: 50% → 70%).
+# Coverage: backend floor 87% (`--cov-fail-under` in backend-test), set just under the real
+# figure (88% on 2026-10-08, 3457 tests). Raise it when the real number moves; never lower it.
 
 on:
   push:
@@ -719,10 +720,18 @@ jobs:
       # `-v` is gone: with three workers interleaving output it printed 1881 lines in a
       # meaningless order. The failure summary is what anyone reads anyway.
       #
+      # By 2026-10-06 the suite had grown to 3457 tests and this step took ~350s again. About
+      # half of that was bcrypt: every editor/admin fixture hashed its password at the
+      # production cost (12, ~250 ms) and every fixture login checked it again. The suite now
+      # hashes at cost 4 (tests/conftest.py); what the app asks for is pinned by
+      # tests/test_auth/test_security.py::test_hash_password_asks_for_cost_12.
+      #
       # pytest-cov combines the per-worker coverage data itself, so --cov-fail-under still
-      # measures the whole suite.
+      # measures the whole suite. The floor sits just under the real figure (88% on
+      # 2026-10-08): it used to be 35, which allowed the suite to lose more than half its
+      # coverage without anything turning red.
       - name: Run tests with coverage
-        run: uv run pytest -n 3 --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35
+        run: uv run pytest -n 3 --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=87
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test
           # Explicit rather than relying on the conftest default. Every database the suite
@@ -908,7 +917,11 @@ jobs:
     runs-on: ubuntu-latest
     # The whole point is a fast signal; if it is not fast it is not doing its job.
     timeout-minutes: 15
-    needs: [backend-test, frontend-build]
+    # No `needs:`. It used to wait for backend-test and frontend-build, but it consumes
+    # nothing they produce (it runs its own backend and `pnpm dev`), so the wait only made the
+    # gate serial: ~6.5 min of backend tests, THEN ~3 min of this, on every run. In parallel
+    # the gate's wall clock is its slowest job, not the sum of two. A red backend test now
+    # costs one extra E2E run of runner time — cheap next to everyone waiting three minutes.
 
     services:
       postgres:
@@ -1083,7 +1096,11 @@ jobs:
           load: true
           tags: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:ci
           cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+          # Exported from main only. A pull request's cache entry is scoped to its own ref, so
+          # nothing but later pushes to that PR could ever read it — and its builder layer
+          # changes with every commit anyway. Exporting took ~22s of this job on every PR run;
+          # PRs still READ main's cache, which is where the reusable pnpm-install layer is.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=frontend' || '' }}
 
       - name: Build tileserver image
         uses: docker/build-push-action@v7
