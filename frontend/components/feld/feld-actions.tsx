@@ -653,11 +653,21 @@ export function FeldActions({
               how many, so the board reads «Tauchpumpe ×2», not prose. Fixed
               buttons, not station chips — they open a picker. */}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" disabled={busy} onClick={() => openAsk('material')}>
+            <Button
+              variant="outline"
+              className="h-auto min-w-0 whitespace-normal py-2 text-left"
+              disabled={busy}
+              onClick={() => openAsk('material')}
+            >
               <Package className="size-4" />
               {tAsk('material')}
             </Button>
-            <Button variant="outline" disabled={busy} onClick={() => openAsk('personnel')}>
+            <Button
+              variant="outline"
+              className="h-auto min-w-0 whitespace-normal py-2 text-left"
+              disabled={busy}
+              onClick={() => openAsk('personnel')}
+            >
               <Users className="size-4" />
               {tAsk('personnel')}
             </Button>

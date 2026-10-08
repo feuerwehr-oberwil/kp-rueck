@@ -48,6 +48,13 @@ describe('FieldRequestCardRows', () => {
     expect(screen.getByRole('button', { name: '3 offene Anforderungen vom Feld' })).toBeInTheDocument()
   })
 
+  it('leaves the Abholung to its own chip in the card head', () => {
+    const { container } = renderWithIntl(
+      <FieldRequestCardRows requests={[request({ kind: 'pickup', item: null, quantity: null })]} onOpen={vi.fn()} />,
+    )
+    expect(container).toBeEmptyDOMElement()
+  })
+
   it('renders nothing once everything is handled', () => {
     const { container } = renderWithIntl(
       <FieldRequestCardRows requests={[request({ status: 'done' })]} onOpen={vi.fn()} />,

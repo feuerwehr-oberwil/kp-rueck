@@ -215,7 +215,9 @@ export function FieldRequestCardRows({
   onOpen: (event: React.MouseEvent) => void
 }) {
   const t = useTranslations('feld.requests')
-  const open = requests.filter(isOpenRequest)
+  // The Abholung already has its amber chip in the card head (with the
+  // waiting time and its own «disponiert» action) — not a second line here.
+  const open = requests.filter(request => isOpenRequest(request) && request.kind !== 'pickup')
   if (open.length === 0) return null
   const shown = open.slice(0, 2)
   return (
