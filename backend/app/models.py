@@ -596,7 +596,9 @@ class Incident(Base):
     # The field's open + «in Arbeit» requests (R13), batched on by the board
     # query (`crud.feld.open_requests_for_incidents`) so the card can show what
     # is still owed without a request per card.
-    field_requests: list["FieldRequest"]
+    # FieldRequest rows. `Any`, not the class: SQLAlchemy resolves these
+    # annotations at mapping time, and FieldRequest is defined further down.
+    field_requests: list[Any]
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
