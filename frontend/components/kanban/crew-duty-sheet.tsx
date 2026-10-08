@@ -116,7 +116,10 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
       onOpenChange={onOpenChange}
       className="flex flex-col gap-0 max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-sheet-safe sm:pb-4 modal-h-tall"
     >
-      <SheetHeader className="flex-row items-baseline justify-between gap-4 p-0 pr-10 sm:pr-0 shrink-0">
+      <SheetHeader
+        // Phone: the sheet's ✕ (44px, absolute) sits in this header, not on the first row.
+        className="min-h-11 flex-row items-baseline justify-between gap-4 p-0 pr-10 shrink-0 sm:min-h-0 sm:pr-0"
+      >
         <div className="flex min-w-0 items-baseline gap-2">
           <SheetTitle className="text-base">{t("title")}</SheetTitle>
           <SheetDescription className="truncate text-xs">

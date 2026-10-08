@@ -128,7 +128,7 @@ export function MobilePersonnelSheet({
                       {/* Name and info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">
+                          <span className="text-sm font-medium truncate" title={person.name}>
                             {person.name}
                           </span>
                           {person.isReko && (
