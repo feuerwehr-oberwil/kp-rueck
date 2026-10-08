@@ -140,7 +140,7 @@ describe("TelemetrySettings — handing a report over", () => {
     // (a station that triages internally overrides it), so pinning the literal here would
     // make this test fail for a correct change to that setting.
     expect(hrefs[0]).toMatch(
-      new RegExp(`^mailto:${feedbackConfig.mailto.replace(/[.+]/g, "\\$&")}\\?`),
+      new RegExp(`^mailto:${feedbackConfig.mailto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?`),
     );
     // Encoded, not raw: an unencoded newline or & truncates the body in some clients.
     expect(hrefs[0]).toContain(encodeURIComponent("Board weiss"));

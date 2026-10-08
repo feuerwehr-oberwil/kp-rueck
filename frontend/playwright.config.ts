@@ -17,8 +17,18 @@ export default defineConfig({
   // upload finds nothing either. `list` streams one line per spec as it finishes, so a
   // truncated run still tells you exactly how far it got; `github` turns failures into
   // annotations on the run. Locally the html report on its own is the nicer experience.
+  //
+  // E2E_JSON_REPORT adds a machine-readable copy: the nightly reads it to name the failing and
+  // flaky specs in its issue (scripts/e2e-summary.mjs) instead of pointing at a 60 MB artifact.
   reporter: process.env.CI
-    ? [['list'], ['github'], ['html', { open: 'never' }]]
+    ? [
+        ['list'],
+        ['github'],
+        ['html', { open: 'never' }],
+        ...(process.env.E2E_JSON_REPORT
+          ? [['json', { outputFile: process.env.E2E_JSON_REPORT }] as ['json', { outputFile: string }]]
+          : []),
+      ]
     : 'html',
   use: {
     // `just fat-perf` serves a production build on its own port

@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import bcrypt
 import httpx
 import pytest
 import pytest_asyncio
@@ -28,6 +29,23 @@ from app.models import (
     Vehicle,
 )
 from app.traccar import traccar_client
+
+# bcrypt at the production cost (12) is ~250 ms of CPU per hash or check, by design. The
+# suite hashes a fixture password for every editor/admin login and checks it on every sign-in,
+# so at cost 12 a third of the backend job was spent in bcrypt rather than in the code under
+# test. Every hash minted in a test run therefore uses bcrypt's minimum cost (4, ~1 ms); the
+# cost travels inside the hash, so checking it costs the same. What the APP asks for is pinned
+# separately (`test_hash_password_asks_for_cost_12` in tests/test_auth/test_security.py), so
+# this cannot quietly lower the production cost. Patched at import, before anything hashes.
+_REAL_GENSALT = bcrypt.gensalt
+TEST_BCRYPT_ROUNDS = 4
+
+
+def _test_gensalt(rounds: int = 12, prefix: bytes = b"2b") -> bytes:
+    return _REAL_GENSALT(rounds=TEST_BCRYPT_ROUNDS, prefix=prefix)
+
+
+bcrypt.gensalt = _test_gensalt
 
 # Test database URL - use a separate test database. Default targets the host-mapped
 # port; override via env when running inside the dev container (where the db service

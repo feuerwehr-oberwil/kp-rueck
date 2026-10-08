@@ -56,7 +56,7 @@ cd frontend
 pnpm install                         # Install dependencies
 pnpm dev                             # Start dev server (port 3000)
 pnpm build                           # Build for production
-pnpm lint                            # Lint
+pnpm lint                            # Lint (per-rule warning ratchet: eslint-ratchet.json)
 pnpm test                            # Run Vitest unit tests
 pnpm test:watch                      # Vitest watch mode
 pnpm test:e2e                        # Run Playwright E2E tests
