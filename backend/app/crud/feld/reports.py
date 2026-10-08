@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
+    FieldRequest,
     Incident,
     Notification,
     SchadenplatzReport,
@@ -24,6 +25,7 @@ from ...services.audit import log_action
 from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
 from ...websocket_manager import broadcast_incident_update
+from .requests import close_request, dismiss_linked_notification, open_pickup_request, user_display
 
 # ============================================
 # Field reports — the writes (phase 1)
@@ -410,16 +412,42 @@ async def record_pickup(
         return False
 
     incident.pickup_needed = needed
+    # The Abholung's work item (R13) moves with the flag, in the same commit —
+    # «erledigt» in the sidebar and «Abholung disponiert» on the chip are one
+    # action, so the two can never disagree.
+    work_item = await open_pickup_request(db, incident.id)
     if needed:
         incident.pickup_note = note or None
         # Keep the ORIGINAL request time when only the note is edited — the
         # operationally decisive fact at 02:00 is how long they have been waiting.
         incident.pickup_requested_at = at or incident.pickup_requested_at or datetime.now(UTC)
         incident.pickup_requested_by = actor.personnel_id
+        if work_item is None:
+            work_item = FieldRequest(
+                incident_id=incident.id,
+                kind="pickup",
+                status="open",
+                created_by_personnel_id=actor.personnel_id,
+                created_by_user_id=actor.user.id if actor.user and not actor.is_field else None,
+                created_by_name=actor.personnel_name if actor.is_field else user_display(actor.user),
+                created_at=incident.pickup_requested_at,
+            )
+            db.add(work_item)
+        work_item.text = note or None
     else:
         incident.pickup_note = None
         incident.pickup_requested_at = None
         incident.pickup_requested_by = None
+        if work_item is not None:
+            # «Wir fahren selbst» from the crew closes it too — with the crew's
+            # name on it, because that is who answered it.
+            close_request(
+                work_item,
+                user=None if actor.is_field else actor.user,
+                name=actor.personnel_name if actor.is_field else user_display(actor.user),
+                now=datetime.now(UTC),
+            )
+            await dismiss_linked_notification(db, work_item, None if actor.is_field else actor.user, datetime.now(UTC))
 
     await log_action(
         db=db,
@@ -436,7 +464,7 @@ async def record_pickup(
     if incident.event_id:
         if needed:
             detail = f" ({note})" if note else ""
-            await create_field_notification(
+            bell = await create_field_notification(
                 db,
                 notification_type="field_pickup",
                 incident_id=incident.id,
@@ -446,6 +474,11 @@ async def record_pickup(
                 # event that is time-critical for the KP.
                 severity="warning",
             )
+            # Link the FIRST bell entry only: «gesehen» is about the request,
+            # and a note edit must not make an already-seen request unseen.
+            if work_item is not None and work_item.notification_id is None:
+                work_item.notification_id = bell.id
+                await db.commit()
         else:
             await create_field_notification(
                 db,
@@ -458,24 +491,51 @@ async def record_pickup(
     return True
 
 
-async def record_field_message(
+async def create_field_request(
     db: AsyncSession,
     incident: Incident,
     *,
     actor: FieldActor,
     message: str,
+    kind: str = "message",
+    item: str | None = None,
+    quantity: int | None = None,
     request: Request | None = None,
-) -> Notification | None:
-    """Freitext-Meldung an den KP — a bell entry **and** a Journal entry.
+) -> tuple[FieldRequest, Notification | None] | None:
+    """A Meldung an den KP — a work item, a bell entry **and** a Journal entry.
 
-    Both on purpose: the notification is how the KP sees it now, the audit-log
-    entry is how it survives into the Einsatztagebuch after somebody dismisses
-    the bell. Append-only and attributed, which is also the mitigation for two
+    All three on purpose: the ``FieldRequest`` row is what the KP works (card,
+    detail, sidebar — R13), the notification is how the KP hears of it now, and
+    the audit-log entry is how it survives into the Einsatztagebuch and the
+    Verlauf. Append-only and attributed, which is also the mitigation for two
     crews overwriting one another's Kurzbericht (§12).
+
+    ``kind`` = ``material`` / ``personnel`` is the structured «Material nötig» /
+    «Verstärkung nötig» (``item`` × ``quantity``, ``message`` = the note). The
+    audit row's ``message`` is the one-line label, so the thread and the Verlauf
+    read «Material: Tauchpumpe Gr. ×2» exactly as they read a sentence today.
     """
     text = message.strip()
-    if not text:
+    item = (item or "").strip() or None
+    if kind == "message" and not text:
         return None
+    if kind != "message" and not (text or item or quantity):
+        return None
+
+    work_item = FieldRequest(
+        incident_id=incident.id,
+        kind=kind,
+        status="open",
+        text=text or None,
+        item=item if kind != "message" else None,
+        quantity=quantity if kind != "message" else None,
+        created_by_personnel_id=actor.personnel_id,
+        created_by_user_id=actor.user.id if actor.user and not actor.is_field else None,
+        created_by_name=actor.personnel_name if actor.is_field else user_display(actor.user),
+    )
+    db.add(work_item)
+    await db.flush()
+    label = work_item.label
 
     await log_action(
         db=db,
@@ -484,14 +544,19 @@ async def record_field_message(
         resource_id=incident.id,
         user=actor.user,
         changes={
-            "message": text,
+            "message": label,
             "personnel_id": str(actor.personnel_id) if actor.personnel_id else None,
             "personnel_name": actor.personnel_name,
             "source": "feld" if actor.is_field else "kp",
+            "request_id": str(work_item.id),
+            "kind": kind,
+            "item": work_item.item,
+            "quantity": work_item.quantity,
         },
         request=request,
     )
     await db.commit()
+    text = label
 
     notification: Notification | None = None
     if incident.event_id:
@@ -505,8 +570,29 @@ async def record_field_message(
             if who
             else f"Meldung vom Feld: {text}",
         )
+        work_item.notification_id = notification.id
+        await db.commit()
+        await db.refresh(work_item)
     await _broadcast(incident)
-    return notification
+    return work_item, notification
+
+
+async def record_field_message(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    message: str,
+    kind: str = "message",
+    item: str | None = None,
+    quantity: int | None = None,
+    request: Request | None = None,
+) -> Notification | None:
+    """``create_field_request`` for callers that only want the bell entry back."""
+    created = await create_field_request(
+        db, incident, actor=actor, message=message, kind=kind, item=item, quantity=quantity, request=request
+    )
+    return created[1] if created else None
 
 
 async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, Any]:

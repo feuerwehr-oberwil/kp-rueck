@@ -16,8 +16,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .field_requests import FieldRequestResponse
 from .incidents import IncidentBase, IncidentPriority, IncidentType
 
 # 'none'      – no schadenplatz_reports row for this incident yet
@@ -302,6 +303,10 @@ class FeldAssignment(BaseModel):
     # Rides on the polled assignments payload like everything else the phone
     # reads; a second endpoint would be a second public surface to guard.
     kp_messages: list[KpFieldMessage] = []
+    # What was asked from this Schadenplatz and where it stands (R13), oldest
+    # first — every crew member at the address sees it, so nobody asks twice.
+    # The Abholung is not in here: it has its own standing box on the phone.
+    field_requests: list[FieldRequestResponse] = []
     # The Einsatzleiter of THIS incident (decision 22): briefed, never enforced.
     # Both stay None when nobody carries the role, which the UI must render as
     # "kein EL erfasst" rather than a blank line.
@@ -385,6 +390,11 @@ class FeldAssignmentsResponse(BaseModel):
     # them), so the crew's chips read wrong for the person sitting outside in the
     # vehicle. The page picks by the row's source, not by the person.
     driver_message_chips: list[str] = []
+    # The station's material names for «Material nötig» (R13): distinct names of
+    # the live inventory, so the crew picks «Tauchpumpe Gr.» instead of typing
+    # it. Names only — no location, no status, nothing that is not already on a
+    # dispatched crew's own briefing.
+    request_materials: list[str] = []
     # What this person has REPORTED, which is not the same list as what they were
     # given to work on — see `own_reports`. Carried here rather than on its own
     # endpoint for the same reason as the chips: this response is already polled
@@ -456,10 +466,37 @@ class FeldPickupRequest(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
-class FeldMessageRequest(BaseModel):
-    """Freitext-Meldung an den KP — a chip or a typed sentence."""
+FieldRequestKind = Literal["message", "material", "personnel"]
 
-    message: str = Field(min_length=1, max_length=500)
+
+class FeldMessageRequest(BaseModel):
+    """A Meldung an den KP — a chip, a typed sentence, or a structured request (R13).
+
+    ``kind`` defaults to ``message``, which is the payload every existing phone
+    sends: one sentence. «Material nötig» / «Verstärkung nötig» arrive as
+    ``material`` / ``personnel`` with ``item`` × ``quantity`` so the KP reads
+    «Tauchpumpe ×2» instead of prose; ``message`` is then the optional note.
+    Shared by both doors — the board's twin
+    (``POST /api/incidents/{id}/field-requests``) takes the same shape.
+    """
+
+    kind: FieldRequestKind = "message"
+    message: str = Field(default="", max_length=500)
+    item: str | None = Field(default=None, max_length=120)
+    quantity: int | None = Field(default=None, ge=1, le=99)
+
+    @model_validator(mode="after")
+    def _something_to_say(self) -> "FeldMessageRequest":
+        """A request must say *something*: a sentence, a material, or a count."""
+        self.message = self.message.strip()
+        self.item = (self.item or "").strip() or None
+        if self.kind == "message" and not self.message:
+            raise ValueError("Leere Meldung")
+        if self.kind == "material" and not (self.item or self.message):
+            raise ValueError("Welches Material?")
+        if self.kind == "personnel" and not (self.quantity or self.item or self.message):
+            raise ValueError("Wie viele Personen?")
+        return self
 
 
 # ============================================

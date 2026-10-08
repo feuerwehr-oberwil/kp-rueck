@@ -1335,6 +1335,114 @@ class IncidentFieldMessage(Base):
     __table_args__ = (Index("idx_incident_field_messages_incident", "incident_id"),)
 
 
+def field_request_label(kind: str, item: str | None, quantity: int | None, text: str | None) -> str:
+    """«Material: Tauchpumpe Gr. ×2 – in den Keller» — one request as one line.
+
+    German on purpose: it is the backend's sentence (bell, audit, PDF), and the
+    clients render their own localised label from the structured columns.
+    """
+    note = (text or "").strip()
+    if kind == "material":
+        what = (item or "").strip()
+        head = "Material" + (f": {what}" if what else "")
+        if quantity:
+            head += f" ×{quantity}" if what else f": {quantity}"
+    elif kind == "personnel":
+        head = "Verstärkung"
+        parts = [f"{quantity} {'Person' if quantity == 1 else 'Personen'}" if quantity else "", (item or "").strip()]
+        detail = " ".join(part for part in parts if part)
+        if detail:
+            head += f": {detail}"
+    elif kind == "pickup":
+        head = "Abholung"
+    else:
+        return note
+    return f"{head} – {note}" if note else head
+
+
+class FieldRequest(Base):
+    """One thing the field asked the KP for — a WORKABLE item, not a sentence (R13).
+
+    Every Meldung from `/feld` used to become a bell entry plus an audit row and
+    nothing else: dismissing the bell was the only "handling" there was, and it
+    erased the request from every surface except the thread in the detail. A row
+    here is what the card, the detail and the notification sidebar all read, and
+    its ``status`` is the one answer to «hat das jemand erledigt?»:
+
+    ``open`` → ``in_progress`` (optional) → ``done``, with who/when on ``done``.
+    ``seen_at`` is separate on purpose — dismissing the notification is the KP
+    saying «gesehen», which the crew is told, but it is NOT handling it.
+
+    Four kinds:
+
+    * ``message`` — a chip or a typed sentence (``text``).
+    * ``material`` — «Material nötig», structured: ``item`` (a material name off
+      the station's inventory, or free text) × ``quantity``, ``text`` = note.
+    * ``personnel`` — «Verstärkung nötig»: ``quantity`` people, ``item`` = what
+      kind (optional), ``text`` = note.
+    * ``pickup`` — mirrors ``Incident.pickup_needed`` (decision 24). The flag
+      stays the truth the map, Restliste and PDF read; this row is its work item
+      and is opened/closed only by ``crud.feld.record_pickup``.
+
+    Names are denormalised at write time like ``IncidentFieldMessage``: `/feld`
+    is a login-less door and must not join against ``users``.
+    """
+
+    __tablename__ = "field_requests"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    item: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Provenance (decision 28): a crew tap carries the person, a KP entry the user.
+    created_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # The bell entry announcing it — so dismissing it can stamp «gesehen», and
+    # handling the request can take the bell entry away with it.
+    notification_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("notifications.id", ondelete="SET NULL"), nullable=True
+    )
+
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    in_progress_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    in_progress_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    done_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    done_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    @property
+    def label(self) -> str:
+        """The German one-liner the bell, the audit log and the PDF carry."""
+        return field_request_label(self.kind, self.item, self.quantity, self.text)
+
+    @property
+    def from_field(self) -> bool:
+        """A crew tapped it (True) or the KP took it over the radio (False)."""
+        return self.created_by_user_id is None
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('message', 'material', 'personnel', 'pickup')", name="valid_field_request_kind"),
+        CheckConstraint("status IN ('open', 'in_progress', 'done')", name="valid_field_request_status"),
+        Index("idx_field_requests_incident", "incident_id"),
+        Index("idx_field_requests_status", "status"),
+    )
+
+
 # ============================================
 # AUDIT LOGGING
 # ============================================

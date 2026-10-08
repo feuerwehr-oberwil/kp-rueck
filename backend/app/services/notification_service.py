@@ -721,11 +721,21 @@ async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id:
     notification = result.scalar_one_or_none()
 
     if notification:
+        now = datetime.now(UTC)
         notification.dismissed = True
-        notification.dismissed_at = datetime.now(UTC)
+        notification.dismissed_at = now
         notification.dismissed_by = user_id
+        # A field request announced by this entry is now «Vom KP gesehen» — and
+        # still open (R13): dismissing the bell is never handling the request.
+        from ..crud.feld.requests import mark_seen_by_notification
+
+        seen = await mark_seen_by_notification(db, notification.id, now)
         await db.commit()
         await db.refresh(notification)
+        if seen and notification.incident_id:
+            from ..websocket_manager import broadcast_incident_update
+
+            await broadcast_incident_update({"id": str(notification.incident_id)}, "update")
 
     return notification
 

@@ -70,6 +70,7 @@ from ..services.settings import (
     FELD_MESSAGE_CHIPS_KEY,
     get_setting_value,
     parse_message_chips,
+    without_structured_chips,
 )
 from ..services.tokens import (
     FeldTokenClaims,
@@ -563,8 +564,13 @@ async def get_feld_assignments(
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
 
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
-    chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
-    driver_chips = parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
+    # «Material nötig» / «Verstärkung nötig» are structured buttons now (R13); a
+    # station that still has them as chips would show each twice.
+    chips = without_structured_chips(parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY)))
+    driver_chips = without_structured_chips(
+        parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
+    )
+    request_materials = await crud.request_material_names(db)
     checked_in = await crud.is_checked_in(db, event.id, personnel_id)
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     # Only for somebody who actually drives — one extra query for a role most
@@ -593,6 +599,7 @@ async def get_feld_assignments(
         ],
         message_chips=chips,
         driver_message_chips=driver_chips,
+        request_materials=request_materials,
         reports=[
             schemas.FeldOwnReport(
                 **report,
@@ -1159,12 +1166,14 @@ async def report_message(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
-    Freitext-Meldung an den KP — a configurable chip or a typed sentence.
+    Meldung an den KP — a configurable chip, a typed sentence, or a structured
+    «Material nötig» / «Verstärkung nötig» (``kind`` + ``item`` × ``quantity``).
 
-    Becomes a `field_message` notification (how the KP sees it now) **and** an
-    audit-log entry (how it survives into the Journal once somebody dismisses
-    the bell). The chips themselves are station config, not translation — see
-    `feld.message_chips` in `services/settings.py`.
+    Becomes a workable ``FieldRequest`` (card, detail, sidebar — R13), a
+    `field_message` notification (how the KP hears of it now) **and** an
+    audit-log entry (how it survives into the Journal). The chips themselves are
+    station config, not translation — see `feld.message_chips` in
+    `services/settings.py`; the two structured requests are fixed buttons.
     """
     incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await crud.record_field_message(
@@ -1172,5 +1181,8 @@ async def report_message(
         incident,
         actor=_actor(person),
         message=payload.message,
+        kind=payload.kind,
+        item=payload.item,
+        quantity=payload.quantity,
         request=request,
     )

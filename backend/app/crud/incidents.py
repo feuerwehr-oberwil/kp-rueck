@@ -287,8 +287,12 @@ async def get_incidents(
         name_rows = await db.execute(select(Personnel.id, Personnel.name).where(Personnel.id.in_(leader_ids)))
         leader_names = {row.id: row.name for row in name_rows}
 
+    # The field's open requests (R13) — what the card shows as still owed.
+    open_requests = await feld_crud.open_requests_for_incidents(db, incident_ids)
+
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
+        incident.field_requests = open_requests.get(incident.id, [])
         arrival = field_arrived_map.get(incident.id)
         incident.field_arrived_at = arrival[0] if arrival else None
         incident.field_arrived_by = arrival[1] if arrival else None
@@ -382,6 +386,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
         incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
         incident.has_been_dispatched = await is_dispatched(db, incident)
+        incident.field_requests = (await feld_crud.open_requests_for_incidents(db, [incident.id])).get(incident.id, [])
 
         # Effective Einsatzleiter, same rule as the batched list above.
         active_leader_rows = await db.execute(

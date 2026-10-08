@@ -548,6 +548,103 @@ async def send_field_message(
     return row
 
 
+@router.get("/{incident_id}/field-requests", response_model=list[schemas.FieldRequestResponse])
+async def list_field_requests(
+    incident_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> list[models.FieldRequest]:
+    """Everything the field asked of this Schadenplatz, any state, oldest first (R13).
+
+    The card carries only the open ones (``IncidentResponse.field_requests``);
+    the detail reads this to show what was handled, by whom and when.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    return (await feld_crud.requests_for_incidents(db, [incident_id])).get(incident_id, [])
+
+
+@router.post("/{incident_id}/field-requests", response_model=schemas.FieldRequestResponse, status_code=201)
+async def create_field_request(
+    incident_id: uuid.UUID,
+    payload: schemas.FeldMessageRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> models.FieldRequest:
+    """The board twin of the crew's Meldung (decision 28, R13) — taken over the radio.
+
+    Same payload and the same CRUD as ``POST /feld/incidents/{id}/message``, so a
+    request dictated by a crew without signal lands as the identical work item,
+    with provenance «im KP erfasst». Abholung is not here: it has its own twin
+    (``POST /incidents/{id}/field-report``).
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    created = await feld_crud.create_field_request(
+        db,
+        incident,
+        actor=feld_crud.FieldActor(user=current_user),
+        message=payload.message,
+        kind=payload.kind,
+        item=payload.item,
+        quantity=payload.quantity,
+        request=request,
+    )
+    if created is None:  # the schema already refuses an empty request; belt and braces
+        raise HTTPException(status_code=422, detail="Leere Meldung")
+    return created[0]
+
+
+@router.patch("/{incident_id}/field-requests/{request_id}", response_model=schemas.FieldRequestResponse)
+async def update_field_request(
+    incident_id: uuid.UUID,
+    request_id: uuid.UUID,
+    payload: schemas.FieldRequestStatusUpdate,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> models.FieldRequest:
+    """Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).
+
+    The one writer behind the card, the detail and the sidebar, so handling it
+    in one place is handling it everywhere. «erledigt» stamps who/when and takes
+    the bell entry with it; the crew reads it on `/feld` within one poll.
+
+    The Abholung is special only in its plumbing: «erledigt» on it runs the same
+    ``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the
+    flag the map, Restliste and PDF read and its work item stay one fact. It
+    cannot be re-opened here — a new Abholung is a new request.
+    """
+    incident = await crud.get_incident(db, incident_id)
+    if not incident or incident.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    row = await feld_crud.get_request(db, incident_id, request_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Anforderung nicht gefunden")
+
+    if row.kind == "pickup" and payload.status == "done":
+        if incident.pickup_needed:
+            await feld_crud.record_pickup(
+                db, incident, actor=feld_crud.FieldActor(user=current_user), needed=False, request=request
+            )
+        else:
+            await feld_crud.set_request_status(db, incident, row, status="done", user=current_user, request=request)
+    elif row.kind == "pickup" and row.status == "done":
+        raise HTTPException(
+            status_code=409,
+            detail="Eine erledigte Abholung wird nicht wieder geöffnet – neu anfordern («Abholung nötig»).",
+        )
+    elif await feld_crud.set_request_status(
+        db, incident, row, status=payload.status, user=current_user, request=request
+    ):
+        await feld_crud._broadcast(incident)
+    await db.refresh(row)
+    return row
+
+
 @router.post("/{incident_id}/reko-arrived", response_model=schemas.RekoArrivedState)
 async def set_reko_arrived(
     incident_id: uuid.UUID,
