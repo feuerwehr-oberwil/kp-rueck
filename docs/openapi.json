@@ -5240,6 +5240,266 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/field-requests": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "List Field Requests",
+        "description": "Everything the field asked of this Schadenplatz, any state, oldest first (R13).\n\nThe card carries only the open ones (``IncidentResponse.field_requests``);\nthe detail reads this to show what was handled, by whom and when.",
+        "operationId": "list_field_requests_api_incidents__incident_id__field_requests_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldRequestResponse"
+                  },
+                  "title": "Response List Field Requests Api Incidents  Incident Id  Field Requests Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Create Field Request",
+        "description": "The board twin of the crew's Meldung (decision 28, R13) — taken over the radio.\n\nSame payload and the same CRUD as ``POST /feld/incidents/{id}/message``, so a\nrequest dictated by a crew without signal lands as the identical work item,\nwith provenance «im KP erfasst». Abholung is not here: it has its own twin\n(``POST /incidents/{id}/field-report``).",
+        "operationId": "create_field_request_api_incidents__incident_id__field_requests_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldRequestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/field-requests/{request_id}": {
+      "patch": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Update Field Request",
+        "description": "Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).\n\nThe one writer behind the card, the detail and the sidebar, so handling it\nin one place is handling it everywhere. «erledigt» stamps who/when and takes\nthe bell entry with it; the crew reads it on `/feld` within one poll.\n\nThe Abholung is special only in its plumbing: «erledigt» on it runs the same\n``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the\nflag the map, Restliste and PDF read and its work item stay one fact. It\ncannot be re-opened here — a new Abholung is a new request.",
+        "operationId": "update_field_request_api_incidents__incident_id__field_requests__request_id__patch",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldRequestStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldRequestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/reko-arrived": {
       "post": {
         "tags": [
@@ -14172,7 +14432,7 @@
           "feld"
         ],
         "summary": "Report Message",
-        "description": "Freitext-Meldung an den KP — a configurable chip or a typed sentence.\n\nBecomes a `field_message` notification (how the KP sees it now) **and** an\naudit-log entry (how it survives into the Journal once somebody dismisses\nthe bell). The chips themselves are station config, not translation — see\n`feld.message_chips` in `services/settings.py`.",
+        "description": "Meldung an den KP — a configurable chip, a typed sentence, or a structured\n«Material nötig» / «Verstärkung nötig» (``kind`` + ``item`` × ``quantity``).\n\nBecomes a workable ``FieldRequest`` (card, detail, sidebar — R13), a\n`field_message` notification (how the KP hears of it now) **and** an\naudit-log entry (how it survives into the Journal). The chips themselves are\nstation config, not translation — see `feld.message_chips` in\n`services/settings.py`; the two structured requests are fixed buttons.",
         "operationId": "report_message_api_feld_incidents__incident_id__message_post",
         "parameters": [
           {
@@ -22738,6 +22998,14 @@
             "title": "Kp Messages",
             "default": []
           },
+          "field_requests": {
+            "items": {
+              "$ref": "#/components/schemas/FieldRequestResponse"
+            },
+            "type": "array",
+            "title": "Field Requests",
+            "default": []
+          },
           "leader_personnel_id": {
             "anyOf": [
               {
@@ -22879,6 +23147,14 @@
             },
             "type": "array",
             "title": "Driver Message Chips",
+            "default": []
+          },
+          "request_materials": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Request Materials",
             "default": []
           },
           "reports": {
@@ -23389,19 +23665,51 @@
       },
       "FeldMessageRequest": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "message",
+              "material",
+              "personnel"
+            ],
+            "title": "Kind",
+            "default": "message"
+          },
           "message": {
             "type": "string",
             "maxLength": 500,
-            "minLength": 1,
-            "title": "Message"
+            "title": "Message",
+            "default": ""
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 99.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
           }
         },
         "type": "object",
-        "required": [
-          "message"
-        ],
         "title": "FeldMessageRequest",
-        "description": "Freitext-Meldung an den KP — a chip or a typed sentence."
+        "description": "A Meldung an den KP — a chip, a typed sentence, or a structured request (R13).\n\n``kind`` defaults to ``message``, which is the payload every existing phone\nsends: one sentence. «Material nötig» / «Verstärkung nötig» arrive as\n``material`` / ``personnel`` with ``item`` × ``quantity`` so the KP reads\n«Tauchpumpe ×2» instead of prose; ``message`` is then the optional note.\nShared by both doors — the board's twin\n(``POST /api/incidents/{id}/field-requests``) takes the same shape."
       },
       "FeldOwnReport": {
         "properties": {
@@ -23995,6 +24303,197 @@
         "type": "object",
         "title": "FieldReportUpdate",
         "description": "The KP twin's payload: set **or clear** any of the three (decision 28).\n\nEvery field is optional and the handler acts only on the ones actually\npresent (``model_fields_set``), so ``null`` means \"clear this\" and absence\nmeans \"leave it alone\". Without that distinction an operator correcting the\npickup note would silently wipe the arrival time."
+      },
+      "FieldRequestResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "message",
+              "material",
+              "personnel",
+              "pickup"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "from_field": {
+            "type": "boolean",
+            "title": "From Field",
+            "default": true
+          },
+          "notification_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Id"
+          },
+          "seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen At"
+          },
+          "in_progress_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Progress At"
+          },
+          "in_progress_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Progress By Name"
+          },
+          "done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At"
+          },
+          "done_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done By Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "incident_id",
+          "kind",
+          "status",
+          "label",
+          "created_at"
+        ],
+        "title": "FieldRequestResponse",
+        "description": "One workable request from the field (R13) — what the board and `/feld` read.\n\n``label`` is the server's German one-liner («Material: Tauchpumpe Gr. ×2»),\nthe same sentence the bell, the audit log and the PDF carry; the clients\nrender their own localised label from ``kind`` / ``item`` / ``quantity`` and\nfall back to it."
+      },
+      "FieldRequestStatusUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "FieldRequestStatusUpdate",
+        "description": "The KP working a request: offen → in Arbeit → erledigt, or back to offen."
       },
       "FireHubOperation": {
         "properties": {
@@ -25450,6 +25949,14 @@
               }
             ],
             "title": "Pickup Requested By"
+          },
+          "field_requests": {
+            "items": {
+              "$ref": "#/components/schemas/FieldRequestResponse"
+            },
+            "type": "array",
+            "title": "Field Requests",
+            "default": []
           },
           "leader_name": {
             "anyOf": [
