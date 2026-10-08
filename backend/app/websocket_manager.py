@@ -517,6 +517,18 @@ async def broadcast_personnel_update(personnel_data: dict[str, Any], action: str
     await ws_manager.broadcast_update("personnel_update", {"action": action, "data": personnel_data}, room="operations")
 
 
+async def broadcast_divera_responses_update(event_ids: set[Any], incident_ids: set[Any]) -> None:
+    """Tell the boards that Divera Rückmeldungen changed; they re-read the summary themselves.
+
+    Ids only: the summary carries names, and every client may be looking at another Ereignis.
+    """
+    await ws_manager.broadcast_update(
+        "divera_responses_update",
+        {"event_ids": sorted(str(e) for e in event_ids), "incident_ids": sorted(str(i) for i in incident_ids)},
+        room="operations",
+    )
+
+
 async def broadcast_vehicle_update(vehicle_data: dict[str, Any], action: str = "update") -> None:
     """Broadcast vehicle updates to all clients in operations room."""
     await ws_manager.broadcast_update("vehicle_update", {"action": action, "data": vehicle_data}, room="operations")

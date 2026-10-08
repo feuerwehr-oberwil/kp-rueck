@@ -248,6 +248,59 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
   falls Tercero sie nachliefert). Personal-/Rückmeldedaten sind bei FireHub vorhanden, werden
   aber (noch) nicht per Webhook mitgeschickt.
 
+## DIVERA-Rückmeldungen («Anrückend»)
+
+Wer auf einen DIVERA-Alarm «Komme», «Komme in 10 min» oder «Komme nicht» gedrückt hat, steht
+im Appell und oben in der Personen-Leiste unter **Anrückend** – mit Antwortzeit, einer
+geschätzten Ankunft («ca. 21:52» = Antwortzeit + die Minuten des DIVERA-Status, keine
+Live-Position) und einem Klick zum Anmelden. Wer schon angemeldet ist, fällt dort heraus.
+«Kommt nicht» ist eine eigene, gedämpfte Gruppe mit ✕ und dem Wort (Anmelden bleibt
+angeboten – es kann ein Fehlklick sein). **Eine DIVERA-Antwort meldet nie jemanden an**;
+anwesend ist man erst durch den Klick an der Tafel oder den Check-in-Link.
+
+- **Quelle:** dieselbe `GET /alarms`-Antwort, die der Fallback-Poll ohnehin holt (nur
+  solange jemand verbunden ist, Intervall `DIVERA_POLL_INTERVAL_SECONDS`). Pro Alarm
+  `ucr_addressed` (auch `ucr_adressed`), `ucr_answered` (`{status: {ucr: {ts, note}}}`; leer
+  kommt `[]`) und `ucr_read`. Kein zusätzlicher DIVERA-Endpunkt, nur lesend.
+- **Status-Namen:** `GET /pull/all` → `cluster.status` + `statussorting_alarm`. Übernommen
+  aus dem Mannschafts-Abgleich, wenn der lief; sonst höchstens alle 6 h und nur, wenn ein
+  Alarm Antworten trägt (nach einem Fehler frühestens nach 15 min wieder).
+- **Person:** die DIVERA-UCR-Id ist die `divera`-Identität in
+  `personnel_external_identities` (die der Mannschafts-Abgleich setzt). Antworten ohne
+  verknüpfte Person erscheinen nur als Zahl.
+- **Gespeichert** wird der jeweils letzte Stand pro Pool-Alarm
+  (`divera_emergencies.responses_json`); ändert er sich, geht `divera_responses_update`
+  per WebSocket an die Tafeln.
+- **Endpunkte** (angemeldet, jede Rolle, die die Mannschaft sieht):
+  `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt
+  – bei mehreren gilt pro Person die neueste Antwort) und
+  `GET /api/divera/incidents/{id}/responses`. Ist DIVERA nicht eingerichtet oder kam nichts
+  davon aus DIVERA, antworten sie `available: false` mit `reason` `not_configured` /
+  `not_linked`, und die Oberfläche zeigt nichts. Der Zugangsschlüssel steht nie in der Antwort.
+
+**Einordnung kommt / kommt nicht / anderes** – jede Einheit benennt ihre Status selbst. Reihenfolge:
+
+1. Stations-Einstellung `divera.response_classification` (Einstellungs-Tabelle, per
+   `PATCH /api/settings/divera.response_classification`), ein JSON-Objekt, Schlüssel = Status-Id
+   oder Status-Name (Gross/Klein und Akzente egal), Wert `"coming"`, `"not_coming"` oder
+   `"other"`. Die Id schlägt den Namen:
+
+   ```json
+   {"13": "not_coming", "Rückruf erbeten": "other", "Komme später": "coming"}
+   ```
+
+2. Sonst der Name: zuerst «kommt nicht» (`nicht`, `nein`, `kein…`, `abwesend`, `verhindert`,
+   `Ferien`, `krank`, `pas`, `indisponible`, …), dann «kommt» (`komm…`, `unterwegs`,
+   `einsatzbereit`, `verfügbar`, `ja`, `viens`, `j'arrive`, `disponible`, `N min`, …).
+3. Sonst «kommt», wenn der Status eine Zeit hat (`time > 0`), sonst «anderes».
+
+Leer (Standard) reicht für die üblichen Namen «Komme», «Komme in 10 min», «Komme nicht».
+Dieselben Regeln setzt KP Front um.
+
+**Nicht verifiziert:** ob `GET /alarms` mit dem Einheits-Schlüssel `ucr_answered` für alle
+Mitglieder füllt oder nur für das, was dieser Schlüssel «sieht». Geprüft wurde mit Fixtures,
+nicht gegen DIVERA – das gehört auf eine DIVERA-Test-Einheit, nie auf den Produktivschlüssel.
+
 ## Capability-Registry
 
 `GET /api/integrations` (angemeldet) zeigt pro Bereich, welcher Anbieter

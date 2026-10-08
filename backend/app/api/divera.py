@@ -22,7 +22,7 @@ from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..services import alerting, incident_display
+from ..services import alerting, divera_responses, incident_display
 from ..services import settings as settings_service
 from ..services.audit import log_action
 from ..services.divera_intake import (
@@ -1059,6 +1059,46 @@ async def send_test_alarm(
         ],
         count_recipients=result.count_recipients,
     )
+
+
+async def _responses_summary(
+    db: AsyncSession, emergencies: list[models.DiveraEmergency]
+) -> schemas.DiveraResponsesSummary:
+    return schemas.DiveraResponsesSummary.model_validate(await divera_responses.summary_for(db, emergencies))
+
+
+@router.get("/events/{event_id}/responses", response_model=schemas.DiveraResponsesSummary)
+async def get_event_divera_responses(
+    event_id: UUID,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.DiveraResponsesSummary:
+    """Divera Rückmeldungen for every Divera alarm attached to this Ereignis, merged.
+
+    What the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that
+    reads the roster. Read-only: an answer never checks anybody in. `available: false` when
+    Divera is not configured or no alarm of this Ereignis came from Divera.
+    """
+    if await events_crud.get_event_by_id(db, event_id) is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if not settings.divera_access_key:
+        return await _responses_summary(db, [])
+    return await _responses_summary(db, await divera_responses.emergencies_for_event(db, event_id))
+
+
+@router.get("/incidents/{incident_id}/responses", response_model=schemas.DiveraResponsesSummary)
+async def get_incident_divera_responses(
+    incident_id: UUID,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.DiveraResponsesSummary:
+    """Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one)."""
+    incident = await incidents_crud.get_incident(db, incident_id)
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    if not settings.divera_access_key:
+        return await _responses_summary(db, [])
+    return await _responses_summary(db, await divera_responses.emergencies_for_incident(db, incident))
 
 
 @router.get("/polling/status", response_model=None)

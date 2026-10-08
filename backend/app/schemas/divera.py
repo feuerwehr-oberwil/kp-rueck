@@ -260,3 +260,72 @@ class DiveraMessageResponse(BaseModel):
     # Same meaning as on the alarm response: the training flow ran, nothing left
     # the building.
     simulated: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Rückmeldungen (services/divera_responses.py)
+# ---------------------------------------------------------------------------
+
+DiveraResponseKind = Literal["coming", "not_coming", "other"]
+
+
+class DiveraResponseKindCounts(BaseModel):
+    """Answers per kind. One person counts once (their latest answer)."""
+
+    coming: int = 0
+    not_coming: int = 0
+    other: int = 0
+
+
+class DiveraResponseStatusCount(BaseModel):
+    """Answers per Divera status, in the order Divera offers the buttons."""
+
+    status_id: int
+    # The Einheit's own name for it; «Status <id>» while the catalogue is unknown.
+    name: str
+    kind: DiveraResponseKind
+    # Divera's `time` for the status in minutes («Komme in 10 min» → 10); 0 = none.
+    time: int = 0
+    count: int
+
+
+class DiveraResponsePerson(BaseModel):
+    """One person's latest answer. Never a check-in: presence stays an explicit tap."""
+
+    ucr_id: int
+    # Via personnel_external_identities (provider `divera`); None = not on this roster.
+    personnel_id: UUID | None = None
+    name: str | None = None
+    role: str | None = None
+    tags: list[str] = []
+    status_id: int
+    status_name: str
+    kind: DiveraResponseKind
+    answered_at: datetime | None = None
+    # answered_at + the status's `time` – an ESTIMATE («ca.»), only for «coming» with a time.
+    eta: datetime | None = None
+    # Divera's free text, trimmed to 80 characters.
+    note: str | None = None
+
+
+class DiveraResponsesSummary(BaseModel):
+    """Who answered the Divera alarm(s) of one incident or one Ereignis.
+
+    `available: false` with a `reason` means the block is simply absent: Divera is not
+    configured here (`not_configured`), or nothing on this incident/Ereignis came from Divera
+    (`not_linked`). The access key is never part of this answer.
+    """
+
+    available: bool
+    reason: Literal["not_configured", "not_linked"] | None = None
+    alarm_count: int = 0
+    counts: DiveraResponseKindCounts = DiveraResponseKindCounts()
+    statuses: list[DiveraResponseStatusCount] = []
+    people: list[DiveraResponsePerson] = []
+    addressed: int = 0
+    read: int = 0
+    answered: int = 0
+    unanswered: int = 0
+    # Answers from UCR ids no local person carries as their `divera` identity.
+    unmapped: int = 0
+    updated_at: datetime | None = None

@@ -1823,6 +1823,17 @@ export default function FireStationDashboard() {
     [operations]
   )
 
+  /** Sidebar «Anrückend» → present: the ordinary check-in, then the roster reloads and the
+   *  person moves from that block into «Frei». Errors surface in the block's own toast. */
+  const checkInFromDivera = useCallback(
+    async (personnelId: string) => {
+      if (!selectedEvent) return
+      await apiClient.checkInPersonnelForEvent(personnelId, selectedEvent.id)
+      await refreshPersonnel()
+    },
+    [selectedEvent, refreshPersonnel]
+  )
+
   const copyCheckInUrlToClipboard = async () => {
     if (!checkInUrl) return
 
@@ -2167,6 +2178,9 @@ export default function FireStationDashboard() {
               personEngagements={personEngagements}
               followBinding={followBinding}
               rosterSummary={rosterSummary}
+              eventId={selectedEvent?.id ?? null}
+              canCheckIn={isEditor}
+              onDiveraCheckIn={checkInFromDivera}
             />
           )}
 

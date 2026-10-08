@@ -28,6 +28,23 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **«Anrückend»: who answered the Divera alarm, in the Appell and the Personen-Leiste.** The
+  Divera poll already fetched every alarm's Rückmeldungen and threw them away. They are now kept
+  per alarm and shown above the roll-call and at the top of the personnel sidebar: one line of
+  counts («7 kommen · 2 kommen nicht · 3 ohne Antwort»), then everybody coming who is not checked
+  in yet, with the time of their answer, an estimated arrival («ca. 21:52» – answer time plus the
+  minutes of a status like «Komme in 10 min», not a live position), their Grad, and one click to
+  check them in. «Kommt nicht» is its own muted group marked with ✕ and the words – not red, and
+  check-in is still offered in case somebody misclicked. A Divera answer never checks anybody in
+  by itself. Answers from Divera members nobody on the roster is linked to are only counted.
+  Without Divera, or on an Ereignis with no Divera alarm, nothing changes on screen. Which of the
+  Einheit's own statuses mean «kommt» / «kommt nicht» is read from their names; a station whose
+  names are unusual sets `divera.response_classification` (see `docs/ALARM-INTEGRATIONS.md`).
+  No new Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`
+  or at most once every 6 h. Migration: two nullable columns on `divera_emergencies`.
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an

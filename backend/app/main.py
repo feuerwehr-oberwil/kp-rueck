@@ -3,6 +3,7 @@
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import socketio
 from fastapi import FastAPI, Request
@@ -105,7 +106,10 @@ async def _setup_divera_polling():
     from . import schemas
     from .crud import divera as divera_crud
     from .database import async_session_maker
+    from .services import divera_responses
     from .services.divera_intake import broadcast_emergency_received, try_auto_attach
+    from .services.divera_poller import divera_poller
+    from .websocket_manager import broadcast_divera_responses_update
 
     async def on_polled_alarm(payload: schemas.DiveraWebhookPayload) -> bool:
         """
@@ -143,8 +147,16 @@ async def _setup_divera_polling():
                 logger.error(f"Error processing polled alarm {payload.id}: {e}")
                 return False
 
+    async def on_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
+        """Store the Rückmeldungen of the polled alarms; tell the boards when they changed."""
+        async with async_session_maker() as db:
+            event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
+        if event_ids or incident_ids:
+            await broadcast_divera_responses_update(event_ids, incident_ids)
+
     # Set the callback
     set_divera_poll_callback(on_polled_alarm)
+    divera_poller.responses_sink = on_polled_responses
 
     # Log configuration status
     if settings.divera_access_key:

@@ -455,6 +455,7 @@ export function BoardDialogs({
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelForPerson}
           onAttendanceChange={refreshPersonnel}
+          canCheckIn={isEditor}
         />
       )}
 

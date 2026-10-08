@@ -7,6 +7,8 @@ import type { ApiPersonnelListItem } from '@/lib/api-client'
 const getEventCheckInList = vi.fn()
 const checkInPersonnelForEvent = vi.fn().mockResolvedValue({})
 const checkOutPersonnelForEvent = vi.fn().mockResolvedValue({})
+const notConfigured = { available: false, reason: 'not_configured', counts: { coming: 0, not_coming: 0, other: 0 } }
+const getEventDiveraResponses = vi.fn().mockResolvedValue(notConfigured)
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
@@ -15,9 +17,12 @@ vi.mock('@/lib/api-client', () => ({
     checkOutPersonnelForEvent: (...args: unknown[]) => checkOutPersonnelForEvent(...args),
     checkOutAllPersonnel: vi.fn().mockResolvedValue([]),
     createPersonnel: vi.fn(),
+    getEventDiveraResponses: (...args: unknown[]) => getEventDiveraResponses(...args),
   },
 }))
-vi.mock('@/lib/websocket-client', () => ({ wsClient: { on: () => () => {} } }))
+vi.mock('@/lib/websocket-client', () => ({
+  wsClient: { on: () => () => {}, getStatus: () => 'disconnected', onStatusChange: () => () => {} },
+}))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import {
@@ -166,5 +171,108 @@ describe('AttendanceModal', () => {
     await waitFor(() =>
       expect(checkOutPersonnelForEvent).toHaveBeenCalledWith('Bürgin Anton', 'ev-1')
     )
+  })
+})
+
+describe('AttendanceModal · Divera «Anrückend»', () => {
+  const answer = (ucr: number, extra: Record<string, unknown>) => ({
+    ucr_id: ucr,
+    personnel_id: null,
+    name: null,
+    role: null,
+    tags: [],
+    status_id: 11,
+    status_name: 'Komme',
+    kind: 'coming',
+    answered_at: '2026-10-08T19:41:00Z',
+    eta: null,
+    note: null,
+    ...extra,
+  })
+  const responses = {
+    available: true,
+    reason: null,
+    alarm_count: 1,
+    counts: { coming: 3, not_coming: 1, other: 0 },
+    statuses: [],
+    people: [
+      answer(101, { personnel_id: 'Frey Marc', name: 'Frey Marc', role: 'Korporal' }),
+      answer(102, {
+        personnel_id: 'Bürgin Anton',
+        name: 'Bürgin Anton',
+        status_id: 12,
+        status_name: 'Komme in 10 min',
+        eta: '2026-10-08T19:51:00Z',
+      }),
+      answer(104, { personnel_id: 'Hofer Silvia', name: 'Hofer Silvia', kind: 'not_coming', note: 'Ferien' }),
+      answer(999, {}),
+    ],
+    addressed: 10,
+    read: 8,
+    answered: 4,
+    unanswered: 6,
+    unmapped: 1,
+    updated_at: '2026-10-08T19:42:00Z',
+  }
+
+  beforeEach(() => {
+    checkInPersonnelForEvent.mockClear()
+    getEventCheckInList.mockResolvedValue({
+      personnel: [present, left, absent],
+      event_id: 'ev-1',
+      event_name: 'Unwetter 08.08.',
+    })
+    getEventDiveraResponses.mockResolvedValue(responses)
+  })
+
+  it('lists who is still coming, never anybody already present, and checks in only on a click', async () => {
+    renderWithIntl(
+      <AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." canCheckIn />
+    )
+
+    const block = await screen.findByTestId('divera-incoming')
+    // Bürgin Anton answered «Komme in 10 min» but is checked in: not «anrückend» any more.
+    expect(block).toHaveTextContent('Anrückend (1)')
+    expect(block).toHaveTextContent('3 kommen · 1 kommt nicht · 6 ohne Antwort')
+    expect(block).not.toHaveTextContent('Bürgin Anton')
+    expect(block).toHaveTextContent('Frey Marc')
+    expect(block).toHaveTextContent('Kpl')
+    expect(block).toHaveTextContent('1 Rückmeldung ohne Person im Bestand')
+    // The answer alone wrote nothing.
+    expect(checkInPersonnelForEvent).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Frey Marc als anwesend melden' }))
+    await waitFor(() => expect(checkInPersonnelForEvent).toHaveBeenCalledWith('Frey Marc', 'ev-1'))
+  })
+
+  it('shows «kommt nicht» as its own group, in words, with check-in still offered', async () => {
+    renderWithIntl(
+      <AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." canCheckIn />
+    )
+
+    const block = await screen.findByTestId('divera-incoming')
+    expect(block).toHaveTextContent('Kommt nicht (1)')
+    const row = block.querySelector('li[data-kind="not_coming"]') as HTMLElement
+    expect(row).toHaveTextContent('Hofer Silvia')
+    expect(row).toHaveTextContent('kommt nicht')
+    expect(row).toHaveTextContent('«Ferien»')
+    expect(row.className).not.toMatch(/red|destructive/)
+    expect(screen.getByRole('button', { name: 'Hofer Silvia als anwesend melden' })).toBeEnabled()
+  })
+
+  it('offers no check-in to a viewer', async () => {
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
+    await screen.findByTestId('divera-incoming')
+    expect(screen.queryByRole('button', { name: /als anwesend melden/ })).not.toBeInTheDocument()
+  })
+
+  it('is simply absent when nothing here came from Divera', async () => {
+    getEventDiveraResponses.mockResolvedValue({ ...notConfigured, reason: 'not_linked' })
+    renderWithIntl(
+      <AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." canCheckIn />
+    )
+    expect(await screen.findByText('1 anwesend · 1 gegangen · 3 Mannschaft')).toBeInTheDocument()
+    await waitFor(() => expect(getEventDiveraResponses).toHaveBeenCalled())
+    expect(screen.queryByTestId('divera-incoming')).not.toBeInTheDocument()
   })
 })

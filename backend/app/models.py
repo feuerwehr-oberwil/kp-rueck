@@ -1682,6 +1682,13 @@ class DiveraEmergency(Base):
     # Store raw Divera payload for reference
     raw_payload_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
+    # The Rückmeldungen Divera reports on this alarm (who was alarmed, who read it, who
+    # answered under which status), normalised by services/divera_responses.py from the
+    # same `/alarms` answer the poller already fetches. Replaced whole on every change;
+    # NULL = nothing seen yet. Never marks anybody present – that stays one explicit tap.
+    responses_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    responses_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Timestamps
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True

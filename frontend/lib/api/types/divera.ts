@@ -138,3 +138,52 @@ export interface SendDiveraAlarmOptions {
   send_call?: boolean
   send_mail?: boolean
 }
+
+// Rückmeldungen — GET /api/divera/{events,incidents}/{id}/responses
+// (backend/app/services/divera_responses.py; the same rules as KP Front's half).
+
+/** How a Divera status reads: kommt / kommt nicht / anderes (e.g. «Rückruf erbeten»). */
+export type ApiDiveraResponseKind = 'coming' | 'not_coming' | 'other'
+
+export interface ApiDiveraResponseStatusCount {
+  status_id: number
+  /** The Einheit's own name; «Status <id>» while the catalogue is unknown. */
+  name: string
+  kind: ApiDiveraResponseKind
+  /** Divera's `time` for the status in minutes; 0 = none. */
+  time: number
+  count: number
+}
+
+export interface ApiDiveraResponsePerson {
+  ucr_id: number
+  /** Via the person's `divera` identity; null = not on this roster. */
+  personnel_id: string | null
+  name: string | null
+  role: string | null
+  tags: string[]
+  status_id: number
+  status_name: string
+  kind: ApiDiveraResponseKind
+  answered_at: string | null
+  /** answered_at + status time — an ESTIMATE («ca.»), only for «coming» with a time. */
+  eta: string | null
+  note: string | null
+}
+
+export interface ApiDiveraResponsesSummary {
+  /** false = the block is absent: Divera not configured, or nothing here came from Divera. */
+  available: boolean
+  reason: 'not_configured' | 'not_linked' | null
+  alarm_count: number
+  counts: Record<ApiDiveraResponseKind, number>
+  statuses: ApiDiveraResponseStatusCount[]
+  people: ApiDiveraResponsePerson[]
+  addressed: number
+  read: number
+  answered: number
+  unanswered: number
+  /** Answers from Divera members no roster person is linked to. */
+  unmapped: number
+  updated_at: string | null
+}

@@ -2968,6 +2968,158 @@
         }
       }
     },
+    "/api/divera/events/{event_id}/responses": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Get Event Divera Responses",
+        "description": "Divera Rückmeldungen for every Divera alarm attached to this Ereignis, merged.\n\nWhat the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that\nreads the roster. Read-only: an answer never checks anybody in. `available: false` when\nDivera is not configured or no alarm of this Ereignis came from Divera.",
+        "operationId": "get_event_divera_responses_api_divera_events__event_id__responses_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraResponsesSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/divera/incidents/{incident_id}/responses": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Get Incident Divera Responses",
+        "description": "Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).",
+        "operationId": "get_incident_divera_responses_api_divera_incidents__incident_id__responses_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraResponsesSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/polling/status": {
       "get": {
         "tags": [
@@ -21478,6 +21630,273 @@
         ],
         "title": "DiveraMessageResponse",
         "description": "Result of a Mitteilung send."
+      },
+      "DiveraResponseKindCounts": {
+        "properties": {
+          "coming": {
+            "type": "integer",
+            "title": "Coming",
+            "default": 0
+          },
+          "not_coming": {
+            "type": "integer",
+            "title": "Not Coming",
+            "default": 0
+          },
+          "other": {
+            "type": "integer",
+            "title": "Other",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "DiveraResponseKindCounts",
+        "description": "Answers per kind. One person counts once (their latest answer)."
+      },
+      "DiveraResponsePerson": {
+        "properties": {
+          "ucr_id": {
+            "type": "integer",
+            "title": "Ucr Id"
+          },
+          "personnel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "status_id": {
+            "type": "integer",
+            "title": "Status Id"
+          },
+          "status_name": {
+            "type": "string",
+            "title": "Status Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "coming",
+              "not_coming",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "answered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answered At"
+          },
+          "eta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ucr_id",
+          "status_id",
+          "status_name",
+          "kind"
+        ],
+        "title": "DiveraResponsePerson",
+        "description": "One person's latest answer. Never a check-in: presence stays an explicit tap."
+      },
+      "DiveraResponseStatusCount": {
+        "properties": {
+          "status_id": {
+            "type": "integer",
+            "title": "Status Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "coming",
+              "not_coming",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "time": {
+            "type": "integer",
+            "title": "Time",
+            "default": 0
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status_id",
+          "name",
+          "kind",
+          "count"
+        ],
+        "title": "DiveraResponseStatusCount",
+        "description": "Answers per Divera status, in the order Divera offers the buttons."
+      },
+      "DiveraResponsesSummary": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "not_configured",
+                  "not_linked"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "alarm_count": {
+            "type": "integer",
+            "title": "Alarm Count",
+            "default": 0
+          },
+          "counts": {
+            "$ref": "#/components/schemas/DiveraResponseKindCounts",
+            "default": {
+              "coming": 0,
+              "not_coming": 0,
+              "other": 0
+            }
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/DiveraResponseStatusCount"
+            },
+            "type": "array",
+            "title": "Statuses",
+            "default": []
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/DiveraResponsePerson"
+            },
+            "type": "array",
+            "title": "People",
+            "default": []
+          },
+          "addressed": {
+            "type": "integer",
+            "title": "Addressed",
+            "default": 0
+          },
+          "read": {
+            "type": "integer",
+            "title": "Read",
+            "default": 0
+          },
+          "answered": {
+            "type": "integer",
+            "title": "Answered",
+            "default": 0
+          },
+          "unanswered": {
+            "type": "integer",
+            "title": "Unanswered",
+            "default": 0
+          },
+          "unmapped": {
+            "type": "integer",
+            "title": "Unmapped",
+            "default": 0
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "DiveraResponsesSummary",
+        "description": "Who answered the Divera alarm(s) of one incident or one Ereignis.\n\n`available: false` with a `reason` means the block is simply absent: Divera is not\nconfigured here (`not_configured`), or nothing on this incident/Ereignis came from Divera\n(`not_linked`). The access key is never part of this answer."
       },
       "DiveraSyncExecute": {
         "properties": {

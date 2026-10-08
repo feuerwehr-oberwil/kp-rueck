@@ -3,6 +3,10 @@
 This service polls the Divera API for recent alarms as a fallback mechanism
 when webhooks might be missed. Polling only occurs when users are actively
 connected via WebSocket to avoid unnecessary API load.
+
+The same answer also carries each alarm's Rückmeldungen (who was alarmed, who
+answered «Komme» / «Komme nicht»); those are handed to `responses_sink`
+(services/divera_responses.py) — no extra Divera request per poll.
 """
 
 import asyncio
@@ -16,12 +20,15 @@ import httpx
 
 from .. import schemas
 from ..config import settings
+from . import divera_responses
 
 logger = logging.getLogger(__name__)
 
 # The alarm sink the poller hands each parsed alarm to; returns True when the alarm
 # was new (False = already seen via webhook).
 _AlarmCallback = Callable[[schemas.DiveraWebhookPayload], Awaitable[bool]]
+# Where the normalised Rückmeldungen go: {divera alarm id: snapshot}.
+_ResponsesSink = Callable[[dict[int, dict[str, Any]]], Awaitable[None]]
 
 
 class DiveraPoller:
@@ -34,6 +41,8 @@ class DiveraPoller:
         self._last_poll_time: datetime | None = None
         self._poll_count = 0
         self._error_count = 0
+        # Set by main.py at startup; None = Rückmeldungen are not stored (tests, scripts).
+        self.responses_sink: _ResponsesSink | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -154,6 +163,32 @@ class DiveraPoller:
 
         if new_count > 0:
             logger.info(f"Divera poll: found {new_count} new alarm(s)")
+
+        # After the intake, so an alarm this poll just took into the pool gets its answers too.
+        if self.responses_sink is not None:
+            try:
+                await self._store_responses(data)
+            except Exception as e:
+                logger.error("Error storing Divera responses: %s", type(e).__name__)
+
+    async def _store_responses(self, data: dict[str, Any]) -> None:
+        """Normalise every alarm's Rückmeldungen out of the `/alarms` answer we already have."""
+        if self.responses_sink is None or self._http_client is None:
+            return
+        items = divera_responses.alarm_items(data)
+        needed: set[int] = set()
+        for item in items:
+            needed |= divera_responses.answered_status_ids(item)
+        # At most once per 6 h, and only when some alarm carries answers.
+        catalogue = await divera_responses.status_catalogue.ensure(self._http_client, needed)
+        snapshots: dict[int, dict[str, Any]] = {}
+        for item in items:
+            alarm_id = divera_responses.as_int(item.get("id"))
+            snapshot = divera_responses.snapshot_from_alarm(item, catalogue)
+            if alarm_id and snapshot is not None:
+                snapshots[alarm_id] = snapshot
+        if snapshots:
+            await self.responses_sink(snapshots)
 
     def _parse_alarms_response(self, data: dict[str, Any]) -> list[schemas.DiveraWebhookPayload]:
         """

@@ -36,6 +36,7 @@ import {
   type ApiEventStats,
   type ApiPersonnel,
   type ApiPersonnelListItem,
+  type ApiDiveraResponsesSummary,
   type ApiCheckInStats,
   type ApiPersonnelCreate,
   type ApiPersonnelUpdate,
@@ -1889,6 +1890,11 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(options),
     })
+  }
+
+  /** Divera Rückmeldungen («Komme» / «Komme nicht») for every Divera alarm of an Ereignis. */
+  async getEventDiveraResponses(eventId: string): Promise<ApiDiveraResponsesSummary> {
+    return this.request<ApiDiveraResponsesSummary>(`/api/divera/events/${encodeURIComponent(eventId)}/responses`)
   }
 
   /** Divera polling/connection status – for the Verbindung indicator. */
