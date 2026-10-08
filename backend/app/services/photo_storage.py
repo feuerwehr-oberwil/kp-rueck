@@ -20,6 +20,7 @@ from fastapi import HTTPException, UploadFile
 from PIL import Image
 
 from ..config import get_settings
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
@@ -101,8 +102,10 @@ class PhotoStorageService:
         if filename:
             ext = Path(filename).suffix.lower()
             if ext not in self.allowed_extensions:
-                raise HTTPException(
-                    status_code=400, detail=f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}"
+                raise CodedHTTPException(
+                    400,
+                    ErrorCode.PHOTO_INVALID_EXTENSION,
+                    f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}",
                 )
 
         # Check actual file content using magic bytes if available
@@ -123,8 +126,10 @@ class PhotoStorageService:
                 "application/octet-stream",  # Some browsers send this for images
             }
             if mime and mime not in allowed_mimes:
-                raise HTTPException(
-                    status_code=400, detail=f"Invalid file type detected: {mime}. Only image files are allowed."
+                raise CodedHTTPException(
+                    400,
+                    ErrorCode.PHOTO_INVALID_TYPE,
+                    f"Invalid file type detected: {mime}. Only image files are allowed.",
                 )
 
         # Validate PIL can open the file (don't use verify() — it's overly strict
@@ -137,9 +142,9 @@ class PhotoStorageService:
             # actionable; the generic "corrupted image" below would send the operator looking
             # for a fault in their camera.
             logger.warning("Rejected decompression bomb at open: %s", e)
-            raise HTTPException(status_code=413, detail="Bild zu gross (Pixelmasse).") from None
+            raise CodedHTTPException(413, ErrorCode.PHOTO_TOO_MANY_PIXELS, "Bild zu gross (Pixelmasse).") from None
         except Exception:
-            raise HTTPException(status_code=400, detail="Invalid or corrupted image file") from None
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Invalid or corrupted image file") from None
 
         # Dimensions BEFORE the decode below. `Image.open` only parses the header, so this is
         # the last cheap moment: `img.load()` allocates the full bitmap, and a file that is
@@ -149,15 +154,14 @@ class PhotoStorageService:
         pixels = img.size[0] * img.size[1]
         if pixels > MAX_IMAGE_PIXELS:
             logger.warning("Rejected oversized image: %dx%d", img.size[0], img.size[1])
-            raise HTTPException(
-                status_code=413,
-                detail=f"Bild zu gross ({img.size[0]}×{img.size[1]} Pixel).",
+            raise CodedHTTPException(
+                413, ErrorCode.PHOTO_TOO_MANY_PIXELS, f"Bild zu gross ({img.size[0]}×{img.size[1]} Pixel)."
             )
 
         try:
             img.load()  # Force decode to confirm it's a real image
         except Exception:
-            raise HTTPException(status_code=400, detail="Invalid or corrupted image file") from None
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Invalid or corrupted image file") from None
 
     def _sanitize_filename(self, filename: str) -> str:
         """
@@ -235,7 +239,12 @@ class PhotoStorageService:
         # Validate photo count
         photo_count = len(current_photos) if current_photos else 0
         if photo_count >= self.max_photos:
-            raise HTTPException(status_code=400, detail=f"Maximum {self.max_photos} photos per report")
+            raise CodedHTTPException(
+                400,
+                ErrorCode.PHOTO_LIMIT,
+                f"Maximum {self.max_photos} photos per report",
+                params={"max": self.max_photos},
+            )
 
         # Read in chunks and stop as soon as the limit is exceeded — 413 Payload Too Large is
         # the semantic match per RFC 9110.
@@ -253,9 +262,11 @@ class PhotoStorageService:
                 break
             total += len(chunk)
             if total > self.max_size_bytes:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
+                raise CodedHTTPException(
+                    413,
+                    ErrorCode.PHOTO_TOO_LARGE,
+                    f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
+                    params={"max_mb": settings.max_photo_size_mb},
                 )
             chunks.append(chunk)
         content = b"".join(chunks)
@@ -290,9 +301,8 @@ class PhotoStorageService:
             pixels = image.size[0] * image.size[1]
             if pixels > MAX_IMAGE_PIXELS:
                 logger.warning("Rejected oversized image: %dx%d", image.size[0], image.size[1])
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"Bild zu gross ({image.size[0]}×{image.size[1]} Pixel).",
+                raise CodedHTTPException(
+                    413, ErrorCode.PHOTO_TOO_MANY_PIXELS, f"Bild zu gross ({image.size[0]}×{image.size[1]} Pixel)."
                 )
             compressed_data = self._compress_image(image)
         except HTTPException:
@@ -304,10 +314,10 @@ class PhotoStorageService:
             # with their camera. The explicit check still earns its place — between 1x and 2x
             # Pillow only warns and decodes anyway.
             logger.warning("Rejected decompression bomb: %s", e)
-            raise HTTPException(status_code=413, detail="Bild zu gross (Pixelmasse).") from e
+            raise CodedHTTPException(413, ErrorCode.PHOTO_TOO_MANY_PIXELS, "Bild zu gross (Pixelmasse).") from e
         except Exception as e:
             logger.warning("Failed to process image: %s", e)
-            raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_FILE) from e
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, ErrorMessages.INVALID_FILE) from e
 
         with open(file_path, "wb") as f:
             f.write(compressed_data)

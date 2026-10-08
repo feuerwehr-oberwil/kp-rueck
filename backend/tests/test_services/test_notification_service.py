@@ -643,6 +643,17 @@ class TestFatigueNotification:
         assert rows[0].message == (
             "3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Huber Max (5 h), Meier Anna (4 h)"
         )
+        # The same facts for the client to say in its own language.
+        assert rows[0].params == {
+            "hours": 4,
+            "count": 3,
+            "people": [
+                {"name": "Müller Hans", "hours": 6},
+                {"name": "Huber Max", "hours": 5},
+                {"name": "Meier Anna", "hours": 4},
+            ],
+            "more": 0,
+        }
 
     @pytest.mark.asyncio
     async def test_updated_in_place_when_somebody_crosses(self, db_session: AsyncSession, notif_event: Event):
@@ -658,7 +669,29 @@ class TestFatigueNotification:
         rows = await self._fatigue_rows(db_session, notif_event)
         assert len(rows) == 1
         assert rows[0].message.startswith("2 Personen seit über 4 h im Einsatz")
+        assert rows[0].params["count"] == 2
+        assert [p["name"] for p in rows[0].params["people"]] == ["Müller Hans", "Meier Anna"]
         assert rows[0].dismissed is False
+
+    @pytest.mark.asyncio
+    async def test_a_row_from_before_params_gets_them_on_the_next_sync(
+        self, db_session: AsyncSession, notif_event: Event
+    ):
+        """An open row written by the previous release (params NULL, same sentence) is filled in place."""
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        legacy = Notification(
+            type="personnel_fatigue",
+            severity="warning",
+            message="Seit über 4 h im Einsatz: Müller Hans (5 h)",
+            event_id=notif_event.id,
+        )
+        db_session.add(legacy)
+        await db_session.commit()
+
+        current = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
+
+        assert current is not None and current.id == legacy.id
+        assert current.params == {"hours": 4, "count": 1, "people": [{"name": "Müller Hans", "hours": 5}], "more": 0}
 
     @pytest.mark.asyncio
     async def test_dismissal_holds_until_somebody_new_crosses(

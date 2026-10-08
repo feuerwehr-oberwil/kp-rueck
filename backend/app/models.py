@@ -1472,7 +1472,14 @@ class Notification(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    # The German sentence. Still written for every row: it is what an older client, the
+    # audit trail and the dedup/auto-resolve matching read, and the only text a row from
+    # before `params` has. The bell renders `type` + `params` in the operator's language
+    # (frontend/lib/notification-format.ts) and falls back to this when `params` is NULL.
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    # The facts the sentence is made of (place, person, minutes, …), keyed per type —
+    # the shapes are listed in `services/notification_params.py`. NULL on legacy rows.
+    params: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     # Optional associations
     incident_id: Mapped[UUID | None] = mapped_column(

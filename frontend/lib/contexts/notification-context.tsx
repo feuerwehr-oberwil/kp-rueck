@@ -14,7 +14,6 @@ import { isStringArray, readItem, readJson, writeItem, writeJson } from '@/lib/u
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
-import { parseFatigueMessage } from '@/lib/notification-format'
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -86,38 +85,6 @@ const SIDEBAR_OPEN_KEY = 'notification-sidebar-open'
  * it. Same pattern the notification overflow summary uses.
  */
 const UNAVAILABLE_TOAST_ID = 'notifications-unavailable'
-
-/**
- * The message in the operator's language, where the frontend can build one.
- *
- * Backend messages are German-only (see CLAUDE.md, i18n), and for almost every
- * type that stays true: they carry an address or a name the server composed.
- * `feld_code_rotated` is fixed text around the Ereignis name, and it is the
- * one a French-speaking KP has to act on at once — every phone that has not
- * unlocked yet needs the new code from them — so it is rebuilt here. Bell,
- * sidebar and toasts all read `message`, which is why this is the one place.
- * The list is fetched per selected event, so its name is the right one.
- */
-export function localizeNotificationMessage(notification: Pick<Notification, 'type' | 'message'>, eventName: string): string {
-  if (notification.type === 'feld_code_rotated') {
-    return translateOutsideReact('notifications.messages.feldCodeRotated', { event: eventName })
-  }
-  // The crew's time on duty: fixed words around names and hours, so it can be
-  // said in the operator's language too. An older per-person sentence does not
-  // parse and stays as it came.
-  if (notification.type === 'personnel_fatigue') {
-    const fatigue = parseFatigueMessage(notification.message)
-    if (!fatigue) return notification.message
-    const listed = fatigue.names.join(', ')
-    const names = fatigue.more > 0
-      ? translateOutsideReact('notifications.messages.fatigueMore', { names: listed, count: fatigue.more })
-      : listed
-    return fatigue.count === 1
-      ? translateOutsideReact('notifications.messages.fatigueOne', { hours: fatigue.hours, names })
-      : translateOutsideReact('notifications.messages.fatigueMany', { count: fatigue.count, hours: fatigue.hours, names })
-  }
-  return notification.message
-}
 
 /**
  * What one poll learned. A failed fetch is NOT an empty notification list —
@@ -254,12 +221,13 @@ export function NotificationProvider({
 
       const data = await response.json()
 
-      // Convert created_at strings to Date objects
+      // Convert created_at strings to Date objects. `message` and `params` pass
+      // through as sent: the bell, the sidebar and the toasts say them in the
+      // operator's language at render time (lib/notification-format.ts).
       return {
         status: 'ok',
         notifications: (data as (Omit<Notification, 'created_at'> & { created_at: string })[]).map((n) => ({
           ...n,
-          message: localizeNotificationMessage(n, selectedEvent.name),
           created_at: new Date(n.created_at),
         })),
       }

@@ -13,6 +13,7 @@ import {
   REQUEST_TIMEOUT_MS,
   type RequestOptions,
 } from './api/http'
+import { messageForErrorCode } from './api/error-codes'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 // Re-export every API type so existing consumers (`import { type ApiX } from '@/lib/api-client'`)
@@ -1338,8 +1339,12 @@ class ApiClient {
         // invalid type) — the crew has to see them, not a status code.
         let message = translateOutsideReact('errors.api.photoUploadFailed')
         try {
-          const detail = (JSON.parse(xhr.responseText) as { detail?: unknown }).detail
-          if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
+          const body = JSON.parse(xhr.responseText) as { detail?: unknown }
+          const detail = body.detail
+          // A coded error (size, type, limit) in the crew's language first.
+          const localized = messageForErrorCode(body)
+          if (localized) message = localized
+          else if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
         } catch {
           // Not JSON — keep the generic message.
         }

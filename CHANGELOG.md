@@ -41,6 +41,22 @@ will keep holding.
 
 ### Changed
 
+- **The bell speaks French too.** A notification used to be one German sentence composed on the
+  server, which the board then took apart again with regular expressions to lay it out – so a
+  French-speaking KP read German in the bell, the toasts and the Warnungen panel. Every
+  notification now also carries the facts it is made of (place, person, minutes, column, …), and
+  the board says them in the device's language: «Récupération nécessaire» / «Hauptstrasse 1 ·
+  saisi au PC». What the crew typed and what a training inject says stay as written. German
+  reads as before, with the board's own column names («Disponiert / Anfahrt») where the sentence
+  used the printout's. Notifications from before the update show their German sentence, as they
+  did. The `/feld` phone's error messages («Bitte den Code neu eingeben.», «Diese Einsatzstelle ist
+  dir nicht zugeteilt.», photo size and type) are in the crew's language as well, and the
+  installed app announces the device's language (`fr-CH`) instead of always `de-CH`. Italian
+  stays German until its translation is complete.
+  *Deployment:* one migration (a nullable `params` column on `notifications`, nothing
+  backfilled), runs on boot. API: `GET /api/notifications/` rows gain `params` (null on old
+  rows); `/feld` error bodies gain a stable `code` beside the unchanged German `detail`.
+
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
   iPhone showed a screenshot of the page: the icon was an SVG, which iOS does not accept there,
   and there was no web manifest, so Android offered no app at all. There is now a PNG set (180 for
