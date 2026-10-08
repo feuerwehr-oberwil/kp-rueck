@@ -78,9 +78,11 @@ export function EventFiguresView({
   ]
 
   return (
-    <div className={cn("flex flex-col", wall ? "gap-3 p-3 xl:p-4" : "gap-4", className)} data-testid="event-figures">
+    // `@container`: the same view sits in a 720px sheet, a 300–480px wall column and a
+    // phone dialog — the count tiles go 2×2 by the room they get, not the window.
+    <div className={cn("@container flex flex-col", wall ? "gap-3 p-3 xl:p-4" : "gap-4", className)} data-testid="event-figures">
       {/* ── Counts ── */}
-      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-2 @xl:grid-cols-4">
         <Count label={t("total")} value={figures.total} wall={wall} />
         <Count
           label={t("waiting")}
@@ -292,7 +294,7 @@ function DispatchBars({
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
         <span className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden>
           <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-foreground/70" />{legendMedian}</span>
-          <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-foreground/20" />{legendP90}</span>
+          <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-foreground/25" />{legendP90}</span>
         </span>
       </div>
       <ul className="flex flex-col gap-1.5">
@@ -303,9 +305,9 @@ function DispatchBars({
           return (
             <li key={row.priority} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-sm">
               <span className="truncate" title={label}>{label}</span>
-              <span className="relative h-3 overflow-hidden rounded-sm bg-muted" aria-hidden>
+              <span className="relative h-3 overflow-hidden rounded-sm bg-foreground/[0.06]" aria-hidden>
                 {p90 !== null && (
-                  <span className="absolute inset-y-0 left-0 rounded-sm bg-foreground/20" style={{ width: `${(p90 / max) * 100}%` }} />
+                  <span className="absolute inset-y-0 left-0 rounded-sm bg-foreground/25" style={{ width: `${(p90 / max) * 100}%` }} />
                 )}
                 {median !== null && (
                   <span

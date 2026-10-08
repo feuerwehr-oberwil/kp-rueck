@@ -28,6 +28,20 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Kennzahlen: the Lage and the Reaktionszeiten on screen, not only in the PDF.** «Kennzahlen» in
+  the board's footer (key `Z`, also in the command palette) shows Meldungen, offen (per priority),
+  in Arbeit and erledigt; the time from Eingang to **Disponiert**, **Vor Ort** and **Abschluss** as
+  median and P90 per priority; the oldest «hoch» Meldung still waiting, with its age (a click opens
+  it); and one bar per priority for Eingang → Disponiert. On a training Ereignis the same view is the
+  **Übungsauswertung**; any past Ereignis has it under Ereignisse → ⋯ → Kennzahlen; and the status
+  wall (`/display/status`, share link included) carries it as a foldable section above the
+  Einsätze. The numbers come from the same computation as the PDF's Reaktionszeiten table
+  (`services/reaction_times.py`), so the wall and the debrief cannot disagree. Nothing similar
+  existed in the settings: the old `/stats` page (user menu) was removed in January and its widget
+  in July; `GET /events/{id}/stats` had no caller and now carries the figures.
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
@@ -45,6 +59,11 @@ will keep holding.
 
 ### Fixed
 
+- **Reaktionszeiten in the Einsatzbericht count a skipped column and the last Abschluss.** A card
+  dragged straight from Eingegangen to «Im Einsatz» had no «→ Disponiert»; it now counts as
+  dispatched when it first reached any dispatched status. A reopened incident printed its first
+  «Abgeschlossen»; the Abschluss is now the closing that stuck, and empty while it is open again.
+  A Meldung closed without anybody going out still has no reaction time.
 - **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
   internal codes (`high`, `active`) rather than the words on the card, so «hoch» or «einsatz»
   found nothing while a fragment like «in» or «com» found every card in a column. The search now
