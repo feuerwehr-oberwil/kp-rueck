@@ -1002,9 +1002,16 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
 
+      # A quarantined spec (`@quarantine-until-YYYY-MM-DD`, see e2e-nightly.yml) is out of the
+      # gate. Only the tag's FORMAT is checked here; its expiry fails the nightly instead, so a
+      # date passing can never turn an unrelated pull request red.
+      - name: Quarantine tags are well-formed
+        working-directory: frontend
+        run: node scripts/e2e-quarantine.mjs --format-only
+
       - name: Run E2E tests (@smoke)
         working-directory: frontend
-        run: pnpm exec playwright test --grep @smoke
+        run: pnpm exec playwright test --grep @smoke --grep-invert @quarantine
         env:
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
