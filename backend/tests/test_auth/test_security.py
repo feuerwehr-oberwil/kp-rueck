@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 import jwt
 import pytest
 
@@ -34,6 +35,31 @@ def test_hash_password_success():
 
     # Verify hash length is reasonable for bcrypt
     assert len(hashed) >= 59  # Bcrypt hashes are typically 60 chars
+
+
+def test_hash_password_asks_for_cost_12(monkeypatch):
+    """The production cost factor is 12, whatever the suite hashes with.
+
+    tests/conftest.py makes every hash in a test run cost 4 so the suite does not spend its
+    time in bcrypt. That must not hide a change to what the APP asks for: record the cost
+    hash_password requests, and the dummy hash that evens out unknown-user logins.
+    """
+    from app.auth import security
+
+    requested: list[int] = []
+    patched = bcrypt.gensalt
+
+    def spy(rounds: int = 12, prefix: bytes = b"2b") -> bytes:
+        requested.append(rounds)
+        return patched(rounds=rounds, prefix=prefix)
+
+    monkeypatch.setattr(bcrypt, "gensalt", spy)
+    monkeypatch.setattr(security, "_dummy_hash", None)
+
+    hash_password("ValidPassword123")
+    security._get_dummy_hash()
+
+    assert requested == [12, 12]
 
 
 def test_hash_password_minimum_length():
