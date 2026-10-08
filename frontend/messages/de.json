@@ -126,7 +126,8 @@
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
       "rapporte": "Rapporte öffnen",
-      "mapColorBy": "Färben nach: {mode}"
+      "mapColorBy": "Färben nach: {mode}",
+      "figures": "Kennzahlen öffnen"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -519,7 +520,8 @@
       "distributeConfirmTitle": "In Auftrag aufnehmen?",
       "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
-      "distributeConfirmAction": "Ja, aufnehmen"
+      "distributeConfirmAction": "Ja, aufnehmen",
+      "figures": "Kennzahlen"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -2382,6 +2384,46 @@
       "abhollisteQueued": "Abholliste gesendet",
       "abhollisteQueuedDescription": "Adresse · Material · seit wann – eine Zeile pro Position.",
       "abhollisteFailed": "Abholliste konnte nicht gedruckt werden"
+    },
+    "figures": {
+      "title": "Kennzahlen",
+      "titleTraining": "Übungsauswertung",
+      "description": "Lage und Reaktionszeiten dieses Ereignisses – laufend aktualisiert.",
+      "descriptionTraining": "Lage und Reaktionszeiten dieser Übung – die Werte des Übungsberichts.",
+      "total": "Meldungen",
+      "waiting": "Offen",
+      "waitingByPriority": "{high} hoch · {medium} mittel · {low} niedrig",
+      "inProgress": "In Arbeit",
+      "done": "Erledigt",
+      "oldestHigh": "Älteste wartende «Hoch»-Meldung",
+      "waitingSince": "wartet seit {age}",
+      "noWaitingHigh": "Keine «Hoch»-Meldung wartet.",
+      "openIncident": "Einsatz öffnen",
+      "reactionTitle": "Reaktionszeiten ab Eingang",
+      "reactionHint": "Median, darunter P90",
+      "colPriority": "Priorität",
+      "toDispatched": "→ Disponiert",
+      "toOnScene": "→ Vor Ort",
+      "toClosed": "→ Abschluss",
+      "priorityHigh": "Hoch",
+      "priorityMedium": "Mittel",
+      "priorityLow": "Niedrig",
+      "priorityAll": "Alle",
+      "incidentCount": "{count, plural, one {# Meldung} other {# Meldungen}}",
+      "p90": "P90 {value}",
+      "cellTitle": "{priority}, {stage}: Median {median}, P90 {p90} – aus {count, plural, one {# Einsatz} other {# Einsätzen}}",
+      "chartTitle": "Eingang → Disponiert je Priorität",
+      "legendMedian": "Median",
+      "legendP90": "bis P90",
+      "noneYet": "noch keine",
+      "definitions": "Zeit ab Eingang bis zum ersten Erreichen der Stufe; eine Karte, die eine Spalte übersprungen hat, zählt trotzdem. Abschluss = letzter Abschluss: eine wieder geöffnete Meldung zählt erst, wenn sie erneut abgeschlossen ist. P90 = 9 von 10 Einsätzen waren gleich schnell oder schneller. Dieselben Werte wie im Einsatzbericht (PDF).",
+      "empty": "Noch keine Meldungen in diesem Ereignis.",
+      "loading": "Kennzahlen werden geladen …",
+      "loadFailed": "Kennzahlen konnten nicht geladen werden.",
+      "stale": "Letzte Aktualisierung fehlgeschlagen – die Werte können veraltet sein.",
+      "noEvent": "Kein Ereignis ausgewählt.",
+      "menuItem": "Kennzahlen",
+      "wallBadge": "{waiting} offen · {high} hoch"
     }
   },
   "reko": {
@@ -3545,7 +3587,8 @@
       "freeOfTotal": "{free}/{total} frei",
       "auftragStops": "{count, plural, one {# Stopp} other {# Stopps}}",
       "onIncidents": "{count, plural, one {# Einsatz} other {# Einsätze}}",
-      "availableDeployedNotReady": "{available} verfügbar · {deployed} im Einsatz · {notReady} nicht einsatzbereit"
+      "availableDeployedNotReady": "{available} verfügbar · {deployed} im Einsatz · {notReady} nicht einsatzbereit",
+      "figures": "Kennzahlen"
     },
     "tokenBoard": {
       "unknown": "Unbekannt",

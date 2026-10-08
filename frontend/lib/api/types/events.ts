@@ -69,10 +69,46 @@ export interface ApiEventSpecialFunctionResponse {
   assigned_by: string | null // UUID
 }
 
+/** Median and nearest-rank P90 of one stage time, over `count` incidents. */
+export interface ApiStageFigures {
+  count: number
+  median_seconds: number | null
+  p90_seconds: number | null
+}
+
+/** Counts and reaction times for one priority, or `all`. */
+export interface ApiPriorityFigures {
+  priority: 'high' | 'medium' | 'low' | 'all'
+  total: number
+  /** Not yet dispatched: Eingegangen, Reko, Reko abgeschlossen. */
+  waiting: number
+  /** Disponiert, Im Einsatz, Rückfahrt. */
+  in_progress: number
+  done: number
+  dispatched: ApiStageFigures
+  on_scene: ApiStageFigures
+  closed: ApiStageFigures
+}
+
+/**
+ * The Kennzahlen of one Ereignis (`backend/app/services/reaction_times.py`, the
+ * same stage times as the PDF's Reaktionszeiten table).
+ */
+export interface ApiEventFigures {
+  total: number
+  waiting: number
+  in_progress: number
+  done: number
+  overall: ApiPriorityFigures
+  by_priority: ApiPriorityFigures[]
+  oldest_waiting_high: { incident_id: string; title: string; created_at: string } | null
+}
+
 export interface ApiEventStats {
   status_counts: Record<string, number> // Keys are incident statuses as strings
   personnel_available: number
   personnel_total: number
   avg_duration_minutes: number
   resource_utilization_percent: number
+  figures: ApiEventFigures
 }

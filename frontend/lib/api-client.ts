@@ -34,6 +34,7 @@ import {
   type ApiEventSpecialFunctionDelete,
   type ApiEventSpecialFunctionResponse,
   type ApiEventStats,
+  type ApiEventFigures,
   type ApiPersonnel,
   type ApiPersonnelListItem,
   type ApiCheckInStats,
@@ -250,6 +251,8 @@ export interface ApiViewerData {
   /** incident_id → what the Reko reported, for incidents with a submitted
    *  report. Photos are not in there: the photo route needs the login. */
   reko_summaries?: Record<string, ApiViewerRekoSummary>
+  /** Kennzahlen for the status wall — counts and reaction times only. */
+  figures?: ApiEventFigures
 }
 
 /** How far one photo has got, 0…1. Fed by `XMLHttpRequest.upload.onprogress`. */
