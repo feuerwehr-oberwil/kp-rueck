@@ -3770,7 +3770,23 @@
         "manual-intake": "Lien d’alarme pour le téléphone",
         "operator": "Saisie manuelle sur le tableau"
       },
-      "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte."
+      "builtinNote": "Un fournisseur manquant ne signifie donc jamais qu’aucune situation ne peut être ouverte.",
+      "rosterSnapshot": {
+        "title": "Fichier du personnel (snapshot) :",
+        "neverRan": "Source configurée, aucune récupération pour l’instant.",
+        "held": "suspendu – {n} des {total} personnes disponibles seraient désactivées (limite {limit}). Rien n’a été modifié ; vérifiez d’abord le fichier.",
+        "heldWho": "Concernés : {names}",
+        "release": "Si le fichier est correct, libérer sur le serveur :",
+        "releaseCommand": "docker compose exec backend uv run python -m app.services.roster_snapshot_sync run --force",
+        "failed": "dernière récupération refusée, l’effectif est inchangé :",
+        "unchanged": "Fichier inchangé depuis la dernière synchronisation.",
+        "summary": "dernière synchronisation : {created} nouveaux · {updated} modifiés · {deactivated} désactivés.",
+        "unmatched": "{n} non attribués : {names}",
+        "unknownRanks": "Grades inconnus (fonction inchangée) : {ranks}",
+        "fileDate": "Date du fichier : {time}",
+        "lastSuccess": "dernier succès : {time}",
+        "stale": "Le fichier n’a plus été renouvelé depuis plus de 7 jours."
+      }
     },
     "device": {
       "title": "Cet appareil",

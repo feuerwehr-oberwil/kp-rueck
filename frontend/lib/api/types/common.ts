@@ -104,6 +104,38 @@ export interface ApiKnownProvider {
   contract: string | null
 }
 
+/** The last roster-snapshot run (GET /api/integrations/roster-snapshot; backend
+ *  `roster_snapshot_ingest.status_json` plus the attempt/success stamps). Every field optional:
+ *  a station that never ran one has `status: null`. */
+export interface ApiRosterSnapshotStatus {
+  held?: boolean
+  unchanged?: boolean
+  stale?: boolean
+  activeBefore?: number
+  deactivationLimit?: number | null
+  pendingDeactivations?: number
+  unmatchedTotal?: number
+  lastAttempt?: string | null
+  lastSuccess?: string | null
+  lastError?: string | null
+  lastGood?: { generatedAt: string; count: number; provider: string } | null
+  outcome?: {
+    refused?: string | null
+    created?: number
+    updated?: number
+    deactivated?: number
+    unmatched?: Array<{ display_name: string; reason: string }>
+    unknown_ranks?: string[]
+  } | null
+}
+
+export interface ApiRosterSnapshot {
+  configured: boolean
+  intervalMinutes: number
+  maxDeactivatePct: number
+  status: ApiRosterSnapshotStatus | null
+}
+
 export interface ApiIntegrations {
   /** Inbound alarm delivery into the pool */
   alarms: ApiProviderCapability

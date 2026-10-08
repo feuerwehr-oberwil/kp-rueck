@@ -324,6 +324,15 @@ class Settings(BaseSettings):
     divera_poll_interval_seconds: int = 30  # How often to poll when users are connected
     divera_poll_max_alarms: int = 50  # Maximum number of recent alarms to fetch per poll
 
+    # Roster snapshot (optional — see docs/ROSTER-SNAPSHOT.md and app/services/roster_snapshot_sync.py)
+    # Where the station's published `roster-snapshot/1` file lives: an https:// address or an
+    # absolute path. Empty = nothing is fetched and the Divera roster sync is untouched.
+    roster_snapshot_source: str = ""
+    roster_snapshot_token: str = ""  # bearer token, sent only over https
+    roster_snapshot_interval_minutes: int = Field(default=60, ge=5, le=1440)
+    # More than this share of the available people deactivated in one run is held for an admin.
+    roster_snapshot_max_deactivate_pct: int = Field(default=20, ge=0, le=100)
+
     # --- Telemetry (opt-in; see app/telemetry/) ---
     # The DEPLOYER's half of the switch, above whatever an admin later clicks in the UI:
     # KP_TELEMETRY_ENABLED=0 (or a blank DSN) compiles the forwarder out of this process, so

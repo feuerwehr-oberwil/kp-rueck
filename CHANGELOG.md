@@ -28,6 +28,22 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Roster snapshot: read the personnel list from a file the station publishes.** Set
+  `ROSTER_SNAPSHOT_SOURCE` to an `https://` address (optional `ROSTER_SNAPSHOT_TOKEN`) or a path,
+  and the backend polls that `roster-snapshot/1` file hourly. People are matched by the
+  snapshot's key, then by any identity it lists (an existing Divera link is reused, never
+  rewritten), then by a unique name; a failed fetch or an invalid file changes nothing; a run
+  that would deactivate more than 20 % of the available people is held until an admin releases
+  it (`… roster_snapshot_sync run --force`); nobody is deleted, and «deactivated» is
+  unavailable plus a mark, so an operator's own «unavailable» is never undone. The last run
+  shows under Einstellungen › Integrationen. Any tool can write the file –
+  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one and drops every column that
+  is not part of the contract. The reading rules are byte-identical with KP Front's
+  (docs/ROSTER-SNAPSHOT.md). *No action needed – without a source nothing is fetched and the
+  Divera sync is unchanged.*
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an

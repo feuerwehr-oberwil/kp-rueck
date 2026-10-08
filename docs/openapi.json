@@ -7336,6 +7336,159 @@
         }
       }
     },
+    "/api/integrations/roster-snapshot": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Get Roster Snapshot Status",
+        "description": "The last roster-snapshot run: outcome report, held/stale flags, the last good file.\n\n``configured`` is false and ``status`` null on a station that never set a source.",
+        "operationId": "get_roster_snapshot_status_api_integrations_roster_snapshot_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Roster Snapshot Status Api Integrations Roster Snapshot Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/roster-snapshot/sync": {
+      "post": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Sync Roster Snapshot",
+        "description": "Read the roster snapshot now. A refused or held run is a 200 carrying the reason — the\nreport is the answer; only «no source configured» is an error.",
+        "operationId": "sync_roster_snapshot_api_integrations_roster_snapshot_sync_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RosterSnapshotSyncBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Sync Roster Snapshot Api Integrations Roster Snapshot Sync Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/assign": {
       "post": {
         "tags": [
@@ -29796,6 +29949,18 @@
         },
         "type": "object",
         "title": "ReversedAddress"
+      },
+      "RosterSnapshotSyncBody": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RosterSnapshotSyncBody",
+        "description": "``force`` releases a run the deactivation cap held — never the other refusals."
       },
       "SchadenplatzRapport": {
         "properties": {

@@ -62,3 +62,17 @@ def stop_heartbeat_scheduler() -> None:
     from .heartbeat import stop_heartbeat_scheduler as _stop
 
     _stop()
+
+
+def start_roster_snapshot_scheduler() -> None:
+    """Start the roster-snapshot poll (lazy import to avoid circular deps)."""
+    from .roster_snapshot import start_roster_snapshot_scheduler as _start
+
+    _start()
+
+
+def stop_roster_snapshot_scheduler() -> None:
+    """Stop the roster-snapshot poll (lazy import to avoid circular deps)."""
+    from .roster_snapshot import stop_roster_snapshot_scheduler as _stop
+
+    _stop()

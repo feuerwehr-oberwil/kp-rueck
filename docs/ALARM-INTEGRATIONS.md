@@ -287,14 +287,18 @@ URL zeigen; im Schema steht kein Herstellername.
   Tauglichkeit, keine Impfung, und auch keine freie `metadata`-Map, in der so
   etwas unbenannt ankäme. Ein Test hält das, kein Satz in einem Dokument.
 
-⚠️ **Stand: nur Vertrag.** Die beiden Schema-Dateien sind byte-identische
-Kopien der KP-Front-Dateien und per Prüfsumme gepinnt
-(`backend/tests/test_roster_snapshot_contract.py`); geändert wird der Vertrag
-in beiden Repositories in einer Änderung. **Diese Anwendung liest heute keinen
-Snapshot** – der Registry-Eintrag steht auf `implemented: false`. Die beiden
-Produkte teilen dabei weiterhin keine Bibliothek und rufen einander nicht auf
-(siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt wird eine Datei, nicht
-Laufzeit.
+**Stand: gebaut.** Mit `ROSTER_SNAPSHOT_SOURCE` (https-Adresse oder absoluter
+Pfad) liest diese Anwendung die Datei stündlich ein – Zuordnung, Deaktivierungs-
+Grenze, Bericht und alle Sicherungen in [ROSTER-SNAPSHOT.md](ROSTER-SNAPSHOT.md);
+der Registry-Eintrag steht auf `implemented: true`. Die Schema-Dateien **und der
+Code, der sie liest** (`backend/app/roster_snapshot.py`,
+`backend/app/roster_snapshot_ingest.py`) sind byte-identische Kopien der
+KP-Front-Dateien, per Prüfsumme gepinnt
+(`backend/tests/test_roster_snapshot_contract.py`) und vom CI-Job
+`roster-schema-drift` verglichen; geändert wird das in beiden Repositories in
+einer Änderung. Die beiden Produkte teilen dabei weiterhin keine Bibliothek und
+rufen einander nicht auf (siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt
+wird eine Datei, nicht Laufzeit.
 
 Die Ausalarmierung läuft intern über ein Provider-Protokoll
 (`backend/app/services/alerting/`): ein neuer Anbieter (z. B. Alamos) ist ein

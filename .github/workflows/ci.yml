@@ -402,9 +402,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Paired branches first (research E6 · «paired-branch lookup»): a change to the shared
+      # files is two PRs with the SAME branch name, one per repository, and on a pull request
+      # this compares against the sibling's branch of that name when it exists. Without it a
+      # coordinated change is red here until the other side has merged, which is the wrong
+      # order to discover drift in. No such branch → the default branch, as before.
+      - name: Check out the sibling's paired branch
+        id: paired
+        if: env.SIBLING_REPO != '' && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          ref: ${{ github.head_ref }}
+          path: .kp-front
+          fetch-depth: 1
+
       - name: Check out the sibling repository
         id: sibling
-        if: env.SIBLING_REPO != ''
+        if: env.SIBLING_REPO != '' && steps.paired.outcome != 'success'
         continue-on-error: true
         uses: actions/checkout@v7
         with:
@@ -414,7 +430,7 @@ jobs:
 
       - name: Diff the roster snapshot schemas
         env:
-          SIBLING_STATUS: ${{ steps.sibling.outcome }}
+          SIBLING_STATUS: ${{ steps.paired.outcome == 'success' && 'success' || steps.sibling.outcome }}
         run: |
           set -euo pipefail
           if [ -z "${SIBLING_REPO:-}" ]; then
@@ -429,7 +445,12 @@ jobs:
           fi
           # Both schemas, because they are one contract: the snapshot a producer writes
           # and the outcome a consumer reports. Pinning one would leave the other free.
+          # Since the ingestion landed, also the code that READS a snapshot (parse +
+          # reconcile) and the reference producer — one published file must land the same
+          # way in both products, which only holds while the rules are the same bytes.
           files="docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json"
+          files="$files backend/app/roster_snapshot.py backend/app/roster_snapshot_ingest.py"
+          files="$files scripts/roster_snapshot_from_csv.py docs/roster-snapshot.example.csv"
           status=0
           for f in $files; do
             theirs=".kp-front/$f"

@@ -66,11 +66,13 @@ from .background import (
     start_audit_cleanup_scheduler,
     start_demo_reset_scheduler,
     start_heartbeat_scheduler,
+    start_roster_snapshot_scheduler,
     start_sync_scheduler,
     start_telemetry_scheduler,
     stop_audit_cleanup_scheduler,
     stop_demo_reset_scheduler,
     stop_heartbeat_scheduler,
+    stop_roster_snapshot_scheduler,
     stop_sync_scheduler,
     stop_telemetry_scheduler,
 )
@@ -243,6 +245,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Heartbeat scheduler failed to start: {e}")
 
+    # Roster snapshot poll. A no-op unless ROSTER_SNAPSHOT_SOURCE is set; a feed that is down
+    # is recorded in its status row and never keeps the board from starting.
+    try:
+        start_roster_snapshot_scheduler()
+    except Exception as e:
+        logger.warning(f"Roster snapshot scheduler failed to start: {e}")
+
     # Start WebSocket stale session cleanup
     logger.info("Starting WebSocket stale session cleanup...")
     try:
@@ -411,6 +420,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         stop_heartbeat_scheduler()
     except Exception as e:
         logger.warning(f"Heartbeat scheduler shutdown failed: {e}")
+
+    try:
+        stop_roster_snapshot_scheduler()
+    except Exception as e:
+        logger.warning(f"Roster snapshot scheduler shutdown failed: {e}")
 
     # Shutdown: Dispose engine
     logger.info("Shutting down...")
