@@ -59,11 +59,10 @@ name: CI
 #         restored one of these?" — the same reasoning as telemetry-drift. It runs Postgres 17
 #         (production), not the 16 that docker-compose.yml pins.
 #
-# REQUIRED SINCE 2026-08-21 (plan 15's last open item):
+# REQUIRED SINCE 2026-08-21:
 #   e2e-smoke – the @smoke-tagged Playwright specs on the core path. It used to be `if: false`
 #         and covered nothing; it was then held out of the required list until it had proved
-#         stable across real runs, and since 2026-08-21 it IS required on main (plan 15's last
-#         open item). The full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`,
+#         stable across real runs, and since 2026-08-21 it IS required on main. The full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`,
 #         with `AUTH_BYPASS_AUTH_DEV=false` or the role assertions mean nothing) plus the
 #         nightly schedule in e2e-nightly.yml.
 #
@@ -779,21 +778,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `pnpm lint` is `eslint . --max-warnings 17`, and the repo sits at exactly 17. That is a
-      # RATCHET, not slack: it is set to today's count on purpose so the number can only go
-      # down. All 17 are react-hooks/exhaustive-deps, each behaviour-relevant and each its own
-      # small decision (plan 18 §3) — which is why they are capped rather than silenced.
+      # `pnpm lint` is ESLint plus a PER-RULE warning ratchet (frontend/scripts/lint-ratchet.mjs).
+      # The allowed numbers live in ONE place, frontend/eslint-ratchet.json — not here, not in
+      # package.json. Until 2026-10-08 a single `--max-warnings 17` sat in package.json while
+      # this step's message said «currently 26» and the tree had 13: three numbers, none
+      # binding, and four warnings of slack anyone could spend.
       #
-      # So if this step fails with "18 problems", the answer is almost never to raise the cap.
-      # Either fix the dependency array you just added, or — if you deliberately removed one —
-      # lower the number in frontend/package.json to the new count in the same commit.
+      # A rule may not go above its number, a rule not in the file may have none, and a rule
+      # that dropped below its number fails too until `pnpm lint --tighten` writes the lower
+      # count — so a fixed warning cannot quietly come back. The script prints the per-rule
+      # counts and says which of those cases it is; raising a number is never the fix.
       - name: Run ESLint
-        run: |
-          pnpm lint || {
-            echo "::error::ESLint exceeded the warning ratchet (currently 26, all exhaustive-deps)."
-            echo "::error::Fix the new warning, or lower the cap in frontend/package.json if you removed one."
-            exit 1
-          }
+        run: pnpm lint
 
   frontend-typecheck:
     name: Frontend Type Check
@@ -900,8 +896,8 @@ jobs:
   #
   # REQUIRED ON MAIN since 2026-08-21. It was deliberately held out until it had been green
   # across runs it did not deserve to be, and it has: repeated PR and push runs plus the 0.7.0
-  # merge, all green, alongside a nightly that has been green for a week. That was the last
-  # open item of plan 15 — and the 0.7.0 cycle is the argument for it, since the merge to main
+  # merge, all green, alongside a nightly that has been green for a week. The 0.7.0 cycle is
+  # the argument for it, since the merge to main
   # was the first time any gate had seen 83 commits and three of these specs were describing
   # flows the app no longer had.
   #
