@@ -444,11 +444,11 @@ doctor:
 # ============================================
 
 # Start all services in development mode with hot reload
-dev:
+dev: _behind-main
     docker compose -f docker-compose.dev.yml up --build
 
 # Run backend locally (requires uv). Database starts in Docker.
-be:
+be: _behind-main
     @docker compose -f docker-compose.dev.yml up -d postgres
     @echo "\033[1;34m→ Starting backend on http://localhost:8000\033[0m"
     @echo "\033[1;34m→ Database running in Docker on port 5433\033[0m"
@@ -456,11 +456,69 @@ be:
     cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run frontend locally (requires pnpm). Ensure backend is running.
-fe:
+fe: _behind-main
     @echo "\033[1;34m→ Starting frontend on http://localhost:3000\033[0m"
     @echo "\033[1;34m→ Ensure backend is running on http://localhost:8000\033[0m"
     @echo "\033[1;34m→ Press Ctrl+C to stop\033[0m"
     cd frontend && pnpm dev
+
+# Says so when this checkout is far behind main, before you run or test old code. On
+# 2026-10-08 the primary checkout was 1,311 commits behind and one agent built on it as if it
+# were current. Measured against origin/main as of the LAST fetch (no network here – `dev` has
+# to start offline), and only ever a warning: a deliberately old branch is allowed.
+_behind-main:
+    #!/usr/bin/env bash
+    git rev-parse --verify -q origin/main >/dev/null 2>&1 || exit 0
+    behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
+    if [ "$behind" -gt 50 ]; then
+        last=$(git log -1 --format=%cr origin/main)
+        echo -e "\033[1;33m⚠ This checkout ($(git branch --show-current || echo detached)) is $behind commits behind origin/main (main's last commit: $last).\033[0m"
+        echo -e "\033[1;33m  For new work: git fetch && git worktree add ../kp-rueck-wt/<name> -b <branch> origin/main\033[0m"
+    fi
+
+# One worktree per task piles up fast (47 for KP Rück on 2026-10-08). This lists every
+# worktree with what it would cost to delete: MERGED = its commits reached origin/main through
+# a merge, FRESH = no commits of its own yet (its HEAD is a commit ON main – a task that has just
+# started, never removed), DIRTY = changes or untracked files (never removed), and the date of
+# its last commit. `--apply` removes only MERGED + clean ones, and their branches.
+# List worktrees merged into origin/main; `just wt-prune --apply` removes the clean merged ones
+wt-prune *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    apply=false
+    [ "{{args}}" = "--apply" ] && apply=true
+    git fetch -q origin main || echo "(fetch failed – comparing against the last fetched origin/main)"
+    primary=$(git worktree list --porcelain | awk 'NR==1 {print $2}')
+    mainline=$(mktemp); trap 'rm -f "$mainline"' EXIT
+    git rev-list --first-parent origin/main > "$mainline"
+    removed=0; kept=0
+    while read -r wt branch; do
+        [ "$wt" = "$primary" ] && continue
+        [ -d "$wt" ] || { echo "GONE     $wt  (run: git worktree prune)"; continue; }
+        head=$(git -C "$wt" rev-parse HEAD)
+        when=$(git -C "$wt" log -1 --format=%cs HEAD)
+        state=UNMERGED
+        if grep -qx "$head" "$mainline"; then
+            state=FRESH
+        elif git merge-base --is-ancestor "$head" origin/main; then
+            state=MERGED
+        fi
+        dirty=""
+        [ -n "$(git -C "$wt" status --porcelain 2>/dev/null | head -1)" ] && dirty=" DIRTY"
+        printf '%-8s %-6s %s  %s  %s\n' "$state" "${dirty# }" "$when" "${branch#refs/heads/}" "$wt"
+        if $apply && [ "$state" = MERGED ] && [ -z "$dirty" ]; then
+            git worktree remove "$wt"
+            [ "$branch" != "(detached)" ] && git branch -D "${branch#refs/heads/}" >/dev/null
+            removed=$((removed + 1))
+        else
+            kept=$((kept + 1))
+        fi
+    done < <(git worktree list --porcelain | awk '/^worktree / {wt=$2} /^branch / {print wt, $2} /^detached/ {print wt, "(detached)"}')
+    if $apply; then
+        echo "Removed $removed merged, clean worktree(s); kept $kept."
+    else
+        echo "Dry run. \`just wt-prune --apply\` removes the MERGED rows without DIRTY."
+    fi
 
 # Named dev-stop, not stop. It takes the PRODUCTION stack down too (the second line), and it
 # was sitting in `just --list` describing itself as "Stop all services" – so a station operator
