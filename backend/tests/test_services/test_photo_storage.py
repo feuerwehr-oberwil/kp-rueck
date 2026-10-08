@@ -463,6 +463,23 @@ def test_delete_photo_rejects_symlink_directory_escape(photo_service, temp_photo
     assert target.read_bytes() == b"must survive"
 
 
+@pytest.mark.parametrize(
+    "parts",
+    [
+        ("..", "outside"),
+        # A sibling whose name merely STARTS with the photos dir's: a bare prefix check
+        # without the trailing separator would let it through.
+        ("..", "PHOTOS-SIBLING", "x.jpg"),
+        ("/etc", "passwd"),
+    ],
+)
+def test_containment_refuses_anything_outside_the_photos_dir(photo_service, temp_photos_dir, parts):
+    parts = tuple(p.replace("PHOTOS-SIBLING", temp_photos_dir.name + "-evil") for p in parts)
+    with pytest.raises(HTTPException) as exc:
+        photo_service._inside_photos_dir(*parts)
+    assert exc.value.status_code == 400
+
+
 class TestPhotoStorageConfiguration:
     """Test photo storage configuration in different environments."""
 

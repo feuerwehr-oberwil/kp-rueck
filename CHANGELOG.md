@@ -55,6 +55,10 @@ will keep holding.
 
 ### Security
 
+- **`/health/detailed` no longer repeats error messages.** Outside production the endpoint
+  answers without a login, and a failed component's entry carried the exception text, which can
+  include a database URL or a host name. It now names only the error type; the full error goes
+  to the backend log. (Production never served this endpoint.)
 - **sharp 0.35.5** (Next.js image pipeline): its bundled librsvg had a high-severity advisory
   (CVE-2026-96889, 06.10.2026).
 - **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per
