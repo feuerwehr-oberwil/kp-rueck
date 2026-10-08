@@ -323,6 +323,8 @@ function FeldSurface() {
   // report «Angekommen» or «Einsatz beendet» at all, so «fertig in ~30 Min»
   // is not their sentence. The row's source picks, not the person's roles.
   const [messageChips, setMessageChips] = useState<string[]>([])
+  // «Material nötig» picks from the station's material names (R13).
+  const [requestMaterials, setRequestMaterials] = useState<string[]>([])
   const [driverMessageChips, setDriverMessageChips] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
@@ -593,6 +595,7 @@ function FeldSurface() {
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
       setDriverMessageChips(data.driver_message_chips ?? [])
+      setRequestMaterials(data.request_materials ?? [])
       setEventName(data.event_name)
       setCheckedIn(Boolean(data.checked_in))
       const roles = data.functions ?? []
@@ -1514,6 +1517,9 @@ function FeldSurface() {
                 personnelId={selectedPerson.personnel_id}
                 token={token}
                 messageChips={selectedAssignment.source === 'driver' ? driverMessageChips : messageChips}
+                requestMaterials={requestMaterials}
+                // A sent request shows up in «Angefordert» at once, not on the next poll.
+                onSent={() => loadAssignments(selectedPerson.personnel_id, { silent: true })}
                 onReported={applyFieldReport}
                 // The journey's third step: carries the eye to the form below
                 // — only when that form is actually mounted on this page.

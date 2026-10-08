@@ -126,6 +126,47 @@ export interface ApiFeldKpMessage {
   created_at: string
 }
 
+/** What a request from the field asks for (R13). `pickup` mirrors the Abholung flag. */
+export type ApiFieldRequestKind = 'message' | 'material' | 'personnel' | 'pickup'
+/** offen → in Arbeit (optional) → erledigt. */
+export type ApiFieldRequestStatus = 'open' | 'in_progress' | 'done'
+
+/**
+ * One workable request from the field (R13) — the same shape on the board card,
+ * in the detail, in the notification sidebar and on `/feld`. `label` is the
+ * server's German one-liner; clients render their own from kind/item/quantity
+ * (`lib/field-requests.ts`) and fall back to it.
+ */
+export interface ApiFieldRequest {
+  id: string
+  incident_id: string
+  kind: ApiFieldRequestKind
+  status: ApiFieldRequestStatus
+  text: string | null
+  item: string | null
+  quantity: number | null
+  label: string
+  created_at: string
+  created_by_name: string | null
+  /** False = entered in the KP from a radio call. */
+  from_field: boolean
+  /** The bell entry that announced it — dismissing that is «gesehen», not «erledigt». */
+  notification_id: string | null
+  seen_at: string | null
+  in_progress_at: string | null
+  in_progress_by_name: string | null
+  done_at: string | null
+  done_by_name: string | null
+}
+
+/** A Meldung or a structured request, from either door (same payload). */
+export interface ApiFieldRequestCreate {
+  kind?: 'message' | 'material' | 'personnel'
+  message?: string
+  item?: string | null
+  quantity?: number | null
+}
+
 export interface ApiFeldAssignment {
   incident_id: string
   incident_title: string
@@ -187,6 +228,9 @@ export interface ApiFeldAssignment {
   /** «Meldungen vom KP» (§P3.2), oldest first — the board's messages to this
    *  squad, riding the polled payload like everything else the phone reads. */
   kp_messages?: ApiFeldKpMessage[]
+  /** What was asked from this Schadenplatz and where it stands (R13), oldest
+   *  first. The Abholung is not repeated here — it has its own box. */
+  field_requests?: ApiFieldRequest[]
   /** The EL of THIS incident. Both null = "kein EL erfasst", never a blank line. */
   leader_personnel_id: string | null
   leader_name: string | null
@@ -251,6 +295,8 @@ export interface ApiFeldAssignmentsResponse {
    *  «Einsatz beendet», so the crew's chips read wrong for the person sitting
    *  outside in the vehicle. Picked by the row's source, not by the person. */
   driver_message_chips?: string[]
+  /** Distinct material names of the station's inventory, for «Material nötig» (R13). */
+  request_materials?: string[]
 }
 
 /**

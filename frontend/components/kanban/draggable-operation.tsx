@@ -9,6 +9,7 @@ import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
+import { FieldRequestCardRows } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
   ContextMenu,
@@ -691,6 +692,14 @@ function DraggableOperationBase({
           {/* Above «Am Warten» and everything else in this stack: "the thing at
               this address is real" outranks every other qualifier on the card. */}
           {operation.fromRealAlarm && <RealAlarmBadge />}
+
+          {/* What the field asked for and nobody has handled yet (R13) —
+              «Material: Tauchpumpe Gr. ×2 — offen». Opens the detail on the
+              tab where the list and its buttons are. Stays until «Erledigt»;
+              closing the bell entry does not take it away. */}
+          {(operation.fieldRequests?.length ?? 0) > 0 && (
+            <FieldRequestCardRows requests={operation.fieldRequests ?? []} onOpen={openDetailFrom('rapport')} />
+          )}
 
           {/* «Am Warten», with what is being waited for. The flag alone was a
               tooltip on a clock glyph, which said nothing an operator can act

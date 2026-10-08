@@ -104,6 +104,8 @@ export interface BoardDialogsProps {
   assignmentLabelForPerson: (person: { name: string }) => string | null
   assignmentOperationId: string | null
   assignmentResourceType: ResourceKind | null
+  /** Pre-filled search when a field request opened the dialog («Tauchpumpe Gr.»). */
+  assignmentInitialSearch?: string
   attendanceOpen: boolean
   auftraegeFocusGroupId: string | null
   auftraegeSheetOpen: boolean
@@ -128,7 +130,7 @@ export interface BoardDialogsProps {
   handleConfirmAddStops: (incidentIds: string[]) => void
   handleDeleteOperationConfirm: () => Promise<void>
   handleDistributeToAuftrag: (operationId: string) => void
-  handleOpenAssignmentDialog: (resourceType: ResourceKind, operationId: string) => void
+  handleOpenAssignmentDialog: (resourceType: ResourceKind, operationId: string, search?: string) => void
   handleOpenIncidentFromNotification: (incidentId: string) => void
   handleOpenRapport: (operationId: string) => void
   handleOperationDelete: OperationHandlers["handleOperationDelete"]
@@ -222,6 +224,7 @@ export function BoardDialogs({
   assignmentLabelForPerson,
   assignmentOperationId,
   assignmentResourceType,
+  assignmentInitialSearch,
   attendanceOpen,
   auftraegeFocusGroupId,
   auftraegeSheetOpen,
@@ -373,6 +376,7 @@ export function BoardDialogs({
           }
         }}
         resourceType={assignmentResourceType}
+        initialSearch={routeAssign ? undefined : assignmentInitialSearch}
         operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
         assignTarget={routeAssign ? 'route' : 'incident'}
         routeName={routeAssign ? groups.find((g) => g.id === routeAssign.groupId)?.name : undefined}

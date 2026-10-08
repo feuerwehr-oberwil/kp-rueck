@@ -204,7 +204,7 @@ export default function FireStationDashboard() {
   const { materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
-  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
+  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -621,6 +621,7 @@ export default function FireStationDashboard() {
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
   const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
+  const [assignmentInitialSearch, setAssignmentInitialSearch] = useState<string | undefined>(undefined)
   const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
 
   // Reko assignment dialog state (context menu)
@@ -1845,7 +1846,7 @@ export default function FireStationDashboard() {
   // Handle resource assignment dialog. A grouped incident owns no resources of its
   // own — the Auftrag (route) does — so assigning from its card buttons or the
   // detail modal edits the route instead of the single stop.
-  const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => {
+  const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string, search?: string) => {
     const op = operations.find((o) => o.id === operationId)
     // A stop's resources belong to the Auftrag, never to the stop — including
     // when the «es fehlt noch etwas» modal is what sent us here. Resolved via
@@ -1857,8 +1858,22 @@ export default function FireStationDashboard() {
     }
     setAssignmentResourceType(resourceType)
     setAssignmentOperationId(operationId)
+    setAssignmentInitialSearch(search)
     setAssignmentDialogOpen(true)
   }
+
+  // «Material zuteilen» / «Personal zuteilen» on a field request in the
+  // notification sidebar (R13) — the same dialog, searched for the item.
+  // Through a ref so the registration does not churn on every render.
+  const openAssignmentRef = useRef(handleOpenAssignmentDialog)
+  openAssignmentRef.current = handleOpenAssignmentDialog
+  useEffect(() => {
+    if (!isEditor) return
+    registerAssignHandler((incidentId, resourceType, search) =>
+      openAssignmentRef.current(resourceType, incidentId, search),
+    )
+    return () => registerAssignHandler(null)
+  }, [isEditor, registerAssignHandler])
 
   // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
   // an incident already in another route MOVES it (addStops reassigns group_id).
@@ -2426,6 +2441,7 @@ export default function FireStationDashboard() {
         assignmentLabelForPerson={assignmentLabelForPerson}
         assignmentOperationId={assignmentOperationId}
         assignmentResourceType={assignmentResourceType}
+        assignmentInitialSearch={assignmentInitialSearch}
         attendanceOpen={attendanceOpen}
         auftraegeFocusGroupId={auftraegeFocusGroupId}
         auftraegeSheetOpen={auftraegeSheetOpen}

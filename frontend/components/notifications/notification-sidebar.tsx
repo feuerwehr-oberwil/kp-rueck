@@ -14,6 +14,8 @@ import {
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { NotificationCard } from '@/components/notifications/notification-card'
+import { FieldRequestInbox } from '@/components/notifications/field-request-inbox'
+import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 
 interface NotificationSidebarProps {
@@ -28,13 +30,14 @@ export function NotificationSidebar({ open: controlledOpen, onOpenChange }: Noti
   const setIsOpen = onOpenChange ?? setInternalOpen
   const {
     notifications,
-    unreadCount,
     dismissNotification,
     dismissAllNotifications,
     navigateToIncident,
     canNavigateToIncident,
   } = useNotifications()
   const { isAuthenticated } = useAuth()
+  const openRequests = useOpenFieldRequests()
+  const { count: unreadCount } = useBellCount(notifications, openRequests)
 
   // Notifications are an authenticated-only feature — nothing when logged out
   if (!isAuthenticated) return null
@@ -51,7 +54,8 @@ export function NotificationSidebar({ open: controlledOpen, onOpenChange }: Noti
       }
     : undefined
 
-  const activeNotifications = notifications.filter((n) => !n.dismissed)
+  // Same rule as the persistent sidebar: an open request stands for its bell entry.
+  const activeNotifications = notifications.filter((n) => !n.dismissed && !openRequests.representedIds.has(n.id))
   const historicalNotifications = notifications
     .filter((n) => n.dismissed)
     .slice(0, 20) // Show last 20 dismissed notifications
@@ -80,6 +84,11 @@ export function NotificationSidebar({ open: controlledOpen, onOpenChange }: Noti
         </SheetHeader>
 
         <div className="mt-4 px-2 space-y-4">
+          <FieldRequestInbox
+            items={openRequests.items}
+            onOpenIncident={handleClickIncident ? (incidentId) => handleClickIncident(incidentId, 'rapport') : undefined}
+          />
+
           {activeNotifications.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -112,7 +121,7 @@ export function NotificationSidebar({ open: controlledOpen, onOpenChange }: Noti
             </div>
           )}
 
-          {activeNotifications.length === 0 && (
+          {activeNotifications.length === 0 && openRequests.items.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
               <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted mb-4">
                 <Bell className="h-8 w-8 opacity-40" />

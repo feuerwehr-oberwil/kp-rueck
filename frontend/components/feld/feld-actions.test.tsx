@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { ApiFeldAssignment, ApiFieldReportState } from '@/lib/api/types'
+import type { ApiFeldAssignment, ApiFieldReportState, ApiFieldRequest } from '@/lib/api/types'
 
 const feldReportArrived = vi.hoisted(() => vi.fn())
 const feldReportComplete = vi.hoisted(() => vi.fn())
@@ -65,17 +65,42 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
   }
 }
 
-function render(overrides: Partial<ApiFeldAssignment> = {}, onReported = vi.fn()) {
+function render(overrides: Partial<ApiFeldAssignment> = {}, onReported = vi.fn(), onSent = vi.fn()) {
   renderWithIntl(
     <FeldActions
       assignment={assignment(overrides)}
       personnelId="p-1"
       token="tok"
-      messageChips={['Verstärkung nötig', 'Material nötig']}
+      messageChips={['fertig in ~30 Min', 'Einsatzstelle übergeben']}
+      requestMaterials={['Absperrband', 'Tauchpumpe Gr.', 'Tauchpumpe Kl.']}
       onReported={onReported}
+      onSent={onSent}
     />,
   )
   return onReported
+}
+
+function request(overrides: Partial<ApiFieldRequest> = {}): ApiFieldRequest {
+  return {
+    id: 'r-1',
+    incident_id: 'inc-1',
+    kind: 'material',
+    status: 'open',
+    text: null,
+    item: 'Tauchpumpe Gr.',
+    quantity: 2,
+    label: 'Material: Tauchpumpe Gr. ×2',
+    created_at: '2026-08-09T21:00:00Z',
+    created_by_name: 'Muster Hans',
+    from_field: true,
+    notification_id: 'n-1',
+    seen_at: null,
+    in_progress_at: null,
+    in_progress_by_name: null,
+    done_at: null,
+    done_by_name: null,
+    ...overrides,
+  }
 }
 
 /**
@@ -311,9 +336,9 @@ describe('Freitext-Meldung', () => {
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
-    await user.click(screen.getByRole('button', { name: 'Verstärkung nötig' }))
+    await user.click(screen.getByRole('button', { name: 'fertig in ~30 Min' }))
 
-    await waitFor(() => expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', 'Verstärkung nötig'))
+    await waitFor(() => expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', 'fertig in ~30 Min'))
   })
 
   it('refuses to send whitespace', async () => {
@@ -331,10 +356,10 @@ describe('delivery feedback (a phone on a bad connection)', () => {
     const user = userEvent.setup()
     render()
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
-    await user.click(screen.getByRole('button', { name: 'Verstärkung nötig' }))
+    await user.click(screen.getByRole('button', { name: 'fertig in ~30 Min' }))
 
     await waitFor(() =>
-      expect(screen.getByText(/«Verstärkung nötig» ist beim KP angekommen/)).toBeInTheDocument(),
+      expect(screen.getByText(/«fertig in ~30 Min» ist beim KP angekommen/)).toBeInTheDocument(),
     )
   })
 
@@ -375,5 +400,80 @@ describe('delivery feedback (a phone on a bad connection)', () => {
 
     await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /Nochmals senden/ })).toBeInTheDocument()
+  })
+})
+
+describe('structured requests (R13)', () => {
+  it('«Material nötig» sends what and how many, not prose', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
+    await user.click(screen.getByRole('button', { name: 'Material nötig' }))
+    await user.type(screen.getByPlaceholderText(/Material wählen/), 'tauch')
+    // Only the matches are offered; tapping one fills the field.
+    expect(screen.queryByRole('button', { name: 'Absperrband' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Tauchpumpe Gr.' }))
+    await user.click(screen.getByRole('button', { name: 'Eins mehr' }))
+    await user.click(screen.getByRole('button', { name: 'Anfordern' }))
+
+    await waitFor(() =>
+      expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', {
+        kind: 'material',
+        item: 'Tauchpumpe Gr.',
+        quantity: 2,
+        message: '',
+      }),
+    )
+    expect(screen.getByText(/«Material: Tauchpumpe Gr. ×2» ist beim KP angekommen/)).toBeInTheDocument()
+  })
+
+  it('«Verstärkung nötig» starts at two people', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
+    await user.click(screen.getByRole('button', { name: 'Verstärkung nötig' }))
+    await user.type(screen.getByPlaceholderText(/Was für Leute/), 'Atemschutz')
+    await user.click(screen.getByRole('button', { name: 'Anfordern' }))
+
+    await waitFor(() =>
+      expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', {
+        kind: 'personnel',
+        item: 'Atemschutz',
+        quantity: 2,
+        message: '',
+      }),
+    )
+  })
+
+  it('a material request without a material cannot be sent', async () => {
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
+    await user.click(screen.getByRole('button', { name: 'Material nötig' }))
+    expect(screen.getByRole('button', { name: 'Anfordern' })).toBeDisabled()
+  })
+
+  it('shows what the KP did about each request', () => {
+    render({
+      field_requests: [
+        request(),
+        request({ id: 'r-2', kind: 'personnel', item: null, quantity: 3, seen_at: '2026-08-09T21:01:00Z' }),
+        request({ id: 'r-3', kind: 'message', item: null, quantity: null, text: 'Pumpe läuft', status: 'in_progress' }),
+        request({
+          id: 'r-4',
+          status: 'done',
+          item: 'Absperrband',
+          quantity: 1,
+          done_at: '2026-08-09T21:05:00Z',
+          done_by_name: 'KP Rück',
+        }),
+      ],
+    })
+    expect(screen.getByText('Material: Tauchpumpe Gr. ×2')).toBeInTheDocument()
+    expect(screen.getByText('gesendet')).toBeInTheDocument()
+    expect(screen.getByText('Verstärkung: 3 Personen')).toBeInTheDocument()
+    expect(screen.getByText('Vom KP gesehen')).toBeInTheDocument()
+    expect(screen.getByText('KP: in Arbeit')).toBeInTheDocument()
+    expect(screen.getByText(/erledigt · .* · KP Rück/)).toBeInTheDocument()
   })
 })
