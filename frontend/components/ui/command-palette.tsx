@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
@@ -19,6 +19,16 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
+import { defaultFilter } from "cmdk"
+import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import {
+  parseDispatch,
+  targetKey,
+  type DispatchPicks,
+  type DispatchTarget,
+  type DispatchToken,
+  type ParsedDispatch,
+} from "@/lib/command-dispatch"
 import {
   Home,
   Map,
@@ -62,6 +72,27 @@ export function openCommandPalette() {
   window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE_EVENT))
 }
 
+/**
+ * Rows of the type-to-dispatch block carry their rank in their value
+ * (`kp-dispatch:<score>:…`) instead of being scored by cmdk: the typed text is
+ * «14 tlf meier», which matches none of their labels, and the preview must
+ * still stand first so ↵ does what it shows. Everything else is scored by
+ * cmdk's own filter, unchanged.
+ */
+const DISPATCH_VALUE = "kp-dispatch:"
+const PREVIEW_VALUE = `${DISPATCH_VALUE}2:preview`
+
+function paletteFilter(value: string, search: string, keywords?: string[]): number {
+  if (value.startsWith(DISPATCH_VALUE)) return Number(value.slice(DISPATCH_VALUE.length).split(":")[0]) || 0
+  return defaultFilter(value, search, keywords)
+}
+
+/** A jump typed in full outranks the command list; a prefix lets it compete. */
+function previewValue(parsed: ParsedDispatch): string {
+  if (parsed.plan.kind === "jump" && !parsed.plan.exact) return `${DISPATCH_VALUE}0.6:preview`
+  return PREVIEW_VALUE
+}
+
 export function CommandPalette() {
   const t = useTranslations('common.commandPalette')
   // The «Färben nach» mode names — reused from the map's own Ansicht menu so
@@ -103,7 +134,34 @@ export function CommandPalette() {
     mapVehicleNames = [],
     onFocusIncidentSearch,
     hasSelectedIncident = false,
+    getDispatchVocabulary,
+    onDispatch,
+    onDispatchJump,
+    onOpenIncident,
   } = useCommandPaletteHandlers()
+
+  // Type-to-dispatch. The text is controlled so the parser sees it; picks answer
+  // «which Meier?» per typed word and live only as long as the palette is open.
+  const [search, setSearch] = useState("")
+  const [picks, setPicks] = useState<DispatchPicks>({})
+  const [selectedValue, setSelectedValue] = useState("")
+  useEffect(() => {
+    if (open) return
+    setSearch("")
+    setPicks({})
+  }, [open])
+  const vocabulary = useMemo(
+    () => (open && getDispatchVocabulary ? getDispatchVocabulary() : null),
+    [open, getDispatchVocabulary],
+  )
+  const parsed = useMemo(
+    () => (vocabulary ? parseDispatch(search, vocabulary, picks) : null),
+    [vocabulary, search, picks],
+  )
+  const dispatchPlan = parsed?.plan.kind === "none" ? null : parsed?.plan ?? null
+  const ambiguousTokens = (parsed?.tokens ?? []).filter(
+    (token): token is DispatchToken & { choices: DispatchTarget[] } => token.state === "ambiguous" && !!token.choices,
+  )
 
   // Aufträge (routes) are searchable by name; selecting one opens the Aufträge
   // sheet focused on that route. Only surfaced where the host page registered the
@@ -138,6 +196,28 @@ export function CommandPalette() {
     command()
   }, [])
 
+  // ↵ on the preview. Nothing happens before it — and nothing on a plan that is
+  // still asking (a «which one?», an unknown number), which keeps the palette open.
+  const runPreview = () => {
+    if (!dispatchPlan) return
+    if (dispatchPlan.kind === "dispatch") {
+      if (!onDispatch || dispatchPlan.noop) return
+      runCommand(() => onDispatch(dispatchPlan))
+    } else if (dispatchPlan.kind === "open") {
+      const incidentId = dispatchPlan.incident.id
+      if (onOpenIncident) runCommand(() => onOpenIncident(incidentId))
+    } else if (dispatchPlan.kind === "jump") {
+      const target = dispatchPlan.target
+      if (onDispatchJump) runCommand(() => onDispatchJump(target))
+    }
+  }
+
+  const pickChoice = (token: DispatchToken, choice: DispatchTarget) => {
+    setPicks((current) => ({ ...current, [token.pickKey]: targetKey(choice) }))
+    // Back to the preview, which now says what ↵ does with the pick.
+    setSelectedValue(PREVIEW_VALUE)
+  }
+
   // Scroll affordance: when the command list overflows (and isn't scrolled to
   // the bottom) show a bottom fade + chevron, so it's obvious more items exist
   // even when the list wraps exactly after an item.
@@ -168,11 +248,40 @@ export function CommandPalette() {
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
-        <Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
-          <CommandInput placeholder={t('searchPlaceholder')} showClose />
+        <Command
+          filter={paletteFilter}
+          value={selectedValue}
+          onValueChange={setSelectedValue}
+          className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+          <CommandInput
+            placeholder={getDispatchVocabulary ? t('dispatch.placeholder') : t('searchPlaceholder')}
+            value={search}
+            onValueChange={setSearch}
+            showClose
+          />
           <div ref={listWrapperRef} className="relative">
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>
+
+            {parsed && dispatchPlan && (
+              <CommandGroup heading={t('dispatch.group')}>
+                <CommandItem value={previewValue(parsed)} onSelect={runPreview}>
+                  <DispatchPreview parsed={parsed} canDispatch={!!onDispatch} />
+                </CommandItem>
+                {ambiguousTokens.flatMap((token) =>
+                  token.choices.map((choice, index) => (
+                    <CommandItem
+                      key={`${token.pickKey}-${targetKey(choice)}`}
+                      // Best first, under the preview, in the order the parser ranked them.
+                      value={`${DISPATCH_VALUE}${(1.5 - index / 100).toFixed(3)}:${token.pickKey}:${targetKey(choice)}`}
+                      onSelect={() => pickChoice(token, choice)}
+                    >
+                      <DispatchChoice token={token} choice={choice} />
+                    </CommandItem>
+                  )),
+                )}
+              </CommandGroup>
+            )}
 
             <CommandGroup heading={t('groupNavigation')}>
               <CommandItem

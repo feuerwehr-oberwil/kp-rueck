@@ -510,6 +510,28 @@ avec leur raccourci et est également accessible depuis le menu utilisateur
 (« Commandes et raccourcis clavier »). Les raccourcis sont inactifs tant qu’un champ de
 saisie a le focus.
 
+### Attribuer en tapant
+Sur le tableau, la palette comprend aussi les interventions, les personnes, les véhicules et le
+matériel – avec des espaces seulement, sans caractère spécial. Le nombre en tête est le numéro
+de l’intervention (en petit devant l’adresse sur la carte), le reste suit dans n’importe quel
+ordre :
+
+| Saisie | Ce que fait ↵ |
+|--------|---------------|
+| `14 tlf meier` | attribuer le TLF et Meier à l’intervention 14 |
+| `14 intervention`, `14 engagé` | passer l’intervention 14 à « En intervention » ou « Engagé / en route » |
+| `14 haute` | priorité haute |
+| `14` | ouvrir l’intervention 14 |
+| `meier`, `tlf` | montrer où se trouve Meier ou le TLF |
+
+Les noms se tapent par prénom, nom ou les deux, un début suffit (`must` pour Muster), les
+accents et trémas ne comptent pas (`muller`, `mueller`), une faute de frappe est pardonnée. Les
+mots de statut sont compris en allemand et en français. La ligne sous la saisie montre
+exactement ce que fera ↵ ; les mots inconnus sont grisés et ignorés. Si un mot correspond à
+plusieurs (deux Meier), ils sont proposés en dessous – rien n’est deviné. Les mêmes questions
+qu’en glissant s’appliquent (double attribution, chauffeur), et le message qui suit propose
+**Annuler**.
+
 Les raccourcis globaux (`G …` et `?`) valent sur chaque page de l’interface – tableau,
 carte, événements, paramètres, aide, exercice, alarmes entrantes. Ils se
 taisent tant qu’un dialogue ou un menu est ouvert ; sur les affichages muraux (`/display`)

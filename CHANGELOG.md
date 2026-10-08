@@ -28,6 +28,21 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Assign by typing: «14 tlf meier» in ⌘K.** Every Einsatz now has a small number, counted per
+  Ereignis and shown before the address on its card. On the board the command palette reads
+  what follows it – spaces only, no special characters, in any order: `14 tlf meier` puts the TLF
+  and Meier on Einsatz 14, `14 einsatz` / `14 dispo` move it, `14 hoch` sets the priority, `14`
+  opens it, and `meier` or `tlf` alone shows where they are. Names match first name, last name or
+  both, by their beginning, without caring about umlauts (`muller`, `mueller`), with one typo
+  forgiven; status words are German or French. A line under the input shows exactly what ↵ will
+  do; words it does not know are greyed, and a word that fits two people lists both instead of
+  guessing. ↵ goes through the same path as dragging – Doppelbelegung and driver questions, one
+  at a time – and the receipt has «Rückgängig». The numbers are assigned by the database (migration
+  `d9a4c2e7b1f3`, existing Einsätze numbered in creation order), so every way an Einsatz is
+  created gets one, and a number is never reused within an Ereignis.
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an

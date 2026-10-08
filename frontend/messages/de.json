@@ -128,7 +128,7 @@
       "rapporte": "Rapporte öffnen",
       "mapColorBy": "Färben nach: {mode}",
       "dispatch": {
-        "placeholder": "Befehl suchen … oder «14 tlf meier»",
+        "placeholder": "Befehl oder «14 tlf meier»",
         "group": "Ausführen",
         "incidentTitle": "Einsatz {number}",
         "arrowAssign": "bekommt",

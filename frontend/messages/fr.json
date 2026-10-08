@@ -237,7 +237,7 @@
       "rapporte": "Ouvrir les rapports",
       "mapColorBy": "Colorer par : {mode}",
       "dispatch": {
-        "placeholder": "Rechercher une commande … ou « 14 tlf meier »",
+        "placeholder": "Commande ou « 14 tlf meier »",
         "group": "Exécuter",
         "incidentTitle": "Intervention {number}",
         "arrowAssign": "reçoit",
