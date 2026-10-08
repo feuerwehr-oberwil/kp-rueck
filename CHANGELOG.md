@@ -28,6 +28,17 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Dienstzeiten: who is here, for how long, and how much they have done.** Every row of the
+  Personen-Leiste (and of the phone's Personal list) now shows how long the person has been on
+  duty, counted from their check-in – quiet grey, amber from the station's «Personalermüdung»
+  setting (4 h by default), red from one and a half times that. «Dienstzeiten» under the
+  sidebar's counter, in the phone's Personal sheet and in the command palette opens the overview:
+  everybody checked in, longest first, with since when, time on duty, the number of Einsätze
+  worked in this Ereignis (an Auftrag counts once, a drag that was undone within two minutes not
+  at all) and where they are now. A view, not a planner – nobody is scheduled or alerted from it.
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
@@ -57,7 +68,15 @@ will keep holding.
   returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
   forwards the token to the board, map and status wall pages. The sheet now uses that `link`
   instead of building its own.
-
+- **The time-on-duty warning counts from arrival and rings once, not per person.** It measured how
+  long somebody had been on their *current* assignment, so moving a person to the next
+  Schadenplatz reset them to zero – somebody seven hours in, just moved, never showed up – and Aufträge
+  were not counted at all. It also raised one warning per person, with a sentence that changed every
+  hour, so a long night rang the bell for each name every hour. It now counts from the check-in
+  and is ONE notification naming everybody past the threshold, longest first («3 Personen seit über
+  4 h im Einsatz: …»), rewritten in place as people cross it. Dismissing it holds until somebody
+  new crosses the threshold (or the re-alarm interval, if one is set, has passed); it goes away by
+  itself once nobody past the threshold is checked in any more.
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open

@@ -11,12 +11,18 @@ import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { RESOURCE_STATE_DOT_CLASSES, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { OnDutyTime } from "@/components/kanban/on-duty-time"
+import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 
 interface MobilePersonnelSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   personnel: Person[]
   operations: Operation[]
+  /** The station's fatigue threshold (hours) — the time-on-duty colouring. */
+  fatigueHours?: number
+  /** Opens the Dienstzeiten overview (replaces this sheet). */
+  onOpenCrewDuty?: () => void
 }
 
 export function MobilePersonnelSheet({
@@ -24,6 +30,8 @@ export function MobilePersonnelSheet({
   onOpenChange,
   personnel,
   operations,
+  fatigueHours = 4,
+  onOpenCrewDuty,
 }: MobilePersonnelSheetProps) {
   const t = useTranslations("incidents.mobilePersonnel")
   const [searchQuery, setSearchQuery] = useState("")
@@ -75,9 +83,14 @@ export function MobilePersonnelSheet({
             <Users className="h-5 w-5" />
             {t("title")}
           </SheetTitle>
-          <SheetDescription>
-            {t("availableCount", { available: availableCount, total: personnel.length })}
-          </SheetDescription>
+          <div className="flex items-center justify-between gap-2">
+            <SheetDescription>
+              {t("availableCount", { available: availableCount, total: personnel.length })}
+            </SheetDescription>
+            {onOpenCrewDuty && personnel.length > 0 && (
+              <CrewDutyButton onClick={onOpenCrewDuty} className="-my-2 min-h-11 px-2 text-sm" />
+            )}
+          </div>
         </SheetHeader>
 
         {/* Search */}
@@ -124,9 +137,14 @@ export function MobilePersonnelSheet({
                             </Badge>
                           )}
                         </div>
-                        {assignedTo && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5" title={assignedTo}>
-                            {assignedTo}
+                        {/* How long they have been here, then where they are. */}
+                        {(assignedTo || person.checkedInAt) && (
+                          <p className="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs text-muted-foreground">
+                            <OnDutyTime checkedInAt={person.checkedInAt} fatigueHours={fatigueHours} />
+                            {assignedTo && person.checkedInAt && <span aria-hidden="true">·</span>}
+                            {assignedTo && (
+                              <span className="truncate" title={assignedTo}>{assignedTo}</span>
+                            )}
                           </p>
                         )}
                       </div>

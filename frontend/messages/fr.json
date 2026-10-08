@@ -235,7 +235,8 @@
       "deleteIncident": "Supprimer l’intervention",
       "linksAndQr": "Liens & QR",
       "rapporte": "Ouvrir les rapports",
-      "mapColorBy": "Colorer par : {mode}"
+      "mapColorBy": "Colorer par : {mode}",
+      "crewDuty": "Temps de service"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -2146,6 +2147,27 @@
       "missingNamed": "{vehicle} sans conducteur",
       "pick": "Choisir un conducteur",
       "pickFor": "Pas de conducteur – choisir un conducteur pour {vehicle}"
+    },
+    "crewDuty": {
+      "title": "Temps de service",
+      "summary": "{present} présents",
+      "summaryOver": "{present} présents · {over} depuis plus de {hours} h",
+      "sortHint": "Le plus long en premier",
+      "colName": "Nom",
+      "colSince": "Depuis",
+      "colOnDuty": "En service",
+      "colCount": "Interventions",
+      "colNow": "Actuellement",
+      "free": "libre",
+      "since": "depuis {time}",
+      "count": "{count, plural, =0 {aucune intervention} one {# intervention} other {# interventions}}",
+      "countTitle": "Interventions de cet événement, terminées et en cours",
+      "countUnavailable": "Nombre d’interventions indisponible pour le moment",
+      "empty": "Personne n’est enregistré.",
+      "openButton": "Temps de service",
+      "openTitle": "Temps de service – qui est là depuis combien de temps",
+      "onDutyTooltip": "En service depuis {time} – {duration}",
+      "onDutyTooltipOver": "En service depuis {time} – {duration}, plus de {hours} h"
     }
   },
   "login": {
@@ -2642,7 +2664,10 @@
       "moveToComplete": "Vers Terminé / Retour"
     },
     "messages": {
-      "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées"
+      "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées",
+      "fatigueOne": "En service depuis plus de {hours} h : {names}",
+      "fatigueMany": "{count} personnes en service depuis plus de {hours} h : {names}",
+      "fatigueMore": "{names} et {count} autres"
     },
     "release": {
       "released": "{resource} retiré de {target}",

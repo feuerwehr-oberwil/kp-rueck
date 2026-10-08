@@ -166,8 +166,17 @@ export function notificationParts(
       return clean({ what: prefix, where: rest, source })
     }
 
+    // «3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (5 h)» — one
+    // notification for the whole crew; the names are the «who» line. Also the French
+    // rebuild («… depuis plus de 4 h : …»), whose « : » splits the same way.
+    case 'personnel_fatigue': {
+      const split = splitPrefix(message)
+      if (!split) return whole
+      return clean({ what: split[0], who: split[1], source })
+    }
+
     // vehicle_returned («TLF zurück im Magazin»), no_personnel, no_materials,
-    // personnel_fatigue, missing_location, event_size_limit, feld_code_rotated:
+    // missing_location, event_size_limit, feld_code_rotated:
     // one sentence about no Schadenplatz — it stays one line.
     default:
       return whole
@@ -178,4 +187,28 @@ export function notificationParts(
 export function notificationDetail(parts: NotificationParts): string | undefined {
   const line = [parts.where, parts.who].filter(Boolean).join(' · ')
   return line || undefined
+}
+
+/** The backend's grouped time-on-duty sentence, taken apart (services/notification_service.py `fatigue_message`). */
+export interface FatigueMessage {
+  /** People past the threshold (all of them, not only the named ones). */
+  count: number
+  hours: number
+  /** «Müller Hans (6 h)», longest on duty first. */
+  names: string[]
+  /** How many more the sentence did not name («und 2 weitere»). */
+  more: number
+}
+
+const FATIGUE_RE = /^(?:(\d+) Personen seit|Seit) über (\d+) h im Einsatz: (.+?)(?: und (\d+) weitere)?$/
+
+export function parseFatigueMessage(message: string): FatigueMessage | null {
+  const m = FATIGUE_RE.exec(message)
+  if (!m) return null
+  return {
+    count: m[1] ? Number(m[1]) : 1,
+    hours: Number(m[2]),
+    names: m[3].split(', '),
+    more: m[4] ? Number(m[4]) : 0,
+  }
 }

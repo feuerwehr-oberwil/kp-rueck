@@ -27,8 +27,9 @@ import type { useEvent } from "@/lib/contexts/event-context"
 import { cn } from "@/lib/utils"
 
 /** The footer sheets. Only one is open at a time; `'print'` is the one
- *  print/export sheet (thermal slip, A4 status print, per-event export). */
-export type FooterSheet = 'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte'
+ *  print/export sheet (thermal slip, A4 status print, per-event export);
+ *  `'crew'` is the Dienstzeiten overview, opened from the Personen-Leiste. */
+export type FooterSheet = 'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | 'crew'
 
 /**
  * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it

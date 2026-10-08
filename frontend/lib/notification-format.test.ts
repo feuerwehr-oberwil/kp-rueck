@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { notificationDetail, notificationParts } from './notification-format'
+import { notificationDetail, notificationParts, parseFatigueMessage } from './notification-format'
 
 const labels = { fieldReport: 'Neuer Schadenplatz', fieldReportDirect: 'Neuer Schadenplatz – Trupp fährt direkt hin' }
 const parts = (type: string, message: string) =>
@@ -116,6 +116,28 @@ describe('notificationParts', () => {
       expect(p).toEqual({ what: message, source: 'system' })
       expect(notificationDetail(p)).toBeUndefined()
     }
+  })
+
+  it('personnel_fatigue: one line for the crew, the names as «who»', () => {
+    expect(parts('personnel_fatigue', '3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (5 h), Huber Max (4 h)')).toEqual({
+      what: '3 Personen seit über 4 h im Einsatz',
+      who: 'Müller Hans (6 h), Meier Anna (5 h), Huber Max (4 h)',
+      source: 'system',
+    })
+    expect(parts('personnel_fatigue', 'En service depuis plus de 4 h : Müller Hans (5 h)')).toMatchObject({
+      what: 'En service depuis plus de 4 h',
+      who: 'Müller Hans (5 h)',
+    })
+  })
+
+  it('parseFatigueMessage pins the backend template (fatigue_message)', () => {
+    expect(parseFatigueMessage('Seit über 4 h im Einsatz: Müller Hans (5 h)')).toEqual({
+      count: 1, hours: 4, names: ['Müller Hans (5 h)'], more: 0,
+    })
+    expect(parseFatigueMessage('7 Personen seit über 6 h im Einsatz: A (9 h), B (8 h) und 5 weitere')).toEqual({
+      count: 7, hours: 6, names: ['A (9 h)', 'B (8 h)'], more: 5,
+    })
+    expect(parseFatigueMessage('Müller Hans ist seit 5 Stunden im Einsatz')).toBeNull()
   })
 
   it('falls back to the whole sentence when a template does not match', () => {
