@@ -235,7 +235,8 @@
       "deleteIncident": "Supprimer l’intervention",
       "linksAndQr": "Liens & QR",
       "rapporte": "Ouvrir les rapports",
-      "mapColorBy": "Colorer par : {mode}"
+      "mapColorBy": "Colorer par : {mode}",
+      "journal": "Ouvrir le journal d'intervention"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -1622,7 +1623,9 @@
       "distributeConfirmTitle": "Ajouter à la mission ?",
       "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
-      "distributeConfirmAction": "Oui, ajouter"
+      "distributeConfirmAction": "Oui, ajouter",
+      "journal": "Journal",
+      "journalTitle": "Journal (J)"
     },
     "missingResources": {
       "title": "Il manque des ressources",
@@ -2423,7 +2426,8 @@
       "management": "Administration",
       "support": "Support",
       "account": "Compte",
-      "linksAndQr": "Liens & QR"
+      "linksAndQr": "Liens & QR",
+      "journal": "Journal d'intervention"
     },
     "pageNav": {
       "main": "Navigation principale",
@@ -4046,6 +4050,58 @@
       "fieldReportExample3": "Encore un arbre sur la route",
       "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
       "fieldReportHint": "Le groupe annonce une nouvelle place de sinistre – arrive comme une vraie annonce."
+    }
+  },
+  "journal": {
+    "title": "Journal d'intervention",
+    "description": "Tout ce qui s'est passé dans l'événement – le plus récent d'abord.",
+    "filter": "Filtrer",
+    "filterOn": "Filtré : {filters}",
+    "filterSummary": "Filtré : {filters}",
+    "showAll": "Tout afficher",
+    "resetFilter": "Réinitialiser le filtre",
+    "filters": {
+      "all": "Tous",
+      "manual": "Manuel",
+      "field": "Terrain",
+      "status": "Statut",
+      "resources": "Moyens"
+    },
+    "loading": "Chargement du journal …",
+    "loadFailed": "Le journal n'a pas pu être chargé.",
+    "retry": "Réessayer",
+    "emptyTitle": "Aucune entrée pour l'instant",
+    "emptyEditor": "Les changements de statut, attributions et messages apparaissent ici d'eux-mêmes. Ce qui n'appartient à aucune intervention se saisit ci-dessous.",
+    "emptyViewer": "Les changements de statut, attributions et messages apparaissent ici d'eux-mêmes.",
+    "emptyFilteredTitle": "Aucune entrée dans ce filtre",
+    "emptyFiltered": "Filtré : {filters}.",
+    "corrected": "corrigé {time}",
+    "correct": "Corriger l'entrée",
+    "correcting": "Correction de «{text}» – l'original reste visible.",
+    "cancelCorrection": "Annuler la correction",
+    "placeholder": "Entrée … (# lie une intervention)",
+    "placeholderCorrect": "Nouveau libellé",
+    "inputLabel": "Nouvelle entrée du journal",
+    "submit": "Inscrire",
+    "submitCorrect": "Corriger",
+    "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
+    "linkTitle": "Lier une intervention",
+    "linkNone": "Aucune intervention ne correspond.",
+    "linkClosed": "terminée",
+    "unlink": "Retirer le lien",
+    "rows": {
+      "created": "Intervention créée",
+      "deleted": "Intervention supprimée",
+      "restored": "Intervention restaurée",
+      "assigned": "{name} attribué",
+      "unassigned": "{name} retiré de l'intervention",
+      "reko": "Rapport de reconnaissance reçu",
+      "rekoWith": "Rapport de reconnaissance reçu : {text}",
+      "alarm": "Alarme Divera déclenchée ({count} destinataires)",
+      "alarmPlain": "Alarme Divera déclenchée",
+      "fromField": "{name} :",
+      "toField": "{name} à l'équipe :",
+      "unknown": "Inconnu"
     }
   }
 }

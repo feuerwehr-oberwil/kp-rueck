@@ -126,7 +126,8 @@
       "deleteIncident": "Einsatz löschen",
       "linksAndQr": "Links & QR",
       "rapporte": "Rapporte öffnen",
-      "mapColorBy": "Färben nach: {mode}"
+      "mapColorBy": "Färben nach: {mode}",
+      "journal": "Einsatztagebuch öffnen"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -219,7 +220,8 @@
       "management": "Verwaltung",
       "support": "Support",
       "account": "Konto",
-      "linksAndQr": "Links & QR"
+      "linksAndQr": "Links & QR",
+      "journal": "Einsatztagebuch"
     },
     "pageNav": {
       "main": "Hauptnavigation",
@@ -519,7 +521,9 @@
       "distributeConfirmTitle": "In Auftrag aufnehmen?",
       "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
-      "distributeConfirmAction": "Ja, aufnehmen"
+      "distributeConfirmAction": "Ja, aufnehmen",
+      "journal": "Tagebuch",
+      "journalTitle": "Tagebuch (J)"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -4046,6 +4050,58 @@
     },
     "claim": {
       "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – nochmals versuchen."
+    }
+  },
+  "journal": {
+    "title": "Einsatztagebuch",
+    "description": "Alles, was im Ereignis geschah – neueste zuerst.",
+    "filter": "Filtern",
+    "filterOn": "Gefiltert: {filters}",
+    "filterSummary": "Gefiltert: {filters}",
+    "showAll": "Alle zeigen",
+    "resetFilter": "Filter zurücksetzen",
+    "filters": {
+      "all": "Alle",
+      "manual": "Manuell",
+      "field": "Feld",
+      "status": "Status",
+      "resources": "Mittel"
+    },
+    "loading": "Einsatztagebuch wird geladen …",
+    "loadFailed": "Einsatztagebuch konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "emptyTitle": "Noch keine Einträge",
+    "emptyEditor": "Statuswechsel, Zuteilungen und Meldungen erscheinen hier von selbst. Was zu keinem Einsatz gehört, unten eintragen.",
+    "emptyViewer": "Statuswechsel, Zuteilungen und Meldungen erscheinen hier von selbst.",
+    "emptyFilteredTitle": "Keine Einträge in diesem Filter",
+    "emptyFiltered": "Gefiltert: {filters}.",
+    "corrected": "korrigiert {time}",
+    "correct": "Eintrag korrigieren",
+    "correcting": "Korrektur von «{text}» – das Original bleibt sichtbar.",
+    "cancelCorrection": "Korrektur abbrechen",
+    "placeholder": "Eintrag … (# verknüpft einen Einsatz)",
+    "placeholderCorrect": "Neuer Wortlaut",
+    "inputLabel": "Neuer Eintrag im Einsatztagebuch",
+    "submit": "Eintragen",
+    "submitCorrect": "Korrigieren",
+    "saveFailed": "Nicht gespeichert – der Text ist noch da. Erneut senden.",
+    "linkTitle": "Einsatz verknüpfen",
+    "linkNone": "Kein Einsatz passt.",
+    "linkClosed": "abgeschlossen",
+    "unlink": "Verknüpfung entfernen",
+    "rows": {
+      "created": "Einsatz erstellt",
+      "deleted": "Einsatz gelöscht",
+      "restored": "Einsatz wiederhergestellt",
+      "assigned": "{name} zugeteilt",
+      "unassigned": "{name} vom Einsatz abgezogen",
+      "reko": "Reko-Bericht eingegangen",
+      "rekoWith": "Reko-Bericht eingegangen: {text}",
+      "alarm": "Divera-Alarm ausgelöst ({count} Empfänger)",
+      "alarmPlain": "Divera-Alarm ausgelöst",
+      "fromField": "{name}:",
+      "toField": "{name} an Trupp:",
+      "unknown": "Unbekannt"
     }
   }
 }

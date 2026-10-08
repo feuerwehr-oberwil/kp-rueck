@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
+import { BookOpenText, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
@@ -28,6 +28,9 @@ interface MobileBottomNavigationProps {
   hasSelectedEvent?: boolean
   /** Opens the one «Links & QR» sheet (plan 26, decision 29). */
   onLinks?: () => void
+  /** Opens the Einsatztagebuch. Everyone reads it — viewers too — so it is not gated on
+   *  `isEditor` like the other quick actions. */
+  onJournal?: () => void
   onPersonnel?: () => void
   onVehicleStatus?: () => void
   onPrint?: () => void
@@ -39,6 +42,7 @@ export function MobileBottomNavigation({
   currentPage,
   hasSelectedEvent = true,
   onLinks,
+  onJournal,
   onPersonnel,
   onVehicleStatus,
   onPrint,
@@ -96,6 +100,7 @@ export function MobileBottomNavigation({
   // none, so outside an Übung the heading stood alone over nothing (owner, 03.10.).
   const hasQuickActions =
     (isEditor && !!(onLinks || onPersonnel || onVehicleStatus || onPrint || (onThermo && printerEnabled)))
+    || !!onJournal
     || !!selectedEvent?.training_flag
 
   // Handle tap animation
@@ -258,6 +263,21 @@ export function MobileBottomNavigation({
                     >
                       <QrCode className="size-4" />
                       <span>{t('linksAndQr')}</span>
+                    </Button>
+                  )}
+
+                  {/* Einsatztagebuch — read by everyone, written by editors */}
+                  {onJournal && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
+                      onClick={() => {
+                        setSheetOpen(false)
+                        setTimeout(() => onJournal(), 350)
+                      }}
+                    >
+                      <BookOpenText className="size-4" />
+                      <span>{t('journal')}</span>
                     </Button>
                   )}
 

@@ -1019,6 +1019,7 @@ export default function FireStationDashboard() {
       onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
       onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
       onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
+      onToggleJournal: () => setActiveFooterSheet(prev => prev === 'journal' ? null : 'journal'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
         setAuftraegeFocusGroupId(null)
@@ -1225,8 +1226,8 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle, Aufträge, Drucken, Links and Rapporte footers are non-modal
-        // on desktop: keep their toggle keys (F / A / D / T / O) able to close
+        // Vehicle, Aufträge, Drucken, Links, Rapporte and Tagebuch footers are non-modal
+        // on desktop: keep their toggle keys (F / A / D / T / O / J) able to close
         // them again. Every other shortcut still stops at an open sheet — it is
         // only the key that opened this one that stays live.
         (!!activeFooterSheet &&
@@ -1234,7 +1235,8 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'auftraege' &&
           activeFooterSheet !== 'print' &&
           activeFooterSheet !== 'links' &&
-          activeFooterSheet !== 'rapporte') ||
+          activeFooterSheet !== 'rapporte' &&
+          activeFooterSheet !== 'journal') ||
         deleteDialogOpen,
       hoveredOperationId,
       selectedOperationId,
@@ -1291,6 +1293,7 @@ export default function FireStationDashboard() {
       onTogglePrint: () => setActiveFooterSheet((prev) => (prev === 'print' ? null : 'print')),
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
       onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
+      onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -2395,6 +2398,7 @@ export default function FireStationDashboard() {
           cmdHint={cmdHint}
           filedRapports={filedRapports}
           handleChecklistOpenChange={handleChecklistOpenChange}
+          journalSheetOpen={activeFooterSheet === 'journal'}
           linksSheetOpen={linksSheetOpen}
           openRapports={openRapports}
           printSheetOpen={printSheetOpen}
