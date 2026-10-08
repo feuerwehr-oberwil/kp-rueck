@@ -16,7 +16,7 @@
  * - The arrival time is an ESTIMATE (answer time + the status's minutes): «ca. 21:52».
  */
 
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Check, X } from 'lucide-react'
@@ -106,7 +106,15 @@ export function DiveraIncomingBlock({
         <span className="shrink-0 text-[10px] text-muted-foreground">{t('source')}</span>
       </div>
       <p className="px-1 text-xs text-muted-foreground break-words">
-        {summary.answered === 0 ? t('noAnswersYet', { addressed: summary.addressed }) : countParts.join(' · ')}
+        {summary.answered === 0
+          ? t('noAnswersYet', { addressed: summary.addressed })
+          : // One part never breaks inside itself («1 andere / Antwort» in the narrow sidebar).
+            countParts.map((part, i) => (
+              <Fragment key={part}>
+                {i > 0 && ' · '}
+                <span className="whitespace-nowrap">{part}</span>
+              </Fragment>
+            ))}
       </p>
 
       {groups.coming.length > 0 ? (
@@ -213,7 +221,8 @@ function DiveraIncomingRow({
           type="button"
           variant="outline"
           size="xs"
-          className="shrink-0"
+          // Full strength on a muted «kommt nicht» row too: offered, not disabled.
+          className="shrink-0 text-foreground"
           disabled={busy}
           onClick={onCheckIn}
           aria-label={t('checkInLabel', { name })}
