@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models, schemas
 from ..auth.dependencies import CurrentUser
 from ..database import get_db
+from ..services.reaction_times import load_event_figures
 
 router = APIRouter(prefix="/events", tags=["stats"])
 
@@ -28,6 +29,8 @@ async def get_event_stats(
         - Personnel availability (X/Y available)
         - Average incident duration
         - Resource utilization percentage
+        - Kennzahlen: Lage counts and Reaktionszeiten per priority (median / P90),
+          the same stage times as the PDF's Reaktionszeiten table
     """
     # Verify event exists
     event_result = await db.execute(select(models.Event).where(models.Event.id == event_id))
@@ -110,4 +113,5 @@ async def get_event_stats(
         personnel_total=total_personnel,
         avg_duration_minutes=avg_duration_minutes,
         resource_utilization_percent=round(utilization, 1),
+        figures=schemas.EventFigures.model_validate(await load_event_figures(db, incidents)),
     )

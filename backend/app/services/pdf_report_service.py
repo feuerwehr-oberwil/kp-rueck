@@ -45,6 +45,7 @@ from ..models import Incident, IncidentAssignment, RekoReport, SchadenplatzRepor
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
 from .photo_storage import ExportPhoto
+from .reaction_times import Stage, stage_times
 
 # ---------------------------------------------------------------------------
 # Strings (German, Swiss spelling). i18n seam for plan 06.
@@ -101,7 +102,13 @@ LABELS: dict[str, str] = {
     "col_duration": "Dauer",
     # Reaction times (debrief metrics)
     "reaction_title": "Reaktionszeiten",
-    "reaction_hint": "Zeit ab Eingang bis zum ersten Erreichen des Status, in hh:mm.",
+    # Same definitions as the board's Kennzahlen (services/reaction_times.py): a card
+    # that skipped a column still counts as dispatched; a reopened one is closed
+    # by its last «Abgeschlossen».
+    "reaction_hint": (
+        "Zeit ab Eingang bis zum ersten Erreichen der Stufe (auch wenn eine Spalte übersprungen wurde), "
+        "Abschluss = letzter Abschluss. In hh:mm."
+    ),
     "col_to_reko": "→ Reko",
     "col_to_disponiert": "→ Disponiert",
     "col_to_einsatz": "→ Vor Ort",
@@ -1622,21 +1629,18 @@ def _attendance_table(data: EventReportData, styles: dict[str, ParagraphStyle]) 
 
 
 def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyle]) -> Table:
-    """Per-incident reaction metrics: time from Eingang to first reaching each
-    key status. Feeds the debrief – "incident 3 sat unnoticed for 9 minutes"
-    becomes a number instead of a feeling."""
-    # First time each incident reached each status (transitions are per-incident).
-    first_reached: dict[tuple[uuid.UUID, str], datetime] = {}
-    for t in data.transitions:
-        key = (t.incident_id, t.to_status)
-        if key not in first_reached or t.timestamp < first_reached[key]:
-            first_reached[key] = t.timestamp
+    """Per-incident reaction metrics: time from Eingang to each key stage. Feeds the
+    debrief – "incident 3 sat unnoticed for 9 minutes" becomes a number instead of a
+    feeling.
 
-    def delta(inc: Incident, status: str) -> str:
-        reached = first_reached.get((inc.id, status))
-        if reached is None or inc.created_at is None:
-            return ""
-        return _fmt_duration((reached - inc.created_at).total_seconds())
+    The stage times come from `services/reaction_times.py`, the same computation the
+    board's Kennzahlen view aggregates into median / P90 – one definition of
+    «Disponiert», «Vor Ort» and «Abschluss» for the wall and the paper."""
+    times = stage_times(data.incidents, data.transitions)
+
+    def delta(inc: Incident, stage: Stage) -> str:
+        seconds = times[inc.id].get(stage)
+        return "" if seconds is None else _fmt_duration(seconds)
 
     header = [
         _p(LABELS["col_nr"], styles["cell_header"]),
@@ -1653,9 +1657,9 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
                 _p(str(idx), styles["cell"]),
                 _p(_text(inc.title), styles["cell"]),
                 _p(delta(inc, "reko"), styles["cell"]),
-                _p(delta(inc, "enroute"), styles["cell"]),
-                _p(delta(inc, "active"), styles["cell"]),
-                _p(delta(inc, "complete"), styles["cell"]),
+                _p(delta(inc, "dispatched"), styles["cell"]),
+                _p(delta(inc, "on_scene"), styles["cell"]),
+                _p(delta(inc, "closed"), styles["cell"]),
             ]
         )
 

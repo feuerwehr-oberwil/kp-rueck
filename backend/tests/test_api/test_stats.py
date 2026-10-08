@@ -432,3 +432,91 @@ async def test_get_stats_utilization_rounded(
     if "." in str(utilization):
         decimal_places = len(str(utilization).split(".")[1])
         assert decimal_places <= 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_stats_figures_reaction_times(
+    authenticated_client: AsyncClient, db_session: AsyncSession, test_event: Event
+):
+    """The Kennzahlen ride on the stats endpoint: counts per bucket and the
+    Reaktionszeiten per priority, read off the status transitions."""
+    from app.models import StatusTransition
+
+    t0 = datetime.now(UTC) - timedelta(hours=2)
+    dispatched = Incident(
+        id=uuid4(),
+        event_id=test_event.id,
+        title="Keller",
+        type="elementarereignis",
+        status="active",
+        priority="high",
+        created_at=t0,
+    )
+    waiting = Incident(
+        id=uuid4(),
+        event_id=test_event.id,
+        title="Baum",
+        type="elementarereignis",
+        status="incoming",
+        priority="high",
+        created_at=t0 + timedelta(minutes=30),
+    )
+    # Reopened: completed once, open again — no Abschluss.
+    reopened = Incident(
+        id=uuid4(),
+        event_id=test_event.id,
+        title="Wasser",
+        type="elementarereignis",
+        status="active",
+        priority="low",
+        created_at=t0,
+    )
+    db_session.add_all([dispatched, waiting, reopened])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            StatusTransition(
+                incident_id=dispatched.id,
+                from_status="incoming",
+                to_status="enroute",
+                timestamp=t0 + timedelta(minutes=4),
+            ),
+            StatusTransition(
+                incident_id=dispatched.id,
+                from_status="enroute",
+                to_status="active",
+                timestamp=t0 + timedelta(minutes=11),
+            ),
+            StatusTransition(
+                incident_id=reopened.id, from_status="incoming", to_status="active", timestamp=t0 + timedelta(minutes=8)
+            ),
+            StatusTransition(
+                incident_id=reopened.id,
+                from_status="active",
+                to_status="complete",
+                timestamp=t0 + timedelta(minutes=50),
+            ),
+            StatusTransition(
+                incident_id=reopened.id,
+                from_status="complete",
+                to_status="active",
+                timestamp=t0 + timedelta(minutes=55),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await authenticated_client.get(f"/api/events/{test_event.id}/stats")
+    assert response.status_code == 200
+    figures = response.json()["figures"]
+
+    assert (figures["total"], figures["waiting"], figures["in_progress"], figures["done"]) == (3, 1, 2, 0)
+    high = next(p for p in figures["by_priority"] if p["priority"] == "high")
+    assert high["dispatched"] == {"count": 1, "median_seconds": 240.0, "p90_seconds": 240.0}
+    assert high["on_scene"]["median_seconds"] == 660.0
+    low = next(p for p in figures["by_priority"] if p["priority"] == "low")
+    assert low["dispatched"]["median_seconds"] == 480.0
+    assert low["closed"]["count"] == 0
+    assert figures["oldest_waiting_high"]["incident_id"] == str(waiting.id)
+    assert figures["oldest_waiting_high"]["title"] == "Baum"

@@ -15407,7 +15407,7 @@
           "stats"
         ],
         "summary": "Get Event Stats",
-        "description": "Get real-time statistics for an event.\n\nReturns:\n    - Active incidents count by status\n    - Personnel availability (X/Y available)\n    - Average incident duration\n    - Resource utilization percentage",
+        "description": "Get real-time statistics for an event.\n\nReturns:\n    - Active incidents count by status\n    - Personnel availability (X/Y available)\n    - Average incident duration\n    - Resource utilization percentage\n    - Kennzahlen: Lage counts and Reaktionszeiten per priority (median / P90),\n      the same stage times as the PDF's Reaktionszeiten table",
         "operationId": "get_event_stats_api_events__event_id__stats_get",
         "parameters": [
           {
@@ -21894,6 +21894,57 @@
         "title": "EventCreate",
         "description": "Schema for creating a new event."
       },
+      "EventFigures": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/PriorityFigures"
+          },
+          "by_priority": {
+            "items": {
+              "$ref": "#/components/schemas/PriorityFigures"
+            },
+            "type": "array",
+            "title": "By Priority"
+          },
+          "oldest_waiting_high": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OldestWaitingFigure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "waiting",
+          "in_progress",
+          "done",
+          "overall",
+          "by_priority"
+        ],
+        "title": "EventFigures",
+        "description": "The Kennzahlen of one Ereignis: Lage counts, Reaktionszeiten per priority,\nthe oldest «hoch» Meldung still waiting for a crew.\n\n``waiting`` = not yet dispatched (Eingegangen, Reko, Reko abgeschlossen),\n``in_progress`` = Disponiert, Im Einsatz, Rückfahrt, ``done`` = Abgeschlossen."
+      },
       "EventListResponse": {
         "properties": {
           "events": {
@@ -22226,6 +22277,9 @@
             "type": "number",
             "title": "Resource Utilization Percent"
           },
+          "figures": {
+            "$ref": "#/components/schemas/EventFigures"
+          },
           "personnel_activity": {
             "items": {
               "$ref": "#/components/schemas/PersonnelActivity"
@@ -22241,7 +22295,8 @@
           "personnel_available",
           "personnel_total",
           "avg_duration_minutes",
-          "resource_utilization_percent"
+          "resource_utilization_percent",
+          "figures"
         ],
         "title": "EventStats",
         "description": "Real-time statistics for an event."
@@ -27396,6 +27451,31 @@
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
       },
+      "OldestWaitingFigure": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "created_at"
+        ],
+        "title": "OldestWaitingFigure"
+      },
       "Personnel": {
         "properties": {
           "name": {
@@ -28195,6 +28275,52 @@
         ],
         "title": "PrinterStatusResponse",
         "description": "Printer status response."
+      },
+      "PriorityFigures": {
+        "properties": {
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "dispatched": {
+            "$ref": "#/components/schemas/StageFigures"
+          },
+          "on_scene": {
+            "$ref": "#/components/schemas/StageFigures"
+          },
+          "closed": {
+            "$ref": "#/components/schemas/StageFigures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "priority",
+          "total",
+          "waiting",
+          "in_progress",
+          "done",
+          "dispatched",
+          "on_scene",
+          "closed"
+        ],
+        "title": "PriorityFigures",
+        "description": "Counts and reaction times for one priority (or ``all``)."
       },
       "ProviderCapability": {
         "properties": {
@@ -30480,6 +30606,42 @@
         ],
         "title": "SpecialFunctionTypeResponse",
         "description": "One role a station can give somebody for an Ereignis.\n\nThe labels are columns rather than i18n keys on purpose: a station that adds\n\"Verkehrsdienst\" is naming its own role, and a name a brigade chose has no\nbusiness going through a translation round to appear on its own board. The\nroles that SHIP still read naturally in both languages because the seed\nfills both columns."
+      },
+      "StageFigures": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "median_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Seconds"
+          },
+          "p90_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P90 Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "StageFigures",
+        "description": "Median and nearest-rank P90 of one stage time, over ``count`` incidents."
       },
       "StatusTransitionCreate": {
         "properties": {
