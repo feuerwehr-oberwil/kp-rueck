@@ -92,3 +92,69 @@ describe('filterIncidents with a route lookup', () => {
     expect(filterIncidents([inRoute, ungrouped], '  ', NO_MATERIALS)).toHaveLength(2)
   })
 })
+
+describe('searching by the words a card shows', () => {
+  it('finds a priority by its German label, not only by the API code', () => {
+    const high = makeOperation({ priority: 'high' })
+
+    expect(matchesIncidentQuery(high, 'hoch', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(high, 'Hoch', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(makeOperation({ priority: 'low' }), 'hoch', NO_MATERIALS, undefined, 'de')).toBe(false)
+  })
+
+  it('finds a status by its column label', () => {
+    const active = makeOperation({ status: 'active' })
+
+    expect(matchesIncidentQuery(active, 'einsatz', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(active, 'im einsatz', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(makeOperation({ status: 'enroute' }), 'anfahrt', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(makeOperation({ status: 'incoming' }), 'einsatz', NO_MATERIALS, undefined, 'de')).toBe(false)
+  })
+
+  it('uses the French labels on a French device', () => {
+    expect(matchesIncidentQuery(makeOperation({ priority: 'high' }), 'haute', NO_MATERIALS, undefined, 'fr')).toBe(true)
+    expect(matchesIncidentQuery(makeOperation({ status: 'active' }), 'intervention', NO_MATERIALS, undefined, 'fr')).toBe(true)
+    expect(filterIncidents([makeOperation({ status: 'active' })], 'intervention', NO_MATERIALS, undefined, 'fr')).toHaveLength(1)
+  })
+
+  it('still takes the English code, but only as the whole word', () => {
+    expect(matchesIncidentQuery(makeOperation({ priority: 'high' }), 'high', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(makeOperation({ status: 'active' }), 'active', NO_MATERIALS, undefined, 'de')).toBe(true)
+    // A fragment of a code nobody sees no longer matches: «com» found every
+    // closed card (`complete`), «medi» every medium one (`medium`, shown «Mittel»).
+    expect(matchesIncidentQuery(makeOperation({ status: 'complete' }), 'com', NO_MATERIALS, undefined, 'de')).toBe(false)
+    expect(matchesIncidentQuery(makeOperation({ priority: 'medium' }), 'medi', NO_MATERIALS, undefined, 'de')).toBe(false)
+  })
+})
+
+describe('the finished-Reko keyword', () => {
+  const withReko = makeOperation({ status: 'enroute', hasCompletedReko: true })
+
+  it('matches «reko» as a whole word', () => {
+    expect(matchesIncidentQuery(withReko, 'reko', NO_MATERIALS, undefined, 'de')).toBe(true)
+    expect(matchesIncidentQuery(withReko, ' REKO ', NO_MATERIALS, undefined, 'de')).toBe(true)
+  })
+
+  it('does not match a query that is merely a piece of «reko»', () => {
+    // The finished Reko adds nothing for a fragment: the card matches exactly
+    // when its twin without a Reko does (the address and status text still count).
+    const withoutReko = { ...withReko, hasCompletedReko: false }
+    for (const fragment of ['r', 'e', 'k', 'o', 're', 'ek', 'ko', 'rek']) {
+      expect(matchesIncidentQuery(withReko, fragment, NO_MATERIALS, undefined, 'de'))
+        .toBe(matchesIncidentQuery(withoutReko, fragment, NO_MATERIALS, undefined, 'de'))
+    }
+    // And on a card with nothing else containing it, «rek» finds nothing.
+    const bare = makeOperation({ location: 'Gut 9', incidentType: 'x', status: 'incoming', hasCompletedReko: true })
+    expect(matchesIncidentQuery(bare, 'rek', NO_MATERIALS, undefined, 'de')).toBe(false)
+    expect(matchesIncidentQuery(bare, 'k', NO_MATERIALS, undefined, 'de')).toBe(false)
+  })
+
+  it('takes the French column word as well as «reko» on a French device', () => {
+    expect(matchesIncidentQuery(withReko, 'reconnaissance', NO_MATERIALS, undefined, 'fr')).toBe(true)
+    expect(matchesIncidentQuery(withReko, 'reko', NO_MATERIALS, undefined, 'fr')).toBe(true)
+  })
+
+  it('needs a finished Reko', () => {
+    expect(matchesIncidentQuery(makeOperation({ status: 'enroute' }), 'reko', NO_MATERIALS, undefined, 'de')).toBe(false)
+  })
+})

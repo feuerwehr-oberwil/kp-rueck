@@ -45,6 +45,13 @@ will keep holding.
 
 ### Fixed
 
+- **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
+  internal codes (`high`, `active`) rather than the words on the card, so «hoch» or «einsatz»
+  found nothing while a fragment like «in» or «com» found every card in a column. The search now
+  reads the same labels the board shows, in the device's language (German or French); the code
+  still works as a whole word. A finished Reko is found by typing «reko» – before, any query that
+  was a piece of the word («r», «e», «ko») matched every card with a Reko.
+
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open

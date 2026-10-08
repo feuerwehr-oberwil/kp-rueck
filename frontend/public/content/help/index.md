@@ -106,7 +106,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 ## Suche
 
-Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Meldungstext und **Auftragsname** – wer nach der Route sucht, findet ihre Stops. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stops. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
 Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
 
