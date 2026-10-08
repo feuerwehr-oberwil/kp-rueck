@@ -1,8 +1,9 @@
 name: E2E (full suite, nightly)
 
-# The whole ~300-spec Playwright suite, on a schedule rather than per pull request.
+# The whole Playwright suite (186 tests on 2026-10-08, 11–15 minutes on one worker), on a
+# schedule rather than per pull request.
 #
-# ci.yml runs only the eight @smoke specs, because the full suite takes ~25 minutes and is
+# ci.yml runs only the @smoke specs, because the full suite once took ~25 minutes and was
 # flaky enough that gating merges on it taught people to click through red. That trade leaves a
 # gap: everything outside @smoke is only covered when somebody remembers to run it locally.
 # This closes the gap without putting the flake back in front of a merge.
@@ -14,6 +15,18 @@ name: E2E (full suite, nightly)
 #
 # The path to fewer of them: fix or quarantine a flaky spec the same day, and move specs into
 # @smoke as they earn it.
+#
+# QUARANTINE. Tag a flaky spec `@quarantine-until-YYYY-MM-DD` (at most 14 days out, with a
+# comment saying why). It then runs in its own step below: reported in the summary and the
+# issue, never able to turn the night red, and skipped by the @smoke gate. The date is the
+# point — scripts/e2e-quarantine.mjs fails the night once it has passed, so a quarantine
+# cannot quietly become a delete.
+#
+# ONE ISSUE PER RED STREAK. A red night opens the `nightly-e2e` issue or comments on the open
+# one, naming the failing specs; the first green night closes it. #51 stayed open from
+# 2026-08-06 to 2026-10-06 across five weeks of green nights, so the red streak of 03.–05.10.
+# (19 stale specs after the UI review, fixed in #146) landed as comments 9–11 on an issue that
+# already read as noise.
 
 on:
   schedule:
@@ -131,14 +144,24 @@ jobs:
       # The filter goes through the environment, never interpolated into the shell line: a
       # `${{ inputs.* }}` expanded inside `run:` is a script-injection hole, and this input is
       # attacker-controllable by anyone who can dispatch the workflow.
-      - name: Run the E2E suite
+      # Before the suite, so an expired quarantine is reported even if the suite then hangs.
+      - name: Quarantine dates
+        id: qdates
         working-directory: frontend
-        # Ten minutes under the job's 60, and that gap is the point. A job that blows its own
+        run: node scripts/e2e-quarantine.mjs
+
+      - name: Run the E2E suite
+        id: suite
+        working-directory: frontend
+        # Fifteen minutes under the job's 60 (five of them are the quarantine run's), and that
+        # gap is the point. A job that blows its own
         # `timeout-minutes` is *cancelled*, and whether a later `if: cancelled()` step still
         # runs is not something to bet a signal on — from 2026-07-27 to 07-30 it did not, and
         # four red nights went unreported. Timing out here instead fails one step and leaves
         # the job alive, so the issue below is filed the ordinary way.
-        timeout-minutes: 50
+        timeout-minutes: 45
+        # An expired quarantine above must not also cost the night its results.
+        if: success() || steps.qdates.outcome == 'failure'
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
           TEST_USERNAME: admin
@@ -151,21 +174,51 @@ jobs:
           VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
           PRINT_AGENT_TOKEN: ${{ env.E2E_PRINT_AGENT_TOKEN }}
           CI: true
+          E2E_JSON_REPORT: e2e-results/gate.json
           GREP: ${{ inputs.grep }}
         run: |
           if [ -n "$GREP" ]; then
             echo "Filtered run: --grep $GREP"
-            pnpm exec playwright test --grep "$GREP"
+            pnpm exec playwright test --grep "$GREP" --grep-invert @quarantine
           else
-            pnpm test:e2e
+            pnpm exec playwright test --grep-invert @quarantine
           fi
+
+      # Reported, never gating: `continue-on-error`, its own html report, and an empty
+      # quarantine is a pass rather than Playwright's «No tests found».
+      - name: Run the quarantined specs (report only)
+        working-directory: frontend
+        if: (success() || failure()) && steps.suite.outcome != 'skipped' && !inputs.grep
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          TEST_USERNAME: admin
+          TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
+          VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
+          PRINT_AGENT_TOKEN: ${{ env.E2E_PRINT_AGENT_TOKEN }}
+          CI: true
+          E2E_JSON_REPORT: e2e-results/quarantine.json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-quarantine
+        run: pnpm exec playwright test --grep @quarantine --pass-with-no-tests
+
+      - name: Summarise
+        working-directory: frontend
+        if: always()
+        run: |
+          node scripts/e2e-summary.mjs e2e-results/gate.json e2e-results/quarantine.json > e2e-results/summary.md || true
+          cat e2e-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          cat e2e-results/summary.md
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report-nightly
-          path: frontend/playwright-report/
+          path: |
+            frontend/playwright-report/
+            frontend/playwright-report-quarantine/
+            frontend/e2e-results/
           retention-days: 14
 
       # A red square on a page nobody opens is not a signal. One open issue, updated rather
@@ -181,6 +234,11 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            const fs = require('fs')
+            const summaryPath = 'frontend/e2e-results/summary.md'
+            const summary = fs.existsSync(summaryPath)
+              ? fs.readFileSync(summaryPath, 'utf8').trim()
+              : '_No summary — the run ended before the Summarise step._'
             const title = 'Nightly E2E suite is failing'
             // A cancelled job here is almost always the 60-minute cap, and saying "failed"
             // sends the reader hunting for a failing assertion that does not exist.
@@ -194,9 +252,12 @@ jobs:
               `[Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) —`,
               'the `playwright-report-nightly` artifact has the traces and screenshots.',
               '',
+              summary,
+              '',
               'This does not block merges: only the eight `@smoke` specs run per pull request.',
-              'Fix the spec or quarantine it — a flaky nightly left red is how the whole suite',
-              'ended up switched off the first time.',
+              'Fix the spec, or tag a flaky one `@quarantine-until-YYYY-MM-DD` (max 14 days) —',
+              'a flaky nightly left red is how the whole suite ended up switched off the first time.',
+              'The first green night closes this issue.',
             ].join('\n')
 
             const { data: open } = await github.rest.issues.listForRepo({
@@ -220,5 +281,35 @@ jobs:
                 title,
                 body,
                 labels: ['nightly-e2e'],
+              })
+            }
+
+      # The other half of «one issue per red streak»: a green night closes it, so an open
+      # `nightly-e2e` issue always means the suite is red NOW. Only a full run counts — a
+      # filtered `workflow_dispatch` proves nothing about the rest.
+      - name: Close the issue on a green night
+        if: success() && !inputs.grep
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'nightly-e2e',
+            })
+            for (const issue of open) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Green again on \`${context.sha.slice(0, 8)}\` ([run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})). Closing; the next red night opens a new one.`,
+              })
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
               })
             }

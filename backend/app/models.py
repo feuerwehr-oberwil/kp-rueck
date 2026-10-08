@@ -1,7 +1,7 @@
 """Database models for KP Rück system."""
 
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -1439,7 +1439,14 @@ class StatusTransition(Base):
     )
     from_status: Mapped[str] = mapped_column(String(50), nullable=False)
     to_status: Mapped[str] = mapped_column(String(50), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Stamped by the app at the moment of the transition, not by Postgres. `now()` is the
+    # TRANSACTION start, so two transitions written in one transaction (and every transition in
+    # a test, which runs inside one rolled-back transaction) got the same instant, and the
+    # history — ordered by this column — came back in whatever order the sort returned ties.
+    # The server default stays for rows written outside the ORM (migrations, raw SQL).
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
+    )
     user_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # What THIS transition released, so leaving the status again can put it back.

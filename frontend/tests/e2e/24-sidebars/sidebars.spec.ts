@@ -26,6 +26,10 @@ import {
  * - Identical devices in one depot are ONE row with a free/total count.
  *
  * Pinned before the sidebars moved out of `app/page.tsx` (2026-09-23).
+ *
+ * @smoke since 2026-10-08: green on every nightly since the 2026-10-05 fix, ~23 s for all
+ * four, and these were among the 19 stale specs that only the nightly noticed after the
+ * October UI review — in the gate, a PR that changes the sidebars says so itself.
  */
 
 test.use({ viewport: { width: 1920, height: 1080 } });
@@ -58,7 +62,7 @@ test.afterEach(async ({ authenticatedPage: page }) => {
   await deletePersonnel(page.request, cookieHeader, bound.id);
 });
 
-test('Personal: free above bound, and the search narrows — or says why nothing is left', async ({
+test('Personal: free above bound, and the search narrows — or says why nothing is left', { tag: '@smoke' }, async ({
   authenticatedPage: page,
 }) => {
   const sidebar = personnelSidebar(page);
@@ -80,7 +84,7 @@ test('Personal: free above bound, and the search narrows — or says why nothing
   await expect(sidebar.getByTitle(bound.name, { exact: true })).toBeVisible();
 });
 
-test('Personal: «Nur Verfügbare» hides the bound, and toggles back', async ({ authenticatedPage: page }) => {
+test('Personal: «Nur Verfügbare» hides the bound, and toggles back', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   const sidebar = personnelSidebar(page);
   const toggle = sidebar.getByRole('button', { name: 'Nur Verfügbare zeigen' });
   await toggle.click();
@@ -92,7 +96,7 @@ test('Personal: «Nur Verfügbare» hides the bound, and toggles back', async ({
   await expect(sidebar.getByTitle(bound.name, { exact: true })).toBeVisible();
 });
 
-test('[ and ] fold the sidebars, and the fold survives a reload', async ({ authenticatedPage: page }) => {
+test('[ and ] fold the sidebars, and the fold survives a reload', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   // Shortcuts are ignored while a field has focus, so make sure none does. This
   // used to click <body> at (5, 5), but since 4166c02c the app shell is
   // `position: fixed; inset: 0` and <body> has no height of its own — Playwright
@@ -116,7 +120,7 @@ test('[ and ] fold the sidebars, and the fold survives a reload', async ({ authe
   await expect(page.locator('#material-search-input')).toBeVisible();
 });
 
-test('Material: identical devices in one depot are one counted row', async ({ authenticatedPage: page }) => {
+test('Material: identical devices in one depot are one counted row', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   const cookieHeader = await cookieHeaderFor(page);
   // Find a bundle in the seeded depot list instead of hard-coding one.
   const units = new Map<string, TestMaterial[]>();
