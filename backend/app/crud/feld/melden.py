@@ -52,6 +52,7 @@ from ...models import (
     Vehicle,
 )
 from ...services.audit import log_action
+from ...services.duplicates import merge_report
 from ...services.notification_service import create_field_notification
 from .reports import _location
 
@@ -240,8 +241,16 @@ async def create_field_report(
     person: Personnel,
     payload: schemas.FeldIncidentCreate,
     request: Request,
+    *,
+    merge_target: Incident | None = None,
 ) -> tuple[Incident, TakeoverMode]:
     """Create the Schadenplatz, and take it on if the crew said they would.
+
+    ``merge_target``: the reporter answered «Zusammenführen» to «Möglicherweise
+    dasselbe wie …». The Meldung is still written as its own row (it is the
+    report, and «Trennen» brings it back) but folded straight into that card as
+    a Nachtrag (services/duplicates.py); no take-over, and the bell names the
+    card it went into.
 
     ``source='feld'`` rather than ``'intake'``: both are somebody outside the KP
     saying "there is something here", but one is a phone call taken by an
@@ -286,7 +295,11 @@ async def create_field_report(
     await db.flush()
 
     mode: TakeoverMode = "none"
-    if payload.take_over:
+    if merge_target is not None:
+        await merge_report(
+            db, report=incident, target=merge_target, user=None, request=request, reporter_name=person.name
+        )
+    elif payload.take_over:
         mode = await _take_over(db, event_id, person, incident)
         # "Wir übernehmen das gleich" means somebody is on the way to it, so it
         # does not sit in Eingegangen waiting to be disponiert — the crew just
@@ -305,11 +318,24 @@ async def create_field_report(
             "source": "intake" if took_a_call else "feld",
             "reported_by": person.name,
             "takeover": mode,
+            **({"merged_into": str(merge_target.id)} if merge_target is not None else {}),
         },
         request=request,
     )
     await db.commit()
     await db.refresh(incident)
+
+    if merge_target is not None:
+        await db.refresh(merge_target)
+        await create_field_notification(
+            db,
+            notification_type="field_report",
+            incident_id=merge_target.id,
+            event_id=event_id,
+            message=f"Nachtrag vom Feld: {await _location(db, merge_target)} ({person.name})",
+            severity="info",
+        )
+        return incident, mode
 
     # …and the bell. Every other `/feld` action raises one; the one that creates
     # a whole Schadenplatz did not, so a Meldung arrived as a card silently

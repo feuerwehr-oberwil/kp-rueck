@@ -4047,5 +4047,37 @@
       "fieldReportNoIncidents": "Aucune intervention ouverte avec une équipe assignée – une annonce du terrain nécessite une équipe sur le terrain.",
       "fieldReportHint": "Le groupe annonce une nouvelle place de sinistre – arrive comme une vraie annonce."
     }
+  },
+  "duplicates": {
+    "lead": "Peut-être identique à",
+    "distance": "{meters} m",
+    "sameAddress": "même adresse",
+    "ago": "il y a {duration}",
+    "merge": "Fusionner",
+    "mergeHint": "Ajouter ce message comme complément à l’intervention existante – pas de nouvelle intervention",
+    "createAnyway": "Créer quand même",
+    "sketchLabel": "Situation : nouveau message au centre, interventions existantes en points, cercle de 50 m",
+    "mergedTitle": "Fusionné avec {label}",
+    "mergedDescription": "Le message figure comme complément dans les notes.",
+    "undo": "Annuler",
+    "unmergedTitle": "De nouveau une intervention à part",
+    "noteKept": "Le complément a été modifié entre-temps et reste dans les notes.",
+    "mergeFailed": "Échec de la fusion",
+    "unmergeFailed": "Échec de la séparation",
+    "dismissFailed": "Impossible d’enregistrer",
+    "card": {
+      "flag": "Doublon possible de {label}",
+      "flagUnknown": "Doublon possible",
+      "flagTooltip": "Reçu automatiquement, près d’une intervention ouverte. « Fusionner » y ajoute ce message comme complément.",
+      "merge": "Fusionner",
+      "dismiss": "Pas un doublon"
+    },
+    "timeline": {
+      "merged": "Message fusionné",
+      "unmerged": "Fusion annulée",
+      "split": "Séparer",
+      "splitHint": "Remettre le message sur le tableau comme intervention à part"
+    },
+    "feldMerged": "Ajouté à l’intervention existante – le PC le voit comme complément."
   }
 }

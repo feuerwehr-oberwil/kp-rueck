@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
+import { DuplicateFlag } from '@/components/duplicates/duplicate-flag'
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
@@ -691,6 +692,12 @@ function DraggableOperationBase({
           {/* Above «Am Warten» and everything else in this stack: "the thing at
               this address is real" outranks every other qualifier on the card. */}
           {operation.fromRealAlarm && <RealAlarmBadge />}
+
+          {/* An automatic door put this card next to an open one — answered
+              right here: «Zusammenführen» or «Kein Duplikat» (R2). */}
+          {operation.possibleDuplicateOf && (
+            <DuplicateFlag operationId={operation.id} targetId={operation.possibleDuplicateOf} canEdit={canDrag} />
+          )}
 
           {/* «Am Warten», with what is being waited for. The flag alone was a
               tooltip on a clock glyph, which said nothing an operator can act
@@ -1421,6 +1428,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // is compared like every other thing the card draws rather than trusted to
     // stay constant.
     prevProps.operation.fromRealAlarm === nextProps.operation.fromRealAlarm &&
+    prevProps.operation.possibleDuplicateOf === nextProps.operation.possibleDuplicateOf &&
     // The field reports drive two card badges; without them here a card that
     // just got "Abholung nötig" over the WebSocket would not repaint.
     prevProps.operation.pickupNeeded === nextProps.operation.pickupNeeded &&

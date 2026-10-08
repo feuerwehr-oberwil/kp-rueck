@@ -69,9 +69,15 @@ class DiveraEmergencyListResponse(BaseModel):
 
 
 class AttachEmergencyRequest(BaseModel):
-    """Request to attach a Divera emergency to an Event."""
+    """Request to attach a Divera emergency to an Event.
+
+    ``merge_into_incident_id``: the operator answered «Zusammenführen» to the
+    duplicate hint — the alarm becomes a Nachtrag on that open card instead of
+    a card of its own (services/duplicates.py; undoable with «Trennen»).
+    """
 
     event_id: UUID
+    merge_into_incident_id: UUID | None = None
 
 
 class BulkAttachEmergenciesRequest(BaseModel):

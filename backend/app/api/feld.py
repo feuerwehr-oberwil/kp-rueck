@@ -44,6 +44,7 @@ line here. The field surface is the first place kp-rueck touches citizen PII.
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -64,6 +65,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import incident_display, notification_service
+from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import photo_storage
 from ..services.settings import (
     FELD_DRIVER_MESSAGE_CHIPS_KEY,
@@ -78,6 +80,7 @@ from ..services.tokens import (
     validate_feld_token,
 )
 from ..websocket_manager import broadcast_incident_update
+from .incidents import board_response, duplicate_candidates_response, lock_incident
 
 logger = logging.getLogger(__name__)
 
@@ -841,6 +844,29 @@ async def set_own_attendance(
     return result
 
 
+@router.get("/duplicates", response_model=schemas.DuplicateCandidatesResponse)
+@limiter.limit(RateLimits.FELD)
+async def feld_duplicate_candidates(
+    request: Request,
+    claims: FeldClaims,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    lat: Decimal | None = Query(None, ge=-90, le=90),
+    lng: Decimal | None = Query(None, ge=-180, le=180),
+    address: str | None = Query(None, max_length=500),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.DuplicateCandidatesResponse:
+    """«Möglicherweise dasselbe wie …» before a Meldung is sent.
+
+    The same lookup as the board's (open cards of this Ereignis within 50 m or
+    at the same address), behind the unlocked, bound device token: the reporter
+    is a known crew member, standing at the address they are asking about. At
+    most three cards, and only ever the ones at that spot. The public `/alarm`
+    form gets no such lookup — its cards are flagged on the board instead.
+    """
+    await require_feld_person(db, claims, personnel_id, require_access=False)
+    return await duplicate_candidates_response(db, claims.event_id, lat=lat, lng=lng, address=address)
+
+
 @router.post("/incidents", response_model=schemas.FeldIncidentCreated, status_code=201)
 @limiter.limit(RateLimits.INTAKE)
 async def report_new_incident(
@@ -867,7 +893,34 @@ async def report_new_incident(
     # refuse the one person whose entire job this is.
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
     event = await _load_event(db, claims.event_id)
-    incident, mode = await crud.create_field_report(db, event.id, person, payload, request)
+
+    # «Zusammenführen»: only into an OPEN card of this Ereignis — the same set
+    # the candidate lookup below offered. Anything else is the same 409, so the
+    # door does not tell a probe whether an id exists.
+    merge_target: Incident | None = None
+    if payload.merge_into_incident_id is not None:
+        merge_target = await lock_incident(db, payload.merge_into_incident_id)
+        if (
+            merge_target is None
+            or merge_target.event_id != event.id
+            or merge_target.deleted_at is not None
+            or merge_target.merged_into_id is not None
+            or merge_target.status == "complete"
+        ):
+            raise HTTPException(status_code=409, detail="Dieser Einsatz ist nicht mehr offen. Bitte neu melden.")
+
+    try:
+        incident, mode = await crud.create_field_report(
+            db, event.id, person, payload, request, merge_target=merge_target
+        )
+    except MergeRefusedError as e:
+        await db.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+
+    if merge_target is not None:
+        target_response = await board_response(db, merge_target)
+        await broadcast_incident_update(target_response.model_dump(mode="json"), "update")
+        return schemas.FeldIncidentCreated(incident_id=incident.id, takeover="none", merged_into=merge_target.id)
 
     # Same broadcast + sync path as every other create, so the board moves
     # without a refresh and the card is not a ghost until somebody polls. The

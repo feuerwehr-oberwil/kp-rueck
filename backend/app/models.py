@@ -704,6 +704,28 @@ class Incident(Base):
         PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Duplicate reports (services/duplicates.py). A second call about the same
+    # Schadenplatz is a Nachtrag to the first card, not a second card.
+    #
+    # `possible_duplicate_of_id`: an AUTOMATIC door (webhook, poller, the public
+    # /alarm form, a bulk attach) found an open card of the same Ereignis within
+    # 50 m or at the same address. Those doors never merge on their own — they
+    # create the card and leave this flag, and the card offers the one-click merge.
+    # Cleared by «Kein Duplikat» or by the merge itself.
+    #
+    # `merged_into_id`: this report was folded into that card. The row stays
+    # (soft-deleted, `deleted_at` set) because it IS the report – its source,
+    # source_ref, Melder and text – and because keeping it is what makes the merge
+    # undoable: «Trennen» restores it as its own card.
+    #
+    # SET NULL both ways: deleting either card must never delete the other.
+    possible_duplicate_of_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
+    merged_into_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     # Relationships
     creator: Mapped[Optional["User"]] = relationship(
         "User", back_populates="created_incidents", foreign_keys=[created_by]

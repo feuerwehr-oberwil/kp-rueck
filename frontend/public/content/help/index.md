@@ -221,6 +221,14 @@ scharfstellen.
 4. Priorität setzen (`Shift+1/2/3`)
 5. Entscheiden: Direkt disponieren oder erst Reko?
 
+Steht schon ein offener Einsatz desselben Ereignisses innerhalb von 50 m oder an derselben Adresse,
+sagt der Dialog unter dem Einsatzort «Möglicherweise dasselbe wie …». **Zusammenführen** hängt die
+Meldung samt Melder als Nachtrag an jenen Einsatz – es entsteht keine zweite Karte. **Trotzdem neu**
+blendet den Hinweis aus. Alarme, die automatisch hereinkommen (Divera, Alarm-Link), werden nie von
+selbst zusammengeführt: Ihre Karte zeigt «Mögliches Duplikat von …» mit **Zusammenführen** und
+**Kein Duplikat**. Rückgängig machen: «Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf
+des Einsatzes.
+
 ### Reko durchführen
 
 1. Einsatz in "Reko" verschieben (ziehen oder `>`)

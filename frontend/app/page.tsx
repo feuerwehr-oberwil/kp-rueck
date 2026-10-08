@@ -117,6 +117,7 @@ export default function FireStationDashboard() {
     changeStatusToTop,
     setBoardDragging,
     createOperation,
+    mergeOperationInto,
     assignPersonToOperation,
     assignRekoPersonToOperation,
     assignMaterialToOperation,
@@ -2433,6 +2434,7 @@ export default function FireStationDashboard() {
         closedStopGuard={closedStopGuard}
         createGroup={createGroup}
         createOperation={createOperation}
+        mergeOperationInto={mergeOperationInto}
         deleteDialogOpen={deleteDialogOpen}
         deleteReleaseHint={deleteReleaseHint}
         detailModalOpen={detailModalOpen}

@@ -4047,5 +4047,37 @@
     "claim": {
       "offline": "Keine Verbindung zum KP. Der Name wurde nicht übernommen – nochmals versuchen."
     }
+  },
+  "duplicates": {
+    "lead": "Möglicherweise dasselbe wie",
+    "distance": "{meters} m",
+    "sameAddress": "gleiche Adresse",
+    "ago": "vor {duration}",
+    "merge": "Zusammenführen",
+    "mergeHint": "Diese Meldung als Nachtrag an den bestehenden Einsatz anhängen – kein neuer Einsatz",
+    "createAnyway": "Trotzdem neu",
+    "sketchLabel": "Lage: neue Meldung in der Mitte, bestehende Einsätze als Punkte, Kreis 50 m",
+    "mergedTitle": "Zusammengeführt mit {label}",
+    "mergedDescription": "Die Meldung steht als Nachtrag in den Notizen.",
+    "undo": "Rückgängig",
+    "unmergedTitle": "Wieder ein eigener Einsatz",
+    "noteKept": "Der Nachtrag wurde seither bearbeitet und bleibt in den Notizen.",
+    "mergeFailed": "Zusammenführen fehlgeschlagen",
+    "unmergeFailed": "Trennen fehlgeschlagen",
+    "dismissFailed": "Konnte nicht gespeichert werden",
+    "card": {
+      "flag": "Mögliches Duplikat von {label}",
+      "flagUnknown": "Mögliches Duplikat",
+      "flagTooltip": "Automatisch eingegangen, nahe bei einem offenen Einsatz. «Zusammenführen» hängt diese Meldung dort als Nachtrag an.",
+      "merge": "Zusammenführen",
+      "dismiss": "Kein Duplikat"
+    },
+    "timeline": {
+      "merged": "Meldung zusammengeführt",
+      "unmerged": "Zusammenführung getrennt",
+      "split": "Trennen",
+      "splitHint": "Die Meldung wieder als eigenen Einsatz aufs Board holen"
+    },
+    "feldMerged": "Zum bestehenden Einsatz hinzugefügt – der KP sieht es als Nachtrag."
   }
 }

@@ -34,6 +34,13 @@
  * switch-right — the grammar of every other phone form. The row's 120px
  * label column left a 390px phone ~200px of control and read as a table. A field's
  * message then sits full width under its control as well.
+ *
+ * DUPLICATES (R2): while the Einsatzort is typed the server is asked for open
+ * cards of this Ereignis within 50 m or at the same street + number. A match is
+ * said UNDER the Einsatzort, amber like every other advice: «Möglicherweise
+ * dasselbe wie …» with «Zusammenführen» (the report becomes a Nachtrag on that
+ * card, no new card, undo on the toast and in the card's Verlauf) and «Trotzdem
+ * neu» (puts the hint away). It never blocks «Einsatz erstellen».
  */
 
 import { useState, useEffect } from "react"
@@ -60,6 +67,9 @@ import {
 } from "@/components/ui/form-message"
 import { phoneAdvice } from "@/lib/phone-plausibility"
 import { cn } from "@/lib/utils"
+import { apiClient, type ApiDuplicateCandidate } from "@/lib/api-client"
+import { useDuplicateCandidates } from "@/lib/hooks/use-duplicate-candidates"
+import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
 const LOCATION_FIELD_ID = "location_address"
@@ -71,6 +81,11 @@ interface NewEmergencyModalProps {
   onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
   /** When set, the created incident is attached to this Auftrag (streamlined "+ Stop"). */
   defaultGroupId?: string | null
+  /** The Ereignis the card goes into — what the duplicate lookup is scoped to. */
+  eventId?: string | null
+  /** «Zusammenführen»: the typed report goes into that card instead of a new one.
+   *  Absent (a viewer, or a test) = no duplicate lookup at all. */
+  onMergeInto?: (operation: Omit<Operation, "id" | "dispatchTime">, targetId: string) => Promise<boolean>
 }
 
 export function NewEmergencyModal({
@@ -78,6 +93,8 @@ export function NewEmergencyModal({
   onOpenChange,
   onCreateOperation,
   defaultGroupId = null,
+  eventId = null,
+  onMergeInto,
 }: NewEmergencyModalProps) {
   const t = useTranslations('kanban')
   const isMobile = useIsMobile()
@@ -150,8 +167,10 @@ export function NewEmergencyModal({
     }
 
     onCreateOperation(formData)
+    resetAndClose()
+  }
 
-    // Reset form and validation state
+  const resetAndClose = () => {
     setFormData({
       location: "",
       incidentType: "elementarereignis",
@@ -188,9 +207,39 @@ export function NewEmergencyModal({
     })
     setTouched({})
     setShowValidationErrors(false)
+    setDismissedKey(null)
 
     onOpenChange(false)
   }
+
+  // «Möglicherweise dasselbe wie …» — see the header. Asked only for an editor
+  // with an Ereignis, and only once there is something to compare.
+  const lookup = open && eventId && onMergeInto
+    ? {
+        eventId,
+        lat: formData.coordinates?.[0] ?? null,
+        lng: formData.coordinates?.[1] ?? null,
+        address: formData.location,
+      }
+    : null
+  const { candidates, key: duplicateKey } = useDuplicateCandidates(lookup, (q) =>
+    apiClient.getDuplicateCandidates({ eventId: q.eventId!, lat: q.lat, lng: q.lng, address: q.address }),
+  )
+  // «Trotzdem neu» answers for THIS address; typing another one asks again.
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
+  const [mergingId, setMergingId] = useState<string | null>(null)
+  const shownCandidates = duplicateKey !== null && duplicateKey !== dismissedKey ? candidates : []
+
+  const handleMerge = async (candidate: ApiDuplicateCandidate) => {
+    if (!onMergeInto) return
+    setMergingId(candidate.id)
+    try {
+      if (await onMergeInto(formData, candidate.id)) resetAndClose()
+    } finally {
+      setMergingId(null)
+    }
+  }
+
 
   // The form itself — the same rows in both shapes below.
   const fields = (
@@ -236,6 +285,18 @@ export function NewEmergencyModal({
                 {t('newEmergency.locationError')}
               </FormMessage>
             )}
+            <DuplicateHint
+              candidates={shownCandidates}
+              origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
+              onMerge={handleMerge}
+              onDismiss={() => setDismissedKey(duplicateKey)}
+              mergingId={mergingId}
+              showSketch={!isMobile}
+              density={isMobile ? "touch" : "dense"}
+              // The value column, not the label column: margin, so the amber box
+              // starts where the fields start (DETAIL_MESSAGE_INDENT is padding).
+              className={isMobile ? "my-2" : "my-2 sm:ml-[128px]"}
+            />
 
             <DetailField label={t('common.meldung')} htmlFor="notes" alignStart>
               <Textarea

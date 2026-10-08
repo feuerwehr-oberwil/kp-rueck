@@ -30,6 +30,11 @@
  * The same argument the four field actions already make with their one-line
  * "Stimmt das?" panel; this one has five answers to show instead of one, so it
  * gets the step rather than a line.
+ *
+ * **«Möglicherweise dasselbe wie …» (R2).** The review step also asks the board
+ * whether an open card of this Ereignis already stands within 50 m or at the same
+ * address. If so the crew can «Zusammenführen» — the Meldung goes into that card
+ * as a Nachtrag, no second card, no take-over — or send it «Trotzdem neu».
  */
 
 import { useState } from 'react'
@@ -54,6 +59,9 @@ import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
 import type { IncidentPriority, IncidentType } from '@/lib/types/incidents'
 import { sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { DuplicateHint } from '@/components/duplicates/duplicate-hint'
+import { useDuplicateCandidates } from '@/lib/hooks/use-duplicate-candidates'
+import type { ApiDuplicateCandidate } from '@/lib/api-client'
 
 /** The one label style the whole sheet uses — the same one `/alarm` uses, which
  *  is what stopped the location field (its own component) looking like a
@@ -140,6 +148,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
   const editing = props.editing ?? null
   const canTakeOver = props.editing ? false : (props.canTakeOver ?? true)
   const t = useTranslations('feld.melden')
+  const tDuplicates = useTranslations('duplicates')
   // Prefilled from the Meldung in edit mode. The page keys this component by
   // incident id, so opening a different one remounts rather than carrying the
   // last one's text across.
@@ -276,7 +285,28 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
     )
   }
 
-  const submit = async () => {
+  // Asked on the review step only — the form is still being typed before it,
+  // and a new Meldung only (a correction is about a card that already exists).
+  const duplicateLookup =
+    open && step === 'review' && !editing ? { lat, lng, address: address?.trim() || null } : null
+  const { candidates: duplicateCandidates, key: duplicateKey } = useDuplicateCandidates(duplicateLookup, (q) =>
+    apiClient.getFeldDuplicateCandidates(personnelId, token, { lat: q.lat, lng: q.lng, address: q.address }),
+  )
+  const [dismissedDuplicateKey, setDismissedDuplicateKey] = useState<string | null>(null)
+  const [mergingId, setMergingId] = useState<string | null>(null)
+  const shownDuplicates =
+    duplicateKey !== null && duplicateKey !== dismissedDuplicateKey ? duplicateCandidates : []
+
+  const mergeInto = async (candidate: ApiDuplicateCandidate) => {
+    setMergingId(candidate.id)
+    try {
+      await submit(candidate.id)
+    } finally {
+      setMergingId(null)
+    }
+  }
+
+  const submit = async (mergeIntoIncidentId?: string) => {
     // The address is what the KP dispatches against; coordinates alone are a
     // dot nobody can read out over the radio, so one of the two must exist.
     const street = address?.trim() ?? ''
@@ -326,12 +356,15 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         // there was an address) and the notes overwrote the Meldung.
         description: (isPhoneDesk ? meldung : description.trim()) || null,
         internal_notes: notes.trim() || null,
-        take_over: takeOver,
+        // A merged Meldung is a Nachtrag, not a job somebody takes on.
+        take_over: mergeIntoIncidentId ? false : takeOver,
         as_phone_call: Boolean(isPhoneDesk),
         contact: contact.trim() || null,
         contact_phone: contactPhone.trim() || null,
+        merge_into_incident_id: mergeIntoIncidentId ?? null,
       })
-      toast.success(t(`confirm.${result.takeover}`))
+      toast.success(result.merged_into ? tDuplicates('feldMerged') : t(`confirm.${result.takeover}`))
+      setDismissedDuplicateKey(null)
       props.onReported(result)
       reset()
       onOpenChange(false)
@@ -367,6 +400,15 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         </SheetHeader>
 
         <SheetBody className="px-4 pb-3">
+          <DuplicateHint
+            candidates={shownDuplicates}
+            onMerge={mergeInto}
+            onDismiss={() => setDismissedDuplicateKey(duplicateKey)}
+            mergingId={mergingId}
+            showSketch={false}
+            density="touch"
+            className="mb-3"
+          />
           <div className="overflow-hidden rounded-xl border border-border">
             {reviewRows.map(row => (
               <div
@@ -384,7 +426,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         </SheetBody>
 
         <SheetFooter className={FOOT_CLASS}>
-          <Button size="lg" className="w-full" onClick={submit} disabled={sending}>
+          <Button size="lg" className="w-full" onClick={() => submit()} disabled={sending}>
             {sending && <ShellLoader className="size-4" />}
             {editing ? t('editSubmit') : t('submit')}
           </Button>

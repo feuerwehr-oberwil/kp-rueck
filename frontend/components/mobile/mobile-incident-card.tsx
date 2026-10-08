@@ -20,6 +20,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
+import { DuplicateFlag } from "@/components/duplicates/duplicate-flag"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -150,6 +151,17 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             />
           )}
 
+          {/* «Mögliches Duplikat» (R2): read-only here, like the pickup chip —
+              the phone is a viewing surface; the KP merges on the board. */}
+          {operation.possibleDuplicateOf && (
+            <DuplicateFlag
+              operationId={operation.id}
+              targetId={operation.possibleDuplicateOf}
+              canEdit={false}
+              className="mt-1.5"
+            />
+          )}
+
           {/* Type + Status */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <Badge variant="outline" className="text-xs px-1.5 py-0">
@@ -261,6 +273,7 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     // cleared it (or never shows one that just arrived).
     prev.pickupNeeded === next.pickupNeeded &&
     prev.pickupNote === next.pickupNote &&
-    prev.pickupRequestedAt?.getTime() === next.pickupRequestedAt?.getTime()
+    prev.pickupRequestedAt?.getTime() === next.pickupRequestedAt?.getTime() &&
+    prev.possibleDuplicateOf === next.possibleDuplicateOf
   )
 })

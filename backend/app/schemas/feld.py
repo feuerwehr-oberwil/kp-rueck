@@ -993,6 +993,10 @@ class FeldIncidentCreate(BaseModel):
     as_phone_call: bool = False
     contact: str | None = None
     contact_phone: str | None = None
+    # The reporter answered «Zusammenführen» to «Möglicherweise dasselbe wie …»:
+    # the Meldung becomes a Nachtrag on that open card instead of a new one, and
+    # `take_over` is ignored (services/duplicates.py; the KP can «Trennen»).
+    merge_into_incident_id: UUID | None = None
 
     _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
     _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
@@ -1068,3 +1072,6 @@ class FeldIncidentCreated(BaseModel):
 
     incident_id: UUID
     takeover: Literal["none", "stop", "auftrag", "solo"]
+    # Set when the Meldung was merged into an open card: that card's id. The
+    # phone says «zum bestehenden Einsatz hinzugefügt» instead of «gemeldet».
+    merged_into: UUID | None = None

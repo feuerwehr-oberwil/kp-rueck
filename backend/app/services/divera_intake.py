@@ -40,6 +40,7 @@ from ..alarm_keywords import (
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from .audit import log_action
+from .duplicates import flag_possible_duplicate
 from .settings import (
     get_alarm_description_filter_prefixes,
     get_alarm_description_label_prefixes,
@@ -403,6 +404,11 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
     db.add(incident)
     await db.flush()
 
+    # A second alarm for a Schadenplatz already on the board: never merged
+    # silently — nobody has looked at it yet — but the card says so and offers
+    # the one-click merge (services/duplicates.py).
+    duplicate_of = await flag_possible_duplicate(db, incident)
+
     # System action — no user; the audit trail still shows where it came from.
     await log_action(
         db=db,
@@ -410,7 +416,11 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         resource_type="incident",
         resource_id=incident.id,
         user=None,
-        changes={"created": data.model_dump(mode="json"), "auto_attach_divera": True},
+        changes={
+            "created": data.model_dump(mode="json"),
+            "auto_attach_divera": True,
+            **({"possible_duplicate_of_id": str(duplicate_of)} if duplicate_of else {}),
+        },
     )
     await events_crud.update_event_activity(db, event.id)
 

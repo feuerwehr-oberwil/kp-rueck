@@ -28,6 +28,24 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **A second report about the same Schadenplatz is no longer a second card.** «Neuer Einsatz», the
+  Alarmeingang's «Anhängen» and `/feld`'s «Neue Meldung» now ask, before a card is made, whether an
+  open Einsatz of the same Ereignis stands within 50 m or at the same street and house number
+  («Hauptstr. 6» and «Hauptstrasse 6, 4104 Oberwil» are one door). An amber line says
+  «Möglicherweise dasselbe wie Hauptstrasse 6 · 40 m · vor 6'», with a small sketch of the two pins
+  where there is room, and two answers: «Zusammenführen» appends the report – Meldung, Melder,
+  Telefon, sender and its reference – to that card's Notizen as a Nachtrag and fills an empty
+  Melder, «Trotzdem neu» puts the line away. Closed and deleted Einsätze and other Ereignisse never
+  match. Automatic doors never merge on their own: an alarm from the webhook, the poller, the
+  public `/alarm` form or a bulk attach becomes its card as before and is marked «Mögliches
+  Duplikat von …» with «Zusammenführen» and «Kein Duplikat» right on the card. Every merge is
+  undoable – «Rückgängig» on the toast, «Trennen» in the card's Verlauf – and audited on both
+  cards; the merged report keeps its own (hidden) row, so its source and source reference stay
+  answerable. A card with crew or vehicles on it is not merged until they are moved or released.
+  Migration `d2a9e6f41c83` adds two nullable columns to `incidents`; it runs on boot.
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an

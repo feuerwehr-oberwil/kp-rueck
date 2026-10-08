@@ -310,6 +310,10 @@ class IncidentResponse(IncidentBase):
     # once the home_city setting loads client-side. "" when the address is only
     # the home city; None when there is no address (or on older backends).
     location_display: str | None = None
+    # An automatic door (webhook, poller, /alarm, bulk attach) created this card
+    # next to an open one of the same Ereignis — the card says «mögliches
+    # Duplikat» and offers the merge. Never merged without a human.
+    possible_duplicate_of_id: UUID | None = None
 
     # Only interesting inside a training Ereignis, where it is the one thing
     # about a single incident that deviates from the drill it sits in: its
@@ -408,7 +412,7 @@ class IncidentTimelineEvent(BaseModel):
                       going the OTHER way — sweep 27 §P3.2)
     """
 
-    event_type: str  # 'status_change' | 'assignment' | 'field_message' | 'kp_message'
+    event_type: str  # 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
     timestamp: datetime
     actor_name: str | None = None
 
@@ -427,6 +431,72 @@ class IncidentTimelineEvent(BaseModel):
     # over the radio.
     message: str | None = None
     source: str | None = None
+
+    # merge / unmerge fields — the report that was folded into this card (its
+    # Nachtrag is `message`), and whether it is still merged: only a merge that
+    # still stands offers «Trennen».
+    merged_incident_id: UUID | None = None
+    merge_active: bool | None = None
+
+
+class DuplicateCandidate(BaseModel):
+    """An open incident that is probably the same Schadenplatz (services/duplicates.py)."""
+
+    id: UUID
+    title: str
+    type: str
+    status: str
+    location_address: str | None = None
+    location_display: str | None = None
+    location_lat: Decimal | None = None
+    location_lng: Decimal | None = None
+    #: Metres between the two pins; None when one of them has no coordinates
+    #: (an address-only match).
+    distance_m: int | None = None
+    #: Why it matched: «distance» (within 50 m), «address» (normalised-equal
+    #: street + number), or «both».
+    match: Literal["distance", "address", "both"]
+    created_at: datetime
+
+    @field_serializer("location_lat", "location_lng")
+    def _coordinate(self, value: Decimal | None) -> str | None:
+        return None if value is None else str(value)
+
+
+class DuplicateCandidatesResponse(BaseModel):
+    candidates: list[DuplicateCandidate]
+
+
+class MergeReportRequest(BaseModel):
+    """«Zusammenführen» before a card exists: this report goes into `target_id` as a Nachtrag."""
+
+    target_id: UUID
+    incident: IncidentCreate
+
+
+class MergeIntoRequest(BaseModel):
+    """«Zusammenführen» on a card that already exists (the flagged duplicate)."""
+
+    target_id: UUID
+
+
+class MergeResponse(BaseModel):
+    """The card the report went into, and the (now hidden) report row — the undo's handle."""
+
+    target: IncidentResponse
+    merged_incident_id: UUID
+
+
+class UnmergeResponse(BaseModel):
+    """«Trennen»: the report is its own card again.
+
+    ``note_removed`` is False when the Nachtrag had been edited since the merge
+    and therefore stays in the target's «Notizen» as the operator left it.
+    """
+
+    restored: IncidentResponse
+    target: IncidentResponse | None = None
+    note_removed: bool
 
 
 class IncidentTimelineResponse(BaseModel):

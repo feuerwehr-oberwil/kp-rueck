@@ -219,6 +219,14 @@ l’imprimante, armer le repli papier.
 4. Définir la priorité (`Shift+1/2/3`)
 5. Décider : engager directement ou d’abord reconnaître ?
 
+Si une intervention ouverte du même événement se trouve à moins de 50 m ou à la même adresse, la
+fenêtre l’indique sous le lieu : « Peut-être identique à … ». **Fusionner** ajoute le message et
+l’annonceur comme complément à cette intervention – sans deuxième carte. **Créer quand même** masque
+l’indication. Les alarmes reçues automatiquement (Divera, lien d’alarme) ne sont jamais fusionnées
+d’elles-mêmes : leur carte affiche « Doublon possible de … » avec **Fusionner** et **Pas un doublon**.
+Pour annuler : « Annuler » dans le message en bas à droite, ou **Séparer** dans l’historique de
+l’intervention.
+
 ### Faire une reconnaissance
 
 1. Déplacer l’intervention dans « Reconnaissance » (glisser ou `>`)

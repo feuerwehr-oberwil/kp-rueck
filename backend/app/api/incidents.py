@@ -3,6 +3,7 @@
 import logging
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import (
@@ -32,7 +33,7 @@ from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..services import incident_display
+from ..services import duplicates, incident_display
 from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_ids
 from ..utils.errors import ErrorMessages
@@ -239,6 +240,146 @@ async def get_sync_version(
         f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}"
     )
     return {"version": version}
+
+
+def _candidate_response(candidate: duplicates.DuplicateCandidate, home_city: str) -> schemas.DuplicateCandidate:
+    incident = candidate.incident
+    return schemas.DuplicateCandidate(
+        id=incident.id,
+        title=incident.title,
+        type=incident.type,
+        status=incident.status,
+        location_address=incident.location_address,
+        location_display=incident_display.location_display(incident.location_address, home_city),
+        location_lat=incident.location_lat,
+        location_lng=incident.location_lng,
+        distance_m=candidate.distance_m,
+        match=candidate.match,
+        created_at=incident.created_at,
+    )
+
+
+async def duplicate_candidates_response(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    *,
+    lat: Decimal | None,
+    lng: Decimal | None,
+    address: str | None,
+    exclude_id: uuid.UUID | None = None,
+) -> schemas.DuplicateCandidatesResponse:
+    """Shared by the board's and `/feld`'s candidate lookups."""
+    candidates = await duplicates.find_duplicate_candidates(
+        db,
+        event_id,
+        lat=lat,
+        lng=lng,
+        address=address,
+        exclude_ids=(exclude_id,) if exclude_id else (),
+    )
+    home_city = await incident_display.get_home_city(db)
+    return schemas.DuplicateCandidatesResponse(candidates=[_candidate_response(c, home_city) for c in candidates])
+
+
+# MUST be declared before /{incident_id} for the same reason as /sync-version.
+@router.get("/duplicate-candidates", response_model=schemas.DuplicateCandidatesResponse)
+async def get_duplicate_candidates(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+    event_id: uuid.UUID = Query(..., description="Ereignis the new report belongs to"),
+    lat: Decimal | None = Query(None, ge=-90, le=90),
+    lng: Decimal | None = Query(None, ge=-180, le=180),
+    address: str | None = Query(None, max_length=500),
+    exclude_id: uuid.UUID | None = Query(None, description="The card being checked, when it already exists"),
+) -> schemas.DuplicateCandidatesResponse:
+    """Open incidents of this Ereignis that are probably the same Schadenplatz.
+
+    Within 50 m of the pin or at a normalised-equal address (street + house
+    number); closed, deleted and merged cards and other Ereignisse never match.
+    Asked by «Neuer Einsatz» and the pool's attach before a card is made, so
+    the operator can answer «Zusammenführen» or «Trotzdem neu».
+    """
+    return await duplicate_candidates_response(db, event_id, lat=lat, lng=lng, address=address, exclude_id=exclude_id)
+
+
+async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> models.Incident | None:
+    """Row-lock an incident (deleted ones included) for a merge or its undo.
+
+    Two merges into the same card both append to its «Notizen»; without the
+    lock the second write would carry the first one's old text and drop its
+    Nachtrag.
+    """
+    return (
+        await db.execute(
+            select(models.Incident)
+            .where(models.Incident.id == incident_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+
+
+async def lock_pair(
+    db: AsyncSession, first_id: uuid.UUID, second_id: uuid.UUID
+) -> tuple[models.Incident | None, models.Incident | None]:
+    """Both rows, locked in id order so two opposite merges cannot deadlock."""
+    locked = {i: await lock_incident(db, i) for i in sorted({first_id, second_id})}
+    return locked.get(first_id), locked.get(second_id)
+
+
+async def board_response(db: AsyncSession, incident: models.Incident) -> schemas.IncidentResponse:
+    """The card as GET /{id} returns it — vehicles, reko flags and all — for the broadcast."""
+    populated = await crud.get_incident(db, incident.id)
+    return await incident_display.incident_with_display(db, populated or incident)
+
+
+async def merge_and_broadcast(
+    db: AsyncSession,
+    background_tasks: BackgroundTasks,
+    result: duplicates.MergeResult,
+) -> schemas.MergeResponse:
+    """Commit a merge and tell every board: the target changed, the report is gone."""
+    report_id = result.report.id
+    await db.commit()
+    await db.refresh(result.target)
+    target_response = await board_response(db, result.target)
+    background_tasks.add_task(trigger_sync_background)
+    background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
+    background_tasks.add_task(broadcast_incident_update, {"id": str(report_id)}, "delete")
+    return schemas.MergeResponse(target=target_response, merged_incident_id=report_id)
+
+
+@router.post("/merge-report", response_model=schemas.MergeResponse)
+async def merge_new_report(
+    payload: schemas.MergeReportRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.MergeResponse:
+    """«Zusammenführen» from «Neuer Einsatz»: the report becomes a Nachtrag on `target_id`.
+
+    No new card. The report is still written as its own row (soft-deleted,
+    `merged_into_id` set) because it carries the Melder and the provenance, and
+    because that row is what «Trennen» brings back. Audited on both rows and in
+    the target's Verlauf.
+    """
+    target = await lock_incident(db, payload.target_id)
+    if target is None or target.deleted_at is not None or target.event_id != payload.incident.event_id:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    try:
+        report = await crud.create_incident(
+            db=db,
+            incident=payload.incident.model_copy(update={"group_id": None}),
+            current_user=current_user,
+            request=request,
+            commit=False,
+        )
+        result = await duplicates.merge_report(db, report=report, target=target, user=current_user, request=request)
+    except duplicates.MergeRefusedError as e:
+        await db.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+    return await merge_and_broadcast(db, background_tasks, result)
 
 
 @router.get("/{incident_id}", response_model=schemas.IncidentResponse)
@@ -955,6 +1096,29 @@ async def get_incident_timeline(
     )
     field_messages = messages_result.all()
 
+    # Merges into this card, and their undos (services/duplicates.py). The
+    # Nachtrag text is rebuilt from the merged report's own row rather than
+    # read from the audit entry — the audit row deliberately carries no PII.
+    merges_result = await db.execute(
+        select(models.AuditLog, models.User)
+        .outerjoin(models.User, models.AuditLog.user_id == models.User.id)
+        .where(
+            models.AuditLog.resource_type == "incident",
+            models.AuditLog.resource_id == incident_id,
+            models.AuditLog.action_type.in_((duplicates.MERGE_ACTION, duplicates.UNMERGE_ACTION)),
+        )
+    )
+    merge_entries = merges_result.all()
+    merged_ids = {
+        uuid.UUID(str(entry.changes_json["merged_incident_id"]))
+        for entry, _ in merge_entries
+        if entry.changes_json and entry.changes_json.get("merged_incident_id")
+    }
+    merged_reports: dict[uuid.UUID, models.Incident] = {}
+    if merged_ids:
+        rows = await db.execute(select(models.Incident).where(models.Incident.id.in_(merged_ids)))
+        merged_reports = {r.id: r for r in rows.scalars().all()}
+
     # …and the KP's own messages to the squad (sweep 27 §P3.2). They have a
     # table (`incident_field_messages`) because `/feld` has to read them back;
     # here they interleave with the crew's sentences so the thread shows both
@@ -1053,6 +1217,29 @@ async def get_incident_timeline(
             )
         )
 
+    for entry, user in merge_entries:
+        changes = entry.changes_json or {}
+        raw_id = changes.get("merged_incident_id")
+        merged_id = uuid.UUID(str(raw_id)) if raw_id else None
+        merged = merged_reports.get(merged_id) if merged_id else None
+        is_merge = entry.action_type == duplicates.MERGE_ACTION
+        events.append(
+            schemas.IncidentTimelineEvent(
+                event_type="merge" if is_merge else "unmerge",
+                timestamp=entry.timestamp,
+                actor_name=changes.get("personnel_name") or _actor(user),
+                message=(
+                    duplicates.merge_note(merged, reporter_name=changes.get("personnel_name"))
+                    if merged is not None and is_merge
+                    else (merged.location_address or merged.title if merged is not None else None)
+                ),
+                source=changes.get("source"),
+                merged_incident_id=merged_id,
+                # Only a merge that still stands can be undone from here.
+                merge_active=bool(is_merge and merged is not None and merged.merged_into_id == incident_id),
+            )
+        )
+
     for kp_message in kp_messages:
         events.append(
             schemas.IncidentTimelineEvent(
@@ -1076,7 +1263,7 @@ async def get_incident_timeline(
         # Messages are never deduplicated. They are human input, they are the
         # one kind of entry here nobody can reconstruct from board state, and a
         # crew tapping the same chip twice is itself information.
-        if event.event_type in ("field_message", "kp_message"):
+        if event.event_type in ("field_message", "kp_message", "merge", "unmerge"):
             deduped.append(event)
             continue
         payload_key = (
@@ -1166,6 +1353,98 @@ async def restore_incident(
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
 
     return incident_response
+
+
+@router.post("/{incident_id}/merge", response_model=schemas.MergeResponse)
+async def merge_incident_into(
+    incident_id: uuid.UUID,
+    payload: schemas.MergeIntoRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.MergeResponse:
+    """«Zusammenführen» on a card: fold this incident into `target_id`.
+
+    The one-click answer to «mögliches Duplikat von …». Refused with 409 while
+    people or vehicles are assigned to this card — moving them is a decision,
+    not a side effect. Undo: POST /{incident_id}/unmerge.
+    """
+    report, target = await lock_pair(db, incident_id, payload.target_id)
+    if report is None or report.deleted_at is not None or target is None or target.deleted_at is not None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    try:
+        result = await duplicates.merge_report(db, report=report, target=target, user=current_user, request=request)
+    except duplicates.MergeRefusedError as e:
+        await db.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+    return await merge_and_broadcast(db, background_tasks, result)
+
+
+@router.post("/{incident_id}/unmerge", response_model=schemas.UnmergeResponse)
+async def unmerge_incident(
+    incident_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.UnmergeResponse:
+    """«Trennen» / «Rückgängig»: the merged report is its own card again.
+
+    Its Nachtrag leaves the target's «Notizen» only if it still stands there
+    verbatim; `note_removed` says which. 409 when it is not merged (a second
+    click on the undo, or somebody else was faster).
+    """
+    report = await db.get(models.Incident, incident_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    if report.merged_into_id is None:
+        raise HTTPException(status_code=409, detail="Diese Meldung ist nicht zusammengeführt.")
+    report, _target = await lock_pair(db, incident_id, report.merged_into_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    try:
+        result = await duplicates.unmerge_report(db, report, user=current_user, request=request)
+    except duplicates.MergeRefusedError as e:
+        await db.rollback()
+        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
+    target_id = result.target.id if result.target else None
+    note_removed = result.note_removed
+    await db.commit()
+
+    restored = await board_response(db, await crud.get_incident(db, incident_id) or report)
+    target_response = None
+    if target_id is not None:
+        target_row = await crud.get_incident(db, target_id)
+        if target_row is not None:
+            target_response = await incident_display.incident_with_display(db, target_row)
+    background_tasks.add_task(trigger_sync_background)
+    background_tasks.add_task(broadcast_incident_update, restored.model_dump(mode="json"), "create")
+    if target_response is not None:
+        background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
+    return schemas.UnmergeResponse(restored=restored, target=target_response, note_removed=note_removed)
+
+
+@router.post("/{incident_id}/not-duplicate", response_model=schemas.IncidentResponse)
+async def dismiss_duplicate(
+    incident_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.IncidentResponse:
+    """«Kein Duplikat»: the card keeps standing on its own and stops asking."""
+    incident = await crud.get_incident(db, incident_id)
+    if incident is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    await duplicates.dismiss_duplicate_flag(db, incident, user=current_user, request=request)
+    await db.commit()
+    response = await board_response(db, incident)
+    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
+    return response
 
 
 @router.post("/{incident_id}/transfer", response_model=schemas.TransferAssignmentsResponse)

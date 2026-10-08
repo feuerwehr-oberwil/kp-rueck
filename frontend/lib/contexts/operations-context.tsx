@@ -123,6 +123,9 @@ export interface Operation {
    *  where the card says so — the only per-incident marker the training mode
    *  has, because such an incident deviates from the Ereignis around it. */
   fromRealAlarm?: boolean
+  /** An automatic door created this card next to an open one (that card's id):
+   *  the card shows «Mögliches Duplikat von …» with a one-click merge. */
+  possibleDuplicateOf?: string | null
   statusChangedAt: Date | null
   hasCompletedReko: boolean
   rekoArrivedAt: Date | null
@@ -182,6 +185,37 @@ export interface Operation {
   vehicleAssignments: Map<string, string>
   vehicleCallsigns: Map<string, string> // vehicle name -> radio_call_sign
   vehicleDriverStay: Map<string, boolean>
+}
+
+/** The create payload for an operation typed into «Neuer Einsatz» — shared by
+ *  the plain create and the «Zusammenführen» merge, so both send the same report. */
+function operationToIncidentCreate(
+  operation: Omit<Operation, "id" | "dispatchTime">,
+  eventId: string,
+): ApiIncidentCreate {
+  return {
+    event_id: eventId,
+    title: operation.location,
+    type: (operation.incidentType || "elementarereignis") as ApiIncidentCreate['type'],
+    priority: operation.priority as "low" | "medium" | "high",
+    location_address: operation.location,
+    ...coordinatesToApiFields(operation.coordinates),
+    status: "incoming" as const,
+    description: operation.notes || null,
+    contact: operation.contact || null,
+    contact_phone: operation.contactPhone || null,
+    internal_notes: operation.internalNotes || null,
+    // Attach to an Auftrag at creation when the caller preset a group
+    // (streamlined "+ Stop" flow) — backend stamps group_position.
+    group_id: operation.groupId ?? null,
+    // "Telefonisch gemeldet" / "Vom Feld gemeldet" on the new-emergency
+    // modal. Anything else the caller might carry (a webhook slug on a
+    // copied operation) is not an editor's to claim, so it collapses to
+    // the operator default.
+    source: (operation.source === 'intake' || operation.source === 'feld'
+      ? operation.source
+      : 'operator') as ApiIncidentCreate['source'],
+  }
 }
 
 /**
@@ -252,6 +286,14 @@ interface OperationsContextType {
    *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
+  /** «Zusammenführen» from «Neuer Einsatz»: the typed report becomes a Nachtrag
+   *  on `targetId` (no new card) and an undo toast is offered. Resolves false
+   *  when the server refused or the call failed (a toast already said so). */
+  mergeOperationInto: (operation: Omit<Operation, "id" | "dispatchTime">, targetId: string) => Promise<boolean>
+  /** «Zusammenführen» on a flagged card: fold the card into `targetId`. */
+  mergeExistingOperation: (operationId: string, targetId: string) => Promise<boolean>
+  /** «Trennen» / the toast's «Rückgängig»: the merged report is its own card again. */
+  undoMerge: (mergedIncidentId: string) => Promise<boolean>
   getNextOperationId: () => string
   /** The three resource assigns resolve true once the assignment landed (or ran
    *  local-only) and false when nothing was assigned — refused (already there,
@@ -347,6 +389,9 @@ type BoardActions = Pick<
   | "reorderColumn"
   | "changeStatusToTop"
   | "createOperation"
+  | "mergeOperationInto"
+  | "mergeExistingOperation"
+  | "undoMerge"
   | "getNextOperationId"
   | "assignPersonToOperation"
   | "assignRekoPersonToOperation"
@@ -1530,29 +1575,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
     if (isLoaded) {
       try {
-        const incidentData = {
-          event_id: selectedEvent.id,
-          title: operation.location,
-          type: (operation.incidentType || "elementarereignis") as ApiIncidentCreate['type'],
-          priority: operation.priority as "low" | "medium" | "high",
-          location_address: operation.location,
-          ...coordinatesToApiFields(operation.coordinates),
-          status: "incoming" as const,
-          description: operation.notes || null,
-          contact: operation.contact || null,
-          contact_phone: operation.contactPhone || null,
-          internal_notes: operation.internalNotes || null,
-          // Attach to an Auftrag at creation when the caller preset a group
-          // (streamlined "+ Stop" flow) — backend stamps group_position.
-          group_id: operation.groupId ?? null,
-          // "Telefonisch gemeldet" / "Vom Feld gemeldet" on the new-emergency
-          // modal. Anything else the caller might carry (a webhook slug on a
-          // copied operation) is not an editor's to claim, so it collapses to
-          // the operator default.
-          source: (operation.source === 'intake' || operation.source === 'feld'
-            ? operation.source
-            : 'operator') as ApiIncidentCreate['source'],
-        }
+        const incidentData = operationToIncidentCreate(operation, selectedEvent.id)
 
         const apiIncident = await apiClient.createIncident(incidentData)
 
@@ -2133,6 +2156,95 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // --- Duplicate reports (services/duplicates.py) ---
+  //
+  // Every merge is undoable: the report row survives on the server (hidden,
+  // `merged_into_id`), so «Rückgängig» on the toast and «Trennen» in the
+  // target's Verlauf both call the same unmerge.
+
+  const undoMerge = async (mergedIncidentId: string): Promise<boolean> => {
+    try {
+      const result = await apiClient.unmergeIncident(mergedIncidentId)
+      mutationEpochRef.current++
+      await refreshOperations()
+      toast.success(translateOutsideReact('duplicates.unmergedTitle'), {
+        description: result.note_removed ? undefined : translateOutsideReact('duplicates.noteKept'),
+      })
+      return true
+    } catch (err) {
+      // 409: already separated (a second click, or another board was faster) — reconcile quietly.
+      if (ApiError.isConflictError(err)) {
+        await refreshOperations()
+        return true
+      }
+      console.error("Failed to unmerge:", err)
+      toast.error(translateOutsideReact('duplicates.unmergeFailed'))
+      return false
+    }
+  }
+
+  const announceMerge = (targetLabel: string, mergedIncidentId: string) => {
+    toast(translateOutsideReact('duplicates.mergedTitle', { label: targetLabel }), {
+      description: translateOutsideReact('duplicates.mergedDescription'),
+      // a bare toast() bypasses the lifetime wrappers — carry the line itself
+      ...toastLifetime(8000),
+      action: {
+        label: translateOutsideReact('duplicates.undo'),
+        onClick: () => {
+          void undoMerge(mergedIncidentId)
+        },
+      },
+    })
+  }
+
+  const targetLabelFor = (targetId: string, fallback: ApiIncident): string => {
+    const target = operations.find((op) => op.id === targetId)
+    return target
+      ? getIncidentRefLabel(target)
+      : fallback.location_display || fallback.location_address || fallback.title
+  }
+
+  const mergeFailed = (err: unknown) => {
+    console.error("Failed to merge:", err)
+    // A refusal the server put into words (crew already on the card, card no
+    // longer open) is worth more than the generic line.
+    // Any other HTTP failure was already toasted by the transport.
+    if (err instanceof ApiError && !ApiError.isConflictError(err)) return
+    const detail = err instanceof ApiError ? err.message : undefined
+    toast.error(translateOutsideReact('duplicates.mergeFailed'), { description: detail })
+  }
+
+  const mergeOperationInto = async (
+    operation: Omit<Operation, "id" | "dispatchTime">,
+    targetId: string,
+  ): Promise<boolean> => {
+    if (!selectedEvent || !isValidUUID(selectedEvent.id)) return false
+    try {
+      const result = await apiClient.mergeReport(targetId, operationToIncidentCreate(operation, selectedEvent.id))
+      mutationEpochRef.current++
+      await refreshOperations()
+      announceMerge(targetLabelFor(targetId, result.target), result.merged_incident_id)
+      return true
+    } catch (err) {
+      mergeFailed(err)
+      return false
+    }
+  }
+
+  const mergeExistingOperation = async (operationId: string, targetId: string): Promise<boolean> => {
+    try {
+      const result = await apiClient.mergeIncidentInto(operationId, targetId)
+      mutationEpochRef.current++
+      setOperations((ops) => ops.filter((op) => op.id !== operationId))
+      await refreshOperations()
+      announceMerge(targetLabelFor(targetId, result.target), result.merged_incident_id)
+      return true
+    } catch (err) {
+      mergeFailed(err)
+      return false
+    }
+  }
+
   const deleteOperation = async (operationId: string): Promise<void> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) {
@@ -2228,6 +2340,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     reorderColumn,
     changeStatusToTop,
     createOperation,
+    mergeOperationInto,
+    mergeExistingOperation,
+    undoMerge,
     getNextOperationId,
     assignPersonToOperation,
     assignRekoPersonToOperation,
@@ -2249,6 +2364,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       reorderColumn: stable("reorderColumn"),
       changeStatusToTop: stable("changeStatusToTop"),
       createOperation: stable("createOperation"),
+      mergeOperationInto: stable("mergeOperationInto"),
+      mergeExistingOperation: stable("mergeExistingOperation"),
+      undoMerge: stable("undoMerge"),
       getNextOperationId: stable("getNextOperationId"),
       assignPersonToOperation: stable("assignPersonToOperation"),
       assignRekoPersonToOperation: stable("assignRekoPersonToOperation"),
