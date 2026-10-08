@@ -22,6 +22,12 @@ describe('notificationParts', () => {
     expect(parts('field_message', 'Meldung vom Feld (im KP erfasst) – Hauptstrasse 41: Bitte: 2 Pumpen').what).toBe('Bitte: 2 Pumpen')
   })
 
+  it('field_message: a structured request (R13) reads as its one-line label', () => {
+    const p = parts('field_message', 'Meldung vom Feld (Muster Hans) – Hauptstrasse 1: Material: Tauchpumpe Gr. ×2 – in den Keller')
+    expect(p.what).toBe('Material: Tauchpumpe Gr. ×2 – in den Keller')
+    expect(p.where).toBe('Hauptstrasse 1')
+  })
+
   it('field_message without person and place is just the text', () => {
     expect(parts('field_message', 'Meldung vom Feld: Strom ist weg')).toEqual({ what: 'Strom ist weg', source: 'feld' })
   })
