@@ -4,6 +4,7 @@ import json
 import logging
 import math
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 # Helper subquery for assigned material IDs
@@ -933,7 +934,7 @@ async def create_field_notification(
     incident_id: UUID,
     event_id: UUID,
     message: str,
-    params: dict | None = None,
+    params: dict[str, Any] | None = None,
     severity: str = "info",
 ) -> Notification:
     """Bell entry for a `/feld` field report (plan 25).
