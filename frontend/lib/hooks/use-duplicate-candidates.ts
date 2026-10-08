@@ -29,7 +29,9 @@ export function useDuplicateCandidates(
     if (!key || !query) return
     let cancelled = false
     const timer = setTimeout(() => {
-      load(query)
+      // Through a promise, so a loader that throws synchronously is just "no hint" too.
+      Promise.resolve()
+        .then(() => load(query))
         .then((response) => {
           if (!cancelled) setResult({ key, candidates: response?.candidates ?? [] })
         })

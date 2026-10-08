@@ -157,9 +157,7 @@ async def _merge_new(client: AsyncClient, event: Event, target: Incident, **fiel
 
 
 async def _audit(db: AsyncSession, resource_id: UUID, action: str) -> list[AuditLog]:
-    rows = await db.execute(
-        select(AuditLog).where(AuditLog.resource_id == resource_id, AuditLog.action_type == action)
-    )
+    rows = await db.execute(select(AuditLog).where(AuditLog.resource_id == resource_id, AuditLog.action_type == action))
     return list(rows.scalars().all())
 
 

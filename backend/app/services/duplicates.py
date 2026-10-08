@@ -105,9 +105,7 @@ def normalize_address(address: str | None) -> tuple[str, str | None] | None:
         return None
     # «Hauptstrasse 6» names the street before the number; «12 rue de Lausanne»
     # after it. Whatever follows a German street's number is the village.
-    name = re.sub(r"[^a-z]", "", street[: number_match.start()]) or re.sub(
-        r"[^a-z]", "", street[number_match.end() :]
-    )
+    name = re.sub(r"[^a-z]", "", street[: number_match.start()]) or re.sub(r"[^a-z]", "", street[number_match.end() :])
     if not name:
         return None
     name = _STREET_SUFFIX.sub("strasse", name)
