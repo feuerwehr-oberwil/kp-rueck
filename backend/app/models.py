@@ -593,6 +593,10 @@ class Incident(Base):
     # Batched on so a completed incident — whose assignments were released —
     # can still say who to call about it.
     leader_name: str | None
+    # The field's open + «in Arbeit» requests (R13), batched on by the board
+    # query (`crud.feld.open_requests_for_incidents`) so the card can show what
+    # is still owed without a request per card.
+    field_requests: list["FieldRequest"]
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
