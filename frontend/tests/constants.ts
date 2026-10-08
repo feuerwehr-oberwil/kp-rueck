@@ -8,8 +8,8 @@
  * default could never have been the seeded password: without `ADMIN_SEED_PASSWORD` set the
  * seed mints a *random* one and prints it once, every login times out, and after a few
  * attempts the per-username throttle locks the account for 300 seconds. A whole suite run
- * then reports ~200 failures that mean nothing. `docs/plans/15-e2e-in-ci.md` records the same
- * trap being hit once before, in CI.
+ * then reports ~200 failures that mean nothing. The CI E2E jobs hit the same trap once before
+ * (see the seed step's comment in the e2e-smoke job of `.github/workflows/ci.yml`).
  *
  * CI overrides all of these via `TEST_USERNAME` / `TEST_PASSWORD` / `VIEWER_PASSWORD`
  * (see `.github/workflows/ci.yml`), so changing a default here does not touch the gate.
