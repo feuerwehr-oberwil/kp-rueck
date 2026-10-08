@@ -22,6 +22,10 @@ import type { Locator, Page } from '@playwright/test';
  * version of this file asserted Tailwind class names — `font-mono`, `gap-`,
  * `justify-between` — several through `el.className.includes(...)` on an
  * `<svg>`, where `className` is an `SVGAnimatedString` and has no `.includes`.
+ *
+ * @smoke since 2026-10-08: green on every nightly since the 2026-10-05 fix, ~22 s for all
+ * six, and the chip's accessible name changing was one of the 19 stale specs only the
+ * nightly noticed after the October UI review.
  */
 
 /** `HH:MM`, 24-hour — what «Startzeit» renders. */
@@ -58,7 +62,7 @@ async function chooseTimeMode(page: Page, card: Locator, label: string) {
   await page.getByRole('menuitem', { name: new RegExp(`^${label}`) }).click();
 }
 
-test.describe('Time-Based Indicators - Display and Formatting', () => {
+test.describe('Time-Based Indicators - Display and Formatting', { tag: '@smoke' }, () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await setupBoard(authenticatedPage, 'Time Test');
   });
@@ -91,7 +95,7 @@ test.describe('Time-Based Indicators - Display and Formatting', () => {
   });
 });
 
-test.describe('Time-Based Indicators - Layout and Position', () => {
+test.describe('Time-Based Indicators - Layout and Position', { tag: '@smoke' }, () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await setupBoard(authenticatedPage, 'Layout Test');
   });
@@ -110,7 +114,7 @@ test.describe('Time-Based Indicators - Layout and Position', () => {
   });
 });
 
-test.describe('Time-Based Indicators - Multiple Incidents', () => {
+test.describe('Time-Based Indicators - Multiple Incidents', { tag: '@smoke' }, () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await setupBoard(authenticatedPage, 'Multiple Time Test', { count: 3 });
   });
@@ -136,7 +140,7 @@ test.describe('Time-Based Indicators - Multiple Incidents', () => {
   });
 });
 
-test.describe('Time-Based Indicators - Phone layout', () => {
+test.describe('Time-Based Indicators - Phone layout', { tag: '@smoke' }, () => {
   test('the phone list shows the age of each incident', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize(MOBILE_VIEWPORT);
     await setupBoard(authenticatedPage, 'Mobile Time Test', { count: 2, layout: 'mobile' });
