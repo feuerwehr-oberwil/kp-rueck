@@ -28,6 +28,32 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Einsatztagebuch on the board** (`J`, «Tagebuch» in the footer, the command palette, «Mehr»
+  on the phone). One append-only log per Ereignis, like KP Front's Verlauf but simpler – no
+  playback, no voice. The board writes its own rows as things happen (status changes,
+  resources assigned and released, Meldungen from and to the field, Reko reports, Divera
+  alarms, Einsatz created/deleted/restored, and the field notifications that report an event:
+  arrived, done, pickup, vehicle on scene, Rapport filed), in the same transaction, whichever
+  path made the change. A one-line input takes what belongs to no card («Gemeindepräsident
+  informiert»); `#` links it to an Einsatz. Nothing is edited or deleted: a wrong line is
+  corrected by a new one, and the line says «korrigiert hh:mm» with the old wording a click
+  away. Filters Alle / Manuell / Feld / Status / Mittel (one funnel on the phone). Viewers read,
+  editors write.
+- **The PDF's Einsatztagebuch reads the same log** – single source. It now also prints the
+  Meldungen, the field notifications and the manual lines; a corrected line prints its newest
+  wording at its original time with «korrigiert hh:mm; ursprünglich: «…»». Rows of an Einsatz
+  that was deleted stay in the record.
+
+### Upgrade notes
+
+- Migration `d5f1a7c3e9b2` creates `journal_entries` and **backfills** it from what the
+  database already holds, so the PDF of an existing Ereignis keeps every line it printed.
+  Meldungen vom Feld whose audit rows were already swept by `AUDIT_RETENTION_DAYS` cannot be
+  recovered; from now on the log is kept for as long as the Ereignis exists, independent of the
+  audit retention.
+
 ### Changed
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an

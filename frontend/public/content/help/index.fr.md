@@ -13,6 +13,8 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« Rapports » dans la barre du bas.** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
+**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera et arrivées s’y inscrivent d’eux-mêmes. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse lie une intervention. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Moyens. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
+
 ### Vue carte (`G M`)
 Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs colorés indiquent la priorité (vert/jaune/rouge).
 
@@ -535,6 +537,7 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `D` | Ouvrir/fermer Impression et export |
 | `R` / `F5` | Actualiser |
 | `F` | État des véhicules |
+| `J` | Ouvrir/fermer le journal d’intervention |
 
 ### Tableau kanban – intervention (souris sur la carte)
 | Raccourci | Action |

@@ -13,6 +13,8 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«Rapporte» in der Fusszeile.** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
+**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuteilungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme und Ankünfte stehen von selbst darin. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse wird ein Einsatz verknüpft. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Mittel. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
+
 ### Kartenansicht (`G M`)
 Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
 
@@ -532,6 +534,7 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | `D` | Drucken & Export öffnen/schliessen |
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
+| `J` | Einsatztagebuch öffnen/schliessen |
 
 ### Kanban-Board – Einsatz (Maus über der Karte)
 | Shortcut | Aktion |
