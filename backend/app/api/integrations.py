@@ -10,13 +10,15 @@ Built-in fallbacks (manual intake form, generic alarm webhook) are always
 available and deliberately NOT listed as providers.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import CurrentUser
+from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
+from ..database import get_db
 from ..environment import blocked_domains, blocked_reason, deployment_role, deployment_role_label
 from ..services import alerting
 
@@ -102,6 +104,7 @@ def integrations() -> IntegrationsResponse:
     divera = bool(settings.divera_access_key)
     traccar = bool(settings.traccar_url and settings.traccar_email and settings.traccar_password)
     provider = alerting.get_provider()
+    snapshot = bool(settings.roster_snapshot_source.strip())
 
     return IntegrationsResponse(
         alarms=ProviderCapability(
@@ -118,11 +121,13 @@ def integrations() -> IntegrationsResponse:
             blocked=bool(blocked_reason("alerting")),
             blocked_reason=blocked_reason("alerting"),
         ),
+        # Divera keeps the slot when both are set: its roster sync and its identities are what
+        # outbound alerting addresses people by. A station on a snapshot alone shows that.
         personnel=ProviderCapability(
-            provider="divera" if divera else None,
-            display_name="DIVERA 24/7" if divera else None,
-            configured=divera,
-            capabilities=["roster-sync"] if divera else [],
+            provider="divera" if divera else "roster-snapshot" if snapshot else None,
+            display_name="DIVERA 24/7" if divera else "Publizierter Personenstamm" if snapshot else None,
+            configured=divera or snapshot,
+            capabilities=["roster-sync"] if divera else ["pull", "schedule", "outcome"] if snapshot else [],
         ),
         vehicles=ProviderCapability(
             provider="traccar" if traccar else None,
@@ -165,18 +170,17 @@ def integrations() -> IntegrationsResponse:
                 configured=divera,
                 capabilities=["roster-sync"],
             ),
-            # A roster file another system publishes, to a versioned schema any station can
-            # point at any URL. Listed so the personnel domain reads as a choice rather than
-            # one vendor — but `implemented=False`, because the contract is published and the
-            # ingestion is not built. KP Front carries the identical schema files and the same
-            # `roster.source: "snapshot"` selector; neither app reads the other.
+            # A roster file the station publishes (docs/ROSTER-SNAPSHOT.md), read by
+            # services/roster_snapshot_sync.py once ROSTER_SNAPSHOT_SOURCE is set. KP Front reads
+            # the same file with byte-identical rules (app/roster_snapshot_ingest.py); neither
+            # app reads the other.
             KnownProvider(
                 provider="roster-snapshot",
                 display_name="Publizierter Personenstamm",
                 domain="personnel",
-                configured=False,
-                implemented=False,
-                capabilities=["contract"],
+                configured=snapshot,
+                implemented=True,
+                capabilities=["pull", "schedule", "outcome"],
                 contract="docs/roster-snapshot.schema.json",
             ),
             KnownProvider(
@@ -199,3 +203,39 @@ def integrations() -> IntegrationsResponse:
 async def get_integrations(current_user: CurrentUser) -> IntegrationsResponse:
     """Which providers are configured, per domain (viewer-readable)."""
     return integrations()
+
+
+@router.get("/roster-snapshot")
+async def get_roster_snapshot_status(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """The last roster-snapshot run: outcome report, held/stale flags, the last good file.
+
+    ``configured`` is false and ``status`` null on a station that never set a source."""
+    from ..services import roster_snapshot_sync
+
+    return {
+        "configured": roster_snapshot_sync.configured(),
+        "intervalMinutes": settings.roster_snapshot_interval_minutes,
+        "maxDeactivatePct": settings.roster_snapshot_max_deactivate_pct,
+        "status": await roster_snapshot_sync.read_status(db),
+    }
+
+
+class RosterSnapshotSyncBody(BaseModel):
+    """``force`` releases a run the deactivation cap held — never the other refusals."""
+
+    force: bool = False
+
+
+@router.post("/roster-snapshot/sync")
+async def sync_roster_snapshot(
+    current_user: CurrentAdmin,
+    body: RosterSnapshotSyncBody | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Read the roster snapshot now. A refused or held run is a 200 carrying the reason — the
+    report is the answer; only «no source configured» is an error."""
+    from ..services import roster_snapshot_sync
+
+    if not roster_snapshot_sync.configured():
+        raise HTTPException(status_code=503, detail="Keine Personenstamm-Quelle eingerichtet (ROSTER_SNAPSHOT_SOURCE)")
+    return await roster_snapshot_sync.run(db, trigger="manual", force=(body or RosterSnapshotSyncBody()).force)

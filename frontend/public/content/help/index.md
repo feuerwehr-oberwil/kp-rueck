@@ -518,6 +518,32 @@ Drücken Sie `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle sa
 Tastaturkürzel und ist auch über das Benutzermenü ("Befehle & Tastaturkürzel")
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
+### Zuweisen durch Tippen
+Auf dem Board versteht die Befehlspalette auch Einsätze, Personen, Fahrzeuge und Material –
+nur mit Leerzeichen, ohne Sonderzeichen. Vorne steht der Einsatz: seine Nummer (klein vor der
+Adresse auf der Karte) oder seine Adresse (`bachweg 3`, auch nur der Anfang `bachw`) bzw.
+Einsatzart; danach folgt alles in beliebiger Reihenfolge:
+
+| Eingabe | Was ↵ macht |
+|---------|-------------|
+| `14 tlf meier` | TLF und Meier dem Einsatz 14 zuweisen |
+| `bachweg 3 tlf meier` | dasselbe, den Einsatz über seine Adresse genannt |
+| `14 einsatz`, `14 dispo` | Einsatz 14 nach «Im Einsatz» bzw. «Disponiert / Anfahrt» schieben |
+| `14 hoch` | Priorität Hoch |
+| `14` | Einsatz 14 öffnen |
+| `meier`, `tlf` | zeigen, wo Meier bzw. das TLF gerade ist |
+
+Namen gehen mit Vor- oder Nachname oder beidem, Anfänge reichen (`must` für Muster), Umlaute
+sind egal (`muller`, `mueller`), ein Tippfehler wird erkannt – zugewiesen wird ein so gefundener
+Name aber erst nach einem Klick auf «meintest du?». Statuswörter verstehen Deutsch und
+Französisch. Die Zeile unter der Eingabe zeigt genau, was ↵ tun wird; unbekannte Wörter sind
+grau und werden ignoriert. Passt ein Wort auf mehrere (zwei Meier, oder «Hoch» als Name und als
+Priorität, zwei Einsätze am Bachweg), stehen sie darunter zur Auswahl – geraten wird nie. Die
+Adresse endet dort, wo ein Fahrzeug, eine Person oder ein Statuswort beginnt; eine Hausnummer
+allein ist nie eine Adresse (`14` bleibt Einsatz 14). Ohne Nummer vorne bleibt ↵ bei
+den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dieselben Rückfragen wie beim Ziehen
+(Doppelbelegung, Fahrer), und die Meldung danach hat **Rückgängig**.
+
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
 Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
@@ -20,6 +20,16 @@ import {
   CommandRankGroups,
   CommandSeparator,
 } from "@/components/ui/command"
+import { defaultFilter } from "cmdk"
+import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
+import {
+  parseDispatch,
+  targetKey,
+  type DispatchPicks,
+  type DispatchTarget,
+  type DispatchToken,
+  type ParsedDispatch,
+} from "@/lib/command-dispatch"
 import {
   Home,
   Map,
@@ -66,6 +76,53 @@ export function openCommandPalette() {
   window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE_EVENT))
 }
 
+/**
+ * Rows of the type-to-dispatch block carry their rank in their value
+ * (`kp-dispatch:<score>:…`) instead of being scored by cmdk: the typed text is
+ * «14 tlf meier», which matches none of their labels, and the preview must
+ * still stand first so ↵ does what it shows. Everything else is scored by
+ * cmdk's own filter, unchanged.
+ */
+const DISPATCH_VALUE = "kp-dispatch:"
+const PREVIEW_VALUE = `${DISPATCH_VALUE}2:preview`
+
+function paletteFilter(value: string, search: string, keywords?: string[]): number {
+  if (value.startsWith(DISPATCH_VALUE)) return Number(value.slice(DISPATCH_VALUE.length).split(":")[0]) || 0
+  return defaultFilter(value, search, keywords)
+}
+
+/**
+ * How the preview ranks against the ordinary commands. A line that starts with
+ * an Einsatz number is a dispatch and stands first. Without a number the text
+ * may just as well be a command typed by name – «neu», «hoch», «einsätze», «hi»
+ * – so a preview that could not run anyway (blocked) or only guesses at a name
+ * (prefix/typo jump) goes to the bottom, and ↵ falls through to the command.
+ * Only a full-name jump («schneider») outranks the list.
+ *
+ * «Bottom» is a score, not a DOM position: `CommandRankGroups` orders rows and
+ * groups by score, so the low previews sit below any real match cmdk's
+ * filter can produce (its scores do not get near `LAST`).
+ */
+const LAST = 0.0001
+function previewScore(parsed: ParsedDispatch): number {
+  const { plan } = parsed
+  if (plan.kind === "dispatch") return 2
+  // An Einsatz opened by a mere beginning of its address («hilf» → «Hilfikerstrasse»)
+  // may as well be a command typed by name.
+  if (plan.kind === "open") return plan.loose ? LAST : 2
+  if (plan.kind === "blocked") {
+    const numbered = plan.reason === "unknown-incident" || (plan.reason === "ambiguous" && plan.incident !== null)
+    return numbered ? 2 : LAST
+  }
+  if (plan.kind === "jump") return plan.exact ? 2 : LAST
+  return 0
+}
+
+function previewValue(parsed: ParsedDispatch): string {
+  const score = previewScore(parsed)
+  return score === 2 ? PREVIEW_VALUE : `${DISPATCH_VALUE}${score}:preview`
+}
+
 export function CommandPalette() {
   const t = useTranslations('common.commandPalette')
   // The «Färben nach» mode names — reused from the map's own Ansicht menu so
@@ -110,7 +167,34 @@ export function CommandPalette() {
     mapVehicleNames = [],
     onFocusIncidentSearch,
     hasSelectedIncident = false,
+    getDispatchVocabulary,
+    onDispatch,
+    onDispatchJump,
+    onOpenIncident,
   } = useCommandPaletteHandlers()
+
+  // Type-to-dispatch. The text is controlled so the parser sees it; picks answer
+  // «which Meier?» per typed word and live only as long as the palette is open.
+  const [search, setSearch] = useState("")
+  const [picks, setPicks] = useState<DispatchPicks>({})
+  const [selectedValue, setSelectedValue] = useState("")
+  useEffect(() => {
+    if (open) return
+    setSearch("")
+    setPicks({})
+  }, [open])
+  const vocabulary = useMemo(
+    () => (open && getDispatchVocabulary ? getDispatchVocabulary() : null),
+    [open, getDispatchVocabulary],
+  )
+  const parsed = useMemo(
+    () => (vocabulary ? parseDispatch(search, vocabulary, picks) : null),
+    [vocabulary, search, picks],
+  )
+  const dispatchPlan = parsed?.plan.kind === "none" ? null : parsed?.plan ?? null
+  const ambiguousTokens = (parsed?.tokens ?? []).filter(
+    (token): token is DispatchToken & { choices: DispatchTarget[] } => token.state === "ambiguous" && !!token.choices,
+  )
 
   // Aufträge (routes) are searchable by name; selecting one opens the Aufträge
   // sheet focused on that route. Only surfaced where the host page registered the
@@ -145,6 +229,36 @@ export function CommandPalette() {
     command()
   }, [])
 
+  // ↵ on the preview. Nothing happens before it — and nothing on a plan that is
+  // still asking (a «which one?», an unknown number), which keeps the palette open.
+  const runPreview = () => {
+    if (!dispatchPlan) return
+    if (dispatchPlan.kind === "dispatch") {
+      if (!onDispatch || dispatchPlan.noop) return
+      runCommand(() => onDispatch(dispatchPlan))
+    } else if (dispatchPlan.kind === "open") {
+      const incidentId = dispatchPlan.incident.id
+      if (onOpenIncident) runCommand(() => onOpenIncident(incidentId))
+    } else if (dispatchPlan.kind === "jump") {
+      const target = dispatchPlan.target
+      if (onDispatchJump) runCommand(() => onDispatchJump(target))
+    }
+  }
+
+  const pickChoice = (token: DispatchToken, choice: DispatchTarget) => {
+    setPicks((current) => ({ ...current, [token.pickKey]: targetKey(choice) }))
+  }
+  // After a pick, back to the preview, which now says what ↵ does with it.
+  const pickCount = Object.keys(picks).length
+  const previewAfterPick = parsed && pickCount > 0 ? previewValue(parsed) : null
+  // Only when a pick was made — not on every keystroke.
+  const seenPickCount = useRef(0)
+  useEffect(() => {
+    if (pickCount === seenPickCount.current) return
+    seenPickCount.current = pickCount
+    if (previewAfterPick) setSelectedValue(previewAfterPick)
+  }, [pickCount, previewAfterPick])
+
   // Scroll affordance: when the command list overflows (and isn't scrolled to
   // the bottom) show a bottom fade + chevron, so it's obvious more items exist
   // even when the list wraps exactly after an item.
@@ -168,6 +282,32 @@ export function CommandPalette() {
     }
   }, [open])
 
+  // Placed in the DOM by its rank rather than left to cmdk's sort: on top when
+  // it is the thing typed, under every matching command when it only might be
+  // (see `previewScore`) — so the first row, the one ↵ runs, is always right.
+  const dispatchOnTop = !!parsed && previewScore(parsed) === 2
+  const dispatchGroup = parsed && dispatchPlan ? (
+    <CommandGroup heading={t('dispatch.group')}>
+      <CommandItem value={previewValue(parsed)} onSelect={runPreview}>
+        <DispatchPreview parsed={parsed} canDispatch={!!onDispatch} />
+      </CommandItem>
+      {ambiguousTokens.flatMap((token) =>
+        token.choices.map((choice, index) => (
+          <CommandItem
+            key={`${token.pickKey}-${targetKey(choice)}`}
+            // Right under the preview, wherever it ranks, best first.
+            // Just under the preview, best first – a fraction of its score, so a
+            // bottom-ranked preview keeps its choices at the bottom too.
+            value={`${DISPATCH_VALUE}${previewScore(parsed) * (1 - (index + 1) / 100)}:${token.pickKey}:${targetKey(choice)}`}
+            onSelect={() => pickChoice(token, choice)}
+          >
+            <DispatchChoice token={token} choice={choice} />
+          </CommandItem>
+        )),
+      )}
+    </CommandGroup>
+  ) : null
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="overflow-hidden p-0 shadow-lg" showCloseButton={false}>
@@ -175,11 +315,22 @@ export function CommandPalette() {
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
-        <Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
-          <CommandInput placeholder={t('searchPlaceholder')} showClose />
+        <Command
+          filter={paletteFilter}
+          value={selectedValue}
+          onValueChange={setSelectedValue}
+          className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+          <CommandInput
+            placeholder={getDispatchVocabulary ? t('dispatch.placeholder') : t('searchPlaceholder')}
+            value={search}
+            onValueChange={setSearch}
+            showClose
+          />
           <div ref={listWrapperRef} className="relative">
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>
+
+            {dispatchOnTop && dispatchGroup}
 
             <CommandGroup heading={t('groupNavigation')}>
               <CommandItem
@@ -541,6 +692,8 @@ export function CommandPalette() {
                 <span className="ml-auto text-xs text-muted-foreground">Del</span>
               </CommandItem>
             </CommandGroup>
+
+            {!dispatchOnTop && dispatchGroup}
           </CommandList>
           {canScrollDown && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-9 items-end justify-center bg-gradient-to-t from-popover via-popover/80 to-transparent">

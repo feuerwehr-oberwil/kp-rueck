@@ -27,6 +27,16 @@ const PrintableMapInner = dynamic(() => import("./printable-map"), {
   loading: () => <div className="h-[300px] bg-gray-100 flex items-center justify-center text-gray-500">{translateOutsideReact("print.view.mapLoading")}</div>,
 })
 
+
+/** Einsatz numbers when every printed incident has one; print order otherwise
+ *  (mixing the two could print two different incidents under one number). */
+export function printNumbering(printed: readonly { id: string; number?: number | null }[]): Map<string, number> {
+  const numbering = new Map<string, number>()
+  const allNumbered = printed.every((op) => typeof op.number === "number")
+  printed.forEach((op, index) => numbering.set(op.id, allNumbered ? (op.number as number) : index + 1))
+  return numbering
+}
+
 export interface PrintOptions {
   includeIncidents: boolean
   includeCompleted: boolean
@@ -202,13 +212,12 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
       (a, b) => statusRank(a) - statusRank(b)
     )
 
-    // One continuous number per incident, in the order they are printed — that
-    // number is also the marker on the map, so a pin can be looked up in the
-    // list without counting columns.
-    const numbering = new Map<string, number>()
-    for (const status of sortedStatuses) {
-      for (const op of operationsByStatus[status]) numbering.set(op.id, numbering.size + 1)
-    }
+    // The number each incident is printed under — also its marker on the map,
+    // so a pin can be looked up in the list. It is the Einsatz number (the one
+    // on the card, in ⌘K, on the radio); only a board from a backend without
+    // numbers falls back to counting in print order.
+    const printed = sortedStatuses.flatMap((status) => operationsByStatus[status])
+    const numbering = printNumbering(printed)
 
     // The printed roster. The roll-call is authoritative when we have it: it is
     // the only list that knows the difference between "never came" (not printed)

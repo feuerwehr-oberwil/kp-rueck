@@ -194,6 +194,13 @@ async def test_create_incident_success(editor_client: AsyncClient, test_event: E
     assert data["status"] == "incoming"  # Default status
     assert data["event_id"] == str(test_event.id)
     assert "id" in data
+    # The Ereignis' first incident is number 1 – the database assigns it.
+    assert data["number"] == 1
+
+    second = await editor_client.post("/api/incidents/", json=incident_data)
+    assert second.json()["number"] == 2
+    listed = (await editor_client.get(f"/api/incidents/?event_id={test_event.id}")).json()
+    assert sorted(incident["number"] for incident in listed) == [1, 2]
 
 
 @pytest.mark.asyncio

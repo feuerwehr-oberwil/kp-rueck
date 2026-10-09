@@ -315,6 +315,8 @@ function visits(links) {
     { id: 'setup-checklist', path: '/', checklist: true, desktopOnly: true },
     { id: 'new-incident', path: '/', act: async (p, w) => (phone(w) ? click(p, /Neuer Einsatz/) : (await p.keyboard.press('n'), p.waitForTimeout(1200))) },
     { id: 'cmdk', path: '/', act: async (p) => { await p.keyboard.press('Control+k'); await p.waitForTimeout(900) } },
+    // Type-to-dispatch: the preview row of chips under the input («1 tlf» – the seed's Einsatz 1).
+    { id: 'cmdk-dispatch', path: '/', act: async (p) => { await p.keyboard.press('Control+k'); await p.waitForTimeout(600); await p.keyboard.type('1 tlf hoch'); await p.waitForTimeout(900) } },
     { id: 'shortcuts', path: '/', act: async (p) => { await p.keyboard.press('Shift+?'); await p.waitForTimeout(900) } },
     { id: 'mehr', path: '/', phoneOnly: true, act: openMehr },
     { id: 'links-qr', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/) } },

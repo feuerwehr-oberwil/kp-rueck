@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import type { DispatchPlan, DispatchResource, DispatchVocabulary } from '@/lib/command-dispatch'
 
 export interface CommandPaletteHandlers {
   // Actions
@@ -56,6 +57,16 @@ export interface CommandPaletteHandlers {
   mapVehicleNames?: string[]
   // Incident search focus (page-specific input; falls back to #search-input)
   onFocusIncidentSearch?: () => void
+  // Type-to-dispatch («14 tlf meier», `lib/command-dispatch.ts`) — only where the
+  // board registered them; elsewhere the palette is the plain command list.
+  /** The board's Einsätze, roster, fleet and Geräte as the parser needs them. */
+  getDispatchVocabulary?: () => DispatchVocabulary
+  /** Run a planned dispatch on ↵. Editors only — absent for a viewer. */
+  onDispatch?: (plan: Extract<DispatchPlan, { kind: 'dispatch' }>) => void
+  /** «meier» / «tlf» alone: show where that person, vehicle or Gerät is. */
+  onDispatchJump?: (target: DispatchResource) => void
+  /** «14» alone: open that Einsatz. */
+  onOpenIncident?: (incidentId: string) => void
 }
 
 interface CommandPaletteContextValue {

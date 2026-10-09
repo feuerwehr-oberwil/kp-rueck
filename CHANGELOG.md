@@ -59,6 +59,56 @@ will keep holding.
   Meldungen vom Feld whose audit rows were already swept by `AUDIT_RETENTION_DAYS` cannot be
   recovered; from now on the log is kept for as long as the Ereignis exists, independent of the
   audit retention.
+- **Roster snapshot: read the personnel list from a file the station publishes.** Set
+  `ROSTER_SNAPSHOT_SOURCE` to an `https://` address (optional `ROSTER_SNAPSHOT_TOKEN`) or a path,
+  and the backend polls that `roster-snapshot/1` file hourly. People are matched by the
+  snapshot's key, then by any identity it lists (an existing Divera link is reused, never
+  rewritten), then by a unique name; a failed fetch or an invalid file changes nothing; a run
+  that would deactivate more than 20 % of the available people is held until an admin releases
+  it (`… roster_snapshot_sync run --force`); nobody is deleted, and «deactivated» is
+  unavailable plus a mark, so an operator's own «unavailable» is never undone. The last run
+  shows under Einstellungen › Integrationen. Any tool can write the file –
+  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one and drops every column that
+  is not part of the contract. The reading rules are byte-identical with KP Front's
+  (docs/ROSTER-SNAPSHOT.md). *No action needed – without a source nothing is fetched and the
+  Divera sync is unchanged.*
+- **«Anrückend»: who answered the Divera alarm, in the Appell and the Personen-Leiste.** The
+  Divera poll already fetched every alarm's Rückmeldungen and threw them away. They are now kept
+  as a plain yes/no and shown above the roll-call and at the top of the personnel sidebar: one
+  line of counts («4 kommen · 2 kommen nicht»), then the names of everybody coming who has not
+  checked in yet, with their Grad and one click to check them in. «Kommt nicht» is its own muted
+  group marked with ✕ and the words – not red, and check-in is still offered in case somebody
+  misclicked. A Divera answer never checks anybody in by itself. Answers from Divera members
+  nobody on the roster is linked to are only counted; answers that are neither yes nor no
+  («Rückruf erbeten») are ignored. Without Divera, or on an Ereignis with no recent Divera alarm,
+  nothing changes on screen. Which of the Einheit's own statuses mean «kommt» / «kommt nicht» is
+  read from their names; a station whose names are unusual sets `divera.response_classification`
+  (see `docs/ALARM-INTEGRATIONS.md`). Only alarms of the last 6 hours count, the newer alarm
+  wins per person, and anybody who already checked in on the Ereignis – or checked in and went
+  home – stays out of the list. Editors and admins see it; the viewer role does not. Stored is
+  only who said yes or no (no times, notes or Divera ids), deleted 48 hours after the alarm and when the Ereignis is archived (`PRIVACY.md`). No new
+  Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`, at most
+  once every 6 h or when an answer uses a status not seen before. Migration: two nullable columns
+  on `divera_emergencies`.
+- **Assign by typing: «14 tlf meier» in ⌘K.** Every Einsatz now has a small number, counted per
+  Ereignis and shown before the address – on the board and wall cards, in the detail header, on
+  the Lagekarte labels, in the Doppelbelegung prompt and wherever an Einsatz is named, and on the
+  A4 status print (whose map pins now carry the same number). On the board the command palette reads
+  what follows it – spaces only, no special characters, in any order (the Einsatz can also be
+  named by its address or Einsatzart: `bachweg 3 tlf meier`, `bachw tlf`; two Einsätze on one
+  street ask which, a house number alone stays an Einsatz number): `14 tlf meier` puts the TLF
+  and Meier on Einsatz 14, `14 einsatz` / `14 dispo` move it, `14 hoch` sets the priority, `14`
+  opens it, and `meier` or `tlf` alone shows where they are. Names match first name, last name or
+  both, by their beginning, without caring about umlauts (`muller`, `mueller`); a name found only
+  through a typo, or a first name and a surname of two different people, asks before anybody is
+  assigned. Status words are German or French. A line under the input shows exactly what ↵ will
+  do; words it does not know are greyed, and a word that fits two things (two Meier, «Hoch» the
+  person and the priority) lists both instead of guessing. Without a leading number ↵ stays with
+  the ordinary commands («neu» is still «Neuer Einsatz»). ↵ goes through the same path as
+  dragging – Doppelbelegung and driver questions, one at a time – and the receipt has
+  «Rückgängig», which also puts back what a «Hierher verschieben» took off another Einsatz. The numbers are assigned by the database (migration
+  `d9a4c2e7b1f3`, existing Einsätze numbered in creation order), so every way an Einsatz is
+  created gets one, and a number is never reused within an Ereignis.
 - **A second report about the same Schadenplatz is no longer a second card.** «Neuer Einsatz», the
   Alarmeingang's «Anhängen» and `/feld`'s «Neue Meldung» now ask, before a card is made, whether an
   open Einsatz of the same Ereignis stands within 50 m or at the same street and house number

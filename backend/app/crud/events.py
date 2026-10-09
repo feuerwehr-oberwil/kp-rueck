@@ -144,6 +144,10 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     await db.execute(
         update(Event).where(Event.id == event_id, Event.archived_at.is_(None)).values(archived_at=now, updated_at=now)
     )
+    # The Ereignis is closed: its Divera Rückmeldungen (personal data) go with the same commit.
+    from ..services.divera_responses import purge_event
+
+    await purge_event(db, event_id)
     await db.commit()
     await db.refresh(event)
     return event

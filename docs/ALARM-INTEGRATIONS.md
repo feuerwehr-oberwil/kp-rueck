@@ -248,6 +248,74 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
   falls Tercero sie nachliefert). Personal-/Rückmeldedaten sind bei FireHub vorhanden, werden
   aber (noch) nicht per Webhook mitgeschickt.
 
+## DIVERA-Rückmeldungen («Anrückend»)
+
+Wer auf einen DIVERA-Alarm «Komme» oder «Komme nicht» (bzw. einen gleichbedeutenden Status)
+gedrückt hat, steht im Appell und oben in der Personen-Leiste unter **Anrückend** – nur ja/nein:
+die Zahlen («4 kommen · 2 kommen nicht») und die Namen, gruppiert nach «kommt» und «kommt
+nicht», mit Grad und einem Klick zum Anmelden. Keine Antwortzeit, keine geschätzte Ankunft,
+keine Status-Namen, keine Notizen. Wer an diesem Ereignis schon angemeldet war – auch wer wieder
+gegangen ist –, fällt heraus. Es zählen nur Alarme der letzten 6 Stunden (nach DIVERA-Alarmzeit);
+bei mehreren Alarmen gilt pro Person der neuere Alarm. «Kommt nicht» ist eine eigene, gedämpfte
+Gruppe mit ✕ und dem Wort (Anmelden bleibt angeboten – es kann ein Fehlklick sein). **Eine
+DIVERA-Antwort meldet nie jemanden an**; anwesend ist man erst durch den Klick an der Tafel oder
+den Check-in-Link.
+
+- **Quelle:** dieselbe `GET /alarms`-Antwort, die der Fallback-Poll ohnehin holt (nur solange
+  jemand verbunden ist, Intervall `DIVERA_POLL_INTERVAL_SECONDS`). Pro Alarm `ucr_answered`
+  (`{status: {ucr: {ts, note}}}`; leer kommt `[]`). Kein zusätzlicher DIVERA-Endpunkt, nur lesend.
+- **Beim Poll eingeordnet und reduziert:** pro Person zählt innerhalb eines Alarms die letzte
+  Antwort (`ts`); dann wird sie als «kommt» / «kommt nicht» eingeordnet (siehe unten) und alles
+  andere verworfen – Zeit, Notiz, Status-Id und alles, was weder ja noch nein ist.
+- **Status-Namen:** `GET /pull/all` → `cluster.status`. Übernommen aus dem Mannschafts-Abgleich,
+  wenn der lief; sonst höchstens alle 6 h und nur, wenn ein Alarm Antworten trägt – oder eine
+  Antwort unter einer unbekannten Status-Id liegt. Nie öfter als alle 15 min, mit eigenem
+  5-s-Timeout. Nur zum Einordnen, nicht gespeichert.
+- **Person:** die DIVERA-UCR-Id ist die `divera`-Identität in `personnel_external_identities`
+  (die der Mannschafts-Abgleich setzt). Antworten ohne verknüpfte Person werden nur gezählt.
+- **Gespeichert** wird pro Pool-Alarm (`divera_emergencies.responses_json`) nur:
+  `{"v": 3, "alarm_ts": …, "people": {"<Personen-Id>": "coming" | "not_coming"},
+  "unmapped": {"coming": n, "not_coming": m}}`. Ändert er sich oder wird ein Alarm einem
+  Ereignis angehängt, geht `divera_responses_update` per WebSocket an die Tafeln. **Gelöscht**
+  wird er 48 h nach dem Eingang des Alarms und sobald das Ereignis archiviert ist (stündlich,
+  bei jedem Poll und beim Archivieren) – und danach nie wieder gespeichert. Details in
+  `PRIVACY.md`.
+- **Endpunkte** (nur Bearbeiter und Administratoren – wie in KP Front; die Rolle «Betrachter»
+  bekommt 403, und die Oberfläche fragt für sie gar nicht erst):
+  `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt)
+  und `GET /api/divera/incidents/{id}/responses`: `counts` (`coming`, `not_coming`, Unverknüpfte
+  eingerechnet), `people` (`personnel_id`, `name`, `role`, `tags`, `kind`, `attended`) und
+  `unmapped`. Ist DIVERA nicht eingerichtet, kam nichts davon aus DIVERA oder trägt kein Alarm
+  der letzten 6 h gespeicherte Antworten (auch: der Einheits-Schlüssel liefert kein
+  `ucr_answered`), antworten sie `available: false` mit `reason` `not_configured` /
+  `not_linked` / `no_data`, und die Oberfläche zeigt nichts. Der Zugangsschlüssel steht nie in
+  der Antwort.
+
+**Einordnung kommt / kommt nicht / anderes** – jede Einheit benennt ihre Status selbst. Reihenfolge:
+
+1. Stations-Einstellung `divera.response_classification` (Einstellungs-Tabelle, per
+   `PATCH /api/settings/divera.response_classification`), ein JSON-Objekt, Schlüssel = Status-Id
+   oder Status-Name (Gross/Klein und Akzente egal), Wert `"coming"`, `"not_coming"` oder
+   `"other"`. Die Id schlägt den Namen:
+
+   ```json
+   {"13": "not_coming", "Rückruf erbeten": "other", "Komme später": "coming"}
+   ```
+
+2. Sonst der Name: zuerst «kommt nicht» (`nicht`, `nein`, `kein…`, `abwesend`, `verhindert`,
+   `Ferien`, `krank`, `pas`, `indisponible`, …), dann «kommt» (`komm…`, `unterwegs`,
+   `einsatzbereit`, `verfügbar`, `ja`, `viens`, `j'arrive`, `disponible`, `N min`, …).
+3. Sonst «kommt», wenn der Status eine Zeit hat (`time > 0`), sonst «anderes» – und «anderes»
+   wird weder gespeichert noch gezählt.
+
+Leer (Standard) reicht für die üblichen Namen «Komme», «Komme in 10 min», «Komme nicht». Weil
+beim Poll eingeordnet wird, gilt eine geänderte Einstellung für Antworten ab dem nächsten Poll.
+Dieselben Regeln setzt KP Front um.
+
+**Nicht verifiziert:** ob `GET /alarms` mit dem Einheits-Schlüssel `ucr_answered` für alle
+Mitglieder füllt oder nur für das, was dieser Schlüssel «sieht». Geprüft wurde mit Fixtures,
+nicht gegen DIVERA – das gehört auf eine DIVERA-Test-Einheit, nie auf den Produktivschlüssel.
+
 ## Capability-Registry
 
 `GET /api/integrations` (angemeldet) zeigt pro Bereich, welcher Anbieter
@@ -287,14 +355,18 @@ URL zeigen; im Schema steht kein Herstellername.
   Tauglichkeit, keine Impfung, und auch keine freie `metadata`-Map, in der so
   etwas unbenannt ankäme. Ein Test hält das, kein Satz in einem Dokument.
 
-⚠️ **Stand: nur Vertrag.** Die beiden Schema-Dateien sind byte-identische
-Kopien der KP-Front-Dateien und per Prüfsumme gepinnt
-(`backend/tests/test_roster_snapshot_contract.py`); geändert wird der Vertrag
-in beiden Repositories in einer Änderung. **Diese Anwendung liest heute keinen
-Snapshot** – der Registry-Eintrag steht auf `implemented: false`. Die beiden
-Produkte teilen dabei weiterhin keine Bibliothek und rufen einander nicht auf
-(siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt wird eine Datei, nicht
-Laufzeit.
+**Stand: gebaut.** Mit `ROSTER_SNAPSHOT_SOURCE` (https-Adresse oder absoluter
+Pfad) liest diese Anwendung die Datei stündlich ein – Zuordnung, Deaktivierungs-
+Grenze, Bericht und alle Sicherungen in [ROSTER-SNAPSHOT.md](ROSTER-SNAPSHOT.md);
+der Registry-Eintrag steht auf `implemented: true`. Die Schema-Dateien **und der
+Code, der sie liest** (`backend/app/roster_snapshot.py`,
+`backend/app/roster_snapshot_ingest.py`) sind byte-identische Kopien der
+KP-Front-Dateien, per Prüfsumme gepinnt
+(`backend/tests/test_roster_snapshot_contract.py`) und vom CI-Job
+`roster-schema-drift` verglichen; geändert wird das in beiden Repositories in
+einer Änderung. Die beiden Produkte teilen dabei weiterhin keine Bibliothek und
+rufen einander nicht auf (siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt
+wird eine Datei, nicht Laufzeit.
 
 Die Ausalarmierung läuft intern über ein Provider-Protokoll
 (`backend/app/services/alerting/`): ein neuer Anbieter (z. B. Alamos) ist ein

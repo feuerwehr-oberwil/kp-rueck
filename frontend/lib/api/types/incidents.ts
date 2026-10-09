@@ -41,6 +41,9 @@ export type IncidentStatus =
 export interface ApiIncident {
   id: string // UUID
   event_id: string // UUID - reference to parent event
+  /** The incident's number within its Ereignis («14»), assigned by the database.
+   *  Null only from a backend that predates it. */
+  number?: number | null
   title: string
   type: IncidentType
   priority: IncidentPriority

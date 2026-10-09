@@ -266,3 +266,54 @@ class DiveraMessageResponse(BaseModel):
     # Same meaning as on the alarm response: the training flow ran, nothing left
     # the building.
     simulated: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Rückmeldungen (services/divera_responses.py)
+# ---------------------------------------------------------------------------
+
+DiveraResponseKind = Literal["coming", "not_coming"]
+
+
+class DiveraResponseKindCounts(BaseModel):
+    """Answers per kind, unmapped members included. One person counts once (newest alarm)."""
+
+    coming: int = 0
+    not_coming: int = 0
+
+
+class DiveraResponsePerson(BaseModel):
+    """A roster person's yes/no. Never a check-in: presence stays an explicit tap.
+
+    Deliberately nothing else (owner decision): no answer time, no estimate, no status name,
+    no note, no Divera id.
+    """
+
+    personnel_id: UUID
+    name: str
+    role: str | None = None
+    tags: list[str] = []
+    kind: DiveraResponseKind
+    # Has ANY attendance record on this Ereignis (checked in, or in and out again): never
+    # «anrückend» any more, whatever Divera says.
+    attended: bool = False
+
+
+class DiveraResponsesSummary(BaseModel):
+    """Who answered «kommt» / «kommt nicht» on the Divera alarm(s) of one incident or Ereignis.
+
+    `available: false` with a `reason` means the block is simply absent: Divera is not
+    configured here (`not_configured`), nothing on this incident/Ereignis came from Divera
+    (`not_linked`), or no alarm of the last 6 h carries stored answers (`no_data` – also what
+    a unit key whose `/alarms` has no answer field gives). The access key is never part of
+    this answer, nor is any Divera id.
+    """
+
+    available: bool
+    reason: Literal["not_configured", "not_linked", "no_data"] | None = None
+    alarm_count: int = 0
+    counts: DiveraResponseKindCounts = DiveraResponseKindCounts()
+    people: list[DiveraResponsePerson] = []
+    # Answers from Divera members no roster person is linked to (count only, in `counts` too).
+    unmapped: int = 0
+    updated_at: datetime | None = None

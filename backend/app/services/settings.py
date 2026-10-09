@@ -197,6 +197,13 @@ DEFAULT_SETTINGS = {
     #     «Meldung» heading above that field, so the label reads twice on the card. A line
     #     left with nothing behind its label is dropped: a label alone is not content.
     "alarm.description_label_prefixes": "",
+    # Divera Rückmeldungen («Anrückend» in the Appell and the Personen-Leiste): which of the
+    # Einheit's own response statuses mean «kommt» / «kommt nicht». A JSON object keyed by
+    # Divera status id ("13") or status name ("Komme nicht", case/diacritic-insensitive),
+    # value "coming" | "not_coming" | "other"; an id beats a name. EMPTY = the built-in name
+    # heuristic, which already reads «Komme», «Komme in 10 min», «Komme nicht» right. See
+    # services/divera_responses.py and docs/ALARM-INTEGRATIONS.md.
+    "divera.response_classification": "",
 }
 
 FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
@@ -360,6 +367,13 @@ SECRET_PLACEHOLDER = "***"  # noqa: S105 – the mask itself, not a credential
 # own endpoint serves the bytes with an image content type instead.
 BLOB_SETTING_KEYS = frozenset({"branding.report_logo"})
 
+# Rows a background job writes ABOUT itself, not configuration anyone sets: today the last
+# roster-snapshot run (services/roster_snapshot_sync.py). Left out of `GET /api/settings/` so the
+# settings page does not render a JSON report as an editable value; it has its own read at
+# `GET /api/integrations/roster-snapshot`, and the generic PATCH refuses it because it is not in
+# DEFAULT_SETTINGS.
+STATE_SETTING_KEYS = frozenset({"roster_snapshot.status"})
+
 # Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
 # owns them and does something the generic one cannot (validate the DSN, redact it on the
 # way back out, restart the sync scheduler; decode, bound and re-encode an image).
@@ -395,7 +409,7 @@ async def get_all_settings(db: AsyncSession, *, include_secrets: bool = False) -
     they are files, not configuration, and have their own endpoint.
     """
     result = await db.execute(select(Setting))
-    settings = [s for s in result.scalars().all() if s.key not in BLOB_SETTING_KEYS]
+    settings = [s for s in result.scalars().all() if s.key not in BLOB_SETTING_KEYS | STATE_SETTING_KEYS]
     if include_secrets:
         return {s.key: s.value for s in settings}
     return {s.key: (SECRET_PLACEHOLDER if s.key in SECRET_SETTING_KEYS and s.value else s.value) for s in settings}
