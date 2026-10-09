@@ -102,7 +102,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'getIncidents', 'getIncidentsWithTotal', 'getIntakeContext', 'getIntegrations', 'getKpFieldMessages',
     'getMaterialById', 'getMaterialGroups', 'getPendingPrintJobs', 'getPersonnelById',
     'getPersonnelSpecialFunctions', 'getPrintJob', 'getPrinterStatus', 'getRapportMaterialReturn',
-    'getRekoForm', 'getReportLogoUrl', 'getResourceHistory', 'getSetting', 'getSetupStatus', 'getSyncConfig',
+    'getRekoForm', 'getReportLogoUrl', 'getResourceHistory', 'getRosterSnapshot', 'getSetting', 'getSetupStatus', 'getSyncConfig',
     'getSyncHistory', 'getSyncStatus', 'getSyncVersion', 'getTraccarStatus', 'getTrainingLocations',
     'getUser', 'getUsers', 'getVehicleById', 'getVehiclePositions', 'getVehicleStatus', 'getVehicleTrails',
     'getVehicles', 'getViewerData', 'getWeather', 'logoutFeld', 'manualDispatch', 'markRekoArrived',

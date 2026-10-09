@@ -109,6 +109,7 @@ import {
   type ApiDiveraMessageResult,
   type ApiDiveraPollingStatus,
   type ApiIntegrations,
+  type ApiRosterSnapshot,
   type ApiDeployment,
   type SendDiveraAlarmOptions,
   type SendDiveraMessageOptions,
@@ -2034,6 +2035,10 @@ class ApiClient {
   /** Provider capability registry – which integrations are configured, per domain. */
   async getIntegrations(): Promise<ApiIntegrations> {
     return this.request<ApiIntegrations>('/api/integrations')
+  }
+
+  async getRosterSnapshot(): Promise<ApiRosterSnapshot> {
+    return this.request<ApiRosterSnapshot>('/api/integrations/roster-snapshot')
   }
 
   // Sync endpoints

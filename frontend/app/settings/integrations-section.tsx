@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table'
 import { apiClient } from '@/lib/api-client'
 import type { ApiIntegrations, ApiProviderCapability } from '@/lib/api/types'
+import { RosterSnapshotStatus } from './roster-snapshot-status'
 
 /** Die vier Bereiche der Registratur, in der Reihenfolge, in der sie eine Lage durchläuft. */
 const DOMAINS = ['alarms', 'alerting', 'personnel', 'vehicles'] as const
@@ -129,13 +130,19 @@ export function IntegrationsSection() {
                         <TableCell className="text-xs text-muted-foreground">
                           {t('serverConfig')}
                           <br />
-                          <span className="font-mono">{DOMAIN_ENV[domain]}</span>
+                          <span className="font-mono">
+                            {domain === 'personnel' && capability.provider === 'roster-snapshot'
+                              ? 'ROSTER_SNAPSHOT_SOURCE'
+                              : DOMAIN_ENV[domain]}
+                          </span>
                         </TableCell>
                       </TableRow>
                     )
                   })}
                 </TableBody>
               </Table>
+
+              <RosterSnapshotStatus />
 
               {/* Die Sperre eines Nicht-Produktions-Rollout ist etwas anderes als «nicht
                   eingerichtet»: eine Staging-Kopie ist vollständig konfiguriert und sendet

@@ -13,19 +13,18 @@ exactly as `test_telemetry_vendored.py` does for the sanitiser and the shared al
 vocabulary does for its own file. Editing the contract is a two-repository change.
 
 **What this catches and what it cannot.** It compares the local files against literals recorded
-here, which catches an edit on this side. It does not read KP Front — edit the schema there,
-update only that repository's literal, and both suites stay green while the two copies diverge.
-The cross-repo diff jobs in `.github/workflows/ci.yml` — `telemetry-drift` and
-`alarm-keyword-drift` — are the only things that actually compare the two checkouts, and **this
-pair is in neither**. A third job of the same shape (same `SIBLING_REPO` knob, same skip-not-
-fail behaviour for forks) is what would close it; it was left out of the change that published
-the contract, because nothing implements the contract yet and a job is easier to add than to
-argue about later. Add it when the ingestion lands, at the latest.
+here, which catches an edit on this side. It does not read KP Front — edit a file there, update
+only that repository's literal, and both suites stay green while the two copies diverge. The
+cross-repo `roster-schema-drift` job in `.github/workflows/ci.yml` checks out both repositories
+and diffs every file listed in `VENDORED` and `SHARED`; it is the only thing that actually
+compares them.
 
-**Nothing in this application reads a snapshot yet.** The contract is published and the
-capability registry lists the provider with `implemented: False`; the ingestion is separate,
-later work. This test is here so the artifact cannot drift in the meantime — a checked-in file
-nobody compares is the failure that makes checked-in files worthless.
+**Since the ingestion landed, the copy covers the code too.** `app/roster_snapshot.py` (the
+contract module: parse + medical guard), `app/roster_snapshot_ingest.py` (fetch + reconcile:
+matching, the deactivation cap, the outcome report), the reference producer
+`scripts/roster_snapshot_from_csv.py` and its example input are byte-identical with KP Front's,
+so one published file lands the same way in both products. KP Rück's own half is
+`app/services/roster_snapshot_sync.py`.
 """
 
 import hashlib
@@ -46,7 +45,26 @@ VENDORED = {
     "roster-snapshot-outcome.schema.json": "131cedd7246ccac71f9e1017af8e61bebe998dc09f04cc47df8d5d9bac9e78a9",
 }
 
+#: The rest of what is byte-identical with kp-front, by repository-relative path (same on both
+#: sides). Backend files are present in the image too; the script and the CSV only in a checkout.
+SHARED = {
+    "backend/app/roster_snapshot.py": "864258b878395e09051151fd4d7b5d96c9ae986368f04c5aed943592395452a2",
+    "backend/app/roster_snapshot_ingest.py": "103a12de8b5ecbe7257d8c8203a759a3335d14be8b8efc61882babdc84151e94",
+    "scripts/roster_snapshot_from_csv.py": "fe9c63a4ad66503f09ed3fce12e745e165f549e3418ea5effe7e5837a306e926",
+    "docs/roster-snapshot.example.csv": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7",
+}
+
 repo_only = pytest.mark.skipif(not DOCS.exists(), reason="repo root not available (running from the image)")
+
+
+@repo_only
+@pytest.mark.parametrize("path", sorted(SHARED))
+def test_shared_reader_matches_the_recorded_hash(path: str) -> None:
+    digest = hashlib.sha256((DOCS.parent / path).read_bytes()).hexdigest()
+    assert digest == SHARED[path], (
+        f"{path} changed. It is byte-identical with kp-front's copy: make the same edit there, run "
+        f"BOTH suites, and update the hash in BOTH repositories in the same change."
+    )
 
 
 @repo_only
@@ -138,14 +156,12 @@ def test_the_contract_carries_no_medical_field() -> None:
     )
 
 
-def test_the_registry_lists_the_provider_and_admits_it_is_not_built() -> None:
+def test_the_registry_lists_the_provider_and_it_is_built() -> None:
+    # Flipped to True in the change that implemented the ingestion (services/roster_snapshot_sync.py);
+    # `configured` follows ROSTER_SNAPSHOT_SOURCE (tests/test_services/test_roster_snapshot_sync.py).
     entry = next(p for p in integrations().known_providers if p.provider == "roster-snapshot")
     assert entry.domain == "personnel"
-    assert entry.configured is False
-    assert entry.implemented is False, (
-        "flip this to True only in the change that actually implements snapshot ingestion — a "
-        "registry that claims a working provider is worse than one that omits it"
-    )
+    assert entry.implemented is True
     assert entry.contract == "docs/roster-snapshot.schema.json"
 
 

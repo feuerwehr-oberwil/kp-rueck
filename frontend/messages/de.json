@@ -2342,7 +2342,24 @@
         "manual-intake": "Alarm-Link fürs Telefon",
         "operator": "Erfassung von Hand am Board"
       },
-      "builtinNote": "Ein fehlender Anbieter heisst also nie, dass keine Lage eröffnet werden kann."
+      "builtinNote": "Ein fehlender Anbieter heisst also nie, dass keine Lage eröffnet werden kann.",
+      "rosterSnapshot": {
+        "title": "Personenstamm (Snapshot):",
+        "neverRan": "Quelle eingerichtet, noch kein Abruf.",
+        "held": "angehalten – {n} von {total} verfügbaren Personen würden deaktiviert (Grenze {limit}). Nichts geändert; bitte zuerst die Datei prüfen.",
+        "heldWho": "Betroffen: {names}",
+        "release": "Ist die Datei richtig, auf dem Server freigeben:",
+        "releaseCommand": "docker compose exec backend uv run python -m app.services.roster_snapshot_sync run --force",
+        "failed": "letzter Abruf abgelehnt, der Personenstamm ist unverändert:",
+        "unchanged": "Datei unverändert seit dem letzten Abgleich.",
+        "summary": "letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert.",
+        "unmatched": "{n} nicht zugeordnet: {names}",
+        "postponed": "Wartet, bis sie nicht mehr im Einsatz sind: {names}",
+        "unknownRanks": "Unbekannte Dienstgrade (Funktion unverändert): {ranks}",
+        "fileDate": "Stand der Datei: {time}",
+        "lastSuccess": "zuletzt erfolgreich: {time}",
+        "stale": "Die Datei wurde seit über 7 Tagen nicht mehr erneuert."
+      }
     },
     "device": {
       "title": "Dieses Gerät",
