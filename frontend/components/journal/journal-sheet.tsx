@@ -78,11 +78,15 @@ export interface JournalSheetProps {
   onOpenIncident?: (incidentId: string) => void
 }
 
-function operationLabel(op: Operation): string {
-  return (
+// The number is optional until R4's operation mapping has landed, and on optimistic cards.
+type NumberedOperation = Operation & Pick<IncidentChoice, "number">
+
+function operationLabel(op: NumberedOperation): string {
+  const label = (
     (op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())) ||
     getIncidentTypeLabel(op.incidentType)
   )
+  return op.number != null ? `${op.number} · ${label}` : label
 }
 
 export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, onOpenIncident }: JournalSheetProps) {
@@ -470,9 +474,10 @@ function JournalComposer({
 
   const choices = useMemo<IncidentChoice[]>(
     () =>
-      operations.map((op) => ({
+      operations.map((op: NumberedOperation) => ({
         id: op.id,
         label: operationLabel(op),
+        number: op.number,
         detail: getIncidentTypeLabel(op.incidentType),
         closed: op.status === "complete",
       })),

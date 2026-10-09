@@ -85,8 +85,8 @@ export function journalCounts(lines: readonly JournalLine[]): Record<ApiJournalC
 /**
  * The `#…` being typed at the end of the input, or null.
  *
- * Einsätze in KP Rück carry no number, so `#` opens a pick-list instead of reading one:
- * `#` alone offers the running Einsätze, `#garten` narrows them by address/type. Only at
+ * `#` opens a pick-list: `#14` matches the Einsatz number exactly, `#garten` narrows
+ * by address/type, and `#` alone offers the running Einsätze. Only at
  * the END of the text (where the caret is in a one-line input) and only as a word of its
  * own — «Tel. #2» halfway through a sentence is text, not a link.
  */
@@ -103,6 +103,8 @@ export function stripIncidentQuery(text: string): string {
 export interface IncidentChoice {
   id: string
   label: string
+  /** R4's server-assigned Einsatz number; absent on older/optimistic cards. */
+  number?: number | null
   /** a second, muted word — the incident type */
   detail?: string
   /** closed Einsätze sink below running ones */
@@ -118,10 +120,13 @@ function norm(s: string): string {
 
 /** Up to `limit` Einsätze for the `#` pick-list: every word typed must start a word of
  *  the label or the detail (as KP Front's name suggestions do — a substring anywhere
- *  matches nonsense). Running Einsätze first, then by label. */
+ *  matches nonsense). A numeric query is the exact Einsatz number, never a house number
+ *  or a prefix of another Einsatz's number. Running Einsätze first, then by label. */
 export function suggestIncidents(query: string, choices: readonly IncidentChoice[], limit = 5): IncidentChoice[] {
   const words = norm(query).split(/\s+/).filter(Boolean)
+  const number = /^\d+$/.test(query.trim()) ? Number(query.trim()) : null
   const hit = (c: IncidentChoice) => {
+    if (number !== null) return c.number === number
     const hay = norm(`${c.label} ${c.detail ?? ""}`).split(/[\s,./()-]+/)
     return words.every((w) => hay.some((h) => h.startsWith(w)))
   }

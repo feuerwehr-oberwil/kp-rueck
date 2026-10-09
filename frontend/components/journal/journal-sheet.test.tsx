@@ -56,9 +56,9 @@ const ROWS = [
   row({ kind: "manual", category: "manual", text: "Gemeindepräsident informiert", author_name: "Dispo" }),
 ]
 
-function renderSheet(isEditor = true) {
+function renderSheet(isEditor = true, operations: Operation[] = [op]) {
   return renderWithIntl(
-    <JournalSheet open onOpenChange={() => {}} eventId="e1" operations={[op]} isEditor={isEditor} onOpenIncident={() => {}} />,
+    <JournalSheet open onOpenChange={() => {}} eventId="e1" operations={operations} isEditor={isEditor} onOpenIncident={() => {}} />,
   )
 }
 
@@ -110,6 +110,27 @@ describe("JournalSheet", () => {
     expect(api.appendJournal.mock.calls[0][1]).toMatchObject({ text: "Anwohner evakuiert", incident_id: "i1" })
     expect(await screen.findByText("Anwohner evakuiert")).toBeInTheDocument()
     expect(input).toHaveValue("")
+  })
+
+  it.each(["14", "gart"])("links by #%s and shows the Einsatz number with its address", async (query) => {
+    const user = userEvent.setup()
+    const operations = [
+      { ...op, number: 14 },
+      { ...op, id: "i2", number: 140, location: "Hauptstrasse 14", locationDisplay: "Hauptstrasse 14" },
+    ]
+    api.appendJournal.mockImplementation(async (_e: string, body: { text: string; incident_id: string | null }) =>
+      row({ text: body.text, incident_id: body.incident_id, incident_title: "Gartenweg 4" }),
+    )
+    renderSheet(true, operations)
+    await screen.findAllByTestId("journal-row")
+    const input = screen.getByRole("textbox", { name: "Neuer Eintrag im Einsatztagebuch" })
+    await user.type(input, `Anwohner evakuiert #${query}`)
+    expect(await screen.findAllByRole("option")).toHaveLength(1)
+    await user.click(screen.getByRole("option", { name: /14 · Gartenweg 4/ }))
+    expect(input).toHaveValue("Anwohner evakuiert ")
+    await user.click(screen.getByRole("button", { name: "Eintragen" }))
+    await waitFor(() => expect(api.appendJournal).toHaveBeenCalledTimes(1))
+    expect(api.appendJournal.mock.calls[0][1]).toMatchObject({ text: "Anwohner evakuiert", incident_id: "i1" })
   })
 
   it("keeps the line and its id when saving fails, so a resend lands once", async () => {

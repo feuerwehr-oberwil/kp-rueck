@@ -4079,7 +4079,7 @@
     "correct": "Eintrag korrigieren",
     "correcting": "Korrektur von «{text}» – das Original bleibt sichtbar.",
     "cancelCorrection": "Korrektur abbrechen",
-    "placeholder": "Eintrag … #Einsatz",
+    "placeholder": "Eintrag … #Nummer / #Ort",
     "placeholderCorrect": "Neuer Wortlaut",
     "inputLabel": "Neuer Eintrag im Einsatztagebuch",
     "submit": "Eintragen",

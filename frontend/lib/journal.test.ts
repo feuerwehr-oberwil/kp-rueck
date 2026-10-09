@@ -116,6 +116,20 @@ describe("the # link", () => {
     expect(suggestIncidents("", choices)).toHaveLength(3)
     expect(suggestIncidents("brandbekampf", choices).map((c) => c.id)).toEqual(["1"])
   })
+
+  it("matches the exact Einsatz number, never a number prefix or a house number", () => {
+    const numbered = [
+      { id: "1", number: 14, label: "14 · Gartenweg 4" },
+      { id: "2", number: 140, label: "140 · Hauptstrasse 14" },
+      { id: "3", label: "Schulstrasse 14" },
+    ]
+    expect(suggestIncidents("14", numbered).map((c) => c.id)).toEqual(["1"])
+    expect(suggestIncidents("014", numbered).map((c) => c.id)).toEqual(["1"])
+    expect(suggestIncidents("1", numbered)).toEqual([])
+    expect(suggestIncidents("4", numbered)).toEqual([])
+    expect(suggestIncidents("schul", numbered).map((c) => c.id)).toEqual(["3"])
+    expect(suggestIncidents("gart", numbered).map((c) => c.id)).toEqual(["1"])
+  })
 })
 
 describe("formatJournalTime", () => {
