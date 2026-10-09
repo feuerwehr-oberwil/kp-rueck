@@ -116,6 +116,7 @@ export interface BoardDialogsProps {
   closedStopGuard: ReturnType<typeof useClosedStopGuard>
   createGroup: Groups["createGroup"]
   createOperation: Ops["createOperation"]
+  mergeOperationInto: Ops["mergeOperationInto"]
   deleteDialogOpen: boolean
   deleteReleaseHint: string | null
   detailModalOpen: boolean
@@ -239,6 +240,7 @@ export function BoardDialogs({
   closedStopGuard,
   createGroup,
   createOperation,
+  mergeOperationInto,
   deleteDialogOpen,
   deleteReleaseHint,
   detailModalOpen,
@@ -372,6 +374,8 @@ export function BoardDialogs({
         }}
         onCreateOperation={createOperation}
         defaultGroupId={newEmergencyGroupId}
+        eventId={selectedEvent?.id ?? null}
+        onMergeInto={isEditor ? mergeOperationInto : undefined}
       />
 
       {/* Resource Assignment Dialog */}

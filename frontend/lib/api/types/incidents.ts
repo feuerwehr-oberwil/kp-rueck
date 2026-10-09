@@ -133,6 +133,57 @@ export interface ApiIncident {
   /** Server-computed short label for location_address (home city stripped).
    *  "" when the address is only the home city; null/absent when no address. */
   location_display?: string | null
+  /** An automatic door (webhook, poller, /alarm, bulk attach) created this card
+   *  next to an open one of the same Ereignis. The card says «mögliches
+   *  Duplikat» and offers the one-click merge; nothing is merged without a human. */
+  possible_duplicate_of_id?: string | null
+}
+
+/** An open incident that is probably the same Schadenplatz
+ *  (`GET /api/incidents/duplicate-candidates`, `GET /api/feld/duplicates`). */
+export interface ApiDuplicateCandidate {
+  id: string
+  title: string
+  type: string
+  status: IncidentStatus
+  location_address: string | null
+  location_display: string | null
+  /** Decimal as string */
+  location_lat: string | null
+  location_lng: string | null
+  /** Metres between the two pins; null for an address-only match. */
+  distance_m: number | null
+  match: 'distance' | 'address' | 'both'
+  created_at: string
+}
+
+export interface ApiDuplicateCandidatesResponse {
+  candidates: ApiDuplicateCandidate[]
+}
+
+/** What `/feld` gets: the minimum to answer the hint — no coordinates, status,
+ *  Einsatzart or full address (a login-less door must not map the board). */
+export type ApiFeldDuplicateCandidate = Pick<
+  ApiDuplicateCandidate,
+  'id' | 'title' | 'location_display' | 'distance_m' | 'match' | 'created_at'
+>
+
+export interface ApiFeldDuplicateCandidatesResponse {
+  candidates: ApiFeldDuplicateCandidate[]
+}
+
+/** The card a report went into, and the hidden report row — the undo's handle. */
+export interface ApiMergeResponse {
+  target: ApiIncident
+  merged_incident_id: string
+}
+
+/** «Trennen»: the report is its own card again. `note_removed` is false when
+ *  the Nachtrag had been edited since and stays in «Notizen» as it was left. */
+export interface ApiUnmergeResponse {
+  restored: ApiIncident
+  target: ApiIncident | null
+  note_removed: boolean
 }
 
 export interface ApiIncidentCreate {
@@ -195,7 +246,7 @@ export interface ApiStatusTransition {
 export interface ApiIncidentTimelineEvent {
   /** `kp_message` is the KP's own «Meldung an den Trupp» (sweep 27 §P3.2) —
    *  the other direction of `field_message`, with `actor_name` = the sender. */
-  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message'
+  event_type: 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
   timestamp: string
   actor_name: string | null
   // status_change fields
@@ -210,6 +261,10 @@ export interface ApiIncidentTimelineEvent {
   // through ('feld' = the field surface, 'kp' = typed from a radio message).
   message?: string | null
   source?: string | null
+  // merge / unmerge fields — the report folded into this card (its Nachtrag is
+  // `message`), and whether that merge still stands (only then «Trennen»).
+  merged_incident_id?: string | null
+  merge_active?: boolean | null
 }
 
 /** One KP → Trupp message as `/api/incidents/{id}/field-messages` returns it. */

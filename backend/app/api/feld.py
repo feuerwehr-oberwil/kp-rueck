@@ -44,6 +44,7 @@ line here. The field surface is the first place kp-rueck touches citizen PII.
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -63,7 +64,8 @@ from ..crud.feld.melden import never_left_the_window
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
-from ..services import incident_display, notification_service
+from ..services import duplicates, incident_display, notification_service
+from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import photo_storage
 from ..services.settings import (
     FELD_DRIVER_MESSAGE_CHIPS_KEY,
@@ -80,6 +82,7 @@ from ..services.tokens import (
 )
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..websocket_manager import broadcast_incident_update
+from .incidents import board_response, lock_incident
 
 logger = logging.getLogger(__name__)
 
@@ -600,8 +603,9 @@ async def get_feld_assignments(
         request_materials=request_materials,
         reports=[
             schemas.FeldOwnReport(
-                **report,
+                **{k: v for k, v in report.items() if k != "merged_into_address"},
                 location_display=incident_display.location_display(report.get("location_address"), home_city),
+                merged_into_label=incident_display.location_display(report.get("merged_into_address"), home_city),
             )
             for report in reports
         ],
@@ -847,6 +851,58 @@ async def set_own_attendance(
     return result
 
 
+#: An address match only counts from `/feld` when that card is also this close
+#: to the reporter's pin — «same street + number, pin a bit off», never «tell me
+#: what is at Hauptstrasse 6» from across town.
+FELD_ADDRESS_MATCH_RADIUS_M = 150
+
+
+@router.get("/duplicates", response_model=schemas.FeldDuplicateCandidatesResponse)
+@limiter.limit(RateLimits.FELD)
+async def feld_duplicate_candidates(
+    request: Request,
+    claims: FeldClaims,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    lat: Decimal = Query(..., ge=-90, le=90),
+    lng: Decimal = Query(..., ge=-180, le=180),
+    address: str | None = Query(None, max_length=500),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldDuplicateCandidatesResponse:
+    """«Möglicherweise dasselbe wie …» before a Meldung is sent.
+
+    Narrower than the board's lookup, because this is a login-less door (an
+    unlocked, bound device token, but still a phone anybody could be holding):
+
+    - a pin is REQUIRED — only cards within 50 m of it are offered, plus a
+      same-address card no further than 150 m away. No address-only lookup,
+      so the endpoint cannot be asked "what is at Hauptstrasse 6".
+    - the answer is the minimum to decide: short label, distance, age, id.
+      No coordinates, status, Einsatzart or full address.
+    - at most three cards, rate-limited like the rest of `/feld`.
+
+    A Meldung sent without a pin (or «Trotzdem neu») is flagged on the board
+    instead, so the KP still sees the possible duplicate.
+    """
+    await require_feld_person(db, claims, personnel_id, require_access=False)
+    candidates = await duplicates.find_duplicate_candidates(db, claims.event_id, lat=lat, lng=lng, address=address)
+    home_city = await incident_display.get_home_city(db)
+    return schemas.FeldDuplicateCandidatesResponse(
+        candidates=[
+            schemas.FeldDuplicateCandidate(
+                id=c.incident.id,
+                title=c.incident.title,
+                location_display=incident_display.location_display(c.incident.location_address, home_city),
+                distance_m=c.distance_m,
+                match=c.match,
+                created_at=c.incident.created_at,
+            )
+            for c in candidates
+            # An address match whose card is far from (or has no) pin is not "at the spot".
+            if c.distance_m is not None and (c.match != "address" or c.distance_m <= FELD_ADDRESS_MATCH_RADIUS_M)
+        ]
+    )
+
+
 @router.post("/incidents", response_model=schemas.FeldIncidentCreated, status_code=201)
 @limiter.limit(RateLimits.INTAKE)
 async def report_new_incident(
@@ -873,7 +929,43 @@ async def report_new_incident(
     # refuse the one person whose entire job this is.
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
     event = await _load_event(db, claims.event_id)
-    incident, mode = await crud.create_field_report(db, event.id, person, payload, request)
+
+    # «Zusammenführen»: only into an OPEN card of this Ereignis — the same set
+    # the candidate lookup below offered. Anything else is the same 409, so the
+    # door does not tell a probe whether an id exists.
+    merge_target: Incident | None = None
+    if payload.merge_into_incident_id is not None:
+        merge_target = await lock_incident(db, payload.merge_into_incident_id)
+        if (
+            merge_target is None
+            or merge_target.event_id != event.id
+            or merge_target.deleted_at is not None
+            or merge_target.merged_into_id is not None
+            or merge_target.status == "complete"
+        ):
+            raise CodedHTTPException(
+                409, ErrorCode.FELD_MERGE_TARGET_CLOSED, "Dieser Einsatz ist nicht mehr offen. Bitte neu melden."
+            )
+
+    try:
+        incident, mode = await crud.create_field_report(
+            db, event.id, person, payload, request, merge_target=merge_target
+        )
+    except MergeRefusedError as e:
+        await db.rollback()
+        raise CodedHTTPException(e.status_code, ErrorCode.FELD_MERGE_REFUSED, e.reason) from None
+
+    if merge_target is not None:
+        target_response = await board_response(db, merge_target)
+        await broadcast_incident_update(target_response.model_dump(mode="json"), "update")
+        return schemas.FeldIncidentCreated(incident_id=incident.id, takeover="none", merged_into=merge_target.id)
+
+    # Sent as a new card — with «Trotzdem neu», without a pin, or from an older
+    # page that never asked: the KP still gets told it may be the same
+    # Schadenplatz, and decides on the board.
+    if await duplicates.flag_possible_duplicate(db, incident):
+        await db.commit()
+        await db.refresh(incident)
 
     # Same broadcast + sync path as every other create, so the board moves
     # without a refresh and the card is not a ghost until somebody polls. The

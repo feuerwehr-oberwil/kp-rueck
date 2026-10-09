@@ -1033,6 +1033,10 @@ class FeldIncidentCreate(BaseModel):
     as_phone_call: bool = False
     contact: str | None = None
     contact_phone: str | None = None
+    # The reporter answered «Zusammenführen» to «Möglicherweise dasselbe wie …»:
+    # the Meldung becomes a Nachtrag on that open card instead of a new one, and
+    # `take_over` is ignored (services/duplicates.py; the KP can «Trennen»).
+    merge_into_incident_id: UUID | None = None
 
     _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
     _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
@@ -1097,6 +1101,30 @@ class FeldOwnReport(BaseModel):
     #: The vehicles the KP put on it — "das TLF 2 fährt hin", the one thing a
     #: reporter wants back from the board.
     vehicles: list[str] = []
+    #: The KP merged this Meldung into an open card (a second report of the same
+    #: Schadenplatz): that card, and its short address for «zusammengeführt in …».
+    merged_into_id: UUID | None = None
+    merged_into_label: str | None = None
+
+
+class FeldDuplicateCandidate(BaseModel):
+    """«Möglicherweise dasselbe wie …» as `/feld` gets it — the minimum to answer it.
+
+    No coordinates, no status, no Einsatzart, no full address: a login-less door
+    gets the short label of the card at the spot, how far, how old, and the id
+    to merge into. Nothing that would let the lookup map the board.
+    """
+
+    id: UUID
+    title: str
+    location_display: str | None = None
+    distance_m: int | None = None
+    match: Literal["distance", "address", "both"]
+    created_at: datetime
+
+
+class FeldDuplicateCandidatesResponse(BaseModel):
+    candidates: list[FeldDuplicateCandidate]
 
 
 class FeldIncidentCreated(BaseModel):
@@ -1108,3 +1136,6 @@ class FeldIncidentCreated(BaseModel):
 
     incident_id: UUID
     takeover: Literal["none", "stop", "auftrag", "solo"]
+    # Set when the Meldung was merged into an open card: that card's id. The
+    # phone says «zum bestehenden Einsatz hinzugefügt» instead of «gemeldet».
+    merged_into: UUID | None = None

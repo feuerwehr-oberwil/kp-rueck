@@ -221,7 +221,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations, requestVehicleDriver } = useOperations()
+  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
@@ -1865,6 +1865,13 @@ export function OperationDetailContent({
               isLoading={timeline.isLoading}
               failed={timeline.failed}
               onRetry={timeline.reload}
+              onUnmerge={
+                canEdit
+                  ? async (mergedId) => {
+                      if (await undoMerge(mergedId)) timeline.reload()
+                    }
+                  : undefined
+              }
             />
             <IncidentParticipants incidentId={operation.id} />
           </div>

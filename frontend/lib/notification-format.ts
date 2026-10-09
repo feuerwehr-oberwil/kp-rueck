@@ -146,7 +146,10 @@ function build(type: string, p: Params, t: NotificationTranslator): Built | unde
 
     case 'field_report':
       return {
-        what: t(p.direct === true ? `${M}.fieldReportDirect` : `${M}.fieldReport`),
+        // `merged`: a Nachtrag folded into an open card (R2), not a new Schadenplatz.
+        what: t(
+          p.merged === true ? `${M}.fieldReportMerged` : p.direct === true ? `${M}.fieldReportDirect` : `${M}.fieldReport`,
+        ),
         where: str(p, 'place'),
         who: optStr(p, 'by'),
       }

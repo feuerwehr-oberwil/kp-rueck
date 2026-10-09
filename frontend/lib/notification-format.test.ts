@@ -86,6 +86,12 @@ describe('notificationParts — /feld', () => {
     )
   })
 
+  it('field_report merged: a Nachtrag on the card it went into, not a new Schadenplatz (R2)', () => {
+    const merged = { type: 'field_report', params: { place: 'Hauptstrasse 41', by: 'Fabio Wyss', merged: true } }
+    expect(parts(merged)).toEqual({ what: 'Nachtrag vom Feld', where: 'Hauptstrasse 41', who: 'Fabio Wyss', source: 'feld' })
+    expect(parts(merged, fr).what).toBe('Complément du terrain')
+  })
+
   it('field_arrived / field_complete: the move is part of what happened, the actor is «who»', () => {
     const arrived = {
       type: 'field_arrived',

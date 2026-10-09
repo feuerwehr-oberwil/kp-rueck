@@ -3155,6 +3155,7 @@
       "rapportSubmitted": "Rapport erfasst",
       "fieldReport": "Neuer Schadenplatz",
       "fieldReportDirect": "Neuer Schadenplatz – Trupp fährt direkt hin",
+      "fieldReportMerged": "Nachtrag vom Feld",
       "actorField": "vom Feld",
       "actorKp": "im KP erfasst",
       "actorGps": "automatisch (GPS)",
@@ -3253,6 +3254,8 @@
       "feld_incident_not_assigned": "Diese Einsatzstelle ist dir nicht zugeteilt.",
       "feld_report_not_yours": "Diese Meldung ist nicht deine.",
       "feld_report_taken_over": "Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
+      "feld_merge_target_closed": "Dieser Einsatz ist nicht mehr offen. Bitte neu melden.",
+      "feld_merge_refused": "Zusammenführen ging nicht. Bitte als neuen Einsatz melden.",
       "photo_not_found": "Foto nicht gefunden",
       "photo_demo_too_large": "Demo-Modus: Maximale Dateigrösse 1MB.",
       "photo_demo_limit": "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.",
@@ -4196,7 +4199,8 @@
       "stateDispatched": "Disponiert",
       "stateDispatchedWith": "Disponiert · {vehicles}",
       "stateDone": "Abgeschlossen",
-      "edit": "Bearbeiten"
+      "edit": "Bearbeiten",
+      "stateMerged": "Zusammengeführt in {label}"
     },
     "kpStatus": {
       "incoming": "Eingegangen",
@@ -4272,5 +4276,37 @@
       "stateDone": "erledigt · {time}",
       "stateDoneBy": "erledigt · {time} · {name}"
     }
+  },
+  "duplicates": {
+    "lead": "Möglicherweise dasselbe wie",
+    "distance": "{meters} m",
+    "sameAddress": "gleiche Adresse",
+    "ago": "vor {duration}",
+    "merge": "Zusammenführen",
+    "mergeHint": "Diese Meldung als Nachtrag an den bestehenden Einsatz anhängen – kein neuer Einsatz",
+    "createAnyway": "Trotzdem neu",
+    "sketchLabel": "Lage: neue Meldung in der Mitte, bestehende Einsätze als Punkte, Kreis 50 m",
+    "mergedTitle": "Zusammengeführt mit {label}",
+    "mergedDescription": "Die Meldung steht als Nachtrag in den Notizen.",
+    "undo": "Rückgängig",
+    "unmergedTitle": "Wieder ein eigener Einsatz",
+    "noteKept": "Der Nachtrag wurde seither bearbeitet und bleibt in den Notizen.",
+    "mergeFailed": "Zusammenführen fehlgeschlagen",
+    "unmergeFailed": "Trennen fehlgeschlagen",
+    "dismissFailed": "Konnte nicht gespeichert werden",
+    "card": {
+      "flag": "Mögliches Duplikat von {label}",
+      "flagUnknown": "Mögliches Duplikat",
+      "flagTooltip": "Automatisch eingegangen, nahe bei einem offenen Einsatz. «Zusammenführen» hängt diese Meldung dort als Nachtrag an.",
+      "merge": "Zusammenführen",
+      "dismiss": "Kein Duplikat"
+    },
+    "timeline": {
+      "merged": "Meldung zusammengeführt",
+      "unmerged": "Zusammenführung getrennt",
+      "split": "Trennen",
+      "splitHint": "Die Meldung wieder als eigenen Einsatz aufs Board holen"
+    },
+    "feldMerged": "Zum bestehenden Einsatz hinzugefügt – der KP sieht es als Nachtrag."
   }
 }

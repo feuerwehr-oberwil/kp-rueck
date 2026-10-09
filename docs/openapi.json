@@ -4517,6 +4517,240 @@
         }
       }
     },
+    "/api/incidents/duplicate-candidates": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Duplicate Candidates",
+        "description": "Open incidents of this Ereignis that are probably the same Schadenplatz.\n\nWithin 50 m of the pin or at a normalised-equal address (street + house\nnumber); closed, deleted and merged cards and other Ereignisse never match.\nAsked by «Neuer Einsatz» and the pool's attach before a card is made, so\nthe operator can answer «Zusammenführen» or «Trotzdem neu».",
+        "operationId": "get_duplicate_candidates_api_incidents_duplicate_candidates_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Ereignis the new report belongs to",
+              "title": "Event Id"
+            },
+            "description": "Ereignis the new report belongs to"
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90.0,
+                  "minimum": -90.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180.0,
+                  "minimum": -180.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Address"
+            }
+          },
+          {
+            "name": "exclude_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The card being checked, when it already exists",
+              "title": "Exclude Id"
+            },
+            "description": "The card being checked, when it already exists"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateCandidatesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/merge-report": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Merge New Report",
+        "description": "«Zusammenführen» from «Neuer Einsatz»: the report becomes a Nachtrag on `target_id`.\n\nNo new card. The report is still written as its own row (soft-deleted,\n`merged_into_id` set) because it carries the Melder and the provenance, and\nbecause that row is what «Trennen» brings back. Audited on both rows and in\nthe target's Verlauf.",
+        "operationId": "merge_new_report_api_incidents_merge_report_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}": {
       "get": {
         "tags": [
@@ -6329,6 +6563,244 @@
         "summary": "Restore Incident",
         "description": "Restore a soft-deleted incident (editor only).\n\nPowers the \"Rückgängig\" undo affordance. Idempotency guard: restoring an\nincident that is not deleted returns 409, so a double-click on the undo\ntoast is harmless. Unknown ID returns 404. Broadcasts an incident update so\nother boards re-show the card without a manual refresh.",
         "operationId": "restore_incident_api_incidents__incident_id__restore_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/merge": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Merge Incident Into",
+        "description": "«Zusammenführen» on a card: fold this incident into `target_id`.\n\nThe one-click answer to «mögliches Duplikat von …». Refused with 409 while\npeople or vehicles are assigned to this card — moving them is a decision,\nnot a side effect. Undo: POST /{incident_id}/unmerge.",
+        "operationId": "merge_incident_into_api_incidents__incident_id__merge_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeIntoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/unmerge": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Unmerge Incident",
+        "description": "«Trennen» / «Rückgängig»: the merged report is its own card again.\n\nIts Nachtrag leaves the target's «Notizen» only if it still stands there\nverbatim; `note_removed` says which. 409 when it is not merged (a second\nclick on the undo, or somebody else was faster).",
+        "operationId": "unmerge_incident_api_incidents__incident_id__unmerge_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnmergeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/not-duplicate": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Dismiss Duplicate",
+        "description": "«Kein Duplikat»: the card keeps standing on its own and stops asking.\n\nLocked like a merge: «Kein Duplikat» on one board and «Zusammenführen» on\nanother must not both go through on the same card.",
+        "operationId": "dismiss_duplicate_api_incidents__incident_id__not_duplicate_post",
         "parameters": [
           {
             "name": "incident_id",
@@ -13846,6 +14318,118 @@
         }
       }
     },
+    "/api/feld/duplicates": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Feld Duplicate Candidates",
+        "description": "«Möglicherweise dasselbe wie …» before a Meldung is sent.\n\nNarrower than the board's lookup, because this is a login-less door (an\nunlocked, bound device token, but still a phone anybody could be holding):\n\n- a pin is REQUIRED — only cards within 50 m of it are offered, plus a\n  same-address card no further than 150 m away. No address-only lookup,\n  so the endpoint cannot be asked \"what is at Hauptstrasse 6\".\n- the answer is the minimum to decide: short label, distance, age, id.\n  No coordinates, status, Einsatzart or full address.\n- at most three cards, rate-limited like the rest of `/feld`.\n\nA Meldung sent without a pin (or «Trotzdem neu») is flagged on the board\ninstead, so the KP still sees the possible duplicate.",
+        "operationId": "feld_duplicate_candidates_api_feld_duplicates_get",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90.0,
+                  "minimum": -90.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180.0,
+                  "minimum": -180.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Address"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldDuplicateCandidatesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents": {
       "post": {
         "tags": [
@@ -20609,6 +21193,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Event Id"
+          },
+          "merge_into_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Into Incident Id"
           }
         },
         "type": "object",
@@ -20616,7 +21212,7 @@
           "event_id"
         ],
         "title": "AttachEmergencyRequest",
-        "description": "Request to attach a Divera emergency to an Event."
+        "description": "Request to attach a Divera emergency to an Event.\n\n``merge_into_incident_id``: the operator answered «Zusammenführen» to the\nduplicate hint — the alarm becomes a Nachtrag on that open card instead of\na card of its own (services/duplicates.py; undoable with «Trennen»)."
       },
       "AuditLogEntry": {
         "properties": {
@@ -22293,6 +22889,123 @@
         "title": "DiveraWebhookPayload",
         "description": "Divera 24/7 webhook payload structure (actual format from Divera PRO)."
       },
+      "DuplicateCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "distance",
+              "address",
+              "both"
+            ],
+            "title": "Match"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "type",
+          "status",
+          "match",
+          "created_at"
+        ],
+        "title": "DuplicateCandidate",
+        "description": "An open incident that is probably the same Schadenplatz (services/duplicates.py)."
+      },
+      "DuplicateCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "DuplicateCandidatesResponse"
+      },
       "EffortEstimation": {
         "properties": {
           "personnel_count": {
@@ -23569,6 +24282,80 @@
         "title": "FeldContextResponse",
         "description": "The door's proof of place — readable with the LINK token, before the code.\n\nSomeone who scanned a poster in the rain must be able to tell they reached\nthe right brigade and the right Ereignis; the code gates the roster and the\nwork, never the name of the drill. `station_name` is the Allgemein setting\nand may be empty on an unconfigured station."
       },
+      "FeldDuplicateCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "distance",
+              "address",
+              "both"
+            ],
+            "title": "Match"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "match",
+          "created_at"
+        ],
+        "title": "FeldDuplicateCandidate",
+        "description": "«Möglicherweise dasselbe wie …» as `/feld` gets it — the minimum to answer it.\n\nNo coordinates, no status, no Einsatzart, no full address: a login-less door\ngets the short label of the card at the spot, how far, how old, and the id\nto merge into. Nothing that would let the lookup map the board."
+      },
+      "FeldDuplicateCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/FeldDuplicateCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "FeldDuplicateCandidatesResponse"
+      },
       "FeldIncidentCreate": {
         "properties": {
           "title": {
@@ -23681,6 +24468,18 @@
               }
             ],
             "title": "Contact Phone"
+          },
+          "merge_into_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Into Incident Id"
           }
         },
         "type": "object",
@@ -23708,6 +24507,18 @@
               "solo"
             ],
             "title": "Takeover"
+          },
+          "merged_into": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into"
           }
         },
         "type": "object",
@@ -24185,6 +24996,29 @@
             "type": "array",
             "title": "Vehicles",
             "default": []
+          },
+          "merged_into_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Id"
+          },
+          "merged_into_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Label"
           }
         },
         "type": "object",
@@ -26341,6 +27175,18 @@
             ],
             "title": "Location Display"
           },
+          "possible_duplicate_of_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Possible Duplicate Of Id"
+          },
           "from_real_alarm": {
             "type": "boolean",
             "title": "From Real Alarm",
@@ -26485,6 +27331,29 @@
               }
             ],
             "title": "Source"
+          },
+          "merged_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Incident Id"
+          },
+          "merge_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Active"
           }
         },
         "type": "object",
@@ -27682,6 +28551,59 @@
         "type": "object",
         "title": "MaterialUpdate",
         "description": "Schema for updating material.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /materials/{id}/archive and /restore."
+      },
+      "MergeIntoRequest": {
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_id"
+        ],
+        "title": "MergeIntoRequest",
+        "description": "«Zusammenführen» on a card that already exists (the flagged duplicate)."
+      },
+      "MergeReportRequest": {
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          },
+          "incident": {
+            "$ref": "#/components/schemas/IncidentCreate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_id",
+          "incident"
+        ],
+        "title": "MergeReportRequest",
+        "description": "«Zusammenführen» before a card exists: this report goes into `target_id` as a Nachtrag."
+      },
+      "MergeResponse": {
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/IncidentResponse"
+          },
+          "merged_incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Merged Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target",
+          "merged_incident_id"
+        ],
+        "title": "MergeResponse",
+        "description": "The card the report went into, and the (now hidden) report row — the undo's handle."
       },
       "MicrosoftAuthConfig": {
         "properties": {
@@ -32002,6 +32924,34 @@
         ],
         "title": "TransferAssignmentsResponse",
         "description": "Response from assignment transfer operation."
+      },
+      "UnmergeResponse": {
+        "properties": {
+          "restored": {
+            "$ref": "#/components/schemas/IncidentResponse"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note_removed": {
+            "type": "boolean",
+            "title": "Note Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "restored",
+          "note_removed"
+        ],
+        "title": "UnmergeResponse",
+        "description": "«Trennen»: the report is its own card again.\n\n``note_removed`` is False when the Nachtrag had been edited since the merge\nand therefore stays in the target's «Notizen» as the operator left it."
       },
       "User": {
         "properties": {

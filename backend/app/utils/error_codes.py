@@ -46,6 +46,9 @@ class ErrorCode(StrEnum):
     FELD_REPORT_NOT_YOURS = "feld_report_not_yours"
     FELD_REPORT_TAKEN_OVER = "feld_report_taken_over"
     FELD_TOKEN_OTHER_PERSON = "feld_token_other_person"  # noqa: S105 — an error code, not a secret
+    # «Zusammenführen» from /feld (R2)
+    FELD_MERGE_TARGET_CLOSED = "feld_merge_target_closed"
+    FELD_MERGE_REFUSED = "feld_merge_refused"
     INCIDENT_NOT_FOUND = "incident_not_found"
     # The Reko form (`/reko`, opened from a board link or from /feld)
     REKO_LINK_INVALID = "reko_link_invalid"

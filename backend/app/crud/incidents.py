@@ -987,6 +987,11 @@ async def restore_incident(
 
     if incident.deleted_at is None:
         raise ValueError("Incident is not deleted")
+    # A merged report comes back through «Trennen» (POST /unmerge), which also
+    # takes its Nachtrag back out of the card it went into. A plain restore
+    # would leave the same report on the board twice.
+    if incident.merged_into_id is not None:
+        raise ValueError("Incident was merged; unmerge it instead")
 
     # If the delete stamped `completed_at` as a side effect (both timestamps set
     # to the same `now`), clear it so the restored incident isn't wrongly

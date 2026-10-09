@@ -227,6 +227,11 @@ CASES = [
         {"place": "Hauptstrasse 41", "by": "Fabio Wyss", "direct": True},
     ),
     (
+        texts.field_merged("Hauptstrasse 41", "Fabio Wyss"),
+        "Nachtrag vom Feld: Hauptstrasse 41 (Fabio Wyss)",
+        {"place": "Hauptstrasse 41", "by": "Fabio Wyss", "merged": True},
+    ),
+    (
         texts.feld_code_rotated("Unwetter"),
         "Feld-Code für Unwetter nach zu vielen Fehlversuchen neu erzeugt",
         {"event": "Unwetter"},

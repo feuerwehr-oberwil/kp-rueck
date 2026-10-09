@@ -695,6 +695,9 @@ export interface ApiFeldIncidentCreate {
   as_phone_call?: boolean
   contact?: string | null
   contact_phone?: string | null
+  /** «Zusammenführen»: the Meldung becomes a Nachtrag on this open card instead
+   *  of a new one; `take_over` is then ignored. */
+  merge_into_incident_id?: string | null
 }
 
 /**
@@ -746,6 +749,10 @@ export interface ApiFeldOwnReport {
   editable: boolean
   /** What the KP put on it — «das TLF 2 fährt hin». */
   vehicles: string[]
+  /** The KP merged it into an open card (a second report of the same
+   *  Schadenplatz): that card, and its short address. */
+  merged_into_id?: string | null
+  merged_into_label?: string | null
 }
 
 /**
@@ -759,4 +766,6 @@ export interface ApiFeldOwnReport {
 export interface ApiFeldIncidentCreated {
   incident_id: string
   takeover: 'none' | 'stop' | 'auftrag' | 'solo'
+  /** Set when the Meldung was merged into an open card: that card's id. */
+  merged_into?: string | null
 }

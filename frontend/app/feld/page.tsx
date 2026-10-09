@@ -1897,7 +1897,11 @@ function FeldSurface() {
               // Three states, and `editable` is the server's own answer rather
               // than the phone re-deriving it from a status vocabulary it should
               // not have to know.
-              const state = report.editable
+              // A Meldung the KP merged into an open card says where it went —
+              // «zusammengeführt in Hauptstrasse 6» — instead of vanishing.
+              const state = report.merged_into_id
+                ? tReports('stateMerged', { label: report.merged_into_label ?? '' })
+                : report.editable
                 ? tReports('stateOpen')
                 : report.status === 'complete'
                   ? tReports('stateDone')
