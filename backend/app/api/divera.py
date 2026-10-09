@@ -293,6 +293,9 @@ async def attach_emergency_to_event(
         commit=False,
     )
 
+    # A re-attach takes the alarm (and its Rückmeldungen) away from another Ereignis.
+    previous_event_id = emergency.attached_to_event_id
+
     # Link emergency to event and incident (commits both)
     try:
         await divera_crud.attach_emergency_to_event(
@@ -311,6 +314,10 @@ async def attach_emergency_to_event(
 
     # Broadcast WebSocket update for instant board refresh
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
+    # «Anrückend» on both Ereignisse now reads differently.
+    background_tasks.add_task(divera_responses.broadcast_link_change, request_data.event_id, incident.id)
+    if previous_event_id and previous_event_id != request_data.event_id:
+        background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
 
     logger.info(
         f"Divera emergency {emergency_id} attached to event {request_data.event_id}, created incident {incident.id}"
@@ -389,6 +396,7 @@ async def bulk_attach_emergencies(
                 commit=False,
             )
 
+            previous_event_id = emergency.attached_to_event_id
             # Link emergency (commits incident and link together, releasing the lock)
             await divera_crud.attach_emergency_to_event(
                 db=db,
@@ -399,6 +407,8 @@ async def bulk_attach_emergencies(
             await db.refresh(incident)
 
             created_incidents.append(incident)
+            if previous_event_id and previous_event_id != request_data.event_id:
+                background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
 
         except Exception as e:
             logger.error(f"Error attaching emergency {emergency_id}: {e}")
@@ -420,6 +430,8 @@ async def bulk_attach_emergencies(
     for incident in created_incidents:
         incident_response = await incident_display.incident_with_display(db, incident)
         background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
+    if created_incidents:
+        background_tasks.add_task(divera_responses.broadcast_link_change, request_data.event_id, None)
 
     logger.info(f"Bulk attach completed: {len(created_incidents)} incidents created, {len(errors)} errors")
 
@@ -1062,9 +1074,17 @@ async def send_test_alarm(
 
 
 async def _responses_summary(
-    db: AsyncSession, emergencies: list[models.DiveraEmergency]
+    db: AsyncSession,
+    emergencies: list[models.DiveraEmergency],
+    user: models.User,
+    event_id: UUID | None,
 ) -> schemas.DiveraResponsesSummary:
-    return schemas.DiveraResponsesSummary.model_validate(await divera_responses.summary_for(db, emergencies))
+    # A Divera note can be health data («krank»): editors (who act on it) see it, viewers not.
+    return schemas.DiveraResponsesSummary.model_validate(
+        await divera_responses.summary_for(
+            db, emergencies, event_id=event_id, include_notes=user.role in ("editor", "admin")
+        )
+    )
 
 
 @router.get("/events/{event_id}/responses", response_model=schemas.DiveraResponsesSummary)
@@ -1082,8 +1102,9 @@ async def get_event_divera_responses(
     if await events_crud.get_event_by_id(db, event_id) is None:
         raise HTTPException(status_code=404, detail="Event not found")
     if not settings.divera_access_key:
-        return await _responses_summary(db, [])
-    return await _responses_summary(db, await divera_responses.emergencies_for_event(db, event_id))
+        return await _responses_summary(db, [], current_user, event_id)
+    emergencies = await divera_responses.emergencies_for_event(db, event_id)
+    return await _responses_summary(db, emergencies, current_user, event_id)
 
 
 @router.get("/incidents/{incident_id}/responses", response_model=schemas.DiveraResponsesSummary)
@@ -1097,8 +1118,9 @@ async def get_incident_divera_responses(
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
     if not settings.divera_access_key:
-        return await _responses_summary(db, [])
-    return await _responses_summary(db, await divera_responses.emergencies_for_incident(db, incident))
+        return await _responses_summary(db, [], current_user, incident.event_id)
+    emergencies = await divera_responses.emergencies_for_incident(db, incident)
+    return await _responses_summary(db, emergencies, current_user, incident.event_id)
 
 
 @router.get("/polling/status", response_model=None)

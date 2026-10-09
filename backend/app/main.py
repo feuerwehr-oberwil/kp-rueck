@@ -66,11 +66,13 @@ from .auth.token_blocklist import token_blocklist
 from .background import (
     start_audit_cleanup_scheduler,
     start_demo_reset_scheduler,
+    start_divera_retention_scheduler,
     start_heartbeat_scheduler,
     start_sync_scheduler,
     start_telemetry_scheduler,
     stop_audit_cleanup_scheduler,
     stop_demo_reset_scheduler,
+    stop_divera_retention_scheduler,
     stop_heartbeat_scheduler,
     stop_sync_scheduler,
     stop_telemetry_scheduler,
@@ -151,6 +153,7 @@ async def _setup_divera_polling():
         """Store the Rückmeldungen of the polled alarms; tell the boards when they changed."""
         async with async_session_maker() as db:
             event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
+            await divera_responses.purge_expired(db)
         if event_ids or incident_ids:
             await broadcast_divera_responses_update(event_ids, incident_ids)
 
@@ -254,6 +257,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         start_heartbeat_scheduler()
     except Exception as e:
         logger.warning(f"Heartbeat scheduler failed to start: {e}")
+
+    # Divera Rückmeldungen are personal data: deleted 48 h after the alarm (hourly sweep).
+    try:
+        start_divera_retention_scheduler()
+    except Exception as e:
+        logger.warning(f"Divera retention scheduler failed to start: {e}")
 
     # Start WebSocket stale session cleanup
     logger.info("Starting WebSocket stale session cleanup...")
@@ -423,6 +432,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         stop_heartbeat_scheduler()
     except Exception as e:
         logger.warning(f"Heartbeat scheduler shutdown failed: {e}")
+
+    try:
+        stop_divera_retention_scheduler()
+    except Exception as e:
+        logger.warning(f"Divera retention scheduler shutdown failed: {e}")
 
     # Shutdown: Dispose engine
     logger.info("Shutting down...")

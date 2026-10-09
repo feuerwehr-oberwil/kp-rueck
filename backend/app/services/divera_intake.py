@@ -419,6 +419,10 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         db=db, emergency_id=emergency.id, event_id=event.id, incident_id=incident.id
     )
     await db.refresh(incident)
+    # «Anrückend» on that Ereignis now includes this alarm's Rückmeldungen.
+    from .divera_responses import broadcast_link_change
+
+    await broadcast_link_change(event.id, incident.id)
 
     # Reality preempts the drill. Simulated drives are global: they mask the real
     # Traccar position of their vehicle for EVERY consumer (map, GPS automation,

@@ -65,7 +65,9 @@ def test_snapshot_of_the_fixture_alarm():
     snap = dr.snapshot_from_alarm(ALARM_4711, CATALOGUE)
     assert snap is not None
     assert snap["addressed"] == list(range(101, 111))
-    assert snap["read"] == list(range(101, 109))
+    assert snap["read_count"] == 8
+    assert "read" not in snap  # who opened it is a per-person receipt: only the number is kept
+    assert snap["alarm_ts"] == 1791478800
     assert snap["answers"]["103"] == {"status_id": 12, "ts": 1791478890, "note": "5 min"}
     assert snap["answers"]["999"]["status_id"] == 12
     assert set(snap["statuses"]) == {"11", "12", "13", "17"}  # only what is referenced
@@ -108,7 +110,6 @@ def test_default_classification_matches_the_spec():
         101: "coming",
         102: "coming",
         103: "coming",
-        999: "coming",
         104: "not_coming",
         105: "not_coming",
         106: "other",
@@ -127,21 +128,57 @@ def test_eta_is_answer_time_plus_status_time_for_coming_only():
     assert people[104]["eta"] is None
 
 
-def test_unmapped_ucr_is_counted_not_named():
+def test_unmapped_ucr_is_counted_never_listed():
     summary = _summary(dr.snapshot_from_alarm(ALARM_4711, CATALOGUE))
     people = {p["ucr_id"]: p for p in summary["people"]}
     assert summary["unmapped"] == 1
-    assert people[999]["personnel_id"] is None
-    assert people[999]["name"] is None
+    assert summary["counts"]["coming"] == 4  # still counted …
+    assert 999 not in people  # … but no Divera id, status or note of somebody not on the roster
     assert people[101]["personnel_id"] == ROSTER[101].personnel_id
+
+
+def test_notes_can_be_left_out():
+    snap = dr.snapshot_from_alarm(ALARM_4711, CATALOGUE)
+    with_notes = {p["ucr_id"]: p for p in _summary(snap)["people"]}
+    without = {
+        p["ucr_id"]: p for p in dr.summarize([(snap, None)], dr.NO_OVERRIDES, ROSTER, include_notes=False)["people"]
+    }
+    assert with_notes[104]["note"] == "Ferien"
+    assert without[104]["note"] is None
+    assert without[104]["kind"] == "not_coming"
+
+
+def test_anybody_with_an_attendance_record_is_flagged():
+    snap = dr.snapshot_from_alarm(ALARM_4711, CATALOGUE)
+    attended = {ROSTER[101].personnel_id}
+    people = {
+        p["ucr_id"]: p for p in dr.summarize([(snap, None)], dr.NO_OVERRIDES, ROSTER, attended=attended)["people"]
+    }
+    assert people[101]["attended"] is True
+    assert people[102]["attended"] is False
+
+
+@pytest.mark.parametrize("ts", [10**14, 2**62])
+def test_a_nonsense_timestamp_does_not_take_the_summary_down(ts):
+    item = {"ucr_addressed": [101], "ucr_answered": {"12": {"101": {"ts": ts, "note": ""}}}}
+    summary = _summary(dr.snapshot_from_alarm(item, CATALOGUE))
+    person = summary["people"][0]
+    assert person["answered_at"] is None
+    assert person["eta"] is None
+    assert person["kind"] == "coming"
+
+
+def test_read_count_falls_back_to_count_read():
+    item = {"ucr_addressed": [1, 2], "ucr_answered": [], "count_read": 2}
+    assert dr.snapshot_from_alarm(item)["read_count"] == 2
 
 
 def test_coming_people_are_listed_first_and_by_arrival():
     summary = _summary(dr.snapshot_from_alarm(ALARM_4711, CATALOGUE))
     order = [p["ucr_id"] for p in summary["people"]]
-    assert order[:4] == [101, 102, 103, 999]  # «Komme» first, then by estimated arrival
-    assert order[4] == 106  # other before not_coming
-    assert order[5:] == [104, 105]
+    assert order[:3] == [101, 102, 103]  # «Komme» first, then by estimated arrival
+    assert order[3] == 106  # other before not_coming
+    assert order[4:] == [104, 105]
 
 
 # --- classification -------------------------------------------------------------------------
@@ -225,7 +262,7 @@ def test_several_alarms_merge_latest_answer_per_person():
     assert people[104]["kind"] == "coming"  # the Nachalarm answer is newer
     assert summary["alarm_count"] == 2
     assert summary["addressed"] == 11  # union
-    assert summary["read"] == 9
+    assert summary["read"] == 8  # counts only: the larger of the two alarms' numbers
     assert summary["answered"] == 8
     assert summary["updated_at"] == datetime(2026, 10, 8, 20, 5, tzinfo=UTC)
 
@@ -245,15 +282,37 @@ async def test_catalogue_is_fetched_once_and_only_when_answers_need_it(monkeypat
         calls.append(request.url.path)
         return httpx.Response(200, json=PULL_ALL)
 
+    clock = [1000.0]
+    monkeypatch.setattr(dr.time, "monotonic", lambda: clock[0])
     cache = dr.StatusCatalogueCache()
     async with _client(handler) as client:
         assert await cache.ensure(client, set()) is None  # no answers → no fetch
         assert calls == []
         first = await cache.ensure(client, {11})
-        second = await cache.ensure(client, {11, 12, 99})  # unknown id inside 6 h: no refetch
-    assert calls == ["/api/v2/pull/all"]
-    assert first is second
+        assert await cache.ensure(client, {11, 12}) is first  # known ids: no refetch
+        clock[0] += 60
+        await cache.ensure(client, {11, 99})  # unknown id, but inside the 15-min backoff
+        assert len(calls) == 1
+        clock[0] += dr.CATALOGUE_RETRY_SECONDS
+        await cache.ensure(client, {11, 99})  # a status added in Divera: fetched again
+        assert len(calls) == 2
+        clock[0] += dr.CATALOGUE_RETRY_SECONDS
+        await cache.ensure(client, {11})  # all known and fresh: nothing
+        assert len(calls) == 2
     assert first["13"]["name"] == "Komme nicht"
+
+
+async def test_the_catalogue_fetch_has_its_own_short_timeout(monkeypatch):
+    monkeypatch.setattr(settings, "divera_access_key", "unit-key")
+    seen: list[Any] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.extensions.get("timeout"))
+        return httpx.Response(200, json=PULL_ALL)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), timeout=30.0) as client:
+        await dr.StatusCatalogueCache().ensure(client, {11})
+    assert seen[0]["read"] == dr.CATALOGUE_TIMEOUT_SECONDS
 
 
 async def test_catalogue_from_the_members_sync_is_reused(monkeypatch):

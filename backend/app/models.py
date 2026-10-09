@@ -1693,7 +1693,7 @@ class DiveraEmergency(Base):
     # answered under which status), normalised by services/divera_responses.py from the
     # same `/alarms` answer the poller already fetches. Replaced whole on every change;
     # NULL = nothing seen yet. Never marks anybody present – that stays one explicit tap.
-    responses_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    responses_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     responses_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
