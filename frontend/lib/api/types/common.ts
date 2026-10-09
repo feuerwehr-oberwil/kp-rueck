@@ -12,6 +12,8 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly isConflict: boolean = false,
+    /** The backend's stable error code, when it sent one (backend/app/utils/error_codes.py). */
+    public readonly code?: string,
   ) {
     super(message)
     this.name = 'ApiError'

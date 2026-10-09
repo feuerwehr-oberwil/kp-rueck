@@ -22,6 +22,8 @@ import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import { RekoPickerDialog } from "@/components/event-setup-checklist"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
+import { FiguresSheet } from "@/components/kanban/figures-sheet"
+import { CrewDutySheet } from "@/components/kanban/crew-duty-sheet"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
 import { IncidentStatusWorkflowDialogs, type useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
@@ -38,6 +40,7 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { VehicleStatusSheet } from "@/components/vehicle-status-sheet"
 import type { FooterSheet } from "@/components/board/board-footer"
 import type { useEvent } from "@/lib/contexts/event-context"
+import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Material, Operation, OperationStatus, Person, useOperations } from "@/lib/contexts/operations-context"
 import type { usePersonnel } from "@/lib/contexts/personnel-context"
@@ -104,6 +107,8 @@ export interface BoardDialogsProps {
   assignmentLabelForPerson: (person: { name: string }) => string | null
   assignmentOperationId: string | null
   assignmentResourceType: ResourceKind | null
+  /** Pre-filled search when a field request opened the dialog («Tauchpumpe Gr.»). */
+  assignmentInitialSearch?: string
   attendanceOpen: boolean
   auftraegeFocusGroupId: string | null
   auftraegeSheetOpen: boolean
@@ -111,6 +116,7 @@ export interface BoardDialogsProps {
   closedStopGuard: ReturnType<typeof useClosedStopGuard>
   createGroup: Groups["createGroup"]
   createOperation: Ops["createOperation"]
+  mergeOperationInto: Ops["mergeOperationInto"]
   deleteDialogOpen: boolean
   deleteReleaseHint: string | null
   detailModalOpen: boolean
@@ -128,7 +134,7 @@ export interface BoardDialogsProps {
   handleConfirmAddStops: (incidentIds: string[]) => void
   handleDeleteOperationConfirm: () => Promise<void>
   handleDistributeToAuftrag: (operationId: string) => void
-  handleOpenAssignmentDialog: (resourceType: ResourceKind, operationId: string) => void
+  handleOpenAssignmentDialog: (resourceType: ResourceKind, operationId: string, search?: string) => void
   handleOpenIncidentFromNotification: (incidentId: string) => void
   handleOpenRapport: (operationId: string) => void
   handleOperationDelete: OperationHandlers["handleOperationDelete"]
@@ -158,6 +164,10 @@ export interface BoardDialogsProps {
   operations: Operation[]
   performDistribute: (groupId: string, incidentId: string) => void
   personnel: Person[]
+  /** The Dienstzeiten overview (footer sheet `'crew'`). */
+  crewDutySheetOpen: boolean
+  fatigueHours: number
+  personEngagements: Map<string, PersonEngagement>
   printSheetOpen: boolean
   printerEnabled: boolean
   rapportBacklogSheetOpen: boolean
@@ -222,6 +232,7 @@ export function BoardDialogs({
   assignmentLabelForPerson,
   assignmentOperationId,
   assignmentResourceType,
+  assignmentInitialSearch,
   attendanceOpen,
   auftraegeFocusGroupId,
   auftraegeSheetOpen,
@@ -229,6 +240,7 @@ export function BoardDialogs({
   closedStopGuard,
   createGroup,
   createOperation,
+  mergeOperationInto,
   deleteDialogOpen,
   deleteReleaseHint,
   detailModalOpen,
@@ -276,6 +288,9 @@ export function BoardDialogs({
   operations,
   performDistribute,
   personnel,
+  crewDutySheetOpen,
+  fatigueHours,
+  personEngagements,
   printSheetOpen,
   printerEnabled,
   rapportBacklogSheetOpen,
@@ -359,6 +374,8 @@ export function BoardDialogs({
         }}
         onCreateOperation={createOperation}
         defaultGroupId={newEmergencyGroupId}
+        eventId={selectedEvent?.id ?? null}
+        onMergeInto={isEditor ? mergeOperationInto : undefined}
       />
 
       {/* Resource Assignment Dialog */}
@@ -373,6 +390,7 @@ export function BoardDialogs({
           }
         }}
         resourceType={assignmentResourceType}
+        initialSearch={routeAssign ? undefined : assignmentInitialSearch}
         operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
         assignTarget={routeAssign ? 'route' : 'incident'}
         routeName={routeAssign ? groups.find((g) => g.id === routeAssign.groupId)?.name : undefined}
@@ -455,6 +473,7 @@ export function BoardDialogs({
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelForPerson}
           onAttendanceChange={refreshPersonnel}
+          canCheckIn={isEditor}
         />
       )}
 
@@ -489,6 +508,16 @@ export function BoardDialogs({
         funkrufname={funkrufname}
       />
 
+      {/* Dienstzeiten — who is here, since when, how long, how many Einsätze */}
+      <CrewDutySheet
+        open={crewDutySheetOpen}
+        onOpenChange={(open) => !open && activeFooterSheet === 'crew' && setActiveFooterSheet(null)}
+        eventId={selectedEvent?.id ?? null}
+        personnel={personnel}
+        personEngagements={personEngagements}
+        fatigueHours={fatigueHours}
+      />
+
       {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}
       <RapportBacklogSheet
         open={rapportBacklogSheetOpen}
@@ -496,6 +525,16 @@ export function BoardDialogs({
         rapports={openRapports}
         filed={filedRapports}
         onOpenRapport={handleOpenRapport}
+      />
+
+      {/* Kennzahlen — Lage numbers + Reaktionszeiten (Übungsauswertung on a training Ereignis) */}
+      <FiguresSheet
+        open={activeFooterSheet === 'figures'}
+        onOpenChange={(open) => !open && activeFooterSheet === 'figures' && setActiveFooterSheet(null)}
+        eventId={selectedEvent?.id ?? null}
+        training={!!selectedEvent?.training_flag}
+        operations={operations}
+        onOpenIncident={handleOpenIncidentFromNotification}
       />
 
       {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
@@ -664,6 +703,11 @@ export function BoardDialogs({
         onOpenChange={setMobilePersonnelSheetOpen}
         personnel={personnel}
         operations={operations}
+        onOpenCrewDuty={() => {
+          // One layer at a time on the phone: the overview replaces the list.
+          setMobilePersonnelSheetOpen(false)
+          setActiveFooterSheet('crew')
+        }}
       />
 
       {/* Mobile Bottom Navigation. No separate Thermo entry any more: the one

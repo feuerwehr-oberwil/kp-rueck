@@ -166,7 +166,12 @@ DEFAULT_SETTINGS = {
     # Stored ONE CHIP PER LINE, because the settings table is string-valued and
     # the Einstellungen page edits it in the same Textarea shape as the templates
     # next to it. Blank lines are dropped on read (`parse_message_chips`).
-    "feld.message_chips": "Verstärkung nötig\nMaterial nötig\nfertig in ~30 Min\nEinsatzstelle übergeben",
+    #
+    # «Verstärkung nötig» and «Material nötig» used to be chips here. Since R13
+    # they are fixed, structured buttons on /feld (what, how many), so they left
+    # the default; a station that kept them in its own list does not see them
+    # twice — `without_structured_chips` drops them on the way to the phone.
+    "feld.message_chips": "fertig in ~30 Min\nEinsatzstelle übergeben",
     # The same, for a FAHRER. A driver may not report «Angekommen» or «Einsatz
     # beendet» — those are the working crew's statements about a Schadenplatz and
     # the server refuses them (`WORK_SOURCES`) — so the crew's chips read wrong
@@ -192,6 +197,13 @@ DEFAULT_SETTINGS = {
     #     «Meldung» heading above that field, so the label reads twice on the card. A line
     #     left with nothing behind its label is dropped: a label alone is not content.
     "alarm.description_label_prefixes": "",
+    # Divera Rückmeldungen («Anrückend» in the Appell and the Personen-Leiste): which of the
+    # Einheit's own response statuses mean «kommt» / «kommt nicht». A JSON object keyed by
+    # Divera status id ("13") or status name ("Komme nicht", case/diacritic-insensitive),
+    # value "coming" | "not_coming" | "other"; an id beats a name. EMPTY = the built-in name
+    # heuristic, which already reads «Komme», «Komme in 10 min», «Komme nicht» right. See
+    # services/divera_responses.py and docs/ALARM-INTEGRATIONS.md.
+    "divera.response_classification": "",
 }
 
 FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
@@ -211,6 +223,16 @@ def parse_message_chips(value: str | None) -> list[str]:
     if not value:
         return []
     return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+# The chips that became structured /feld requests (R13). Compared case- and
+# space-insensitively, because a station typed them into a Textarea.
+STRUCTURED_REQUEST_CHIPS: frozenset[str] = frozenset({"verstärkung nötig", "material nötig"})
+
+
+def without_structured_chips(chips: list[str]) -> list[str]:
+    """The chips minus the two that are fixed request buttons on /feld now."""
+    return [chip for chip in chips if " ".join(chip.casefold().split()) not in STRUCTURED_REQUEST_CHIPS]
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:

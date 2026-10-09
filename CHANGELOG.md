@@ -43,8 +43,142 @@ will keep holding.
   is not part of the contract. The reading rules are byte-identical with KP Front's
   (docs/ROSTER-SNAPSHOT.md). *No action needed – without a source nothing is fetched and the
   Divera sync is unchanged.*
+- **«Anrückend»: who answered the Divera alarm, in the Appell and the Personen-Leiste.** The
+  Divera poll already fetched every alarm's Rückmeldungen and threw them away. They are now kept
+  as a plain yes/no and shown above the roll-call and at the top of the personnel sidebar: one
+  line of counts («4 kommen · 2 kommen nicht»), then the names of everybody coming who has not
+  checked in yet, with their Grad and one click to check them in. «Kommt nicht» is its own muted
+  group marked with ✕ and the words – not red, and check-in is still offered in case somebody
+  misclicked. A Divera answer never checks anybody in by itself. Answers from Divera members
+  nobody on the roster is linked to are only counted; answers that are neither yes nor no
+  («Rückruf erbeten») are ignored. Without Divera, or on an Ereignis with no recent Divera alarm,
+  nothing changes on screen. Which of the Einheit's own statuses mean «kommt» / «kommt nicht» is
+  read from their names; a station whose names are unusual sets `divera.response_classification`
+  (see `docs/ALARM-INTEGRATIONS.md`). Only alarms of the last 6 hours count, the newer alarm
+  wins per person, and anybody who already checked in on the Ereignis – or checked in and went
+  home – stays out of the list. Editors and admins see it; the viewer role does not. Stored is
+  only who said yes or no (no times, notes or Divera ids), deleted 48 hours after the alarm and when the Ereignis is archived (`PRIVACY.md`). No new
+  Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`, at most
+  once every 6 h or when an answer uses a status not seen before. Migration: two nullable columns
+  on `divera_emergencies`.
+- **Assign by typing: «14 tlf meier» in ⌘K.** Every Einsatz now has a small number, counted per
+  Ereignis and shown before the address – on the board and wall cards, in the detail header, on
+  the Lagekarte labels, in the Doppelbelegung prompt and wherever an Einsatz is named, and on the
+  A4 status print (whose map pins now carry the same number). On the board the command palette reads
+  what follows it – spaces only, no special characters, in any order (the Einsatz can also be
+  named by its address or Einsatzart: `bachweg 3 tlf meier`, `bachw tlf`; two Einsätze on one
+  street ask which, a house number alone stays an Einsatz number): `14 tlf meier` puts the TLF
+  and Meier on Einsatz 14, `14 einsatz` / `14 dispo` move it, `14 hoch` sets the priority, `14`
+  opens it, and `meier` or `tlf` alone shows where they are. Names match first name, last name or
+  both, by their beginning, without caring about umlauts (`muller`, `mueller`); a name found only
+  through a typo, or a first name and a surname of two different people, asks before anybody is
+  assigned. Status words are German or French. A line under the input shows exactly what ↵ will
+  do; words it does not know are greyed, and a word that fits two things (two Meier, «Hoch» the
+  person and the priority) lists both instead of guessing. Without a leading number ↵ stays with
+  the ordinary commands («neu» is still «Neuer Einsatz»). ↵ goes through the same path as
+  dragging – Doppelbelegung and driver questions, one at a time – and the receipt has
+  «Rückgängig», which also puts back what a «Hierher verschieben» took off another Einsatz. The numbers are assigned by the database (migration
+  `d9a4c2e7b1f3`, existing Einsätze numbered in creation order), so every way an Einsatz is
+  created gets one, and a number is never reused within an Ereignis.
+- **A second report about the same Schadenplatz is no longer a second card.** «Neuer Einsatz», the
+  Alarmeingang's «Anhängen» and `/feld`'s «Neue Meldung» now ask, before a card is made, whether an
+  open Einsatz of the same Ereignis stands within 50 m or at the same street and house number
+  («Hauptstr. 6» and «Hauptstrasse 6, 4104 Oberwil» are one door). An amber line says
+  «Möglicherweise dasselbe wie Hauptstrasse 6 · 40 m · vor 6'», with a small sketch of the two pins
+  where there is room, and two answers: «Zusammenführen» appends the report – Meldung, Melder,
+  Telefon, sender and its reference – to that card's Notizen as a Nachtrag and fills an empty
+  Melder, «Trotzdem neu» puts the line away. Closed and deleted Einsätze and other Ereignisse never
+  match. Automatic doors never merge on their own: an alarm from the webhook, the poller, the
+  public `/alarm` form or a bulk attach becomes its card as before and is marked «Mögliches
+  Duplikat von …» with «Zusammenführen» and «Kein Duplikat» right on the card. Every merge is
+  undoable – «Rückgängig» on the toast, «Trennen» in the card's Verlauf – and audited on both
+  cards; the merged report keeps its own (hidden) row, so its source and source reference stay
+  answerable. Only a fresh report is merged – one still «Eingegangen», with no crew, Reko, Rapport
+  or messages from the field – and never into a closed Einsatz; the merged card takes the higher of
+  the two priorities. A Meldung from `/feld` that was merged stays in the reporter's «Von mir
+  gemeldet» as «Zusammengeführt in …».
+  Migration `d2a9e6f41c83` adds two nullable columns to `incidents`; it runs on boot.
+- **Requests from the field are work items, not just notifications.** Every Meldung a crew sends
+  on `/feld` – a chip, a typed sentence, an Abholung – now has a state: *offen* → *in Arbeit*
+  (optional) → *erledigt*, with who and when. It sits on the incident card as a compact line
+  («Material: Tauchpumpe Gr. ×2 — offen»), in the detail's Feld tab with *In Arbeit* /
+  *Erledigt* / *Wieder öffnen*, and in a new «Vom Feld – offen» section at the top of the
+  notification sidebar, which keeps it until somebody handles it. **Closing the notification no
+  longer makes a request disappear**: it marks it «gesehen» (the crew reads «Vom KP gesehen»), and
+  only *Erledigt* takes it off the card and the sidebar; *Erledigt* also closes the notification.
+  The bell counts open requests; *Gesehen* on the request acknowledges it without handling it, and
+  «Alle schliessen» leaves requests alone. Handling it in one place updates the others and the
+  crew's phone («KP: in Arbeit», «erledigt · 14:32 · Name»); two operators acting on the same
+  request at once get «inzwischen geändert» instead of overwriting each other, and «Nochmals
+  senden» on a phone never creates a second request. Completing an incident closes its open
+  Meldungen; Material, Verstärkung and Abholung stay open until somebody handles them.
+- **«Material nötig» and «Verstärkung nötig» are structured.** On `/feld` they open a small
+  picker – the material from the station's inventory (or typed), how many, a note – so the KP
+  reads «Tauchpumpe Gr. ×2» instead of prose. On the board, *Material zuteilen* / *Personal
+  zuteilen* opens the usual assignment dialog for that incident, searched for the item, and marks
+  the request *in Arbeit*. The Abholung is the same work item as the amber chip: *Erledigt* in the
+  sidebar and «Abholung disponiert» on the chip are one action. A request taken over the radio can
+  be recorded from the board (`POST /api/incidents/{id}/field-requests`, «im KP erfasst»).
+  Upgrade note: the two were station chips; they left the default chip list, and a station that
+  kept them in its own list does not see them twice. Requests stay in the audit log and the
+  incident's Verlauf exactly as Meldungen did (migration `d9a4e7c21f05`, additive; open
+  Abholungen get their work item on upgrade).
+- **Kennzahlen: the Lage and the Reaktionszeiten on screen, not only in the PDF.** «Kennzahlen» in
+  the board's footer (key `Z`, also in the command palette) shows Meldungen, offen (per priority),
+  in Arbeit and erledigt; the time from Eingang to **Disponiert**, **Vor Ort** and **Abschluss** as
+  median and P90 per priority; the oldest «hoch» Meldung still waiting, with its age (a click opens
+  it); and one bar per priority for Eingang → Disponiert. On a training Ereignis the same view is the
+  **Übungsauswertung**; any past Ereignis has it under Ereignisse → ⋯ → Kennzahlen; and the status
+  wall (`/display/status`, share link included) carries it as a foldable section above the
+  Einsätze. The numbers come from the same computation as the PDF's Reaktionszeiten table
+  (`services/reaction_times.py`), so the wall and the debrief cannot disagree. Nothing similar
+  existed in the settings: the old `/stats` page (user menu) was removed in January and its widget
+  in July. The figures have their own light route, `GET /events/{id}/figures` (incidents +
+  transitions, nothing else), since the board and the wall reload them every 10 s.
+- **Dienstzeiten: who is here, for how long, and how much they have done.** «Dienstzeiten» under
+  the Personen-Leiste's counter, in the phone's Personal sheet and in the command palette opens an
+  overview of everybody checked in, longest on duty first: since when, time on duty (counted from
+  the check-in; amber from the station's «Personalermüdung» setting, 4 h by default, red from one
+  and a half times that), the number of Einsätze worked in this Ereignis (an Auftrag counts once,
+  a drag that was undone within two minutes not at all) and where they are now. The person rows
+  themselves stay as they were. A view, not a planner – nobody is scheduled or alerted from it.
+- **Weather on the map: rain radar and official warnings.** A «Wetter» switch in «Ansicht» (on
+  `/map` and the wall display `/display/map`) lays MeteoSwiss's precipitation radar over the map,
+  under every marker and route, with a small panel bottom-left: ▶ plays the last hour in 5-minute
+  steps, the scrubber picks a frame and says how old it is («vor 40 min»), plus opacity, the
+  colour key and «Quelle: MeteoSchweiz». Official warnings for the station's location appear as a
+  chip in the map's top-right corner whether the radar is on or not – MeteoSwiss warnings (via
+  MeteoAlarm) and Alertswiss notices such as a cantonal fire ban. The chip names the warning in the
+  source's own word and how long it holds; a tap shows the full text exactly as published, with
+  region, validity and the source. Nothing ever waits on the weather: the backend fetches it on
+  its own schedule, each source fails on its own, and data that has stopped updating is greyed
+  out with its time («Veraltet – Stand 17:05») instead of passing for current. Uses the station
+  coordinates from Settings → Allgemein. Needs outbound internet to `data.geo.admin.ch`,
+  `feeds.meteoalarm.org` and `www.alert.swiss`; `WEATHER_ENABLED=false` turns it off (stations
+  outside Switzerland, or without outbound access). The backend image grows by about 74 MB
+  (numpy + h5py, needed to read the radar files).
 
 ### Changed
+
+- **The bell speaks French too.** A notification used to be one German sentence composed on the
+  server, which the board then took apart again with regular expressions to lay it out – so a
+  French-speaking KP read German in the bell, the toasts and the Warnungen panel. Every
+  notification now also carries the facts it is made of (place, person, minutes, column, …), and
+  the board says them in the device's language: «Récupération nécessaire» / «Hauptstrasse 1 ·
+  saisi au PC». What the crew typed and what a training inject says stay as written. German
+  reads as before, with the board's own column names («Disponiert / Anfahrt») where the sentence
+  used the printout's. The `/feld` phone's and the Reko form's error messages («Bitte den Code neu
+  eingeben.», «Diese Einsatzstelle ist dir nicht zugeteilt.», an invalid Reko link, photo size and
+  type) are in the crew's language as well, and the
+  installed app announces the device's language (`fr-CH`) instead of always `de-CH`. Italian
+  stays German until its translation is complete.
+  *After the update:* notifications raised BEFORE it carry no facts, so they keep showing their
+  German sentence, in every language, until they age out – an open one until it is dismissed or
+  resolves itself, a dismissed one when it drops out of the bell's 24-hour history. Nothing is
+  rewritten; new notifications are in the device's language from the first one on.
+  *Deployment:* one migration (a nullable `params` column on `notifications`, nothing
+  backfilled), runs on boot. API: `GET /api/notifications/` rows gain `params` (null on old
+  rows); `/feld` error bodies gain a stable `code` beside the unchanged German `detail`.
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
   iPhone showed a screenshot of the page: the icon was an SVG, which iOS does not accept there,
@@ -59,8 +193,34 @@ will keep holding.
   drift apart. Opened from the home screen the app runs without the address bar and, on iOS, with
   its own storage: log in once more after adding it.
 
+### Removed
+
+- **The print agent no longer serves KP Front.** KP Front removed its station print relay (A4
+  PDFs through CUPS; prod never sent it a job), so the agent's KP Front half went too: the
+  `kp-front` protocol, the CUPS output, the old `KP_BASE_URL` / `KP_PRINT_AGENT_SECRET` /
+  `KP_PRINTER` variables, and `cups-client` in the `kp-print-agent` image. KP Rück's thermal
+  slips print exactly as before. Nothing to do on update: a config file that still lists a
+  `kp-front` backend, or a box with the old `KP_*` variables, keeps printing KP Rück's slips and
+  says in the log which entry can go. A bare-Pi install of the agent now asks for Python 3.10,
+  which the thermal printer's packages already needed.
+
 ### Fixed
 
+- **Reaktionszeiten in the Einsatzbericht count a skipped column and the last Abschluss.** A card
+  dragged straight from Eingegangen to «Im Einsatz» had no «→ Disponiert»; it now counts as
+  dispatched when it first reached any dispatched status. A reopened incident printed its first
+  «Abgeschlossen»; the Abschluss is now the closing that stuck, and empty while it is open again.
+  A Meldung closed without anybody going out still has no reaction time. An incident created
+  already dispatched (/feld «Wir übernehmen» writes no status change for it) counts as dispatched at
+  Eingang instead of at the crew's arrival, and a move taken back within two minutes (a mis-drag)
+  no longer counts as reaching that stage.
+- **«Zu spät, bitte per Funk» on /feld shows again.** Correcting a Meldung the KP had already
+  taken over said «Meldung konnte nicht abgesetzt werden» instead of telling the crew to use the
+  radio: the phone looked for «409» in the error text, which never contained it. It now reads the
+  answer's status and code.
+- **A /feld address that is not the poster's link asks for the QR code, not the digits.** Opening
+  a bookmarked or forwarded /feld address after unlocking answered every code with «Falscher
+  Code»; no code could ever work there. It now says to scan the QR code on the poster again.
 - **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
   internal codes (`high`, `active`) rather than the words on the card, so «hoch» or «einsatz»
   found nothing while a fragment like «in» or «com» found every card in a column. The search now
@@ -73,7 +233,21 @@ will keep holding.
   returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
   forwards the token to the board, map and status wall pages. The sheet now uses that `link`
   instead of building its own.
-
+- **The time-on-duty warning counts from arrival and rings once, not per person.** It measured how
+  long somebody had been on their *current* assignment, so moving a person to the next
+  Schadenplatz reset them to zero – somebody seven hours in, just moved, never showed up – and Aufträge
+  were not counted at all. It also raised one warning per person, with a sentence that changed every
+  hour, so a long night rang the bell for each name every hour. It now counts from the check-in
+  and is ONE notification naming everybody past the threshold, longest first («3 Personen seit über
+  4 h im Einsatz: …»), rewritten in place as people cross it. Dismissing it acknowledges the people
+  it named; anybody else past the threshold (crossed later, came back for a new shift, a lowered
+  threshold) raises a new one, as does the re-alarm interval if one is set. It goes away by itself
+  once nobody past the threshold is checked in any more. Several boards polling at once can no
+  longer raise it twice.
+- **↵ in ⌘K runs the best match.** Typing «neu» and pressing ↵ opened «Einstellungen»: the
+  palette ranked commands only within their section, and «Navigation» comes first, so any
+  loose match there (n…e…u in «Einstellungen») beat «Neuer Einsatz» further down. The whole
+  list is now ranked by how well each entry matches, and the highlighted top row is what ↵ runs.
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open

@@ -18,23 +18,27 @@
  * thread reads the same feed.
  */
 
+import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { ArrowRight, MessageSquare, Package, Send, Truck, UserMinus, UserPlus } from "lucide-react"
+import { ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
 import { STATUS_LABELS } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
-import { LoadingStatus } from "@/components/ui/shell-loader"
+import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
+import { Button } from "@/components/ui/button"
 
 export interface IncidentTimelineProps {
   events: ApiIncidentTimelineEvent[] | null
   isLoading: boolean
   failed: boolean
   onRetry: () => void
+  /** «Trennen» on a merge that still stands (R2) — absent for a viewer. */
+  onUnmerge?: (mergedIncidentId: string) => Promise<void>
   className?: string
 }
 
-export function IncidentTimeline({ events, isLoading, failed, onRetry, className }: IncidentTimelineProps) {
+export function IncidentTimeline({ events, isLoading, failed, onRetry, onUnmerge, className }: IncidentTimelineProps) {
   const t = useTranslations('kanban')
   const tLoading = useTranslations('common')
 
@@ -69,7 +73,7 @@ export function IncidentTimeline({ events, isLoading, failed, onRetry, className
       {!isLoading && !failed && events && events.length > 0 && (
         <ol>
           {events.map((event, idx) => (
-            <TimelineRow key={idx} event={event} />
+            <TimelineRow key={idx} event={event} onUnmerge={onUnmerge} />
           ))}
         </ol>
       )}
@@ -77,9 +81,20 @@ export function IncidentTimeline({ events, isLoading, failed, onRetry, className
   )
 }
 
-function TimelineRow({ event }: { event: ApiIncidentTimelineEvent }) {
+function TimelineRow({
+  event,
+  onUnmerge,
+}: {
+  event: ApiIncidentTimelineEvent
+  onUnmerge?: (mergedIncidentId: string) => Promise<void>
+}) {
+  const t = useTranslations('duplicates')
+  const [splitting, setSplitting] = useState(false)
   const time = formatTime(event.timestamp)
-  const isMessage = event.event_type === "field_message" || event.event_type === "kp_message"
+  const isMessage =
+    event.event_type === "field_message" || event.event_type === "kp_message" || event.event_type === "merge"
+  // A merged report can be split off again for as long as the merge stands.
+  const splittable = event.event_type === "merge" && event.merge_active && event.merged_incident_id && onUnmerge
   return (
     <li className={cn("flex gap-3 py-1 text-xs", isMessage ? "items-start" : "items-center")}>
       <span className={cn("shrink-0 font-mono tabular-nums text-muted-foreground", isMessage && "pt-px")}>{time}</span>
@@ -90,6 +105,27 @@ function TimelineRow({ event }: { event: ApiIncidentTimelineEvent }) {
         <span className={cn("min-w-0", isMessage ? "flex-1 break-words" : "truncate")}>
           <EventLabel event={event} />
         </span>
+        {splittable && (
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="shrink-0"
+            title={t('timeline.splitHint')}
+            disabled={splitting}
+            onClick={async () => {
+              setSplitting(true)
+              try {
+                await onUnmerge(event.merged_incident_id!)
+              } finally {
+                setSplitting(false)
+              }
+            }}
+          >
+            {splitting ? <ShellLoader className="size-3.5" /> : <Split className="size-3.5" />}
+            {t('timeline.split')}
+          </Button>
+        )}
       </div>
     </li>
   )
@@ -98,6 +134,12 @@ function TimelineRow({ event }: { event: ApiIncidentTimelineEvent }) {
 function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
   if (event.event_type === "status_change") {
     return <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+  }
+  if (event.event_type === "merge") {
+    return <Combine className="mt-px h-3.5 w-3.5 shrink-0 text-warning-foreground" />
+  }
+  if (event.event_type === "unmerge") {
+    return <Split className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
   if (event.event_type === "field_message") {
     return <MessageSquare className="mt-px h-3.5 w-3.5 shrink-0 text-info" />
@@ -125,6 +167,7 @@ function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
 
 function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
   const t = useTranslations('kanban')
+  const tDuplicates = useTranslations('duplicates')
   // Translate known statuses; unknown values fall back to the raw status string.
   const statusLabel = (status: string | null | undefined): string => {
     if (!status) return "–"
@@ -163,6 +206,20 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
         <span className="font-medium text-foreground">{who}</span>
         <span className="text-muted-foreground"> {t('timeline.kpMessageVerb')}: </span>
         <span className="text-foreground">{event.message}</span>
+      </>
+    )
+  }
+
+  if (event.event_type === "merge" || event.event_type === "unmerge") {
+    // «Meldung zusammengeführt · B. Eichenberger: Weitere Meldung 14:32 (Telefon): …»
+    return (
+      <>
+        <span className="font-medium text-foreground">
+          {event.event_type === "merge" ? tDuplicates('timeline.merged') : tDuplicates('timeline.unmerged')}
+        </span>
+        {event.actor_name && <span className="text-muted-foreground"> · {event.actor_name}</span>}
+        {event.message && <span className="text-muted-foreground">: </span>}
+        {event.message && <span className="text-foreground">{event.message}</span>}
       </>
     )
   }

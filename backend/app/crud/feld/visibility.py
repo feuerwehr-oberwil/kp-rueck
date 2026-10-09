@@ -59,6 +59,7 @@ from ...models import (
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies, reko_not_relevant_ids
 from ...services.incident_leader import effective_leader_id
 from .reports import is_automation_user
+from .requests import requests_for_incidents
 
 # ============================================
 # Authorization — step 2
@@ -1019,6 +1020,9 @@ async def get_feld_assignments_for_personnel(
 
     pickup_acks = await _pickup_acks(db, {incident_id: incidents[incident_id] for incident_id in mine_ids})
     kp_messages = await kp_messages_crud.messages_for_incidents(db, mine_ids)
+    # What the field asked for and where it stands (R13). The Abholung has its
+    # own standing box on the phone, so its work item is not repeated here.
+    field_requests = await requests_for_incidents(db, mine_ids, include_pickup=False)
 
     rows: list[dict[str, Any]] = []
     for incident_id, is_active in mine.items():
@@ -1074,6 +1078,7 @@ async def get_feld_assignments_for_personnel(
                 "pickup_resolved_at": acks.get("pickup_resolved_at"),
                 # «Meldungen vom KP» (§P3.2), oldest first — thread order.
                 "kp_messages": kp_messages.get(incident_id, []),
+                "field_requests": field_requests.get(incident_id, []),
                 "leader_personnel_id": leader[0] if leader else None,
                 "leader_name": leader[1] if leader else None,
                 "group_id": incident.group_id,

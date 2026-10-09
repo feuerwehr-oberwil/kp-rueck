@@ -169,6 +169,12 @@ EXTERNAL_TWINS: dict[str, str] = {
     "POST /api/feld/incidents/{incident_id}/pickup": (
         "POST /api/incidents/{incident_id}/field-report — sets pickup_needed/pickup_note"
     ),
+    "POST /api/feld/incidents/{incident_id}/message": (
+        "POST /api/incidents/{incident_id}/field-requests — the same payload into the same "
+        "crud/feld.create_field_request (R13), so a Meldung or a Material/Verstärkung request "
+        "dictated over the radio lands as the identical work item, provenance «im KP erfasst». "
+        "This closes the gap the registry surfaced in plan 26."
+    ),
     "PUT /api/feld/incidents/{incident_id}/rapport": "PUT /api/incidents/{incident_id}/rapport",
     "PUT /api/feld/incidents/{incident_id}/report": (
         "PATCH /api/incidents/{incident_id} — the board's own edit produces the identical "
@@ -213,15 +219,6 @@ KNOWN_GAPS: dict[str, str] = {
         "POST /api/reko/{incident_id}/generate-link, which is editor-authed and hands "
         "out the identical token. Two doors, one credential, no second handler to keep "
         "in step."
-    ),
-    "POST /api/feld/incidents/{incident_id}/message": (
-        "NO BOARD TWIN — surfaced by this registry, not by the audit. A crew's "
-        "Freitext-Meldung becomes a notification plus an append-only Journal entry, "
-        "and `crud/feld.record_field_message` already handles a user actor and writes "
-        "source='kp' (the incident timeline renders it). Only the HTTP route is "
-        "missing, so a message dictated over the radio has nowhere to land. Plan 26 "
-        "scopes /feld to plan 25 and does not close this; it is a follow-up step, not "
-        "an accepted design."
     ),
 }
 

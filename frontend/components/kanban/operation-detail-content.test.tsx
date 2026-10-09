@@ -80,6 +80,7 @@ vi.mock("@/lib/api-client", () => ({
     updateAssignment: vi.fn(),
     getIncidentTimeline,
     getIncidentParticipants,
+    getFieldRequests: vi.fn().mockResolvedValue([]),
   },
 }))
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))

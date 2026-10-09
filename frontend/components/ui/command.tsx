@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Command as CommandPrimitive } from 'cmdk'
+import { Command as CommandPrimitive, useCommandState } from 'cmdk'
 import { SearchIcon, XIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -170,6 +170,53 @@ function CommandItem({
   )
 }
 
+/**
+ * Ranks a filtered list as a whole: groups by their best item, items inside a
+ * group by score. The first row – the one cmdk highlights and ↵ runs – is then
+ * the best match overall, not the best match of the first group that matches
+ * at all («neu» opened «Einstellungen» from Navigation instead of «Neuer
+ * Einsatz» further down). cmdk 1.1 means to rank groups itself but never does:
+ * it looks each group up by `data-value="<group id>"`, and a group's data-value
+ * is its heading. Items it ranks only while they are rendered, so ones that
+ * reappear (backspace) land unranked; this pass covers those too.
+ *
+ * Render once anywhere inside `<Command>`. It runs in a layout effect, which
+ * React fires before cmdk's own (a parent's) one that highlights the first row.
+ */
+function CommandRankGroups() {
+  const search = useCommandState((state) => state.search)
+  const scores = useCommandState((state) => state.filtered.items)
+  const ref = React.useRef<HTMLSpanElement>(null)
+
+  React.useLayoutEffect(() => {
+    if (!search) return
+    const sizer = ref.current?.closest('[cmdk-root]')?.querySelector('[cmdk-list-sizer]')
+    if (!sizer) return
+    const score = (el: Element) => scores.get(el.id) ?? 0
+    const ranked = (els: Element[], rank: (el: Element) => number) =>
+      els
+        .map((el, index) => ({ el, index, rank: rank(el) }))
+        .sort((a, b) => b.rank - a.rank || a.index - b.index)
+        .map(({ el }) => el)
+    const reorder = (parent: Element, els: Element[], rank: (el: Element) => number) => {
+      const next = ranked(els, rank)
+      if (next.every((el, i) => el === els[i])) return
+      next.forEach((el) => parent.appendChild(el))
+    }
+
+    const groups = Array.from(sizer.children).filter((el) => el.hasAttribute('cmdk-group'))
+    for (const group of groups) {
+      const items = group.querySelector('[cmdk-group-items]')
+      if (items) reorder(items, Array.from(items.children).filter((el) => el.hasAttribute('cmdk-item')), score)
+    }
+    reorder(sizer, groups, (group) =>
+      Math.max(0, ...Array.from(group.querySelectorAll('[cmdk-item]'), score)),
+    )
+  }, [search, scores])
+
+  return <span ref={ref} hidden aria-hidden />
+}
+
 function CommandShortcut({
   className,
   ...props
@@ -194,6 +241,7 @@ export {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  CommandRankGroups,
   CommandShortcut,
   CommandSeparator,
 }

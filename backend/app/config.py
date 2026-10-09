@@ -234,6 +234,21 @@ class Settings(BaseSettings):
     # both deployments configure identically. See background/heartbeat.py.
     healthcheck_ping_url: str = ""
 
+    # Weather layer on the map (app/services/weather/): MeteoSwiss precipitation radar every
+    # 5 min, MeteoSwiss warnings (via MeteoAlarm) and Alertswiss every 10 min, for the station
+    # coordinates in Settings. Open federal data, no key. The sources cover Switzerland only, so
+    # a station elsewhere – or one whose IT forbids outbound traffic – sets WEATHER_ENABLED=false:
+    # no job is scheduled, nothing is fetched, and the map offers no «Wetter» layer.
+    weather_enabled: bool = True
+
+    @field_validator("weather_enabled", mode="before")
+    @classmethod
+    def _blank_weather_flag_is_default(cls, v: object) -> object:
+        # compose passes an unset variable through as "" – that means «leave the default».
+        if isinstance(v, str) and v.strip() == "":
+            return True
+        return v
+
     # WebSocket
     # Reject connects that carry no valid access_token cookie. Default ON.
     #

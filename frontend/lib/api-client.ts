@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env'
+import type { ApiWeather } from './weather'
 import { translateOutsideReact } from './i18n-messages'
 import {
   markRestReachable,
@@ -13,6 +14,7 @@ import {
   REQUEST_TIMEOUT_MS,
   type RequestOptions,
 } from './api/http'
+import { errorCodeOf, messageForErrorCode } from './api/error-codes'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 // Re-export every API type so existing consumers (`import { type ApiX } from '@/lib/api-client'`)
@@ -34,8 +36,11 @@ import {
   type ApiEventSpecialFunctionDelete,
   type ApiEventSpecialFunctionResponse,
   type ApiEventStats,
+  type ApiEventFigures,
+  type ApiPersonnelActivity,
   type ApiPersonnel,
   type ApiPersonnelListItem,
+  type ApiDiveraResponsesSummary,
   type ApiCheckInStats,
   type ApiPersonnelCreate,
   type ApiPersonnelUpdate,
@@ -58,6 +63,10 @@ import {
   type IncidentPriority,
   type ApiIncident,
   type ApiIncidentCreate,
+  type ApiDuplicateCandidatesResponse,
+  type ApiFeldDuplicateCandidatesResponse,
+  type ApiMergeResponse,
+  type ApiUnmergeResponse,
   type ApiIncidentUpdate,
   type ApiIncidentGroup,
   type ApiIncidentGroupCreate,
@@ -71,6 +80,9 @@ import {
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
   type ApiKpFieldMessage,
+  type ApiFieldRequest,
+  type ApiFieldRequestCreate,
+  type ApiFieldRequestStatus,
   type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
   type ApiRekoReportUpdate,
@@ -251,6 +263,8 @@ export interface ApiViewerData {
   /** incident_id → what the Reko reported, for incidents with a submitted
    *  report. Photos are not in there: the photo route needs the login. */
   reko_summaries?: Record<string, ApiViewerRekoSummary>
+  /** Kennzahlen for the status wall — counts and reaction times only. */
+  figures?: ApiEventFigures
 }
 
 /** How far one photo has got, 0…1. Fed by `XMLHttpRequest.upload.onprogress`. */
@@ -272,6 +286,8 @@ export type FeldUnlockFailure =
   | { kind: 'locked'; retryAfterSeconds: number }
   /** The link token expired (30 days). The code cannot fix this. */
   | { kind: 'expired' }
+  /** The address is not the poster's link any more (backend `feld_reopen_qr`): scan the QR again. */
+  | { kind: 'reopen' }
   /** The request never reached the server, so nothing was checked. */
   | { kind: 'offline' }
 
@@ -281,6 +297,25 @@ export class FeldUnlockError extends Error {
     super(`feld unlock refused: ${failure.kind}`)
     this.name = 'FeldUnlockError'
   }
+}
+
+/** The candidate lookup's query string, shared by the board's and `/feld`'s. */
+function duplicateQuery(params: {
+  eventId?: string
+  lat?: number | null
+  lng?: number | null
+  address?: string | null
+  excludeId?: string | null
+}): URLSearchParams {
+  const query = new URLSearchParams()
+  if (params.eventId) query.set('event_id', params.eventId)
+  if (params.lat != null && params.lng != null) {
+    query.set('lat', params.lat.toFixed(7))
+    query.set('lng', params.lng.toFixed(7))
+  }
+  if (params.address?.trim()) query.set('address', params.address.trim())
+  if (params.excludeId) query.set('exclude_id', params.excludeId)
+  return query
 }
 
 class ApiClient {
@@ -772,10 +807,81 @@ class ApiClient {
     return this.request<ApiKpFieldMessage[]>(`/api/incidents/${incidentId}/field-messages`)
   }
 
+  /** Every request the field made of this Schadenplatz, any state (R13). */
+  async getFieldRequests(incidentId: string): Promise<ApiFieldRequest[]> {
+    return this.request<ApiFieldRequest[]>(`/api/incidents/${incidentId}/field-requests`)
+  }
+
+  /** The board twin: a request taken over the radio, provenance «im KP erfasst». */
+  async createFieldRequest(incidentId: string, payload: ApiFieldRequestCreate): Promise<ApiFieldRequest> {
+    return this.request<ApiFieldRequest>(`/api/incidents/${incidentId}/field-requests`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  /** Work a request: offen → in Arbeit → erledigt, or back to offen. */
+  async setFieldRequestStatus(
+    incidentId: string,
+    requestId: string,
+    status: ApiFieldRequestStatus,
+    /** The state the operator's screen showed — a request another board moved
+     *  on meanwhile answers 409 instead of being overwritten. */
+    expectedStatus?: ApiFieldRequestStatus,
+  ): Promise<ApiFieldRequest> {
+    return this.request<ApiFieldRequest>(`/api/incidents/${incidentId}/field-requests/${requestId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, expected_status: expectedStatus }),
+    })
+  }
+
   async deleteIncident(id: string): Promise<void> {
     return this.request<void>(`/api/incidents/${id}`, {
       method: 'DELETE',
     })
+  }
+
+  // --- Duplicate reports (services/duplicates.py) ---
+
+  /** Open incidents of the Ereignis within 50 m or at the same address. */
+  async getDuplicateCandidates(params: {
+    eventId: string
+    lat?: number | null
+    lng?: number | null
+    address?: string | null
+    excludeId?: string | null
+  }): Promise<ApiDuplicateCandidatesResponse> {
+    // Advice, never a failure the operator has to read: no transport toast, no retries.
+    return this.request<ApiDuplicateCandidatesResponse>(
+      `/api/incidents/duplicate-candidates?${duplicateQuery(params).toString()}`,
+      { skipToast: true, maxRetries: 0 },
+    )
+  }
+
+  /** «Zusammenführen» before a card exists: the report becomes a Nachtrag on `targetId`. */
+  async mergeReport(targetId: string, incident: ApiIncidentCreate): Promise<ApiMergeResponse> {
+    return this.request<ApiMergeResponse>('/api/incidents/merge-report', {
+      method: 'POST',
+      body: JSON.stringify({ target_id: targetId, incident }),
+    })
+  }
+
+  /** «Zusammenführen» on a flagged card: fold `incidentId` into `targetId`. */
+  async mergeIncidentInto(incidentId: string, targetId: string): Promise<ApiMergeResponse> {
+    return this.request<ApiMergeResponse>(`/api/incidents/${incidentId}/merge`, {
+      method: 'POST',
+      body: JSON.stringify({ target_id: targetId }),
+    })
+  }
+
+  /** «Trennen» / «Rückgängig»: the merged report is its own card again (409 when it is not merged). */
+  async unmergeIncident(mergedIncidentId: string): Promise<ApiUnmergeResponse> {
+    return this.request<ApiUnmergeResponse>(`/api/incidents/${mergedIncidentId}/unmerge`, { method: 'POST' })
+  }
+
+  /** «Kein Duplikat»: the flag goes, the card stays. */
+  async dismissDuplicate(incidentId: string): Promise<ApiIncident> {
+    return this.request<ApiIncident>(`/api/incidents/${incidentId}/not-duplicate`, { method: 'POST' })
   }
 
   async restoreIncident(id: string): Promise<ApiIncident> {
@@ -1339,8 +1445,12 @@ class ApiClient {
         // invalid type) — the crew has to see them, not a status code.
         let message = translateOutsideReact('errors.api.photoUploadFailed')
         try {
-          const detail = (JSON.parse(xhr.responseText) as { detail?: unknown }).detail
-          if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
+          const body = JSON.parse(xhr.responseText) as { detail?: unknown }
+          const detail = body.detail
+          // A coded error (size, type, limit) in the crew's language first.
+          const localized = messageForErrorCode(body)
+          if (localized) message = localized
+          else if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
         } catch {
           // Not JSON — keep the generic message.
         }
@@ -1531,6 +1641,16 @@ class ApiClient {
   // Event Stats
   async getEventStats(eventId: string): Promise<ApiEventStats> {
     return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
+  }
+
+  /** Kennzahlen: Lage counts + Reaktionszeiten per priority (the PDF's stage times). */
+  async getEventFigures(eventId: string): Promise<ApiEventFigures> {
+    return this.request<ApiEventFigures>(`/api/events/${eventId}/figures`)
+  }
+
+  /** Time on duty of everybody checked in (the Dienstzeiten overview), longest first. */
+  async getEventPersonnelActivity(eventId: string): Promise<ApiPersonnelActivity[]> {
+    return this.request<ApiPersonnelActivity[]>(`/api/events/${eventId}/personnel-activity`)
   }
 
   // Training Automation
@@ -1809,10 +1929,20 @@ class ApiClient {
     return this.request<ApiDiveraEmergency>(`/api/divera/emergencies/${emergencyId}`)
   }
 
-  async attachEmergencyToEvent(emergencyId: string, eventId: string): Promise<ApiIncident> {
+  /** `mergeIntoIncidentId`: the operator answered «Zusammenführen» to the
+   *  duplicate hint — the alarm becomes a Nachtrag on that card and the
+   *  response is that card. */
+  async attachEmergencyToEvent(
+    emergencyId: string,
+    eventId: string,
+    mergeIntoIncidentId?: string | null,
+  ): Promise<ApiIncident> {
     return this.request<ApiIncident>(`/api/divera/emergencies/${emergencyId}/attach`, {
       method: 'POST',
-      body: JSON.stringify({ event_id: eventId }),
+      body: JSON.stringify({
+        event_id: eventId,
+        ...(mergeIntoIncidentId ? { merge_into_incident_id: mergeIntoIncidentId } : {}),
+      }),
     })
   }
 
@@ -1892,6 +2022,11 @@ class ApiClient {
     })
   }
 
+  /** Divera Rückmeldungen («Komme» / «Komme nicht») for every Divera alarm of an Ereignis. */
+  async getEventDiveraResponses(eventId: string): Promise<ApiDiveraResponsesSummary> {
+    return this.request<ApiDiveraResponsesSummary>(`/api/divera/events/${encodeURIComponent(eventId)}/responses`)
+  }
+
   /** Divera polling/connection status – for the Verbindung indicator. */
   async getDiveraPollingStatus(): Promise<ApiDiveraPollingStatus> {
     return this.request<ApiDiveraPollingStatus>('/api/divera/polling/status')
@@ -1950,6 +2085,20 @@ class ApiClient {
   // Traccar GPS Tracking
   async getTraccarStatus(): Promise<ApiTraccarStatus> {
     return this.request<ApiTraccarStatus>('/api/traccar/status')
+  }
+
+  // Weather layer (radar + official warnings at the station). Silent: it is an optional
+  // overlay, and a feed or backend hiccup must never toast over the map – the layer shows its
+  // own «Stand hh:mm» instead. One try, no retries: the next poll is a minute away anyway.
+  async getWeather(viewerToken?: string): Promise<ApiWeather> {
+    const query = viewerToken ? `?token=${encodeURIComponent(viewerToken)}` : ''
+    return this.request<ApiWeather>(`/api/weather/${query}`, { skipToast: true, maxRetries: 0 })
+  }
+
+  /** A radar frame's PNG. Public and immutable on the backend, so MapLibre may load it as a
+   *  plain image (no session cookie needed, cached for good by the browser). */
+  weatherRadarFrameUrl(key: string): string {
+    return `${this.getBaseUrl()}/api/weather/radar/${encodeURIComponent(key)}.png`
   }
 
   async getVehiclePositions(): Promise<ApiVehiclePosition[]> {
@@ -2082,10 +2231,8 @@ class ApiClient {
 
     // `detail` is an object on the two answers that carry numbers and a plain
     // string on everything else (including a backend older than this client).
-    const detail = await response
-      .json()
-      .then((body: { detail?: unknown }) => body?.detail)
-      .catch(() => undefined)
+    const body = (await response.json().catch(() => undefined)) as { detail?: unknown; code?: unknown } | undefined
+    const detail = body?.detail
     const field = (name: string): number | null => {
       if (typeof detail !== 'object' || detail === null) return null
       const value = (detail as Record<string, unknown>)[name]
@@ -2104,6 +2251,10 @@ class ApiClient {
     if (response.status === 401 || response.status === 404) {
       throw new FeldUnlockError({ kind: 'expired' })
     }
+    // The URL carries a device credential, not the poster's link (a bookmarked or
+    // shared address after unlocking). No code opens that door — it used to read
+    // «Falscher Code», which sent people typing the right digits again and again.
+    if (errorCodeOf(body) === 'feld_reopen_qr') throw new FeldUnlockError({ kind: 'reopen' })
     throw new FeldUnlockError({ kind: 'wrong', attemptsLeft: field('attempts_left') })
   }
 
@@ -2141,6 +2292,21 @@ class ApiClient {
    * of the three shapes that took (a stop on their Auftrag, a new Auftrag, or
    * just them), so the confirmation can be specific instead of "gespeichert".
    */
+  /** «Möglicherweise dasselbe wie …» before a Meldung is sent from the field. */
+  async getFeldDuplicateCandidates(
+    personnelId: string,
+    token: string,
+    params: { lat: number; lng: number; address?: string | null },
+  ): Promise<ApiFeldDuplicateCandidatesResponse> {
+    const query = duplicateQuery(params)
+    query.set('token', token)
+    query.set('personnel_id', personnelId)
+    return this.request<ApiFeldDuplicateCandidatesResponse>(`/api/feld/duplicates?${query.toString()}`, {
+      skipToast: true,
+      maxRetries: 0,
+    })
+  }
+
   async createFeldIncident(
     personnelId: string,
     token: string,
@@ -2260,10 +2426,18 @@ class ApiClient {
   }
 
   /** Freitext-Meldung an den KP – a chip or a typed sentence. */
-  async feldSendMessage(incidentId: string, personnelId: string, token: string, message: string): Promise<void> {
+  async feldSendMessage(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    message: string | ApiFieldRequestCreate,
+  ): Promise<void> {
+    // A plain string is the chip / typed sentence every phone has always sent;
+    // the object form is a structured «Material nötig» / «Verstärkung nötig» (R13).
+    const body = typeof message === 'string' ? { message } : message
     await this.request<void>(this.feldQuery(incidentId, 'message', personnelId, token), {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(body),
     })
   }
 

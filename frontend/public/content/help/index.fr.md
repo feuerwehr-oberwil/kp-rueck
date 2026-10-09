@@ -13,6 +13,8 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« Rapports » dans la barre du bas.** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
+**« Indicateurs » dans la barre du bas (`Z`).** La situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF). Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
+
 ### Vue carte (`G M`)
 Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs colorés indiquent la priorité (vert/jaune/rouge).
 
@@ -218,6 +220,14 @@ l’imprimante, armer le repli papier.
 3. L’intervention apparaît dans « Reçu »
 4. Définir la priorité (`Shift+1/2/3`)
 5. Décider : engager directement ou d’abord reconnaître ?
+
+Si une intervention ouverte du même événement se trouve à moins de 50 m ou à la même adresse, la
+fenêtre l’indique sous le lieu : « Peut-être identique à … ». **Fusionner** ajoute le message et
+l’annonceur comme complément à cette intervention – sans deuxième carte. **Créer quand même** masque
+l’indication. Les alarmes reçues automatiquement (Divera, lien d’alarme) ne sont jamais fusionnées
+d’elles-mêmes : leur carte affiche « Doublon possible de … » avec **Fusionner** et **Pas un doublon**.
+Pour annuler : « Annuler » dans le message en bas à droite, ou **Séparer** dans l’historique de
+l’intervention.
 
 ### Faire une reconnaissance
 
@@ -510,6 +520,33 @@ avec leur raccourci et est également accessible depuis le menu utilisateur
 (« Commandes et raccourcis clavier »). Les raccourcis sont inactifs tant qu’un champ de
 saisie a le focus.
 
+### Attribuer en tapant
+Sur le tableau, la palette comprend aussi les interventions, les personnes, les véhicules et le
+matériel – avec des espaces seulement, sans caractère spécial. En tête vient l’intervention :
+son numéro (en petit devant l’adresse sur la carte) ou son adresse (`bachweg 3`, ou seulement le
+début `bachw`) ou son type ; le reste suit dans n’importe quel ordre :
+
+| Saisie | Ce que fait ↵ |
+|--------|---------------|
+| `14 tlf meier` | attribuer le TLF et Meier à l’intervention 14 |
+| `bachweg 3 tlf meier` | idem, l’intervention nommée par son adresse |
+| `14 intervention`, `14 engagé` | passer l’intervention 14 à « En intervention » ou « Engagé / en route » |
+| `14 haute` | priorité haute |
+| `14` | ouvrir l’intervention 14 |
+| `meier`, `tlf` | montrer où se trouve Meier ou le TLF |
+
+Les noms se tapent par prénom, nom ou les deux, un début suffit (`must` pour Muster), les
+accents et trémas ne comptent pas (`muller`, `mueller`), une faute de frappe est reconnue – mais
+un nom trouvé ainsi n’est attribué qu’après un clic sur « tu voulais dire ? ». Les mots de statut
+sont compris en allemand et en français. La ligne sous la saisie montre exactement ce que fera
+↵ ; les mots inconnus sont grisés et ignorés. Si un mot correspond à plusieurs (deux Meier, ou
+« Hoch » comme nom et comme priorité, deux interventions au Bachweg), ils sont proposés en
+dessous – rien n’est deviné. L’adresse s’arrête là où commence un véhicule, une personne ou un
+mot de statut ; un numéro de maison seul n’est jamais une adresse (`14` reste l’intervention 14). Sans
+numéro en tête, ↵ reste aux commandes habituelles. Les mêmes questions
+qu’en glissant s’appliquent (double attribution, chauffeur), et le message qui suit propose
+**Annuler**.
+
 Les raccourcis globaux (`G …` et `?`) valent sur chaque page de l’interface – tableau,
 carte, événements, paramètres, aide, exercice, alarmes entrantes. Ils se
 taisent tant qu’un dialogue ou un menu est ouvert ; sur les affichages muraux (`/display`)
@@ -535,6 +572,7 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `D` | Ouvrir/fermer Impression et export |
 | `R` / `F5` | Actualiser |
 | `F` | État des véhicules |
+| `Z` | Ouvrir/fermer les indicateurs (situation, temps de réaction) |
 
 ### Tableau kanban – intervention (souris sur la carte)
 | Raccourci | Action |

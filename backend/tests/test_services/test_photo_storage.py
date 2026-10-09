@@ -150,6 +150,9 @@ class TestPhotoStorageService:
 
         assert exc_info.value.status_code == 400
         assert "Invalid file extension" in exc_info.value.detail
+        # The client names the formats from the station's own config, not a hard-coded list.
+        assert exc_info.value.code == "photo_invalid_extension"
+        assert exc_info.value.params == {"allowed": "JPG, JPEG, PNG, WEBP"}
 
     def test_compress_image_rgb(self, photo_service):
         """Test image compression for RGB images."""

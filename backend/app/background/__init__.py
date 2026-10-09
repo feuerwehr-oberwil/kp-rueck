@@ -64,6 +64,34 @@ def stop_heartbeat_scheduler() -> None:
     _stop()
 
 
+def start_divera_retention_scheduler() -> None:
+    """Start the hourly deletion of expired Divera Rückmeldungen (lazy import)."""
+    from .divera_retention import start_divera_retention_scheduler as _start
+
+    _start()
+
+
+def stop_divera_retention_scheduler() -> None:
+    """Stop the Divera Rückmeldungen retention job (lazy import)."""
+    from .divera_retention import stop_divera_retention_scheduler as _stop
+
+    _stop()
+
+
+def start_weather_scheduler() -> None:
+    """Start the weather-layer pollers (lazy import to avoid circular deps)."""
+    from .weather import start_weather_scheduler as _start
+
+    _start()
+
+
+def stop_weather_scheduler() -> None:
+    """Stop the weather-layer pollers (lazy import to avoid circular deps)."""
+    from .weather import stop_weather_scheduler as _stop
+
+    _stop()
+
+
 def start_roster_snapshot_scheduler() -> None:
     """Start the roster-snapshot poll (lazy import to avoid circular deps)."""
     from .roster_snapshot import start_roster_snapshot_scheduler as _start

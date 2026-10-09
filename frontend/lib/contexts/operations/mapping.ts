@@ -69,6 +69,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
 
   return {
     id: incident.id,
+    number: incident.number ?? null,
     location: incident.location_address || incident.title,
     locationDisplay: incident.location_display ?? undefined,
     vehicle: null,
@@ -93,6 +94,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     groupPosition: incident.group_position ?? 0,
     source: incident.source || "operator",
     fromRealAlarm: incident.from_real_alarm ?? false,
+    possibleDuplicateOf: incident.possible_duplicate_of_id ?? null,
     statusChangedAt: incident.status_changed_at ? new Date(incident.status_changed_at) : null,
     hasCompletedReko: incident.has_completed_reko || false,
     rekoArrivedAt: incident.reko_arrived_at ? new Date(incident.reko_arrived_at) : null,
@@ -106,6 +108,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     pickupNote: incident.pickup_note || "",
     pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,
     pickupRequestedBy: incident.pickup_requested_by ?? null,
+    fieldRequests: incident.field_requests ?? [],
     hasSchadenplatzRapport: incident.has_schadenplatz_rapport ?? false,
     hasSchadenplatzRapportDraft: incident.has_schadenplatz_rapport_draft ?? false,
     hasBeenDispatched: incident.has_been_dispatched ?? false,

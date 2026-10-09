@@ -109,6 +109,59 @@ class EventSpecialFunctionResponse(BaseModel):
     assigned_by: UUID | None = None
 
 
+# Kennzahlen (services/reaction_times.py — shared with the PDF's Reaktionszeiten)
+class StageFigures(BaseModel):
+    """Median and nearest-rank P90 of one stage time, over ``count`` incidents."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    count: int
+    median_seconds: float | None = None
+    p90_seconds: float | None = None
+
+
+class PriorityFigures(BaseModel):
+    """Counts and reaction times for one priority (or ``all``)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    priority: str
+    total: int
+    waiting: int
+    in_progress: int
+    done: int
+    dispatched: StageFigures
+    on_scene: StageFigures
+    closed: StageFigures
+
+
+class OldestWaitingFigure(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    incident_id: UUID
+    title: str
+    created_at: datetime
+
+
+class EventFigures(BaseModel):
+    """The Kennzahlen of one Ereignis: Lage counts, Reaktionszeiten per priority,
+    the oldest «hoch» Meldung still waiting for a crew.
+
+    ``waiting`` = not yet dispatched (Eingegangen, Reko, Reko abgeschlossen),
+    ``in_progress`` = Disponiert, Im Einsatz, Rückfahrt, ``done`` = Abgeschlossen.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total: int
+    waiting: int
+    in_progress: int
+    done: int
+    overall: PriorityFigures
+    by_priority: list[PriorityFigures]
+    oldest_waiting_high: OldestWaitingFigure | None = None
+
+
 # Stats
 class EventStats(BaseModel):
     """Real-time statistics for an event."""

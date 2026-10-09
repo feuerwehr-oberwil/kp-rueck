@@ -3,6 +3,7 @@
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import socketio
 from fastapi import FastAPI, Request
@@ -59,22 +60,27 @@ from .api.training import router as training_router
 from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
+from .api.weather import router as weather_router
 from .auth.config import auth_settings
 from .auth.login_throttle import login_throttle
 from .auth.token_blocklist import token_blocklist
 from .background import (
     start_audit_cleanup_scheduler,
     start_demo_reset_scheduler,
+    start_divera_retention_scheduler,
     start_heartbeat_scheduler,
     start_roster_snapshot_scheduler,
     start_sync_scheduler,
     start_telemetry_scheduler,
+    start_weather_scheduler,
     stop_audit_cleanup_scheduler,
     stop_demo_reset_scheduler,
+    stop_divera_retention_scheduler,
     stop_heartbeat_scheduler,
     stop_roster_snapshot_scheduler,
     stop_sync_scheduler,
     stop_telemetry_scheduler,
+    stop_weather_scheduler,
 )
 from .config import settings
 from .database import engine, get_db
@@ -87,6 +93,7 @@ from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.alerting import AlarmBlockedError
 from .services.settings import initialize_default_settings
+from .utils.error_codes import CodedHTTPException, coded_http_exception_handler
 from .websocket_manager import set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
 
@@ -107,7 +114,10 @@ async def _setup_divera_polling():
     from . import schemas
     from .crud import divera as divera_crud
     from .database import async_session_maker
+    from .services import divera_responses
     from .services.divera_intake import broadcast_emergency_received, try_auto_attach
+    from .services.divera_poller import divera_poller
+    from .websocket_manager import broadcast_divera_responses_update
 
     async def on_polled_alarm(payload: schemas.DiveraWebhookPayload) -> bool:
         """
@@ -145,8 +155,17 @@ async def _setup_divera_polling():
                 logger.error(f"Error processing polled alarm {payload.id}: {e}")
                 return False
 
+    async def on_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
+        """Store the Rückmeldungen of the polled alarms; tell the boards when they changed."""
+        async with async_session_maker() as db:
+            event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
+            await divera_responses.purge_expired(db)
+        if event_ids or incident_ids:
+            await broadcast_divera_responses_update(event_ids, incident_ids)
+
     # Set the callback
     set_divera_poll_callback(on_polled_alarm)
+    divera_poller.responses_sink = on_polled_responses
 
     # Log configuration status
     if settings.divera_access_key:
@@ -244,6 +263,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         start_heartbeat_scheduler()
     except Exception as e:
         logger.warning(f"Heartbeat scheduler failed to start: {e}")
+
+    # Divera Rückmeldungen are personal data: deleted 48 h after the alarm (hourly sweep).
+    try:
+        start_divera_retention_scheduler()
+    except Exception as e:
+        logger.warning(f"Divera retention scheduler failed to start: {e}")
+
+    # Weather layer (radar + official warnings for the map). A no-op with WEATHER_ENABLED=false;
+    # like the heartbeat, a failure here must never keep the board from starting.
+    try:
+        start_weather_scheduler()
+    except Exception as e:
+        logger.warning(f"Weather scheduler failed to start: {e}")
 
     # Roster snapshot poll. A no-op unless ROSTER_SNAPSHOT_SOURCE is set; a feed that is down
     # is recorded in its status row and never keeps the board from starting.
@@ -422,6 +454,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Heartbeat scheduler shutdown failed: {e}")
 
     try:
+        stop_divera_retention_scheduler()
+    except Exception as e:
+        logger.warning(f"Divera retention scheduler shutdown failed: {e}")
+
+    try:
+        stop_weather_scheduler()
+    except Exception as e:
+        logger.warning(f"Weather scheduler shutdown failed: {e}")
+
+    try:
         stop_roster_snapshot_scheduler()
     except Exception as e:
         logger.warning(f"Roster snapshot scheduler shutdown failed: {e}")
@@ -457,6 +499,9 @@ async def alarm_blocked_handler(request: Request, exc: Exception) -> JSONRespons
 
 
 app.add_exception_handler(AlarmBlockedError, alarm_blocked_handler)
+# `/feld` errors carry a stable code beside the German detail (`utils/error_codes.py`).
+# Looked up by class, so it wins over FastAPI's HTTPException handler for this subclass.
+app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -586,6 +631,7 @@ app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)
 app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(viewer_router, prefix=settings.api_v1_prefix)
+app.include_router(weather_router, prefix=settings.api_v1_prefix)
 app.include_router(intake_router, prefix=settings.api_v1_prefix)
 
 

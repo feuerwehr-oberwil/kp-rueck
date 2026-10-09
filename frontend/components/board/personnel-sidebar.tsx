@@ -11,7 +11,7 @@
  * on the same element as before.
  */
 
-import type { Dispatch, SetStateAction } from "react"
+import { useMemo, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy } from "lucide-react"
@@ -21,6 +21,8 @@ import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SearchInput } from "@/components/ui/search-input"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
+import { DiveraIncomingBlock } from "@/components/kanban/divera-incoming-block"
+import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
 import { AvailableOnlyToggle, BindingsPopoverBody, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
@@ -56,6 +58,13 @@ export interface PersonnelSidebarProps {
   personEngagements: Map<string, PersonEngagement>
   followBinding: (binding: ResourceBinding) => void
   rosterSummary: ReturnType<typeof summarizeRoster>
+  /** The Ereignis whose Divera «Anrückend» block shows on top (absent without Divera). */
+  eventId: string | null
+  /** Editors get the one-click check-in on those rows. */
+  canCheckIn: boolean
+  onDiveraCheckIn: (personnelId: string) => Promise<void>
+  /** Opens the Dienstzeiten overview. */
+  onOpenCrewDuty: () => void
 }
 
 export function PersonnelSidebar({
@@ -82,9 +91,15 @@ export function PersonnelSidebar({
   personEngagements,
   followBinding,
   rosterSummary,
+  eventId,
+  canCheckIn,
+  onDiveraCheckIn,
+  onOpenCrewDuty,
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
+  const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
   return (
       <aside className="relative z-10 w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
@@ -117,6 +132,18 @@ export function PersonnelSidebar({
         </div>
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1 pb-3">
+          {/* Divera «Anrückend» on top: at the start of an Einsatz nobody is checked in yet,
+              and this is the list that fills the one below. Only once the roster is known,
+              or everybody already here would be listed as still coming. */}
+          {isLoaded && !boardNeverLoaded && (
+            <DiveraIncomingBlock
+              eventId={eventId}
+              attendedIds={checkedInIds}
+              canCheckIn={canCheckIn}
+              onCheckIn={onDiveraCheckIn}
+              className="-ml-2 mb-3"
+            />
+          )}
           {!isLoaded ? (
             <SidebarLoading label={tDash('personnelLoading')} />
           ) : boardNeverLoaded ? (
@@ -283,6 +310,13 @@ export function PersonnelSidebar({
                   {tCommon('rosterBound', { count: rosterSummary.bound })}
                 </Badge>
               )}
+            </div>
+          )}
+          {/* Who is here for how long — the Dienstzeiten overview.
+              Its own line: beside the counter it pushed «2 frei» onto two lines. */}
+          {isLoaded && !boardNeverLoaded && personnel.length > 0 && (
+            <div className="mt-0.5 flex justify-center">
+              <CrewDutyButton onClick={onOpenCrewDuty} />
             </div>
           )}
         </div>

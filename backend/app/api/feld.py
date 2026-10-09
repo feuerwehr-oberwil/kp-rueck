@@ -44,6 +44,7 @@ line here. The field surface is the first place kp-rueck touches citizen PII.
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -63,13 +64,15 @@ from ..crud.feld.melden import never_left_the_window
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
-from ..services import incident_display, notification_service
+from ..services import duplicates, incident_display, notification_service
+from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import photo_storage
 from ..services.settings import (
     FELD_DRIVER_MESSAGE_CHIPS_KEY,
     FELD_MESSAGE_CHIPS_KEY,
     get_setting_value,
     parse_message_chips,
+    without_structured_chips,
 )
 from ..services.tokens import (
     FeldTokenClaims,
@@ -77,7 +80,9 @@ from ..services.tokens import (
     generate_form_token,
     validate_feld_token,
 )
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..websocket_manager import broadcast_incident_update
+from .incidents import board_response, lock_incident
 
 logger = logging.getLogger(__name__)
 
@@ -100,14 +105,16 @@ async def require_feld_claims(
     """
     claims = validate_feld_token(token)
     if claims is None:
-        raise HTTPException(status_code=401, detail="Ungültiger oder abgelaufener Zugriffscode")
+        raise CodedHTTPException(401, ErrorCode.FELD_TOKEN_INVALID, "Ungültiger oder abgelaufener Zugriffscode")
     if claims.personnel_id is not None and (
         claims.claim_id is None
         or not await crud.claim_is_live(db, claims.claim_id, claims.event_id, claims.personnel_id)
     ):
-        raise HTTPException(status_code=401, detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.")
+        raise CodedHTTPException(
+            401, ErrorCode.FELD_DEVICE_SIGNED_OUT, "Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben."
+        )
     if claims.unlock_id is not None and not await crud.unlock_is_live(db, claims.unlock_id, claims.event_id):
-        raise HTTPException(status_code=401, detail="Bitte den Code neu eingeben.")
+        raise CodedHTTPException(401, ErrorCode.FELD_CODE_REENTER, "Bitte den Code neu eingeben.")
     return claims
 
 
@@ -118,7 +125,7 @@ async def _load_event(db: AsyncSession, event_id: uuid.UUID, *, lock: bool = Fal
     """The event the token names, or 404."""
     event = await crud.lock_event(db, event_id) if lock else await events_crud.get_event_by_id(db, event_id)
     if event is None:
-        raise HTTPException(status_code=404, detail="Ereignis nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.FELD_EVENT_NOT_FOUND, "Ereignis nicht gefunden")
     return event
 
 
@@ -144,16 +151,14 @@ async def require_feld_person(
     # names no person may not act as one. An unbound token used to be able to
     # write as any crew in the event — that was the whole hole this closes.
     if not claims.unlocked or claims.personnel_id is None or claims.personnel_id != personnel_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
     # The claim is the recall a JWT cannot do by itself: once the KP has pressed
     # "alle Geräte abmelden", this is where the revoked device finds out.
     if claims.claim_id is None or not await crud.claim_is_live(db, claims.claim_id, claims.event_id, personnel_id):
-        raise HTTPException(
-            status_code=401,
-            detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.",
+        raise CodedHTTPException(
+            401, ErrorCode.FELD_DEVICE_SIGNED_OUT, "Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben."
         )
     # `require_access=False` for reading your OWN list. Since the binding became
     # mandatory this check adds nothing there — a bound token can only ask about
@@ -163,17 +168,15 @@ async def require_feld_person(
     # cellar does not blank the page) then showed them a Schadenplatz they no
     # longer had any access to, indefinitely.
     if require_access and not await crud.person_has_event_access(db, claims.event_id, personnel_id):
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
     if person is None:
         # Only reachable if the personnel row vanished between the two queries.
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
     return person
 
@@ -358,7 +361,7 @@ async def unlock_feld(
     it is the 401 from ``require_feld_claims``.
     """
     if claims.unlocked or claims.personnel_id is not None or claims.claim_id is not None:
-        raise HTTPException(status_code=403, detail="Bitte den QR-Code erneut öffnen")
+        raise CodedHTTPException(403, ErrorCode.FELD_REOPEN_QR, "Bitte den QR-Code erneut öffnen")
     event = await _load_event(db, claims.event_id, lock=True)
     scope = str(event.id)
     ip = client_ip(request) or "unknown"
@@ -461,7 +464,7 @@ async def claim_feld_person(
         or claims.claim_id is not None
         or claims.unlock_id is None
     ):
-        raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
+        raise CodedHTTPException(403, ErrorCode.FELD_CODE_FIRST, "Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id, lock=True)
 
     # Anybody on the roster may name themselves. Requiring work first refused
@@ -472,13 +475,12 @@ async def claim_feld_person(
     # the binding does the rest.
     person = await db.get(Personnel, payload.personnel_id)
     if person is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
 
     if not await crud.consume_unlock(db, claims.unlock_id, event.id):
-        raise HTTPException(status_code=401, detail="Bitte den Code neu eingeben.")
+        raise CodedHTTPException(401, ErrorCode.FELD_CODE_REENTER, "Bitte den Code neu eingeben.")
     claim = await crud.create_claim(db, event.id, payload.personnel_id)
     return schemas.FeldClaimResponse(
         token=generate_feld_token(
@@ -501,7 +503,7 @@ async def claim_feld_person(
 async def logout_feld(request: Request, claims: FeldClaims, db: AsyncSession = Depends(get_db)) -> Response:
     """Revoke this phone's credential before the browser forgets it."""
     if claims.personnel_id is None or claims.claim_id is None:
-        raise HTTPException(status_code=403, detail="Dieses Gerät ist nicht angemeldet")
+        raise CodedHTTPException(403, ErrorCode.FELD_DEVICE_NOT_SIGNED_IN, "Dieses Gerät ist nicht angemeldet")
     await crud.revoke_claim(db, claims.claim_id, claims.event_id, claims.personnel_id)
     return Response(status_code=204)
 
@@ -533,7 +535,7 @@ async def list_feld_personnel(
         or claims.claim_id is not None
         or claims.unlock_id is None
     ):
-        raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
+        raise CodedHTTPException(403, ErrorCode.FELD_CODE_FIRST, "Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
 
@@ -563,8 +565,13 @@ async def get_feld_assignments(
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
 
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
-    chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
-    driver_chips = parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
+    # «Material nötig» / «Verstärkung nötig» are structured buttons now (R13); a
+    # station that still has them as chips would show each twice.
+    chips = without_structured_chips(parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY)))
+    driver_chips = without_structured_chips(
+        parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
+    )
+    request_materials = await crud.request_material_names(db)
     checked_in = await crud.is_checked_in(db, event.id, personnel_id)
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     # Only for somebody who actually drives — one extra query for a role most
@@ -593,10 +600,12 @@ async def get_feld_assignments(
         ],
         message_chips=chips,
         driver_message_chips=driver_chips,
+        request_materials=request_materials,
         reports=[
             schemas.FeldOwnReport(
-                **report,
+                **{k: v for k, v in report.items() if k != "merged_into_address"},
                 location_display=incident_display.location_display(report.get("location_address"), home_city),
+                merged_into_label=incident_display.location_display(report.get("merged_into_address"), home_city),
             )
             for report in reports
         ],
@@ -629,7 +638,9 @@ async def get_feld_material(
 
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     if "magazin" not in functions:
-        raise HTTPException(status_code=403, detail="Diese Person führt in diesem Ereignis nicht das Magazin.")
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_NOT_MAGAZIN, "Diese Person führt in diesem Ereignis nicht das Magazin."
+        )
 
     items = await crud.material_overview(db, event.id)
     return schemas.FeldMaterialResponse(materials=[schemas.FeldMaterialItem(**item) for item in items])
@@ -669,9 +680,8 @@ async def _authorized_incident(
     person = await require_feld_person(db, claims, personnel_id)
     incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id, sources=sources)
     if incident is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Diese Einsatzstelle ist dir nicht zugeteilt.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugeteilt."
         )
     return incident, person
 
@@ -694,12 +704,12 @@ async def _enforce_demo_photo_limits(db: AsyncSession, file: UploadFile) -> None
 
     contents = await file.read()
     if len(contents) > 1 * 1024 * 1024:
-        raise HTTPException(status_code=403, detail="Demo-Modus: Maximale Dateigrösse 1MB.")
+        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
     await file.seek(0)
 
     result = await db.execute(select(sa_func.coalesce(sa_func.array_length(SchadenplatzReport.photos_json, 1), 0)))
     if sum(row[0] for row in result) >= 15:
-        raise HTTPException(status_code=403, detail="Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
+        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
 
 
 @router.post("/incidents/{incident_id}/arrived", response_model=schemas.FieldReportState)
@@ -837,8 +847,60 @@ async def set_own_attendance(
         )
     )
     if result is None:
-        raise HTTPException(status_code=404, detail="Person nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.FELD_PERSON_NOT_FOUND, "Person nicht gefunden")
     return result
+
+
+#: An address match only counts from `/feld` when that card is also this close
+#: to the reporter's pin — «same street + number, pin a bit off», never «tell me
+#: what is at Hauptstrasse 6» from across town.
+FELD_ADDRESS_MATCH_RADIUS_M = 150
+
+
+@router.get("/duplicates", response_model=schemas.FeldDuplicateCandidatesResponse)
+@limiter.limit(RateLimits.FELD)
+async def feld_duplicate_candidates(
+    request: Request,
+    claims: FeldClaims,
+    personnel_id: uuid.UUID = Query(..., description="Who is reporting"),
+    lat: Decimal = Query(..., ge=-90, le=90),
+    lng: Decimal = Query(..., ge=-180, le=180),
+    address: str | None = Query(None, max_length=500),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.FeldDuplicateCandidatesResponse:
+    """«Möglicherweise dasselbe wie …» before a Meldung is sent.
+
+    Narrower than the board's lookup, because this is a login-less door (an
+    unlocked, bound device token, but still a phone anybody could be holding):
+
+    - a pin is REQUIRED — only cards within 50 m of it are offered, plus a
+      same-address card no further than 150 m away. No address-only lookup,
+      so the endpoint cannot be asked "what is at Hauptstrasse 6".
+    - the answer is the minimum to decide: short label, distance, age, id.
+      No coordinates, status, Einsatzart or full address.
+    - at most three cards, rate-limited like the rest of `/feld`.
+
+    A Meldung sent without a pin (or «Trotzdem neu») is flagged on the board
+    instead, so the KP still sees the possible duplicate.
+    """
+    await require_feld_person(db, claims, personnel_id, require_access=False)
+    candidates = await duplicates.find_duplicate_candidates(db, claims.event_id, lat=lat, lng=lng, address=address)
+    home_city = await incident_display.get_home_city(db)
+    return schemas.FeldDuplicateCandidatesResponse(
+        candidates=[
+            schemas.FeldDuplicateCandidate(
+                id=c.incident.id,
+                title=c.incident.title,
+                location_display=incident_display.location_display(c.incident.location_address, home_city),
+                distance_m=c.distance_m,
+                match=c.match,
+                created_at=c.incident.created_at,
+            )
+            for c in candidates
+            # An address match whose card is far from (or has no) pin is not "at the spot".
+            if c.distance_m is not None and (c.match != "address" or c.distance_m <= FELD_ADDRESS_MATCH_RADIUS_M)
+        ]
+    )
 
 
 @router.post("/incidents", response_model=schemas.FeldIncidentCreated, status_code=201)
@@ -867,7 +929,43 @@ async def report_new_incident(
     # refuse the one person whose entire job this is.
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
     event = await _load_event(db, claims.event_id)
-    incident, mode = await crud.create_field_report(db, event.id, person, payload, request)
+
+    # «Zusammenführen»: only into an OPEN card of this Ereignis — the same set
+    # the candidate lookup below offered. Anything else is the same 409, so the
+    # door does not tell a probe whether an id exists.
+    merge_target: Incident | None = None
+    if payload.merge_into_incident_id is not None:
+        merge_target = await lock_incident(db, payload.merge_into_incident_id)
+        if (
+            merge_target is None
+            or merge_target.event_id != event.id
+            or merge_target.deleted_at is not None
+            or merge_target.merged_into_id is not None
+            or merge_target.status == "complete"
+        ):
+            raise CodedHTTPException(
+                409, ErrorCode.FELD_MERGE_TARGET_CLOSED, "Dieser Einsatz ist nicht mehr offen. Bitte neu melden."
+            )
+
+    try:
+        incident, mode = await crud.create_field_report(
+            db, event.id, person, payload, request, merge_target=merge_target
+        )
+    except MergeRefusedError as e:
+        await db.rollback()
+        raise CodedHTTPException(e.status_code, ErrorCode.FELD_MERGE_REFUSED, e.reason) from None
+
+    if merge_target is not None:
+        target_response = await board_response(db, merge_target)
+        await broadcast_incident_update(target_response.model_dump(mode="json"), "update")
+        return schemas.FeldIncidentCreated(incident_id=incident.id, takeover="none", merged_into=merge_target.id)
+
+    # Sent as a new card — with «Trotzdem neu», without a pin, or from an older
+    # page that never asked: the KP still gets told it may be the same
+    # Schadenplatz, and decides on the board.
+    if await duplicates.flag_possible_duplicate(db, incident):
+        await db.commit()
+        await db.refresh(incident)
 
     # Same broadcast + sync path as every other create, so the board moves
     # without a refresh and the card is not a ghost until somebody polls. The
@@ -919,11 +1017,12 @@ async def correct_own_report(
         # The same 403 whether it exists, belongs to another Ereignis or was
         # somebody else's — a public token must not become a way to probe the
         # board.
-        raise HTTPException(status_code=403, detail="Diese Meldung ist nicht deine.")
+        raise CodedHTTPException(403, ErrorCode.FELD_REPORT_NOT_YOURS, "Diese Meldung ist nicht deine.")
     if not crud.report_is_editable(incident) or not await never_left_the_window(db, incident):
-        raise HTTPException(
-            status_code=409,
-            detail="Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
+        raise CodedHTTPException(
+            409,
+            ErrorCode.FELD_REPORT_TAKEN_OVER,
+            "Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
         )
 
     updated = await crud.update_field_report(db, incident, person, payload, request)
@@ -989,7 +1088,7 @@ async def mint_reko_link(
     # _authorized_incident already requires this live device claim. Keep its
     # provenance in the child credential so device logout also closes the form.
     if claims.claim_id is None:
-        raise HTTPException(status_code=401, detail="Ungültiger Zugriffscode")
+        raise CodedHTTPException(401, ErrorCode.FELD_FORM_TOKEN_INVALID, "Ungültiger Zugriffscode")
     token = generate_form_token(
         str(incident.id),
         "reko",
@@ -1133,11 +1232,11 @@ async def serve_feld_photo(
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
     if report is None or filename not in (report.photos_json or []):
-        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
     file_path = photo_storage.get_photo_path(incident.id, filename)
     if file_path is None:
-        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
     return FileResponse(
         file_path,
@@ -1159,12 +1258,14 @@ async def report_message(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
-    Freitext-Meldung an den KP — a configurable chip or a typed sentence.
+    Meldung an den KP — a configurable chip, a typed sentence, or a structured
+    «Material nötig» / «Verstärkung nötig» (``kind`` + ``item`` × ``quantity``).
 
-    Becomes a `field_message` notification (how the KP sees it now) **and** an
-    audit-log entry (how it survives into the Journal once somebody dismisses
-    the bell). The chips themselves are station config, not translation — see
-    `feld.message_chips` in `services/settings.py`.
+    Becomes a workable ``FieldRequest`` (card, detail, sidebar — R13), a
+    `field_message` notification (how the KP hears of it now) **and** an
+    audit-log entry (how it survives into the Journal). The chips themselves are
+    station config, not translation — see `feld.message_chips` in
+    `services/settings.py`; the two structured requests are fixed buttons.
     """
     incident, person = await _authorized_incident(db, claims, personnel_id, incident_id)
     await crud.record_field_message(
@@ -1172,5 +1273,9 @@ async def report_message(
         incident,
         actor=_actor(person),
         message=payload.message,
+        kind=payload.kind,
+        item=payload.item,
+        quantity=payload.quantity,
+        client_request_id=payload.client_request_id,
         request=request,
     )

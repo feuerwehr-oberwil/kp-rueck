@@ -31,7 +31,10 @@ interface NotificationContextValue {
    *  in this session. Same idea as `lastSyncAt` behind the StaleDataBanner. */
   lastNotificationSyncAt: Date | null
   dismissNotification: (id: string) => Promise<void>
-  dismissAllNotifications: () => Promise<void>
+  /** `except`: bell entries that are not this list's to close — the sidebar
+   *  shows an open field request in their place (R13), and «Alle schliessen»
+   *  must not silently stamp those «gesehen». */
+  dismissAllNotifications: (except?: ReadonlySet<string>) => Promise<void>
   updateSettings: (settings: Partial<NotificationSettings>) => Promise<void>
   refetchNotifications: () => Promise<void>
   // Sidebar state
@@ -68,7 +71,22 @@ interface NotificationContextValue {
   registerFieldActionHandler: (
     handler: ((incidentId: string, kind: FieldNudgeKind) => void) | null,
   ) => void
+  /**
+   * Fulfil a field request (R13) straight from the sidebar: open the board's
+   * own assignment dialog on that incident — material list searched for the
+   * requested item, or the crew list for «Verstärkung». Registered by the board
+   * (which owns the dialog); null elsewhere, and the sidebar then offers no
+   * button rather than a broken one.
+   */
+  assignAction: FieldRequestAssignHandler | null
+  registerAssignHandler: (handler: FieldRequestAssignHandler | null) => void
 }
+
+export type FieldRequestAssignHandler = (
+  incidentId: string,
+  resourceType: 'crew' | 'materials',
+  search?: string,
+) => void
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
 
@@ -87,24 +105,6 @@ const SIDEBAR_OPEN_KEY = 'notification-sidebar-open'
 const UNAVAILABLE_TOAST_ID = 'notifications-unavailable'
 
 /**
- * The message in the operator's language, where the frontend can build one.
- *
- * Backend messages are German-only (see CLAUDE.md, i18n), and for almost every
- * type that stays true: they carry an address or a name the server composed.
- * `feld_code_rotated` is fixed text around the Ereignis name, and it is the
- * one a French-speaking KP has to act on at once — every phone that has not
- * unlocked yet needs the new code from them — so it is rebuilt here. Bell,
- * sidebar and toasts all read `message`, which is why this is the one place.
- * The list is fetched per selected event, so its name is the right one.
- */
-export function localizeNotificationMessage(notification: Pick<Notification, 'type' | 'message'>, eventName: string): string {
-  if (notification.type === 'feld_code_rotated') {
-    return translateOutsideReact('notifications.messages.feldCodeRotated', { event: eventName })
-  }
-  return notification.message
-}
-
-/**
  * What one poll learned. A failed fetch is NOT an empty notification list —
  * collapsing the two is what let the panel claim all is well while the backend
  * was unreachable.
@@ -114,6 +114,12 @@ type NotificationFetchResult =
   /** No event picked / not signed in yet — there is nothing to ask about. */
   | { status: 'skipped' }
   | { status: 'failed' }
+
+/** The context, or undefined outside a provider — for leaf components that a
+ *  test (or a login-less page) renders without the whole provider tree. */
+export function useOptionalNotifications(): NotificationContextValue | undefined {
+  return useContext(NotificationContext)
+}
 
 export function useNotifications() {
   const context = useContext(NotificationContext)
@@ -207,6 +213,13 @@ export function NotificationProvider({
     [],
   )
 
+  // Same reason as `fieldAction`: the sidebar renders the button only while
+  // somebody can act on it.
+  const [assignAction, setAssignAction] = useState<FieldRequestAssignHandler | null>(null)
+  const registerAssignHandler = useCallback((handler: FieldRequestAssignHandler | null) => {
+    setAssignAction(() => handler)
+  }, [])
+
   // Load previously seen notification IDs from localStorage on mount.
   // Lazily initialised: a `useRef(expr)` argument is evaluated on EVERY render,
   // so reading + parsing storage inline would repeat the work on every pass.
@@ -239,12 +252,13 @@ export function NotificationProvider({
 
       const data = await response.json()
 
-      // Convert created_at strings to Date objects
+      // Convert created_at strings to Date objects. `message` and `params` pass
+      // through as sent: the bell, the sidebar and the toasts say them in the
+      // operator's language at render time (lib/notification-format.ts).
       return {
         status: 'ok',
         notifications: (data as (Omit<Notification, 'created_at'> & { created_at: string })[]).map((n) => ({
           ...n,
-          message: localizeNotificationMessage(n, selectedEvent.name),
           created_at: new Date(n.created_at),
         })),
       }
@@ -315,8 +329,8 @@ export function NotificationProvider({
   }
 
   // Dismiss all active notifications
-  const dismissAllNotifications = async () => {
-    const activeNotifications = notifications.filter((n) => !n.dismissed)
+  const dismissAllNotifications = async (except?: ReadonlySet<string>) => {
+    const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
 
     if (activeNotifications.length === 0) {
       return
@@ -550,6 +564,8 @@ export function NotificationProvider({
     registerNavigateHandler,
     fieldAction,
     registerFieldActionHandler,
+    assignAction,
+    registerAssignHandler,
   }
 
   return (

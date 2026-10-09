@@ -1,5 +1,6 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { useEffect, useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
@@ -178,6 +179,7 @@ export function IncidentDetailModal({
               className={cn("h-5 w-5 flex-shrink-0", priorityIconColor)}
               aria-label={t('board.priorityAria', { label: priorityLabel })}
             />
+            <IncidentNumber number={operation.number} className="text-sm" />
             <span className="break-words">{getIncidentLocationLabel(operation)}</span>
           </DialogTitle>
         </DialogHeader>

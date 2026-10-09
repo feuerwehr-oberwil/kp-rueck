@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { useState, type ReactNode } from "react"
 
 import type { ApiIncident } from "@/lib/api-client"
@@ -57,6 +57,7 @@ const api = vi.hoisted(() => ({
   getEventSpecialFunctions: vi.fn(),
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
+  assignResource: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -72,6 +73,7 @@ const wrapper = ({ children }: { children: ReactNode }) => <OperationsProvider>{
 const FULL: ApiIncident = {
   id: "inc-full",
   event_id: EVENT,
+  number: 14,
   title: "Wasser im Keller",
   type: "elementarereignis",
   priority: "high",
@@ -298,6 +300,7 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     const board = await loaded()
     expect(board.operations[0]).toEqual({
       id: "inc-full",
+      number: 14,
       location: "Hauptstrasse 12, 4104 Oberwil",
       locationDisplay: "Hauptstrasse 12",
       vehicle: null,
@@ -335,6 +338,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       pickupNote: "4 Personen",
       pickupRequestedAt: new Date("2026-09-23T08:45:00Z"),
       pickupRequestedBy: "p-crew",
+      possibleDuplicateOf: null,
+      fieldRequests: [],
       hasSchadenplatzRapport: true,
       hasSchadenplatzRapportDraft: false,
       hasBeenDispatched: true,
@@ -362,6 +367,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     const board = await loaded()
     expect(board.operations[1]).toEqual({
       id: "inc-bare",
+      // An older backend sends no number: null, never undefined.
+      number: null,
       location: "Baum auf Strasse",
       locationDisplay: undefined,
       vehicle: null,
@@ -400,6 +407,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       pickupNote: "",
       pickupRequestedAt: null,
       pickupRequestedBy: null,
+      possibleDuplicateOf: null,
+      fieldRequests: [],
       hasSchadenplatzRapport: false,
       hasSchadenplatzRapportDraft: false,
       hasBeenDispatched: false,
@@ -472,5 +481,37 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     expect(board.settings).toEqual({ home_city: "Oberwil" })
     expect(board.vehicles).toBe(VEHICLES)
     expect(board.specialFunctions).toBe(SPECIAL_FUNCTIONS)
+  })
+})
+
+describe("OperationsProvider — assignment work that may still ask (⌘K waits on it)", () => {
+  it("a resolved Doppelbelegung settles only after the re-assign and its driver check", async () => {
+    const rendered = renderHook(() => useOperations(), { wrapper })
+    await waitFor(() => expect(rendered.result.current.operations).toHaveLength(2))
+    api.assignResource.mockResolvedValue({ id: "as-new", driver_stay: false })
+    let answer: (functions: unknown[]) => void = () => {}
+    api.getEventSpecialFunctions.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+
+    // MTW is on inc-full: assigning it to inc-bare asks first.
+    await act(async () => {
+      await rendered.result.current.assignVehicleToOperation("v-mtw", "MTW", "inc-bare")
+    })
+    expect(rendered.result.current.resourceConflict).not.toBeNull()
+    expect(rendered.result.current.isAssignmentSettling()).toBe(false)
+
+    // «Auf beiden führen»: the prompt closes at once, the work goes on.
+    let resolving: Promise<void> = Promise.resolve()
+    act(() => {
+      resolving = Promise.resolve(rendered.result.current.resolveResourceConflict("keep"))
+    })
+    await waitFor(() => expect(api.getEventSpecialFunctions).toHaveBeenCalled())
+    expect(rendered.result.current.resourceConflict).toBeNull()
+    expect(rendered.result.current.isAssignmentSettling()).toBe(true)
+
+    await act(async () => {
+      answer([])
+      await resolving
+    })
+    expect(rendered.result.current.isAssignmentSettling()).toBe(false)
   })
 })

@@ -33,13 +33,19 @@ import {
   Flag,
   MapPin,
   MessageSquare,
+  Minus,
+  Package,
+  Plus,
   RotateCcw,
   Send,
+  Users,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { apiClient, type ApiFeldAssignment, type ApiFieldReportState } from '@/lib/api-client'
+import { apiClient, type ApiFeldAssignment, type ApiFieldReportState, type ApiFieldRequestCreate } from '@/lib/api-client'
+import { fieldRequestLabel, fieldSideState } from '@/lib/field-requests'
+import { randomUuid } from '@/lib/utils/validation'
 import { deliveryReducer, IDLE, isBusy, type FeldActionKind } from '@/lib/feld-delivery'
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
 import { rapportApplies } from '@/lib/rapport-visibility'
@@ -58,6 +64,8 @@ export type FeldPanel =
   | 'pickup-followup'
   | 'pickup'
   | 'message'
+  | 'request-material'
+  | 'request-personnel'
 
 /** How long a green "übermittelt" line stays before the panel goes quiet again. */
 const CONFIRMATION_MS = 6000
@@ -77,6 +85,10 @@ export interface FeldActionsProps {
   personnelId: string
   token: string
   messageChips: string[]
+  /** The station's material names for «Material nötig» (R13). */
+  requestMaterials?: string[]
+  /** A Meldung or request was delivered — reload so «Angefordert» shows it. */
+  onSent?: () => void
   /** Report the new server state up so the list row re-renders. */
   onReported: (state: ApiFieldReportState) => void
   /** Scroll to / open the rapport form further down the page. When absent the
@@ -90,13 +102,28 @@ function toDate(value: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function FeldActions({ assignment, personnelId, token, messageChips, onReported, onOpenRapport }: FeldActionsProps) {
+export function FeldActions({
+  assignment,
+  personnelId,
+  token,
+  messageChips,
+  requestMaterials = [],
+  onSent,
+  onReported,
+  onOpenRapport,
+}: FeldActionsProps) {
   const t = useTranslations('feld.actions')
   const tPickup = useTranslations('feld.pickup')
+  const tAsk = useTranslations('feld.ask')
+  const tRequest = useTranslations('feld.requests')
   const intlLocale = useIntlLocale()
   const [panel, setPanel] = useState<FeldPanel>('none')
   const [note, setNote] = useState(assignment.pickup_note ?? '')
   const [message, setMessage] = useState('')
+  // The structured request being filled in (R13): what, how many, a note.
+  const [askItem, setAskItem] = useState('')
+  const [askQuantity, setAskQuantity] = useState(1)
+  const [askNote, setAskNote] = useState('')
   // One state machine for all four reports: pending → sent | failed. A tap that
   // silently does nothing is the thing being fixed here, so every path ends in
   // a visible answer.
@@ -181,16 +208,61 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
   const handleMessage = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
+    // One id per send, built ONCE: «Nochmals senden» repeats this exact payload,
+    // so the server recognises the repeat instead of opening a second request.
+    const payload: ApiFieldRequestCreate = { message: trimmed, client_request_id: randomUuid() }
     const ok = await run('message', trimmed, async () => {
-      await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, trimmed)
+      await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, payload)
     })
     // The typed text survives a failure — the input is only cleared once the KP
     // has it. Retyping a Meldung in the rain is not an acceptable retry.
     if (ok) {
       setMessage('')
       setPanel('none')
+      onSent?.()
     }
   }
+
+  /** Open the «what, how many» picker — with a sensible count for each kind. */
+  const openAsk = (kind: 'material' | 'personnel') => {
+    setAskItem('')
+    setAskNote('')
+    setAskQuantity(kind === 'personnel' ? 2 : 1)
+    setPanel(kind === 'material' ? 'request-material' : 'request-personnel')
+  }
+
+  const handleAsk = async (kind: 'material' | 'personnel') => {
+    const payload: ApiFieldRequestCreate = {
+      kind,
+      item: askItem.trim() || null,
+      quantity: askQuantity,
+      message: askNote.trim(),
+      // See handleMessage: a retry repeats this id and is a no-op on the server.
+      client_request_id: randomUuid(),
+    }
+    const label = fieldRequestLabel(
+      { kind, text: payload.message || null, item: payload.item ?? null, quantity: askQuantity, label: '' },
+      tRequest,
+    )
+    // Built once per tap; «Nochmals senden» repeats exactly this request.
+    const ok = await run('message', label, async () => {
+      await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, payload)
+    })
+    if (ok) {
+      setPanel('none')
+      onSent?.()
+    }
+  }
+
+  // Material names that match what is typed — tapped instead of spelled.
+  const materialMatches = (() => {
+    const query = askItem.trim().toLocaleLowerCase()
+    const list = query
+      ? requestMaterials.filter(name => name.toLocaleLowerCase().includes(query) && name !== askItem.trim())
+      : requestMaterials
+    return list.slice(0, 8)
+  })()
+  const requests = assignment.field_requests ?? []
 
   // Only the crew working a Schadenplatz can arrive at it, end it or ask for an
   // Abholung — the server refuses those three from a driver or a Magazin person
@@ -565,6 +637,29 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
       {panel === 'message' && (
         <div className="rounded-lg border border-border p-3 space-y-3">
           <p className="text-sm font-medium">{t('messageTitle')}</p>
+          {/* The two requests the KP has to ACT on, structured (R13): what and
+              how many, so the board reads «Tauchpumpe ×2», not prose. Fixed
+              buttons, not station chips — they open a picker. */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              className="h-auto min-w-0 whitespace-normal py-2 text-left"
+              disabled={busy}
+              onClick={() => openAsk('material')}
+            >
+              <Package className="size-4" />
+              {tAsk('material')}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto min-w-0 whitespace-normal py-2 text-left"
+              disabled={busy}
+              onClick={() => openAsk('personnel')}
+            >
+              <Users className="size-4" />
+              {tAsk('personnel')}
+            </Button>
+          </div>
           {/* Station config, not translation (decision 20) — a brigade rewords
               these without a translation round. */}
           {messageChips.length > 0 && (
@@ -607,6 +702,137 @@ export function FeldActions({ assignment, personnelId, token, messageChips, onRe
               {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
             </Button>
           </div>
+        </div>
+      )}
+      {/* --- «Material nötig» / «Verstärkung nötig» (R13) ------------------ */}
+      {(panel === 'request-material' || panel === 'request-personnel') && (
+        <div className="rounded-lg border border-border p-3 space-y-3">
+          <p className="text-sm font-medium">
+            {panel === 'request-material' ? tAsk('materialQuestion') : tAsk('personnelQuestion')}
+          </p>
+          {panel === 'request-material' && (
+            <>
+              <Input
+                placeholder={tAsk('materialPlaceholder')}
+                value={askItem}
+                maxLength={120}
+                autoComplete="off"
+                onChange={e => setAskItem(e.target.value)}
+                className="h-11 text-sm"
+              />
+              {materialMatches.length > 0 && (
+                <div className="flex flex-wrap gap-2" role="group" aria-label={tAsk('materialListLabel')}>
+                  {materialMatches.map(name => (
+                    <Button
+                      key={name}
+                      variant={askItem.trim() === name ? 'selected' : 'secondary'}
+                      size="sm"
+                      onClick={() => setAskItem(name)}
+                    >
+                      {name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          {/* How many — a stepper, because a number keyboard over a wet
+              screen is two taps more than «+». */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{tAsk('quantity')}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={tAsk('decrease')}
+              disabled={askQuantity <= 1}
+              onClick={() => setAskQuantity(q => Math.max(1, q - 1))}
+            >
+              <Minus className="size-4" />
+            </Button>
+            <span className="min-w-8 text-center text-lg font-semibold tabular-nums" aria-live="polite">
+              {askQuantity}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={tAsk('increase')}
+              disabled={askQuantity >= 99}
+              onClick={() => setAskQuantity(q => Math.min(99, q + 1))}
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
+          {panel === 'request-personnel' && (
+            <Input
+              placeholder={tAsk('personnelWhatPlaceholder')}
+              value={askItem}
+              maxLength={120}
+              autoComplete="off"
+              onChange={e => setAskItem(e.target.value)}
+              className="h-11 text-sm"
+            />
+          )}
+          <Input
+            placeholder={tAsk('notePlaceholder')}
+            value={askNote}
+            maxLength={500}
+            autoComplete="off"
+            onChange={e => setAskNote(e.target.value)}
+            className="h-11 text-sm"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" disabled={busy} onClick={() => setPanel('message')}>
+              {t('cancel')}
+            </Button>
+            <Button
+              disabled={busy || (panel === 'request-material' && !askItem.trim() && !askNote.trim())}
+              onClick={() => handleAsk(panel === 'request-material' ? 'material' : 'personnel')}
+            >
+              {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
+              {tAsk('send')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* --- What was asked, and what the KP did about it (R13) -------------
+          Read off the KP's real actions: «Vom KP gesehen» once somebody closed
+          the bell entry or started on it, «KP: in Arbeit», «erledigt · 14:32».
+          Every crew member at this address sees the same list — nobody asks
+          for the second pump twice. */}
+      {requests.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{tAsk('listTitle')}</p>
+          <ul className="space-y-1.5">
+            {requests.map(request => {
+              const state = fieldSideState(request)
+              const doneTime = timeOf(request.done_at)
+              return (
+                <li
+                  key={request.id}
+                  className={`rounded-lg px-3 py-2 text-sm ${
+                    state === 'done'
+                      ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200'
+                      : 'bg-background'
+                  }`}
+                >
+                  <p className="break-words font-medium">{fieldRequestLabel(request, tRequest)}</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-xs opacity-80">
+                    {state !== 'sent' && <Check className="size-3.5 shrink-0" />}
+                    {state === 'done'
+                      ? request.done_by_name
+                        ? tAsk('stateDoneBy', { time: doneTime ?? '', name: request.done_by_name })
+                        : tAsk('stateDone', { time: doneTime ?? '' })
+                      : state === 'in_progress'
+                        ? tAsk('stateInProgress')
+                        : state === 'seen'
+                          ? tAsk('stateSeen')
+                          : tAsk('stateSent')}
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
     </section>
