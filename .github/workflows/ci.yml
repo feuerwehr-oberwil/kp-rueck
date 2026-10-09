@@ -458,6 +458,8 @@ jobs:
           files="docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json"
           files="$files backend/app/roster_snapshot.py backend/app/roster_snapshot_ingest.py"
           files="$files scripts/roster_snapshot_from_csv.py docs/roster-snapshot.example.csv"
+          files="$files backend/app/station_index.py scripts/station_index_build.py"
+          files="$files docs/station-index.schema.json docs/station-index.example.json"
           status=0
           for f in $files; do
             theirs=".kp-front/$f"

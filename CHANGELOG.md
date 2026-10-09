@@ -30,6 +30,13 @@ will keep holding.
 
 ### Added
 
+- **Station index: one address for all station data.** `STATION_INDEX_SOURCE` (+ optional
+  `STATION_INDEX_TOKEN`) points at a station's `index.json`, which lists its data files by kind
+  with checksums (`station-index/1`); the roster is read through it, and a file that does not
+  match the index's sha256 is refused. `scripts/station_index_build.py` writes the index for a
+  folder. `vehicles`, `groups` and `keywords` are reserved kinds – listed, reported as not read
+  yet. KP Front reads the same index with byte-identical code (docs/ROSTER-SNAPSHOT.md §1a).
+  *No action needed – see Upgrade notes.*
 - **A duplicate card with requests from the field can be merged – the requests move.** Until
   now «Zusammenführen» refused a card the field had asked anything on («Material nötig»,
   «Verstärkung», a message, an Abholung), because the merge would have hidden it. Now every
@@ -209,6 +216,10 @@ will keep holding.
   stays on the page until a Romansh-speaking firefighter has proofread it.
 
 ### Upgrade notes
+
+- **Station index** (new, optional): nothing to do. `ROSTER_SNAPSHOT_SOURCE` keeps working; a
+  station that wants the one-address setup publishes `index.json` (written by
+  `scripts/station_index_build.py`) beside its roster file and sets `STATION_INDEX_SOURCE`.
 
 **Nothing is mandatory.** Every new setting is optional with a working default, and the nine
 migrations run on boot like any other; each has a downgrade.

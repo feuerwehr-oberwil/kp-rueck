@@ -49,6 +49,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import station_index
 from ..config import settings
 from ..models import (
     Event,
@@ -63,7 +64,6 @@ from ..roster_snapshot_ingest import (
     LastGood,
     LocalPerson,
     Reconciliation,
-    read_source,
     reconcile,
     refused_outcome,
     status_json,
@@ -96,7 +96,8 @@ _MARK = "deactivated_by_snapshot"
 
 
 def configured() -> bool:
-    return bool(settings.roster_snapshot_source.strip())
+    """The station index (STATION_INDEX_SOURCE) or the direct roster file (the fallback)."""
+    return bool(settings.station_index_source.strip() or settings.roster_snapshot_source.strip())
 
 
 async def read_status(db: AsyncSession) -> dict[str, Any] | None:
@@ -267,9 +268,8 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
     ⚠️ Rolled back BEFORE a failure is recorded, so a half-applied plan never rides out on the
     back of its own error report.
     """
-    source = settings.roster_snapshot_source.strip()
-    if not source:
-        raise ValueError("no roster snapshot source configured (ROSTER_SNAPSHOT_SOURCE)")
+    if not configured():
+        raise ValueError("no roster source configured (STATION_INDEX_SOURCE or ROSTER_SNAPSHOT_SOURCE)")
     previous = await read_status(db) or {}
     last_good = LastGood.from_json(previous.get("lastGood"))
     now = datetime.now(UTC).isoformat()
@@ -291,7 +291,15 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
         return status
 
     try:
-        raw = await read_source(source, settings.roster_snapshot_token or None)
+        # The shared rule (also KP Front's): the index wins when it lists a roster, the direct
+        # source is the fallback, an unreadable index is an error rather than a silent fallback.
+        raw, via, index_summary = await station_index.read_via_index(
+            "roster",
+            index_source=settings.station_index_source.strip() or None,
+            index_token=settings.station_index_token or None,
+            direct_source=settings.roster_snapshot_source.strip() or None,
+            direct_token=settings.roster_snapshot_token or None,
+        )
     except ValueError as e:
         await db.rollback()
         return await _refused(str(e))
@@ -337,6 +345,8 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
             "lastAttempt": now,
             "lastSuccess": now if rec.refused is None else previous.get("lastSuccess"),
             "lastError": rec.refused[:400] if rec.refused else None,
+            "via": via,
+            "index": index_summary,
         }
         await _write_status(db, status)
         await db.commit()
