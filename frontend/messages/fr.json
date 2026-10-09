@@ -531,12 +531,17 @@
       "photo_not_found": "Photo introuvable",
       "photo_demo_too_large": "Mode démo : taille de fichier maximale 1 Mo.",
       "photo_demo_limit": "Mode démo : nombre maximal de photos (15) atteint.",
-      "photo_invalid_extension": "Ce format de fichier n’est pas pris en charge. Choisis une photo (JPG, PNG, HEIC).",
+      "photo_invalid_extension": "Ce format de fichier n’est pas pris en charge. Formats acceptés : {allowed}.",
       "photo_invalid_type": "Ce fichier n’est pas une image.",
       "photo_invalid": "L’image est endommagée ou illisible.",
       "photo_too_large": "Fichier trop volumineux – {max_mb} Mo au maximum.",
       "photo_too_many_pixels": "Image trop grande (dimensions en pixels).",
-      "photo_limit": "{max} photos au maximum par rapport."
+      "photo_limit": "{max} photos au maximum par rapport.",
+      "feld_token_other_person": "Ce code d’accès appartient à une autre personne.",
+      "incident_not_found": "Intervention introuvable",
+      "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
+      "reko_report_not_found": "Rapport introuvable",
+      "reko_report_no_access": "Pas d’accès à ce rapport."
     }
   },
   "events": {
@@ -905,6 +910,9 @@
       "expiredHeading": "Ce code QR n'est plus valable",
       "expiredBody": "Les liens Terrain expirent après 30 jours.",
       "expiredFoot": "Pas besoin de code – il faut un nouveau lien.",
+      "reopenTitle": "Rouvrir le code QR",
+      "reopenHeading": "Cette adresse n’est pas le lien Terrain",
+      "reopenBody": "Scanne à nouveau le code QR de l’affiche.",
       "offlineTitle": "Pas de connexion avec le PC",
       "offlineBody": "Le code n'a pas été vérifié – il est probablement correct.",
       "offlineHint": "Fais quelques pas à l'air libre et réessaie.",

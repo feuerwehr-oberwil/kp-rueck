@@ -122,6 +122,9 @@ class PhotoStorageService:
                     400,
                     ErrorCode.PHOTO_INVALID_EXTENSION,
                     f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}",
+                    # The configured list, not a hard-coded one: the sentence names what
+                    # this station actually accepts («JPG, JPEG, PNG, WEBP»).
+                    params={"allowed": ", ".join(e.lstrip(".").upper() for e in self.allowed_extensions)},
                 )
 
         # Check actual file content using magic bytes if available

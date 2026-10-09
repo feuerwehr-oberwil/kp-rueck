@@ -3179,12 +3179,17 @@
       "photo_not_found": "Foto nicht gefunden",
       "photo_demo_too_large": "Demo-Modus: Maximale Dateigrösse 1MB.",
       "photo_demo_limit": "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.",
-      "photo_invalid_extension": "Dieses Dateiformat wird nicht unterstützt. Bitte ein Foto (JPG, PNG, HEIC) wählen.",
+      "photo_invalid_extension": "Dieses Dateiformat wird nicht unterstützt. Erlaubt: {allowed}.",
       "photo_invalid_type": "Diese Datei ist kein Bild.",
       "photo_invalid": "Das Bild ist beschädigt oder kann nicht gelesen werden.",
       "photo_too_large": "Datei zu gross – höchstens {max_mb} MB.",
       "photo_too_many_pixels": "Bild zu gross (Pixelmasse).",
-      "photo_limit": "Höchstens {max} Fotos pro Bericht."
+      "photo_limit": "Höchstens {max} Fotos pro Bericht.",
+      "feld_token_other_person": "Der Zugriffscode gehört zu einer anderen Person.",
+      "incident_not_found": "Einsatz nicht gefunden",
+      "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
+      "reko_report_not_found": "Bericht nicht gefunden",
+      "reko_report_no_access": "Kein Zugriff auf diesen Bericht."
     }
   },
   "training": {
@@ -3991,6 +3996,9 @@
       "expiredHeading": "Dieser QR-Code ist nicht mehr gültig",
       "expiredBody": "Feld-Links laufen nach 30 Tagen ab.",
       "expiredFoot": "Kein Code nötig – der Link muss neu sein.",
+      "reopenTitle": "QR-Code neu öffnen",
+      "reopenHeading": "Diese Adresse ist nicht der Feld-Link",
+      "reopenBody": "Bitte den QR-Code auf dem Plakat erneut scannen.",
       "offlineTitle": "Keine Verbindung zum KP",
       "offlineBody": "Der Code wurde nicht geprüft – er ist wahrscheinlich richtig.",
       "offlineHint": "Ein paar Schritte ins Freie und nochmals versuchen.",

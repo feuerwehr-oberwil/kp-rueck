@@ -269,6 +269,8 @@ async def test_submit_reko_report_invalid_token(client: AsyncClient, test_incide
     response = await client.post("/api/reko/", json=report_data)
     assert response.status_code == 400
     assert "invalid token" in response.json()["detail"].lower()
+    # The crew's phone says it in its own language from the code (utils/error_codes.py).
+    assert response.json()["code"] == "reko_link_invalid"
 
 
 @pytest.mark.asyncio
@@ -619,6 +621,7 @@ async def test_upload_photo_invalid_token(client: AsyncClient, test_incident: In
         headers={"X-Reko-Token": "invalid_token"},
     )
     assert response.status_code == 400
+    assert response.json()["code"] == "reko_link_invalid"
 
 
 @pytest.mark.asyncio

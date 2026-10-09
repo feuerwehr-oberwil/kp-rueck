@@ -8,7 +8,7 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }),
 }))
 
-import { apiClient } from '@/lib/api-client'
+import { apiClient, FeldUnlockError } from '@/lib/api-client'
 import { ApiError } from './types'
 import { errorCodeOf, messageForErrorCode } from './error-codes'
 
@@ -79,5 +79,30 @@ describe('a /feld request that fails with a code', () => {
     const error = await apiClient.feldReportArrived('incident', 'person', 'token').catch((e: unknown) => e)
 
     expect((error as ApiError).message).toBe('Etwas Neues ging schief.')
+  })
+})
+
+describe('unlockFeld reads the code of a refused door', () => {
+  const answer = (body: object, status: number) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }),
+      ),
+    )
+  const failure = (promise: Promise<unknown>) =>
+    promise.then(
+      () => null,
+      (e: unknown) => (e as FeldUnlockError).failure,
+    )
+
+  it('feld_reopen_qr: scan the QR again — no code can open this', async () => {
+    answer({ detail: 'Bitte den QR-Code erneut öffnen', code: 'feld_reopen_qr' }, 403)
+    expect(await failure(apiClient.unlockFeld('device-token', '1234'))).toEqual({ kind: 'reopen' })
+  })
+
+  it('a wrong code stays «wrong», with the attempts left', async () => {
+    answer({ detail: { error: 'wrong_code', attempts_left: 3, message: 'Falscher Code' } }, 403)
+    expect(await failure(apiClient.unlockFeld('link-token', '1234'))).toEqual({ kind: 'wrong', attemptsLeft: 3 })
   })
 })

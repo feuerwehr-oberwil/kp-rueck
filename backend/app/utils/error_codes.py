@@ -1,9 +1,10 @@
 """Errors with a stable code the client can say in its own language.
 
 Backend error text is German. That is fine for the board's operators, but the `/feld`
-phone is held by whoever is on the crew, and a French-speaking firefighter read
-«Bitte den Code neu eingeben.» on a French page. So a `/feld` error carries a ``code``
-next to its ``detail``:
+phone (and the Reko form it opens) is held by whoever is on the crew, and a
+French-speaking firefighter read «Bitte den Code neu eingeben.» on a French page. So a
+crew-facing error (`/feld`, the Reko form, photo uploads) carries a ``code`` next to
+its ``detail``:
 
     {"detail": "Bitte den Code neu eingeben.", "code": "feld_code_reenter"}
 
@@ -44,6 +45,12 @@ class ErrorCode(StrEnum):
     FELD_INCIDENT_NOT_ASSIGNED = "feld_incident_not_assigned"
     FELD_REPORT_NOT_YOURS = "feld_report_not_yours"
     FELD_REPORT_TAKEN_OVER = "feld_report_taken_over"
+    FELD_TOKEN_OTHER_PERSON = "feld_token_other_person"  # noqa: S105 — an error code, not a secret
+    INCIDENT_NOT_FOUND = "incident_not_found"
+    # The Reko form (`/reko`, opened from a board link or from /feld)
+    REKO_LINK_INVALID = "reko_link_invalid"
+    REKO_REPORT_NOT_FOUND = "reko_report_not_found"
+    REKO_REPORT_NO_ACCESS = "reko_report_no_access"
     # Photos
     PHOTO_NOT_FOUND = "photo_not_found"
     PHOTO_DEMO_TOO_LARGE = "photo_demo_too_large"
