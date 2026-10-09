@@ -10,7 +10,7 @@
  * - Time on duty runs from check-in (lib/crew-duty.ts), amber/red from the
  *   station's fatigue threshold — the same clock the bell's grouped warning uses.
  * - «Einsätze» = distinct incidents + Aufträge worked this Ereignis, finished and
- *   current (GET /events/{id}/stats → personnel_activity). Only the backend knows
+ *   current (GET /events/{id}/personnel-activity). Only the backend knows
  *   the finished ones; everything else on the row comes from the board itself, so
  *   «Jetzt» says exactly what the Personen-Leiste says.
  *
@@ -32,7 +32,6 @@ import { countPastThreshold, sortByTimeOnDuty } from "@/lib/crew-duty"
 import type { Person } from "@/lib/contexts/operations-context"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { abbreviateRank } from "@/lib/roster-order"
-import { wsClient } from "@/lib/websocket-client"
 import { cn } from "@/lib/utils"
 
 /** Einsätze per person id; `null` = not loaded yet, `'failed'` = could not ask. */
@@ -44,21 +43,35 @@ const ROW_GRID =
 
 /**
  * Asks the backend how many Einsätze each person has worked, while `active`.
- * Refreshed when assignments move (the board's own socket events) and once a
- * minute as a floor; a failed request keeps the last answer on screen.
+ *
+ * Asked again when `signature` changes — who is on which incident or Auftrag, as the
+ * board itself sees it. That is exactly when a count can move (a new assignment is a
+ * new engagement), it is scoped to this Ereignis by construction, and it costs nothing
+ * while assignments elsewhere change. A change while a request is out is not dropped:
+ * one trailing request follows. A failed request keeps the last answer on screen.
  */
-function useEinsatzCounts(eventId: string | null, active: boolean): Counts {
+function useEinsatzCounts(eventId: string | null, active: boolean, signature: string): Counts {
   const [counts, setCounts] = useState<Counts>(null)
   const inFlight = useRef(false)
+  const again = useRef(false)
 
   const load = useCallback(async () => {
-    if (!eventId || inFlight.current) return
+    if (!eventId) return
+    if (inFlight.current) {
+      again.current = true
+      return
+    }
     inFlight.current = true
     try {
-      const stats = await apiClient.getEventStats(eventId)
-      setCounts(new Map((stats.personnel_activity ?? []).map((row) => [row.personnel_id, row.assignment_count])))
-    } catch {
-      setCounts((previous) => (previous instanceof Map ? previous : "failed"))
+      do {
+        again.current = false
+        try {
+          const rows = await apiClient.getEventPersonnelActivity(eventId)
+          setCounts(new Map(rows.map((row) => [row.personnel_id, row.assignment_count])))
+        } catch {
+          setCounts((previous) => (previous instanceof Map ? previous : "failed"))
+        }
+      } while (again.current)
     } finally {
       inFlight.current = false
     }
@@ -70,24 +83,9 @@ function useEinsatzCounts(eventId: string | null, active: boolean): Counts {
 
   useEffect(() => {
     if (!active) return
-    load()
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const soon = () => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(load, 800)
-    }
-    const offs = [
-      wsClient.on("assignment_update", soon),
-      wsClient.on("group_update", soon),
-      wsClient.on("personnel_update", soon),
-    ]
-    const floor = setInterval(load, 60_000)
-    return () => {
-      offs.forEach((off) => off())
-      clearInterval(floor)
-      if (timer) clearTimeout(timer)
-    }
-  }, [active, load])
+    const timer = setTimeout(load, 400)
+    return () => clearTimeout(timer)
+  }, [active, load, signature])
 
   return counts
 }
@@ -106,7 +104,16 @@ interface CrewDutySheetProps {
 export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEngagements, fatigueHours }: CrewDutySheetProps) {
   const t = useTranslations("kanban.crewDuty")
   useMinuteTick()
-  const counts = useEinsatzCounts(eventId, open)
+  // Who is where, as one string: changes exactly when an assignment does.
+  const signature = useMemo(
+    () =>
+      personnel
+        .map((person) => `${person.id}=${personEngagements.get(person.name)?.full ?? ""}`)
+        .sort()
+        .join("|"),
+    [personnel, personEngagements],
+  )
+  const counts = useEinsatzCounts(eventId, open, signature)
   const rows = useMemo(() => sortByTimeOnDuty(personnel), [personnel])
   const over = countPastThreshold(personnel, fatigueHours)
 

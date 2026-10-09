@@ -2667,7 +2667,7 @@
       "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées",
       "fatigueOne": "En service depuis plus de {hours} h : {names}",
       "fatigueMany": "{count} personnes en service depuis plus de {hours} h : {names}",
-      "fatigueMore": "{names} et {count} autres"
+      "fatigueMore": "{names} et {count, plural, one {# autre} other {# autres}}"
     },
     "release": {
       "released": "{resource} retiré de {target}",

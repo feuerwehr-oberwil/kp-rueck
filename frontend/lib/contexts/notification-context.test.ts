@@ -40,6 +40,13 @@ describe('localizeNotificationMessage', () => {
       '7 personnes en service depuis plus de 4 h : Müller Hans (6 h), Meier Anna (5 h) et 5 autres'
     )
     expect(localizeNotificationMessage(one, 'Sturm')).toBe('En service depuis plus de 4 h : Müller Hans (5 h)')
+    const sixth = {
+      type: 'personnel_fatigue' as const,
+      message: '6 Personen seit über 4 h im Einsatz: A (6 h), B (6 h), C (5 h), D (5 h), E (4 h) und 1 weitere',
+    }
+    expect(localizeNotificationMessage(sixth, 'Sturm')).toBe(
+      '6 personnes en service depuis plus de 4 h : A (6 h), B (6 h), C (5 h), D (5 h), E (4 h) et 1 autre'
+    )
   })
 
   it('leaves an older per-person fatigue sentence as it came', () => {

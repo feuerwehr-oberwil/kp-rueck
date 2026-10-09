@@ -34,6 +34,7 @@ import {
   type ApiEventSpecialFunctionDelete,
   type ApiEventSpecialFunctionResponse,
   type ApiEventStats,
+  type ApiPersonnelActivity,
   type ApiPersonnel,
   type ApiPersonnelListItem,
   type ApiCheckInStats,
@@ -1530,6 +1531,11 @@ class ApiClient {
   // Event Stats
   async getEventStats(eventId: string): Promise<ApiEventStats> {
     return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
+  }
+
+  /** Time on duty of everybody checked in (the Dienstzeiten overview), longest first. */
+  async getEventPersonnelActivity(eventId: string): Promise<ApiPersonnelActivity[]> {
+    return this.request<ApiPersonnelActivity[]>(`/api/events/${eventId}/personnel-activity`)
   }
 
   // Training Automation

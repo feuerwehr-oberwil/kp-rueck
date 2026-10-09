@@ -123,6 +123,30 @@ async def get_event_stats(
     )
 
 
+@router.get("/{event_id}/personnel-activity", response_model=list[schemas.PersonnelActivity])
+async def get_personnel_activity(
+    event_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> list[schemas.PersonnelActivity]:
+    """Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.
+
+    The same rows as ``personnel_activity`` in ``/stats``, without the incident statistics
+    around them: the overview asks again whenever somebody's assignment changes.
+    """
+    event_result = await db.execute(select(models.Event.id).where(models.Event.id == event_id))
+    if event_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+
+    checked_in_result = await db.execute(
+        select(models.Personnel, models.EventAttendance.checked_in_at)
+        .join(models.EventAttendance, models.EventAttendance.personnel_id == models.Personnel.id)
+        .where(models.EventAttendance.event_id == event_id, models.EventAttendance.checked_in)
+    )
+    rows = checked_in_result.all()
+    return await _personnel_activity(db, event_id, [p for p, _ in rows], {p.id: at for p, at in rows})
+
+
 #: An assignment released within this long is a correction (a mis-drag, an undo, a
 #: «verschieben» straight away), not an Einsatz the person worked.
 MIN_WORKED = timedelta(minutes=2)

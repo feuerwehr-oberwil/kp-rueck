@@ -74,9 +74,11 @@ will keep holding.
   were not counted at all. It also raised one warning per person, with a sentence that changed every
   hour, so a long night rang the bell for each name every hour. It now counts from the check-in
   and is ONE notification naming everybody past the threshold, longest first («3 Personen seit über
-  4 h im Einsatz: …»), rewritten in place as people cross it. Dismissing it holds until somebody
-  new crosses the threshold (or the re-alarm interval, if one is set, has passed); it goes away by
-  itself once nobody past the threshold is checked in any more.
+  4 h im Einsatz: …»), rewritten in place as people cross it. Dismissing it acknowledges the people
+  it named; anybody else past the threshold (crossed later, came back for a new shift, a lowered
+  threshold) raises a new one, as does the re-alarm interval if one is set. It goes away by itself
+  once nobody past the threshold is checked in any more. Several boards polling at once can no
+  longer raise it twice.
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open

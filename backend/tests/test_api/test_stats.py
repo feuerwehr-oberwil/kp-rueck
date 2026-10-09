@@ -565,3 +565,41 @@ async def test_personnel_activity_empty_without_attendance(authenticated_client:
     response = await authenticated_client.get(f"/api/events/{test_event.id}/stats")
     assert response.status_code == 200
     assert response.json()["personnel_activity"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_activity_endpoint_matches_stats(
+    db_session: AsyncSession, authenticated_client: AsyncClient, test_event: Event
+):
+    """The overview's own, lighter endpoint returns the same rows as /stats."""
+    now = datetime.now(UTC)
+    person = Personnel(id=uuid4(), name="Müller Hans", role="Wm", status="available")
+    db_session.add(person)
+    await db_session.flush()
+    db_session.add(
+        EventAttendance(
+            event_id=test_event.id, personnel_id=person.id, checked_in=True, checked_in_at=now - timedelta(hours=2)
+        )
+    )
+    await db_session.commit()
+
+    rows = (await authenticated_client.get(f"/api/events/{test_event.id}/personnel-activity")).json()
+    stats = (await authenticated_client.get(f"/api/events/{test_event.id}/stats")).json()
+    assert rows == stats["personnel_activity"]
+    assert [r["name"] for r in rows] == ["Müller Hans"]
+    assert 119 <= rows[0]["active_duration_minutes"] <= 121
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_activity_endpoint_unknown_event(authenticated_client: AsyncClient):
+    response = await authenticated_client.get(f"/api/events/{uuid4()}/personnel-activity")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_activity_endpoint_requires_auth(client: AsyncClient, test_event: Event):
+    response = await client.get(f"/api/events/{test_event.id}/personnel-activity")
+    assert response.status_code == 401
