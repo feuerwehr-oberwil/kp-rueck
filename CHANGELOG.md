@@ -57,6 +57,10 @@ will keep holding.
   returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
   forwards the token to the board, map and status wall pages. The sheet now uses that `link`
   instead of building its own.
+- **↵ in ⌘K runs the best match.** Typing «neu» and pressing ↵ opened «Einstellungen»: the
+  palette ranked commands only within their section, and «Navigation» comes first, so any
+  loose match there (n…e…u in «Einstellungen») beat «Neuer Einsatz» further down. The whole
+  list is now ranked by how well each entry matches, and the highlighted top row is what ↵ runs.
 
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
