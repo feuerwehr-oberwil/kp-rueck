@@ -15737,6 +15737,82 @@
         }
       }
     },
+    "/api/events/{event_id}/figures": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Event Figures",
+        "description": "Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)\nand the oldest «hoch» Meldung still waiting.\n\nThe same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).\nIts own route rather than part of ``/stats``: the board and the wall reload it every\n10 s, and this needs two queries (incidents, their transitions), nothing else.",
+        "operationId": "get_event_figures_api_events__event_id__figures_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventFigures"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/{event_id}/personnel-activity": {
       "get": {
         "tags": [
@@ -22360,6 +22436,57 @@
         "title": "EventCreate",
         "description": "Schema for creating a new event."
       },
+      "EventFigures": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/PriorityFigures"
+          },
+          "by_priority": {
+            "items": {
+              "$ref": "#/components/schemas/PriorityFigures"
+            },
+            "type": "array",
+            "title": "By Priority"
+          },
+          "oldest_waiting_high": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OldestWaitingFigure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "waiting",
+          "in_progress",
+          "done",
+          "overall",
+          "by_priority"
+        ],
+        "title": "EventFigures",
+        "description": "The Kennzahlen of one Ereignis: Lage counts, Reaktionszeiten per priority,\nthe oldest «hoch» Meldung still waiting for a crew.\n\n``waiting`` = not yet dispatched (Eingegangen, Reko, Reko abgeschlossen),\n``in_progress`` = Disponiert, Im Einsatz, Rückfahrt, ``done`` = Abgeschlossen."
+      },
       "EventListResponse": {
         "properties": {
           "events": {
@@ -28149,6 +28276,31 @@
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
       },
+      "OldestWaitingFigure": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "created_at"
+        ],
+        "title": "OldestWaitingFigure"
+      },
       "Personnel": {
         "properties": {
           "name": {
@@ -28948,6 +29100,52 @@
         ],
         "title": "PrinterStatusResponse",
         "description": "Printer status response."
+      },
+      "PriorityFigures": {
+        "properties": {
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "dispatched": {
+            "$ref": "#/components/schemas/StageFigures"
+          },
+          "on_scene": {
+            "$ref": "#/components/schemas/StageFigures"
+          },
+          "closed": {
+            "$ref": "#/components/schemas/StageFigures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "priority",
+          "total",
+          "waiting",
+          "in_progress",
+          "done",
+          "dispatched",
+          "on_scene",
+          "closed"
+        ],
+        "title": "PriorityFigures",
+        "description": "Counts and reaction times for one priority (or ``all``)."
       },
       "ProviderCapability": {
         "properties": {
@@ -31347,6 +31545,42 @@
         ],
         "title": "SpecialFunctionTypeResponse",
         "description": "One role a station can give somebody for an Ereignis.\n\nThe labels are columns rather than i18n keys on purpose: a station that adds\n\"Verkehrsdienst\" is naming its own role, and a name a brigade chose has no\nbusiness going through a translation round to appear on its own board. The\nroles that SHIP still read naturally in both languages because the seed\nfills both columns."
+      },
+      "StageFigures": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "median_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Seconds"
+          },
+          "p90_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P90 Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "StageFigures",
+        "description": "Median and nearest-rank P90 of one stage time, over ``count`` incidents."
       },
       "StatusTransitionCreate": {
         "properties": {

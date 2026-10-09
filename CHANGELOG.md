@@ -55,6 +55,18 @@ will keep holding.
   kept them in its own list does not see them twice. Requests stay in the audit log and the
   incident's Verlauf exactly as Meldungen did (migration `d9a4e7c21f05`, additive; open
   Abholungen get their work item on upgrade).
+- **Kennzahlen: the Lage and the Reaktionszeiten on screen, not only in the PDF.** «Kennzahlen» in
+  the board's footer (key `Z`, also in the command palette) shows Meldungen, offen (per priority),
+  in Arbeit and erledigt; the time from Eingang to **Disponiert**, **Vor Ort** and **Abschluss** as
+  median and P90 per priority; the oldest «hoch» Meldung still waiting, with its age (a click opens
+  it); and one bar per priority for Eingang → Disponiert. On a training Ereignis the same view is the
+  **Übungsauswertung**; any past Ereignis has it under Ereignisse → ⋯ → Kennzahlen; and the status
+  wall (`/display/status`, share link included) carries it as a foldable section above the
+  Einsätze. The numbers come from the same computation as the PDF's Reaktionszeiten table
+  (`services/reaction_times.py`), so the wall and the debrief cannot disagree. Nothing similar
+  existed in the settings: the old `/stats` page (user menu) was removed in January and its widget
+  in July. The figures have their own light route, `GET /events/{id}/figures` (incidents +
+  transitions, nothing else), since the board and the wall reload them every 10 s.
 - **Dienstzeiten: who is here, for how long, and how much they have done.** «Dienstzeiten» under
   the Personen-Leiste's counter, in the phone's Personal sheet and in the command palette opens an
   overview of everybody checked in, longest on duty first: since when, time on duty (counted from
@@ -126,6 +138,14 @@ will keep holding.
 
 ### Fixed
 
+- **Reaktionszeiten in the Einsatzbericht count a skipped column and the last Abschluss.** A card
+  dragged straight from Eingegangen to «Im Einsatz» had no «→ Disponiert»; it now counts as
+  dispatched when it first reached any dispatched status. A reopened incident printed its first
+  «Abgeschlossen»; the Abschluss is now the closing that stuck, and empty while it is open again.
+  A Meldung closed without anybody going out still has no reaction time. An incident created
+  already dispatched (/feld «Wir übernehmen» writes no status change for it) counts as dispatched at
+  Eingang instead of at the crew's arrival, and a move taken back within two minutes (a mis-drag)
+  no longer counts as reaching that stage.
 - **«Zu spät, bitte per Funk» on /feld shows again.** Correcting a Meldung the KP had already
   taken over said «Meldung konnte nicht abgesetzt werden» instead of telling the crew to use the
   radio: the phone looked for «409» in the error text, which never contained it. It now reads the

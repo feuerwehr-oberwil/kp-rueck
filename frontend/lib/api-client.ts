@@ -36,6 +36,7 @@ import {
   type ApiEventSpecialFunctionDelete,
   type ApiEventSpecialFunctionResponse,
   type ApiEventStats,
+  type ApiEventFigures,
   type ApiPersonnelActivity,
   type ApiPersonnel,
   type ApiPersonnelListItem,
@@ -256,6 +257,8 @@ export interface ApiViewerData {
   /** incident_id → what the Reko reported, for incidents with a submitted
    *  report. Photos are not in there: the photo route needs the login. */
   reko_summaries?: Record<string, ApiViewerRekoSummary>
+  /** Kennzahlen for the status wall — counts and reaction times only. */
+  figures?: ApiEventFigures
 }
 
 /** How far one photo has got, 0…1. Fed by `XMLHttpRequest.upload.onprogress`. */
@@ -1570,6 +1573,11 @@ class ApiClient {
   // Event Stats
   async getEventStats(eventId: string): Promise<ApiEventStats> {
     return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
+  }
+
+  /** Kennzahlen: Lage counts + Reaktionszeiten per priority (the PDF's stage times). */
+  async getEventFigures(eventId: string): Promise<ApiEventFigures> {
+    return this.request<ApiEventFigures>(`/api/events/${eventId}/figures`)
   }
 
   /** Time on duty of everybody checked in (the Dienstzeiten overview), longest first. */

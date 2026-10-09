@@ -14,6 +14,7 @@ from .. import models, schemas
 from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..services.incident_display import get_home_city, location_display
+from ..services.reaction_times import load_event_figures
 
 router = APIRouter(prefix="/events", tags=["stats"])
 
@@ -121,6 +122,36 @@ async def get_event_stats(
         resource_utilization_percent=round(utilization, 1),
         personnel_activity=personnel_activity,
     )
+
+
+@router.get("/{event_id}/figures", response_model=schemas.EventFigures)
+async def get_event_figures(
+    event_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> schemas.EventFigures:
+    """Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)
+    and the oldest «hoch» Meldung still waiting.
+
+    The same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).
+    Its own route rather than part of ``/stats``: the board and the wall reload it every
+    10 s, and this needs two queries (incidents, their transitions), nothing else.
+    """
+    event = await db.get(models.Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    incidents = (
+        (
+            await db.execute(
+                select(models.Incident).where(
+                    models.Incident.event_id == event_id, models.Incident.deleted_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return schemas.EventFigures.model_validate(await load_event_figures(db, incidents))
 
 
 @router.get("/{event_id}/personnel-activity", response_model=list[schemas.PersonnelActivity])

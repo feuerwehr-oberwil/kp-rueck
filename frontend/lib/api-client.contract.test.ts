@@ -92,7 +92,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'getAuftragTemplates', 'getAvailableRekoPersonnel', 'getCheckInList', 'getCheckInStats', 'getDemoStatus',
     'getDeployment', 'getDiveraEmergencies', 'getDiveraEmergency', 'getDiveraGroups', 'getDiveraMembers',
     'getDiveraPollingStatus', 'getDiveraSyncPreview', 'getEmergencyTemplates', 'getEvent',
-    'getEventAttendance', 'getEventCheckInList', 'getEventCheckInStats', 'getEventPersonnelActivity', 'getEventRekoSummaries',
+    'getEventAttendance', 'getEventCheckInList', 'getEventCheckInStats', 'getEventFigures', 'getEventPersonnelActivity', 'getEventRekoSummaries',
     'getEventRestliste', 'getEventSpecialFunctions', 'getEventStats', 'getEvents', 'getFeldAccess',
     'getFeldAssignments', 'getFeldContext', 'getFeldMaterial', 'getFeldPersonnel', 'getFeldRapport', 'getFieldRequests',
     'getGpsSimulations', 'getGroupAssignments', 'getIncident', 'getIncidentAssignments', 'getIncidentGroups',

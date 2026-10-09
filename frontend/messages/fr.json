@@ -236,6 +236,7 @@
       "linksAndQr": "Liens & QR",
       "rapporte": "Ouvrir les rapports",
       "mapColorBy": "Colorer par : {mode}",
+      "figures": "Ouvrir les indicateurs",
       "crewDuty": "Temps de service"
     },
     "meta": {
@@ -339,7 +340,8 @@
       "freeOfTotal": "{free}/{total} libres",
       "auftragStops": "{count, plural, one {# arrêt} other {# arrêts}}",
       "onIncidents": "{count, plural, one {# intervention} other {# interventions}}",
-      "availableDeployedNotReady": "{available} disponible(s) · {deployed} engagé(s) · {notReady} hors service"
+      "availableDeployedNotReady": "{available} disponible(s) · {deployed} engagé(s) · {notReady} hors service",
+      "figures": "Indicateurs"
     },
     "tokenBoard": {
       "unknown": "Inconnu",
@@ -625,6 +627,46 @@
       "abhollisteQueued": "Liste de récupération envoyée",
       "abhollisteQueuedDescription": "Adresse · matériel · depuis quand – une ligne par position.",
       "abhollisteFailed": "La liste de récupération n’a pas pu être imprimée"
+    },
+    "figures": {
+      "title": "Indicateurs",
+      "titleTraining": "Évaluation de l’exercice",
+      "description": "Situation et temps de réaction de cet événement – mis à jour en continu.",
+      "descriptionTraining": "Situation et temps de réaction de cet exercice – les valeurs du rapport d’exercice.",
+      "total": "Annonces",
+      "waiting": "En attente",
+      "waitingByPriority": "{high} haute · {medium} moyenne · {low} basse",
+      "inProgress": "En cours",
+      "done": "Terminées",
+      "oldestHigh": "Plus ancienne annonce «haute» en attente",
+      "waitingSince": "attend depuis {age}",
+      "noWaitingHigh": "Aucune annonce «haute» en attente.",
+      "openIncident": "Ouvrir l’intervention",
+      "reactionTitle": "Temps de réaction depuis la réception",
+      "reactionHint": "Médiane, P90 en dessous",
+      "colPriority": "Priorité",
+      "toDispatched": "Engagé",
+      "toOnScene": "Sur place",
+      "toClosed": "Clôture",
+      "priorityHigh": "Haute",
+      "priorityMedium": "Moyenne",
+      "priorityLow": "Basse",
+      "priorityAll": "Toutes",
+      "incidentCount": "{count, plural, one {# annonce} other {# annonces}}",
+      "p90": "P90 {value}",
+      "cellTitle": "{priority}, {stage} : médiane {median}, P90 {p90} – sur {count, plural, one {# intervention} other {# interventions}}",
+      "chartTitle": "Réception → Engagé par priorité",
+      "legendMedian": "Médiane",
+      "legendP90": "jusqu’au P90",
+      "noneYet": "aucune encore",
+      "definitions": "Temps depuis la réception jusqu’à la première atteinte de l’étape ; une carte qui a sauté une colonne compte quand même. Une annonce créée déjà engagée (terrain « Nous prenons en charge ») compte pour 0′ ; un déplacement annulé dans les 2 minutes ne compte pas. Clôture = dernière clôture : une annonce rouverte ne compte qu’une fois clôturée à nouveau. P90 = 9 interventions sur 10 ont été aussi rapides ou plus rapides. Les mêmes valeurs que dans le rapport d’intervention (PDF).",
+      "empty": "Aucune annonce dans cet événement pour l’instant.",
+      "loading": "Chargement des indicateurs …",
+      "loadFailed": "Impossible de charger les indicateurs.",
+      "stale": "La dernière mise à jour a échoué – les valeurs peuvent être dépassées.",
+      "noEvent": "Aucun événement sélectionné.",
+      "menuItem": "Indicateurs",
+      "wallBadge": "{waiting} en attente · {high} haute"
     }
   },
   "feld": {
@@ -1714,7 +1756,8 @@
       "distributeConfirmTitle": "Ajouter à la mission ?",
       "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
-      "distributeConfirmAction": "Oui, ajouter"
+      "distributeConfirmAction": "Oui, ajouter",
+      "figures": "Indicateurs"
     },
     "missingResources": {
       "title": "Il manque des ressources",
