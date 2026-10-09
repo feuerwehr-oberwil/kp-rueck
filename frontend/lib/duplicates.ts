@@ -7,8 +7,13 @@
  * hint reads the same in «Neuer Einsatz», the Alarmeingang and on `/feld`.
  */
 
-import type { ApiDuplicateCandidate } from '@/lib/api-client'
+import type { ApiDuplicateCandidate, ApiFeldDuplicateCandidate } from '@/lib/api-client'
 import { formatDuration } from '@/lib/duration'
+
+/** What the hint needs: `/feld`'s minimal candidate, plus the pin when the board's
+ *  lookup carries one (only then is there anything to sketch). */
+export type DuplicateHintCandidate = ApiFeldDuplicateCandidate &
+  Partial<Pick<ApiDuplicateCandidate, 'location_lat' | 'location_lng'>>
 
 /** Must match `DUPLICATE_RADIUS_M` in the backend: the sketch draws this circle. */
 export const DUPLICATE_RADIUS_M = 50

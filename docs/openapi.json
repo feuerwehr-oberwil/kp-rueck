@@ -6539,7 +6539,7 @@
           "incidents"
         ],
         "summary": "Dismiss Duplicate",
-        "description": "«Kein Duplikat»: the card keeps standing on its own and stops asking.",
+        "description": "«Kein Duplikat»: the card keeps standing on its own and stops asking.\n\nLocked like a merge: «Kein Duplikat» on one board and «Zusammenführen» on\nanother must not both go through on the same card.",
         "operationId": "dismiss_duplicate_api_incidents__incident_id__not_duplicate_post",
         "parameters": [
           {
@@ -14064,7 +14064,7 @@
           "feld"
         ],
         "summary": "Feld Duplicate Candidates",
-        "description": "«Möglicherweise dasselbe wie …» before a Meldung is sent.\n\nThe same lookup as the board's (open cards of this Ereignis within 50 m or\nat the same address), behind the unlocked, bound device token: the reporter\nis a known crew member, standing at the address they are asking about. At\nmost three cards, and only ever the ones at that spot. The public `/alarm`\nform gets no such lookup — its cards are flagged on the board instead.",
+        "description": "«Möglicherweise dasselbe wie …» before a Meldung is sent.\n\nNarrower than the board's lookup, because this is a login-less door (an\nunlocked, bound device token, but still a phone anybody could be holding):\n\n- a pin is REQUIRED — only cards within 50 m of it are offered, plus a\n  same-address card no further than 150 m away. No address-only lookup,\n  so the endpoint cannot be asked \"what is at Hauptstrasse 6\".\n- the answer is the minimum to decide: short label, distance, age, id.\n  No coordinates, status, Einsatzart or full address.\n- at most three cards, rate-limited like the rest of `/feld`.\n\nA Meldung sent without a pin (or «Trotzdem neu») is flagged on the board\ninstead, so the KP still sees the possible duplicate.",
         "operationId": "feld_duplicate_candidates_api_feld_duplicates_get",
         "parameters": [
           {
@@ -14082,7 +14082,7 @@
           {
             "name": "lat",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -14093,9 +14093,6 @@
                 {
                   "type": "string",
                   "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-                },
-                {
-                  "type": "null"
                 }
               ],
               "title": "Lat"
@@ -14104,7 +14101,7 @@
           {
             "name": "lng",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -14115,9 +14112,6 @@
                 {
                   "type": "string",
                   "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-                },
-                {
-                  "type": "null"
                 }
               ],
               "title": "Lng"
@@ -14158,7 +14152,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DuplicateCandidatesResponse"
+                  "$ref": "#/components/schemas/FeldDuplicateCandidatesResponse"
                 }
               }
             }
@@ -23679,6 +23673,80 @@
         "title": "FeldContextResponse",
         "description": "The door's proof of place — readable with the LINK token, before the code.\n\nSomeone who scanned a poster in the rain must be able to tell they reached\nthe right brigade and the right Ereignis; the code gates the roster and the\nwork, never the name of the drill. `station_name` is the Allgemein setting\nand may be empty on an unconfigured station."
       },
+      "FeldDuplicateCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "distance",
+              "address",
+              "both"
+            ],
+            "title": "Match"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "match",
+          "created_at"
+        ],
+        "title": "FeldDuplicateCandidate",
+        "description": "«Möglicherweise dasselbe wie …» as `/feld` gets it — the minimum to answer it.\n\nNo coordinates, no status, no Einsatzart, no full address: a login-less door\ngets the short label of the card at the spot, how far, how old, and the id\nto merge into. Nothing that would let the lookup map the board."
+      },
+      "FeldDuplicateCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/FeldDuplicateCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "FeldDuplicateCandidatesResponse"
+      },
       "FeldIncidentCreate": {
         "properties": {
           "title": {
@@ -24275,6 +24343,29 @@
             "type": "array",
             "title": "Vehicles",
             "default": []
+          },
+          "merged_into_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Id"
+          },
+          "merged_into_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Label"
           }
         },
         "type": "object",

@@ -39,7 +39,7 @@ from ..services.divera_members import (
 )
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update, get_divera_poller_stats
-from .incidents import board_response, lock_incident
+from .incidents import board_response, broadcast_repointed, lock_incident
 
 logger = logging.getLogger(__name__)
 
@@ -310,9 +310,12 @@ async def attach_emergency_to_event(
     # The alarm is the same Schadenplatz as an open card: its report becomes a
     # Nachtrag there. The alarm's own incident row is still written and linked —
     # it keeps source/source_ref, and it is what «Trennen» brings back.
+    merge_result: duplicates.MergeResult | None = None
     if merge_target is not None:
         try:
-            await duplicates.merge_report(db, report=incident, target=merge_target, user=current_user, request=request)
+            merge_result = await duplicates.merge_report(
+                db, report=incident, target=merge_target, user=current_user, request=request
+            )
         except duplicates.MergeRefusedError as e:
             await db.rollback()
             raise HTTPException(status_code=e.status_code, detail=e.reason) from None
@@ -333,6 +336,8 @@ async def attach_emergency_to_event(
         await db.refresh(merge_target)
         target_response = await board_response(db, merge_target)
         background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
+        if merge_result is not None:
+            await broadcast_repointed(db, background_tasks, merge_result.repointed_ids)
         logger.info("Divera emergency %s merged into incident %s", emergency_id, merge_target.id)
         return target_response
 

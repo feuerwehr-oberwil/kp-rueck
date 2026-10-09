@@ -158,6 +158,17 @@ export interface ApiDuplicateCandidatesResponse {
   candidates: ApiDuplicateCandidate[]
 }
 
+/** What `/feld` gets: the minimum to answer the hint — no coordinates, status,
+ *  Einsatzart or full address (a login-less door must not map the board). */
+export type ApiFeldDuplicateCandidate = Pick<
+  ApiDuplicateCandidate,
+  'id' | 'title' | 'location_display' | 'distance_m' | 'match' | 'created_at'
+>
+
+export interface ApiFeldDuplicateCandidatesResponse {
+  candidates: ApiFeldDuplicateCandidate[]
+}
+
 /** The card a report went into, and the hidden report row — the undo's handle. */
 export interface ApiMergeResponse {
   target: ApiIncident

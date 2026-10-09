@@ -701,6 +701,10 @@ export interface ApiFeldOwnReport {
   editable: boolean
   /** What the KP put on it — «das TLF 2 fährt hin». */
   vehicles: string[]
+  /** The KP merged it into an open card (a second report of the same
+   *  Schadenplatz): that card, and its short address. */
+  merged_into_id?: string | null
+  merged_into_label?: string | null
 }
 
 /**

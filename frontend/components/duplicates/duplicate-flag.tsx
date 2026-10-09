@@ -90,9 +90,10 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
       </p>
       {canEdit && (
         <div className="flex flex-wrap gap-1.5">
-          {/* Only into a card that is still on the board — a flag pointing at a card
-              that was closed or deleted since is answered with «Kein Duplikat». */}
-          {target && (
+          {/* Only into a card that is still open — a closed card is history (the
+              server refuses it too); a flag pointing at a card that was closed or
+              deleted since is answered with «Kein Duplikat». */}
+          {target && target.status !== 'complete' && (
             <Button type="button" size="xs" variant="outline" disabled={busy !== null} onClick={merge}>
               {busy === 'merge' ? <ShellLoader className="size-3.5" /> : <Combine className="size-3.5" />}
               {t('card.merge')}

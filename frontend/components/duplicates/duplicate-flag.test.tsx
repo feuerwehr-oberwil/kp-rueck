@@ -41,6 +41,13 @@ describe('DuplicateFlag', () => {
     expect(ops.mergeExistingOperation).not.toHaveBeenCalled()
   })
 
+  it('offers no merge into a closed card', () => {
+    ops.operations.push({ id: 'closed', location: 'Bahnhofstrasse 3', locationDisplay: 'Bahnhofstrasse 3', incidentType: 'elementarereignis', status: 'complete' } as never)
+    renderWithIntl(<DuplicateFlag operationId="dup" targetId="closed" />)
+    expect(screen.queryByRole('button', { name: /Zusammenführen/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Kein Duplikat' })).toBeInTheDocument()
+  })
+
   it('offers no merge into a card that is gone, and no buttons at all read-only', () => {
     const { rerender } = renderWithIntl(<DuplicateFlag operationId="dup" targetId="gone" />)
     expect(screen.getByTestId('duplicate-flag')).toHaveTextContent('Mögliches Duplikat')

@@ -43,7 +43,10 @@ will keep holding.
   Duplikat von …» with «Zusammenführen» and «Kein Duplikat» right on the card. Every merge is
   undoable – «Rückgängig» on the toast, «Trennen» in the card's Verlauf – and audited on both
   cards; the merged report keeps its own (hidden) row, so its source and source reference stay
-  answerable. A card with crew or vehicles on it is not merged until they are moved or released.
+  answerable. Only a fresh report is merged – one still «Eingegangen», with no crew, Reko, Rapport
+  or messages from the field – and never into a closed Einsatz; the merged card takes the higher of
+  the two priorities. A Meldung from `/feld` that was merged stays in the reporter's «Von mir
+  gemeldet» as «Zusammengeführt in …».
   Migration `d2a9e6f41c83` adds two nullable columns to `incidents`; it runs on boot.
 
 ### Changed

@@ -10,17 +10,16 @@
 
 import { useEffect, useState } from 'react'
 
-import type { ApiDuplicateCandidate, ApiDuplicateCandidatesResponse } from '@/lib/api-client'
-import { duplicateQueryKey, type DuplicateQuery } from '@/lib/duplicates'
+import { duplicateQueryKey, type DuplicateHintCandidate, type DuplicateQuery } from '@/lib/duplicates'
 
 const DEBOUNCE_MS = 400
 
-export function useDuplicateCandidates(
+export function useDuplicateCandidates<C extends DuplicateHintCandidate>(
   query: DuplicateQuery | null,
-  load: (query: DuplicateQuery) => Promise<ApiDuplicateCandidatesResponse>,
-): { candidates: ApiDuplicateCandidate[]; key: string | null } {
+  load: (query: DuplicateQuery) => Promise<{ candidates: C[] }>,
+): { candidates: C[]; key: string | null } {
   const key = duplicateQueryKey(query)
-  const [result, setResult] = useState<{ key: string | null; candidates: ApiDuplicateCandidate[] }>({
+  const [result, setResult] = useState<{ key: string | null; candidates: C[] }>({
     key: null,
     candidates: [],
   })

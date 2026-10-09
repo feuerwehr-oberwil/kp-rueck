@@ -59,6 +59,7 @@ import {
   type ApiIncident,
   type ApiIncidentCreate,
   type ApiDuplicateCandidatesResponse,
+  type ApiFeldDuplicateCandidatesResponse,
   type ApiMergeResponse,
   type ApiUnmergeResponse,
   type ApiIncidentUpdate,
@@ -2215,12 +2216,12 @@ class ApiClient {
   async getFeldDuplicateCandidates(
     personnelId: string,
     token: string,
-    params: { lat?: number | null; lng?: number | null; address?: string | null },
-  ): Promise<ApiDuplicateCandidatesResponse> {
+    params: { lat: number; lng: number; address?: string | null },
+  ): Promise<ApiFeldDuplicateCandidatesResponse> {
     const query = duplicateQuery(params)
     query.set('token', token)
     query.set('personnel_id', personnelId)
-    return this.request<ApiDuplicateCandidatesResponse>(`/api/feld/duplicates?${query.toString()}`, {
+    return this.request<ApiFeldDuplicateCandidatesResponse>(`/api/feld/duplicates?${query.toString()}`, {
       skipToast: true,
       maxRetries: 0,
     })

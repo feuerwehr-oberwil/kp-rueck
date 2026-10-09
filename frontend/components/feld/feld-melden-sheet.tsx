@@ -61,7 +61,7 @@ import { sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { DuplicateHint } from '@/components/duplicates/duplicate-hint'
 import { useDuplicateCandidates } from '@/lib/hooks/use-duplicate-candidates'
-import type { ApiDuplicateCandidate } from '@/lib/api-client'
+import type { ApiFeldDuplicateCandidate } from '@/lib/api-client'
 
 /** The one label style the whole sheet uses — the same one `/alarm` uses, which
  *  is what stopped the location field (its own component) looking like a
@@ -287,17 +287,22 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
 
   // Asked on the review step only — the form is still being typed before it,
   // and a new Meldung only (a correction is about a card that already exists).
+  // Only with a pin: `/feld` may only ask about the spot the reporter is at, never
+  // about an address (the server refuses that). Without one, the KP sees the
+  // possible duplicate flagged on the board instead.
   const duplicateLookup =
-    open && step === 'review' && !editing ? { lat, lng, address: address?.trim() || null } : null
+    open && step === 'review' && !editing && lat !== null && lng !== null
+      ? { lat, lng, address: address?.trim() || null }
+      : null
   const { candidates: duplicateCandidates, key: duplicateKey } = useDuplicateCandidates(duplicateLookup, (q) =>
-    apiClient.getFeldDuplicateCandidates(personnelId, token, { lat: q.lat, lng: q.lng, address: q.address }),
+    apiClient.getFeldDuplicateCandidates(personnelId, token, { lat: q.lat!, lng: q.lng!, address: q.address }),
   )
   const [dismissedDuplicateKey, setDismissedDuplicateKey] = useState<string | null>(null)
   const [mergingId, setMergingId] = useState<string | null>(null)
   const shownDuplicates =
     duplicateKey !== null && duplicateKey !== dismissedDuplicateKey ? duplicateCandidates : []
 
-  const mergeInto = async (candidate: ApiDuplicateCandidate) => {
+  const mergeInto = async (candidate: ApiFeldDuplicateCandidate) => {
     setMergingId(candidate.id)
     try {
       await submit(candidate.id)

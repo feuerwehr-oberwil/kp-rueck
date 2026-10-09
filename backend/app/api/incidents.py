@@ -346,7 +346,37 @@ async def merge_and_broadcast(
     background_tasks.add_task(trigger_sync_background)
     background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
     background_tasks.add_task(broadcast_incident_update, {"id": str(report_id)}, "delete")
+    await broadcast_repointed(db, background_tasks, result.repointed_ids)
     return schemas.MergeResponse(target=target_response, merged_incident_id=report_id)
+
+
+async def broadcast_repointed(
+    db: AsyncSession, background_tasks: BackgroundTasks, incident_ids: list[uuid.UUID]
+) -> None:
+    """Cards whose «mögliches Duplikat» now names a different card: every board redraws them."""
+    for incident_id in incident_ids:
+        row = await crud.get_incident(db, incident_id)
+        if row is not None and row.deleted_at is None:
+            response = await incident_display.incident_with_display(db, row)
+            background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
+
+
+async def enforce_demo_cap(db: AsyncSession, event_id: uuid.UUID) -> None:
+    """Demo mode: at most 50 incidents per Ereignis (the demo seed makes ~21 per sandbox).
+
+    Counts every row of the Ereignis — a merged report is a row too, so
+    «Zusammenführen» cannot be used to write past the cap.
+    """
+    if not settings.demo_mode:
+        return
+    count_result = await db.execute(
+        select(sa_func.count()).select_from(models.Incident).where(models.Incident.event_id == event_id)
+    )
+    if (count_result.scalar() or 0) >= 50:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo-Modus: Maximale Anzahl Einsätze (50) erreicht. Die Demo wird regelmässig zurückgesetzt.",
+        )
 
 
 @router.post("/merge-report", response_model=schemas.MergeResponse)
@@ -364,6 +394,7 @@ async def merge_new_report(
     because that row is what «Trennen» brings back. Audited on both rows and in
     the target's Verlauf.
     """
+    await enforce_demo_cap(db, payload.incident.event_id)
     target = await lock_incident(db, payload.target_id)
     if target is None or target.deleted_at is not None or target.event_id != payload.incident.event_id:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
@@ -416,16 +447,7 @@ async def create_incident(
 
     # Demo mode: cap incidents per event at 50 (the demo seed itself creates
     # ~21 per sandbox, so a global cap would make manual creation impossible).
-    if settings.demo_mode:
-        count_result = await db.execute(
-            select(sa_func.count()).select_from(models.Incident).where(models.Incident.event_id == incident.event_id)
-        )
-        event_incidents = count_result.scalar() or 0
-        if event_incidents >= 50:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Demo-Modus: Maximale Anzahl Einsätze (50) erreicht. Die Demo wird regelmässig zurückgesetzt.",
-            )
+    await enforce_demo_cap(db, incident.event_id)
 
     try:
         new_incident = await crud.create_incident(
@@ -1436,9 +1458,13 @@ async def dismiss_duplicate(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.IncidentResponse:
-    """«Kein Duplikat»: the card keeps standing on its own and stops asking."""
-    incident = await crud.get_incident(db, incident_id)
-    if incident is None:
+    """«Kein Duplikat»: the card keeps standing on its own and stops asking.
+
+    Locked like a merge: «Kein Duplikat» on one board and «Zusammenführen» on
+    another must not both go through on the same card.
+    """
+    incident = await lock_incident(db, incident_id)
+    if incident is None or incident.deleted_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     await duplicates.dismiss_duplicate_flag(db, incident, user=current_user, request=request)
     await db.commit()

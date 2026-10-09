@@ -84,10 +84,47 @@ def test_merge_note_carries_the_whole_second_report_in_local_time() -> None:
 
 
 def test_merge_note_names_the_sender_and_its_reference() -> None:
-    note = merge_note(_report(source="divera", source_ref="4711", description="FEUER"))
-    assert note.startswith("Weitere Meldung 14:32 (Divera 4711): FEUER")
+    note = merge_note(
+        _report(
+            source="divera",
+            source_ref="4711",
+            title="FEUER Dachstock",
+            description="Rauch",
+            location_address="Hauptstrasse 6",
+        )
+    )
+    assert note == "Weitere Meldung 14:32 (Divera 4711): FEUER Dachstock · Rauch · Hauptstrasse 6"
     feld = merge_note(_report(source="feld", description="Ast"), reporter_name="Brunner Marco")
     assert "(Feld · Brunner Marco)" in feld
+
+
+def test_merge_note_keeps_the_stichwort_but_not_a_title_that_is_the_address() -> None:
+    # The board titles a card with its Einsatzort: no need to say it twice.
+    assert "Hauptstrasse 6 · Hauptstrasse 6" not in merge_note(
+        _report(title="Hauptstrasse 6", location_address="Hauptstrasse 6, 4104 Oberwil", description="Wasser")
+    )
+    # A Leitstelle's Stichwort is the classification — it must survive the merge.
+    assert "ELEMENTAR Wasser" in merge_note(
+        _report(title="ELEMENTAR Wasser", location_address="Hauptstrasse 6", description=None)
+    )
+
+
+def test_merge_note_is_one_line() -> None:
+    note = merge_note(_report(description="Wasser im Keller\nca. 20 cm", location_address="Hauptstrasse 6"))
+    assert "\n" not in note
+    assert "Wasser im Keller / ca. 20 cm" in note
+
+
+def test_remove_entry_never_cuts_into_a_longer_line() -> None:
+    entry = "Weitere Meldung 14:32 (Telefon): Wasser"
+    # The operator continued the Nachtrag on the same line — it is theirs now.
+    continued = f"Zufahrt hinten\n{entry} – Meier zurückgerufen"
+    assert _remove_entry(continued, entry) == (continued, False)
+    # A sibling Nachtrag that merely starts the same way stays whole.
+    sibling = f"{entry}, Keller 2\nAndere Zeile"
+    assert _remove_entry(sibling, entry) == (sibling, False)
+    # Two identical lines: the newest goes, the other stays.
+    assert _remove_entry(f"{entry}\nx\n{entry}", entry) == (f"{entry}\nx", True)
 
 
 def test_remove_entry_only_takes_out_what_still_stands_verbatim() -> None:

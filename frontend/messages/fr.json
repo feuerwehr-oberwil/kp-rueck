@@ -998,7 +998,8 @@
       "stateDispatched": "Engagé",
       "stateDispatchedWith": "Engagé · {vehicles}",
       "stateDone": "Terminé",
-      "edit": "Modifier"
+      "edit": "Modifier",
+      "stateMerged": "Fusionné dans {label}"
     },
     "kpStatus": {
       "incoming": "Reçu",

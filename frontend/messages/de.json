@@ -4029,7 +4029,8 @@
       "stateDispatched": "Disponiert",
       "stateDispatchedWith": "Disponiert · {vehicles}",
       "stateDone": "Abgeschlossen",
-      "edit": "Bearbeiten"
+      "edit": "Bearbeiten",
+      "stateMerged": "Zusammengeführt in {label}"
     },
     "kpStatus": {
       "incoming": "Eingegangen",

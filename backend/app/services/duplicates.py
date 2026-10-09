@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 import unicodedata
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -163,7 +163,7 @@ async def find_duplicate_candidates(
     and a Trupp has a pin and a reverse-geocoded guess.
 
     Nearest first; address-only matches (no distance to sort by) after the
-    measured ones, then the newest. An Ereignis has a few hundred incidents at
+    measured ones; ties go to the unflagged, then the oldest card. An Ereignis has a few hundred incidents at
     the very most, so this filters in Python rather than teaching Postgres
     trigonometry.
     """
@@ -196,11 +196,16 @@ async def find_duplicate_candidates(
         kind: MatchKind = "both" if near and same_address else ("distance" if near else "address")
         candidates.append(DuplicateCandidate(incident=incident, distance_m=distance, match=kind))
 
-    def _sort_key(c: DuplicateCandidate) -> tuple[int, int, float]:
+    # Nearest first (in 10 m steps — two pins 3 m apart are a tie, not a ranking),
+    # then the card that is not itself a flagged duplicate, then the OLDEST: the
+    # first report is the one the others are Nachträge to, and pointing a new
+    # alarm at the duplicate of a duplicate only builds a chain.
+    def _sort_key(c: DuplicateCandidate) -> tuple[int, int, int, float]:
         created = c.incident.created_at.timestamp() if c.incident.created_at else 0.0
+        flagged = 1 if c.incident.possible_duplicate_of_id is not None else 0
         if c.distance_m is not None and c.match != "address":
-            return (0, c.distance_m, -created)
-        return (1, 0, -created)
+            return (0, c.distance_m // 10, flagged, created)
+        return (1, 0, flagged, created)
 
     candidates.sort(key=_sort_key)
     return candidates[:limit]
@@ -270,16 +275,35 @@ def merge_note(report: models.Incident, *, reporter_name: str | None = None, at:
     """
     stamp = (at or report.created_at or datetime.now(UTC)).astimezone(LOCAL_TZ).strftime("%H:%M")
     parts: list[str] = []
+    # The title first: from a Leitstelle it is the Stichwort («ELEMENTAR Wasser im
+    # Keller») and often the only classification there is. Only a title that
+    # merely repeats the address — the board's own «Neuer Einsatz» titles a card
+    # with its Einsatzort — is left out.
+    title = (report.title or "").strip()
+    address = (report.location_address or "").strip()
+    if title and not _repeats_address(title, address):
+        parts.append(title)
     for text in (report.description, report.internal_notes):
         if text and text.strip():
             parts.append(text.strip())
-    if report.location_address and report.location_address.strip():
-        parts.append(report.location_address.strip())
+    if address:
+        parts.append(address)
     melder = ", ".join(p.strip() for p in (report.contact, report.contact_phone) if p and p.strip())
     if melder:
         parts.append(f"Melder: {melder}")
-    body = " · ".join(parts) if parts else report.title
+    # ONE line: «Notizen» is a list of entries, one per line, and the undo takes
+    # back exactly one whole line. A Meldung typed over two lines stays readable
+    # with « / » where its line break was.
+    body = " · ".join(re.sub(r"\s*\n\s*", " / ", part) for part in parts) or title
     return f"Weitere Meldung {stamp} ({_source_label(report, reporter_name)}): {body}"
+
+
+def _repeats_address(title: str, address: str) -> bool:
+    """Is this title just the address again (or part of it)?"""
+    if not address:
+        return False
+    folded_title, folded_address = _fold(title), _fold(address)
+    return folded_title in folded_address or addresses_match(title, address)
 
 
 def _append_entry(existing: str | None, entry: str) -> str:
@@ -295,15 +319,16 @@ def _remove_entry(existing: str | None, entry: str) -> tuple[str | None, bool]:
     """
     if not existing:
         return existing, False
-    if existing == entry:
-        return None, True
-    marker = f"\n{entry}"
-    index = existing.rfind(marker)
-    if index == -1:
-        if existing.startswith(f"{entry}\n"):
-            return existing[len(entry) + 1 :], True
-        return existing, False
-    return existing[:index] + existing[index + len(marker) :], True
+    # Whole lines only. A substring match would cut an operator's sentence that
+    # happens to continue the entry («… Melder: Meier – zurückgerufen») in half,
+    # or take a sibling Nachtrag that starts with the same words. The last
+    # matching line goes (the newest merge of the same text).
+    lines = existing.split("\n")
+    for index in range(len(lines) - 1, -1, -1):
+        if lines[index] == entry:
+            rest = lines[:index] + lines[index + 1 :]
+            return ("\n".join(rest) or None), True
+    return existing, False
 
 
 async def _has_active_assignments(db: AsyncSession, incident_id: uuid.UUID) -> bool:
@@ -323,6 +348,46 @@ class MergeResult:
     target: models.Incident
     report: models.Incident
     note: str
+    #: Cards whose «mögliches Duplikat» flag now points at the target instead.
+    repointed_ids: list[uuid.UUID] = field(default_factory=list)
+
+
+_PRIORITY_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+async def _work_on_card(db: AsyncSession, card: models.Incident) -> str | None:
+    """What has already happened on this card that a merge would hide, if anything.
+
+    The losing card disappears (soft-deleted), and with it everything hanging
+    off it: a Reko-Bericht, a Rapport and its photos, the crew's messages, an
+    «Abholung nötig». A merge is for a fresh second REPORT — something nobody
+    has worked on yet. Anything else is two cards that need a human to decide,
+    not a Nachtrag. Returns the reason in words, or None when it is fresh.
+    """
+    if card.status != "incoming":
+        return "nicht mehr «Eingegangen»"
+    if card.pickup_needed or card.field_complete_reported_at is not None:
+        return "Rückmeldung vom Feld"
+    checks: list[tuple[str, Any]] = [
+        ("Reko", select(models.RekoReport.id).where(models.RekoReport.incident_id == card.id)),
+        ("Rapport", select(models.SchadenplatzReport.id).where(models.SchadenplatzReport.incident_id == card.id)),
+        (
+            "Meldungen vom Feld",
+            select(models.AuditLog.id).where(
+                models.AuditLog.resource_type == "incident",
+                models.AuditLog.resource_id == card.id,
+                models.AuditLog.action_type == "field_message",
+            ),
+        ),
+        (
+            "Meldungen an den Trupp",
+            select(models.IncidentFieldMessage.id).where(models.IncidentFieldMessage.incident_id == card.id),
+        ),
+    ]
+    for reason, query in checks:
+        if (await db.execute(query.limit(1))).first() is not None:
+            return reason
+    return None
 
 
 async def merge_report(
@@ -352,11 +417,21 @@ async def merge_report(
         raise MergeRefusedError("Nur Einsätze desselben Ereignisses können zusammengeführt werden.", status_code=400)
     if target.deleted_at is not None or target.merged_into_id is not None:
         raise MergeRefusedError("Der Ziel-Einsatz ist nicht mehr auf dem Board.")
+    if target.status == "complete":
+        # Same rule as /feld: a closed card is history. A new report there is a
+        # new Schadenplatz until somebody reopens the old one on purpose.
+        raise MergeRefusedError("Der Ziel-Einsatz ist bereits abgeschlossen. Bitte als neuen Einsatz erfassen.")
     if report.deleted_at is not None or report.merged_into_id is not None:
         raise MergeRefusedError("Diese Meldung ist bereits zusammengeführt oder gelöscht.")
     if await _has_active_assignments(db, report.id):
         raise MergeRefusedError(
             "Diesem Einsatz sind schon Mittel zugewiesen. Zuerst verschieben oder entlassen, dann zusammenführen."
+        )
+    worked_on = await _work_on_card(db, report)
+    if worked_on:
+        raise MergeRefusedError(
+            f"Dieser Einsatz ist schon in Arbeit ({worked_on}) und wird nicht zusammengeführt – "
+            "sonst verschwände das mit ihm."
         )
 
     # `created_at` is a server default: after the flush that created a fresh
@@ -369,11 +444,20 @@ async def merge_report(
     # whoever it can reach. A filled one is never overwritten; the second Melder
     # is in the Nachtrag either way.
     filled: list[str] = []
-    for field in ("contact", "contact_phone"):
-        value = getattr(report, field)
-        if value and value.strip() and not (getattr(target, field) or "").strip():
-            setattr(target, field, value.strip())
-            filled.append(field)
+    for name in ("contact", "contact_phone"):
+        value = getattr(report, name)
+        if value and value.strip() and not (getattr(target, name) or "").strip():
+            setattr(target, name, value.strip())
+            filled.append(name)
+
+    # The merged card is as urgent as the more urgent of the two reports: a
+    # «Person im Keller» in the second call must not drop to the first call's
+    # «Niedrig». Raised only, never lowered; the undo puts it back if nobody
+    # has touched it since.
+    priority_from: str | None = None
+    if _PRIORITY_RANK.get(report.priority, 0) > _PRIORITY_RANK.get(target.priority, 0):
+        priority_from = target.priority
+        target.priority = report.priority
 
     # Same `now` for both, the way delete_incident stamps them — that is what
     # lets the restore tell a side-effect completion from a real one.
@@ -385,12 +469,19 @@ async def merge_report(
     report.possible_duplicate_of_id = None
 
     # Anything that was flagged as a duplicate of the report is now a candidate
-    # for the card the report went into.
-    await db.execute(
-        update(models.Incident)
-        .where(models.Incident.possible_duplicate_of_id == report.id)
-        .where(models.Incident.id != target.id)
-        .values(possible_duplicate_of_id=target.id)
+    # for the card the report went into — and those cards change on every board.
+    repointed = (
+        (
+            await db.execute(
+                update(models.Incident)
+                .where(models.Incident.possible_duplicate_of_id == report.id)
+                .where(models.Incident.id != target.id)
+                .values(possible_duplicate_of_id=target.id)
+                .returning(models.Incident.id)
+            )
+        )
+        .scalars()
+        .all()
     )
     if target.possible_duplicate_of_id == report.id:
         target.possible_duplicate_of_id = None
@@ -401,6 +492,8 @@ async def merge_report(
     changes: dict[str, Any] = {
         "merged_incident_id": str(report.id),
         "filled_fields": filled,
+        "priority_from": priority_from,
+        "priority_to": target.priority if priority_from else None,
         "source": report.source,
         "source_ref": report.source_ref,
     }
@@ -426,7 +519,7 @@ async def merge_report(
     )
     await events_crud.update_event_activity(db, target.event_id)
     await db.flush()
-    return MergeResult(target=target, report=report, note=note)
+    return MergeResult(target=target, report=report, note=note, repointed_ids=list(repointed))
 
 
 async def _last_merge_entry(db: AsyncSession, target_id: uuid.UUID, report_id: uuid.UUID) -> models.AuditLog | None:
@@ -476,12 +569,12 @@ async def unmerge_report(
         changes = (entry.changes_json or {}) if entry else {}
         note = merge_note(report, reporter_name=changes.get("personnel_name"))
         target.internal_notes, note_removed = _remove_entry(target.internal_notes, note)
-        for field in changes.get("filled_fields") or []:
-            if (
-                field in ("contact", "contact_phone")
-                and getattr(target, field) == (getattr(report, field) or "").strip()
-            ):
-                setattr(target, field, None)
+        for name in changes.get("filled_fields") or []:
+            if name in ("contact", "contact_phone") and getattr(target, name) == (getattr(report, name) or "").strip():
+                setattr(target, name, None)
+        # The priority the merge raised goes back — unless somebody set it since.
+        if changes.get("priority_from") and target.priority == changes.get("priority_to"):
+            target.priority = changes["priority_from"]
 
     # The restore half of crud.restore_incident: a side-effect completion goes,
     # a route stop goes to the end of its route (its old slot may be taken).

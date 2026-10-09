@@ -199,7 +199,7 @@ const rows: Row[] = [
   ['deleteFeldPhoto', () => apiClient.deleteFeldPhoto('i1', 'p1', 't', 'a b.jpg'), 'DELETE', '/api/feld/incidents/i1/photos/a%20b.jpg?token=t&personnel_id=p1'],
   // Duplicate reports (R2)
   ['getDuplicateCandidates', () => apiClient.getDuplicateCandidates({ eventId: 'e1', lat: 47.5, lng: 7.5, address: ' Hauptstr. 6 ' }), 'GET', '/api/incidents/duplicate-candidates?event_id=e1&lat=47.5000000&lng=7.5000000&address=Hauptstr.+6'],
-  ['getFeldDuplicateCandidates', () => apiClient.getFeldDuplicateCandidates('p1', 't/x', { address: 'Hauptstr. 6' }), 'GET', '/api/feld/duplicates?address=Hauptstr.+6&token=t%2Fx&personnel_id=p1'],
+  ['getFeldDuplicateCandidates', () => apiClient.getFeldDuplicateCandidates('p1', 't/x', { lat: 47.5, lng: 7.5 }), 'GET', '/api/feld/duplicates?lat=47.5000000&lng=7.5000000&token=t%2Fx&personnel_id=p1'],
   ['mergeReport', () => apiClient.mergeReport('i1', { title: 'Keller' } as never), 'POST', '/api/incidents/merge-report', { target_id: 'i1', incident: { title: 'Keller' } }],
   ['mergeIncidentInto', () => apiClient.mergeIncidentInto('i2', 'i1'), 'POST', '/api/incidents/i2/merge', { target_id: 'i1' }],
   ['unmergeIncident', () => apiClient.unmergeIncident('i2'), 'POST', '/api/incidents/i2/unmerge'],

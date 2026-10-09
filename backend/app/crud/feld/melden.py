@@ -37,7 +37,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ... import schemas
@@ -527,13 +527,22 @@ async def own_reports(
         .where(
             Incident.event_id == event_id,
             Incident.reported_by_personnel_id == personnel_id,
-            Incident.deleted_at.is_(None),
+            # A Meldung the KP merged into an open card is hidden from the board,
+            # not gone: the reporter still sees it, as «zusammengeführt in …».
+            or_(Incident.deleted_at.is_(None), Incident.merged_into_id.is_not(None)),
         )
         .order_by(Incident.created_at.desc())
     )
     incidents = list(rows.scalars().all())
     if not incidents:
         return []
+
+    # The card each merged Meldung went into, by the words the reporter knows it by.
+    target_ids = {incident.merged_into_id for incident in incidents if incident.merged_into_id}
+    merged_into: dict[uuid.UUID, Incident] = {}
+    if target_ids:
+        target_rows = await db.execute(select(Incident).where(Incident.id.in_(target_ids)))
+        merged_into = {target.id: target for target in target_rows.scalars().all()}
 
     # Which vehicles the KP put on each one. It is the only thing a reporter
     # actually wants from the board's side of the story: "das TLF 2 fährt hin"
@@ -571,8 +580,16 @@ async def own_reports(
             "contact_phone": incident.contact_phone,
             "status": incident.status,
             "created_at": incident.created_at,
-            "editable": report_is_editable(incident) and incident.id not in left,
+            # A merged Meldung is a Nachtrag on somebody else's card now: not the
+            # reporter's to correct (the KP can «Trennen» it).
+            "editable": incident.merged_into_id is None and report_is_editable(incident) and incident.id not in left,
             "vehicles": vehicles.get(incident.id, []),
+            "merged_into_id": incident.merged_into_id,
+            "merged_into_address": (
+                merged_into[incident.merged_into_id].location_address or merged_into[incident.merged_into_id].title
+                if incident.merged_into_id in merged_into
+                else None
+            ),
         }
         for incident in incidents
     ]

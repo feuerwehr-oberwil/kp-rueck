@@ -24,9 +24,9 @@
 import { useTranslations } from 'next-intl'
 import { Combine, TriangleAlert } from 'lucide-react'
 
-import type { ApiDuplicateCandidate } from '@/lib/api-client'
 import {
   DUPLICATE_RADIUS_M,
+  type DuplicateHintCandidate,
   candidateAge,
   candidateDistance,
   candidateLabel,
@@ -36,11 +36,11 @@ import { Button } from '@/components/ui/button'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { cn } from '@/lib/utils'
 
-export interface DuplicateHintProps {
-  candidates: ApiDuplicateCandidate[]
+export interface DuplicateHintProps<C extends DuplicateHintCandidate = DuplicateHintCandidate> {
+  candidates: C[]
   /** The new report's own pin — the sketch's centre. */
   origin?: { lat: number; lng: number } | null
-  onMerge: (candidate: ApiDuplicateCandidate) => void
+  onMerge: (candidate: C) => void
   onDismiss: () => void
   /** The candidate being merged right now (its button shows the trail). */
   mergingId?: string | null
@@ -53,7 +53,7 @@ export interface DuplicateHintProps {
   className?: string
 }
 
-export function DuplicateHint({
+export function DuplicateHint<C extends DuplicateHintCandidate>({
   candidates,
   origin = null,
   onMerge,
@@ -63,7 +63,7 @@ export function DuplicateHint({
   readOnly = false,
   density = 'dense',
   className,
-}: DuplicateHintProps) {
+}: DuplicateHintProps<C>) {
   const t = useTranslations('duplicates')
   if (candidates.length === 0) return null
 
@@ -76,10 +76,13 @@ export function DuplicateHint({
   // pin is 300 m off would sit clamped on the edge, looking like 60 m.
   const pins = candidates
     .filter((c) => c.match !== 'address')
-    .map((c) => ({ id: c.id, offset: offsetMetres(origin, { lat: c.location_lat, lng: c.location_lng }) }))
+    .map((c) => ({
+      id: c.id,
+      offset: offsetMetres(origin, { lat: c.location_lat ?? null, lng: c.location_lng ?? null }),
+    }))
     .filter((p): p is { id: string; offset: { east: number; north: number } } => p.offset !== null)
 
-  const mergeButton = (candidate: ApiDuplicateCandidate) => (
+  const mergeButton = (candidate: C) => (
     <Button
       type="button"
       size={buttonSize}

@@ -43,13 +43,14 @@ async def _card(
     lat: Decimal | None = LAT,
     lng: Decimal | None = LNG,
     status: str = "incoming",
+    priority: str = "low",
     **fields: object,
 ) -> Incident:
     incident = Incident(
         id=uuid4(),
         title=address or "Baum",
         type="elementarereignis",
-        priority="low",
+        priority=priority,
         location_address=address,
         location_lat=lat,
         location_lng=lng if lat is not None else None,
@@ -431,7 +432,7 @@ class TestPoolAttach:
             )
         assert response.status_code == 201, response.text
         assert response.json()["id"] == str(target.id)
-        assert "(Divera 777): Keller überflutet" in response.json()["internal_notes"]
+        assert "(Divera 777): ELEMENTAR Wasser im Keller · Keller überflutet" in response.json()["internal_notes"]
 
         await db_session.refresh(emergency)
         assert emergency.attached_to_event_id == test_event.id
@@ -498,3 +499,203 @@ class TestFeld:
             },
         )
         assert response.status_code == 409
+
+
+class TestWhatAMergeMustNotDo:
+    """Review round 1: a merge never hides work, never lands on a closed card,
+    and never lets anything be put onto a card that is gone."""
+
+    async def test_never_into_a_closed_card(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        closed = await _card(db_session, test_event, status="complete")
+        closed_id = closed.id  # the refused request rolls the shared session back
+        assert (await _merge_new(editor_client, test_event, closed)).status_code == 409
+        await db_session.refresh(test_event)
+        dup = await _card(db_session, test_event, possible_duplicate_of_id=closed_id)
+        dup_id = dup.id
+        response = await editor_client.post(f"/api/incidents/{dup_id}/merge", json={"target_id": str(closed_id)})
+        assert response.status_code == 409
+        assert "abgeschlossen" in response.json()["detail"]
+        assert (await db_session.get(Incident, dup_id, populate_existing=True)).deleted_at is None
+
+    @pytest.mark.parametrize(
+        ("fields", "reason"),
+        [
+            ({"status": "reko"}, "Eingegangen"),
+            ({"pickup_needed": True}, "Feld"),
+        ],
+    )
+    async def test_a_card_somebody_worked_on_is_not_hidden(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        fields: dict,
+        reason: str,
+    ) -> None:
+        target = await _card(db_session, test_event)
+        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id, **fields)
+        response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
+        assert response.status_code == 409
+        assert reason in response.json()["detail"]
+
+    async def test_a_card_with_field_messages_is_not_hidden(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        target = await _card(db_session, test_event)
+        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
+        db_session.add(
+            AuditLog(
+                action_type="field_message", resource_type="incident", resource_id=dup.id, changes_json={"message": "x"}
+            )
+        )
+        await db_session.commit()
+        response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
+        assert response.status_code == 409
+        assert "Meldungen vom Feld" in response.json()["detail"]
+
+    async def test_nothing_can_be_assigned_to_a_merged_card(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ) -> None:
+        target = await _card(db_session, test_event)
+        body = (await _merge_new(editor_client, test_event, target)).json()
+        response = await editor_client.post(
+            f"/api/incidents/{body['merged_incident_id']}/assign",
+            json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
+        )
+        assert response.status_code == 409
+        assert "zusammengeführt" in response.json()["detail"]
+
+    async def test_the_more_urgent_priority_wins_and_the_undo_gives_it_back(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        target = await _card(db_session, test_event, priority="low")
+        body = (await _merge_new(editor_client, test_event, target, priority="high")).json()
+        assert body["target"]["priority"] == "high"
+        undone = (await editor_client.post(f"/api/incidents/{body['merged_incident_id']}/unmerge")).json()
+        assert undone["target"]["priority"] == "low"
+
+    async def test_a_priority_set_since_the_merge_survives_the_undo(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        target = await _card(db_session, test_event, priority="low")
+        body = (await _merge_new(editor_client, test_event, target, priority="medium")).json()
+        await editor_client.patch(f"/api/incidents/{target.id}", json={"priority": "high"})
+        undone = (await editor_client.post(f"/api/incidents/{body['merged_incident_id']}/unmerge")).json()
+        assert undone["target"]["priority"] == "high"
+
+    async def test_flags_that_pointed_at_the_merged_card_move_and_are_broadcast(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        target = await _card(db_session, test_event)
+        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
+        third = await _card(db_session, test_event, possible_duplicate_of_id=dup.id)
+        with patch("app.api.incidents.broadcast_incident_update", new_callable=AsyncMock) as broadcast:
+            response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
+        assert response.status_code == 200
+        await db_session.refresh(third)
+        assert third.possible_duplicate_of_id == target.id
+        updated = [call.args[0]["id"] for call in broadcast.call_args_list if call.args[1] == "update"]
+        assert str(third.id) in updated
+
+    async def test_the_demo_cap_holds_for_a_merge_too(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, monkeypatch
+    ) -> None:
+        target = await _card(db_session, test_event)
+        db_session.add_all(
+            Incident(
+                title=f"X {i}", type="elementarereignis", priority="low", status="complete", event_id=test_event.id
+            )
+            for i in range(49)
+        )
+        await db_session.commit()
+        monkeypatch.setattr("app.api.incidents.settings.demo_mode", True)
+        assert (await _merge_new(editor_client, test_event, target)).status_code == 403
+
+
+class TestTiesAndTheFeldDoor:
+    async def test_ties_go_to_the_oldest_unflagged_card(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        oldest = await _card(db_session, test_event, address=None, created_at=datetime(2026, 10, 8, 10, tzinfo=UTC))
+        await _card(db_session, test_event, address=None, created_at=datetime(2026, 10, 8, 11, tzinfo=UTC))
+        await _card(
+            db_session,
+            test_event,
+            address=None,
+            created_at=datetime(2026, 10, 8, 9, tzinfo=UTC),
+            possible_duplicate_of_id=oldest.id,
+        )
+        found = await _candidates(editor_client, test_event, lat=LAT, lng=LNG)
+        assert found[0]["id"] == str(oldest.id)
+
+    async def _feld(self, db: AsyncSession, event: Event) -> tuple[Personnel, str]:
+        person = Personnel(id=uuid4(), name="Frey Marc", role="Feuerwehrmann", status="available")
+        db.add(person)
+        await db.commit()
+        return person, await feld_device_token(db, event.id, person.id)
+
+    async def test_feld_needs_a_pin_and_gets_the_minimum(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        card = await _card(db_session, test_event)
+        person, token = await self._feld(db_session, test_event)
+        base = {"token": token, "personnel_id": str(person.id)}
+        # No address-only lookup from a login-less door.
+        assert (
+            await client.get("/api/feld/duplicates", params={**base, "address": "Hauptstrasse 6"})
+        ).status_code == 422
+        found = (await client.get("/api/feld/duplicates", params={**base, "lat": str(LAT), "lng": str(LNG)})).json()
+        (candidate,) = found["candidates"]
+        assert candidate["id"] == str(card.id)
+        assert set(candidate) == {"id", "title", "location_display", "distance_m", "match", "created_at"}
+
+    async def test_feld_address_match_only_near_the_pin(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        await _card(db_session, test_event, lat=_offset(400))
+        person, token = await self._feld(db_session, test_event)
+        found = await client.get(
+            "/api/feld/duplicates",
+            params={
+                "token": token,
+                "personnel_id": str(person.id),
+                "lat": str(LAT),
+                "lng": str(LNG),
+                "address": "Hauptstrasse 6",
+            },
+        )
+        assert found.json()["candidates"] == []
+
+    async def test_feld_new_report_is_flagged_and_a_merged_one_stays_in_my_list(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        target = await _card(db_session, test_event)
+        person, token = await self._feld(db_session, test_event)
+        report = {
+            "title": "Hauptstr. 6",
+            "type": "elementarereignis",
+            "priority": "low",
+            "location_address": "Hauptstr. 6",
+        }
+        with patch("app.api.feld.broadcast_incident_update", new_callable=AsyncMock):
+            new = await client.post(f"/api/feld/incidents?token={token}&personnel_id={person.id}", json=report)
+            merged = await client.post(
+                f"/api/feld/incidents?token={token}&personnel_id={person.id}",
+                json={**report, "merge_into_incident_id": str(target.id)},
+            )
+        flagged = await db_session.get(Incident, UUID(new.json()["incident_id"]))
+        await db_session.refresh(flagged)
+        assert flagged.possible_duplicate_of_id == target.id
+
+        mine = (await client.get(f"/api/feld/assignments/{person.id}?token={token}")).json()["reports"]
+        by_id = {r["incident_id"]: r for r in mine}
+        merged_row = by_id[merged.json()["incident_id"]]
+        assert merged_row["merged_into_id"] == str(target.id)
+        assert merged_row["merged_into_label"]
+        assert merged_row["editable"] is False
