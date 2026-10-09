@@ -177,7 +177,7 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
     await db.flush()
 
 
-async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None:
+async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now: datetime | None = None) -> None:
     """Fill an existing event with the demo scenario content.
 
     One coherent story: a summer storm front passed over Oberwil BL about
@@ -199,6 +199,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     Shared resources (vehicles/personnel/materials) are looked up by name
     from the DB — they are NOT created here.
 
+    Every timestamp is ``now`` minus a fixed number of minutes. ``now`` defaults to
+    the wall clock; the visual regression seed (``app.seed_visual``) passes a fixed
+    instant so the same story lands on the same minutes on every run.
+
     Flushes but does not commit; the caller controls the transaction.
     """
     # Editor user for created_by/assigned_by (fall back to any user, e.g. in tests)
@@ -219,7 +223,8 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event) -> None
     result = await db.execute(select(models.Material))
     material = {(m.name, m.location): m for m in result.scalars().all()}
 
-    now = datetime.now()
+    if now is None:
+        now = datetime.now()
 
     def ago(minutes: int) -> datetime:
         return now - timedelta(minutes=minutes)
