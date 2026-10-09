@@ -24,8 +24,8 @@ importers:
         specifier: ^3.1.0
         version: 3.1.0
       '@atlaskit/pragmatic-drag-and-drop-hitbox':
-        specifier: ^2.2.0
-        version: 2.2.0
+        specifier: ^3.0.0
+        version: 3.0.0
       '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator':
         specifier: ^4.2.4
         version: 4.2.4(react@19.3.0)
@@ -253,9 +253,6 @@ packages:
   '@atlaskit/platform-feature-flags@2.2.1':
     resolution: {integrity: sha512-+qR+UIdZ8T+5dqfv4R57YeAqvkj98D6imT+cCIC/PbUBYyMzkjL5MqlGEIX0c3FT9rr/B/b1nupw643xa2Ua2g==}
 
-  '@atlaskit/pragmatic-drag-and-drop-hitbox@2.2.0':
-    resolution: {integrity: sha512-L0Wq4EKc9Yx+iywci3NLhwjsaru+hyZ9C/H7mz5pvrSh7vpp9q2YabRr85OnCLaY6equ5pxGVyI4PF3HP69ZMw==}
-
   '@atlaskit/pragmatic-drag-and-drop-hitbox@3.0.0':
     resolution: {integrity: sha512-AGLp1ewjm07eRN2NL62awllSM19FrWVZMQYfZA/jugQlpaeoTr5ah2DE7zfiEt7yrg34htoKQVM+y6SGIQYs2A==}
 
@@ -341,6 +338,10 @@ packages:
     resolution: {integrity: sha512-CjXrNHTnvqBVqHgdBysY3vk2T8tpJHb5/RMeHJBTyVa9xgugCB0CJTx/3oO8RV2QRQP391RWpB7D6hLjm8V9uA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  '@babel/runtime@7.29.10':
+    resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
+    engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.29.7':
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
@@ -4328,12 +4329,12 @@ snapshots:
 
   '@atlaskit/atlassian-context@2.0.0(react@19.3.0)':
     dependencies:
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       react: 19.3.0
 
   '@atlaskit/ds-lib@8.0.0(react@19.3.0)':
     dependencies:
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       bind-event-listener: 3.0.0
       react: 19.3.0
       tiny-invariant: 1.3.3
@@ -4341,7 +4342,7 @@ snapshots:
   '@atlaskit/feature-gate-js-client@7.0.0(react@19.3.0)':
     dependencies:
       '@atlaskit/atlassian-context': 2.0.0(react@19.3.0)
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       '@statsig/client-core': 3.30.2
       '@statsig/js-client': 3.30.2
       eventemitter3: 4.0.7
@@ -4351,19 +4352,14 @@ snapshots:
   '@atlaskit/platform-feature-flags@2.2.1(react@19.3.0)':
     dependencies:
       '@atlaskit/feature-gate-js-client': 7.0.0(react@19.3.0)
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
     transitivePeerDependencies:
       - react
-
-  '@atlaskit/pragmatic-drag-and-drop-hitbox@2.2.0':
-    dependencies:
-      '@atlaskit/pragmatic-drag-and-drop': 3.1.0
-      '@babel/runtime': 7.29.7
 
   '@atlaskit/pragmatic-drag-and-drop-hitbox@3.0.0':
     dependencies:
       '@atlaskit/pragmatic-drag-and-drop': 4.0.0
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
 
   '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator@4.2.4(react@19.3.0)':
     dependencies:
@@ -4385,7 +4381,7 @@ snapshots:
 
   '@atlaskit/pragmatic-drag-and-drop@4.0.0':
     dependencies:
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       bind-event-listener: 3.0.0
       raf-schd: 4.0.3
 
@@ -4497,6 +4493,8 @@ snapshots:
   '@babel/parser@7.29.9':
     dependencies:
       '@babel/types': 7.29.8
+
+  '@babel/runtime@7.29.10': {}
 
   '@babel/runtime@7.29.7': {}
 
@@ -5732,7 +5730,7 @@ snapshots:
   '@testing-library/dom@10.4.1':
     dependencies:
       '@babel/code-frame': 7.29.7
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       dom-accessibility-api: 0.5.16
