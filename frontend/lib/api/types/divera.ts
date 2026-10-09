@@ -138,3 +138,35 @@ export interface SendDiveraAlarmOptions {
   send_call?: boolean
   send_mail?: boolean
 }
+
+// Rückmeldungen — GET /api/divera/{events,incidents}/{id}/responses
+// (backend/app/services/divera_responses.py; the same rules as KP Front's half). Yes/no only.
+
+/** kommt / kommt nicht. Other Divera statuses («Rückruf erbeten») are not kept at all. */
+export type ApiDiveraResponseKind = 'coming' | 'not_coming'
+
+export interface ApiDiveraResponsePerson {
+  /** Via the person's `divera` identity. Answers nobody on the roster is linked to are never
+   *  listed — only counted in `unmapped`. */
+  personnel_id: string
+  name: string
+  role: string | null
+  tags: string[]
+  kind: ApiDiveraResponseKind
+  /** Any attendance record on this Ereignis (in now, or in and out again): never «anrückend». */
+  attended: boolean
+}
+
+export interface ApiDiveraResponsesSummary {
+  /** false = the block is absent: Divera not configured, nothing here came from Divera, or no
+   *  alarm of the last 6 h carries answers (`no_data`). */
+  available: boolean
+  reason: 'not_configured' | 'not_linked' | 'no_data' | null
+  alarm_count: number
+  /** Per kind, unmapped members included. */
+  counts: Record<ApiDiveraResponseKind, number>
+  people: ApiDiveraResponsePerson[]
+  /** Answers from Divera members no roster person is linked to. */
+  unmapped: number
+  updated_at: string | null
+}

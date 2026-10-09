@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
+import { DiveraIncomingBlock } from '@/components/kanban/divera-incoming-block'
 import { wsClient } from '@/lib/websocket-client'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import { sortByName } from '@/lib/roster-order'
@@ -107,6 +108,8 @@ interface AttendanceModalProps {
    *  and waiting for the socket round-trip to say so made the Appell look like
    *  it had not worked. The modal keeps its own optimistic state either way. */
   onAttendanceChange?: () => void
+  /** Editors: offer the one-click check-in on the Divera «Anrückend» rows. */
+  canCheckIn?: boolean
 }
 
 export function AttendanceModal({
@@ -116,6 +119,7 @@ export function AttendanceModal({
   eventName,
   assignmentLabelFor,
   onAttendanceChange,
+  canCheckIn = false,
 }: AttendanceModalProps) {
   const t = useTranslations('kanban.attendance')
   const tCommon = useTranslations('kanban.common')
@@ -150,6 +154,11 @@ export function AttendanceModal({
   }, [open, load])
 
   const sorted = useMemo(() => sortAttendance(people), [people])
+  // Anybody with an attendance record — in now, or in and out again — is not «anrückend».
+  const attendedIds = useMemo(
+    () => new Set(people.filter((p) => attendanceState(p) !== 'absent' || p.checked_in_at).map((p) => p.id)),
+    [people]
+  )
   const stats = useMemo(() => summarizeAttendance(people), [people])
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -244,6 +253,24 @@ export function AttendanceModal({
     }
   }
 
+  /** «Anrückend» → present: the roll-call's own check-in, so the row below ticks too. */
+  const checkInFromDivera = async (personnelId: string) => {
+    const person = people.find((p) => p.id === personnelId)
+    if (person) {
+      if (busyRef.current.has(person.id)) return
+      busyRef.current.add(person.id)
+      try {
+        await checkIn(person)
+      } finally {
+        setTimeout(() => busyRef.current.delete(person.id), 300)
+      }
+      return
+    }
+    await apiClient.checkInPersonnelForEvent(personnelId, eventId)
+    await load()
+    onAttendanceChange?.()
+  }
+
   const isNameTaken = (name: string) =>
     people.some((person) => person.name.trim().toLowerCase() === name.trim().toLowerCase())
 
@@ -293,6 +320,18 @@ export function AttendanceModal({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            {/* Who Divera says is coming, above the roll-call. Out of the way while a search
+                narrows the list: that is a different question, and the name is below anyway. */}
+            {!isLoading && !search.trim() && (
+              <DiveraIncomingBlock
+                eventId={eventId}
+                enabled={open}
+                attendedIds={attendedIds}
+                canCheckIn={canCheckIn}
+                onCheckIn={checkInFromDivera}
+                className="mb-3"
+              />
+            )}
             {isLoading ? (
               <div className="flex justify-center py-6">
                 <LoadingStatus className="text-sm">{t('loading')}</LoadingStatus>

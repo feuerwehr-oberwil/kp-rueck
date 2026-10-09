@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..models import Personnel, User
+from .divera_responses import status_catalogue
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,9 @@ async def fetch_divera_members() -> list[dict[str, Any]]:
         raise ValueError("Divera API returned success=false")
 
     cluster_data = data.get("data", {}).get("cluster", {})
+    # The same answer carries the status catalogue the Rückmeldungen need — keep it, so the
+    # poller does not fetch `/pull/all` a second time for it.
+    status_catalogue.remember(cluster_data)
     consumer_data = cluster_data.get("consumer", {})
     members: list[dict[str, Any]] = []
 
@@ -126,7 +130,9 @@ async def fetch_divera_groups() -> list[dict[str, Any]]:
     if not data.get("success"):
         raise ValueError("Divera API returned success=false")
 
-    raw = data.get("data", {}).get("cluster", {}).get("group", {})
+    cluster_data = data.get("data", {}).get("cluster", {})
+    status_catalogue.remember(cluster_data)
+    raw = cluster_data.get("group", {})
     entries = raw.items() if isinstance(raw, dict) else [(g.get("id"), g) for g in raw or []]
 
     groups: list[dict[str, Any]] = []

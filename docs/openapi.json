@@ -2968,6 +2968,158 @@
         }
       }
     },
+    "/api/divera/events/{event_id}/responses": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Get Event Divera Responses",
+        "description": "Who answered «kommt» / «kommt nicht» on the Divera alarms of this Ereignis, merged.\n\nWhat the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that\nmay check people in (editor, admin) – same as KP Front; a viewer gets 403. Read-only: an\nanswer never checks anybody in. `available: false` when\nDivera is not configured or no alarm of this Ereignis came from Divera.",
+        "operationId": "get_event_divera_responses_api_divera_events__event_id__responses_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraResponsesSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/divera/incidents/{incident_id}/responses": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Get Incident Divera Responses",
+        "description": "Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).\n\nEditors and admins only, like the Ereignis endpoint; a viewer gets 403.",
+        "operationId": "get_incident_divera_responses_api_divera_incidents__incident_id__responses_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraResponsesSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/polling/status": {
       "get": {
         "tags": [
@@ -22616,6 +22768,143 @@
         ],
         "title": "DiveraMessageResponse",
         "description": "Result of a Mitteilung send."
+      },
+      "DiveraResponseKindCounts": {
+        "properties": {
+          "coming": {
+            "type": "integer",
+            "title": "Coming",
+            "default": 0
+          },
+          "not_coming": {
+            "type": "integer",
+            "title": "Not Coming",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "DiveraResponseKindCounts",
+        "description": "Answers per kind, unmapped members included. One person counts once (newest alarm)."
+      },
+      "DiveraResponsePerson": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "coming",
+              "not_coming"
+            ],
+            "title": "Kind"
+          },
+          "attended": {
+            "type": "boolean",
+            "title": "Attended",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "name",
+          "kind"
+        ],
+        "title": "DiveraResponsePerson",
+        "description": "A roster person's yes/no. Never a check-in: presence stays an explicit tap.\n\nDeliberately nothing else (owner decision): no answer time, no estimate, no status name,\nno note, no Divera id."
+      },
+      "DiveraResponsesSummary": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "not_configured",
+                  "not_linked",
+                  "no_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "alarm_count": {
+            "type": "integer",
+            "title": "Alarm Count",
+            "default": 0
+          },
+          "counts": {
+            "$ref": "#/components/schemas/DiveraResponseKindCounts",
+            "default": {
+              "coming": 0,
+              "not_coming": 0
+            }
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/DiveraResponsePerson"
+            },
+            "type": "array",
+            "title": "People",
+            "default": []
+          },
+          "unmapped": {
+            "type": "integer",
+            "title": "Unmapped",
+            "default": 0
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "DiveraResponsesSummary",
+        "description": "Who answered «kommt» / «kommt nicht» on the Divera alarm(s) of one incident or Ereignis.\n\n`available: false` with a `reason` means the block is simply absent: Divera is not\nconfigured here (`not_configured`), nothing on this incident/Ereignis came from Divera\n(`not_linked`), or no alarm of the last 6 h carries stored answers (`no_data` – also what\na unit key whose `/alarms` has no answer field gives). The access key is never part of\nthis answer, nor is any Divera id."
       },
       "DiveraSyncExecute": {
         "properties": {

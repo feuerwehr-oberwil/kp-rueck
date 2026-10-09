@@ -30,6 +30,24 @@ will keep holding.
 
 ### Added
 
+- **«Anrückend»: who answered the Divera alarm, in the Appell and the Personen-Leiste.** The
+  Divera poll already fetched every alarm's Rückmeldungen and threw them away. They are now kept
+  as a plain yes/no and shown above the roll-call and at the top of the personnel sidebar: one
+  line of counts («4 kommen · 2 kommen nicht»), then the names of everybody coming who has not
+  checked in yet, with their Grad and one click to check them in. «Kommt nicht» is its own muted
+  group marked with ✕ and the words – not red, and check-in is still offered in case somebody
+  misclicked. A Divera answer never checks anybody in by itself. Answers from Divera members
+  nobody on the roster is linked to are only counted; answers that are neither yes nor no
+  («Rückruf erbeten») are ignored. Without Divera, or on an Ereignis with no recent Divera alarm,
+  nothing changes on screen. Which of the Einheit's own statuses mean «kommt» / «kommt nicht» is
+  read from their names; a station whose names are unusual sets `divera.response_classification`
+  (see `docs/ALARM-INTEGRATIONS.md`). Only alarms of the last 6 hours count, the newer alarm
+  wins per person, and anybody who already checked in on the Ereignis – or checked in and went
+  home – stays out of the list. Editors and admins see it; the viewer role does not. Stored is
+  only who said yes or no (no times, notes or Divera ids), deleted 48 hours after the alarm and when the Ereignis is archived (`PRIVACY.md`). No new
+  Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`, at most
+  once every 6 h or when an answer uses a status not seen before. Migration: two nullable columns
+  on `divera_emergencies`.
 - **Assign by typing: «14 tlf meier» in ⌘K.** Every Einsatz now has a small number, counted per
   Ereignis and shown before the address – on the board and wall cards, in the detail header, on
   the Lagekarte labels, in the Doppelbelegung prompt and wherever an Einsatz is named, and on the

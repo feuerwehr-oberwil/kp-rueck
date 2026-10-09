@@ -48,6 +48,29 @@ That is a website, not the app — see [The project website](#the-project-websit
   printing exchange the information needed for their functions with the configured systems.
   Their recipients and retention depend on the station's configuration.
 
+### Divera Rückmeldungen («Anrückend»)
+
+With Divera configured, the board shows who answered an alarm with «kommt» or «kommt nicht».
+That is personal data, so KP Rück keeps as little of it as the board needs:
+
+- **Source:** the same `GET /alarms` answer the Divera poll already fetches. Nothing is sent to
+  Divera, and no extra request is made for it.
+- **Stored:** per alarm, in `divera_emergencies.responses_json`: the alarm time, the roster
+  person ids with «kommt» or «kommt nicht», and how many answers per class came from members
+  nobody on the roster is linked to. Nothing else. Each answer is reduced to yes/no when it is
+  polled: answer times, status names, free-text notes, Divera member ids, who was alarmed and
+  who opened the alarm are dropped. Answers that are neither («Rückruf erbeten») are dropped
+  entirely.
+- **Deleted:** 48 hours after the alarm reached KP Rück, and as soon as its Ereignis is archived
+  (an hourly job, every poll, and the archive action itself). After that the answers are never
+  stored again, even though Divera keeps listing the alarm.
+- **Shown:** only to editors and admins – the people who check others in – and the viewer role
+  gets a 403 from the endpoint and no block at all. Only on the Ereignis the alarm is attached
+  to, and only for alarms of the last 6 hours. Answers from members not on the roster are a
+  number only.
+- **Never:** a Divera answer never checks anybody in, and the Divera access key never appears in
+  an API answer or a log line.
+
 The telemetry exclusions below apply to error reports sent to the maintainer. They are not
 a claim that operational features never communicate with third parties.
 

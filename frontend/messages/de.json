@@ -996,6 +996,20 @@
       "quickAddHint": "Wird direkt angemeldet",
       "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
     },
+    "diveraIncoming": {
+      "title": "Anrückend ({count})",
+      "source": "Divera",
+      "countComing": "{count, plural, one {# kommt} other {# kommen}}",
+      "countNotComing": "{count, plural, one {# kommt nicht} other {# kommen nicht}}",
+      "noAnswersYet": "Noch keine Rückmeldung",
+      "allHere": "Alle, die kommen, sind angemeldet",
+      "notComingGroup": "Kommt nicht ({count})",
+      "notComing": "kommt nicht",
+      "unmapped": "{count, plural, one {# Rückmeldung} other {# Rückmeldungen}} ohne Person im Bestand",
+      "checkIn": "da",
+      "checkInLabel": "{name} als anwesend melden",
+      "checkInFailed": "Anmeldung fehlgeschlagen"
+    },
     "links": {
       "title": "Links & QR",
       "description": "Was die Mannschaft, das Tablet an der Tür und der Wandbildschirm öffnen.",

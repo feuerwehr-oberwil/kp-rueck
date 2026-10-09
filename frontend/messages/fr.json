@@ -2234,6 +2234,20 @@
       "quickAddHint": "Sera annoncé directement",
       "writeFailed": "La présence n’a pas pu être enregistrée"
     },
+    "diveraIncoming": {
+      "title": "En route ({count})",
+      "source": "Divera",
+      "countComing": "{count, plural, one {# vient} other {# viennent}}",
+      "countNotComing": "{count, plural, one {# ne vient pas} other {# ne viennent pas}}",
+      "noAnswersYet": "Pas encore de réponse",
+      "allHere": "Toutes les personnes qui viennent sont annoncées",
+      "notComingGroup": "Ne vient pas ({count})",
+      "notComing": "ne vient pas",
+      "unmapped": "{count, plural, one {# réponse} other {# réponses}} sans personne dans l’effectif",
+      "checkIn": "présent",
+      "checkInLabel": "Annoncer {name} présent",
+      "checkInFailed": "L’annonce a échoué"
+    },
     "links": {
       "title": "Liens & QR",
       "description": "Ce qu'ouvrent les équipes, la tablette à la porte et l'écran mural.",

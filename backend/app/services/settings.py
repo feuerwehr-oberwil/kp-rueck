@@ -197,6 +197,13 @@ DEFAULT_SETTINGS = {
     #     «Meldung» heading above that field, so the label reads twice on the card. A line
     #     left with nothing behind its label is dropped: a label alone is not content.
     "alarm.description_label_prefixes": "",
+    # Divera Rückmeldungen («Anrückend» in the Appell and the Personen-Leiste): which of the
+    # Einheit's own response statuses mean «kommt» / «kommt nicht». A JSON object keyed by
+    # Divera status id ("13") or status name ("Komme nicht", case/diacritic-insensitive),
+    # value "coming" | "not_coming" | "other"; an id beats a name. EMPTY = the built-in name
+    # heuristic, which already reads «Komme», «Komme in 10 min», «Komme nicht» right. See
+    # services/divera_responses.py and docs/ALARM-INTEGRATIONS.md.
+    "divera.response_classification": "",
 }
 
 FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
