@@ -161,4 +161,22 @@ describe('bounded API proxy', () => {
       })
     }
   })
+
+  it('keeps a public immutable Cache-Control (radar frames) and forces no-store on everything else', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(new Uint8Array([137, 80, 78, 71]), {
+      headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400, immutable' },
+    }))
+    const frame = await GET(new NextRequest('https://station.example/backend-api/api/weather/radar/202610081700.png'))
+    expect(frame.headers.get('cache-control')).toBe('public, max-age=86400, immutable')
+
+    // Public but not immutable, or immutable but carrying a cookie: not cacheable.
+    fetchMock.mockResolvedValueOnce(new Response('{}', { headers: { 'cache-control': 'public, max-age=60' } }))
+    const json = await GET(new NextRequest('https://station.example/backend-api/api/weather/'))
+    expect(json.headers.get('cache-control')).toBe('no-store, no-cache, must-revalidate')
+    fetchMock.mockResolvedValueOnce(new Response('x', {
+      headers: { 'cache-control': 'public, immutable', 'set-cookie': 'access_token=opaque; HttpOnly' },
+    }))
+    const withCookie = await GET(new NextRequest('https://station.example/backend-api/api/test'))
+    expect(withCookie.headers.get('cache-control')).toBe('no-store, no-cache, must-revalidate')
+  })
 })

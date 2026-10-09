@@ -62,6 +62,9 @@ source of change is pinned once, in one place:
   the server's wall clock, «2141 h im Status …» on a three-hour-old story), so the browser gets
   an empty list for `GET /api/notifications/`: the bell and its toasts are not in these
   screenshots.
+- **Live weather** — `GET /api/weather/` is the backend relaying today's MeteoSwiss radar and
+  official warnings, so it is answered as a station with the layer switched off
+  (`enabled: false`): no radar, no warning chip on the map.
 - **Settling** — before a shot the spec waits for named content (the first and last card, a
   marker label, a stored setting value), the boot cover and every shell trail gone, the top
   progress line idle, fonts loaded, and every scroller at rest. `toHaveScreenshot` then still
