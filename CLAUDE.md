@@ -107,7 +107,7 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
   own config `playwright.visual.config.ts`) from a production build against `app.seed_visual`
   (the demo storm evening at one fixed instant; the browser clock frozen at the same instant,
   basemap tiles stubbed flat), compared with the PNGs in `tests/visual/__screenshots__/`. CI
-  job `visual` (on probation, not required yet). Baselines come from CI only
+  job `visual` (a required check since 2026-10-10). Baselines come from CI only
   (`visual-baselines.yml` → `just visual-accept <run-id>`); a local run is a look, not a
   verdict. **Never accept a baseline to turn the check green** – only a deliberate visual
   change, in its own commit with the reason. A new time- or server-clock-dependent thing on
