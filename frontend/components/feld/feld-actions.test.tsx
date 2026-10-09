@@ -338,7 +338,7 @@ describe('Freitext-Meldung', () => {
     await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
     await user.click(screen.getByRole('button', { name: 'fertig in ~30 Min' }))
 
-    await waitFor(() => expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', 'fertig in ~30 Min'))
+    await waitFor(() => expect(feldSendMessage).toHaveBeenCalledWith('inc-1', 'p-1', 'tok', expect.objectContaining({ message: 'fertig in ~30 Min' })))
   })
 
   it('refuses to send whitespace', async () => {
@@ -422,6 +422,7 @@ describe('structured requests (R13)', () => {
         item: 'Tauchpumpe Gr.',
         quantity: 2,
         message: '',
+        client_request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       }),
     )
     expect(screen.getByText(/«Material: Tauchpumpe Gr. ×2» ist beim KP angekommen/)).toBeInTheDocument()
@@ -441,6 +442,7 @@ describe('structured requests (R13)', () => {
         item: 'Atemschutz',
         quantity: 2,
         message: '',
+        client_request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       }),
     )
   })
@@ -475,5 +477,22 @@ describe('structured requests (R13)', () => {
     expect(screen.getByText('Vom KP gesehen')).toBeInTheDocument()
     expect(screen.getByText('KP: in Arbeit')).toBeInTheDocument()
     expect(screen.getByText(/erledigt · .* · KP Rück/)).toBeInTheDocument()
+  })
+})
+
+describe('a retry is the same request (R13 review)', () => {
+  it('«Nochmals senden» repeats the same client_request_id', async () => {
+    feldSendMessage.mockRejectedValueOnce(new Error('offline'))
+    const user = userEvent.setup()
+    render()
+    await user.click(screen.getByRole('button', { name: 'Meldung an den KP' }))
+    await user.click(screen.getByRole('button', { name: 'fertig in ~30 Min' }))
+    await waitFor(() => expect(screen.getByText(/nicht übermittelt/)).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Nochmals senden' }))
+
+    await waitFor(() => expect(feldSendMessage).toHaveBeenCalledTimes(2))
+    const [first, second] = feldSendMessage.mock.calls.map(call => call[3])
+    expect(first.client_request_id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(second.client_request_id).toBe(first.client_request_id)
   })
 })

@@ -31,7 +31,10 @@ interface NotificationContextValue {
    *  in this session. Same idea as `lastSyncAt` behind the StaleDataBanner. */
   lastNotificationSyncAt: Date | null
   dismissNotification: (id: string) => Promise<void>
-  dismissAllNotifications: () => Promise<void>
+  /** `except`: bell entries that are not this list's to close — the sidebar
+   *  shows an open field request in their place (R13), and «Alle schliessen»
+   *  must not silently stamp those «gesehen». */
+  dismissAllNotifications: (except?: ReadonlySet<string>) => Promise<void>
   updateSettings: (settings: Partial<NotificationSettings>) => Promise<void>
   refetchNotifications: () => Promise<void>
   // Sidebar state
@@ -343,8 +346,8 @@ export function NotificationProvider({
   }
 
   // Dismiss all active notifications
-  const dismissAllNotifications = async () => {
-    const activeNotifications = notifications.filter((n) => !n.dismissed)
+  const dismissAllNotifications = async (except?: ReadonlySet<string>) => {
+    const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
 
     if (activeNotifications.length === 0) {
       return

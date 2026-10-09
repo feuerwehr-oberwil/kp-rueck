@@ -4080,7 +4080,10 @@
       "sidebarTitle": "Vom Feld – offen",
       "sidebarHint": "Bleibt hier, bis es erledigt ist. Schliessen einer Benachrichtigung erledigt nichts.",
       "more": "+{count} weitere",
-      "cardTitle": "{count, plural, one {# offene Anforderung vom Feld} other {# offene Anforderungen vom Feld}}"
+      "cardTitle": "{count, plural, one {# offene Anforderung vom Feld} other {# offene Anforderungen vom Feld}}",
+      "markSeen": "Gesehen",
+      "markSeenTitle": "Dem Trupp «Vom KP gesehen» bestätigen – bleibt offen, bis es erledigt ist",
+      "movedOn": "Diese Anforderung wurde inzwischen geändert – neu geladen."
     },
     "ask": {
       "material": "Material nötig",

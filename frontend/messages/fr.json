@@ -1049,7 +1049,10 @@
       "sidebarTitle": "Du terrain – ouvert",
       "sidebarHint": "Reste ici jusqu’à ce que ce soit réglé. Fermer une notification ne règle rien.",
       "more": "+{count} autres",
-      "cardTitle": "{count, plural, one {# demande ouverte du terrain} other {# demandes ouvertes du terrain}}"
+      "cardTitle": "{count, plural, one {# demande ouverte du terrain} other {# demandes ouvertes du terrain}}",
+      "markSeen": "Vu",
+      "markSeenTitle": "Confirmer « Vu par le PC » au groupe – reste ouvert jusqu’à ce que ce soit réglé",
+      "movedOn": "Cette demande a été modifiée entre-temps – rechargée."
     },
     "ask": {
       "material": "Matériel nécessaire",

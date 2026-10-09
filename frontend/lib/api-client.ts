@@ -792,10 +792,13 @@ class ApiClient {
     incidentId: string,
     requestId: string,
     status: ApiFieldRequestStatus,
+    /** The state the operator's screen showed — a request another board moved
+     *  on meanwhile answers 409 instead of being overwritten. */
+    expectedStatus?: ApiFieldRequestStatus,
   ): Promise<ApiFieldRequest> {
     return this.request<ApiFieldRequest>(`/api/incidents/${incidentId}/field-requests/${requestId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, expected_status: expectedStatus }),
     })
   }
 

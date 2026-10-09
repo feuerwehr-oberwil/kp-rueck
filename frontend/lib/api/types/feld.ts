@@ -165,6 +165,8 @@ export interface ApiFieldRequestCreate {
   message?: string
   item?: string | null
   quantity?: number | null
+  /** The phone's own id; «Nochmals senden» repeats it and the server ignores the repeat. */
+  client_request_id?: string
 }
 
 export interface ApiFeldAssignment {

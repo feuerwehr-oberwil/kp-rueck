@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, CarTaxiFront, ClipboardList, MessageSquare, Package, RotateCcw, Users, Wrench } from 'lucide-react'
+import { Check, CarTaxiFront, ClipboardList, Eye, MessageSquare, Package, RotateCcw, Users, Wrench } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { DetailGroupHeading } from '@/components/kanban/detail-field'
@@ -77,6 +77,7 @@ export function FieldRequestItem({
   place,
   busy,
   onSetStatus,
+  onMarkSeen,
   onOpen,
 }: {
   request: ApiFieldRequest
@@ -86,6 +87,9 @@ export function FieldRequestItem({
   place?: string
   busy: boolean
   onSetStatus: (request: ApiFieldRequest, status: ApiFieldRequest['status']) => void
+  /** «Gesehen» — closes the bell entry the sidebar shows this request in place
+   *  of; the request stays open. Any logged-in user may, like ✕ on the bell. */
+  onMarkSeen?: (request: ApiFieldRequest) => void
   /** Clicking the text opens the incident (sidebar only). */
   onOpen?: () => void
 }) {
@@ -94,6 +98,8 @@ export function FieldRequestItem({
   const label = fieldRequestLabel(request, t)
   const target = assignTargetFor(request)
   const open = isOpenRequest(request)
+  // Only while there is a bell entry to close and nobody has acknowledged it.
+  const canMarkSeen = Boolean(onMarkSeen) && open && !request.seen_at && Boolean(request.notification_id)
   const provenance = request.from_field
     ? t('fromField', { name: request.created_by_name ?? '–', time: formatTime(request.created_at) })
     : t('fromKp', { time: formatTime(request.created_at) })
@@ -136,9 +142,22 @@ export function FieldRequestItem({
         <FieldRequestStatusChip request={request} />
       </div>
 
-      {canEdit && (
+      {(canEdit || canMarkSeen) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-5">
-          {open && target && onAssign && (
+          {canMarkSeen && (
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              disabled={busy}
+              title={t('markSeenTitle')}
+              onClick={() => onMarkSeen?.(request)}
+            >
+              <Eye className="size-3.5" aria-hidden />
+              {t('markSeen')}
+            </Button>
+          )}
+          {canEdit && open && target && onAssign && (
             <Button
               type="button"
               size="xs"
@@ -159,7 +178,7 @@ export function FieldRequestItem({
               {target.resourceType === 'materials' ? t('assignMaterial') : t('assignCrew')}
             </Button>
           )}
-          {request.status === 'open' && request.kind !== 'pickup' && (
+          {canEdit && request.status === 'open' && request.kind !== 'pickup' && (
             <Button
               type="button"
               size="xs"
@@ -172,7 +191,7 @@ export function FieldRequestItem({
               {t('start')}
             </Button>
           )}
-          {open && (
+          {canEdit && open && (
             <Button
               type="button"
               size="xs"
@@ -185,7 +204,7 @@ export function FieldRequestItem({
               {request.kind === 'pickup' ? t('pickupDone') : t('done')}
             </Button>
           )}
-          {request.status === 'done' && request.kind !== 'pickup' && (
+          {canEdit && request.status === 'done' && request.kind !== 'pickup' && (
             <Button
               type="button"
               size="xs"
@@ -287,7 +306,7 @@ export function FieldRequestList({
     void load()
   }, [load, openKey])
 
-  const { setStatus, busyId } = useFieldRequestActions(load)
+  const { setStatus, markSeen, canMarkSeen, busyId } = useFieldRequestActions(load)
   const list = rows ?? operation.fieldRequests ?? []
 
   return (
@@ -328,6 +347,7 @@ export function FieldRequestList({
               onAssign={onAssign}
               busy={busyId === request.id}
               onSetStatus={(r, status) => void setStatus(r, status)}
+              onMarkSeen={canMarkSeen ? r => void markSeen(r) : undefined}
             />
           ))}
         </ul>

@@ -129,3 +129,39 @@ describe('FieldRequestItem', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })
+
+describe('«Gesehen» (R13 review)', () => {
+  it('is offered while the bell entry is unacknowledged, and closes only that', async () => {
+    const user = userEvent.setup()
+    const onMarkSeen = vi.fn()
+    const onSetStatus = vi.fn()
+    renderWithIntl(
+      <ul>
+        <FieldRequestItem request={request()} canEdit busy={false} onSetStatus={onSetStatus} onMarkSeen={onMarkSeen} />
+      </ul>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Gesehen' }))
+    expect(onMarkSeen).toHaveBeenCalledWith(expect.objectContaining({ id: 'r-1' }))
+    expect(onSetStatus).not.toHaveBeenCalled()
+  })
+
+  it('is gone once seen, and where there is no bell entry', () => {
+    renderWithIntl(
+      <ul>
+        <FieldRequestItem request={request({ seen_at: '2026-10-08T20:01:00Z' })} canEdit busy={false} onSetStatus={vi.fn()} onMarkSeen={vi.fn()} />
+        <FieldRequestItem request={request({ id: 'r-2', notification_id: null })} canEdit busy={false} onSetStatus={vi.fn()} onMarkSeen={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.queryByRole('button', { name: 'Gesehen' })).not.toBeInTheDocument()
+  })
+
+  it('a viewer may acknowledge, like ✕ on the bell, but not work it', () => {
+    renderWithIntl(
+      <ul>
+        <FieldRequestItem request={request()} canEdit={false} busy={false} onSetStatus={vi.fn()} onMarkSeen={vi.fn()} />
+      </ul>,
+    )
+    expect(screen.getByRole('button', { name: 'Gesehen' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Erledigt' })).not.toBeInTheDocument()
+  })
+})

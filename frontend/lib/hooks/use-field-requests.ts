@@ -15,7 +15,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import { apiClient, type ApiFieldRequest, type ApiFieldRequestStatus } from '@/lib/api-client'
+import { ApiError, apiClient, type ApiFieldRequest, type ApiFieldRequestStatus } from '@/lib/api-client'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
 import { useOptionalNotifications } from '@/lib/contexts/notification-context'
 import { byOldest, representedNotificationIds } from '@/lib/field-requests'
@@ -49,24 +49,52 @@ export function useFieldRequestActions(onChanged?: () => void) {
   const notifications = useOptionalNotifications()
   const [busyId, setBusyId] = useState<string | null>(null)
 
+  const refresh = useCallback(async () => {
+    await Promise.all([refreshOperations(), notifications?.refetchNotifications()])
+    onChanged?.()
+  }, [notifications, onChanged, refreshOperations])
+
   const setStatus = useCallback(
     async (request: ApiFieldRequest, status: ApiFieldRequestStatus) => {
       setBusyId(request.id)
       try {
-        await apiClient.setFieldRequestStatus(request.incident_id, request.id, status)
-        await Promise.all([refreshOperations(), notifications?.refetchNotifications()])
-        onChanged?.()
+        // The state this screen showed: another board that was faster wins,
+        // and this one is told so instead of overwriting it.
+        await apiClient.setFieldRequestStatus(request.incident_id, request.id, status, request.status)
+        await refresh()
       } catch (error) {
         console.error('Failed to update field request:', error)
-        toast.error(t('updateFailed'))
+        if (error instanceof ApiError && error.status === 409) {
+          toast.error(t('movedOn'))
+          await refresh()
+        } else {
+          toast.error(t('updateFailed'))
+        }
       } finally {
         setBusyId(null)
       }
     },
-    [notifications, onChanged, refreshOperations, t],
+    [refresh, t],
   )
 
-  return { setStatus, busyId }
+  /** «Gesehen»: close the request's bell entry — the crew reads «Vom KP gesehen»,
+   *  the request stays open. Offered only where a bell entry exists. */
+  const canMarkSeen = Boolean(notifications)
+  const markSeen = useCallback(
+    async (request: ApiFieldRequest) => {
+      if (!notifications || !request.notification_id) return
+      setBusyId(request.id)
+      try {
+        await notifications.dismissNotification(request.notification_id)
+        await refresh()
+      } finally {
+        setBusyId(null)
+      }
+    },
+    [notifications, refresh],
+  )
+
+  return { setStatus, markSeen, canMarkSeen, busyId }
 }
 
 /**

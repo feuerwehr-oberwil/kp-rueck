@@ -45,6 +45,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { apiClient, type ApiFeldAssignment, type ApiFieldReportState, type ApiFieldRequestCreate } from '@/lib/api-client'
 import { fieldRequestLabel, fieldSideState } from '@/lib/field-requests'
+import { randomUuid } from '@/lib/utils/validation'
 import { deliveryReducer, IDLE, isBusy, type FeldActionKind } from '@/lib/feld-delivery'
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
 import { rapportApplies } from '@/lib/rapport-visibility'
@@ -207,8 +208,11 @@ export function FeldActions({
   const handleMessage = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
+    // One id per send, built ONCE: «Nochmals senden» repeats this exact payload,
+    // so the server recognises the repeat instead of opening a second request.
+    const payload: ApiFieldRequestCreate = { message: trimmed, client_request_id: randomUuid() }
     const ok = await run('message', trimmed, async () => {
-      await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, trimmed)
+      await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, payload)
     })
     // The typed text survives a failure — the input is only cleared once the KP
     // has it. Retyping a Meldung in the rain is not an acceptable retry.
@@ -233,6 +237,8 @@ export function FeldActions({
       item: askItem.trim() || null,
       quantity: askQuantity,
       message: askNote.trim(),
+      // See handleMessage: a retry repeats this id and is a no-op on the server.
+      client_request_id: randomUuid(),
     }
     const label = fieldRequestLabel(
       {
@@ -256,7 +262,7 @@ export function FeldActions({
       },
       tRequest,
     )
-    // Read at call time like the Meldung: a retry sends what is in the fields now.
+    // Built once per tap; «Nochmals senden» repeats exactly this request.
     const ok = await run('message', label, async () => {
       await apiClient.feldSendMessage(assignment.incident_id, personnelId, token, payload)
     })

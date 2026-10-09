@@ -125,7 +125,7 @@ export function PersistentNotificationSidebar() {
               <Button
                 variant="ghost"
                 size="xs"
-                onClick={dismissAllNotifications}
+                onClick={() => void dismissAllNotifications(openRequests.representedIds)}
                 className="text-muted-foreground hover:text-foreground"
                 aria-label={t('dismissAll')}
               >

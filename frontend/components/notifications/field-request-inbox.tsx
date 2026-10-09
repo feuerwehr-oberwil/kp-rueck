@@ -31,7 +31,7 @@ export function FieldRequestInbox({
   const t = useTranslations('feld.requests')
   const { isEditor } = useAuth()
   const { assignAction } = useNotifications()
-  const { setStatus, busyId } = useFieldRequestActions()
+  const { setStatus, markSeen, canMarkSeen, busyId } = useFieldRequestActions()
 
   if (items.length === 0) return null
 
@@ -56,6 +56,7 @@ export function FieldRequestInbox({
             onAssign={assignAction ?? undefined}
             busy={busyId === request.id}
             onSetStatus={(r, status) => void setStatus(r, status)}
+            onMarkSeen={canMarkSeen ? r => void markSeen(r) : undefined}
             onOpen={onOpenIncident ? () => onOpenIncident(request.incident_id) : undefined}
           />
         ))}

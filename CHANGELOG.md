@@ -38,8 +38,12 @@ will keep holding.
   notification sidebar, which keeps it until somebody handles it. **Closing the notification no
   longer makes a request disappear**: it marks it «gesehen» (the crew reads «Vom KP gesehen»), and
   only *Erledigt* takes it off the card and the sidebar; *Erledigt* also closes the notification.
-  The bell counts open requests. Handling it in one place updates the others and the crew's phone
-  («KP: in Arbeit», «erledigt · 14:32 · Name»).
+  The bell counts open requests; *Gesehen* on the request acknowledges it without handling it, and
+  «Alle schliessen» leaves requests alone. Handling it in one place updates the others and the
+  crew's phone («KP: in Arbeit», «erledigt · 14:32 · Name»); two operators acting on the same
+  request at once get «inzwischen geändert» instead of overwriting each other, and «Nochmals
+  senden» on a phone never creates a second request. Completing an incident closes its open
+  Meldungen; Material, Verstärkung and Abholung stay open until somebody handles them.
 - **«Material nötig» and «Verstärkung nötig» are structured.** On `/feld` they open a small
   picker – the material from the station's inventory (or typed), how many, a note – so the KP
   reads «Tauchpumpe Gr. ×2» instead of prose. On the board, *Material zuteilen* / *Personal
