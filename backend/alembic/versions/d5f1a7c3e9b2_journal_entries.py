@@ -1,7 +1,7 @@
 """journal_entries: the per-Ereignis Einsatztagebuch as an append-only log (idea R8)
 
 Revision ID: d5f1a7c3e9b2
-Revises: c4e8a2f61d97
+Revises: a9d3f1c7e2b5
 Create Date: 2026-10-08 00:00:00.000000
 
 Until now the Einsatztagebuch existed only as a PDF chapter, assembled at print time from
@@ -28,7 +28,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "d5f1a7c3e9b2"
-down_revision: str | Sequence[str] | None = "c4e8a2f61d97"
+down_revision: str | Sequence[str] | None = "a9d3f1c7e2b5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
