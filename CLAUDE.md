@@ -266,7 +266,7 @@ runs: http://localhost:8000/docs
 **Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
 - Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach); the pool table carries `source`/`source_id` provenance, incidents carry `source`/`source_ref`.
 - Outbound alerting (Ausalarmierung) goes through the `AlarmProvider` protocol in `services/alerting/` (Divera = first adapter).
-- A published roster file (`ROSTER_SNAPSHOT_SOURCE`, `docs/ROSTER-SNAPSHOT.md`) is read by `services/roster_snapshot_sync.py`; the contract and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `scripts/roster_snapshot_from_csv.py`) are byte-identical with kp-front and edited THERE first – listed in `shared/MANIFEST.json` (see below).
+- A published roster file (`STATION_INDEX_SOURCE` → `index.json`, fallback `ROSTER_SNAPSHOT_SOURCE`; `docs/ROSTER-SNAPSHOT.md`) is read by `services/roster_snapshot_sync.py`; the contracts and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `app/station_index.py`, `scripts/roster_snapshot_from_csv.py`, `scripts/station_index_build.py`) are byte-identical with kp-front and edited THERE first – listed in `shared/MANIFEST.json` (see below).
 - Personnel provider identity lives in `personnel_external_identities` — the only place a person's provider-side id exists (the deprecated `personnel.divera_user_id` dual-write was dropped in migration `b7c2e5a1d4f8`). The personnel API exposes only a `divera_linked` boolean.
 - Printing: transport-neutral job queue + pull agent (`docs/PRINT_AGENT.md`).
 

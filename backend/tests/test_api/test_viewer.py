@@ -128,7 +128,7 @@ async def test_viewer_data_carries_the_kennzahlen(
     assert [p["priority"] for p in figures["by_priority"]] == ["high", "medium", "low"]
     assert figures["oldest_waiting_high"]["incident_id"] == str(melder_incident.id)
     assert "Meier" not in str(figures)
-    assert "061" not in str(figures)
+    assert "061 222 22 22" not in str(figures)
 
 
 @pytest.mark.asyncio

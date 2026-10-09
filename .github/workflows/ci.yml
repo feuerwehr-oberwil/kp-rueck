@@ -115,7 +115,8 @@ jobs:
         run: |
           mkdir -p /tmp/scan
           git archive HEAD | tar -x -C /tmp/scan
-          docker run --rm -v /tmp/scan:/repo zricethezav/gitleaks:latest \
+          # GHCR: the same image as Docker Hub's zricethezav/gitleaks, without its pull limit.
+          docker run --rm -v /tmp/scan:/repo ghcr.io/gitleaks/gitleaks:latest \
             detect --source /repo --no-git --redact --exit-code 1
 
   # ============================================
@@ -364,7 +365,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # ECR Public mirror of the Docker Official Image (same image, same digest): Docker Hub's
+        # anonymous pull limit failed CI jobs at random (09.10.2026). Same for every image CI pulls.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -633,7 +636,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -771,7 +774,7 @@ jobs:
       postgres:
         # -alpine, as production runs it: the image's collation decides the order of names the
         # backend sorts, which is on screen (scripts/visual-test.sh).
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -870,6 +873,17 @@ jobs:
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
+        with:
+          # tileserver/Dockerfile's base (maptiler/tileserver-gl) is published on Docker Hub
+          # only, and Hub answers anonymous pulls past its rate limit with 429 — even the
+          # manifest HEAD (09.10.2026). BuildKit asks Google's Hub mirror first (same digest)
+          # and falls back to Hub itself. The other bases already come from ECR Public.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+          # Buildx's own BuildKit container is moby/buildkit from Docker Hub unless named here, and
+          # Hub's anonymous pull limit failed this step at random (09.10.2026). Same mirror, same digest.
+          driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
 
       - name: Write .env (compose reads it before anything else)
         run: |
@@ -949,6 +963,18 @@ jobs:
           tags: ghcr.io/feuerwehr-oberwil/kp-print-agent:ci
           cache-from: type=gha,scope=print-agent
           cache-to: type=gha,mode=max,scope=print-agent
+
+      # ECR Public serves an anonymous client about one pull per second and answered compose's
+      # parallel pulls (db + caddy) with «toomanyrequests: Rate exceeded». One at a time, retried.
+      - name: Pull the stack's registry images (one at a time, retried)
+        run: |
+          for img in $(docker compose config --images | grep -v '^ghcr.io/feuerwehr-oberwil/'); do
+            for i in 1 2 3 4 5; do
+              docker pull -q "$img" && break
+              [ "$i" = 5 ] && exit 1
+              sleep $((i * 5))
+            done
+          done
 
       - name: Boot the stack
         run: docker compose up -d --wait   # waits for db/backend/frontend/tileserver health

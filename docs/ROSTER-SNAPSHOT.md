@@ -35,6 +35,45 @@ to carry a secret.
 For a file on the host, mount it into the backend service (compose override) and point the
 source at the path inside the container.
 
+## 1a. Through the station index (recommended)
+
+Owner decision X6/X7: a station keeps all its shared data in **one place** and feeds both apps
+the same way. That place is a folder with an **`index.json`** that lists the data files in it by
+kind, each with its contract version and sha256 ([`station-index.schema.json`](station-index.schema.json),
+example [`station-index.example.json`](station-index.example.json)):
+
+```json
+{ "schema": "station-index/1", "schema_version": 1, "generated_at": "2026-10-09T04:00:00+00:00",
+  "provider": "musterdorf",
+  "files": [ { "kind": "roster", "path": "roster.json", "schema": "roster-snapshot/1",
+               "sha256": "<64 hex>", "bytes": 1234 } ] }
+```
+
+| Variable | Meaning |
+|---|---|
+| `STATION_INDEX_SOURCE` | the `https://` address or absolute path of the `index.json`; blank = off |
+| `STATION_INDEX_TOKEN` | bearer token for the index **and** its siblings (always the same host), https only |
+
+- When the index lists a `roster`, that file is read and everything below applies unchanged.
+  When it lists none, `ROSTER_SNAPSHOT_SOURCE` is read as before – **that setting stays as the
+  fallback**, so a station that set it changes nothing. An index that is set but cannot be read
+  is an error in the status, never a silent fallback.
+- A listed file is read only when it hashes to the index's sha256 (and has its `bytes`): a file
+  swapped after the index was written is refused for that run. Paths are relative, never `..`,
+  absolute or another host. A known kind is read only at the version this build implements.
+- Write the index with `python3 scripts/station_index_build.py <folder> --provider <key>` (stdlib):
+  it lists every `*.json` whose top-level `schema` is `<kind>-snapshot/<n>` and writes `index.json`
+  atomically – run it last, after the data files are in place.
+- `vehicles`, `groups` and `keywords` are **reserved kinds**: an index may list them, the status
+  names them as «noch nicht gelesen», and nothing reads them yet – each would write data operators
+  edit by hand today (the vehicles table here; fleet, alarm groups and keywords in KP Front), which
+  is a change of ownership, not a mapping. Their intended shapes (same envelope as the roster:
+  `schema`, `generated_at`, `provider`, `complete`, `count`, items with a stable `external_id` +
+  `identities`) are in KP Front's `docs/CONFIGURATION.md` §4d.
+
+The reader (`backend/app/station_index.py`), the builder and both JSON files are byte-identical
+with KP Front's and pinned like the roster files.
+
 ## 2. What a run does
 
 1. **Fetch** (≤ 5 MB, 30 s timeout). A failure – unreachable, HTTP error, missing file – changes

@@ -123,6 +123,13 @@ export interface ApiRosterSnapshotStatus {
   lastSuccess?: string | null
   lastError?: string | null
   lastGood?: { generatedAt: string; count: number; provider: string } | null
+  /** how the roster was found: through the station index, or ROSTER_SNAPSHOT_SOURCE directly */
+  via?: 'index' | 'direct'
+  /** the station index of that run (backend `station_index.summary`) */
+  index?: {
+    generatedAt: string
+    files: Array<{ kind: string; schema: string; read: boolean; known: boolean }>
+  } | null
   outcome?: {
     refused?: string | null
     created?: number

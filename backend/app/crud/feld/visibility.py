@@ -157,6 +157,17 @@ async def visible_by_personnel(
     )
     reko_person_ids = {row[0] for row in reko_people.all()}
 
+    # A card merged into another one (R2) is the same Schadenplatz under the other
+    # card's name: whoever was on it — and asked for things there, which moved
+    # with the merge (services/merge_requests.py) — now finds it as that card.
+    merged_rows = await db.execute(
+        select(Incident.id, Incident.merged_into_id).where(
+            Incident.event_id == event_id,
+            Incident.merged_into_id.is_not(None),
+        )
+    )
+    merged_into = {row[0]: row[1] for row in merged_rows.all()}
+
     # ── crew + reko: personal assignments, active or released ──────────────
     personal = await db.execute(
         select(
@@ -165,11 +176,12 @@ async def visible_by_personnel(
             IncidentAssignment.unassigned_at,
             IncidentAssignment.purpose,
         ).where(
-            IncidentAssignment.incident_id.in_(incident_ids),
+            IncidentAssignment.incident_id.in_([*incident_ids, *merged_into]),
             IncidentAssignment.resource_type == "personnel",
         )
     )
-    for person_id, incident_id, unassigned_at, purpose in personal.all():
+    for person_id, assigned_incident_id, unassigned_at, purpose in personal.all():
+        incident_id = merged_into.get(assigned_incident_id, assigned_incident_id)
         # `purpose` is the authoritative signal — it says why THIS row exists.
         #
         # The fallback matters because the board has a second, older signal: the

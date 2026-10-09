@@ -2361,6 +2361,9 @@
         "postponed": "Wartet, bis sie nicht mehr im Einsatz sind: {names}",
         "unknownRanks": "Unbekannte Dienstgrade (Funktion unverändert): {ranks}",
         "fileDate": "Stand der Datei: {time}",
+        "viaIndex": "Über den Stationsdaten-Index vom {time}.",
+        "indexNoRoster": "Der Stationsdaten-Index vom {time} führt keinen Personenstamm – gelesen wurde ROSTER_SNAPSHOT_SOURCE.",
+        "indexNotRead": "Im Index, von dieser Version noch nicht gelesen: {kinds}.",
         "lastSuccess": "zuletzt erfolgreich: {time}",
         "stale": "Die Datei wurde seit über 7 Tagen nicht mehr erneuert."
       }
@@ -4446,7 +4449,9 @@
         "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
         "field_request_in_progress": "Anfrage in Arbeit",
         "field_request_done": "Anfrage erledigt",
-        "field_request_open": "Anfrage wieder offen"
+        "field_request_open": "Anfrage wieder offen",
+        "field_request_moved": "Anfrage übernommen von {other}",
+        "field_request_returned": "Anfrage zurück von {other}"
       }
     },
     "refDeleted": "{ref} (gelöscht)",

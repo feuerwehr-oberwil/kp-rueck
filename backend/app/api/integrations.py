@@ -104,7 +104,7 @@ def integrations() -> IntegrationsResponse:
     divera = bool(settings.divera_access_key)
     traccar = bool(settings.traccar_url and settings.traccar_email and settings.traccar_password)
     provider = alerting.get_provider()
-    snapshot = bool(settings.roster_snapshot_source.strip())
+    snapshot = bool(settings.station_index_source.strip() or settings.roster_snapshot_source.strip())
 
     return IntegrationsResponse(
         alarms=ProviderCapability(
@@ -237,5 +237,8 @@ async def sync_roster_snapshot(
     from ..services import roster_snapshot_sync
 
     if not roster_snapshot_sync.configured():
-        raise HTTPException(status_code=503, detail="Keine Personenstamm-Quelle eingerichtet (ROSTER_SNAPSHOT_SOURCE)")
+        raise HTTPException(
+            status_code=503,
+            detail="Keine Personenstamm-Quelle eingerichtet (STATION_INDEX_SOURCE oder ROSTER_SNAPSHOT_SOURCE)",
+        )
     return await roster_snapshot_sync.run(db, trigger="manual", force=(body or RosterSnapshotSyncBody()).force)
