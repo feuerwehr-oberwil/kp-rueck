@@ -28,6 +28,7 @@ function row(over: Partial<ApiJournalEntry>): ApiJournalEntry {
     event_id: "e1",
     incident_id: null,
     incident_title: null,
+    incident_deleted: false,
     kind: "manual",
     category: "manual",
     text: null,
@@ -145,6 +146,37 @@ describe("JournalSheet", () => {
     expect(fixed).toHaveTextContent("Gemeindepräsident und Polizei informiert")
     await user.click(within(fixed).getByRole("button", { name: /korrigiert/ }))
     expect(within(fixed).getByText("Gemeindepräsident informiert")).toBeInTheDocument()
+  })
+
+  it("words the field facts and marks Einsätze that left the board", async () => {
+    api.getJournal.mockResolvedValue({
+      entries: [
+        row({ kind: "field", category: "field", incident_id: "i1", incident_title: "Gartenweg 4", data: { type: "field_pickup_requested", source: "kp" }, text: "beim Bach" }),
+        row({ kind: "status", category: "status", incident_id: "gone", incident_title: "Fehlalarm Schulhaus", incident_deleted: true, data: { from_status: "incoming", to_status: "reko" } }),
+        row({ kind: "incident", category: "status", incident_id: "dup", incident_title: "Meldung Gartenweg", incident_deleted: true, data: { action: "merged_into", other_title: "Gartenweg 4" } }),
+      ],
+      latest_seq: 999,
+    })
+    renderSheet()
+    const rows = await screen.findAllByTestId("journal-row")
+    const text = rows.map((r) => r.textContent)
+    expect(text.some((t) => t?.includes("Abholung nötig: beim Bach (im KP erfasst)"))).toBe(true)
+    expect(text.some((t) => t?.includes("Fehlalarm Schulhaus (gelöscht)"))).toBe(true)
+    expect(text.some((t) => t?.includes("Meldung Gartenweg → Gartenweg 4") && t.includes("Zusammengeführt in «Gartenweg 4»"))).toBe(true)
+  })
+
+  it("an edited line after a failure is a new write with a new id", async () => {
+    const user = userEvent.setup()
+    api.appendJournal.mockRejectedValueOnce(new Error("offline")).mockImplementation(async (_e: string, b: { text: string }) => row({ text: b.text }))
+    renderSheet()
+    await screen.findAllByTestId("journal-row")
+    const input = screen.getByRole("textbox", { name: "Neuer Eintrag im Einsatztagebuch" })
+    await user.type(input, "Strom Nord aus{Enter}")
+    await screen.findByRole("alert")
+    await user.clear(input)
+    await user.type(input, "Strom Süd aus{Enter}")
+    await waitFor(() => expect(api.appendJournal).toHaveBeenCalledTimes(2))
+    expect(api.appendJournal.mock.calls[1][1].client_id).not.toBe(api.appendJournal.mock.calls[0][1].client_id)
   })
 
   it("a viewer reads but has no input and no pen", async () => {

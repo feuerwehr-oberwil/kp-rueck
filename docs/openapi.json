@@ -3678,7 +3678,7 @@
           "journal"
         ],
         "summary": "Read Journal",
-        "description": "The Einsatztagebuch. `since_seq=0` → all of it; a polling client passes the\n`latest_seq` it last saw and gets only what was written since (often nothing).",
+        "description": "The Einsatztagebuch. `since_seq=0` → all of it; a polling client passes the\n`latest_seq` it last saw and gets what was written since — plus the last two minutes\nagain (services/journal.OVERLAP), so a row a long transaction committed late is not\nlost behind the cursor. Rows are merged by id on the client.",
         "operationId": "read_journal_api_events__event_id__journal_get",
         "parameters": [
           {
@@ -26418,6 +26418,11 @@
               }
             ],
             "title": "Incident Title"
+          },
+          "incident_deleted": {
+            "type": "boolean",
+            "title": "Incident Deleted",
+            "default": false
           },
           "kind": {
             "type": "string",

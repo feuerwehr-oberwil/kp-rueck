@@ -33,23 +33,27 @@ will keep holding.
 - **Einsatztagebuch on the board** (`J`, «Tagebuch» in the footer, the command palette, «Mehr»
   on the phone). One append-only log per Ereignis, like KP Front's Verlauf but simpler – no
   playback, no voice. The board writes its own rows as things happen (status changes,
-  resources assigned and released, Meldungen from and to the field, Reko reports, Divera
-  alarms, Einsatz created/deleted/restored, and the field notifications that report an event:
-  arrived, done, pickup, vehicle on scene, Rapport filed), in the same transaction, whichever
-  path made the change. A one-line input takes what belongs to no card («Gemeindepräsident
-  informiert»); `#` links it to an Einsatz. Nothing is edited or deleted: a wrong line is
-  corrected by a new one, and the line says «korrigiert hh:mm» with the old wording a click
-  away. Filters Alle / Manuell / Feld / Status / Mittel (one funnel on the phone). Viewers read,
-  editors write.
+  resources assigned and released, Meldungen from and to the field, Reko reports and the Reko
+  arriving, Divera alarms, Einsatz created/deleted/restored/merged, and the field facts:
+  arrived, done, pickup needed/done – set and taken back –, Rapport filed), in the same
+  transaction, whichever path made the change. The bell is not a source: a notification is
+  rebuilt and de-duplicated as the board sees fit, so a GPS «vehicle on scene» does not appear
+  in the log. A one-line input takes what belongs to no card («Gemeindepräsident informiert»);
+  `#` links it to an Einsatz. Nothing is edited or deleted: a wrong line is corrected by a new
+  one, and the line says «korrigiert hh:mm» with the old wording a click away. Filters Alle /
+  Manuell / Feld / Status / Mittel (one funnel on the phone). Viewers read, editors write.
 - **The PDF's Einsatztagebuch reads the same log** – single source. It now also prints the
-  Meldungen, the field notifications and the manual lines; a corrected line prints its newest
-  wording at its original time with «korrigiert hh:mm; ursprünglich: «…»». Rows of an Einsatz
-  that was deleted stay in the record.
+  Meldungen, the field facts and the manual lines; a corrected line prints its newest wording
+  at its original time with «korrigiert hh:mm; ursprünglich: «…»». Lines of an Einsatz that was
+  deleted or merged stay in the record and say so in the Einsatz column («(gelöscht)»,
+  «(zusammengeführt in «…»)»).
 
 ### Upgrade notes
 
-- Migration `d5f1a7c3e9b2` creates `journal_entries` and **backfills** it from what the
-  database already holds, so the PDF of an existing Ereignis keeps every line it printed.
+- Migration `d5f1a7c3e9b2` creates `journal_entries`; the **first boot afterwards fills it**
+  from what the database already holds (`services/journal_backfill.py`), so the PDF of an
+  existing Ereignis keeps every line it printed. The backfill runs on every boot and only adds
+  what is missing – it also picks up what an old instance wrote during a rolling update.
   Meldungen vom Feld whose audit rows were already swept by `AUDIT_RETENTION_DAYS` cannot be
   recovered; from now on the log is kept for as long as the Ereignis exists, independent of the
   audit retention.

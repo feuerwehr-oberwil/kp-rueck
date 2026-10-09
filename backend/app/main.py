@@ -85,6 +85,7 @@ from .middleware.request_id import RequestIDMiddleware, get_request_id, request_
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.alerting import AlarmBlockedError
+from .services.journal_backfill import backfill_on_boot
 from .services.settings import initialize_default_settings
 from .websocket_manager import set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
@@ -184,6 +185,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.warning(f"Default settings initialization failed: {e}")
         break  # Only need one session (outside `finally`: there it would swallow errors)
+
+    # Einsatztagebuch: fill in what the log does not hold yet — on the first boot of this
+    # version the whole history, afterwards whatever an old instance wrote during a cutover
+    # or the flush hook had to skip. Idempotent; never stops the boot.
+    await backfill_on_boot(engine)
 
     # Development auth bypass fabricates its "dev-user" in memory, with a fixed
     # id and no row behind it. Anything that records WHO did something –

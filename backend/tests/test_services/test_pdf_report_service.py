@@ -656,7 +656,8 @@ def _journal_fixture_data(simple_event: Event, simple_incident: Incident) -> Eve
             author="Max Mustermann",
         ),
         _row("message", t(9, 46), data={"direction": "to_field"}, text="Verstanden", author="Dispo Eins"),
-        _row("field", t(9, 47), data={"type": "field_arrived"}, text="Angekommen: Hauptstrasse 123"),
+        _row("field", t(9, 47), data={"type": "field_arrived", "source": "feld"}),
+        _row("field", t(9, 48), data={"type": "field_pickup_requested", "source": "kp"}, text="3 Pers. beim Bach"),
         _row("manual", t(9, 50), text="Gemeindepräsident informiert", title=None, author="Dispo Eins"),
     ]
     return EventReportData(
@@ -692,7 +693,8 @@ class TestEinsatztagebuch:
         assert "Divera-Alarm ausgelöst (3 Empfänger)" in texts
         assert "Meldung vom Feld (Max Mustermann): Wasser marsch" in texts
         assert "Meldung an den Trupp (Dispo Eins): Verstanden" in texts
-        assert "Angekommen: Hauptstrasse 123" in texts
+        assert "Vor Ort gemeldet" in texts
+        assert "Abholung nötig: 3 Pers. beim Bach (im KP erfasst)" in texts
         assert "Gemeindepräsident informiert" in texts
 
     def test_manual_line_without_incident_has_empty_ref(self, simple_event: Event, simple_incident: Incident):

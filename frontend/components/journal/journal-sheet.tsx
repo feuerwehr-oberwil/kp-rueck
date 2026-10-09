@@ -24,6 +24,7 @@ import {
   formatJournalTime,
   incidentQuery,
   journalCounts,
+  mergedInto,
   newClientId,
   stripIncidentQuery,
   suggestIncidents,
@@ -52,6 +53,19 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const INPUT_ID = "journal-input"
+
+/** Field facts the drawer has words for (`data.type`); anything else shows its text. */
+const FIELD_TYPES = new Set([
+  "field_arrived",
+  "field_arrived_cleared",
+  "field_complete",
+  "field_complete_cleared",
+  "field_pickup_requested",
+  "field_pickup_cleared",
+  "rapport_submitted",
+  "reko_arrived",
+  "reko_arrived_cleared",
+])
 
 export interface JournalSheetProps {
   open: boolean
@@ -93,6 +107,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   const showAll = () => setTicked(new Set())
 
   const labels = useMemo(() => new Map(operations.map((op) => [op.id, operationLabel(op)])), [operations])
+  const merged = useMemo(() => mergedInto(entries), [entries])
   const [correcting, setCorrecting] = useState<JournalLine | null>(null)
 
   return (
@@ -208,6 +223,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
                 key={line.entry.id}
                 line={line}
                 incidentLabel={line.entry.incident_id ? labels.get(line.entry.incident_id) : undefined}
+                mergedInto={line.entry.incident_id ? merged.get(line.entry.incident_id) : undefined}
                 stacked={isMobile}
                 onOpenIncident={
                   // The phone views; a tap target there is 44px, and a 44px chip in every row
@@ -243,12 +259,15 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
 function JournalRow({
   line,
   incidentLabel,
+  mergedInto,
   stacked = false,
   onOpenIncident,
   onCorrect,
 }: {
   line: JournalLine
   incidentLabel?: string
+  /** The card this Einsatz was merged into, when it was (and not unmerged since). */
+  mergedInto?: string
   /** Phone: the Einsatz on a line of its own above the text, not a chip inside it. */
   stacked?: boolean
   onOpenIncident?: () => void
@@ -258,7 +277,15 @@ function JournalRow({
   const { entry } = line
   const [showOriginal, setShowOriginal] = useState(false)
   const lastCorrection = line.corrections[line.corrections.length - 1]
-  const incidentName = incidentLabel ?? entry.incident_title
+  // An Einsatz that left the board keeps its lines (append-only) and says why it is gone.
+  const ref = incidentLabel ?? entry.incident_title
+  const incidentName = !ref
+    ? null
+    : mergedInto !== undefined
+      ? t("refMerged", { ref, target: mergedInto || t("rows.unknown") })
+      : entry.incident_deleted && !incidentLabel
+        ? t("refDeleted", { ref })
+        : ref
   // Who wrote it — for what a PERSON said (a manual line, a Reko report). On the board's own
   // rows it would read «Demo Bearbeiter» three hundred times (the PDF dropped it for that);
   // there it is the row's tooltip instead.
@@ -357,7 +384,25 @@ export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: str
       const action = str("action")
       if (action === "deleted") return <span>{t("deleted")}</span>
       if (action === "restored") return <span>{t("restored")}</span>
+      if (action === "merge" || action === "merged_into" || action === "unmerge") {
+        return <span>{t(action === "merged_into" ? "mergedInto" : action, { other: str("other_title") || t("unknown") })}</span>
+      }
       return <span>{t("created")}</span>
+    }
+    case "field": {
+      const type = str("type")
+      const label = FIELD_TYPES.has(type) ? t(`field.${type}`) : null
+      if (!label) return <span>{text}</span>
+      const source = str("source")
+      return (
+        <span>
+          {label}
+          {text ? `: ${text}` : ""}
+          {source === "kp" || source === "gps" ? (
+            <span className="text-muted-foreground"> ({t(source === "gps" ? "sourceGps" : "sourceKp")})</span>
+          ) : null}
+        </span>
+      )
     }
     case "status":
       return (
@@ -438,6 +483,7 @@ function JournalComposer({
   const listOpen = query !== null
 
   const pick = (choice: IncidentChoice) => {
+    clientId.current = newClientId() // another link is another write
     setLinked(choice)
     setText((v) => stripIncidentQuery(v) + (stripIncidentQuery(v) ? " " : ""))
     setHighlight(0)
@@ -549,7 +595,11 @@ function JournalComposer({
           )}
           <button
             type="button"
-            onClick={() => (correcting ? onCancelCorrection() : setLinked(null))}
+            onClick={() => {
+              if (correcting) return onCancelCorrection()
+              clientId.current = newClientId()
+              setLinked(null)
+            }}
             className="inline-flex min-h-8 min-w-8 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-muted hover:text-foreground"
             aria-label={correcting ? t("cancelCorrection") : t("unlink")}
             title={correcting ? t("cancelCorrection") : t("unlink")}
@@ -573,6 +623,9 @@ function JournalComposer({
           onChange={(e) => {
             setText(e.target.value)
             setHighlight(0)
+            // A changed line is a new write. Only an UNCHANGED resend reuses the id — the
+            // server answers a reused id with different text as a conflict (409).
+            clientId.current = newClientId()
             if (error) setError(null)
           }}
           onKeyDown={onKeyDown}

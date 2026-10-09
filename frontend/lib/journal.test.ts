@@ -8,6 +8,7 @@ import {
   incidentQuery,
   journalCounts,
   mergeJournal,
+  mergedInto,
   stripIncidentQuery,
   suggestIncidents,
 } from "./journal"
@@ -21,6 +22,7 @@ function row(over: Partial<ApiJournalEntry> = {}): ApiJournalEntry {
     event_id: "e1",
     incident_id: null,
     incident_title: null,
+    incident_deleted: false,
     kind: "manual",
     category: "manual",
     text: `Zeile ${seq}`,
@@ -121,5 +123,14 @@ describe("formatJournalTime", () => {
     const now = new Date(2026, 9, 8, 15, 0)
     expect(formatJournalTime(new Date(2026, 9, 8, 9, 5).toISOString(), now)).toBe("09:05")
     expect(formatJournalTime(new Date(2026, 9, 7, 23, 59).toISOString(), now)).toBe("07.10. 23:59")
+  })
+})
+
+describe("mergedInto", () => {
+  it("follows merge and unmerge in seq order", () => {
+    const into = row({ kind: "incident", category: "status", incident_id: "dup", data: { action: "merged_into", other_title: "Gartenweg 4" } })
+    expect(mergedInto([into]).get("dup")).toBe("Gartenweg 4")
+    const undo = row({ kind: "incident", category: "status", incident_id: "dup", data: { action: "unmerge", other_title: "Gartenweg 4" } })
+    expect(mergedInto([undo, into]).has("dup")).toBe(false)
   })
 })

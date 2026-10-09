@@ -1402,8 +1402,9 @@ class JournalEntry(Base):
     # Manual rows: the client's id for the line, so a retried POST after a lost answer
     # does not write it twice. Derived rows: NULL.
     client_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # Derived rows: where the fact came from (`status:<transition id>` …). Traceability
-    # only — deliberately NOT unique, so a journal hiccup can never fail a board write.
+    # Derived rows: where the fact came from (`status:<transition id>` …). The boot-time
+    # backfill writes only keys the log does not hold yet. Deliberately NOT unique, so a
+    # journal hiccup can never fail a board write.
     source_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     # Set by the flush hook so a row for an Einsatz created in the same flush is inserted
@@ -1420,6 +1421,8 @@ class JournalEntry(Base):
         UniqueConstraint("event_id", "client_id", name="uq_journal_event_client_id"),
         Index("idx_journal_event_occurred", "event_id", "occurred_at"),
         Index("idx_journal_incident", "incident_id"),
+        # the boot-time backfill's «not yet in the log» test (services/journal_backfill.py)
+        Index("idx_journal_source_key", "source_key"),
     )
 
 

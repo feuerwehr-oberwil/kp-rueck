@@ -4101,7 +4101,25 @@
       "alarmPlain": "Divera-Alarm ausgelöst",
       "fromField": "{name}:",
       "toField": "{name} an Trupp:",
-      "unknown": "Unbekannt"
-    }
+      "unknown": "Unbekannt",
+      "merge": "Meldung «{other}» zusammengeführt",
+      "mergedInto": "Zusammengeführt in «{other}»",
+      "unmerge": "Zusammenführung mit «{other}» aufgehoben",
+      "sourceKp": "im KP erfasst",
+      "sourceGps": "GPS",
+      "field": {
+        "field_arrived": "Vor Ort gemeldet",
+        "field_arrived_cleared": "Meldung «vor Ort» zurückgenommen",
+        "field_complete": "Einsatz beendet gemeldet",
+        "field_complete_cleared": "Meldung «beendet» zurückgenommen",
+        "field_pickup_requested": "Abholung nötig",
+        "field_pickup_cleared": "Abholung erledigt",
+        "rapport_submitted": "Schadenplatz-Rapport erfasst",
+        "reko_arrived": "Reko vor Ort",
+        "reko_arrived_cleared": "Reko-Ankunft zurückgenommen"
+      }
+    },
+    "refDeleted": "{ref} (gelöscht)",
+    "refMerged": "{ref} → {target}"
   }
 }

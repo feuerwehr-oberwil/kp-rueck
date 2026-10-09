@@ -108,16 +108,19 @@ async def test_automatic_rows_cannot_be_corrected(editor_client: AsyncClient, te
     assert response.status_code == 422
 
 
-async def test_since_seq_returns_only_what_is_new(editor_client: AsyncClient, test_event: Event):
+async def test_since_seq_returns_what_is_new_plus_the_recent_overlap(editor_client: AsyncClient, test_event: Event):
     url = f"/api/events/{test_event.id}/journal"
     await editor_client.post(url, json={"client_id": _cid(), "text": "eins"})
     cursor = (await editor_client.get(url)).json()["latest_seq"]
-    empty = (await editor_client.get(url, params={"since_seq": cursor})).json()
-    assert empty == {"entries": [], "latest_seq": cursor}
     await editor_client.post(url, json={"client_id": _cid(), "text": "zwei"})
     page = (await editor_client.get(url, params={"since_seq": cursor})).json()
-    assert [r["text"] for r in page["entries"]] == ["zwei"]
+    # «zwei» is new; «eins» comes again because it is recent (services/journal.OVERLAP) —
+    # the client merges by id. That is what keeps a late-committed row from being skipped.
+    assert [r["text"] for r in page["entries"]] == ["eins", "zwei"]
     assert page["latest_seq"] > cursor
+    # the cursor never goes backwards, even on an empty page
+    empty = (await editor_client.get(url, params={"since_seq": page["latest_seq"] + 1000})).json()
+    assert empty["latest_seq"] == page["latest_seq"] + 1000
 
 
 async def test_there_is_no_edit_or_delete(editor_client: AsyncClient, test_event: Event):
@@ -125,3 +128,59 @@ async def test_there_is_no_edit_or_delete(editor_client: AsyncClient, test_event
     row = (await editor_client.post(url, json={"client_id": _cid(), "text": "eins"})).json()
     assert (await editor_client.delete(f"{url}/{row['id']}")).status_code in (404, 405)
     assert (await editor_client.put(f"{url}/{row['id']}", json={"text": "x"})).status_code in (404, 405)
+
+
+async def test_same_id_with_a_different_line_is_a_conflict(editor_client: AsyncClient, test_event: Event):
+    url = f"/api/events/{test_event.id}/journal"
+    cid = _cid()
+    assert (await editor_client.post(url, json={"client_id": cid, "text": "Strom Nord aus"})).status_code == 201
+    edited = await editor_client.post(url, json={"client_id": cid, "text": "Strom Süd aus"})
+    assert edited.status_code == 409
+    texts = [r["text"] for r in (await editor_client.get(url)).json()["entries"]]
+    assert texts == ["Strom Nord aus"]
+
+
+async def test_two_copies_racing_into_the_index_answer_with_one_row(
+    editor_client: AsyncClient, test_event: Event, db_session: AsyncSession, monkeypatch
+):
+    """The pre-check sees nothing (the other copy has not committed yet), the insert hits
+    the unique index — the answer is the row the other copy wrote, not a 500."""
+    from app.api import journal as journal_api
+    from app.models import JournalEntry
+
+    cid = _cid()
+    db_session.add(JournalEntry(event_id=test_event.id, kind="manual", text="Doppelt getippt", client_id=cid))
+    await db_session.commit()
+
+    real = journal_api._by_client_id
+    calls = {"n": 0}
+
+    async def blind_first(db, event_id, client_id):
+        calls["n"] += 1
+        return None if calls["n"] == 1 else await real(db, event_id, client_id)
+
+    monkeypatch.setattr(journal_api, "_by_client_id", blind_first)
+    response = await editor_client.post(
+        f"/api/events/{test_event.id}/journal", json={"client_id": cid, "text": "Doppelt getippt"}
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["text"] == "Doppelt getippt"
+    assert calls["n"] == 2
+    # (read straight from the session: the request's rollback expired the shared test
+    # session's objects, which a second request through the app would trip over)
+    from sqlalchemy import func, select
+
+    count = await db_session.scalar(select(func.count()).where(JournalEntry.client_id == cid))
+    assert count == 1
+
+
+async def test_a_deleted_einsatz_is_marked(
+    editor_client: AsyncClient, test_incident: Incident, db_session: AsyncSession
+):
+    from datetime import UTC, datetime
+
+    test_incident.deleted_at = datetime.now(UTC)
+    await db_session.commit()
+    (row,) = (await editor_client.get(f"/api/events/{test_incident.event_id}/journal")).json()["entries"]
+    assert row["incident_deleted"] is True
+    assert row["incident_title"] == "Wohnungsbrand"

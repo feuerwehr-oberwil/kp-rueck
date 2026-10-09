@@ -4101,7 +4101,25 @@
       "alarmPlain": "Alarme Divera déclenchée",
       "fromField": "{name} :",
       "toField": "{name} à l'équipe :",
-      "unknown": "Inconnu"
-    }
+      "unknown": "Inconnu",
+      "merge": "Signalement «{other}» fusionné",
+      "mergedInto": "Fusionné dans «{other}»",
+      "unmerge": "Fusion avec «{other}» annulée",
+      "sourceKp": "saisi au PC",
+      "sourceGps": "GPS",
+      "field": {
+        "field_arrived": "Arrivée sur place signalée",
+        "field_arrived_cleared": "Arrivée sur place retirée",
+        "field_complete": "Intervention terminée signalée",
+        "field_complete_cleared": "« Terminé » retiré",
+        "field_pickup_requested": "Récupération nécessaire",
+        "field_pickup_cleared": "Récupération effectuée",
+        "rapport_submitted": "Rapport de place sinistrée saisi",
+        "reko_arrived": "Reconnaissance sur place",
+        "reko_arrived_cleared": "Arrivée de la reconnaissance retirée"
+      }
+    },
+    "refDeleted": "{ref} (supprimée)",
+    "refMerged": "{ref} → {target}"
   }
 }

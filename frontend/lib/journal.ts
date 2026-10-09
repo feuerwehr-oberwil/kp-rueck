@@ -53,6 +53,22 @@ export function foldJournal(entries: readonly ApiJournalEntry[]): JournalLine[] 
   })
 }
 
+/**
+ * Einsätze merged into another card and not unmerged since → the title of that card.
+ * Read from the log itself, in seq order — the same rule the PDF applies
+ * (`services/journal.merged_into`).
+ */
+export function mergedInto(entries: readonly ApiJournalEntry[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const e of [...entries].sort((a, b) => a.seq - b.seq)) {
+    if (e.kind !== "incident" || !e.incident_id || !e.data) continue
+    const action = e.data.action
+    if (action === "merged_into") out.set(e.incident_id, typeof e.data.other_title === "string" ? e.data.other_title : "")
+    else if (action === "unmerge" || action === "restored") out.delete(e.incident_id)
+  }
+  return out
+}
+
 /** Rows of the ticked categories; nothing ticked = «Alle». */
 export function filterJournal(lines: readonly JournalLine[], ticked: ReadonlySet<ApiJournalCategory>): JournalLine[] {
   if (ticked.size === 0) return lines as JournalLine[]

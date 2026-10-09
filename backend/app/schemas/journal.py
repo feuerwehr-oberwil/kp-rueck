@@ -19,6 +19,8 @@ class JournalEntryOut(BaseModel):
     incident_id: UUID | None
     #: The Einsatz's title now — or as it was, for an Einsatz that has since been deleted.
     incident_title: str | None = None
+    #: The Einsatz has been deleted since (or purged) — its lines stay, marked.
+    incident_deleted: bool = False
     kind: str
     #: Filter group: manual | field | status | resources
     category: str

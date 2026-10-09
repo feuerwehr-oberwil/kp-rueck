@@ -45,6 +45,7 @@ from ..models import Incident, IncidentAssignment, RekoReport, SchadenplatzRepor
 from ..schemas.journal import JournalEntryOut
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
+from .journal import merged_into as journal_merged_into
 from .photo_storage import ExportPhoto
 
 # ---------------------------------------------------------------------------
@@ -131,6 +132,12 @@ LABELS: dict[str, str] = {
     "journal_message_from_field": "Meldung vom Feld ({name}): {text}",
     "journal_message_to_field": "Meldung an den Trupp ({name}): {text}",
     "journal_unknown_author": "unbekannt",
+    "journal_incident_merge": "Meldung «{other}» zusammengeführt",
+    "journal_incident_merged_into": "Zusammengeführt in «{other}»",
+    "journal_incident_unmerge": "Zusammenführung mit «{other}» aufgehoben",
+    # The Einsatz column of a line whose Einsatz is no longer on the board.
+    "journal_ref_deleted": "{ref} (gelöscht)",
+    "journal_ref_merged": "{ref} (zusammengeführt in «{target}»)",
     # A corrected manual line: newest wording, and the paper says it was corrected.
     "journal_corrected": "{text} (korrigiert {time}; ursprünglich: «{original}»)",
     # Resource overviews (field test 07.09.): who/what was where, first to
@@ -1724,11 +1731,36 @@ def _user_display(data: EventReportData, user_id: uuid.UUID | None) -> str:
     return user.display_name or user.username
 
 
-def _row_incident_ref(row: JournalEntryOut) -> str:
+def _row_incident_ref(row: JournalEntryOut, merged: dict[uuid.UUID, str]) -> str:
     """The incident's short title for the journal's second column, or "" – an
-    event-level entry belongs to no incident and an empty cell says so."""
-    return _truncate(row.incident_title, 45) if row.incident_title else ""
+    event-level entry belongs to no incident and an empty cell says so.
 
+    An Einsatz that no longer stands on the board keeps its lines (the record is
+    append-only) and says why it is gone: merged into another card, or deleted.
+    """
+    if not row.incident_title:
+        return ""
+    ref = _truncate(row.incident_title, 45)
+    if row.incident_id is not None and row.incident_id in merged:
+        return LABELS["journal_ref_merged"].format(ref=ref, target=_truncate(merged[row.incident_id], 45))
+    if row.incident_deleted:
+        return LABELS["journal_ref_deleted"].format(ref=ref)
+    return ref
+
+
+# Field facts (`kind == "field"`, `data.type`) and who reported them.
+_FIELD_LABELS: dict[str, str] = {
+    "field_arrived": "Vor Ort gemeldet",
+    "field_arrived_cleared": "Meldung «vor Ort» zurückgenommen",
+    "field_complete": "Einsatz beendet gemeldet",
+    "field_complete_cleared": "Meldung «beendet» zurückgenommen",
+    "field_pickup_requested": "Abholung nötig",
+    "field_pickup_cleared": "Abholung erledigt",
+    "rapport_submitted": "Schadenplatz-Rapport erfasst",
+    "reko_arrived": "Reko vor Ort",
+    "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
+}
+_FIELD_SOURCES: dict[str, str] = {"kp": "im KP erfasst", "gps": "GPS"}
 
 # Incident sources worth calling out in the "erstellt" journal line.
 _SOURCE_LABELS: dict[str, str] = {
@@ -1751,6 +1783,9 @@ def journal_row_text(row: JournalEntryOut) -> str:
             return LABELS["journal_incident_deleted"]
         if action == "restored":
             return LABELS["journal_incident_restored"]
+        if action in ("merge", "merged_into", "unmerge"):
+            other = data.get("other_title") or LABELS["none"]
+            return LABELS[f"journal_incident_{action}"].format(other=_truncate(str(other), 60))
         title = row.incident_title or data.get("title") or LABELS["none"]
         text = LABELS["journal_incident_created"].format(title=_truncate(title, 60))
         source_label = _SOURCE_LABELS.get(data.get("source") or "")
@@ -1774,11 +1809,18 @@ def journal_row_text(row: JournalEntryOut) -> str:
         if count:
             return LABELS["journal_divera_alarm"].format(count=count)
         return LABELS["journal_divera_alarm_plain"]
+    if kind == "field":
+        field_label = _FIELD_LABELS.get(str(data.get("type") or ""))
+        if field_label is None:
+            return row.text or ""  # a field fact of a type this build does not know
+        line = f"{field_label}: {row.text}" if row.text else field_label
+        source = _FIELD_SOURCES.get(str(data.get("source") or ""))
+        return f"{line} ({source})" if source else line
     if kind == "message":
         label = "journal_message_to_field" if data.get("direction") == "to_field" else "journal_message_from_field"
         who = row.author_name or LABELS["journal_unknown_author"]
         return LABELS[label].format(name=who, text=row.text or "")
-    # manual lines and field notifications: the sentence as it was written
+    # manual lines: the sentence as it was written
     return row.text or ""
 
 
@@ -1794,6 +1836,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
         if row.corrects_id is not None:
             corrections.setdefault(row.corrects_id, []).append(row)
 
+    merged = journal_merged_into(data.journal)
     entries: list[JournalEntry] = []
     for row in data.journal:
         if row.corrects_id is not None:
@@ -1807,7 +1850,7 @@ def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
                 time=_as_utc(latest.created_at).astimezone(LOCAL_TZ).strftime("%H:%M"),
                 original=_truncate(row.text or "", 80),
             )
-        entries.append(JournalEntry(row.occurred_at, _row_incident_ref(row), text))
+        entries.append(JournalEntry(row.occurred_at, _row_incident_ref(row, merged), text))
 
     entries.sort(key=lambda e: _as_utc(e.timestamp))
     return entries

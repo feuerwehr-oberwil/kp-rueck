@@ -23,6 +23,8 @@ export interface ApiJournalEntry {
   incident_id: string | null
   /** The Einsatz's title now, or as it was when the Einsatz has since been deleted. */
   incident_title: string | null
+  /** The Einsatz has since been deleted (or purged); its lines stay, marked. */
+  incident_deleted: boolean
   kind: ApiJournalKind
   category: ApiJournalCategory
   /** What a person wrote (manual line, Meldung, Reko summary) or a German server sentence
