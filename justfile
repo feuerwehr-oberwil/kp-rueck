@@ -812,7 +812,7 @@ printer cmd="start":
             echo -e "\033[1;34m→ Starting thermal print agent...\033[0m"
             echo -e "\033[1;34m→ Backend: $BACKEND_URL (printer config comes from its settings)\033[0m"
             echo -e "\033[1;34m→ Use 'just printer dry' for testing without a printer\033[0m"
-            # --extra escpos: python-escpos/pillow are optional (the CUPS path needs neither),
+            # --extra escpos: python-escpos/pillow are optional (a dry run needs neither),
             # so a plain `uv run` reaches the printer and fails on the lazy import instead.
             cd tools/print-agent && uv run --extra escpos python agent.py
             ;;
@@ -882,6 +882,29 @@ test-ui:
 # compare against the recorded run in docs/testing/fat-event.md.
 fat-perf *presets:
     bash scripts/fat-perf.sh {{presets}}
+
+# docs/VISUAL_TESTS.md. Extra args go to Playwright (`just visual board`). Locally a look,
+# not a verdict: the baselines are CI renders.
+# Screenshot regression tests on a throwaway stack (production build + visual seed)
+visual *args:
+    bash scripts/visual-test.sh {{args}}
+
+# Then look at the diff and commit them ON THEIR OWN, with the reason – only for a deliberate
+# change, never to turn the visual check green.
+# Put the baselines a visual-baselines.yml run rendered into the branch (replaces the folder)
+visual-accept run_id:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir=frontend/tests/visual/__screenshots__
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    gh run download {{run_id}} --name visual-baselines --dir "$tmp"
+    ls "$tmp"/*.png >/dev/null 2>&1 || { echo "run {{run_id}} has no PNGs in its visual-baselines artifact" >&2; exit 1; }
+    rm -f "$dir"/*.png
+    mkdir -p "$dir"
+    cp "$tmp"/*.png "$dir"/
+    git status --short -- "$dir"
+    echo "Review the changed PNGs, then commit them alone: git add $dir && git commit -s -m 'test(visual): accept baselines – <why the screen changed>'"
 
 # Lint all code (backend + frontend)
 lint:
