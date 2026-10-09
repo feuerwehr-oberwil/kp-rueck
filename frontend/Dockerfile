@@ -3,7 +3,9 @@
 # runs, on a runtime nobody was patching any more. Keep this in step with NODE_VERSION in
 # .github/workflows/*.yml and the engines field in package.json; dependabot's docker
 # ecosystem now proposes the bumps so it cannot drift silently again.
-FROM node:24-alpine AS base
+# Pulled from AWS ECR Public's mirror of the Docker Official Image (same digest as Docker Hub's
+# `node`): Docker Hub refuses anonymous pulls past its rate limit, which failed CI at random.
+FROM public.ecr.aws/docker/library/node:24-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
