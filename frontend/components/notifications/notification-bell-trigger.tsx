@@ -4,6 +4,7 @@ import { Bell } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useNotifications } from '@/lib/contexts/notification-context'
+import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { NotificationSidebar } from './notification-sidebar'
@@ -11,7 +12,9 @@ import { cn } from '@/lib/utils'
 
 export function NotificationBellTrigger() {
   const t = useTranslations('notifications.sidebar')
-  const { unreadCount, toggleSidebar, isSidebarOpen } = useNotifications()
+  const { notifications, toggleSidebar, isSidebarOpen } = useNotifications()
+  // Open field requests count until handled, not until their bell is closed (R13).
+  const { count: unreadCount } = useBellCount(notifications, useOpenFieldRequests())
   const { isAuthenticated } = useAuth()
   const isMobile = useIsMobile()
 

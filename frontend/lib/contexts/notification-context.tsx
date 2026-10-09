@@ -31,7 +31,10 @@ interface NotificationContextValue {
    *  in this session. Same idea as `lastSyncAt` behind the StaleDataBanner. */
   lastNotificationSyncAt: Date | null
   dismissNotification: (id: string) => Promise<void>
-  dismissAllNotifications: () => Promise<void>
+  /** `except`: bell entries that are not this list's to close — the sidebar
+   *  shows an open field request in their place (R13), and «Alle schliessen»
+   *  must not silently stamp those «gesehen». */
+  dismissAllNotifications: (except?: ReadonlySet<string>) => Promise<void>
   updateSettings: (settings: Partial<NotificationSettings>) => Promise<void>
   refetchNotifications: () => Promise<void>
   // Sidebar state
@@ -68,7 +71,22 @@ interface NotificationContextValue {
   registerFieldActionHandler: (
     handler: ((incidentId: string, kind: FieldNudgeKind) => void) | null,
   ) => void
+  /**
+   * Fulfil a field request (R13) straight from the sidebar: open the board's
+   * own assignment dialog on that incident — material list searched for the
+   * requested item, or the crew list for «Verstärkung». Registered by the board
+   * (which owns the dialog); null elsewhere, and the sidebar then offers no
+   * button rather than a broken one.
+   */
+  assignAction: FieldRequestAssignHandler | null
+  registerAssignHandler: (handler: FieldRequestAssignHandler | null) => void
 }
+
+export type FieldRequestAssignHandler = (
+  incidentId: string,
+  resourceType: 'crew' | 'materials',
+  search?: string,
+) => void
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
 
@@ -96,6 +114,12 @@ type NotificationFetchResult =
   /** No event picked / not signed in yet — there is nothing to ask about. */
   | { status: 'skipped' }
   | { status: 'failed' }
+
+/** The context, or undefined outside a provider — for leaf components that a
+ *  test (or a login-less page) renders without the whole provider tree. */
+export function useOptionalNotifications(): NotificationContextValue | undefined {
+  return useContext(NotificationContext)
+}
 
 export function useNotifications() {
   const context = useContext(NotificationContext)
@@ -188,6 +212,13 @@ export function NotificationProvider({
     },
     [],
   )
+
+  // Same reason as `fieldAction`: the sidebar renders the button only while
+  // somebody can act on it.
+  const [assignAction, setAssignAction] = useState<FieldRequestAssignHandler | null>(null)
+  const registerAssignHandler = useCallback((handler: FieldRequestAssignHandler | null) => {
+    setAssignAction(() => handler)
+  }, [])
 
   // Load previously seen notification IDs from localStorage on mount.
   // Lazily initialised: a `useRef(expr)` argument is evaluated on EVERY render,
@@ -298,8 +329,8 @@ export function NotificationProvider({
   }
 
   // Dismiss all active notifications
-  const dismissAllNotifications = async () => {
-    const activeNotifications = notifications.filter((n) => !n.dismissed)
+  const dismissAllNotifications = async (except?: ReadonlySet<string>) => {
+    const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
 
     if (activeNotifications.length === 0) {
       return
@@ -533,6 +564,8 @@ export function NotificationProvider({
     registerNavigateHandler,
     fieldAction,
     registerFieldActionHandler,
+    assignAction,
+    registerAssignHandler,
   }
 
   return (

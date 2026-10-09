@@ -30,6 +30,31 @@ will keep holding.
 
 ### Added
 
+- **Requests from the field are work items, not just notifications.** Every Meldung a crew sends
+  on `/feld` – a chip, a typed sentence, an Abholung – now has a state: *offen* → *in Arbeit*
+  (optional) → *erledigt*, with who and when. It sits on the incident card as a compact line
+  («Material: Tauchpumpe Gr. ×2 — offen»), in the detail's Feld tab with *In Arbeit* /
+  *Erledigt* / *Wieder öffnen*, and in a new «Vom Feld – offen» section at the top of the
+  notification sidebar, which keeps it until somebody handles it. **Closing the notification no
+  longer makes a request disappear**: it marks it «gesehen» (the crew reads «Vom KP gesehen»), and
+  only *Erledigt* takes it off the card and the sidebar; *Erledigt* also closes the notification.
+  The bell counts open requests; *Gesehen* on the request acknowledges it without handling it, and
+  «Alle schliessen» leaves requests alone. Handling it in one place updates the others and the
+  crew's phone («KP: in Arbeit», «erledigt · 14:32 · Name»); two operators acting on the same
+  request at once get «inzwischen geändert» instead of overwriting each other, and «Nochmals
+  senden» on a phone never creates a second request. Completing an incident closes its open
+  Meldungen; Material, Verstärkung and Abholung stay open until somebody handles them.
+- **«Material nötig» and «Verstärkung nötig» are structured.** On `/feld` they open a small
+  picker – the material from the station's inventory (or typed), how many, a note – so the KP
+  reads «Tauchpumpe Gr. ×2» instead of prose. On the board, *Material zuteilen* / *Personal
+  zuteilen* opens the usual assignment dialog for that incident, searched for the item, and marks
+  the request *in Arbeit*. The Abholung is the same work item as the amber chip: *Erledigt* in the
+  sidebar and «Abholung disponiert» on the chip are one action. A request taken over the radio can
+  be recorded from the board (`POST /api/incidents/{id}/field-requests`, «im KP erfasst»).
+  Upgrade note: the two were station chips; they left the default chip list, and a station that
+  kept them in its own list does not see them twice. Requests stay in the audit log and the
+  incident's Verlauf exactly as Meldungen did (migration `d9a4e7c21f05`, additive; open
+  Abholungen get their work item on upgrade).
 - **Kennzahlen: the Lage and the Reaktionszeiten on screen, not only in the PDF.** «Kennzahlen» in
   the board's footer (key `Z`, also in the command palette) shows Meldungen, offen (per priority),
   in Arbeit and erledigt; the time from Eingang to **Disponiert**, **Vor Ort** and **Abschluss** as

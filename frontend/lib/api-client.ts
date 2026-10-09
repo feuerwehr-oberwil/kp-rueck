@@ -75,6 +75,9 @@ import {
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
   type ApiKpFieldMessage,
+  type ApiFieldRequest,
+  type ApiFieldRequestCreate,
+  type ApiFieldRequestStatus,
   type ApiIncidentParticipantsResponse,
   type ApiRekoReportCreate,
   type ApiRekoReportUpdate,
@@ -777,6 +780,34 @@ class ApiClient {
 
   async getKpFieldMessages(incidentId: string): Promise<ApiKpFieldMessage[]> {
     return this.request<ApiKpFieldMessage[]>(`/api/incidents/${incidentId}/field-messages`)
+  }
+
+  /** Every request the field made of this Schadenplatz, any state (R13). */
+  async getFieldRequests(incidentId: string): Promise<ApiFieldRequest[]> {
+    return this.request<ApiFieldRequest[]>(`/api/incidents/${incidentId}/field-requests`)
+  }
+
+  /** The board twin: a request taken over the radio, provenance «im KP erfasst». */
+  async createFieldRequest(incidentId: string, payload: ApiFieldRequestCreate): Promise<ApiFieldRequest> {
+    return this.request<ApiFieldRequest>(`/api/incidents/${incidentId}/field-requests`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  /** Work a request: offen → in Arbeit → erledigt, or back to offen. */
+  async setFieldRequestStatus(
+    incidentId: string,
+    requestId: string,
+    status: ApiFieldRequestStatus,
+    /** The state the operator's screen showed — a request another board moved
+     *  on meanwhile answers 409 instead of being overwritten. */
+    expectedStatus?: ApiFieldRequestStatus,
+  ): Promise<ApiFieldRequest> {
+    return this.request<ApiFieldRequest>(`/api/incidents/${incidentId}/field-requests/${requestId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, expected_status: expectedStatus }),
+    })
   }
 
   async deleteIncident(id: string): Promise<void> {
@@ -2293,10 +2324,18 @@ class ApiClient {
   }
 
   /** Freitext-Meldung an den KP – a chip or a typed sentence. */
-  async feldSendMessage(incidentId: string, personnelId: string, token: string, message: string): Promise<void> {
+  async feldSendMessage(
+    incidentId: string,
+    personnelId: string,
+    token: string,
+    message: string | ApiFieldRequestCreate,
+  ): Promise<void> {
+    // A plain string is the chip / typed sentence every phone has always sent;
+    // the object form is a structured «Material nötig» / «Verstärkung nötig» (R13).
+    const body = typeof message === 'string' ? { message } : message
     await this.request<void>(this.feldQuery(incidentId, 'message', personnelId, token), {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(body),
     })
   }
 
