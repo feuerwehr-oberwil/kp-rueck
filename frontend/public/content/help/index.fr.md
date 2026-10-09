@@ -512,13 +512,14 @@ saisie a le focus.
 
 ### Attribuer en tapant
 Sur le tableau, la palette comprend aussi les interventions, les personnes, les véhicules et le
-matériel – avec des espaces seulement, sans caractère spécial. Le nombre en tête est le numéro
-de l’intervention (en petit devant l’adresse sur la carte), le reste suit dans n’importe quel
-ordre :
+matériel – avec des espaces seulement, sans caractère spécial. En tête vient l’intervention :
+son numéro (en petit devant l’adresse sur la carte) ou son adresse (`bachweg 3`, ou seulement le
+début `bachw`) ou son type ; le reste suit dans n’importe quel ordre :
 
 | Saisie | Ce que fait ↵ |
 |--------|---------------|
 | `14 tlf meier` | attribuer le TLF et Meier à l’intervention 14 |
+| `bachweg 3 tlf meier` | idem, l’intervention nommée par son adresse |
 | `14 intervention`, `14 engagé` | passer l’intervention 14 à « En intervention » ou « Engagé / en route » |
 | `14 haute` | priorité haute |
 | `14` | ouvrir l’intervention 14 |
@@ -529,7 +530,9 @@ accents et trémas ne comptent pas (`muller`, `mueller`), une faute de frappe es
 un nom trouvé ainsi n’est attribué qu’après un clic sur « tu voulais dire ? ». Les mots de statut
 sont compris en allemand et en français. La ligne sous la saisie montre exactement ce que fera
 ↵ ; les mots inconnus sont grisés et ignorés. Si un mot correspond à plusieurs (deux Meier, ou
-« Hoch » comme nom et comme priorité), ils sont proposés en dessous – rien n’est deviné. Sans
+« Hoch » comme nom et comme priorité, deux interventions au Bachweg), ils sont proposés en
+dessous – rien n’est deviné. L’adresse s’arrête là où commence un véhicule, une personne ou un
+mot de statut ; un numéro de maison seul n’est jamais une adresse (`14` reste l’intervention 14). Sans
 numéro en tête, ↵ reste aux commandes habituelles. Les mêmes questions
 qu’en glissant s’appliquent (double attribution, chauffeur), et le message qui suit propose
 **Annuler**.

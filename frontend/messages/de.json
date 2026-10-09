@@ -145,7 +145,7 @@
         "nothingToDo": "schon so",
         "pickBelow": "unten wählen",
         "unknownIncident": "Kein Einsatz {number}",
-        "needsIncident": "Einsatznummer voranstellen, z. B. «14 tlf meier»",
+        "needsIncident": "Einsatz voranstellen – Nummer oder Adresse, z. B. «14 tlf meier» oder «bachweg 3 tlf»",
         "choiceFor": "für «{text}»",
         "toastTitle": "Einsatz {number} · {name}",
         "toastAssigned": "{names} zugewiesen",

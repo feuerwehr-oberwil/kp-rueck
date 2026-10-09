@@ -34,7 +34,9 @@ will keep holding.
   Ereignis and shown before the address – on the board and wall cards, in the detail header, on
   the Lagekarte labels, in the Doppelbelegung prompt and wherever an Einsatz is named, and on the
   A4 status print (whose map pins now carry the same number). On the board the command palette reads
-  what follows it – spaces only, no special characters, in any order: `14 tlf meier` puts the TLF
+  what follows it – spaces only, no special characters, in any order (the Einsatz can also be
+  named by its address or Einsatzart: `bachweg 3 tlf meier`, `bachw tlf`; two Einsätze on one
+  street ask which, a house number alone stays an Einsatz number): `14 tlf meier` puts the TLF
   and Meier on Einsatz 14, `14 einsatz` / `14 dispo` move it, `14 hoch` sets the priority, `14`
   opens it, and `meier` or `tlf` alone shows where they are. Names match first name, last name or
   both, by their beginning, without caring about umlauts (`muller`, `mueller`); a name found only

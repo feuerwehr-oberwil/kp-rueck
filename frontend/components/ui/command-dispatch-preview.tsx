@@ -81,6 +81,7 @@ function TargetChip({ target }: { target: DispatchTarget }) {
       </span>
     )
   }
+  if (target.kind === "incident") return <IncidentChip incident={target.incident} />
   return <ResourceChip resource={target} />
 }
 
@@ -217,8 +218,19 @@ export function DispatchChoice({ token, choice }: { token: DispatchToken; choice
   const tColumns = useTranslations("kanban.columns")
   const tPriority = useTranslations("incidents.priority")
   const label =
-    choice.kind === "status" ? tColumns(choice.status) : choice.kind === "priority" ? tPriority(choice.priority) : choice.name
-  const detail = choice.kind === "status" || choice.kind === "priority" ? undefined : choice.detail
+    choice.kind === "status"
+      ? tColumns(choice.status)
+      : choice.kind === "priority"
+        ? tPriority(choice.priority)
+        : choice.kind === "incident"
+          ? choice.incident.label
+          : choice.name
+  const detail =
+    choice.kind === "incident"
+      ? choice.incident.type
+      : choice.kind === "status" || choice.kind === "priority"
+        ? undefined
+        : choice.detail
   return (
     <span className="flex w-full min-w-0 items-center gap-2">
       {choice.kind === "status" ? (
@@ -228,6 +240,10 @@ export function DispatchChoice({ token, choice }: { token: DispatchToken; choice
           const Icon = PRIORITY_ICONS[choice.priority]
           return <Icon aria-hidden className={cn("!size-4 shrink-0", PRIORITY_TEXT_CLASSES[choice.priority])} />
         })()
+      ) : choice.kind === "incident" ? (
+        <span className="min-w-4 shrink-0 text-center font-mono text-xs tabular-nums text-muted-foreground">
+          {choice.incident.number}
+        </span>
       ) : (
         <ResourceIcon kind={choice.kind} className="!size-4" />
       )}

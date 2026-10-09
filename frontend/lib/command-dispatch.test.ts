@@ -230,6 +230,90 @@ describe("parseDispatch — nothing lands on an Einsatz by a guess", () => {
   })
 })
 
+describe("parseDispatch — the Einsatz by its address or Einsatzart", () => {
+  // A board with two Einsätze on one street, a person named like a street word,
+  // and an Einsatzart that appears once.
+  const street: DispatchVocabulary = {
+    ...vocabulary,
+    incidents: [
+      ...vocabulary.incidents,
+      { id: "inc-15", number: 15, label: "Bachweg 14", status: "incoming", priority: "low" },
+      { id: "inc-16", number: 16, label: "Brunnenweg 2", type: "Strassenrettung", status: "incoming", priority: "low" },
+      { id: "inc-17", number: 17, label: "Rosenweg 9", status: "incoming", priority: "low" },
+      { id: "inc-18", number: 18, label: "Neuweg 4", status: "incoming", priority: "low" },
+    ],
+    persons: [...vocabulary.persons, { id: "p-bach", name: "Bach Anna" }, { id: "p-rosen", name: "Rosenweg Tim" }],
+  }
+  const p = (input: string, picks = {}) => parseDispatch(input, street, picks)
+
+  it("«bachweg 3 tlf muster» – street and house number, then the rest", () => {
+    const plan = dispatchOf(p("bachweg 3 tlf muster").plan)
+    expect(plan.incident.id).toBe("inc-14")
+    expect(plan.assign.map((entry) => entry.target.id)).toEqual(["v-tlf", "p-muster"])
+  })
+
+  it("the address ends where a vehicle, person or status word begins", () => {
+    const plan = dispatchOf(p("hauptstrasse 1 tlf hoch").plan)
+    expect(plan.incident.id).toBe("inc-12")
+    expect(plan.assign.map((entry) => entry.target.id)).toEqual(["v-tlf"])
+    expect(dispatchOf(p("brunnenweg 2 einsatz").plan)).toMatchObject({ incident: { id: "inc-16" }, status: "active" })
+  })
+
+  it("the house number picks between two Einsätze on one street", () => {
+    expect(dispatchOf(p("bachweg 14 tlf").plan).incident.id).toBe("inc-15")
+    expect(dispatchOf(p("bachw 3 tlf").plan).incident.id).toBe("inc-14")
+  })
+
+  it("a street with two Einsätze and no house number asks which one", () => {
+    const { tokens, plan } = p("bachweg tlf")
+    expect(plan).toMatchObject({ kind: "blocked", reason: "ambiguous", incident: null })
+    expect(tokens[0].choices?.map((choice) => targetKey(choice))).toEqual(["incident:inc-14", "incident:inc-15"])
+    const picked = dispatchOf(p("bachweg tlf", { [tokens[0].pickKey]: "incident:inc-15" }).plan)
+    expect(picked.incident.id).toBe("inc-15")
+  })
+
+  it("a beginning of a street opens its Einsatz – marked loose, so commands keep ↵", () => {
+    expect(p("brunnenw").plan).toMatchObject({ kind: "open", incident: { id: "inc-16" }, loose: true })
+    expect(p("brunnenweg 2").plan).toMatchObject({ kind: "open", incident: { id: "inc-16" }, loose: false })
+    expect(p("14").plan).toMatchObject({ kind: "open", incident: { id: "inc-14" }, loose: false })
+  })
+
+  it("a house number alone is never an address – «14» is Einsatz 14, not «Bachweg 14»", () => {
+    expect(p("14 tlf").plan).toMatchObject({ kind: "dispatch", incident: { id: "inc-14" } })
+    expect(p("tlf 14").plan).toMatchObject({ kind: "dispatch", incident: { id: "inc-14" } })
+  })
+
+  it("a person named like a street: the whole word wins, a tie across kinds asks", () => {
+    // «bach» is all of Anna Bach's surname and only the start of «Bachweg».
+    expect(p("bach").plan).toMatchObject({ kind: "jump", target: { id: "p-bach" } })
+    // «rosenweg» is a whole word of both the street and Tim Rosenweg.
+    const { tokens, plan } = p("rosenweg tlf")
+    expect(plan).toMatchObject({ kind: "blocked", reason: "ambiguous" })
+    expect(tokens[0].choices?.map((choice) => choice.kind).sort()).toEqual(["incident", "person"])
+  })
+
+  it("a status word stays a status word next to a street that starts like it", () => {
+    expect(dispatchOf(p("14 neu").plan).status).toBeNull() // already «Eingegangen»
+    expect(p("14 neu").tokens[1].target).toEqual({ kind: "status", status: "incoming" })
+  })
+
+  it("names the Einsatz by its Einsatzart when that is unique", () => {
+    expect(dispatchOf(p("strassenrettung tlf").plan).incident.id).toBe("inc-16")
+  })
+
+  it("an address found only through a typo asks «meintest du?»", () => {
+    const { tokens, plan } = p("brunnenwge 2 tlf")
+    expect(plan).toMatchObject({ kind: "blocked", reason: "ambiguous" })
+    expect(tokens[0]).toMatchObject({ confirm: "typo", choices: [{ kind: "incident" }] })
+  })
+
+  it("one Einsatz per line: a second one is greyed, the number wins", () => {
+    const { tokens, plan } = p("14 rosenweg 9 tlf")
+    expect(dispatchOf(plan).incident.id).toBe("inc-14")
+    expect(tokens[1].state).toBe("ignored")
+  })
+})
+
 describe("parseDispatch — vehicles and Geräte", () => {
   it("matches a vehicle by name, compact name, type or call sign", () => {
     expect(parse("pio").plan).toMatchObject({ kind: "jump", target: { id: "v-pio" } })

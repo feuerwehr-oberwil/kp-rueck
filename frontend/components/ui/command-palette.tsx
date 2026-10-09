@@ -103,7 +103,10 @@ function paletteFilter(value: string, search: string, keywords?: string[]): numb
 const LAST = 0.0001
 function previewScore(parsed: ParsedDispatch): number {
   const { plan } = parsed
-  if (plan.kind === "dispatch" || plan.kind === "open") return 2
+  if (plan.kind === "dispatch") return 2
+  // An Einsatz opened by a mere beginning of its address («hilf» → «Hilfikerstrasse»)
+  // may as well be a command typed by name.
+  if (plan.kind === "open") return plan.loose ? LAST : 2
   if (plan.kind === "blocked") {
     const numbered = plan.reason === "unknown-incident" || (plan.reason === "ambiguous" && plan.incident !== null)
     return numbered ? 2 : LAST

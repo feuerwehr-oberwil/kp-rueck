@@ -1802,6 +1802,7 @@ export default function FireStationDashboard() {
         id: op.id,
         number: op.number as number,
         label: getIncidentLocationLabel(op),
+        type: getIncidentTypeLabel(op.incidentType),
         status: op.status,
         priority: op.priority,
       })),

@@ -254,7 +254,7 @@
         "nothingToDo": "déjà fait",
         "pickBelow": "choisir ci-dessous",
         "unknownIncident": "Aucune intervention {number}",
-        "needsIncident": "Commencer par le numéro, p. ex. « 14 tlf meier »",
+        "needsIncident": "Commencer par l’intervention – numéro ou adresse, p. ex. « 14 tlf meier » ou « bachweg 3 tlf »",
         "choiceFor": "pour « {text} »",
         "toastTitle": "Intervention {number} · {name}",
         "toastAssigned": "{names} attribué(s)",

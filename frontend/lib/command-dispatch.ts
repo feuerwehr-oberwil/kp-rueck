@@ -31,8 +31,11 @@ export type DispatchPriority = "low" | "medium" | "high"
 export interface DispatchIncident {
   id: string
   number: number
-  /** Short label for the chip («Bachweg 3»). */
+  /** Short label for the chip («Bachweg 3») — also what the Einsatz is found by
+   *  when it is named by its address («bachweg 3 tlf»). */
   label: string
+  /** Einsatzart («Elementarereignis») — a second way to name it. */
+  type?: string
   status: DispatchStatus
   priority: DispatchPriority
 }
@@ -62,6 +65,8 @@ export type DispatchTarget =
   | DispatchResource
   | { kind: "status"; status: DispatchStatus }
   | { kind: "priority"; priority: DispatchPriority }
+  /** An Einsatz named by its address or Einsatzart (a number is resolved apart). */
+  | { kind: "incident"; incident: DispatchIncident }
 
 export type DispatchTokenState =
   /** The Einsatz number. */
@@ -116,7 +121,8 @@ export interface PlannedResource {
 export type DispatchPlan =
   /** Nothing recognisable — the palette's ordinary list does its job. */
   | { kind: "none" }
-  | { kind: "open"; incident: DispatchIncident }
+  /** `loose`: named by a beginning or a typo of its address, not by number or in full. */
+  | { kind: "open"; incident: DispatchIncident; loose: boolean }
   | { kind: "jump"; target: DispatchResource; exact: boolean }
   | {
       kind: "dispatch"
@@ -318,6 +324,8 @@ export function targetKey(target: DispatchTarget): string {
       return `status:${target.status}`
     case "priority":
       return `priority:${target.priority}`
+    case "incident":
+      return `incident:${target.incident.id}`
     default:
       return `${target.kind}:${target.id}`
   }
@@ -365,6 +373,12 @@ function buildCandidates(vocabulary: DispatchVocabulary): Candidate[] {
       available: material.available !== false && !material.outOfService,
     })
   }
+  // An Einsatz by its address («bachweg 3») or its Einsatzart («strassenrettung»).
+  for (const incident of vocabulary.incidents) {
+    const aliases = [toWords(incident.label)]
+    if (incident.type) aliases.push(toWords(incident.type))
+    candidates.push({ target: { kind: "incident", incident }, aliases })
+  }
   for (const [status, phrases] of Object.entries(STATUS_PHRASES) as [DispatchStatus, string[]][]) {
     candidates.push({ target: { kind: "status", status }, aliases: phrases.map(toWords) })
   }
@@ -381,7 +395,10 @@ interface Ranked {
 
 function rank(tokens: string[], candidates: Candidate[]): Ranked[] {
   const ranked: Ranked[] = []
+  // A house number alone names no address: «14» is Einsatz 14, never «Bachweg 14».
+  const numbersOnly = tokens.every((token) => /^\d+$/.test(token))
   for (const candidate of candidates) {
+    if (numbersOnly && candidate.target.kind === "incident") continue
     let best: AliasMatch | null = null
     for (const alias of candidate.aliases) {
       const match = matchAlias(tokens, alias)
@@ -394,18 +411,24 @@ function rank(tokens: string[], candidates: Candidate[]): Ranked[] {
   return ranked.sort((a, b) => better(b.match, a.match))
 }
 
+/** People/vehicles/Geräte, board words (status, priority), Einsätze. */
+function category(target: DispatchTarget): "resource" | "word" | "incident" {
+  if (target.kind === "incident") return "incident"
+  return isResource(target) ? "resource" : "word"
+}
+
 /** The equally best candidates — one means a match, several mean «which one?». */
 function topTier(ranked: Ranked[]): Ranked[] {
   if (ranked.length === 0) return []
   const best = ranked[0]
   const top = ranked.filter((entry) => better(entry.match, best.match) === 0)
   // A whole word that is a status/priority word AND somebody's name («Hoch»,
-  // «Neu») is a real «which one?»: completeness decides between two statuses
-  // or two people, never between a person and a column.
+  // «Neu»), or a person AND a street («Keller»), is a real «which one?»:
+  // completeness decides between two statuses or two people, never across kinds.
   if (best.match.min === 3) {
     for (const entry of ranked) {
       if (top.includes(entry) || entry.match.min !== 3) continue
-      if (isResource(entry.candidate.target) !== isResource(best.candidate.target)) top.push(entry)
+      if (category(entry.candidate.target) !== category(best.candidate.target)) top.push(entry)
     }
   }
   // Interchangeable Geräte: one tier of identically named units is ONE answer —
@@ -468,6 +491,8 @@ export function parseDispatch(
 
   const tokens: DispatchToken[] = []
   let incident: DispatchIncident | null = null
+  /** Named by a beginning of its address rather than its number or in full. */
+  let incidentLoose = false
   let unknownNumber: number | null = null
   let index = 0
 
@@ -529,6 +554,23 @@ export function parseDispatch(
         if (chosen.candidate.target.kind === "person" && span === 1) {
           token.nameWord = chosen.match.words[0] === 0 ? "first" : "later"
         }
+        const named = chosen.candidate.target
+        if (named.kind === "incident") {
+          if (token.typo && !token.picked) {
+            // An Einsatz found only through a typo is a «meintest du?» too.
+            token.state = "ambiguous"
+            token.confirm = "typo"
+            token.choices = [named]
+          } else if (!incident) {
+            token.state = "incident"
+            token.incident = named.incident
+            incident = named.incident
+            incidentLoose = !token.exact && !token.picked
+          } else {
+            // One Einsatz per line; a second one is shown, greyed.
+            token.state = "ignored"
+          }
+        }
       } else {
         token.state = "ambiguous"
         token.choices = tier.slice(0, 8).map((entry) => entry.candidate.target)
@@ -552,12 +594,13 @@ export function parseDispatch(
     index += consumed
   }
 
-  return { tokens, plan: plan(tokens, incident, unknownNumber, vocabulary) }
+  return { tokens, plan: plan(tokens, incident, incidentLoose, unknownNumber, vocabulary) }
 }
 
 function plan(
   tokens: DispatchToken[],
   incident: DispatchIncident | null,
+  incidentLoose: boolean,
   unknownNumber: number | null,
   vocabulary: DispatchVocabulary,
 ): DispatchPlan {
@@ -577,7 +620,7 @@ function plan(
     return { kind: "blocked", reason: "needs-incident" }
   }
 
-  if (recognised.length === 0) return { kind: "open", incident }
+  if (recognised.length === 0) return { kind: "open", incident, loose: incidentLoose }
 
   // Nothing lands on an Einsatz by a guess. A person/vehicle/Gerät that only a
   // typo allowance found asks «meintest du …?»; a first name next to a surname
@@ -637,7 +680,7 @@ function plan(
       if (statusToken) statusToken.state = "ignored"
       statusToken = token
       status = target.status
-    } else {
+    } else if (target.kind === "priority") {
       if (priorityToken) priorityToken.state = "ignored"
       priorityToken = token
       priority = target.priority

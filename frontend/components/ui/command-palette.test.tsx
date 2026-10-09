@@ -21,7 +21,10 @@ vi.mock("next/navigation", () => ({
 import { CommandPalette, openCommandPalette } from "./command-palette"
 
 const vocabulary: DispatchVocabulary = {
-  incidents: [{ id: "inc-14", number: 14, label: "Bachweg 3", status: "incoming", priority: "medium" }],
+  incidents: [
+    { id: "inc-14", number: 14, label: "Bachweg 3", status: "incoming", priority: "medium" },
+    { id: "inc-20", number: 20, label: "Hilfikerstrasse 2", status: "incoming", priority: "low" },
+  ],
   persons: [
     { id: "p-muster", name: "Muster Peter", detail: "Maschinist" },
     { id: "p-meier-hans", name: "Meier Hans", detail: "Gruppenführer", incidentIds: ["inc-14"] },
@@ -148,6 +151,15 @@ describe("CommandPalette — type-to-dispatch preview", () => {
     expect(onDispatch).not.toHaveBeenCalled()
   })
 
+  it("names the Einsatz by its address just as well – «bachweg 3 tlf»", async () => {
+    const { user, onDispatch } = setup()
+    await typeIn(user, "bachweg 3 tlf")
+    expect(within(preview()).getByText("Bachweg 3")).toBeInTheDocument()
+    expect(within(preview()).getByText("TLF")).toBeInTheDocument()
+    await user.keyboard("{Enter}")
+    expect(onDispatch.mock.calls[0][0]).toMatchObject({ incident: { id: "inc-14" }, assign: [{ target: { id: "v-tlf" } }] })
+  })
+
   it("«14» alone opens the Einsatz", async () => {
     const { user, onOpenIncident } = setup()
     await typeIn(user, "14")
@@ -188,7 +200,7 @@ describe("CommandPalette — the existing list keeps working", () => {
     // preview can only ask for one: it ranks last (CommandRankGroups orders by
     // score) and ↵ runs the command.
     const options = screen.getAllByRole("option")
-    expect(options.at(-1)).toHaveTextContent("Einsatznummer voranstellen")
+    expect(options.at(-1)).toHaveTextContent("Einsatz voranstellen")
     expect(selected()).toHaveTextContent("Neuer Einsatz")
     await user.keyboard("{Enter}")
     expect(onNewOperation).toHaveBeenCalledTimes(1)
@@ -202,6 +214,15 @@ describe("CommandPalette — the existing list keeps working", () => {
     expect(selected()).toHaveTextContent("Priorität: Hoch")
     await user.keyboard("{Enter}")
     expect(onSetPriority).toHaveBeenCalledWith("high")
+  })
+
+  it("a street beginning («hilf» → Hilfikerstrasse) does not take ↵ from «Hilfe»", async () => {
+    const { user, onOpenIncident } = setup()
+    await typeIn(user, "hilf")
+    expect(selected()).toHaveTextContent("Hilfe")
+    expect(screen.getAllByRole("option").at(-1)).toHaveTextContent("Hilfikerstrasse 2")
+    await user.keyboard("{Enter}")
+    expect(onOpenIncident).not.toHaveBeenCalled()
   })
 
   it("«einsätze» still searches the Einsätze", async () => {
