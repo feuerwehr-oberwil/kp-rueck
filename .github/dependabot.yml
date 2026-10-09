@@ -63,10 +63,6 @@ updates:
       # Dockerfiles use to install pnpm, so #98 (20 → 26) could not even build.
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
-      # The same image under the name Dependabot gives it on ECR Public, where the Dockerfiles
-      # pull it from since 09.10.2026 (public.ecr.aws/docker/library/node).
-      - dependency-name: "docker/library/node"
-        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
