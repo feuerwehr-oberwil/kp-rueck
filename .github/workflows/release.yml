@@ -85,6 +85,9 @@ jobs:
       # can run the whole stack, not just the print agent next to the printer.
       - name: Set up QEMU (arm64 emulation)
         uses: docker/setup-qemu-action@v4
+        with:
+          # tonistiigi/binfmt from Google's Docker Hub cache (same digest), not Hub itself.
+          image: mirror.gcr.io/tonistiigi/binfmt:latest
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
@@ -96,6 +99,9 @@ jobs:
           buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["mirror.gcr.io"]
+          # Buildx's own BuildKit container is moby/buildkit from Docker Hub unless named here, and
+          # Hub's anonymous pull limit failed this step at random (09.10.2026). Same mirror, same digest.
+          driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
 
       - name: Log in to GHCR
         uses: docker/login-action@v4.6.0
