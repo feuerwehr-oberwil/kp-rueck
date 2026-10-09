@@ -2691,7 +2691,7 @@
       "fatigueOne": "En service depuis plus de {hours} h",
       "fatigueMany": "{count} personnes en service depuis plus de {hours} h",
       "fatiguePerson": "{name} ({hours} h)",
-      "fatigueMore": "{names} et {count} autres",
+      "fatigueMore": "{names} et {count, plural, one {# autre} other {# autres}}",
       "timeInStatus": "{duration} dans l’état « {status} »",
       "timeNotArchived": "Clôturé depuis {duration}, pas archivé",
       "noPersonnel": "Plus de personnel disponible – toutes les personnes enregistrées sont attribuées",

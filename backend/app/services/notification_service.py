@@ -9,6 +9,7 @@ from uuid import UUID
 
 # Helper subquery for assigned material IDs
 from sqlalchemy import and_, func, select
+from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
@@ -355,6 +356,16 @@ def fatigue_message(over: list[tuple[str, int]], fatigue_hours: int) -> str:
     return texts.fatigue(over, fatigue_hours)[0]
 
 
+def fatigue_subject_key(personnel_id: UUID, checked_in_at: datetime) -> str:
+    """One person's shift, as the grouped fatigue row records it (`Notification.subject_keys`).
+
+    The check-in stamp is part of the key on purpose: somebody who went home and came back
+    starts a new shift, and reaching the threshold again is news even if their previous
+    warning was dismissed.
+    """
+    return f"{personnel_id}@{checked_in_at.astimezone(UTC).isoformat()}"
+
+
 async def _sync_fatigue_notification(
     db: AsyncSession, event_id: UUID, settings: NotificationSettings, *, enabled: bool = True
 ) -> Notification | None:
@@ -368,40 +379,59 @@ async def _sync_fatigue_notification(
     for each name every hour.
 
     Now:
-    - Everybody checked in for at least ``fatigue_hours`` is named in one notification.
+    - Everybody checked in for at least ``fatigue_hours`` is named in one notification,
+      whose ``subject_keys`` record exactly who (one key per person and shift).
     - While it is open, it is rewritten in place (same id: no new toast, no new bell row).
-    - Dismissing it acknowledges everybody who had crossed the threshold by then. A NEW
-      one is raised only when somebody crosses it after the last dismissal — or, with
-      re-alarming switched on, once that interval has passed.
+    - Dismissing it acknowledges the people it named at that moment — nobody else. A NEW
+      one is raised as soon as anybody past the threshold is not among the acknowledged
+      keys (crossed later, a lowered threshold, a new shift) — or, with re-alarming
+      switched on, once that interval has passed since the last dismissal. Rows from
+      before the grouping carry no keys and acknowledge nobody.
     - When nobody is past the threshold any more (checked out), it resolves itself.
+
+    Every board evaluates this on its own poll, so the whole read-decide-write runs under a
+    transaction-scoped advisory lock per Ereignis: two concurrent evaluations would
+    otherwise both find no open row and both insert one (two rows, two toasts).
 
     ``fatigue_hours`` <= 0 switches the check off. Returns the open notification, if any.
     """
+    await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"})
+    try:
+        notification = await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
+        await db.commit()  # also releases the lock
+    except Exception:
+        await db.rollback()
+        raise
+    return notification
+
+
+async def _sync_fatigue_locked(
+    db: AsyncSession, event_id: UUID, settings: NotificationSettings, *, enabled: bool
+) -> Notification | None:
     from ..models import EventAttendance
 
     now = datetime.now(UTC)
     threshold_minutes = settings.fatigue_hours * 60
 
     over: list[tuple[str, int]] = []
-    newest_crossing: datetime | None = None
+    keys: list[str] = []
     if enabled and threshold_minutes > 0:
         rows = await db.execute(
-            select(Personnel.name, EventAttendance.checked_in_at)
+            select(Personnel.id, Personnel.name, EventAttendance.checked_in_at)
             .join(Personnel, EventAttendance.personnel_id == Personnel.id)
             .where(EventAttendance.event_id == event_id)
             .where(EventAttendance.checked_in)
             .where(EventAttendance.checked_in_at.isnot(None))
         )
-        for name, checked_in_at in rows.all():
+        people = []
+        for personnel_id, name, checked_in_at in rows.all():
             minutes = int((now - checked_in_at).total_seconds() // 60)
-            if minutes < threshold_minutes:
-                continue
-            over.append((name, minutes))
-            crossing = checked_in_at + timedelta(minutes=threshold_minutes)
-            if newest_crossing is None or crossing > newest_crossing:
-                newest_crossing = crossing
+            if minutes >= threshold_minutes:
+                people.append((name, minutes, fatigue_subject_key(personnel_id, checked_in_at)))
         # Longest on duty first, then by name, so the sentence does not reshuffle.
-        over.sort(key=lambda item: (-item[1], item[0]))
+        people.sort(key=lambda item: (-item[1], item[0]))
+        over = [(name, minutes) for name, minutes, _ in people]
+        keys = [key for _, _, key in people]
 
     active_result = await db.execute(
         select(Notification)
@@ -417,41 +447,43 @@ async def _sync_fatigue_notification(
         for stale in active:
             stale.dismissed = True
             stale.dismissed_at = now
-        if active:
-            await db.commit()
         return None
 
     message, params = texts.fatigue(over, settings.fatigue_hours)
 
     if active:
         current, *extra = active
-        changed = bool(extra)
         # Rows from before the grouping (one per person) fold into the newest one.
         for stale in extra:
             stale.dismissed = True
             stale.dismissed_at = now
-        # `params` too: a row written before it existed gets it on its next rewrite.
-        if current.message != message or current.params != params:
+        # Text, params and keys together: a dismissal acknowledges what the row said, and a
+        # row written before `params` existed gets them on its next rewrite.
+        if current.message != message or current.params != params or current.subject_keys != keys:
             current.message = message
             current.params = params
-            changed = True
-        if changed:
-            await db.commit()
+            current.subject_keys = keys
         return current
 
-    last_dismissed_at = (
+    # Who has been acknowledged: the people named by every row an operator dismissed.
+    # Auto-resolved rows (dismissed_by NULL) acknowledge nobody; pre-grouping rows have no keys.
+    dismissed_rows = (
         await db.execute(
-            select(func.max(Notification.dismissed_at))
+            select(Notification.subject_keys, Notification.dismissed_at)
             .where(Notification.event_id == event_id)
             .where(Notification.type == "personnel_fatigue")
             .where(Notification.dismissed)
+            .where(Notification.dismissed_by.isnot(None))
+            .where(Notification.subject_keys.isnot(None))
         )
-    ).scalar_one_or_none()
-
-    if last_dismissed_at is not None and newest_crossing is not None and newest_crossing <= last_dismissed_at:
-        # Everybody on the list was already past the threshold when it was dismissed.
-        re_alarm_due = settings.re_alarm_interval_min > 0 and now - last_dismissed_at >= timedelta(
-            minutes=settings.re_alarm_interval_min
+    ).all()
+    acknowledged = {key for row_keys, _ in dismissed_rows for key in (row_keys or [])}
+    if all(key in acknowledged for key in keys):
+        last_dismissed_at = max((at for _, at in dismissed_rows if at is not None), default=None)
+        re_alarm_due = (
+            settings.re_alarm_interval_min > 0
+            and last_dismissed_at is not None
+            and now - last_dismissed_at >= timedelta(minutes=settings.re_alarm_interval_min)
         )
         if not re_alarm_due:
             return None
@@ -461,11 +493,11 @@ async def _sync_fatigue_notification(
         severity="warning",
         message=message,
         params=params,
+        subject_keys=keys,
         event_id=event_id,
     )
     db.add(notification)
-    await db.commit()
-    await db.refresh(notification)
+    await db.flush()
     return notification
 
 

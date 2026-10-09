@@ -47,7 +47,7 @@ import {
  *     submit button, because the KP mount autosaves and files what it saves
  *     (§18.17) — and the provenance reads "(Funkmeldung)", never "(Feld)".
  *
- * Tagged @smoke (plan 15): the four tests arrange over REST and share one worker
+ * Tagged @smoke: the four tests arrange over REST and share one worker
  * login, so the whole file runs in ~15 s on a warm dev server — cheap enough for
  * the gate, and the feature it guards is a paper form the station is about to
  * stop filling in by hand. If it ever slows down, drop the tag rather than the

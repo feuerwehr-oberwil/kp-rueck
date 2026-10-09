@@ -15477,6 +15477,86 @@
         }
       }
     },
+    "/api/events/{event_id}/personnel-activity": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Personnel Activity",
+        "description": "Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.\n\nThe same rows as ``personnel_activity`` in ``/stats``, without the incident statistics\naround them: the overview asks again whenever somebody's assignment changes.",
+        "operationId": "get_personnel_activity_api_events__event_id__personnel_activity_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonnelActivity"
+                  },
+                  "title": "Response Get Personnel Activity Api Events  Event Id  Personnel Activity Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sync/status": {
       "get": {
         "tags": [

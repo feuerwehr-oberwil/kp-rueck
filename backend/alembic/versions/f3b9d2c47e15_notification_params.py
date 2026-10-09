@@ -1,7 +1,7 @@
 """notifications: structured params beside the German sentence
 
 Revision ID: f3b9d2c47e15
-Revises: c4e8a2f61d97
+Revises: a1c7e4f09b32
 Create Date: 2026-10-09 00:00:00.000000
 
 A notification stored only a German sentence the server composed, and the
@@ -24,7 +24,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "f3b9d2c47e15"
-down_revision: str | Sequence[str] | None = "c4e8a2f61d97"
+down_revision: str | Sequence[str] | None = "a1c7e4f09b32"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

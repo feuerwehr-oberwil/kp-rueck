@@ -85,6 +85,17 @@ def _disk_status() -> dict[str, Any]:
     }
 
 
+def _component_error(component: str, exc: Exception) -> str:
+    """What /health/detailed says about a failed component: the exception's CLASS, not its text.
+
+    The endpoint is unauthenticated (it only refuses production), and an exception's message
+    can carry a connection string, a host name or a file path. The full error goes to the log,
+    where the operator who needs it can read it.
+    """
+    logger.warning("health: %s check failed", component, exc_info=exc)
+    return type(exc).__name__
+
+
 @router.get("/health", response_model=None)
 async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
@@ -134,7 +145,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
         health_status["status"] = "degraded"
         health_status["components"]["database"] = {
             "status": "unhealthy",
-            "error": str(e),
+            "error": _component_error("database", e),
         }
 
     # Check audit database pool
@@ -154,7 +165,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
     except Exception as e:
         health_status["components"]["websocket"] = {
             "status": "unhealthy",
-            "error": str(e),
+            "error": _component_error("websocket", e),
         }
 
     # Check sync scheduler
@@ -175,7 +186,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
     except Exception as e:
         health_status["components"]["sync_scheduler"] = {
             "status": "unknown",
-            "error": str(e),
+            "error": _component_error("sync_scheduler", e),
         }
 
     # Check audit cleanup scheduler
@@ -198,7 +209,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
     except Exception as e:
         health_status["components"]["audit_cleanup"] = {
             "status": "unknown",
-            "error": str(e),
+            "error": _component_error("audit_cleanup", e),
         }
 
     return health_status

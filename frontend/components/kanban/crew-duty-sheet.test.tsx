@@ -4,12 +4,11 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Person } from '@/lib/contexts/operations-context'
 import type { PersonEngagement } from '@/lib/hooks/use-person-engagements'
 
-const getEventStats = vi.fn()
+const getEventPersonnelActivity = vi.fn()
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { getEventStats: (...args: unknown[]) => getEventStats(...args) },
+  apiClient: { getEventPersonnelActivity: (...args: unknown[]) => getEventPersonnelActivity(...args) },
 }))
-vi.mock('@/lib/websocket-client', () => ({ wsClient: { on: () => () => {} } }))
 // Desktop branch of the footer sheet.
 vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
 // The chip's right-click menu needs the whole board's contexts; not under test here.
@@ -47,7 +46,7 @@ describe('CrewDutySheet', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['Date'] })
     vi.setSystemTime(NOW)
-    getEventStats.mockReset()
+    getEventPersonnelActivity.mockReset()
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -67,13 +66,11 @@ describe('CrewDutySheet', () => {
   }
 
   it('lists the longest on duty first, with time, Einsätze and where they are now', async () => {
-    getEventStats.mockResolvedValue({
-      personnel_activity: [
-        { personnel_id: hans.id, assignment_count: 4 },
-        { personnel_id: anna.id, assignment_count: 1 },
-        { personnel_id: eva.id, assignment_count: 0 },
-      ],
-    })
+    getEventPersonnelActivity.mockResolvedValue([
+      { personnel_id: hans.id, assignment_count: 4 },
+      { personnel_id: anna.id, assignment_count: 1 },
+      { personnel_id: eva.id, assignment_count: 0 },
+    ])
     renderSheet()
 
     const rows = screen.getAllByRole('listitem')
@@ -82,7 +79,7 @@ describe('CrewDutySheet', () => {
       'Meier Anna',
       'Frisch Eva',
     ])
-    expect(getEventStats).toHaveBeenCalledWith('event-1')
+    
 
     // 400 min = 6h 40' → red; 250 min → amber; 20 min → calm.
     expect(within(rows[0]).getByText("6h 40'")).toHaveAttribute('data-duty-level', 'over')
@@ -90,6 +87,7 @@ describe('CrewDutySheet', () => {
     expect(within(rows[2]).getByText("20'")).toHaveAttribute('data-duty-level', 'normal')
 
     await waitFor(() => expect(within(rows[0]).getAllByText('4').length).toBeGreaterThan(0))
+    expect(getEventPersonnelActivity).toHaveBeenCalledWith('event-1')
     // «Jetzt»: the board's own engagement, the function as fallback, else «frei».
     expect(within(rows[0]).getAllByText('Langegasse 28').length).toBeGreaterThan(0)
     expect(within(rows[1]).getAllByText('Telefondienst').length).toBeGreaterThan(0)
@@ -98,8 +96,32 @@ describe('CrewDutySheet', () => {
     expect(screen.getByText('3 anwesend · 2 über 4 h')).toBeInTheDocument()
   })
 
+  it('asks again when an assignment changes, and only then', async () => {
+    getEventPersonnelActivity.mockResolvedValue([{ personnel_id: hans.id, assignment_count: 4 }])
+    const props = {
+      open: true,
+      onOpenChange: () => {},
+      eventId: 'event-1',
+      personnel: [eva, anna, hans],
+      fatigueHours: 4,
+    }
+    const view = renderWithIntl(<CrewDutySheet {...props} personEngagements={engagements} />)
+    await waitFor(() => expect(getEventPersonnelActivity).toHaveBeenCalledTimes(1))
+
+    // Same assignments, new map identity (the board rebuilds it on every change): no request.
+    view.rerender(<CrewDutySheet {...props} personEngagements={new Map(engagements)} />)
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(getEventPersonnelActivity).toHaveBeenCalledTimes(1)
+
+    // Eva goes out: ask again.
+    const moved = new Map(engagements)
+    moved.set('Frisch Eva', { short: 'Hauptstrasse 41', full: 'Hauptstrasse 41' } as PersonEngagement)
+    view.rerender(<CrewDutySheet {...props} personEngagements={moved} />)
+    await waitFor(() => expect(getEventPersonnelActivity).toHaveBeenCalledTimes(2))
+  })
+
   it('says it cannot count rather than claiming zero Einsätze', async () => {
-    getEventStats.mockRejectedValue(new Error('offline'))
+    getEventPersonnelActivity.mockRejectedValue(new Error('offline'))
     renderSheet()
     const rows = screen.getAllByRole('listitem')
     await waitFor(() =>
@@ -108,7 +130,7 @@ describe('CrewDutySheet', () => {
   })
 
   it('names nobody when nobody is checked in', () => {
-    getEventStats.mockResolvedValue({ personnel_activity: [] })
+    getEventPersonnelActivity.mockResolvedValue([])
     renderWithIntl(
       <CrewDutySheet open onOpenChange={() => {}} eventId="e" personnel={[]} personEngagements={new Map()} fatigueHours={4} />,
     )

@@ -170,6 +170,8 @@ describe('notificationParts — system notifications stay one line', () => {
     })
     const one = { type: 'personnel_fatigue', params: { hours: 4, count: 1, people: [{ name: 'Müller Hans', hours: 5 }], more: 0 } }
     expect(parts(one, fr)).toMatchObject({ what: 'En service depuis plus de 4 h', who: 'Müller Hans (5 h)' })
+    const sixth = { ...row, params: { ...row.params, count: 3, more: 1 } }
+    expect(parts(sixth, fr).who).toBe('Müller Hans (6 h), Meier Anna (5 h) et 1 autre')
   })
 
   it('resources, data quality, storage, the door', () => {
