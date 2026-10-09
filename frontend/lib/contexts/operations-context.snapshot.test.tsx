@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { useState, type ReactNode } from "react"
 
 import type { ApiIncident } from "@/lib/api-client"
@@ -57,6 +57,7 @@ const api = vi.hoisted(() => ({
   getEventSpecialFunctions: vi.fn(),
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
+  assignResource: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -476,5 +477,37 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     expect(board.settings).toEqual({ home_city: "Oberwil" })
     expect(board.vehicles).toBe(VEHICLES)
     expect(board.specialFunctions).toBe(SPECIAL_FUNCTIONS)
+  })
+})
+
+describe("OperationsProvider — assignment work that may still ask (⌘K waits on it)", () => {
+  it("a resolved Doppelbelegung settles only after the re-assign and its driver check", async () => {
+    const rendered = renderHook(() => useOperations(), { wrapper })
+    await waitFor(() => expect(rendered.result.current.operations).toHaveLength(2))
+    api.assignResource.mockResolvedValue({ id: "as-new", driver_stay: false })
+    let answer: (functions: unknown[]) => void = () => {}
+    api.getEventSpecialFunctions.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+
+    // MTW is on inc-full: assigning it to inc-bare asks first.
+    await act(async () => {
+      await rendered.result.current.assignVehicleToOperation("v-mtw", "MTW", "inc-bare")
+    })
+    expect(rendered.result.current.resourceConflict).not.toBeNull()
+    expect(rendered.result.current.isAssignmentSettling()).toBe(false)
+
+    // «Auf beiden führen»: the prompt closes at once, the work goes on.
+    let resolving: Promise<void> = Promise.resolve()
+    act(() => {
+      resolving = Promise.resolve(rendered.result.current.resolveResourceConflict("keep"))
+    })
+    await waitFor(() => expect(api.getEventSpecialFunctions).toHaveBeenCalled())
+    expect(rendered.result.current.resourceConflict).toBeNull()
+    expect(rendered.result.current.isAssignmentSettling()).toBe(true)
+
+    await act(async () => {
+      answer([])
+      await resolving
+    })
+    expect(rendered.result.current.isAssignmentSettling()).toBe(false)
   })
 })

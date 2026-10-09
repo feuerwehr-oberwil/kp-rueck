@@ -126,6 +126,7 @@ export default function FireStationDashboard() {
     requestResourceConflict,
     resourceConflict,
     vehicleNeedingDriver,
+    isAssignmentSettling,
     vehicles: fleet,
     outOfServiceVehicleIds,
     deleteOperation,
@@ -1110,6 +1111,12 @@ export default function FireStationDashboard() {
   }, [
     isEditor,
     scrollToCard,
+    // The palette's vocabulary is read through `getDispatchVocabulary`; a new
+    // registration whenever what it lists changes keeps an open palette current.
+    personnel,
+    fleet,
+    materials,
+    outOfServiceVehicleIds,
     registerHandlers,
     clearHandlers,
     refreshOperations,
@@ -1852,8 +1859,21 @@ export default function FireStationDashboard() {
     getOperation: (operationId) => operationsRef.current.find((op) => op.id === operationId),
     getGroupResources,
     // The Doppelbelegung prompt and the driver prompt a vehicle raises when it
-    // lands without a driver — each waits for the one before it.
-    isQuestionOpen: () => resourceConflict !== null || vehicleNeedingDriver !== null,
+    // lands without a driver — each waits for the one before it — and the
+    // context's own signal that an assignment may still ask (driver check,
+    // a resolved move still re-assigning).
+    isQuestionOpen: () => resourceConflict !== null || vehicleNeedingDriver !== null || isAssignmentSettling(),
+    getOperations: () => operationsRef.current,
+    getGroupsHolding: (resource) =>
+      groups.filter((group) =>
+        group.assignments.some(
+          (assignment) =>
+            assignment.resourceId === resource.id &&
+            assignment.resourceType === (resource.kind === "person" ? "personnel" : resource.kind),
+        ),
+      ),
+    labelOf: (operation) => getIncidentLocationLabel(operation),
+    restore: release.restore,
     assign: assignFromPalette,
     setPriority: (operationId, priority) => updateOperation(operationId, { priority }),
     moveStatus: (operationId, status, previous) => {
@@ -1871,6 +1891,11 @@ export default function FireStationDashboard() {
       const parts: string[] = []
       if (outcome.assigned.length > 0) {
         parts.push(tPalette('dispatch.toastAssigned', { names: outcome.assigned.map((resource) => resource.name).join(", ") }))
+      }
+      // Said, not hidden: a «Hierher verschieben» took them off somewhere, and
+      // «Rückgängig» puts them back there.
+      for (const item of outcome.moved) {
+        parts.push(tPalette('dispatch.toastMoved', { name: item.name, from: item.targetLabel }))
       }
       if (outcome.status) parts.push(tPalette('dispatch.toastStatus', { status: tColumns(outcome.status.to) }))
       if (outcome.priority) {

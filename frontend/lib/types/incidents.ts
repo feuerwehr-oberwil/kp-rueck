@@ -47,6 +47,8 @@ export interface AssignedVehicle {
 export interface Incident {
   id: string // UUID
   event_id: string // UUID - reference to parent event
+  /** The Einsatz number within its Ereignis («14»); absent from a share-link payload. */
+  number?: number | null
   title: string
   type: IncidentType
   priority: IncidentPriority

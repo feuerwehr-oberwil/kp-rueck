@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react"
 
 import type { DispatchPlan, DispatchPriority, DispatchResource, DispatchStatus } from "@/lib/command-dispatch"
 import type { Operation } from "@/lib/contexts/operations-context"
+import type { Released } from "@/lib/release-undo"
 import type { GroupResources } from "@/lib/types/groups"
 
 /**
@@ -17,13 +18,18 @@ import type { GroupResources } from "@/lib/types/groups"
  *
  * One question at a time: the conflict prompt is a single slot, so a second
  * resource asking while the first is still open would replace it, and a
- * vehicle that lands without a driver asks for one. The runner waits for every
- * open question to be answered before it hands over the next resource.
+ * vehicle that lands without a driver asks for one. The runner waits until no
+ * question is open AND no assignment is still settling (the board's explicit
+ * signal: a vehicle's driver check, a resolved Doppelbelegung's move) before it
+ * hands over the next resource. Two commands typed in a row run one after the
+ * other, never interleaved (`useCommandDispatch` queues them).
  *
  * Undo is a new write that must still be valid now (CLAUDE.md → «Undo never
  * restores a snapshot blindly»): it takes off only what is on the Einsatz now
  * AND was not before the command, and puts status/priority back only while they
- * still read what the command set.
+ * still read what the command set. A resource the command took off another
+ * Einsatz or Auftrag («Hierher verschieben») goes back there through the
+ * release undo (`checkRestore` first) — or the toast says why it cannot.
  */
 
 export type DispatchCommand = Extract<DispatchPlan, { kind: "dispatch" }>
@@ -32,6 +38,8 @@ export interface DispatchOutcome {
   operation: Operation
   /** Resources the command put on (they hold now and did not before). */
   assigned: DispatchResource[]
+  /** Where those came from when the operator chose to move them here. */
+  moved: Released[]
   status: { from: DispatchStatus; to: DispatchStatus } | null
   priority: { from: DispatchPriority; to: DispatchPriority } | null
 }
@@ -40,8 +48,17 @@ export interface CommandDispatchDeps {
   /** Latest board state — read at call time, never from a render's closure. */
   getOperation: (operationId: string) => Operation | undefined
   getGroupResources: (groupId: string) => GroupResources
-  /** True while a question an assignment raised is open (Doppelbelegung, driver). */
+  /** True while a question an assignment raised is open (Doppelbelegung, driver)
+   *  or may still come (an assignment still settling). */
   isQuestionOpen: () => boolean
+  /** Every Einsatz on the board — where a resource was before it was moved here. */
+  getOperations: () => readonly Operation[]
+  /** The Aufträge holding a resource now. */
+  getGroupsHolding: (resource: DispatchResource) => readonly { id: string; name: string }[]
+  /** Short label of an Einsatz, for «wieder bei …». */
+  labelOf: (operation: Operation) => string
+  /** Put moved resources back where they were (the release undo, `checkRestore` first). */
+  restore: (item: Released) => Promise<unknown>
   /** The drag-and-drop path for one resource onto one incident. */
   assign: (resource: DispatchResource, operationId: string) => unknown
   setPriority: (operationId: string, priority: DispatchPriority) => void
@@ -61,10 +78,9 @@ export interface CommandDispatchDeps {
   sleep?: (ms: number) => Promise<void>
 }
 
-/** How long nothing may ask before the next resource is handed over. */
+/** A just-raised question needs a render to reach `isQuestionOpen`: nothing
+ *  may be open or settling for this long before the next resource goes. */
 const QUIET_MS = 300
-/** A vehicle's driver prompt comes after two API calls — give it room. */
-const VEHICLE_QUIET_MS = 1200
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
@@ -99,16 +115,26 @@ export function holding(
   return null
 }
 
+/** On this Einsatz itself (crew, Reko, vehicle, Gerät) — not via its Auftrag. */
+function heldOnIncident(operation: Operation, resource: DispatchResource): boolean {
+  if (resource.kind === "person") return operation.crew.includes(resource.name) || operation.assignedReko?.id === resource.id
+  if (resource.kind === "vehicle") return operation.vehicles.includes(resource.name)
+  return operation.materials.includes(resource.id)
+}
+
+function releasedFromIncident(resource: DispatchResource, operationId: string, targetLabel: string): Released {
+  if (resource.kind === "person") return { kind: "personnel", operationId, personId: resource.id, name: resource.name, targetLabel }
+  if (resource.kind === "vehicle") return { kind: "vehicle", operationId, vehicleId: resource.id, name: resource.name, targetLabel }
+  return { kind: "material", operationId, materialId: resource.id, name: resource.name, targetLabel }
+}
+
 export async function runDispatch(command: DispatchCommand, deps: CommandDispatchDeps): Promise<DispatchOutcome | null> {
   const sleep = deps.sleep ?? defaultSleep
   const operationId = command.incident.id
   const before = deps.getOperation(operationId)
   if (!before) return null
 
-  // Wait until no question has been open for `quietMs` in a row. A question
-  // can arrive late: the driver prompt follows a vehicle only after two API
-  // round trips, and «Hierher verschieben» re-assigns after its own removals —
-  // so «the prompt just closed» is not yet «nothing more will be asked».
+  // Wait until nothing has been open or settling for `quietMs` in a row.
   const waitForQuiet = async (quietMs: number) => {
     const step = 100
     let quiet = 0
@@ -123,10 +149,21 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
       .filter((entry) => holding(before, entry.target, deps.getGroupResources))
       .map((entry) => `${entry.target.kind}:${entry.target.id}`),
   )
+  // Where each resource is before the command — to tell, afterwards, what a
+  // «Hierher verschieben» took it off (the undo puts it back there).
+  const sourcesBefore = new Map(
+    command.assign.map((entry) => [
+      `${entry.target.kind}:${entry.target.id}`,
+      {
+        incidents: deps.getOperations().filter((op) => op.id !== operationId && heldOnIncident(op, entry.target)),
+        groups: deps.getGroupsHolding(entry.target).filter((group) => group.id !== before.groupId),
+      },
+    ]),
+  )
   for (const entry of command.assign) {
     if (wasHeld.has(`${entry.target.kind}:${entry.target.id}`)) continue
     deps.assign(entry.target, operationId)
-    await waitForQuiet(entry.target.kind === "vehicle" ? VEHICLE_QUIET_MS : QUIET_MS)
+    await waitForQuiet(QUIET_MS)
   }
 
   let priority: DispatchOutcome["priority"] = null
@@ -143,19 +180,9 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
     status = { from: current.status, to: command.status }
   }
 
-  // Assignments land optimistically, a route's through its API call: give them
-  // a moment, then report what is actually there — a cancelled prompt is not
-  // an assignment, and the toast must not claim it.
-  const pending = () => {
-    const now = deps.getOperation(operationId)
-    return command.assign.filter(
-      (entry) =>
-        !wasHeld.has(`${entry.target.kind}:${entry.target.id}`) &&
-        !(now && holding(now, entry.target, deps.getGroupResources)),
-    )
-  }
-  for (let waited = 0; pending().length > 0 && waited < 1500; waited += 100) await sleep(100)
-
+  // Report what is actually there — a cancelled prompt is not an assignment,
+  // and the toast must not claim it. Every assign is optimistic and the last
+  // one has settled (waitForQuiet), so the board already says.
   const after = deps.getOperation(operationId) ?? before
   const assigned = command.assign
     .map((entry) => entry.target)
@@ -165,7 +192,30 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
     )
   if (assigned.length === 0 && !status && !priority) return null
 
-  const outcome: DispatchOutcome = { operation: after, assigned, status, priority }
+  const moved: Released[] = []
+  for (const resource of assigned) {
+    const sources = sourcesBefore.get(`${resource.kind}:${resource.id}`)
+    if (!sources) continue
+    for (const source of sources.incidents) {
+      const now = deps.getOperations().find((op) => op.id === source.id)
+      if (now && heldOnIncident(now, resource)) continue
+      moved.push(releasedFromIncident(resource, source.id, deps.labelOf(source)))
+    }
+    const stillOn = new Set(deps.getGroupsHolding(resource).map((group) => group.id))
+    for (const group of sources.groups) {
+      if (stillOn.has(group.id)) continue
+      moved.push({
+        kind: "routeResource",
+        groupId: group.id,
+        resourceType: resource.kind === "person" ? "personnel" : resource.kind,
+        resourceId: resource.id,
+        name: resource.name,
+        targetLabel: group.name,
+      })
+    }
+  }
+
+  const outcome: DispatchOutcome = { operation: after, assigned, moved, status, priority }
   deps.report(outcome, () => undoDispatch(outcome, deps))
   return outcome
 }
@@ -183,6 +233,10 @@ export async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispat
     else if (held.where === "material") await deps.removeMaterial(operationId, resource.id)
     else await deps.unassignGroupResource(held.groupId, held.assignmentId)
   }
+  // Back where «Hierher verschieben» took them from — now that they are free
+  // again. The release undo checks first (closed, gone, put elsewhere meanwhile)
+  // and says so; one at a time, so each answer is its own toast.
+  for (const item of outcome.moved) await deps.restore(item)
   if (outcome.priority && now.priority === outcome.priority.to) deps.revertPriority(operationId, outcome.priority.from)
   if (outcome.status && now.status === outcome.status.to) deps.revertStatus(operationId, outcome.status.from)
 }
@@ -197,10 +251,15 @@ export function useCommandDispatch(deps: CommandDispatchDeps) {
   useEffect(() => {
     ref.current = deps
   })
+  // One queue: a second command typed while the first still waits for an
+  // answer runs after it, not interleaved with it.
+  const queue = useRef<Promise<unknown>>(Promise.resolve())
   return useCallback((command: DispatchCommand) => {
     const live: CommandDispatchDeps = new Proxy({} as CommandDispatchDeps, {
       get: (_target, key: keyof CommandDispatchDeps) => ref.current[key],
     })
-    return runDispatch(command, live)
+    const run = queue.current.then(() => runDispatch(command, live))
+    queue.current = run.catch(() => null)
+    return run
   }, [])
 }

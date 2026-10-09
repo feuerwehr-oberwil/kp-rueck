@@ -1,5 +1,6 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
@@ -580,14 +581,7 @@ function DraggableOperationBase({
                 <h3 className="font-bold text-base text-foreground leading-tight break-words">
                   {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
                       mono, so the address stays the heading. */}
-                  {operation.number != null && (
-                    <span
-                      className="mr-1.5 font-mono text-xs font-medium tabular-nums text-muted-foreground"
-                      title={t('card.numberTitle', { number: operation.number })}
-                    >
-                      {operation.number}
-                    </span>
-                  )}
+                  <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
                   {locationLabel}
                 </h3>
                 {/* Abholung. Deliberately NOT gated on status: completing the

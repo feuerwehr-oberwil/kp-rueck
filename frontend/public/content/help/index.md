@@ -521,10 +521,12 @@ Adresse auf der Karte), danach folgt alles in beliebiger Reihenfolge:
 | `meier`, `tlf` | zeigen, wo Meier bzw. das TLF gerade ist |
 
 Namen gehen mit Vor- oder Nachname oder beidem, Anfänge reichen (`must` für Muster), Umlaute
-sind egal (`muller`, `mueller`), ein Tippfehler wird verziehen. Statuswörter verstehen Deutsch
-und Französisch. Die Zeile unter der Eingabe zeigt genau, was ↵ tun wird; unbekannte Wörter
-sind grau und werden ignoriert. Passt ein Wort auf mehrere (zwei Meier), stehen sie darunter
-zur Auswahl – geraten wird nie. Es gelten dieselben Rückfragen wie beim Ziehen
+sind egal (`muller`, `mueller`), ein Tippfehler wird erkannt – zugewiesen wird ein so gefundener
+Name aber erst nach einem Klick auf «meintest du?». Statuswörter verstehen Deutsch und
+Französisch. Die Zeile unter der Eingabe zeigt genau, was ↵ tun wird; unbekannte Wörter sind
+grau und werden ignoriert. Passt ein Wort auf mehrere (zwei Meier, oder «Hoch» als Name und als
+Priorität), stehen sie darunter zur Auswahl – geraten wird nie. Ohne Nummer vorne bleibt ↵ bei
+den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dieselben Rückfragen wie beim Ziehen
 (Doppelbelegung, Fahrer), und die Meldung danach hat **Rückgängig**.
 
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,

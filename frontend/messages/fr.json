@@ -260,7 +260,11 @@
         "toastAssigned": "{names} attribué(s)",
         "toastStatus": "→ {status}",
         "toastPriority": "Priorité {priority}",
-        "toastUndone": "Annulé"
+        "toastUndone": "Annulé",
+        "confirmTypo": "tu voulais dire ?",
+        "confirmSplit": "deux personnes ?",
+        "choiceConfirm": "confirmer pour « {text} »",
+        "toastMoved": "{name} retiré de {from}"
       }
     },
     "meta": {

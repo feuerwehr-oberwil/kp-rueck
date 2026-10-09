@@ -103,7 +103,13 @@ function AmbiguousToken({ token }: { token: DispatchToken }) {
   return (
     <span className={cn(CHIP, "border-dashed border-foreground/40 font-mono")} data-dispatch-token="ambiguous">
       {token.text}
-      <span className="font-sans text-muted-foreground">{t("ambiguousCount", { count: token.choices?.length ?? 0 })}</span>
+      <span className="font-sans text-muted-foreground">
+        {token.confirm === "typo"
+          ? t("confirmTypo")
+          : token.confirm === "split"
+            ? t("confirmSplit")
+            : t("ambiguousCount", { count: token.choices?.length ?? 0 })}
+      </span>
     </span>
   )
 }
@@ -227,7 +233,9 @@ export function DispatchChoice({ token, choice }: { token: DispatchToken; choice
       )}
       <span className="truncate">{label}</span>
       {detail && <span className="truncate text-xs text-muted-foreground">{detail}</span>}
-      <span className="ml-auto shrink-0 text-xs text-muted-foreground">{t("choiceFor", { text: token.text })}</span>
+      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+        {t(token.confirm ? "choiceConfirm" : "choiceFor", { text: token.text })}
+      </span>
     </span>
   )
 }

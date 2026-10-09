@@ -89,6 +89,20 @@ export interface DispatchToken {
   pickKey: string
   /** For `match`: every word typed in full (no prefix, no typo). */
   exact?: boolean
+  /** For `match`: only a typo allowance made it match («mustr» → Muster). */
+  typo?: boolean
+  /** The operator chose this target from the choices (`picks`). */
+  picked?: boolean
+  /**
+   * Why an otherwise matched word still asks (state `ambiguous`, one choice):
+   * `typo` — it only matched with a typo allowance, and a person is not put on
+   * an Einsatz by a guess; `split` — «peter meier» names nobody, but a Peter and
+   * a Meier exist, so it may be one name typed for two people.
+   */
+  confirm?: "typo" | "split"
+  /** Person, one word: matched the first word of the stored name («Meier» of
+   *  «Meier Hans», the surname by the roster's convention) or a later one. */
+  nameWord?: "first" | "later"
 }
 
 export interface PlannedResource {
@@ -245,6 +259,8 @@ interface AliasMatch {
   sum: number
   /** Every (non-filler) word of the alias was matched: «reko» IS «Reko». */
   complete: boolean
+  /** Which words of the alias the tokens landed on (indices). */
+  words: number[]
 }
 
 /**
@@ -276,7 +292,7 @@ function matchAlias(tokens: string[], alias: Word[]): AliasMatch | null {
   if (!best) return null
   const found = best as { min: number; sum: number; used: Set<number> }
   const complete = alias.every((word, w) => found.used.has(w) || FILLER_WORDS.has(word[0]))
-  return { min: found.min as Level, sum: found.sum, complete }
+  return { min: found.min as Level, sum: found.sum, complete, words: [...found.used].sort((a, b) => a - b) }
 }
 
 function better(a: AliasMatch, b: AliasMatch): number {
@@ -381,7 +397,17 @@ function rank(tokens: string[], candidates: Candidate[]): Ranked[] {
 /** The equally best candidates — one means a match, several mean «which one?». */
 function topTier(ranked: Ranked[]): Ranked[] {
   if (ranked.length === 0) return []
-  const top = ranked.filter((entry) => better(entry.match, ranked[0].match) === 0)
+  const best = ranked[0]
+  const top = ranked.filter((entry) => better(entry.match, best.match) === 0)
+  // A whole word that is a status/priority word AND somebody's name («Hoch»,
+  // «Neu») is a real «which one?»: completeness decides between two statuses
+  // or two people, never between a person and a column.
+  if (best.match.min === 3) {
+    for (const entry of ranked) {
+      if (top.includes(entry) || entry.match.min !== 3) continue
+      if (isResource(entry.candidate.target) !== isResource(best.candidate.target)) top.push(entry)
+    }
+  }
   // Interchangeable Geräte: one tier of identically named units is ONE answer —
   // a free unit when there is one.
   const bundles = new Set(top.map((entry) => entry.candidate.bundle))
@@ -494,12 +520,15 @@ export function parseDispatch(
       const picked = picks[pickKey] ? byKey.get(picks[pickKey]) : undefined
       const tier = topTier(ranked)
       const pickedEntry = picked ? ranked.find((entry) => entry.candidate === picked) : undefined
-      if (pickedEntry) {
-        token.target = pickedEntry.candidate.target
-        token.exact = pickedEntry.match.min === 3
-      } else if (tier.length === 1) {
-        token.target = tier[0].candidate.target
-        token.exact = tier[0].match.min === 3
+      const chosen = pickedEntry ?? (tier.length === 1 ? tier[0] : undefined)
+      if (chosen) {
+        token.target = chosen.candidate.target
+        token.exact = chosen.match.min === 3
+        token.typo = chosen.match.min === 1
+        token.picked = !!pickedEntry
+        if (chosen.candidate.target.kind === "person" && span === 1) {
+          token.nameWord = chosen.match.words[0] === 0 ? "first" : "later"
+        }
       } else {
         token.state = "ambiguous"
         token.choices = tier.slice(0, 8).map((entry) => entry.candidate.target)
@@ -549,6 +578,32 @@ function plan(
   }
 
   if (recognised.length === 0) return { kind: "open", incident }
+
+  // Nothing lands on an Einsatz by a guess. A person/vehicle/Gerät that only a
+  // typo allowance found asks «meintest du …?»; a first name next to a surname
+  // of two different people («peter meier», and nobody is called that) asks
+  // whether it was one name. A pick answers either.
+  const asks = (token: DispatchToken, why: "typo" | "split") => {
+    token.state = "ambiguous"
+    token.confirm = why
+    token.choices = token.target ? [token.target] : []
+  }
+  for (const token of recognised) {
+    if (isResource(token.target) && token.typo && !token.picked) asks(token, "typo")
+  }
+  for (let i = 1; i < recognised.length; i++) {
+    const [a, b] = [recognised[i - 1], recognised[i]]
+    if (a.state !== "match" || b.state !== "match" || a.picked || b.picked) continue
+    if (a.target?.kind !== "person" || b.target?.kind !== "person" || a.target.id === b.target.id) continue
+    if (!a.nameWord || !b.nameWord || a.nameWord === b.nameWord) continue
+    // Adjacent in the text too, not just in the list of recognised words.
+    if (tokens.indexOf(b) !== tokens.indexOf(a) + 1) continue
+    asks(a, "split")
+    asks(b, "split")
+  }
+  if (tokens.some((token) => token.state === "ambiguous")) {
+    return { kind: "blocked", reason: "ambiguous", incident }
+  }
 
   const numbers = new Map(vocabulary.incidents.map((entry) => [entry.id, entry.number]))
   const assign: PlannedResource[] = []

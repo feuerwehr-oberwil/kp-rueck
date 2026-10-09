@@ -4,7 +4,15 @@ import type { DispatchResource } from "@/lib/command-dispatch"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 
-import { holding, runDispatch, type CommandDispatchDeps, type DispatchCommand } from "./use-command-dispatch"
+import { renderHook } from "@testing-library/react"
+
+import {
+  holding,
+  runDispatch,
+  useCommandDispatch,
+  type CommandDispatchDeps,
+  type DispatchCommand,
+} from "./use-command-dispatch"
 
 const EMPTY: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
@@ -39,23 +47,44 @@ function command(overrides: Partial<DispatchCommand> = {}): DispatchCommand {
   }
 }
 
-/** A tiny board: assigning lands immediately, unless `refuse` names the resource. */
-function board(start: Operation, { refuse = [] as string[], askFor = [] as string[], askLate = [] as string[] } = {}) {
+/**
+ * A tiny board: assigning lands immediately, unless `refuse` names the resource.
+ * `askFor` opens the Doppelbelegung prompt, answered «verschieben» (`keep`:
+ * «auf beiden führen») a moment later; `askLate` is a vehicle whose driver
+ * question comes a few round trips after it landed — settling meanwhile.
+ * `others` are further Einsätze (sources a move takes resources off).
+ */
+function board(
+  start: Operation,
+  {
+    refuse = [] as string[],
+    askFor = [] as string[],
+    keep = false,
+    askLate = [] as string[],
+    others = [] as Operation[],
+  } = {},
+) {
   let current = start
+  let rest = others
   let question = false
+  let settling = false
   const order: string[] = []
   const deps: CommandDispatchDeps = {
     getOperation: () => current,
+    getOperations: () => [current, ...rest],
     getGroupResources: () => EMPTY,
-    isQuestionOpen: () => question,
+    getGroupsHolding: () => [],
+    labelOf: (op) => `Einsatz ${op.number}`,
+    restore: vi.fn(async () => true),
+    isQuestionOpen: () => question || settling,
     assign: (resource) => {
       order.push(`assign:${resource.name}`)
       if (askFor.includes(resource.name)) {
-        // The conflict prompt opens; the operator answers «verschieben» later.
         question = true
         setTimeout(() => {
           order.push(`answer:${resource.name}`)
           question = false
+          if (!keep) rest = rest.map((op) => ({ ...op, crew: op.crew.filter((n) => n !== resource.name), vehicles: op.vehicles.filter((n) => n !== resource.name) }))
           land(resource)
         }, 5)
         return
@@ -63,9 +92,10 @@ function board(start: Operation, { refuse = [] as string[], askFor = [] as strin
       if (refuse.includes(resource.name)) return
       land(resource)
       if (askLate.includes(resource.name)) {
-        // The driver prompt: it lands first, and asks a few round trips later.
+        settling = true
         setTimeout(() => {
           order.push(`late-question:${resource.name}`)
+          settling = false
           question = true
           setTimeout(() => {
             order.push(`late-answer:${resource.name}`)
@@ -138,6 +168,21 @@ describe("runDispatch", () => {
     expect(b.order).toEqual(["assign:TLF", "late-question:TLF", "late-answer:TLF", "assign:Muster Peter"])
   })
 
+  it("remembers where «Hierher verschieben» took a resource from", async () => {
+    const elsewhere = operation({ id: "inc-12", number: 12, crew: ["Muster Peter"] })
+    const b = board(operation(), { askFor: ["Muster Peter"], others: [elsewhere] })
+    const outcome = await runDispatch(command(), b.deps)
+    expect(outcome?.moved).toEqual([
+      { kind: "personnel", operationId: "inc-12", personId: "p-muster", name: "Muster Peter", targetLabel: "Einsatz 12" },
+    ])
+  })
+
+  it("«auf beiden führen» moved nothing", async () => {
+    const elsewhere = operation({ id: "inc-12", number: 12, crew: ["Muster Peter"] })
+    const b = board(operation(), { askFor: ["Muster Peter"], keep: true, others: [elsewhere] })
+    expect((await runDispatch(command(), b.deps))?.moved).toEqual([])
+  })
+
   it("leaves alone what is already there and does not claim it", async () => {
     const b = board(operation({ vehicles: ["TLF"] }))
     const outcome = await runDispatch(command(), b.deps)
@@ -164,6 +209,17 @@ describe("runDispatch", () => {
   })
 })
 
+describe("useCommandDispatch", () => {
+  it("runs commands typed in a row one after the other, never interleaved", async () => {
+    const b = board(operation(), { askFor: ["TLF"] })
+    const { result } = renderHook(() => useCommandDispatch(b.deps))
+    const first = result.current(command({ assign: [{ target: TLF, alreadyHere: false, elsewhere: [] }] }))
+    const second = result.current(command({ assign: [{ target: MUSTER, alreadyHere: false, elsewhere: [] }] }))
+    await Promise.all([first, second])
+    expect(b.order).toEqual(["assign:TLF", "answer:TLF", "assign:Muster Peter"])
+  })
+})
+
 describe("undo", () => {
   async function dispatched(start = operation(), extra: Partial<DispatchCommand> = {}) {
     const b = board(start)
@@ -179,6 +235,20 @@ describe("undo", () => {
     expect(b.deps.removeCrew).toHaveBeenCalledWith("inc-14", "Muster Peter")
     expect(b.deps.removeMaterial).toHaveBeenCalledWith("inc-14", "m-pumpe")
     expect(b.current.crew).toEqual(["Schon Da"])
+  })
+
+  it("puts a moved resource back where it came from, after taking it off here", async () => {
+    const elsewhere = operation({ id: "inc-12", number: 12, crew: ["Muster Peter"] })
+    const b = board(operation(), { askFor: ["Muster Peter"], others: [elsewhere] })
+    await runDispatch(command({ assign: [{ target: MUSTER, alreadyHere: false, elsewhere: [12] }] }), b.deps)
+    const undo = (b.deps.report as ReturnType<typeof vi.fn>).mock.calls[0][1] as () => Promise<void>
+    await undo()
+    expect(b.deps.removeCrew).toHaveBeenCalledWith("inc-14", "Muster Peter")
+    expect(b.deps.restore).toHaveBeenCalledWith(expect.objectContaining({ kind: "personnel", operationId: "inc-12" }))
+    // Off here first, then back there – the restore must find the person free.
+    const removeOrder = (b.deps.removeCrew as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    const restoreOrder = (b.deps.restore as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    expect(removeOrder).toBeLessThan(restoreOrder)
   })
 
   it("does not touch a resource somebody already took off meanwhile", async () => {

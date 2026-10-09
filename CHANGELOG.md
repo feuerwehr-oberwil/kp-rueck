@@ -31,15 +31,20 @@ will keep holding.
 ### Added
 
 - **Assign by typing: «14 tlf meier» in ⌘K.** Every Einsatz now has a small number, counted per
-  Ereignis and shown before the address on its card. On the board the command palette reads
+  Ereignis and shown before the address – on the board and wall cards, in the detail header, on
+  the Lagekarte labels, in the Doppelbelegung prompt and wherever an Einsatz is named, and on the
+  A4 status print (whose map pins now carry the same number). On the board the command palette reads
   what follows it – spaces only, no special characters, in any order: `14 tlf meier` puts the TLF
   and Meier on Einsatz 14, `14 einsatz` / `14 dispo` move it, `14 hoch` sets the priority, `14`
   opens it, and `meier` or `tlf` alone shows where they are. Names match first name, last name or
-  both, by their beginning, without caring about umlauts (`muller`, `mueller`), with one typo
-  forgiven; status words are German or French. A line under the input shows exactly what ↵ will
-  do; words it does not know are greyed, and a word that fits two people lists both instead of
-  guessing. ↵ goes through the same path as dragging – Doppelbelegung and driver questions, one
-  at a time – and the receipt has «Rückgängig». The numbers are assigned by the database (migration
+  both, by their beginning, without caring about umlauts (`muller`, `mueller`); a name found only
+  through a typo, or a first name and a surname of two different people, asks before anybody is
+  assigned. Status words are German or French. A line under the input shows exactly what ↵ will
+  do; words it does not know are greyed, and a word that fits two things (two Meier, «Hoch» the
+  person and the priority) lists both instead of guessing. Without a leading number ↵ stays with
+  the ordinary commands («neu» is still «Neuer Einsatz»). ↵ goes through the same path as
+  dragging – Doppelbelegung and driver questions, one at a time – and the receipt has
+  «Rückgängig», which also puts back what a «Hierher verschieben» took off another Einsatz. The numbers are assigned by the database (migration
   `d9a4c2e7b1f3`, existing Einsätze numbered in creation order), so every way an Einsatz is
   created gets one, and a number is never reused within an Ereignis.
 

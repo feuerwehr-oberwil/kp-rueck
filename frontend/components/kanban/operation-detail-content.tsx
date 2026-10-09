@@ -1,5 +1,6 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
@@ -995,6 +996,7 @@ export function OperationDetailContent({
                 : undefined}
             >
               <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
+              <IncidentNumber number={operation.number} className="shrink-0 text-sm" />
               {/* min-w-0 as well as truncate: a flex item refuses to shrink
                   below its content without it, so the address pushed the clock
                   and the panel controls off the row instead of giving way. */}

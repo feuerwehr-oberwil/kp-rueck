@@ -253,8 +253,12 @@ export function useReleaseUndo() {
   // Stable identity on purpose: callers put these into effect / callback deps
   // (the board's command-palette registration does), and a fresh object per
   // render re-ran that effect on every render — an update loop.
+  /** Put one released resource back – the same checked path as the toast's
+   *  «Rückgängig» (⌘K's undo uses it for what a «Hierher verschieben» moved). */
+  const restore = useCallback((item: Released) => undo([item]), [undo])
+
   return useMemo(
-    () => ({ releaseCrew, releaseMaterial, releaseVehicle, releaseStop, releaseRouteResource }),
-    [releaseCrew, releaseMaterial, releaseVehicle, releaseStop, releaseRouteResource],
+    () => ({ releaseCrew, releaseMaterial, releaseVehicle, releaseStop, releaseRouteResource, restore }),
+    [releaseCrew, releaseMaterial, releaseVehicle, releaseStop, releaseRouteResource, restore],
   )
 }

@@ -27,7 +27,7 @@ import { MapLegend } from "./map-legend"
 import { GpsSimBanner } from "./gps-sim-banner"
 import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
 import { AssignmentLines } from "./map/assignment-lines"
-import { OperationHoverCard } from "./map/operation-hover-card"
+import { MAP_INCIDENT_NUMBER, OperationHoverCard } from "./map/operation-hover-card"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-view"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -114,7 +114,7 @@ function IncidentPin({
   // D8: tabbable + screen-reader-friendly marker. Enter/Space activate it directly now —
   // under Leaflet the icon was an HTML string, so the key had to be caught on the map wrapper
   // and re-dispatched as a synthetic click.
-  const a11yLabel = shortAddressOf(incident)
+  const a11yLabel = incident.number != null ? `${incident.number} · ${shortAddressOf(incident)}` : shortAddressOf(incident)
   const shadowId = `marker-shadow-${incident.id}`
 
   return (
@@ -675,7 +675,10 @@ function useFitLabels(
           x: point.x,
           y: point.y,
           dy: offsets.get(incident.id) ?? 0,
-          width: estimateLabelWidth(shortAddressOf(incident), counters),
+          width: estimateLabelWidth(
+            incident.number != null ? `${incident.number} ${shortAddressOf(incident)}` : shortAddressOf(incident),
+            counters,
+          ),
           priority: incident.priority,
         }
       })
@@ -1460,6 +1463,8 @@ export default function MapView({
             : undefined
           const dy = labelOffsets.get(incident.id) ?? 0
           const shortAddress = shortAddressOf(incident)
+          // A share-link payload has no number; the board's incidents do.
+          const incidentNumber = "number" in incident ? incident.number : null
           // A permanent label by the surface's rule — or this incident's own, because it is the
           // selected one (a phone's only way to read a label at the default zoom).
           const permanent =
@@ -1516,7 +1521,10 @@ export default function MapView({
                     />
                   ) : (
                     <>
-                      <span style={{ fontSize: '11px', fontWeight: 600 }}>{shortAddress}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600 }}>
+                        {incidentNumber != null && <span style={MAP_INCIDENT_NUMBER}>{incidentNumber}</span>}
+                        {shortAddress}
+                      </span>
                       {(vehicleCount > 0 || personnelCount > 0) && (
                         <span
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '5px', fontSize: '10px', color: '#6b7280' }}

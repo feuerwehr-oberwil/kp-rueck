@@ -331,6 +331,16 @@ interface OperationsContextType {
   resolveResourceConflict: (action: "move" | "keep") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
+  /**
+   * Assignment work whose questions may still come: a vehicle assign until its
+   * driver check answered (two round trips after the vehicle landed), a
+   * resolved Doppelbelegung until its removals and the re-assign are done.
+   * `begin` returns the matching `end` (idempotent). ⌘K's dispatch runner reads
+   * `isAssignmentSettling` so the next resource is not handed over while a
+   * question is still on its way.
+   */
+  beginAssignmentSettling: () => () => void
+  isAssignmentSettling: () => boolean
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -1931,7 +1941,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return performVehicleAssign(vehicleId, vehicleName, operationId)
   }
 
+  // Settling until the driver check below has answered — see `beginAssignmentSettling`.
   const performVehicleAssign = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
+    const end = beginAssignmentSettling()
+    try {
+      return await performVehicleAssignAndAskDriver(vehicleId, vehicleName, operationId)
+    } finally {
+      end()
+    }
+  }
+
+  const performVehicleAssignAndAskDriver = async (vehicleId: string, vehicleName: string, operationId: string): Promise<boolean> => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation || operation.vehicles.includes(vehicleName)) {
       return false
@@ -2059,6 +2079,20 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const resolveResourceConflict = async (action: "move" | "keep") => {
     const conflict = resourceConflict
     if (!conflict) return
+    // The prompt closes now, but the move and the re-assign (and a vehicle's
+    // driver question) are still to come.
+    const end = beginAssignmentSettling()
+    try {
+      await resolveResourceConflictNow(conflict, action)
+    } finally {
+      end()
+    }
+  }
+
+  const resolveResourceConflictNow = async (
+    conflict: NonNullable<OperationsContextType["resourceConflict"]>,
+    action: "move" | "keep",
+  ) => {
     setResourceConflict(null)
 
     if (conflict.customResolve) {
@@ -2105,6 +2139,17 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   }
 
   const cancelResourceConflict = useCallback(() => setResourceConflict(null), [])
+  const settlingRef = useRef(0)
+  const beginAssignmentSettling = useCallback(() => {
+    settlingRef.current++
+    let ended = false
+    return () => {
+      if (ended) return
+      ended = true
+      settlingRef.current--
+    }
+  }, [])
+  const isAssignmentSettling = useCallback(() => settlingRef.current > 0, [])
   const requestResourceConflict = useCallback((conflict: NonNullable<OperationsContextType["resourceConflict"]>) => {
     setResourceConflict(conflict)
   }, [])
@@ -2293,6 +2338,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       settings,
       cancelResourceConflict,
       requestResourceConflict,
+      beginAssignmentSettling,
+      isAssignmentSettling,
       ...stableActions,
     }),
     [
@@ -2320,6 +2367,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       settings,
       cancelResourceConflict,
       requestResourceConflict,
+      beginAssignmentSettling,
+      isAssignmentSettling,
       stableActions,
     ],
   )
@@ -2369,6 +2418,7 @@ export function useIncidents() {
 
   const incidents = context.operations.map((op) => ({
     id: op.id,
+    number: op.number ?? null,
     event_id: selectedEvent?.id || "",
     title: op.location,
     type: op.incidentType as ApiIncident['type'],

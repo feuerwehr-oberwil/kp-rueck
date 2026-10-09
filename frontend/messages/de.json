@@ -151,7 +151,11 @@
         "toastAssigned": "{names} zugewiesen",
         "toastStatus": "→ {status}",
         "toastPriority": "Priorität {priority}",
-        "toastUndone": "Rückgängig gemacht"
+        "toastUndone": "Rückgängig gemacht",
+        "confirmTypo": "meintest du?",
+        "confirmSplit": "zwei Personen?",
+        "choiceConfirm": "bestätigen für «{text}»",
+        "toastMoved": "{name} von {from} abgezogen"
       }
     },
     "meta": {

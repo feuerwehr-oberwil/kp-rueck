@@ -87,10 +87,28 @@ function paletteFilter(value: string, search: string, keywords?: string[]): numb
   return defaultFilter(value, search, keywords)
 }
 
-/** A jump typed in full outranks the command list; a prefix lets it compete. */
+/**
+ * How the preview ranks against the ordinary commands. A line that starts with
+ * an Einsatz number is a dispatch and stands first. Without a number the text
+ * may just as well be a command typed by name – «neu», «hoch», «einsätze», «hi»
+ * – so a preview that could not run anyway (blocked) or only guesses at a name
+ * (prefix/typo jump) goes to the bottom, and ↵ falls through to the command.
+ * Only a full-name jump («schneider») outranks the list.
+ */
+function previewScore(parsed: ParsedDispatch): number {
+  const { plan } = parsed
+  if (plan.kind === "dispatch" || plan.kind === "open") return 2
+  if (plan.kind === "blocked") {
+    const numbered = plan.reason === "unknown-incident" || (plan.reason === "ambiguous" && plan.incident !== null)
+    return numbered ? 2 : 0.2
+  }
+  if (plan.kind === "jump") return plan.exact ? 2 : 0.3
+  return 0
+}
+
 function previewValue(parsed: ParsedDispatch): string {
-  if (parsed.plan.kind === "jump" && !parsed.plan.exact) return `${DISPATCH_VALUE}0.6:preview`
-  return PREVIEW_VALUE
+  const score = previewScore(parsed)
+  return score === 2 ? PREVIEW_VALUE : `${DISPATCH_VALUE}${score}:preview`
 }
 
 export function CommandPalette() {
@@ -214,9 +232,17 @@ export function CommandPalette() {
 
   const pickChoice = (token: DispatchToken, choice: DispatchTarget) => {
     setPicks((current) => ({ ...current, [token.pickKey]: targetKey(choice) }))
-    // Back to the preview, which now says what ↵ does with the pick.
-    setSelectedValue(PREVIEW_VALUE)
   }
+  // After a pick, back to the preview, which now says what ↵ does with it.
+  const pickCount = Object.keys(picks).length
+  const previewAfterPick = parsed && pickCount > 0 ? previewValue(parsed) : null
+  // Only when a pick was made — not on every keystroke.
+  const seenPickCount = useRef(0)
+  useEffect(() => {
+    if (pickCount === seenPickCount.current) return
+    seenPickCount.current = pickCount
+    if (previewAfterPick) setSelectedValue(previewAfterPick)
+  }, [pickCount, previewAfterPick])
 
   // Scroll affordance: when the command list overflows (and isn't scrolled to
   // the bottom) show a bottom fade + chevron, so it's obvious more items exist
@@ -241,6 +267,30 @@ export function CommandPalette() {
     }
   }, [open])
 
+  // Placed in the DOM by its rank rather than left to cmdk's sort: on top when
+  // it is the thing typed, under every matching command when it only might be
+  // (see `previewScore`) — so the first row, the one ↵ runs, is always right.
+  const dispatchOnTop = !!parsed && previewScore(parsed) === 2
+  const dispatchGroup = parsed && dispatchPlan ? (
+    <CommandGroup heading={t('dispatch.group')}>
+      <CommandItem value={previewValue(parsed)} onSelect={runPreview}>
+        <DispatchPreview parsed={parsed} canDispatch={!!onDispatch} />
+      </CommandItem>
+      {ambiguousTokens.flatMap((token) =>
+        token.choices.map((choice, index) => (
+          <CommandItem
+            key={`${token.pickKey}-${targetKey(choice)}`}
+            // Right under the preview, wherever it ranks, best first.
+            value={`${DISPATCH_VALUE}${(previewScore(parsed) - (index + 1) / 1000).toFixed(4)}:${token.pickKey}:${targetKey(choice)}`}
+            onSelect={() => pickChoice(token, choice)}
+          >
+            <DispatchChoice token={token} choice={choice} />
+          </CommandItem>
+        )),
+      )}
+    </CommandGroup>
+  ) : null
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="overflow-hidden p-0 shadow-lg" showCloseButton={false}>
@@ -263,25 +313,7 @@ export function CommandPalette() {
           <CommandList>
             <CommandEmpty>{t('noResults')}</CommandEmpty>
 
-            {parsed && dispatchPlan && (
-              <CommandGroup heading={t('dispatch.group')}>
-                <CommandItem value={previewValue(parsed)} onSelect={runPreview}>
-                  <DispatchPreview parsed={parsed} canDispatch={!!onDispatch} />
-                </CommandItem>
-                {ambiguousTokens.flatMap((token) =>
-                  token.choices.map((choice, index) => (
-                    <CommandItem
-                      key={`${token.pickKey}-${targetKey(choice)}`}
-                      // Best first, under the preview, in the order the parser ranked them.
-                      value={`${DISPATCH_VALUE}${(1.5 - index / 100).toFixed(3)}:${token.pickKey}:${targetKey(choice)}`}
-                      onSelect={() => pickChoice(token, choice)}
-                    >
-                      <DispatchChoice token={token} choice={choice} />
-                    </CommandItem>
-                  )),
-                )}
-              </CommandGroup>
-            )}
+            {dispatchOnTop && dispatchGroup}
 
             <CommandGroup heading={t('groupNavigation')}>
               <CommandItem
@@ -623,6 +655,8 @@ export function CommandPalette() {
                 <span className="ml-auto text-xs text-muted-foreground">Del</span>
               </CommandItem>
             </CommandGroup>
+
+            {!dispatchOnTop && dispatchGroup}
           </CommandList>
           {canScrollDown && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-9 items-end justify-center bg-gradient-to-t from-popover via-popover/80 to-transparent">

@@ -525,10 +525,12 @@ ordre :
 | `meier`, `tlf` | montrer où se trouve Meier ou le TLF |
 
 Les noms se tapent par prénom, nom ou les deux, un début suffit (`must` pour Muster), les
-accents et trémas ne comptent pas (`muller`, `mueller`), une faute de frappe est pardonnée. Les
-mots de statut sont compris en allemand et en français. La ligne sous la saisie montre
-exactement ce que fera ↵ ; les mots inconnus sont grisés et ignorés. Si un mot correspond à
-plusieurs (deux Meier), ils sont proposés en dessous – rien n’est deviné. Les mêmes questions
+accents et trémas ne comptent pas (`muller`, `mueller`), une faute de frappe est reconnue – mais
+un nom trouvé ainsi n’est attribué qu’après un clic sur « tu voulais dire ? ». Les mots de statut
+sont compris en allemand et en français. La ligne sous la saisie montre exactement ce que fera
+↵ ; les mots inconnus sont grisés et ignorés. Si un mot correspond à plusieurs (deux Meier, ou
+« Hoch » comme nom et comme priorité), ils sont proposés en dessous – rien n’est deviné. Sans
+numéro en tête, ↵ reste aux commandes habituelles. Les mêmes questions
 qu’en glissant s’appliquent (double attribution, chauffeur), et le message qui suit propose
 **Annuler**.
 

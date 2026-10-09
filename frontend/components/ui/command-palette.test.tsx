@@ -48,6 +48,12 @@ function setup(extra: Partial<CommandPaletteHandlers> = {}) {
 }
 
 const input = () => screen.getByRole("combobox")
+/** One input event instead of one per key: the palette re-renders its whole list
+ *  per keystroke, which under jsdom costs seconds for a short line. */
+async function typeIn(user: ReturnType<typeof userEvent.setup>, text: string) {
+  await user.click(input())
+  await user.paste(text)
+}
 const preview = () => screen.getByTestId("dispatch-preview")
 
 describe("CommandPalette — type-to-dispatch preview", () => {
@@ -57,7 +63,7 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 
   it("shows what ↵ will do as chips, and does nothing before ↵", async () => {
     const { user, onDispatch } = setup()
-    await user.type(input(), "14 tlf muster")
+    await typeIn(user, "14 tlf muster")
 
     const row = preview()
     expect(within(row).getByText("Bachweg 3")).toBeInTheDocument()
@@ -78,9 +84,20 @@ describe("CommandPalette — type-to-dispatch preview", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
   })
 
+  it("asks «meintest du?» for a typo before putting anybody on an Einsatz", async () => {
+    const { user, onDispatch } = setup()
+    await typeIn(user, "14 mustr")
+    expect(within(preview()).getByText("meintest du?")).toBeInTheDocument()
+    await user.keyboard("{Enter}")
+    expect(onDispatch).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("option", { name: /Muster Peter/ }))
+    await user.keyboard("{Enter}")
+    expect(onDispatch).toHaveBeenCalledTimes(1)
+  })
+
   it("shows status and priority as their own chips", async () => {
     const { user } = setup()
-    await user.type(input(), "14 einsatz hoch")
+    await typeIn(user, "14 einsatz hoch")
     const row = preview()
     expect(within(row).getByText("Im Einsatz")).toBeInTheDocument()
     expect(within(row).getByText("Hoch")).toBeInTheDocument()
@@ -88,20 +105,20 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 
   it("greys a word it does not know", async () => {
     const { user } = setup()
-    await user.type(input(), "14 tlf xyzzy")
+    await typeIn(user, "14 tlf xyzzy")
     const grey = preview().querySelector('[data-dispatch-token="grey"]')
     expect(grey).toHaveTextContent("xyzzy")
   })
 
   it("says when a resource is already there", async () => {
     const { user } = setup()
-    await user.type(input(), "14 meier hans")
+    await typeIn(user, "14 meier hans")
     expect(within(preview()).getByText(/schon da/)).toBeInTheDocument()
   })
 
   it("offers choices for an ambiguous name and runs nothing until one is picked", async () => {
     const { user, onDispatch } = setup()
-    await user.type(input(), "14 meier tlf")
+    await typeIn(user, "14 meier tlf")
 
     expect(within(preview()).getByText("2 Treffer")).toBeInTheDocument()
     expect(within(preview()).getByText("unten wählen")).toBeInTheDocument()
@@ -124,7 +141,7 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 
   it("«meier hans» alone jumps to the person", async () => {
     const { user, onDispatchJump, onDispatch } = setup()
-    await user.type(input(), "meier hans")
+    await typeIn(user, "meier hans")
     expect(within(preview()).getByText("zeigen")).toBeInTheDocument()
     await user.keyboard("{Enter}")
     expect(onDispatchJump).toHaveBeenCalledWith(expect.objectContaining({ id: "p-meier-hans" }))
@@ -133,7 +150,7 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 
   it("«14» alone opens the Einsatz", async () => {
     const { user, onOpenIncident } = setup()
-    await user.type(input(), "14")
+    await typeIn(user, "14")
     expect(within(preview()).getByText("öffnen")).toBeInTheDocument()
     await user.keyboard("{Enter}")
     expect(onOpenIncident).toHaveBeenCalledWith("inc-14")
@@ -141,7 +158,7 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 
   it("names an unknown number instead of guessing", async () => {
     const { user, onOpenIncident } = setup()
-    await user.type(input(), "99 tlf")
+    await typeIn(user, "99 tlf")
     expect(within(preview()).getByText("Kein Einsatz 99")).toBeInTheDocument()
     await user.keyboard("{Enter}")
     expect(onOpenIncident).not.toHaveBeenCalled()
@@ -150,7 +167,7 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 
   it("a viewer sees the preview but cannot run it", async () => {
     const { user } = setup({ onDispatch: undefined })
-    await user.type(input(), "14 tlf")
+    await typeIn(user, "14 tlf")
     expect(within(preview()).getByText("Nur mit Bearbeitungsrecht")).toBeInTheDocument()
     await user.keyboard("{Enter}")
     expect(input()).toBeInTheDocument()
@@ -158,9 +175,59 @@ describe("CommandPalette — type-to-dispatch preview", () => {
 })
 
 describe("CommandPalette — the existing list keeps working", () => {
+  // Words a command is named by must stay commands: a preview that cannot run
+  // (no Einsatz number) or only guesses at a name ranks below them, so ↵ runs
+  // the command the operator typed.
+  const selected = () => screen.getAllByRole("option").find((option) => option.getAttribute("aria-selected") === "true")
+
+  it("«neu» still opens a new Einsatz", async () => {
+    const onNewOperation = vi.fn()
+    const { user, onDispatch } = setup({ onNewOperation })
+    await typeIn(user, "neu")
+    // «neu» is also the status word «Eingegangen», but with no number the
+    // preview can only ask for one: it goes last and is not what ↵ runs.
+    // (Which command ranks first among the rest is cmdk's own scoring, which
+    // jsdom does not lay out; the browser check is in the PR screenshots.)
+    const options = screen.getAllByRole("option")
+    expect(options.at(-1)).toHaveTextContent("Einsatznummer voranstellen")
+    expect(selected()).not.toHaveTextContent("Einsatznummer voranstellen")
+    await user.click(screen.getByRole("option", { name: /Neuer Einsatz/ }))
+    expect(onNewOperation).toHaveBeenCalledTimes(1)
+    expect(onDispatch).not.toHaveBeenCalled()
+  })
+
+  it("«hoch» still sets the priority of the selected card", async () => {
+    const onSetPriority = vi.fn()
+    const { user } = setup({ onSetPriority, hasSelectedIncident: true })
+    await typeIn(user, "hoch")
+    expect(selected()).toHaveTextContent("Priorität: Hoch")
+    await user.keyboard("{Enter}")
+    expect(onSetPriority).toHaveBeenCalledWith("high")
+  })
+
+  it("«einsätze» still searches the Einsätze", async () => {
+    const onFocusIncidentSearch = vi.fn()
+    const { user } = setup({ onFocusIncidentSearch })
+    await typeIn(user, "einsätze")
+    expect(selected()).toHaveTextContent("Einsätze durchsuchen")
+    await user.keyboard("{Enter}")
+    expect(onFocusIncidentSearch).toHaveBeenCalledTimes(1)
+  })
+
+  it("an ambiguous name without a number does not take ↵ from a command", async () => {
+    const onSearchPersonnel = vi.fn()
+    const { user } = setup({ onSearchPersonnel })
+    // «meier» fits two people → blocked; «Personal durchsuchen» does not match it,
+    // so the only rows are the preview and its choices – and ↵ runs nothing.
+    await typeIn(user, "meier")
+    expect(screen.getByRole("option", { name: /Meier Anna/ })).toBeInTheDocument()
+    await user.keyboard("{Enter}")
+    expect(input()).toBeInTheDocument()
+  })
+
   it("filters the ordinary commands as before when the text is no dispatch", async () => {
     const { user } = setup()
-    await user.type(input(), "karten")
+    await typeIn(user, "karten")
     expect(screen.queryByTestId("dispatch-preview")).not.toBeInTheDocument()
     expect(screen.getByRole("option", { name: /Karten-Ansicht/ })).toBeInTheDocument()
   })
@@ -170,7 +237,7 @@ describe("CommandPalette — the existing list keeps working", () => {
     renderWithIntl(<CommandPalette />)
     act(() => openCommandPalette())
     const user = userEvent.setup()
-    await user.type(input(), "14 tlf")
+    await typeIn(user, "14 tlf")
     expect(screen.queryByTestId("dispatch-preview")).not.toBeInTheDocument()
     expect(input()).toHaveAttribute("placeholder", "Befehl suchen …")
   })

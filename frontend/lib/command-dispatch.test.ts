@@ -180,6 +180,56 @@ describe("parseDispatch — names", () => {
   })
 })
 
+describe("parseDispatch — nothing lands on an Einsatz by a guess", () => {
+  it("a typo-only match asks «meintest du?» instead of assigning", () => {
+    const { tokens, plan } = parse("14 mustr tlf")
+    expect(plan).toMatchObject({ kind: "blocked", reason: "ambiguous", incident: { id: "inc-14" } })
+    expect(tokens[1]).toMatchObject({ state: "ambiguous", confirm: "typo", choices: [{ id: "p-muster" }] })
+    // The pick is the confirmation.
+    const plan2 = dispatchOf(parse("14 mustr tlf", { [tokens[1].pickKey]: "person:p-muster" }).plan)
+    expect(plan2.assign.map((entry) => entry.target.id)).toEqual(["p-muster", "v-tlf"])
+  })
+
+  it("a typo is still fine for a jump, which changes nothing", () => {
+    expect(parse("mustr").plan).toMatchObject({ kind: "jump", target: { id: "p-muster" } })
+  })
+
+  it("«rene schneider» – a first name and a surname of two people – asks first", () => {
+    // Nobody is called René Schneider; there is a Müller René and a Schneider Peter.
+    const { tokens, plan } = parse("14 rene schneider")
+    expect(plan).toMatchObject({ kind: "blocked", reason: "ambiguous" })
+    expect(tokens.slice(1).map((token) => [token.state, token.confirm])).toEqual([
+      ["ambiguous", "split"],
+      ["ambiguous", "split"],
+    ])
+    const picks = { [tokens[1].pickKey]: "person:p-mueller", [tokens[2].pickKey]: "person:p-schneider" }
+    expect(dispatchOf(parse("14 rene schneider", picks).plan).assign).toHaveLength(2)
+  })
+
+  it("two surnames are two people, as typed", () => {
+    expect(dispatchOf(parse("14 schneider muster").plan).assign.map((entry) => entry.target.id)).toEqual([
+      "p-schneider",
+      "p-muster",
+    ])
+  })
+
+  it("a name that is also a status or priority word is a «which one?»", () => {
+    const withHoch: DispatchVocabulary = {
+      ...vocabulary,
+      persons: [...vocabulary.persons, { id: "p-hoch", name: "Hoch Martin" }, { id: "p-neu", name: "Neu Sara" }],
+    }
+    for (const word of ["hoch", "neu"]) {
+      const { tokens, plan } = parseDispatch(`14 ${word}`, withHoch)
+      expect(plan).toMatchObject({ kind: "blocked", reason: "ambiguous" })
+      expect(tokens[1].choices?.map((choice) => choice.kind).sort()).toEqual(
+        word === "hoch" ? ["person", "priority"] : ["person", "status"],
+      )
+    }
+    // Without such a person the word is just the word.
+    expect(dispatchOf(parse("14 hoch").plan).priority).toBe("high")
+  })
+})
+
 describe("parseDispatch — vehicles and Geräte", () => {
   it("matches a vehicle by name, compact name, type or call sign", () => {
     expect(parse("pio").plan).toMatchObject({ kind: "jump", target: { id: "v-pio" } })

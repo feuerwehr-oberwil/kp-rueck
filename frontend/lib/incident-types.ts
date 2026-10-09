@@ -49,8 +49,19 @@ export function getIncidentTypeLabel(type: string): string {
  * the type and (truncated) Meldung ride along whenever they exist.
  */
 export function getIncidentRefLabel(
-  op: { location: string; locationDisplay?: string; incidentType?: string; notes?: string },
+  op: { location: string; locationDisplay?: string; incidentType?: string; notes?: string; number?: number | null },
   maxMeldungLength = 60,
+): string {
+  // The Einsatz number leads wherever an Einsatz is named in running text —
+  // the Doppelbelegung prompt's «Bisher/Neu», bindings, pickers — so it reads
+  // the same as on the card and in ⌘K.
+  const label = refLabelWithoutNumber(op, maxMeldungLength)
+  return op.number != null ? `${op.number} · ${label}` : label
+}
+
+function refLabelWithoutNumber(
+  op: { location: string; locationDisplay?: string; incidentType?: string; notes?: string },
+  maxMeldungLength: number,
 ): string {
   const type = op.incidentType ? getIncidentTypeLabel(op.incidentType) : ""
   const meldung = (op.notes ?? "").trim()
