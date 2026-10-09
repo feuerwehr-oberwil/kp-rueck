@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models
 from ..crud import events as events_crud
 from .audit import log_action
+from .merge_requests import move_requests_back, move_requests_in
 from .notification_service import _haversine_distance_meters
 
 #: Two reports this close are one Schadenplatz until a human says otherwise. A
@@ -359,30 +360,23 @@ async def _work_on_card(db: AsyncSession, card: models.Incident) -> str | None:
     """What has already happened on this card that a merge would hide, if anything.
 
     The losing card disappears (soft-deleted), and with it everything hanging
-    off it: a Reko-Bericht, a Rapport and its photos, the crew's messages, an
-    «Abholung nötig». A merge is for a fresh second REPORT — something nobody
-    has worked on yet. Anything else is two cards that need a human to decide,
+    off it that cannot move: a Reko-Bericht, a Rapport and its photos, the KP's
+    messages to a crew. (Requests from the field — including an Abholung — move
+    with the merge instead.) A merge is for a fresh second REPORT — something
+    nobody has worked on yet. Anything else is two cards that need a human to decide,
     not a Nachtrag. Returns the reason in words, or None when it is fresh.
     """
     if card.status != "incoming":
         return "nicht mehr «Eingegangen»"
-    if card.pickup_needed or card.field_complete_reported_at is not None:
-        return "Rückmeldung vom Feld"
+    # Requests from the field (messages, Material, Verstärkung, Abholung) do NOT
+    # block any more: they move to the surviving card (services/merge_requests.py,
+    # owner decision 09.10.2026). «Einsatz beendet» is not a request — it is the
+    # crew closing THIS card, and it would vanish with it.
+    if card.field_complete_reported_at is not None:
+        return "vom Feld als beendet gemeldet"
     checks: list[tuple[str, Any]] = [
         ("Reko", select(models.RekoReport.id).where(models.RekoReport.incident_id == card.id)),
         ("Rapport", select(models.SchadenplatzReport.id).where(models.SchadenplatzReport.incident_id == card.id)),
-        (
-            "Meldungen vom Feld",
-            select(models.AuditLog.id).where(
-                models.AuditLog.resource_type == "incident",
-                models.AuditLog.resource_id == card.id,
-                models.AuditLog.action_type == "field_message",
-            ),
-        ),
-        # A request from the field (R13) is work, open or done – and an open one would
-        # vanish with the card. Most arrive with a «field_message» row above; one taken
-        # over the radio or an Abholung is checked here on its own.
-        ("Anfragen vom Feld", select(models.FieldRequest.id).where(models.FieldRequest.incident_id == card.id)),
         (
             "Meldungen an den Trupp",
             select(models.IncidentFieldMessage.id).where(models.IncidentFieldMessage.incident_id == card.id),
@@ -490,6 +484,9 @@ async def merge_report(
     if target.possible_duplicate_of_id == report.id:
         target.possible_duplicate_of_id = None
 
+    # The field's requests and their bell entries go where the work now is.
+    moved = await move_requests_in(db, report=report, target=target, user=user, request=request)
+
     # Neither the note nor the Melder values go into the audit row: they are
     # PII (a phone number), the report row keeps them, and `merge_note` is a
     # pure function of that row — the undo and the Verlauf rebuild it from there.
@@ -500,6 +497,7 @@ async def merge_report(
         "priority_to": target.priority if priority_from else None,
         "source": report.source,
         "source_ref": report.source_ref,
+        **moved,
     }
     if reporter_name:
         changes["personnel_name"] = reporter_name
@@ -579,6 +577,8 @@ async def unmerge_report(
         # The priority the merge raised goes back — unless somebody set it since.
         if changes.get("priority_from") and target.priority == changes.get("priority_to"):
             target.priority = changes["priority_from"]
+        # …and the field's requests go back to the card they were asked on.
+        await move_requests_back(db, report=report, target=target, merge_changes=changes, user=user, request=request)
 
     # The restore half of crud.restore_incident: a side-effect completion goes,
     # a route stop goes to the end of its route (its old slot may be taken).

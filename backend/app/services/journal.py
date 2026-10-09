@@ -80,6 +80,10 @@ FIELD_AUDIT_ACTIONS: frozenset[str] = frozenset(
 #: says which (``data.type`` = ``field_request_<to>``, the same labels table as the other
 #: field facts) and what (``text`` = the request's German one-line label).
 REQUEST_AUDIT_ACTIONS: frozenset[str] = frozenset({"field_request_status"})
+
+#: A request moved with a merge (R2 × R13): «Anfrage übernommen von …» on the card that
+#: got it, «Anfrage zurück von …» when «Trennen» hands it back (services/merge_requests).
+REQUEST_MOVED_ACTIONS: frozenset[str] = frozenset({"field_request_moved"})
 REQUEST_STATES: frozenset[str] = frozenset({"open", "in_progress", "done"})
 
 #: Lifecycle actions on an Einsatz → the `data.action` the row carries. `merge` sits on
@@ -96,7 +100,14 @@ INCIDENT_AUDIT_ACTIONS: dict[str, str] = {
 
 #: Every audit action that is a journal fact (incident-scoped only).
 JOURNAL_AUDIT_ACTIONS: frozenset[str] = frozenset(
-    {"field_message", "divera_alarm", *FIELD_AUDIT_ACTIONS, *REQUEST_AUDIT_ACTIONS, *INCIDENT_AUDIT_ACTIONS}
+    {
+        "field_message",
+        "divera_alarm",
+        *FIELD_AUDIT_ACTIONS,
+        *REQUEST_AUDIT_ACTIONS,
+        *REQUEST_MOVED_ACTIONS,
+        *INCIDENT_AUDIT_ACTIONS,
+    }
 )
 
 #: The category a filter chip groups kinds under. Mirrors `frontend/lib/journal.ts`.
@@ -350,6 +361,24 @@ class _Collector:
                 text=str(changes.get("label") or "").strip() or None,
                 data={"type": f"field_request_{to}", "source": None},
                 # always somebody in the KP: the board's buttons, or the completion that closed it
+                author_name=who,
+                created_by=obj.user_id,
+            )
+        elif action in REQUEST_MOVED_ACTIONS:
+            moved_data: dict[str, Any] = {
+                "type": "field_request_returned" if changes.get("reason") == "unmerge" else "field_request_moved",
+                "source": None,
+            }
+            moved_from = changes.get("from_incident_id")
+            if moved_from:
+                moved_data["other_incident_id"], moved_data["other_title"] = self.title(moved_from)
+            self.add(
+                key=key,
+                kind="field",
+                incident=incident,
+                occurred_at=obj.timestamp,
+                text=str(changes.get("label") or "").strip() or None,
+                data=moved_data,
                 author_name=who,
                 created_by=obj.user_id,
             )

@@ -71,6 +71,9 @@ const FIELD_TYPES = new Set([
   "field_request_in_progress",
   "field_request_done",
   "field_request_open",
+  // a request that moved with a merge (R2 × R13) — «übernommen von …» / «zurück von …»
+  "field_request_moved",
+  "field_request_returned",
 ])
 
 export interface JournalSheetProps {
@@ -401,7 +404,8 @@ export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: str
     }
     case "field": {
       const type = str("type")
-      const label = FIELD_TYPES.has(type) ? t(`field.${type}`) : null
+      // `other` only means something to the moved/returned rows; the others ignore it.
+      const label = FIELD_TYPES.has(type) ? t(`field.${type}`, { other: str("other_title") || t("unknown") }) : null
       if (!label) return <span>{text}</span>
       const source = str("source")
       return (

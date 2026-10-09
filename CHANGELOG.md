@@ -30,6 +30,20 @@ will keep holding.
 
 ### Added
 
+- **A duplicate card with requests from the field can be merged – the requests move.** Until
+  now «Zusammenführen» refused a card the field had asked anything on («Material nötig»,
+  «Verstärkung», a message, an Abholung), because the merge would have hidden it. Now every
+  request of the merged card moves to the card that stays, open or already handled, with its
+  history (who asked, «gesehen», «in Arbeit», «erledigt»); its bell entries follow, the
+  Einsatztagebuch says «Anfrage übernommen von …», the Verlauf of the card that stays shows the
+  messages that came with them, and a crew that was on the merged card finds the card that
+  stays on `/feld`. One Abholung per Einsatz: if both cards wait for a car, the one that stays
+  keeps its Abholung open with both notes («2 Personen + 3 Personen beim Bach») and the other is
+  answered by the merge; if only the merged card waited, the card that stays now does.
+  «Trennen» moves everything back – a joint Abholung handled in the meantime stays handled for
+  both. Other work on the merged card (crew assigned, Reko, Rapport, «Einsatz beendet» from the
+  field, not «Eingegangen» any more) still stops the merge.
+
 - **Einsatztagebuch on the board** (`J`, «Tagebuch» in the footer, the command palette, «Mehr»
   on the phone). One append-only log per Ereignis, like KP Front's Verlauf but simpler – no
   playback, no voice. The board writes its own rows as things happen (status changes,
