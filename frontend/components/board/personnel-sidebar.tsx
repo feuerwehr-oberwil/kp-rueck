@@ -21,6 +21,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { SearchInput } from "@/components/ui/search-input"
 import { DraggablePerson } from "@/components/kanban/draggable-person"
+import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
 import { AvailableOnlyToggle, BindingsPopoverBody, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
@@ -56,6 +57,8 @@ export interface PersonnelSidebarProps {
   personEngagements: Map<string, PersonEngagement>
   followBinding: (binding: ResourceBinding) => void
   rosterSummary: ReturnType<typeof summarizeRoster>
+  /** Opens the Dienstzeiten overview. */
+  onOpenCrewDuty: () => void
 }
 
 export function PersonnelSidebar({
@@ -82,6 +85,7 @@ export function PersonnelSidebar({
   personEngagements,
   followBinding,
   rosterSummary,
+  onOpenCrewDuty,
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
@@ -283,6 +287,13 @@ export function PersonnelSidebar({
                   {tCommon('rosterBound', { count: rosterSummary.bound })}
                 </Badge>
               )}
+            </div>
+          )}
+          {/* Who is here for how long — the Dienstzeiten overview.
+              Its own line: beside the counter it pushed «2 frei» onto two lines. */}
+          {isLoaded && !boardNeverLoaded && personnel.length > 0 && (
+            <div className="mt-0.5 flex justify-center">
+              <CrewDutyButton onClick={onOpenCrewDuty} />
             </div>
           )}
         </div>

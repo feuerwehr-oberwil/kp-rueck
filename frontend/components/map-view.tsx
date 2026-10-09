@@ -39,6 +39,11 @@ import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
 import { estimateLabelWidth, labelMode, pickVisibleLabels } from "@/lib/map-labels"
 import { Reveal } from "@/components/ui/reveal"
+import { WeatherRadarLayer } from "./map/weather-radar"
+import { WeatherRadarControls, useRadarPlayback } from "./map/weather-radar-controls"
+import { WeatherWarningChip } from "./map/weather-warning-chip"
+import { useWeather } from "@/lib/hooks/use-weather"
+import { activeWarnings, radarIsStale } from "@/lib/weather"
 
 // Status border color (dark gray for all statuses)
 const STATUS_BORDER_COLOR = "#374151" // gray-700
@@ -956,6 +961,14 @@ interface MapViewProps {
    *  positions present in token mode). The map knows this first-hand; the page
    *  around it uses the answer to hide controls that need GPS to do anything. */
   onGpsAvailabilityChange?: (available: boolean) => void
+  /** The «Wetter» layer: precipitation radar + its panel. Official warnings at the station show
+   *  as a chip whether this is on or not. */
+  showWeather?: boolean
+  /** Whether this deployment serves weather at all (WEATHER_ENABLED) – the page offers the
+   *  «Wetter» switch only then. */
+  onWeatherAvailabilityChange?: (available: boolean) => void
+  /** Token mode: the viewer token that lets the wall display read the weather. */
+  viewerToken?: string
 }
 
 export default function MapView({
@@ -990,6 +1003,9 @@ export default function MapView({
   onGpsAvailabilityChange,
   topRightControls,
   onFirstIdle,
+  showWeather = false,
+  onWeatherAvailabilityChange,
+  viewerToken,
 }: MapViewProps) {
   const t = useTranslations('map')
   const tokenMode = incidentsOverride !== undefined
@@ -1360,6 +1376,20 @@ export default function MapView({
 
   const vehicleScale = vehicleStackScale(mapZoom)
 
+  // Weather: one poll of our own backend per minute (it does the feed polling). Token mode reads
+  // it with the viewer token; without one there is nothing it may read.
+  const { weather, now } = useWeather({ active: !tokenMode || !!viewerToken, viewerToken })
+  const weatherAvailable = weather?.enabled === true
+  useEffect(() => {
+    onWeatherAvailabilityChange?.(weatherAvailable)
+  }, [weatherAvailable, onWeatherAvailabilityChange])
+  const radar = weatherAvailable ? weather?.radar ?? null : null
+  const radarStale = radar ? radarIsStale(radar, now) : false
+  const radarOn = showWeather && weatherAvailable
+  const playback = useRadarPlayback(radar)
+  const [radarOpacity, setRadarOpacity] = useState(0.7)
+  const warnings = useMemo(() => (weatherAvailable ? activeWarnings(weather, now) : []), [weatherAvailable, weather, now])
+
   return (
     // `isolate`: the fit-all button (z-1000), the hint chip and the legend are map chrome and
     // stay inside the map's layer — see MAP_STACKING in base-map.tsx. No overlay is ever below.
@@ -1377,6 +1407,15 @@ export default function MapView({
         <NavigationControl position="top-left" showCompass={false} />
 
         {/* Overlay layers, bottom to top — the mount order IS the draw order. */}
+        {/* Radar first: weather lies under every line, route and marker. Always mounted (a
+            transparent pixel until the first frame) so its place in the order is fixed. */}
+        <WeatherRadarLayer
+          radar={radar}
+          frameIndex={playback.frameIndex}
+          visible={radarOn}
+          opacity={radarOpacity}
+          stale={radarStale}
+        />
         <AssignmentLines
           incidents={incidents}
           vehiclePositions={mappedVehiclePositions}
@@ -1553,6 +1592,7 @@ export default function MapView({
           (`left-16`), so nothing in it can overlap at any width. Only its children take clicks. */}
       <div className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-30 flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
         {topRightControls}
+        {weather && <WeatherWarningChip weather={weather} warnings={warnings} now={now} />}
         <MissingLocationsWarning
           incidents={incidentsWithoutLocation}
           onIncidentClick={onMarkerClick}
@@ -1568,6 +1608,20 @@ export default function MapView({
         showVehicles={mappedVehiclePositions.length > 0}
         showAssignments={showAssignmentLines && mappedVehiclePositions.length > 0}
       />
+
+      {radarOn && (
+        <WeatherRadarControls
+          radar={radar}
+          frameIndex={playback.frameIndex}
+          playing={playback.playing}
+          onPick={playback.pick}
+          onTogglePlaying={playback.togglePlaying}
+          opacity={radarOpacity}
+          onOpacityChange={setRadarOpacity}
+          stale={radarStale}
+          now={now}
+        />
+      )}
 
       {/* Simulated-drive indicator — map only, so exercises stay realistic elsewhere */}
       <GpsSimBanner />

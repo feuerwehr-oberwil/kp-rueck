@@ -53,6 +53,10 @@ async def assign_resource(
         # Not warn-worthy: a stale id from a client that missed a delete is routine.
         logger.info("Assignment target missing for incident %s: %s", incident_id, e)
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
+    except crud.IncidentNotOnBoardError as e:
+        raise HTTPException(
+            status_code=409, detail="Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt)."
+        ) from e
     except ValueError as e:
         logger.warning("Assignment conflict for incident %s: %s", incident_id, e)
         raise HTTPException(status_code=409, detail=ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from e

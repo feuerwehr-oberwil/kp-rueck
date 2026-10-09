@@ -592,3 +592,38 @@ async def test_field_notifications_reach_the_kp(
     assert match["type"] == notification_type
     assert match["severity"] == severity
     assert match["incident_id"] == str(test_incident.id)
+
+
+# ============================================
+# Structured params (type + params, German message as fallback)
+# ============================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_legacy_row_without_params_serialises_with_its_sentence(
+    editor_client: AsyncClient, test_event: Event, test_notification: Notification
+):
+    """A row from before `params` existed: `params` is null and the German sentence is what the client shows."""
+    response = await editor_client.get(f"/api/notifications/?event_id={test_event.id}")
+    assert response.status_code == 200
+    [row] = response.json()
+    assert row["params"] is None
+    assert row["message"] == "Test notification message"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_new_row_serialises_type_params_and_the_german_fallback(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident
+):
+    """An evaluated rule (no geocoded position) comes back with both: params for the client, message for the rest."""
+    test_incident.status = "enroute"
+    test_incident.location_lat = None
+    await db_session.commit()
+
+    response = await editor_client.get(f"/api/notifications/?event_id={test_event.id}")
+    assert response.status_code == 200
+    [row] = [n for n in response.json() if n["type"] == "missing_location"]
+    assert row["params"] == {"title": "Test Incident"}
+    assert row["message"] == "Einsatz 'Test Incident' hat keine geokodierte Position"

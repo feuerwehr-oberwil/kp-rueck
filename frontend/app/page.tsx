@@ -117,6 +117,7 @@ export default function FireStationDashboard() {
     changeStatusToTop,
     setBoardDragging,
     createOperation,
+    mergeOperationInto,
     assignPersonToOperation,
     assignRekoPersonToOperation,
     assignMaterialToOperation,
@@ -204,7 +205,9 @@ export default function FireStationDashboard() {
   const { materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
-  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
+  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
+  // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
+  const fatigueHours = notificationSettings.fatigue_hours
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -621,6 +624,7 @@ export default function FireStationDashboard() {
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
   const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
+  const [assignmentInitialSearch, setAssignmentInitialSearch] = useState<string | undefined>(undefined)
   const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
 
   // Reko assignment dialog state (context menu)
@@ -1020,6 +1024,8 @@ export default function FireStationDashboard() {
       onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
       onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
       onToggleJournal: () => setActiveFooterSheet(prev => prev === 'journal' ? null : 'journal'),
+      onToggleFigures: () => setActiveFooterSheet(prev => prev === 'figures' ? null : 'figures'),
+      onToggleCrewDuty: () => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
         setAuftraegeFocusGroupId(null)
@@ -1226,8 +1232,8 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle, Aufträge, Drucken, Links, Rapporte and Tagebuch footers are non-modal
-        // on desktop: keep their toggle keys (F / A / D / T / O / J) able to close
+        // Vehicle, Aufträge, Drucken, Links, Rapporte, Tagebuch and Kennzahlen footers are non-modal
+        // on desktop: keep their toggle keys (F / A / D / T / O / J / Z) able to close
         // them again. Every other shortcut still stops at an open sheet — it is
         // only the key that opened this one that stays live.
         (!!activeFooterSheet &&
@@ -1236,7 +1242,8 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'print' &&
           activeFooterSheet !== 'links' &&
           activeFooterSheet !== 'rapporte' &&
-          activeFooterSheet !== 'journal') ||
+          activeFooterSheet !== 'journal' &&
+          activeFooterSheet !== 'figures') ||
         deleteDialogOpen,
       hoveredOperationId,
       selectedOperationId,
@@ -1294,6 +1301,7 @@ export default function FireStationDashboard() {
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
       onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
       onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
+      onToggleFigures: () => setActiveFooterSheet((prev) => (prev === 'figures' ? null : 'figures')),
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -1777,6 +1785,8 @@ export default function FireStationDashboard() {
   const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
   const rapportBacklogSheetOpen = activeFooterSheet === 'rapporte'
   const linksSheetOpen = activeFooterSheet === 'links'
+  const figuresSheetOpen = activeFooterSheet === 'figures'
+  const crewDutySheetOpen = activeFooterSheet === 'crew'
 
   // The rolling Schadenplatz-Rapport backlog — closed incidents whose rapport is
   // still missing, oldest first. Computed once: the footer pill shows the count,
@@ -1848,7 +1858,7 @@ export default function FireStationDashboard() {
   // Handle resource assignment dialog. A grouped incident owns no resources of its
   // own — the Auftrag (route) does — so assigning from its card buttons or the
   // detail modal edits the route instead of the single stop.
-  const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => {
+  const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string, search?: string) => {
     const op = operations.find((o) => o.id === operationId)
     // A stop's resources belong to the Auftrag, never to the stop — including
     // when the «es fehlt noch etwas» modal is what sent us here. Resolved via
@@ -1860,8 +1870,22 @@ export default function FireStationDashboard() {
     }
     setAssignmentResourceType(resourceType)
     setAssignmentOperationId(operationId)
+    setAssignmentInitialSearch(search)
     setAssignmentDialogOpen(true)
   }
+
+  // «Material zuteilen» / «Personal zuteilen» on a field request in the
+  // notification sidebar (R13) — the same dialog, searched for the item.
+  // Through a ref so the registration does not churn on every render.
+  const openAssignmentRef = useRef(handleOpenAssignmentDialog)
+  openAssignmentRef.current = handleOpenAssignmentDialog
+  useEffect(() => {
+    if (!isEditor) return
+    registerAssignHandler((incidentId, resourceType, search) =>
+      openAssignmentRef.current(resourceType, incidentId, search),
+    )
+    return () => registerAssignHandler(null)
+  }, [isEditor, registerAssignHandler])
 
   // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
   // an incident already in another route MOVES it (addStops reassigns group_id).
@@ -2170,6 +2194,7 @@ export default function FireStationDashboard() {
               personEngagements={personEngagements}
               followBinding={followBinding}
               rosterSummary={rosterSummary}
+              onOpenCrewDuty={() => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew')}
             />
           )}
 
@@ -2396,6 +2421,7 @@ export default function FireStationDashboard() {
           checklistPopoverOpen={checklistPopoverOpen}
           checklistProgress={checklistProgress}
           cmdHint={cmdHint}
+          figuresSheetOpen={figuresSheetOpen}
           filedRapports={filedRapports}
           handleChecklistOpenChange={handleChecklistOpenChange}
           journalSheetOpen={activeFooterSheet === 'journal'}
@@ -2430,6 +2456,7 @@ export default function FireStationDashboard() {
         assignmentLabelForPerson={assignmentLabelForPerson}
         assignmentOperationId={assignmentOperationId}
         assignmentResourceType={assignmentResourceType}
+        assignmentInitialSearch={assignmentInitialSearch}
         attendanceOpen={attendanceOpen}
         auftraegeFocusGroupId={auftraegeFocusGroupId}
         auftraegeSheetOpen={auftraegeSheetOpen}
@@ -2437,6 +2464,7 @@ export default function FireStationDashboard() {
         closedStopGuard={closedStopGuard}
         createGroup={createGroup}
         createOperation={createOperation}
+        mergeOperationInto={mergeOperationInto}
         deleteDialogOpen={deleteDialogOpen}
         deleteReleaseHint={deleteReleaseHint}
         detailModalOpen={detailModalOpen}
@@ -2483,6 +2511,9 @@ export default function FireStationDashboard() {
         operationToDelete={operationToDelete}
         operations={operations}
         performDistribute={performDistribute}
+        crewDutySheetOpen={crewDutySheetOpen}
+        fatigueHours={fatigueHours}
+        personEngagements={personEngagements}
         personnel={personnel}
         printSheetOpen={printSheetOpen}
         printerEnabled={printerEnabled}

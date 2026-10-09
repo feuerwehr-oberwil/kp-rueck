@@ -23,7 +23,7 @@ import { useOperations } from '@/lib/contexts/operations-context'
 import { fieldNudgeForNotification } from '@/lib/notification-field-action'
 import { formatNotificationTime } from '@/lib/notification-time'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
-import { notificationDetail, notificationParts } from '@/lib/notification-format'
+import { notificationDetail, notificationParts, type NotificationTranslator } from '@/lib/notification-format'
 import { NOTIFICATION_SOURCE_ICON } from './notification-source-icon'
 import type { Notification, NotificationSeverity } from '@/lib/types/notification'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
@@ -92,7 +92,7 @@ export function NotificationCard({
 }: NotificationCardProps) {
   const t = useTranslations('notifications.card')
   const tSidebar = useTranslations('notifications.sidebar')
-  const tToasts = useTranslations('notifications.toasts')
+  const tAll = useTranslations()
   const compact = variant === 'compact'
   const styles = severityStyles(notification.severity, compact)
   const { isEditor } = useAuth()
@@ -109,10 +109,8 @@ export function NotificationCard({
   const isClickable = !!notification.incident_id && !!onClickIncident
 
   // Same reading as the toast: what is asked, then where · who (lib/notification-format.ts).
-  const parts = notificationParts(notification, {
-    fieldReport: tToasts('fieldReport'),
-    fieldReportDirect: tToasts('fieldReportDirect'),
-  })
+  // Said in the operator's language from type + params; the German sentence is the fallback.
+  const parts = notificationParts(notification, tAll as NotificationTranslator)
   const detail = notificationDetail(parts)
   // the source glyph (Feld, Reko, …) in the severity's colour — the same one the toast drew
   const SourceIcon = NOTIFICATION_SOURCE_ICON[parts.source]

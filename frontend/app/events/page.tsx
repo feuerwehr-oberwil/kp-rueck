@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { DetailField } from '@/components/kanban/detail-field'
-import { Plus, Archive, Trash2, GraduationCap, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package } from 'lucide-react'
+import { Plus, Archive, Trash2, GraduationCap, Siren, FileText, FileSpreadsheet, ReceiptText, MoreHorizontal, ChevronRight, ArrowRight, FileWarning, Package, ChartColumn } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { EventRestliste } from '@/components/events/event-restliste'
+import { EventFiguresPanel } from '@/components/event-figures'
 import { TrainingBadge } from '@/components/training-mode-chrome'
 import { PageNavigation } from '@/components/page-navigation'
 import { ProtectedRoute } from '@/components/protected-route'
@@ -128,6 +129,9 @@ export default function EventsPage() {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
+  // Kennzahlen of any Ereignis, past ones included — after an Übung this is the
+  // Übungsauswertung. Same view as the board's «Kennzahlen» sheet.
+  const [figuresEvent, setFiguresEvent] = useState<Event | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [targetEvent, setTargetEvent] = useState<Event | null>(null)
 
@@ -385,6 +389,10 @@ export default function EventsPage() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem onClick={() => setFiguresEvent(event)} className="cursor-pointer">
+            <ChartColumn className="mr-2 h-4 w-4" />
+            {t(event.training_flag ? 'figures.titleTraining' : 'figures.menuItem')}
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
             <FileText className="mr-2 h-4 w-4" />
             {t('page.exportReport')}
@@ -831,6 +839,19 @@ export default function EventsPage() {
                 : t('archiveDialog.confirm')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Kennzahlen / Übungsauswertung of one Ereignis */}
+      <Dialog open={!!figuresEvent} onOpenChange={(open) => { if (!open) setFiguresEvent(null) }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>
+              {t(figuresEvent?.training_flag ? 'figures.titleTraining' : 'figures.title')}
+              {figuresEvent && <span className="font-normal text-muted-foreground"> · {figuresEvent.name}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <EventFiguresPanel eventId={figuresEvent?.id} enabled={!!figuresEvent} />
         </DialogContent>
       </Dialog>
 

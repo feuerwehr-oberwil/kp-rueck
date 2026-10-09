@@ -62,3 +62,17 @@ def stop_heartbeat_scheduler() -> None:
     from .heartbeat import stop_heartbeat_scheduler as _stop
 
     _stop()
+
+
+def start_weather_scheduler() -> None:
+    """Start the weather-layer pollers (lazy import to avoid circular deps)."""
+    from .weather import start_weather_scheduler as _start
+
+    _start()
+
+
+def stop_weather_scheduler() -> None:
+    """Stop the weather-layer pollers (lazy import to avoid circular deps)."""
+    from .weather import stop_weather_scheduler as _stop
+
+    _stop()

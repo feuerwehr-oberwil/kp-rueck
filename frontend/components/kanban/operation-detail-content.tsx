@@ -57,6 +57,7 @@ import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
+import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
@@ -186,7 +187,7 @@ export interface OperationDetailContentProps {
    *  not an inline picker. */
   onAssignVehicle?: (vehicleId: string, vehicleName: string, operationId: string) => void
   onRemoveVehicle?: (operationId: string, vehicleName: string) => void
-  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
+  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string, search?: string) => void
   onRemoveCrew?: (operationId: string, crewName: string) => void
   onRemoveMaterial?: (operationId: string, materialId: string) => void
   diveraEnabled?: boolean
@@ -220,7 +221,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations, requestVehicleDriver } = useOperations()
+  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
@@ -1769,6 +1770,19 @@ export function OperationDetailContent({
                   reconnaissance. */}
               <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
 
+              {/* Everything the field asked for, with its state (R13): offen →
+                  in Arbeit → erledigt, who and when. «Material zuteilen» opens
+                  the same assignment dialog as the «+» on the resource rows. */}
+              <FieldRequestList
+                operation={operation}
+                canEdit={canEdit}
+                onAssign={
+                  canEdit && onAssignResource
+                    ? (incidentId, resourceType, search) => onAssignResource(resourceType, incidentId, search)
+                    : undefined
+                }
+              />
+
               {/* Everything the crew said, plus the two reports that used to be
                   toggles (§18.19). Before this thread existed a Meldung became a
                   notification and an audit entry and showed up on the incident
@@ -1851,6 +1865,13 @@ export function OperationDetailContent({
               isLoading={timeline.isLoading}
               failed={timeline.failed}
               onRetry={timeline.reload}
+              onUnmerge={
+                canEdit
+                  ? async (mergedId) => {
+                      if (await undoMerge(mergedId)) timeline.reload()
+                    }
+                  : undefined
+              }
             />
             <IncidentParticipants incidentId={operation.id} />
           </div>

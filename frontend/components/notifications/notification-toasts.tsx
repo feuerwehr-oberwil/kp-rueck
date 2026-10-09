@@ -16,7 +16,7 @@ import {
   TOAST_BURST_LIMIT,
 } from '@/lib/notification-policy'
 import { detailTabForNotification } from '@/lib/notification-detail-tab'
-import { notificationDetail, notificationParts } from '@/lib/notification-format'
+import { notificationDetail, notificationParts, type NotificationTranslator } from '@/lib/notification-format'
 import { NOTIFICATION_SOURCE_ICON } from './notification-source-icon'
 
 const TOAST_DATA_KEY = 'shownToastData'
@@ -108,6 +108,7 @@ export function NotificationToasts() {
     setToastDurationSetting(toastDurationSetting)
   }, [toastDurationSetting])
   const tToasts = useTranslations('notifications.toasts')
+  const tAll = useTranslations()
 
   // Initialize with previously shown notification IDs from localStorage,
   // dropping IDs older than 24 hours. Lazily assigned because a `useRef(expr)`
@@ -194,10 +195,7 @@ export function NotificationToasts() {
         // The whole sentence used to be one bold, dotted-underlined block — the
         // thing to act on came last, behind channel, person and address (owner,
         // 02.10.2026). The channel is the glyph now, and the screen-reader prefix.
-        const parts = notificationParts(notification, {
-          fieldReport: tToasts('fieldReport'),
-          fieldReportDirect: tToasts('fieldReportDirect'),
-        })
+        const parts = notificationParts(notification, tAll as NotificationTranslator)
         const Icon = NOTIFICATION_SOURCE_ICON[parts.source]
         const spoken = [
           notification.severity === 'critical' ? tToasts('critical') : null,

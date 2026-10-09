@@ -37,7 +37,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ... import schemas
@@ -51,7 +51,9 @@ from ...models import (
     StatusTransition,
     Vehicle,
 )
+from ...services import notification_params as texts
 from ...services.audit import log_action
+from ...services.duplicates import merge_report
 from ...services.notification_service import create_field_notification
 from .reports import _location
 
@@ -240,8 +242,16 @@ async def create_field_report(
     person: Personnel,
     payload: schemas.FeldIncidentCreate,
     request: Request,
+    *,
+    merge_target: Incident | None = None,
 ) -> tuple[Incident, TakeoverMode]:
     """Create the Schadenplatz, and take it on if the crew said they would.
+
+    ``merge_target``: the reporter answered «Zusammenführen» to «Möglicherweise
+    dasselbe wie …». The Meldung is still written as its own row (it is the
+    report, and «Trennen» brings it back) but folded straight into that card as
+    a Nachtrag (services/duplicates.py); no take-over, and the bell names the
+    card it went into.
 
     ``source='feld'`` rather than ``'intake'``: both are somebody outside the KP
     saying "there is something here", but one is a phone call taken by an
@@ -286,7 +296,11 @@ async def create_field_report(
     await db.flush()
 
     mode: TakeoverMode = "none"
-    if payload.take_over:
+    if merge_target is not None:
+        await merge_report(
+            db, report=incident, target=merge_target, user=None, request=request, reporter_name=person.name
+        )
+    elif payload.take_over:
         mode = await _take_over(db, event_id, person, incident)
         # "Wir übernehmen das gleich" means somebody is on the way to it, so it
         # does not sit in Eingegangen waiting to be disponiert — the crew just
@@ -305,11 +319,26 @@ async def create_field_report(
             "source": "intake" if took_a_call else "feld",
             "reported_by": person.name,
             "takeover": mode,
+            **({"merged_into": str(merge_target.id)} if merge_target is not None else {}),
         },
         request=request,
     )
     await db.commit()
     await db.refresh(incident)
+
+    if merge_target is not None:
+        await db.refresh(merge_target)
+        message, params = texts.field_merged(await _location(db, merge_target), person.name)
+        await create_field_notification(
+            db,
+            notification_type="field_report",
+            incident_id=merge_target.id,
+            event_id=event_id,
+            message=message,
+            params=params,
+            severity="info",
+        )
+        return incident, mode
 
     # …and the bell. Every other `/feld` action raises one; the one that creates
     # a whole Schadenplatz did not, so a Meldung arrived as a card silently
@@ -318,17 +347,14 @@ async def create_field_report(
     # is looking, while a taken-over one is already `enroute` and never passes
     # through that column at all — a crew is driving to an address nobody at the
     # KP has been told about.
-    label = await _location(db, incident)
-    if mode == "none":
-        message = f"Meldung vom Feld: {label} ({person.name})"
-    else:
-        message = f"Meldung vom Feld – Trupp fährt direkt hin: {label} ({person.name})"
+    message, params = texts.field_report(await _location(db, incident), person.name, direct=mode != "none")
     await create_field_notification(
         db,
         notification_type="field_report",
         incident_id=incident.id,
         event_id=event_id,
         message=message,
+        params=params,
         severity="info" if mode == "none" else "warning",
     )
     return incident, mode
@@ -501,13 +527,22 @@ async def own_reports(
         .where(
             Incident.event_id == event_id,
             Incident.reported_by_personnel_id == personnel_id,
-            Incident.deleted_at.is_(None),
+            # A Meldung the KP merged into an open card is hidden from the board,
+            # not gone: the reporter still sees it, as «zusammengeführt in …».
+            or_(Incident.deleted_at.is_(None), Incident.merged_into_id.is_not(None)),
         )
         .order_by(Incident.created_at.desc())
     )
     incidents = list(rows.scalars().all())
     if not incidents:
         return []
+
+    # The card each merged Meldung went into, by the words the reporter knows it by.
+    target_ids = {incident.merged_into_id for incident in incidents if incident.merged_into_id}
+    merged_into: dict[uuid.UUID, Incident] = {}
+    if target_ids:
+        target_rows = await db.execute(select(Incident).where(Incident.id.in_(target_ids)))
+        merged_into = {target.id: target for target in target_rows.scalars().all()}
 
     # Which vehicles the KP put on each one. It is the only thing a reporter
     # actually wants from the board's side of the story: "das TLF 2 fährt hin"
@@ -545,8 +580,16 @@ async def own_reports(
             "contact_phone": incident.contact_phone,
             "status": incident.status,
             "created_at": incident.created_at,
-            "editable": report_is_editable(incident) and incident.id not in left,
+            # A merged Meldung is a Nachtrag on somebody else's card now: not the
+            # reporter's to correct (the KP can «Trennen» it).
+            "editable": incident.merged_into_id is None and report_is_editable(incident) and incident.id not in left,
             "vehicles": vehicles.get(incident.id, []),
+            "merged_into_id": incident.merged_into_id,
+            "merged_into_address": (
+                merged_into[incident.merged_into_id].location_address or merged_into[incident.merged_into_id].title
+                if incident.merged_into_id in merged_into
+                else None
+            ),
         }
         for incident in incidents
     ]

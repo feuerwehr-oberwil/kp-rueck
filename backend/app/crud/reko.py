@@ -575,21 +575,12 @@ async def process_reko_submission(
             if report.submitted_by_personnel:
                 submitted_by_name = report.submitted_by_personnel.name
 
-        danger_types = []
-        if report.dangers_json:
-            d = report.dangers_json
-            if d.get("fire"):
-                danger_types.append("Feuer")
-            if d.get("explosion"):
-                danger_types.append("Explosion")
-            if d.get("collapse"):
-                danger_types.append("Einsturz")
-            if d.get("chemical"):
-                danger_types.append("Gefahrstoffe")
-            if d.get("electrical"):
-                danger_types.append("Elektrisch")
-            if d.get("fire_danger"):
-                danger_types.append("Brandgefahr")
+        # Keys, not labels: the bell names them in the operator's language, and the
+        # German sentence maps them itself (`notification_params.DANGER_LABELS_DE`).
+        from ..services.notification_params import DANGER_LABELS_DE
+
+        dangers_found = report.dangers_json or {}
+        danger_types = [key for key in DANGER_LABELS_DE if dangers_found.get(key)]
 
         personnel_count = None
         estimated_duration = None

@@ -12,18 +12,28 @@ from typing import Any
 
 from fastapi import Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
+    FieldRequest,
     Incident,
     Notification,
     SchadenplatzReport,
     User,
 )
+from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
 from ...websocket_manager import broadcast_incident_update
+from .requests import (
+    close_request,
+    dismiss_pickup_bells,
+    open_pickup_request,
+    open_pickup_requests,
+    user_display,
+)
 
 # ============================================
 # Field reports — the writes (phase 1)
@@ -90,13 +100,16 @@ class FieldActor:
         return self.personnel_id is not None
 
     @property
-    def suffix(self) -> str:
-        """The " · von wem" tail of every notification this module writes."""
+    def kind(self) -> str:
+        """Who, as the notification names it: ``field`` / ``gps`` / ``kp`` (`notification_params`)."""
         if self.is_field:
-            return f" · {self.personnel_name}" if self.personnel_name else " · vom Feld"
-        if self.automation:
-            return " · automatisch (GPS)"
-        return " · im KP erfasst"
+            return "field"
+        return "gps" if self.automation else "kp"
+
+    @property
+    def suffix(self) -> str:
+        """The German " · von wem" tail (the Übungssteuerung's inject replies still use it)."""
+        return texts.actor_suffix(self.kind, self.personnel_name)
 
 
 async def _location(db: AsyncSession, incident: Incident) -> str:
@@ -152,9 +165,6 @@ def _stamp_updated_by(report: SchadenplatzReport, actor: FieldActor) -> None:
 #: make the auto-move strictly forward: a report about a card that is already at
 #: (or past) the target column must not drag it backwards.
 _STATUS_FLOW = ("incoming", "reko", "reko_done", "enroute", "active", "returning", "complete")
-
-#: The column titles as the board wears them, for the notification sentence.
-_STATUS_LABEL = {"active": "Einsatz", "returning": "Beendet / Rückfahrt"}
 
 
 async def _auto_move(
@@ -304,17 +314,18 @@ async def record_arrival(
         moved = await _auto_move(db, incident, target="active", actor=actor, request=request)
 
     if at is not None and incident.event_id:
-        message = f"Angekommen: {await _location(db, incident)}{actor.suffix}"
-        if moved:
-            # The toast is the announcement of the move (§P3.3) — the card has
-            # already gone where the sentence says.
-            message += f" – Karte in «{_STATUS_LABEL['active']}» verschoben"
+        # The toast is the announcement of the move (§P3.3) — the card has
+        # already gone where the sentence says.
+        message, params = texts.field_arrived(
+            await _location(db, incident), actor.kind, actor.personnel_name, "active" if moved else None
+        )
         await create_field_notification(
             db,
             notification_type="field_arrived",
             incident_id=incident.id,
             event_id=incident.event_id,
             message=message,
+            params=params,
         )
     await _broadcast(incident)
     return True
@@ -371,15 +382,16 @@ async def record_field_complete(
         moved = await _auto_move(db, incident, target="returning", actor=actor, request=request)
 
     if at is not None and incident.event_id:
-        message = f"Einsatz beendet gemeldet: {await _location(db, incident)}{actor.suffix}"
-        if moved:
-            message += f" – Karte in «{_STATUS_LABEL['returning']}» verschoben"
+        message, params = texts.field_complete(
+            await _location(db, incident), actor.kind, actor.personnel_name, "returning" if moved else None
+        )
         await create_field_notification(
             db,
             notification_type="field_complete",
             incident_id=incident.id,
             event_id=incident.event_id,
             message=message,
+            params=params,
         )
     await _broadcast(incident)
     return True
@@ -405,21 +417,58 @@ async def record_pickup(
 
     Clearing wipes the note and both provenance columns: "abgeholt" is the end of
     the fact, not a historical record, and the audit log keeps the history.
+
+    The incident row is locked first (R13): two crews tapping «Abholung» at the
+    same moment are applied one after the other, so the second one edits the
+    first one's work item instead of opening a second (the partial unique index
+    ``uq_field_requests_open_pickup`` backs that up).
     """
+    await db.refresh(incident, with_for_update=True)
     if incident.pickup_needed == needed and (not needed or (incident.pickup_note or None) == (note or None)):
+        await db.commit()  # release the lock
         return False
 
     incident.pickup_needed = needed
+    # The Abholung's work item (R13) moves with the flag, in the same commit —
+    # «erledigt» in the sidebar and «Abholung disponiert» on the chip are one
+    # action, so the two can never disagree.
+    work_item = await open_pickup_request(db, incident.id)
     if needed:
         incident.pickup_note = note or None
         # Keep the ORIGINAL request time when only the note is edited — the
         # operationally decisive fact at 02:00 is how long they have been waiting.
         incident.pickup_requested_at = at or incident.pickup_requested_at or datetime.now(UTC)
         incident.pickup_requested_by = actor.personnel_id
+        if work_item is None:
+            work_item = FieldRequest(
+                incident_id=incident.id,
+                kind="pickup",
+                status="open",
+                created_by_personnel_id=actor.personnel_id,
+                created_by_user_id=actor.user.id if actor.user and not actor.is_field else None,
+                created_by_name=actor.personnel_name if actor.is_field else user_display(actor.user),
+                created_at=incident.pickup_requested_at,
+            )
+            db.add(work_item)
+        work_item.text = note or None
     else:
         incident.pickup_note = None
         incident.pickup_requested_at = None
         incident.pickup_requested_by = None
+        # «Wir fahren selbst» from the crew closes it too — with the crew's name
+        # on it, because that is who answered it. ALL open rows, should a race
+        # ever have left two, and every «Abholung nötig» bell of the incident
+        # (a note edit adds one each time) — the request is answered.
+        closer = None if actor.is_field else actor.user
+        now = datetime.now(UTC)
+        for open_row in await open_pickup_requests(db, incident.id):
+            close_request(
+                open_row,
+                user=closer,
+                name=actor.personnel_name if actor.is_field else user_display(actor.user),
+                now=now,
+            )
+        await dismiss_pickup_bells(db, incident.id, closer, now)
 
     await log_action(
         db=db,
@@ -434,48 +483,91 @@ async def record_pickup(
     await db.refresh(incident)
 
     if incident.event_id:
-        if needed:
-            detail = f" ({note})" if note else ""
-            await create_field_notification(
-                db,
-                notification_type="field_pickup",
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                message=f"Abholung nötig: {await _location(db, incident)}{detail}{actor.suffix}",
-                # The only warning of the five. A waiting crew is the one field
-                # event that is time-critical for the KP.
-                severity="warning",
-            )
-        else:
-            await create_field_notification(
-                db,
-                notification_type="field_pickup",
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                message=f"Abholung erledigt: {await _location(db, incident)}{actor.suffix}",
-            )
+        message, params = texts.field_pickup(
+            await _location(db, incident), actor.kind, actor.personnel_name, needed=needed, note=note
+        )
+        bell = await create_field_notification(
+            db,
+            notification_type="field_pickup",
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            message=message,
+            params=params,
+            # The only warning of the five. A waiting crew is the one field
+            # event that is time-critical for the KP.
+            severity="warning" if needed else "info",
+        )
+        # Link the FIRST bell entry only: «gesehen» is about the request,
+        # and a note edit must not make an already-seen request unseen.
+        if needed and work_item is not None and work_item.notification_id is None:
+            work_item.notification_id = bell.id
+            await db.commit()
     await _broadcast(incident)
     return True
 
 
-async def record_field_message(
+async def create_field_request(
     db: AsyncSession,
     incident: Incident,
     *,
     actor: FieldActor,
     message: str,
+    kind: str = "message",
+    item: str | None = None,
+    quantity: int | None = None,
+    client_request_id: uuid.UUID | None = None,
     request: Request | None = None,
-) -> Notification | None:
-    """Freitext-Meldung an den KP — a bell entry **and** a Journal entry.
+) -> tuple[FieldRequest, Notification | None] | None:
+    """A Meldung an den KP — a work item, a bell entry **and** a Journal entry.
 
-    Both on purpose: the notification is how the KP sees it now, the audit-log
-    entry is how it survives into the Einsatztagebuch after somebody dismisses
-    the bell. Append-only and attributed, which is also the mitigation for two
+    All three on purpose: the ``FieldRequest`` row is what the KP works (card,
+    detail, sidebar — R13), the notification is how the KP hears of it now, and
+    the audit-log entry is how it survives into the Einsatztagebuch and the
+    Verlauf. Append-only and attributed, which is also the mitigation for two
     crews overwriting one another's Kurzbericht (§12).
+
+    ``kind`` = ``material`` / ``personnel`` is the structured «Material nötig» /
+    «Verstärkung nötig» (``item`` × ``quantity``, ``message`` = the note). The
+    audit row's ``message`` is the one-line label, so the thread and the Verlauf
+    read «Material: Tauchpumpe Gr. ×2» exactly as they read a sentence today.
     """
     text = message.strip()
-    if not text:
+    item = (item or "").strip() or None
+    if kind == "message" and not text:
         return None
+    if kind != "message" and not (text or item or quantity):
+        return None
+
+    # «Nochmals senden» after an answer that got lost on the way back repeats
+    # the phone's own id: the request already exists, and a repeat is a no-op —
+    # no second work item, no second bell, no second Journal line.
+    if client_request_id is not None:
+        existing = await _request_by_client_id(db, client_request_id)
+        if existing is not None:
+            return existing, None
+
+    work_item = FieldRequest(
+        incident_id=incident.id,
+        kind=kind,
+        status="open",
+        text=text or None,
+        item=item if kind != "message" else None,
+        quantity=quantity if kind != "message" else None,
+        created_by_personnel_id=actor.personnel_id,
+        created_by_user_id=actor.user.id if actor.user and not actor.is_field else None,
+        created_by_name=actor.personnel_name if actor.is_field else user_display(actor.user),
+        client_request_id=client_request_id,
+    )
+    db.add(work_item)
+    try:
+        await db.flush()
+    except IntegrityError:
+        # The same id raced in from a second tap: the other one won.
+        await db.rollback()
+        if client_request_id is not None and (existing := await _request_by_client_id(db, client_request_id)):
+            return existing, None
+        raise
+    label = work_item.label
 
     await log_action(
         db=db,
@@ -484,29 +576,77 @@ async def record_field_message(
         resource_id=incident.id,
         user=actor.user,
         changes={
-            "message": text,
+            "message": label,
             "personnel_id": str(actor.personnel_id) if actor.personnel_id else None,
             "personnel_name": actor.personnel_name,
             "source": "feld" if actor.is_field else "kp",
+            "request_id": str(work_item.id),
+            "kind": kind,
+            "item": work_item.item,
+            "quantity": work_item.quantity,
         },
         request=request,
     )
     await db.commit()
+    text = label
 
     notification: Notification | None = None
     if incident.event_id:
-        who = actor.personnel_name if actor.is_field else "im KP erfasst"
+        message_text, params = texts.field_message(
+            await _location(db, incident),
+            actor.kind,
+            actor.personnel_name,
+            text,
+            request_kind=kind,
+            item=work_item.item,
+            quantity=work_item.quantity,
+            note=work_item.text,
+        )
         notification = await create_field_notification(
             db,
             notification_type="field_message",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Meldung vom Feld ({who}) – {await _location(db, incident)}: {text}"
-            if who
-            else f"Meldung vom Feld: {text}",
+            message=message_text,
+            params=params,
         )
+        work_item.notification_id = notification.id
+        await db.commit()
+        await db.refresh(work_item)
     await _broadcast(incident)
-    return notification
+    return work_item, notification
+
+
+async def _request_by_client_id(db: AsyncSession, client_request_id: uuid.UUID) -> FieldRequest | None:
+    result = await db.execute(select(FieldRequest).where(FieldRequest.client_request_id == client_request_id))
+    return result.scalar_one_or_none()
+
+
+async def record_field_message(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: FieldActor,
+    message: str,
+    kind: str = "message",
+    item: str | None = None,
+    quantity: int | None = None,
+    client_request_id: uuid.UUID | None = None,
+    request: Request | None = None,
+) -> Notification | None:
+    """``create_field_request`` for callers that only want the bell entry back."""
+    created = await create_field_request(
+        db,
+        incident,
+        actor=actor,
+        message=message,
+        kind=kind,
+        item=item,
+        quantity=quantity,
+        client_request_id=client_request_id,
+        request=request,
+    )
+    return created[1] if created else None
 
 
 async def field_report_state(db: AsyncSession, incident: Incident) -> dict[str, Any]:

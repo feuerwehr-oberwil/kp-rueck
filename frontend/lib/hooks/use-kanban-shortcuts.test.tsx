@@ -105,6 +105,7 @@ beforeEach(() => {
     onFocusMaterial: vi.fn(),
     onToggleVehicleFooter: vi.fn(),
     onToggleAuftraege: vi.fn(),
+    onToggleFigures: vi.fn(),
     onToggleLeftSidebar: vi.fn(),
     onToggleRightSidebar: vi.fn(),
     onToggleSidePanel: vi.fn(),
@@ -407,6 +408,12 @@ describe("useKanbanShortcuts", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
       expect(actions.onToggleJournal).toHaveBeenCalledTimes(2);
       input.remove();
+    });
+
+    it("'z' toggles the Kennzahlen footer sheet", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("z");
+      expect(actions.onToggleFigures).toHaveBeenCalledTimes(1);
     });
 
     it("'[' / 'q' toggle the left sidebar", () => {
