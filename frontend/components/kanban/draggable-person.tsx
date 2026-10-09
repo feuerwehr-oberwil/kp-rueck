@@ -24,6 +24,29 @@ interface DraggablePersonProps {
   engagement?: PersonEngagement
 }
 
+/**
+ * The functions a person holds for this Ereignis, as one label («Fahrer TLF ·
+ * Reko»), or '' — what a row says about somebody who is bound without being on
+ * an incident. Shared with the Dienstzeiten overview so both name it the same.
+ * `t` is the `kanban` namespace.
+ */
+export function personFunctionLabel(
+  person: Person,
+  t: ReturnType<typeof useTranslations<'kanban'>>,
+): string {
+  return [
+    person.isDriver && person.driverVehicleName
+      ? t('person.driverFunction', { vehicle: person.driverVehicleName })
+      : null,
+    person.isReko ? t('common.reko') : null,
+    person.isMagazin ? t('common.magazin') : null,
+    person.isTelefondienst ? t('common.telefondienst') : null,
+    person.isKommandoposten ? t('common.kommandoposten') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engagement }: DraggablePersonProps) {
   const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
@@ -71,17 +94,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
   // the Auftrag; a mere function holder gets the function's name; the generic
   // «Im Einsatz» is the last resort for an engagement nothing can resolve —
   // never the answer for somebody who only carries a role.
-  const functionLabel = [
-    person.isDriver && person.driverVehicleName
-      ? t('person.driverFunction', { vehicle: person.driverVehicleName })
-      : null,
-    person.isReko ? t('common.reko') : null,
-    person.isMagazin ? t('common.magazin') : null,
-    person.isTelefondienst ? t('common.telefondienst') : null,
-    person.isKommandoposten ? t('common.kommandoposten') : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const functionLabel = personFunctionLabel(person, t)
   const occupiedTooltip = engagement
     ? t('person.engagedTooltip', { label: engagement.full })
     : functionLabel || t('common.inUse')
@@ -171,7 +184,9 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
 
           {/* Where the person is, as a second quiet line — the binding used to
               live only in a hover tooltip. Incident address or Auftrag first,
-              function (Fahrer TLF, Reko, Telefondienst …) as the fallback. */}
+              function (Fahrer TLF, Reko, Telefondienst …) as the fallback.
+              Time on duty is deliberately NOT here (owner, 09.10.: too much in
+              the default view) — it lives in the Dienstzeiten sheet. */}
           {isOccupied && (engagement?.short || functionLabel) && (
             <div className="truncate text-[11px] leading-tight text-muted-foreground" title={occupiedTooltip}>
               {engagement?.short ?? functionLabel}

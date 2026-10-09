@@ -51,6 +51,7 @@ from ...models import (
     StatusTransition,
     Vehicle,
 )
+from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.notification_service import create_field_notification
 from .reports import _location
@@ -318,17 +319,14 @@ async def create_field_report(
     # is looking, while a taken-over one is already `enroute` and never passes
     # through that column at all — a crew is driving to an address nobody at the
     # KP has been told about.
-    label = await _location(db, incident)
-    if mode == "none":
-        message = f"Meldung vom Feld: {label} ({person.name})"
-    else:
-        message = f"Meldung vom Feld – Trupp fährt direkt hin: {label} ({person.name})"
+    message, params = texts.field_report(await _location(db, incident), person.name, direct=mode != "none")
     await create_field_notification(
         db,
         notification_type="field_report",
         incident_id=incident.id,
         event_id=event_id,
         message=message,
+        params=params,
         severity="info" if mode == "none" else "warning",
     )
     return incident, mode

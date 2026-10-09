@@ -55,8 +55,50 @@ will keep holding.
   kept them in its own list does not see them twice. Requests stay in the audit log and the
   incident's Verlauf exactly as Meldungen did (migration `d9a4e7c21f05`, additive; open
   Abholungen get their work item on upgrade).
+- **Dienstzeiten: who is here, for how long, and how much they have done.** «Dienstzeiten» under
+  the Personen-Leiste's counter, in the phone's Personal sheet and in the command palette opens an
+  overview of everybody checked in, longest on duty first: since when, time on duty (counted from
+  the check-in; amber from the station's «Personalermüdung» setting, 4 h by default, red from one
+  and a half times that), the number of Einsätze worked in this Ereignis (an Auftrag counts once,
+  a drag that was undone within two minutes not at all) and where they are now. The person rows
+  themselves stay as they were. A view, not a planner – nobody is scheduled or alerted from it.
+- **Weather on the map: rain radar and official warnings.** A «Wetter» switch in «Ansicht» (on
+  `/map` and the wall display `/display/map`) lays MeteoSwiss's precipitation radar over the map,
+  under every marker and route, with a small panel bottom-left: ▶ plays the last hour in 5-minute
+  steps, the scrubber picks a frame and says how old it is («vor 40 min»), plus opacity, the
+  colour key and «Quelle: MeteoSchweiz». Official warnings for the station's location appear as a
+  chip in the map's top-right corner whether the radar is on or not – MeteoSwiss warnings (via
+  MeteoAlarm) and Alertswiss notices such as a cantonal fire ban. The chip names the warning in the
+  source's own word and how long it holds; a tap shows the full text exactly as published, with
+  region, validity and the source. Nothing ever waits on the weather: the backend fetches it on
+  its own schedule, each source fails on its own, and data that has stopped updating is greyed
+  out with its time («Veraltet – Stand 17:05») instead of passing for current. Uses the station
+  coordinates from Settings → Allgemein. Needs outbound internet to `data.geo.admin.ch`,
+  `feeds.meteoalarm.org` and `www.alert.swiss`; `WEATHER_ENABLED=false` turns it off (stations
+  outside Switzerland, or without outbound access). The backend image grows by about 74 MB
+  (numpy + h5py, needed to read the radar files).
 
 ### Changed
+
+- **The bell speaks French too.** A notification used to be one German sentence composed on the
+  server, which the board then took apart again with regular expressions to lay it out – so a
+  French-speaking KP read German in the bell, the toasts and the Warnungen panel. Every
+  notification now also carries the facts it is made of (place, person, minutes, column, …), and
+  the board says them in the device's language: «Récupération nécessaire» / «Hauptstrasse 1 ·
+  saisi au PC». What the crew typed and what a training inject says stay as written. German
+  reads as before, with the board's own column names («Disponiert / Anfahrt») where the sentence
+  used the printout's. The `/feld` phone's and the Reko form's error messages («Bitte den Code neu
+  eingeben.», «Diese Einsatzstelle ist dir nicht zugeteilt.», an invalid Reko link, photo size and
+  type) are in the crew's language as well, and the
+  installed app announces the device's language (`fr-CH`) instead of always `de-CH`. Italian
+  stays German until its translation is complete.
+  *After the update:* notifications raised BEFORE it carry no facts, so they keep showing their
+  German sentence, in every language, until they age out – an open one until it is dismissed or
+  resolves itself, a dismissed one when it drops out of the bell's 24-hour history. Nothing is
+  rewritten; new notifications are in the device's language from the first one on.
+  *Deployment:* one migration (a nullable `params` column on `notifications`, nothing
+  backfilled), runs on boot. API: `GET /api/notifications/` rows gain `params` (null on old
+  rows); `/feld` error bodies gain a stable `code` beside the unchanged German `detail`.
 
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
   iPhone showed a screenshot of the page: the icon was an SVG, which iOS does not accept there,
@@ -84,6 +126,13 @@ will keep holding.
 
 ### Fixed
 
+- **«Zu spät, bitte per Funk» on /feld shows again.** Correcting a Meldung the KP had already
+  taken over said «Meldung konnte nicht abgesetzt werden» instead of telling the crew to use the
+  radio: the phone looked for «409» in the error text, which never contained it. It now reads the
+  answer's status and code.
+- **A /feld address that is not the poster's link asks for the QR code, not the digits.** Opening
+  a bookmarked or forwarded /feld address after unlocking answered every code with «Falscher
+  Code»; no code could ever work there. It now says to scan the QR code on the poster again.
 - **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
   internal codes (`high`, `active`) rather than the words on the card, so «hoch» or «einsatz»
   found nothing while a fragment like «in» or «com» found every card in a column. The search now
@@ -96,11 +145,21 @@ will keep holding.
   returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
   forwards the token to the board, map and status wall pages. The sheet now uses that `link`
   instead of building its own.
+- **The time-on-duty warning counts from arrival and rings once, not per person.** It measured how
+  long somebody had been on their *current* assignment, so moving a person to the next
+  Schadenplatz reset them to zero – somebody seven hours in, just moved, never showed up – and Aufträge
+  were not counted at all. It also raised one warning per person, with a sentence that changed every
+  hour, so a long night rang the bell for each name every hour. It now counts from the check-in
+  and is ONE notification naming everybody past the threshold, longest first («3 Personen seit über
+  4 h im Einsatz: …»), rewritten in place as people cross it. Dismissing it acknowledges the people
+  it named; anybody else past the threshold (crossed later, came back for a new shift, a lowered
+  threshold) raises a new one, as does the re-alarm interval if one is set. It goes away by itself
+  once nobody past the threshold is checked in any more. Several boards polling at once can no
+  longer raise it twice.
 - **↵ in ⌘K runs the best match.** Typing «neu» and pressing ↵ opened «Einstellungen»: the
   palette ranked commands only within their section, and «Navigation» comes first, so any
   loose match there (n…e…u in «Einstellungen») beat «Neuer Einsatz» further down. The whole
   list is now ranked by how well each entry matches, and the highlighted top row is what ↵ runs.
-
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open

@@ -204,7 +204,9 @@ export default function FireStationDashboard() {
   const { materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
   const { isEditor, isAuthenticated } = useAuth()
-  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar } = useNotifications()
+  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
+  // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
+  const fatigueHours = notificationSettings.fatigue_hours
   const { registerHandlers, clearHandlers } = useCommandPalette()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -1020,6 +1022,7 @@ export default function FireStationDashboard() {
       onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
       onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
       onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
+      onToggleCrewDuty: () => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
         setAuftraegeFocusGroupId(null)
@@ -1775,6 +1778,7 @@ export default function FireStationDashboard() {
   const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
   const rapportBacklogSheetOpen = activeFooterSheet === 'rapporte'
   const linksSheetOpen = activeFooterSheet === 'links'
+  const crewDutySheetOpen = activeFooterSheet === 'crew'
 
   // The rolling Schadenplatz-Rapport backlog — closed incidents whose rapport is
   // still missing, oldest first. Computed once: the footer pill shows the count,
@@ -2182,6 +2186,7 @@ export default function FireStationDashboard() {
               personEngagements={personEngagements}
               followBinding={followBinding}
               rosterSummary={rosterSummary}
+              onOpenCrewDuty={() => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew')}
             />
           )}
 
@@ -2495,6 +2500,9 @@ export default function FireStationDashboard() {
         operationToDelete={operationToDelete}
         operations={operations}
         performDistribute={performDistribute}
+        crewDutySheetOpen={crewDutySheetOpen}
+        fatigueHours={fatigueHours}
+        personEngagements={personEngagements}
         personnel={personnel}
         printSheetOpen={printSheetOpen}
         printerEnabled={printerEnabled}

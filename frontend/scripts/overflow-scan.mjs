@@ -321,6 +321,7 @@ function visits(links) {
     { id: 'appell', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Links/); await click(p, /Appell öffnen/, { wait: 1500 }) } },
     { id: 'auftraege', path: '/', desktopOnly: true, act: (p) => click(p, /Aufträge/) },
     { id: 'personnel', path: '/', phoneOnly: true, act: async (p) => { await openMehr(p); await click(p, /^Personal/) } },
+    { id: 'crew-duty', path: '/', act: async (p, w) => { if (phone(w)) { await openMehr(p); await click(p, /^Personal/) } await click(p, /^Dienstzeiten/, { wait: 1500 }) } },
     { id: 'vehicles', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Fahrzeug/) } },
     { id: 'print', path: '/', act: async (p, w) => { if (phone(w)) await openMehr(p); await click(p, /Drucken/) } },
     { id: 'map', path: '/map' },

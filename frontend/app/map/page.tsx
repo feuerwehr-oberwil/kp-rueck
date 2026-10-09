@@ -70,6 +70,7 @@ import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { LoadingStatus } from "@/components/ui/shell-loader"
+import { readWeatherLayerPref, writeWeatherLayerPref } from "@/lib/weather"
 
 // Dynamically import map to avoid SSR issues – MapLibre GL needs a browser (WebGL, workers)
 const MapView = dynamic(() => import("@/components/map-view"), {
@@ -186,6 +187,16 @@ export default function MapPage() {
   // GPS (a station without Traccar, the demo) they can never show anything, so
   // the map reports what it knows and the options disappear rather than lie.
   const [gpsAvailable, setGpsAvailable] = useState(false)
+  // «Wetter»: the radar layer. Offered only when the backend serves weather (WEATHER_ENABLED);
+  // the map reports that, like GPS above.
+  const [weatherAvailable, setWeatherAvailable] = useState(false)
+  const [showWeather, setShowWeather] = useState(false)
+  useEffect(() => { setShowWeather(readWeatherLayerPref()) }, [])
+  const toggleWeather = () => {
+    const next = !showWeather
+    setShowWeather(next)
+    writeWeatherLayerPref(next)
+  }
   // Aufträge route display (all viewers) + editor-only Routenplanung mode.
   const [showGroupRoutes, setShowGroupRoutes] = useState(false)
   const [planningActive, setPlanningActive] = useState(false)
@@ -1026,6 +1037,8 @@ export default function MapPage() {
               // that DOM churn ate the first tap of a Reko un-assign.
               hoverCardsDisabled={planningActive || rekoModeActive}
               onGpsAvailabilityChange={setGpsAvailable}
+              showWeather={showWeather}
+              onWeatherAvailabilityChange={setWeatherAvailable}
               onMapClick={
                 planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
               }
@@ -1105,7 +1118,7 @@ export default function MapPage() {
                   <DropdownMenuTrigger asChild>
                     <button
                       className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 max-md:h-11 max-md:shrink-0 max-md:text-sm ${
-                        !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority'
+                        !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
                           ? 'border-sel-edge bg-secondary/50 text-foreground'
                           : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                       }`}
@@ -1170,6 +1183,20 @@ export default function MapPage() {
                         </span>
                       </span>
                     </DropdownMenuCheckboxItem>
+                    {weatherAvailable && (
+                      <DropdownMenuCheckboxItem
+                        checked={showWeather}
+                        onSelect={(e) => { e.preventDefault(); toggleWeather() }}
+                        className="items-start"
+                      >
+                        <span className="flex-1">
+                          {t('weather.layer')}
+                          <span className="block text-[11px] leading-snug text-muted-foreground">
+                            {t('weather.layerHint')}
+                          </span>
+                        </span>
+                      </DropdownMenuCheckboxItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
                     {showGroupRoutes && colorBy === 'auftrag' && (

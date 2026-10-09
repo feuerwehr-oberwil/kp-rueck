@@ -5,6 +5,9 @@ export type NotificationType =
   | 'no_personnel'
   | 'no_materials'
   | 'fatigue_warning'
+  // What the backend actually sends for time on duty: ONE event-level row for
+  // everybody past the threshold, rewritten in place (lib/crew-duty.ts).
+  | 'personnel_fatigue'
   | 'missing_location'
   | 'event_size_limit'
   | 'vehicle_arrived'
@@ -29,12 +32,21 @@ export type NotificationType =
   // The door: the Feld-Code was rotated after too many wrong guesses from any
   // address. Event-level (no incident_id); a warning, so it toasts.
   | 'feld_code_rotated'
+  // Übungssteuerung: a new exercise incident or an inject (escalation, …).
+  | 'training_emergency'
 
 export interface Notification {
   id: string
   type: NotificationType
   severity: NotificationSeverity
+  /** The backend's German sentence — shown only when `params` is absent or not understood. */
   message: string
+  /**
+   * The facts the sentence is made of, one shape per type
+   * (backend/app/services/notification_params.py); rendered in the operator's
+   * language by lib/notification-format.ts. Null on rows from before it existed.
+   */
+  params?: Record<string, unknown> | null
   incident_id?: string
   created_at: Date
   dismissed: boolean

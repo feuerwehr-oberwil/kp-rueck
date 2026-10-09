@@ -78,6 +78,7 @@ from ..services.tokens import (
     generate_form_token,
     validate_feld_token,
 )
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..websocket_manager import broadcast_incident_update
 
 logger = logging.getLogger(__name__)
@@ -101,14 +102,16 @@ async def require_feld_claims(
     """
     claims = validate_feld_token(token)
     if claims is None:
-        raise HTTPException(status_code=401, detail="Ungültiger oder abgelaufener Zugriffscode")
+        raise CodedHTTPException(401, ErrorCode.FELD_TOKEN_INVALID, "Ungültiger oder abgelaufener Zugriffscode")
     if claims.personnel_id is not None and (
         claims.claim_id is None
         or not await crud.claim_is_live(db, claims.claim_id, claims.event_id, claims.personnel_id)
     ):
-        raise HTTPException(status_code=401, detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.")
+        raise CodedHTTPException(
+            401, ErrorCode.FELD_DEVICE_SIGNED_OUT, "Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben."
+        )
     if claims.unlock_id is not None and not await crud.unlock_is_live(db, claims.unlock_id, claims.event_id):
-        raise HTTPException(status_code=401, detail="Bitte den Code neu eingeben.")
+        raise CodedHTTPException(401, ErrorCode.FELD_CODE_REENTER, "Bitte den Code neu eingeben.")
     return claims
 
 
@@ -119,7 +122,7 @@ async def _load_event(db: AsyncSession, event_id: uuid.UUID, *, lock: bool = Fal
     """The event the token names, or 404."""
     event = await crud.lock_event(db, event_id) if lock else await events_crud.get_event_by_id(db, event_id)
     if event is None:
-        raise HTTPException(status_code=404, detail="Ereignis nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.FELD_EVENT_NOT_FOUND, "Ereignis nicht gefunden")
     return event
 
 
@@ -145,16 +148,14 @@ async def require_feld_person(
     # names no person may not act as one. An unbound token used to be able to
     # write as any crew in the event — that was the whole hole this closes.
     if not claims.unlocked or claims.personnel_id is None or claims.personnel_id != personnel_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
     # The claim is the recall a JWT cannot do by itself: once the KP has pressed
     # "alle Geräte abmelden", this is where the revoked device finds out.
     if claims.claim_id is None or not await crud.claim_is_live(db, claims.claim_id, claims.event_id, personnel_id):
-        raise HTTPException(
-            status_code=401,
-            detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.",
+        raise CodedHTTPException(
+            401, ErrorCode.FELD_DEVICE_SIGNED_OUT, "Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben."
         )
     # `require_access=False` for reading your OWN list. Since the binding became
     # mandatory this check adds nothing there — a bound token can only ask about
@@ -164,17 +165,15 @@ async def require_feld_person(
     # cellar does not blank the page) then showed them a Schadenplatz they no
     # longer had any access to, indefinitely.
     if require_access and not await crud.person_has_event_access(db, claims.event_id, personnel_id):
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
     person = result.scalar_one_or_none()
     if person is None:
         # Only reachable if the personnel row vanished between the two queries.
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
     return person
 
@@ -359,7 +358,7 @@ async def unlock_feld(
     it is the 401 from ``require_feld_claims``.
     """
     if claims.unlocked or claims.personnel_id is not None or claims.claim_id is not None:
-        raise HTTPException(status_code=403, detail="Bitte den QR-Code erneut öffnen")
+        raise CodedHTTPException(403, ErrorCode.FELD_REOPEN_QR, "Bitte den QR-Code erneut öffnen")
     event = await _load_event(db, claims.event_id, lock=True)
     scope = str(event.id)
     ip = client_ip(request) or "unknown"
@@ -462,7 +461,7 @@ async def claim_feld_person(
         or claims.claim_id is not None
         or claims.unlock_id is None
     ):
-        raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
+        raise CodedHTTPException(403, ErrorCode.FELD_CODE_FIRST, "Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id, lock=True)
 
     # Anybody on the roster may name themselves. Requiring work first refused
@@ -473,13 +472,12 @@ async def claim_feld_person(
     # the binding does the rest.
     person = await db.get(Personnel, payload.personnel_id)
     if person is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_PERSON_NO_ACCESS, "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst."
         )
 
     if not await crud.consume_unlock(db, claims.unlock_id, event.id):
-        raise HTTPException(status_code=401, detail="Bitte den Code neu eingeben.")
+        raise CodedHTTPException(401, ErrorCode.FELD_CODE_REENTER, "Bitte den Code neu eingeben.")
     claim = await crud.create_claim(db, event.id, payload.personnel_id)
     return schemas.FeldClaimResponse(
         token=generate_feld_token(
@@ -502,7 +500,7 @@ async def claim_feld_person(
 async def logout_feld(request: Request, claims: FeldClaims, db: AsyncSession = Depends(get_db)) -> Response:
     """Revoke this phone's credential before the browser forgets it."""
     if claims.personnel_id is None or claims.claim_id is None:
-        raise HTTPException(status_code=403, detail="Dieses Gerät ist nicht angemeldet")
+        raise CodedHTTPException(403, ErrorCode.FELD_DEVICE_NOT_SIGNED_IN, "Dieses Gerät ist nicht angemeldet")
     await crud.revoke_claim(db, claims.claim_id, claims.event_id, claims.personnel_id)
     return Response(status_code=204)
 
@@ -534,7 +532,7 @@ async def list_feld_personnel(
         or claims.claim_id is not None
         or claims.unlock_id is None
     ):
-        raise HTTPException(status_code=403, detail="Zuerst den Code eingeben")
+        raise CodedHTTPException(403, ErrorCode.FELD_CODE_FIRST, "Zuerst den Code eingeben")
     event = await _load_event(db, claims.event_id)
     personnel = await crud.get_feld_personnel_for_event(db, claims.event_id)
 
@@ -636,7 +634,9 @@ async def get_feld_material(
 
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)
     if "magazin" not in functions:
-        raise HTTPException(status_code=403, detail="Diese Person führt in diesem Ereignis nicht das Magazin.")
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_NOT_MAGAZIN, "Diese Person führt in diesem Ereignis nicht das Magazin."
+        )
 
     items = await crud.material_overview(db, event.id)
     return schemas.FeldMaterialResponse(materials=[schemas.FeldMaterialItem(**item) for item in items])
@@ -676,9 +676,8 @@ async def _authorized_incident(
     person = await require_feld_person(db, claims, personnel_id)
     incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id, sources=sources)
     if incident is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Diese Einsatzstelle ist dir nicht zugeteilt.",
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugeteilt."
         )
     return incident, person
 
@@ -701,12 +700,12 @@ async def _enforce_demo_photo_limits(db: AsyncSession, file: UploadFile) -> None
 
     contents = await file.read()
     if len(contents) > 1 * 1024 * 1024:
-        raise HTTPException(status_code=403, detail="Demo-Modus: Maximale Dateigrösse 1MB.")
+        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
     await file.seek(0)
 
     result = await db.execute(select(sa_func.coalesce(sa_func.array_length(SchadenplatzReport.photos_json, 1), 0)))
     if sum(row[0] for row in result) >= 15:
-        raise HTTPException(status_code=403, detail="Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
+        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
 
 
 @router.post("/incidents/{incident_id}/arrived", response_model=schemas.FieldReportState)
@@ -844,7 +843,7 @@ async def set_own_attendance(
         )
     )
     if result is None:
-        raise HTTPException(status_code=404, detail="Person nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.FELD_PERSON_NOT_FOUND, "Person nicht gefunden")
     return result
 
 
@@ -926,11 +925,12 @@ async def correct_own_report(
         # The same 403 whether it exists, belongs to another Ereignis or was
         # somebody else's — a public token must not become a way to probe the
         # board.
-        raise HTTPException(status_code=403, detail="Diese Meldung ist nicht deine.")
+        raise CodedHTTPException(403, ErrorCode.FELD_REPORT_NOT_YOURS, "Diese Meldung ist nicht deine.")
     if not crud.report_is_editable(incident) or not await never_left_the_window(db, incident):
-        raise HTTPException(
-            status_code=409,
-            detail="Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
+        raise CodedHTTPException(
+            409,
+            ErrorCode.FELD_REPORT_TAKEN_OVER,
+            "Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
         )
 
     updated = await crud.update_field_report(db, incident, person, payload, request)
@@ -996,7 +996,7 @@ async def mint_reko_link(
     # _authorized_incident already requires this live device claim. Keep its
     # provenance in the child credential so device logout also closes the form.
     if claims.claim_id is None:
-        raise HTTPException(status_code=401, detail="Ungültiger Zugriffscode")
+        raise CodedHTTPException(401, ErrorCode.FELD_FORM_TOKEN_INVALID, "Ungültiger Zugriffscode")
     token = generate_form_token(
         str(incident.id),
         "reko",
@@ -1140,11 +1140,11 @@ async def serve_feld_photo(
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
     if report is None or filename not in (report.photos_json or []):
-        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
     file_path = photo_storage.get_photo_path(incident.id, filename)
     if file_path is None:
-        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
     return FileResponse(
         file_path,

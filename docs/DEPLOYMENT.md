@@ -125,6 +125,22 @@ workers and a five-minute cache per worker. When lookup is busy, unavailable or 
 operators can still enter an address or coordinates and place a point on the map. Online map
 tiles are a separate setting. See [privacy](../PRIVACY.md#online-services-and-integrations).
 
+### Weather layer
+
+The map's «Wetter» layer (rain radar + official warnings at the station) needs no key and no
+setup beyond the station coordinates in Settings → Allgemein. The backend fetches it itself:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `WEATHER_ENABLED` | `true` | `false` = nothing is fetched and the map offers no «Wetter» layer. Set it outside Switzerland (the sources cover CH only) or where the backend must make no outbound requests. |
+
+Sources: MeteoSwiss open data radar (`data.geo.admin.ch`, every 5 min, CC BY 4.0, «Quelle:
+MeteoSchweiz»), MeteoSwiss warnings via MeteoAlarm (`feeds.meteoalarm.org`, every 10 min; shown
+unaltered, as MeteoSwiss requires) and Alertswiss (`www.alert.swiss`, best-effort – its feed is the
+website's own and undocumented). Traffic: about 200 KB per radar frame and 0.3–2.5 MB per warning
+round. Without a connection the board works as before; the layer shows the last data with its time
+and greys it out. See [privacy](../PRIVACY.md#online-services-and-integrations).
+
 ## 2. Quick start
 
 ```bash

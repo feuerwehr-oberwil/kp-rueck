@@ -20,6 +20,8 @@ vi.mock('@/components/location/location-input', () => ({
 }))
 
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
+import { ApiError } from '@/lib/api/types'
+import { toast } from 'sonner'
 
 /** Create mode only — the edit variant is a different member of the props union
  *  and gets its own render below. */
@@ -202,5 +204,29 @@ describe('FeldMeldenSheet', () => {
     expect(updateFeldReport.mock.calls[0][3]).toMatchObject({ location_address: 'Hauptstrasse 21' })
     expect(createFeldIncident).not.toHaveBeenCalled()
     expect(onReported).toHaveBeenCalledOnce()
+  })
+
+  it('says «too late, use the radio» when the KP took the Meldung over meanwhile (409 / feld_report_taken_over)', async () => {
+    const user = userEvent.setup()
+    const report = {
+      incident_id: 'inc-3', title: 'Hauptstrasse 12', type: 'oelwehr', priority: 'medium',
+      description: 'Ölspur', internal_notes: null, location_address: 'Hauptstrasse 12',
+      location_display: 'Hauptstrasse 12', location_lat: null, location_lng: null, contact: null,
+      contact_phone: null, status: 'incoming', created_at: '2026-08-17T19:14:00Z', editable: true, vehicles: [],
+    }
+    // The message is whatever the client localized it to — the sheet must not depend on it.
+    updateFeldReport.mockRejectedValue(
+      new ApiError('Le PC a déjà repris cette annonce.', 409, true, 'feld_report_taken_over'),
+    )
+    renderWithIntl(
+      <FeldMeldenSheet open onOpenChange={vi.fn()} personnelId="p-1" token="tok" editing={report} onReported={vi.fn()} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Weiter' }))
+    await user.click(screen.getByRole('button', { name: 'Korrektur senden' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Der KP hat die Meldung bereits übernommen – bitte per Funk melden.'),
+    )
   })
 })

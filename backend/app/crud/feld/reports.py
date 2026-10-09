@@ -22,6 +22,7 @@ from ...models import (
     SchadenplatzReport,
     User,
 )
+from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
@@ -99,13 +100,16 @@ class FieldActor:
         return self.personnel_id is not None
 
     @property
-    def suffix(self) -> str:
-        """The " · von wem" tail of every notification this module writes."""
+    def kind(self) -> str:
+        """Who, as the notification names it: ``field`` / ``gps`` / ``kp`` (`notification_params`)."""
         if self.is_field:
-            return f" · {self.personnel_name}" if self.personnel_name else " · vom Feld"
-        if self.automation:
-            return " · automatisch (GPS)"
-        return " · im KP erfasst"
+            return "field"
+        return "gps" if self.automation else "kp"
+
+    @property
+    def suffix(self) -> str:
+        """The German " · von wem" tail (the Übungssteuerung's inject replies still use it)."""
+        return texts.actor_suffix(self.kind, self.personnel_name)
 
 
 async def _location(db: AsyncSession, incident: Incident) -> str:
@@ -161,9 +165,6 @@ def _stamp_updated_by(report: SchadenplatzReport, actor: FieldActor) -> None:
 #: make the auto-move strictly forward: a report about a card that is already at
 #: (or past) the target column must not drag it backwards.
 _STATUS_FLOW = ("incoming", "reko", "reko_done", "enroute", "active", "returning", "complete")
-
-#: The column titles as the board wears them, for the notification sentence.
-_STATUS_LABEL = {"active": "Einsatz", "returning": "Beendet / Rückfahrt"}
 
 
 async def _auto_move(
@@ -313,17 +314,18 @@ async def record_arrival(
         moved = await _auto_move(db, incident, target="active", actor=actor, request=request)
 
     if at is not None and incident.event_id:
-        message = f"Angekommen: {await _location(db, incident)}{actor.suffix}"
-        if moved:
-            # The toast is the announcement of the move (§P3.3) — the card has
-            # already gone where the sentence says.
-            message += f" – Karte in «{_STATUS_LABEL['active']}» verschoben"
+        # The toast is the announcement of the move (§P3.3) — the card has
+        # already gone where the sentence says.
+        message, params = texts.field_arrived(
+            await _location(db, incident), actor.kind, actor.personnel_name, "active" if moved else None
+        )
         await create_field_notification(
             db,
             notification_type="field_arrived",
             incident_id=incident.id,
             event_id=incident.event_id,
             message=message,
+            params=params,
         )
     await _broadcast(incident)
     return True
@@ -380,15 +382,16 @@ async def record_field_complete(
         moved = await _auto_move(db, incident, target="returning", actor=actor, request=request)
 
     if at is not None and incident.event_id:
-        message = f"Einsatz beendet gemeldet: {await _location(db, incident)}{actor.suffix}"
-        if moved:
-            message += f" – Karte in «{_STATUS_LABEL['returning']}» verschoben"
+        message, params = texts.field_complete(
+            await _location(db, incident), actor.kind, actor.personnel_name, "returning" if moved else None
+        )
         await create_field_notification(
             db,
             notification_type="field_complete",
             incident_id=incident.id,
             event_id=incident.event_id,
             message=message,
+            params=params,
         )
     await _broadcast(incident)
     return True
@@ -480,31 +483,25 @@ async def record_pickup(
     await db.refresh(incident)
 
     if incident.event_id:
-        if needed:
-            detail = f" ({note})" if note else ""
-            bell = await create_field_notification(
-                db,
-                notification_type="field_pickup",
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                message=f"Abholung nötig: {await _location(db, incident)}{detail}{actor.suffix}",
-                # The only warning of the five. A waiting crew is the one field
-                # event that is time-critical for the KP.
-                severity="warning",
-            )
-            # Link the FIRST bell entry only: «gesehen» is about the request,
-            # and a note edit must not make an already-seen request unseen.
-            if work_item is not None and work_item.notification_id is None:
-                work_item.notification_id = bell.id
-                await db.commit()
-        else:
-            await create_field_notification(
-                db,
-                notification_type="field_pickup",
-                incident_id=incident.id,
-                event_id=incident.event_id,
-                message=f"Abholung erledigt: {await _location(db, incident)}{actor.suffix}",
-            )
+        message, params = texts.field_pickup(
+            await _location(db, incident), actor.kind, actor.personnel_name, needed=needed, note=note
+        )
+        bell = await create_field_notification(
+            db,
+            notification_type="field_pickup",
+            incident_id=incident.id,
+            event_id=incident.event_id,
+            message=message,
+            params=params,
+            # The only warning of the five. A waiting crew is the one field
+            # event that is time-critical for the KP.
+            severity="warning" if needed else "info",
+        )
+        # Link the FIRST bell entry only: «gesehen» is about the request,
+        # and a note edit must not make an already-seen request unseen.
+        if needed and work_item is not None and work_item.notification_id is None:
+            work_item.notification_id = bell.id
+            await db.commit()
     await _broadcast(incident)
     return True
 
@@ -595,15 +592,16 @@ async def create_field_request(
 
     notification: Notification | None = None
     if incident.event_id:
-        who = actor.personnel_name if actor.is_field else "im KP erfasst"
+        message_text, params = texts.field_message(
+            await _location(db, incident), actor.kind, actor.personnel_name, text
+        )
         notification = await create_field_notification(
             db,
             notification_type="field_message",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Meldung vom Feld ({who}) – {await _location(db, incident)}: {text}"
-            if who
-            else f"Meldung vom Feld: {text}",
+            message=message_text,
+            params=params,
         )
         work_item.notification_id = notification.id
         await db.commit()

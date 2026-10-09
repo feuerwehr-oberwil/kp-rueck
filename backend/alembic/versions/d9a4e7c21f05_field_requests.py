@@ -1,7 +1,7 @@
 """field_requests: every Meldung from /feld becomes a workable item (R13)
 
 Revision ID: d9a4e7c21f05
-Revises: c4e8a2f61d97
+Revises: f3b9d2c47e15
 Create Date: 2026-10-08 00:00:00.000000
 
 A crew's Meldung used to be a bell entry plus an audit row; dismissing the bell
@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from alembic import op
 
 revision: str = "d9a4e7c21f05"
-down_revision: str | Sequence[str] | None = "c4e8a2f61d97"
+down_revision: str | Sequence[str] | None = "f3b9d2c47e15"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
