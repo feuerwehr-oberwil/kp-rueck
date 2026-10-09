@@ -1480,6 +1480,12 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    # Who a grouped notification is about, as stable keys — for `personnel_fatigue` one
+    # «<personnel_id>@<checked_in_at>» per person named (one per shift: a re-check-in is a new
+    # key). Dismissing the row acknowledges exactly these; anybody else past the threshold
+    # raises a new one (`_sync_fatigue_notification`). NULL on every other type and on rows
+    # from before the grouping.
+    subject_keys: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     # Optional associations
     incident_id: Mapped[UUID | None] = mapped_column(

@@ -39,9 +39,11 @@ from app.services.notification_service import (
     _check_resource_alerts,
     _check_time_based_alerts,
     _deduplicate_and_save,
+    _sync_fatigue_notification,
     create_reko_notification,
     dismiss_notification,
     evaluate_notifications,
+    fatigue_message,
     get_notification_settings,
     save_notification_settings,
 )
@@ -378,38 +380,6 @@ class TestCheckResourceAlerts:
         assert any("Kein Personal mehr verfügbar" in n.message for n in notifications)
 
     @pytest.mark.asyncio
-    async def test_personnel_fatigue_alert(
-        self,
-        db_session: AsyncSession,
-        notif_event: Event,
-        notif_incident: Incident,
-        notif_personnel: Personnel,
-    ):
-        """Test alert for personnel assigned too long."""
-        # Check in personnel
-        attendance = EventAttendance(
-            event_id=notif_event.id,
-            personnel_id=notif_personnel.id,
-            checked_in=True,
-        )
-        db_session.add(attendance)
-
-        # Create long-running assignment (5 hours, threshold is 4)
-        assignment = IncidentAssignment(
-            incident_id=notif_incident.id,
-            resource_type="personnel",
-            resource_id=notif_personnel.id,
-            assigned_at=datetime.now(UTC) - timedelta(hours=5),
-        )
-        db_session.add(assignment)
-        await db_session.commit()
-
-        settings = NotificationSettings(fatigue_hours=4)
-        notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
-
-        assert any(n.type == "personnel_fatigue" for n in notifications)
-
-    @pytest.mark.asyncio
     async def test_material_depletion_critical(
         self,
         db_session: AsyncSession,
@@ -588,6 +558,286 @@ class TestCheckResourceAlerts:
         # Now 2 materials available, threshold is 1, no alert
         notifications = await _check_resource_alerts(db_session, notif_event.id, settings)
         assert not any(n.type == "no_materials" and "MoWa" in n.message for n in notifications)
+
+
+class TestFatigueNotification:
+    """Time on duty: measured from check-in, ONE notification for the crew, updated in place."""
+
+    async def _check_in(self, db: AsyncSession, event: Event, name: str, hours_ago: float) -> Personnel:
+        person = Personnel(id=uuid4(), name=name, role="Sdt", status="available")
+        db.add(person)
+        await db.flush()
+        db.add(
+            EventAttendance(
+                event_id=event.id,
+                personnel_id=person.id,
+                checked_in=True,
+                checked_in_at=datetime.now(UTC) - timedelta(hours=hours_ago),
+            )
+        )
+        await db.commit()
+        return person
+
+    async def _fatigue_rows(self, db: AsyncSession, event: Event) -> list[Notification]:
+        result = await db.execute(
+            select(Notification)
+            .where(Notification.event_id == event.id, Notification.type == "personnel_fatigue")
+            .order_by(Notification.created_at)
+        )
+        return list(result.scalars().all())
+
+    def test_message_single_and_grouped(self):
+        assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+        assert (
+            fatigue_message([("Müller Hans", 6 * 60), ("Meier Anna", 4 * 60 + 59)], 4)
+            == "2 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (4 h)"
+        )
+        many = [(f"P{i}", 300) for i in range(7)]
+        assert fatigue_message(many, 4).endswith("P4 (5 h) und 2 weitere")
+
+    @pytest.mark.asyncio
+    async def test_measured_from_check_in_not_from_assignment(
+        self, db_session: AsyncSession, notif_event: Event, notif_incident: Incident
+    ):
+        """B2: moving somebody used to reset their clock — a fresh assignment must not hide 5 h on duty."""
+        person = await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        db_session.add(
+            IncidentAssignment(
+                incident_id=notif_incident.id,
+                resource_type="personnel",
+                resource_id=person.id,
+                assigned_at=datetime.now(UTC) - timedelta(minutes=3),
+            )
+        )
+        await db_session.commit()
+
+        current = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
+
+        assert current is not None
+        assert current.message == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+        assert current.severity == "warning"
+        assert current.incident_id is None
+
+    @pytest.mark.asyncio
+    async def test_nobody_over_threshold_no_notification(self, db_session: AsyncSession, notif_event: Event):
+        await self._check_in(db_session, notif_event, "Frisch Anna", hours_ago=1)
+        assert (
+            await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4)) is None
+        )
+        assert await self._fatigue_rows(db_session, notif_event) == []
+
+    @pytest.mark.asyncio
+    async def test_one_grouped_notification_for_many_people(self, db_session: AsyncSession, notif_event: Event):
+        """Three tired people = one bell row, longest on duty first — not three rows."""
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=4.5)
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=6.2)
+        await self._check_in(db_session, notif_event, "Huber Max", hours_ago=5.1)
+        await self._check_in(db_session, notif_event, "Frisch Eva", hours_ago=0.5)
+
+        settings = NotificationSettings(fatigue_hours=4)
+        await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        await _sync_fatigue_notification(db_session, notif_event.id, settings)
+
+        rows = await self._fatigue_rows(db_session, notif_event)
+        assert len(rows) == 1
+        assert rows[0].message == (
+            "3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Huber Max (5 h), Meier Anna (4 h)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_updated_in_place_when_somebody_crosses(self, db_session: AsyncSession, notif_event: Event):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        settings = NotificationSettings(fatigue_hours=4)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert first is not None
+
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=4.1)
+        second = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+
+        assert second is not None and second.id == first.id
+        rows = await self._fatigue_rows(db_session, notif_event)
+        assert len(rows) == 1
+        assert rows[0].message.startswith("2 Personen seit über 4 h im Einsatz")
+        assert rows[0].dismissed is False
+
+    @pytest.mark.asyncio
+    async def test_dismissal_holds_until_somebody_new_crosses(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        settings = NotificationSettings(fatigue_hours=4)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert first is not None
+        await dismiss_notification(db_session, first.id, notif_user.id)
+
+        # Same people: the operator has seen it — no new bell row.
+        assert await _sync_fatigue_notification(db_session, notif_event.id, settings) is None
+        assert len(await self._fatigue_rows(db_session, notif_event)) == 1
+
+        # Somebody crossing AFTER the dismissal is news: one fresh row naming everybody.
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=4)
+        fresh = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert fresh is not None and fresh.id != first.id
+        assert fresh.message.startswith("2 Personen")
+        assert len(await self._fatigue_rows(db_session, notif_event)) == 2
+
+    @pytest.mark.asyncio
+    async def test_crossing_before_the_dismissal_is_not_swallowed(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        """Somebody who crossed after the row was written, but before it was dismissed, was
+        never named in it — the dismissal must not count for them."""
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        settings = NotificationSettings(fatigue_hours=4)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert first is not None
+
+        # Anna crosses (her crossing is in the past) — no poll in between — then the dismissal.
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=4.05)
+        await dismiss_notification(db_session, first.id, notif_user.id)
+
+        fresh = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert fresh is not None and fresh.id != first.id
+        assert "Meier Anna" in fresh.message
+
+    @pytest.mark.asyncio
+    async def test_lowering_the_threshold_names_the_newly_tired(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=7)
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=5)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=6))
+        assert first is not None and "Meier Anna" not in first.message
+        await dismiss_notification(db_session, first.id, notif_user.id)
+
+        fresh = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
+        assert fresh is not None and fresh.id != first.id
+        assert "Meier Anna" in fresh.message
+
+    @pytest.mark.asyncio
+    async def test_a_new_shift_is_news_again(self, db_session: AsyncSession, notif_event: Event, notif_user: User):
+        person = await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        settings = NotificationSettings(fatigue_hours=4)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert first is not None
+        await dismiss_notification(db_session, first.id, notif_user.id)
+
+        # Went home, came back — and is past the threshold again on the new check-in.
+        attendance = (
+            await db_session.execute(select(EventAttendance).where(EventAttendance.personnel_id == person.id))
+        ).scalar_one()
+        attendance.checked_in_at = datetime.now(UTC) - timedelta(hours=4, minutes=30)
+        await db_session.commit()
+
+        fresh = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert fresh is not None and fresh.id != first.id
+
+    @pytest.mark.asyncio
+    async def test_pre_grouping_dismissals_acknowledge_nobody(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        db_session.add(
+            Notification(
+                type="personnel_fatigue",
+                severity="warning",
+                message="Müller Hans ist seit 5 Stunden im Einsatz",
+                event_id=notif_event.id,
+                dismissed=True,
+                dismissed_at=datetime.now(UTC),
+                dismissed_by=notif_user.id,
+            )
+        )
+        await db_session.commit()
+
+        fresh = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
+        assert fresh is not None
+        assert fresh.message == "Seit über 4 h im Einsatz: Müller Hans (5 h)"
+
+    @pytest.mark.asyncio
+    async def test_re_alarm_interval_brings_it_back(
+        self, db_session: AsyncSession, notif_event: Event, notif_user: User
+    ):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=6)
+        settings = NotificationSettings(fatigue_hours=4, re_alarm_interval_min=30)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert first is not None
+        await dismiss_notification(db_session, first.id, notif_user.id)
+        assert await _sync_fatigue_notification(db_session, notif_event.id, settings) is None
+
+        first.dismissed_at = datetime.now(UTC) - timedelta(minutes=31)
+        await db_session.commit()
+        again = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert again is not None and again.id != first.id
+
+    @pytest.mark.asyncio
+    async def test_resolves_when_everybody_checked_out(self, db_session: AsyncSession, notif_event: Event):
+        person = await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        settings = NotificationSettings(fatigue_hours=4)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert first is not None
+
+        attendance = (
+            await db_session.execute(select(EventAttendance).where(EventAttendance.personnel_id == person.id))
+        ).scalar_one()
+        attendance.checked_in = False
+        attendance.checked_out_at = datetime.now(UTC)
+        await db_session.commit()
+
+        assert await _sync_fatigue_notification(db_session, notif_event.id, settings) is None
+        rows = await self._fatigue_rows(db_session, notif_event)
+        assert rows[0].dismissed is True
+        assert rows[0].dismissed_by is None  # auto-resolved, not an operator's dismissal
+
+    @pytest.mark.asyncio
+    async def test_legacy_per_person_rows_fold_into_one(self, db_session: AsyncSession, notif_event: Event):
+        """Open rows from before the grouping («X ist seit 5 Stunden im Einsatz») collapse to one."""
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=5)
+        for name in ("Müller Hans", "Meier Anna"):
+            db_session.add(
+                Notification(
+                    type="personnel_fatigue",
+                    severity="warning",
+                    message=f"{name} ist seit 5 Stunden im Einsatz",
+                    event_id=notif_event.id,
+                )
+            )
+        await db_session.commit()
+
+        await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
+
+        rows = await self._fatigue_rows(db_session, notif_event)
+        open_rows = [r for r in rows if not r.dismissed]
+        assert len(open_rows) == 1
+        assert open_rows[0].message.startswith("2 Personen seit über 4 h im Einsatz")
+
+    @pytest.mark.asyncio
+    async def test_threshold_zero_or_disabled_switches_it_off(self, db_session: AsyncSession, notif_event: Event):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=9)
+        first = await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=4))
+        assert first is not None
+
+        assert (
+            await _sync_fatigue_notification(
+                db_session, notif_event.id, NotificationSettings(fatigue_hours=4), enabled=False
+            )
+            is None
+        )
+        assert (await self._fatigue_rows(db_session, notif_event))[0].dismissed is True
+        assert (
+            await _sync_fatigue_notification(db_session, notif_event.id, NotificationSettings(fatigue_hours=0)) is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_evaluate_returns_the_one_row(self, db_session: AsyncSession, notif_event: Event):
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5)
+        await self._check_in(db_session, notif_event, "Meier Anna", hours_ago=5)
+        await evaluate_notifications(db_session, notif_event.id)
+        result = await evaluate_notifications(db_session, notif_event.id)
+        fatigue = [n for n in result if n.type == "personnel_fatigue"]
+        assert len(fatigue) == 1
+        assert fatigue[0].dismissed is False
 
 
 # ============================================
@@ -1393,3 +1643,70 @@ class TestNotificationTypeConstraintParity:
             )
         # Raises IntegrityError if any enum value is missing from the constraint.
         await db_session.commit()
+
+
+class TestFatigueNotificationConcurrency:
+    """Every board evaluates on its own poll; two at once must still leave ONE row."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_evaluations_insert_one_row(self, test_engine):
+        import asyncio
+
+        from sqlalchemy import delete
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+        event_id, person_id = uuid4(), uuid4()
+        async with maker() as setup:
+            setup.add(Event(id=event_id, name="Concurrency", training_flag=False))
+            setup.add(Personnel(id=person_id, name="Müller Hans", role="Sdt", status="available"))
+            await setup.flush()
+            setup.add(
+                EventAttendance(
+                    event_id=event_id,
+                    personnel_id=person_id,
+                    checked_in=True,
+                    checked_in_at=datetime.now(UTC) - timedelta(hours=5),
+                )
+            )
+            await setup.commit()
+
+        try:
+            settings = NotificationSettings(fatigue_hours=4)
+
+            async def evaluate():
+                async with maker() as session:
+                    # Yield after every statement, so the evaluations interleave the way
+                    # concurrent requests do: all read «no open row» before anyone inserts.
+                    execute = session.execute
+
+                    async def slow_execute(*args, **kwargs):
+                        result = await execute(*args, **kwargs)
+                        await asyncio.sleep(0.05)
+                        return result
+
+                    session.execute = slow_execute  # type: ignore[method-assign]
+                    return await _sync_fatigue_notification(session, event_id, settings)
+
+            results = await asyncio.gather(*(evaluate() for _ in range(4)))
+            assert all(r is not None for r in results)
+            assert len({r.id for r in results}) == 1
+
+            async with maker() as check:
+                rows = (
+                    (
+                        await check.execute(
+                            select(Notification).where(
+                                Notification.event_id == event_id, Notification.type == "personnel_fatigue"
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                assert len(rows) == 1
+        finally:
+            async with maker() as cleanup:
+                await cleanup.execute(delete(Event).where(Event.id == event_id))
+                await cleanup.execute(delete(Personnel).where(Personnel.id == person_id))
+                await cleanup.commit()

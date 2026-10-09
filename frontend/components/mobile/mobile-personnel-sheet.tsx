@@ -11,12 +11,15 @@ import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { RESOURCE_STATE_DOT_CLASSES, RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 
 interface MobilePersonnelSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   personnel: Person[]
   operations: Operation[]
+  /** Opens the Dienstzeiten overview (replaces this sheet). */
+  onOpenCrewDuty?: () => void
 }
 
 export function MobilePersonnelSheet({
@@ -24,6 +27,7 @@ export function MobilePersonnelSheet({
   onOpenChange,
   personnel,
   operations,
+  onOpenCrewDuty,
 }: MobilePersonnelSheetProps) {
   const t = useTranslations("incidents.mobilePersonnel")
   const [searchQuery, setSearchQuery] = useState("")
@@ -75,9 +79,14 @@ export function MobilePersonnelSheet({
             <Users className="h-5 w-5" />
             {t("title")}
           </SheetTitle>
-          <SheetDescription>
-            {t("availableCount", { available: availableCount, total: personnel.length })}
-          </SheetDescription>
+          <div className="flex items-center justify-between gap-2">
+            <SheetDescription>
+              {t("availableCount", { available: availableCount, total: personnel.length })}
+            </SheetDescription>
+            {onOpenCrewDuty && personnel.length > 0 && (
+              <CrewDutyButton onClick={onOpenCrewDuty} className="-my-2 min-h-11 px-2 text-sm" />
+            )}
+          </div>
         </SheetHeader>
 
         {/* Search */}
@@ -115,7 +124,7 @@ export function MobilePersonnelSheet({
                       {/* Name and info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">
+                          <span className="text-sm font-medium truncate" title={person.name}>
                             {person.name}
                           </span>
                           {person.isReko && (

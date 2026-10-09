@@ -30,6 +30,13 @@ will keep holding.
 
 ### Added
 
+- **Dienstzeiten: who is here, for how long, and how much they have done.** «Dienstzeiten» under
+  the Personen-Leiste's counter, in the phone's Personal sheet and in the command palette opens an
+  overview of everybody checked in, longest on duty first: since when, time on duty (counted from
+  the check-in; amber from the station's «Personalermüdung» setting, 4 h by default, red from one
+  and a half times that), the number of Einsätze worked in this Ereignis (an Auftrag counts once,
+  a drag that was undone within two minutes not at all) and where they are now. The person rows
+  themselves stay as they were. A view, not a planner – nobody is scheduled or alerted from it.
 - **Weather on the map: rain radar and official warnings.** A «Wetter» switch in «Ansicht» (on
   `/map` and the wall display `/display/map`) lays MeteoSwiss's precipitation radar over the map,
   under every marker and route, with a small panel bottom-left: ▶ plays the last hour in 5-minute
@@ -86,11 +93,21 @@ will keep holding.
   returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
   forwards the token to the board, map and status wall pages. The sheet now uses that `link`
   instead of building its own.
+- **The time-on-duty warning counts from arrival and rings once, not per person.** It measured how
+  long somebody had been on their *current* assignment, so moving a person to the next
+  Schadenplatz reset them to zero – somebody seven hours in, just moved, never showed up – and Aufträge
+  were not counted at all. It also raised one warning per person, with a sentence that changed every
+  hour, so a long night rang the bell for each name every hour. It now counts from the check-in
+  and is ONE notification naming everybody past the threshold, longest first («3 Personen seit über
+  4 h im Einsatz: …»), rewritten in place as people cross it. Dismissing it acknowledges the people
+  it named; anybody else past the threshold (crossed later, came back for a new shift, a lowered
+  threshold) raises a new one, as does the re-alarm interval if one is set. It goes away by itself
+  once nobody past the threshold is checked in any more. Several boards polling at once can no
+  longer raise it twice.
 - **↵ in ⌘K runs the best match.** Typing «neu» and pressing ↵ opened «Einstellungen»: the
   palette ranked commands only within their section, and «Navigation» comes first, so any
   loose match there (n…e…u in «Einstellungen») beat «Neuer Einsatz» further down. The whole
   list is now ranked by how well each entry matches, and the highlighted top row is what ↵ runs.
-
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
   every reload, so each change made by another device cost one request per card on every open
