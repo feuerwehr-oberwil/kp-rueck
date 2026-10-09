@@ -1,6 +1,6 @@
 # Same runtime as the published image (frontend/Dockerfile): Node 24, Active LTS. This one was
 # left on Node 20, past its 2026-04-30 end-of-life, when the production image moved.
-FROM public.ecr.aws/docker/library/node:24-alpine
+FROM node:24-alpine
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate

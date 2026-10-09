@@ -1192,10 +1192,10 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
         with:
-          # tileserver/Dockerfile's base (maptiler/tileserver-gl) is published on Docker Hub
-          # only, and Hub answers anonymous pulls past its rate limit with 429 — even the
-          # manifest HEAD (09.10.2026). BuildKit asks Google's Hub mirror first (same digest)
-          # and falls back to Hub itself. The other bases already come from ECR Public.
+          # The Dockerfiles name their bases on Docker Hub (so Dependabot can read them), and Hub
+          # answers anonymous pulls past its rate limit with 429 — even the manifest HEAD
+          # (09.10.2026). BuildKit asks Google's Hub mirror first (same digests) and falls back
+          # to Hub itself.
           buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["mirror.gcr.io"]
