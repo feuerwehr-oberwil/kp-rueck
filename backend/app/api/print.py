@@ -719,7 +719,7 @@ async def claim_print_job(
     # and both print the slip — the known "each job prints once, at random" hazard, defended
     # until now only by the prose rule that you must not run two agents. A single-row UPDATE
     # with the status in the WHERE clause is atomic, so exactly one claimant wins and the
-    # loser gets a clean 409. kp-front's print_relay._try_claim already did it this way.
+    # loser gets a clean 409.
     claimed = await execute_dml(
         db,
         sa_update(PrintJob)
