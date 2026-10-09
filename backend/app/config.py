@@ -339,6 +339,13 @@ class Settings(BaseSettings):
     divera_poll_interval_seconds: int = 30  # How often to poll when users are connected
     divera_poll_max_alarms: int = 50  # Maximum number of recent alarms to fetch per poll
 
+    # Station index (optional — docs/ROSTER-SNAPSHOT.md «Station index», app/station_index.py):
+    # ONE address for all the station's published data, an index.json listing the files by kind
+    # with checksums. When it lists a roster, that roster is read and ROSTER_SNAPSHOT_SOURCE below
+    # is only the fallback. Empty = nothing fetched.
+    station_index_source: str = ""
+    station_index_token: str = ""  # bearer token, sent only over https (index + same-host siblings)
+
     # Roster snapshot (optional — see docs/ROSTER-SNAPSHOT.md and app/services/roster_snapshot_sync.py)
     # Where the station's published `roster-snapshot/1` file lives: an https:// address or an
     # absolute path. Empty = nothing is fetched and the Divera roster sync is untouched.

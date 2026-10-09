@@ -46,6 +46,8 @@ export function RosterSnapshotStatus() {
   const refused = outcome?.refused ?? null
   const unmatched = (outcome?.unmatched ?? []).filter((u) => u.reason !== 'inactive_in_snapshot')
   const unknownRanks = outcome?.unknown_ranks ?? []
+  // Kinds the station index lists that this version does not read yet (vehicles, groups, …).
+  const notRead = (status?.index?.files ?? []).filter((f) => !f.known).map((f) => f.kind)
   const when = (iso: string) =>
     new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })
 
@@ -127,6 +129,13 @@ export function RosterSnapshotStatus() {
           <br />
           {t('fileDate', { time: when(status.lastGood.generatedAt) })}
           {status.lastSuccess && <> · {t('lastSuccess', { time: when(status.lastSuccess) })}</>}
+        </>
+      )}
+      {status?.index && (
+        <>
+          <br />
+          {t(status.via === 'index' ? 'viaIndex' : 'indexNoRoster', { time: when(status.index.generatedAt) })}
+          {notRead.length > 0 && <> {t('indexNotRead', { kinds: notRead.join(', ') })}</>}
         </>
       )}
       {status?.stale && (

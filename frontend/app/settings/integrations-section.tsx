@@ -132,7 +132,7 @@ export function IntegrationsSection() {
                           <br />
                           <span className="font-mono">
                             {domain === 'personnel' && capability.provider === 'roster-snapshot'
-                              ? 'ROSTER_SNAPSHOT_SOURCE'
+                              ? 'STATION_INDEX_SOURCE'
                               : DOMAIN_ENV[domain]}
                           </span>
                         </TableCell>
