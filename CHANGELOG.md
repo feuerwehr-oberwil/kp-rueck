@@ -30,14 +30,13 @@ will keep holding.
 
 ### Added
 
-- **Dienstzeiten: who is here, for how long, and how much they have done.** Every row of the
-  Personen-Leiste (and of the phone's Personal list) now shows how long the person has been on
-  duty, counted from their check-in – quiet grey, amber from the station's «Personalermüdung»
-  setting (4 h by default), red from one and a half times that. «Dienstzeiten» under the
-  sidebar's counter, in the phone's Personal sheet and in the command palette opens the overview:
-  everybody checked in, longest first, with since when, time on duty, the number of Einsätze
-  worked in this Ereignis (an Auftrag counts once, a drag that was undone within two minutes not
-  at all) and where they are now. A view, not a planner – nobody is scheduled or alerted from it.
+- **Dienstzeiten: who is here, for how long, and how much they have done.** «Dienstzeiten» under
+  the Personen-Leiste's counter, in the phone's Personal sheet and in the command palette opens an
+  overview of everybody checked in, longest on duty first: since when, time on duty (counted from
+  the check-in; amber from the station's «Personalermüdung» setting, 4 h by default, red from one
+  and a half times that), the number of Einsätze worked in this Ereignis (an Auftrag counts once,
+  a drag that was undone within two minutes not at all) and where they are now. The person rows
+  themselves stay as they were. A view, not a planner – nobody is scheduled or alerted from it.
 
 ### Changed
 

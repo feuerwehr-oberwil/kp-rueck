@@ -2171,7 +2171,6 @@ export default function FireStationDashboard() {
               personEngagements={personEngagements}
               followBinding={followBinding}
               rosterSummary={rosterSummary}
-              fatigueHours={fatigueHours}
               onOpenCrewDuty={() => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew')}
             />
           )}
