@@ -28,7 +28,7 @@ describe('ShellLoader', () => {
   })
 
   // The in-repo half of the drift check: the inlined path is the one in OUR copy of the
-  // snail. The `snail-drift` CI job compares that copy with kp-front's.
+  // snail. CI's «Shared files match KP Front» compares that copy with kp-front's.
   it('uses exactly the fs-shell-trail path of the shared snail SVG', () => {
     const svg = readFileSync(resolve(__dirname, '../../public/firefighter-snail-loader.svg'), 'utf8')
     const path = svg.match(/<path id="fs-shell-trail" d="([^"]+)"/)?.[1]

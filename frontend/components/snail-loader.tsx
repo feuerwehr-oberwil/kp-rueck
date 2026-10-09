@@ -9,8 +9,8 @@ import snailSvg from '../public/firefighter-snail-loader.svg?raw'
 
 /**
  * The firefighter snail, inline. `public/firefighter-snail-loader.svg` is KP Front's
- * mascot, copied byte-identical (it is edited in kp-front; the `snail-drift` CI job
- * compares the two). The SVG owns its motion — a 630 ms arrival, then a standing idle —
+ * mascot, copied byte-identical (it is edited in kp-front; it is in `shared/MANIFEST.json` and CI's
+ * «Shared files match KP Front» compares the two). The SVG owns its motion — a 630 ms arrival, then a standing idle —
  * and its own reduced-motion rule; it reads the shell colour from `--accent`, which in
  * Rück is shadcn's (blue) accent token, so the wrapper points it at the red `--primary`.
  *

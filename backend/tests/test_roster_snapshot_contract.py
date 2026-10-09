@@ -8,16 +8,14 @@ disconnectable, never required.
 
 **Why a copy and not a package.** `docs/RUNNING-BOTH.md` promises self-hosters separate
 databases, separate images, separate releases, no shared library and no runtime coupling.
-Neither app may import the other. So the copies stay copies and a checksum holds them together,
-exactly as `test_telemetry_vendored.py` does for the sanitiser and the shared alarm-keyword
-vocabulary does for its own file. Editing the contract is a two-repository change.
+Neither app may import the other. So the copies stay copies, listed with their sha256 in
+`shared/MANIFEST.json` beside the telemetry sanitiser and the alarm vocabulary. Editing the
+contract is a two-repository change (`shared/README.md`).
 
-**What this catches and what it cannot.** It compares the local files against literals recorded
-here, which catches an edit on this side. It does not read KP Front — edit a file there, update
-only that repository's literal, and both suites stay green while the two copies diverge. The
-cross-repo `roster-schema-drift` job in `.github/workflows/ci.yml` checks out both repositories
-and diffs every file listed in `VENDORED` and `SHARED`; it is the only thing that actually
-compares them.
+**Where the copy is checked.** `tests/test_shared_files.py` holds this repository's copies to the
+manifest, offline. CI's «Shared files match KP Front» job checks out both repositories and
+compares them; it is the only thing that does. This file keeps what is about the contract
+itself: no medical field, and the provider registry.
 
 **Since the ingestion landed, the copy covers the code too.** `app/roster_snapshot.py` (the
 contract module: parse + medical guard), `app/roster_snapshot_ingest.py` (fetch + reconcile:
@@ -27,7 +25,6 @@ so one published file lands the same way in both products. KP Rück's own half i
 `app/services/roster_snapshot_sync.py`.
 """
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -37,57 +34,10 @@ from app.api.integrations import integrations
 
 DOCS = Path(__file__).resolve().parents[2] / "docs"
 
-# sha256 of each vendored file, as it exists in feuerwehr-oberwil/kp-front.
-# Regenerate there with `just roster-schema`, copy both files across, run BOTH suites, and
-# update the hashes in BOTH repositories in the same change.
-VENDORED = {
-    "roster-snapshot.schema.json": "85c9cfab43c64f096a6b260f4892240fe0b7890acc7741b8be544698ef102cc0",
-    "roster-snapshot-outcome.schema.json": "131cedd7246ccac71f9e1017af8e61bebe998dc09f04cc47df8d5d9bac9e78a9",
-}
-
-#: The rest of what is byte-identical with kp-front, by repository-relative path (same on both
-#: sides). Backend files are present in the image too; the script and the CSV only in a checkout.
-SHARED = {
-    "backend/app/roster_snapshot.py": "864258b878395e09051151fd4d7b5d96c9ae986368f04c5aed943592395452a2",
-    "backend/app/roster_snapshot_ingest.py": "103a12de8b5ecbe7257d8c8203a759a3335d14be8b8efc61882babdc84151e94",
-    "scripts/roster_snapshot_from_csv.py": "fe9c63a4ad66503f09ed3fce12e745e165f549e3418ea5effe7e5837a306e926",
-    "docs/roster-snapshot.example.csv": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7",
-    "backend/app/station_index.py": "716244cbb091950960bafda389da325afc5e9ed3f0519467edec76e7029002e1",
-    "scripts/station_index_build.py": "dcc96aab573692c0778bdee49f49a7c7a1b0778138eee0da547711fe88e16cce",
-    "docs/station-index.schema.json": "e555a5a26b25ed51d5a5319b82c8455d122721d955596534a228504233843ba7",
-    "docs/station-index.example.json": "607b30f7add0a6e8a93a61e362c5151952872e91b48737f953f0aa6e18526428",
-}
+#: Both halves of the contract, shared byte for byte with kp-front (`shared/MANIFEST.json`).
+SCHEMAS = ("roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json")
 
 repo_only = pytest.mark.skipif(not DOCS.exists(), reason="repo root not available (running from the image)")
-
-
-@repo_only
-@pytest.mark.parametrize("path", sorted(SHARED))
-def test_shared_reader_matches_the_recorded_hash(path: str) -> None:
-    digest = hashlib.sha256((DOCS.parent / path).read_bytes()).hexdigest()
-    assert digest == SHARED[path], (
-        f"{path} changed. It is byte-identical with kp-front's copy: make the same edit there, run "
-        f"BOTH suites, and update the hash in BOTH repositories in the same change."
-    )
-
-
-@repo_only
-@pytest.mark.parametrize("name", sorted(VENDORED))
-def test_vendored_schema_matches_the_recorded_hash(name: str) -> None:
-    path = DOCS / name
-    assert path.exists(), f"{name} is missing — the vendored copy must not be deleted"
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert digest == VENDORED[name], (
-        f"docs/{name} no longer matches the hash recorded here.\n"
-        f"Copy the file across from kp-front, run BOTH test suites, and update the hash in BOTH "
-        f"repositories in the same change. Do NOT just update the hash — see this module's docstring."
-    )
-
-
-@repo_only
-def test_both_halves_of_the_contract_are_pinned() -> None:
-    # Pinning the document but not the outcome report would leave half the contract free to move.
-    assert set(VENDORED) == {"roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json"}
 
 
 @repo_only
@@ -150,7 +100,7 @@ def test_the_contract_carries_no_medical_field() -> None:
 
     offenders = [
         f"{name}: {prop}"
-        for name in sorted(VENDORED)
+        for name in SCHEMAS
         for prop in names(json.loads((DOCS / name).read_text(encoding="utf-8")))
         if any(stem in prop.lower().replace("_", "").replace("-", "") for stem in stems)
     ]

@@ -264,6 +264,16 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Changed
 
+- **Files shared with KP Front are checked from both sides.** Five CI jobs compared five sets of
+  files with KP Front's `main`, and only from this side: telemetry, alarm keywords, roster
+  contract, alarm intake and snail. One job, «Shared files match KP Front», now does all of it.
+  It reads `shared/MANIFEST.json`, which lists every shared file with its owner and sha256 and
+  replaces the hash literals in the tests. It runs the stdlib `scripts/check_shared.py`. KP Front
+  runs the same job against this repository. Each side compares against the other's branch
+  of the same name, else its `main`, so a paired change is green in both PRs at once.
+  `scripts/check-snail-drift.mjs` is gone, and `shared/README.md` says how to change a shared
+  file. *No action needed.*
+
 - **The bell speaks French too.** A notification used to be one German sentence composed on the
   server, which the board then took apart again with regular expressions to lay it out – so a
   French-speaking KP read German in the bell, the toasts and the Warnungen panel. Every

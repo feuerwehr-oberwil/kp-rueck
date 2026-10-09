@@ -361,10 +361,9 @@ Grenze, Bericht und alle Sicherungen in [ROSTER-SNAPSHOT.md](ROSTER-SNAPSHOT.md)
 der Registry-Eintrag steht auf `implemented: true`. Die Schema-Dateien **und der
 Code, der sie liest** (`backend/app/roster_snapshot.py`,
 `backend/app/roster_snapshot_ingest.py`) sind byte-identische Kopien der
-KP-Front-Dateien, per Prüfsumme gepinnt
-(`backend/tests/test_roster_snapshot_contract.py`) und vom CI-Job
-`roster-schema-drift` verglichen; geändert wird das in beiden Repositories in
-einer Änderung. Die beiden Produkte teilen dabei weiterhin keine Bibliothek und
+KP-Front-Dateien, mit Prüfsumme in `shared/MANIFEST.json` eingetragen und vom
+CI-Job «Shared files match KP Front» verglichen; geändert wird das in beiden
+Repositories in einer Änderung (`shared/README.md`). Die beiden Produkte teilen dabei weiterhin keine Bibliothek und
 rufen einander nicht auf (siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt
 wird eine Datei, nicht Laufzeit.
 

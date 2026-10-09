@@ -266,7 +266,7 @@ runs: http://localhost:8000/docs
 **Integration seams** (provider-neutral, see `docs/ALARM-INTEGRATIONS.md`):
 - Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach); the pool table carries `source`/`source_id` provenance, incidents carry `source`/`source_ref`.
 - Outbound alerting (Ausalarmierung) goes through the `AlarmProvider` protocol in `services/alerting/` (Divera = first adapter).
-- A published roster file (`STATION_INDEX_SOURCE` → `index.json`, fallback `ROSTER_SNAPSHOT_SOURCE`; `docs/ROSTER-SNAPSHOT.md`) is read by `services/roster_snapshot_sync.py`; the contracts and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `app/station_index.py`, `scripts/roster_snapshot_from_csv.py`, `scripts/station_index_build.py`) are byte-identical with kp-front and edited THERE first – pinned in `tests/test_roster_snapshot_contract.py`, diffed by `roster-schema-drift` (which compares against kp-front's branch of the same name on a PR).
+- A published roster file (`STATION_INDEX_SOURCE` → `index.json`, fallback `ROSTER_SNAPSHOT_SOURCE`; `docs/ROSTER-SNAPSHOT.md`) is read by `services/roster_snapshot_sync.py`; the contracts and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `app/station_index.py`, `scripts/roster_snapshot_from_csv.py`, `scripts/station_index_build.py`) are byte-identical with kp-front and edited THERE first – listed in `shared/MANIFEST.json` (see below).
 - Personnel provider identity lives in `personnel_external_identities` — the only place a person's provider-side id exists (the deprecated `personnel.divera_user_id` dual-write was dropped in migration `b7c2e5a1d4f8`). The personnel API exposes only a `divera_linked` boolean.
 - Printing: transport-neutral job queue + pull agent (`docs/PRINT_AGENT.md`).
 
@@ -377,6 +377,13 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
 - **State management**: Centralized in React Context with API sync
 - **Real-time updates via WebSockets** (Socket.IO server in `backend/app/websocket_manager.py`, client in `frontend/lib/websocket-client.ts`). Polling remains as a fallback path. Originally polling-only in MVP; WebSockets were added in commit `b67360d` for live driver/assignment updates.
 - **Training vs Live**: Same database, filtered by `training_flag` on incidents
+- **Files shared with KP Front by copy** – telemetry sanitiser, alarm keyword vocabulary,
+  roster-snapshot contract + reader, alarm intake corpus, the snail – are listed in
+  `shared/MANIFEST.json` (path per repo, owner, sha256). Edit them in the owner (kp-front) first,
+  copy byte for byte, `python3 scripts/check_shared.py --update` in both, and push both PRs on
+  branches with the SAME name: the required CI check «Shared files match KP Front» compares
+  against kp-front's branch of that name. Never re-record a hash on one side to turn it green.
+  Step by step: `shared/README.md`.
 - **i18n**: German is canonical (`messages/de.json`); `fr`/`it` are deep-partial overlays
   merged over German (`lib/i18n-messages.ts`) – missing keys fall back to the German string.
   The language picker in Settings offers a locale only when its overlay covers **every** German
@@ -411,9 +418,8 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
 - **The snail is shared with KP Front and edited there.** `frontend/public/firefighter-snail-loader.svg`
   is a byte-identical copy of kp-front's `public/firefighter-snail-loader.svg`, and
   `SHELL_TRAIL_PATH` is its `fs-shell-trail` path. Never edit either here; colour it from the
-  outside (`--accent` is pointed at `--primary`). The `snail-drift` CI job
-  (`scripts/check-snail-drift.mjs`) compares both with kp-front, like the telemetry, alarm
-  keyword, roster and alarm-contract drift jobs.
+  outside (`--accent` is pointed at `--primary`). The SVG is in `shared/MANIFEST.json`;
+  `shell-loader.test.tsx` holds `SHELL_TRAIL_PATH` to it.
 - **Toasts – one message surface**: one lane, `components/ui/sonner.tsx` (sonner runs `unstyled`;
   its injected CSS is unlayered and beats every Tailwind utility, so tone classes on a call site do
   nothing). Same neutral card for every type, tone only in the glyph; `toast.error` is the only

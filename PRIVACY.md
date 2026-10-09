@@ -136,8 +136,9 @@ A field nobody wrote a line of code for cannot leak. Free text is additionally s
 the value is often *inside* the message — `TypeError … at Hauptstrasse 12` is a real shape.
 
 `scrub.py` and the four modules around it are kept byte-identical to the copies in
-[KP Front](https://github.com/feuerwehr-oberwil/kp-front), enforced by
-`backend/tests/test_telemetry_vendored.py`. A rule tightened in one app and not the other would
+[KP Front](https://github.com/feuerwehr-oberwil/kp-front): they are listed in
+`shared/MANIFEST.json`, held to it by `backend/tests/test_shared_files.py`, and compared with
+KP Front's copies by CI on every pull request in either repository. A rule tightened in one app and not the other would
 mean one of them quietly leaks what the other strips.
 
 ## How to check, rather than trust

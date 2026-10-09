@@ -148,7 +148,7 @@ extend-immutable-calls = [
 # that must be re-runnable. Rewriting generated files by hand only invites merge pain.
 "alembic/versions/**" = ["S608", "S110", "SIM105", "I001", "W291", "E402"]
 # The vendored telemetry modules are byte-identical with kp-front and pinned by checksum
-# (tests/test_telemetry_vendored.py). kp-front DOES select BLE, so its copies carry
+# (shared/MANIFEST.json). kp-front DOES select BLE, so its copies carry
 # `# noqa: BLE001`; here those directives look unused. Stripping them would break the
 # identity the checksum protects, so RUF100 is off for these five files specifically.
 "app/telemetry/scrub.py" = ["RUF100"]

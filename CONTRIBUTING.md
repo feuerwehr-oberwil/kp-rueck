@@ -92,6 +92,12 @@ chore: update dependencies
 4. **Test manually** in the browser
 5. **Describe your changes:** explain what and why in the PR description
 6. **Run linting:** ensure `just lint` passes before submitting
+7. **Shared files are a two-repository change.** A file listed in
+   [`shared/MANIFEST.json`](shared/MANIFEST.json) (telemetry sanitiser, alarm keyword
+   vocabulary, roster-snapshot contract and reader, alarm intake corpus, the snail) is a
+   byte-identical copy of KP Front's. Change it there and here on branches with the same name,
+   as described in [`shared/README.md`](shared/README.md). CI's «Shared files match KP Front»
+   fails otherwise.
 
 ## Releases (maintainers)
 

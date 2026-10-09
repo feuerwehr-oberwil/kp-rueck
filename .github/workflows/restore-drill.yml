@@ -4,7 +4,7 @@ name: Restore drill
 # the risk. The risk is the file that turns out to be unreadable, or restorable only onto the
 # machine it came from, and the only way to know is to do it.
 #
-# Same reasoning as the telemetry-drift job: a documented procedure nobody runs is a guess. This
+# Same reasoning as the shared-files job in ci.yml: a documented procedure nobody runs is a guess. This
 # one runs the procedure a station would run, on a schedule, so it fails here on a Monday rather
 # than at the command post on a Saturday.
 #

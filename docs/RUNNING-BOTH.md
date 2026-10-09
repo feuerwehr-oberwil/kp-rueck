@@ -194,8 +194,8 @@ they are the whole list:
 **None of this is prose you have to trust.** `docs/alarm-intake-conformance.json` carries the
 contract as cases – a portable set both products must answer identically, and the payloads they
 legitimately answer differently, recorded per product so the list cannot grow unnoticed. It is
-byte-identical in both repositories, each suite asserts its own column, and the
-`alarm-contract-drift` CI job is what compares the two copies. If you want to know whether a
+byte-identical in both repositories, each suite asserts its own column, and CI's «Shared
+files» job, in both repositories, is what compares the two copies (§4 · *Shared files*). If you want to know whether a
 body works against both, look there rather than here: this page can go stale, and did.
 
 Each system's intake is also documented in its own `docs/ALARM-INTEGRATIONS.md`.
@@ -218,7 +218,7 @@ Worth stating, so you don't go looking for problems that aren't there:
 - **The alarm keyword vocabulary.** Both ship the same list of German alarm words
   (`backend/app/data/alarm_keywords.json`) so an alert classifies the same way in both. It is
   **vendored, not shared**: a byte-identical copy in each repository, kept in step by a CI job
-  that diffs them – no package, no import, still no runtime coupling. Nothing to install and
+  that compares them (*Shared files*, below) – no package, no import, still no runtime coupling. Nothing to install and
   nothing to point at the other stack. If your dispatch words are not these, override them per
   deployment (KP Front: `alarmKeywords` in the deployment config) rather than editing the file –
   editing it puts your build at odds with the copy in the other repository.
@@ -231,6 +231,15 @@ Worth stating, so you don't go looking for problems that aren't there:
   > ⚠️ **Run one agent per queue.** Two agents polling one queue both claim jobs, and each job
   > then prints once, from whichever asked first – prints that "sometimes don't arrive" while
   > both logs look healthy.
+- **Shared files.** The keyword vocabulary is one of a handful of files the two products keep
+  as byte-identical copies: the telemetry sanitiser, the roster-snapshot contract and the code
+  that reads it, the alarm intake corpus, the loading snail. `shared/MANIFEST.json` (the same
+  file in both repositories) lists each one with its path on each side, the repository that owns
+  it and its sha256; `scripts/check_shared.py` checks them, and each repository's CI runs it
+  against the other's branch of the same name, so a change made in both on equally named
+  branches is green in both pull requests together. For a self-hoster this is build-time only:
+  nothing is fetched at runtime. For a contributor, changing one of these files is a
+  two-repository change – step by step in [`shared/README.md`](../shared/README.md).
 
 ---
 
