@@ -15407,7 +15407,7 @@
           "stats"
         ],
         "summary": "Get Event Stats",
-        "description": "Get real-time statistics for an event.\n\nReturns:\n    - Active incidents count by status\n    - Personnel availability (X/Y available)\n    - Average incident duration\n    - Resource utilization percentage\n    - Kennzahlen: Lage counts and Reaktionszeiten per priority (median / P90),\n      the same stage times as the PDF's Reaktionszeiten table",
+        "description": "Get real-time statistics for an event.\n\nReturns:\n    - Active incidents count by status\n    - Personnel availability (X/Y available)\n    - Average incident duration\n    - Resource utilization percentage",
         "operationId": "get_event_stats_api_events__event_id__stats_get",
         "parameters": [
           {
@@ -15460,6 +15460,82 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/figures": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Event Figures",
+        "description": "Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)\nand the oldest «hoch» Meldung still waiting.\n\nThe same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).\nIts own route rather than part of ``/stats``: the board and the wall reload it every\n10 s, and this needs two queries (incidents, their transitions), nothing else.",
+        "operationId": "get_event_figures_api_events__event_id__figures_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventFigures"
                 }
               }
             }
@@ -22277,9 +22353,6 @@
             "type": "number",
             "title": "Resource Utilization Percent"
           },
-          "figures": {
-            "$ref": "#/components/schemas/EventFigures"
-          },
           "personnel_activity": {
             "items": {
               "$ref": "#/components/schemas/PersonnelActivity"
@@ -22295,8 +22368,7 @@
           "personnel_available",
           "personnel_total",
           "avg_duration_minutes",
-          "resource_utilization_percent",
-          "figures"
+          "resource_utilization_percent"
         ],
         "title": "EventStats",
         "description": "Real-time statistics for an event."

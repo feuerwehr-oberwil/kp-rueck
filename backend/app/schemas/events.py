@@ -171,7 +171,6 @@ class EventStats(BaseModel):
     personnel_total: int
     avg_duration_minutes: int
     resource_utilization_percent: float
-    figures: EventFigures
     personnel_activity: list[PersonnelActivity] = []
 
 

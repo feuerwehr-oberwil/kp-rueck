@@ -1535,6 +1535,11 @@ class ApiClient {
     return this.request<ApiEventStats>(`/api/events/${eventId}/stats`)
   }
 
+  /** Kennzahlen: Lage counts + Reaktionszeiten per priority (the PDF's stage times). */
+  async getEventFigures(eventId: string): Promise<ApiEventFigures> {
+    return this.request<ApiEventFigures>(`/api/events/${eventId}/figures`)
+  }
+
   // Training Automation
   async generateTrainingEmergency(
     eventId: string,

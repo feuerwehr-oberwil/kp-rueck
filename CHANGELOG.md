@@ -40,7 +40,8 @@ will keep holding.
   Einsätze. The numbers come from the same computation as the PDF's Reaktionszeiten table
   (`services/reaction_times.py`), so the wall and the debrief cannot disagree. Nothing similar
   existed in the settings: the old `/stats` page (user menu) was removed in January and its widget
-  in July; `GET /events/{id}/stats` had no caller and now carries the figures.
+  in July. The figures have their own light route, `GET /events/{id}/figures` (incidents +
+  transitions, nothing else), since the board and the wall reload them every 10 s.
 
 ### Changed
 
@@ -74,7 +75,10 @@ will keep holding.
   dragged straight from Eingegangen to «Im Einsatz» had no «→ Disponiert»; it now counts as
   dispatched when it first reached any dispatched status. A reopened incident printed its first
   «Abgeschlossen»; the Abschluss is now the closing that stuck, and empty while it is open again.
-  A Meldung closed without anybody going out still has no reaction time.
+  A Meldung closed without anybody going out still has no reaction time. An incident created
+  already dispatched (/feld «Wir übernehmen» writes no status change for it) counts as dispatched at
+  Eingang instead of at the crew's arrival, and a move taken back within two minutes (a mis-drag)
+  no longer counts as reaching that stage.
 - **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
   internal codes (`high`, `active`) rather than the words on the card, so «hoch» or «einsatz»
   found nothing while a fragment like «in» or «com» found every card in a column. The search now

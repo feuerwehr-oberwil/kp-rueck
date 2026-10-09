@@ -13,8 +13,8 @@ export interface EventFiguresState {
 /**
  * The Kennzahlen of one Ereignis, kept fresh while somebody looks at them.
  *
- * Read off `GET /events/{id}/stats` (`figures`), whose reaction times are the PDF's
- * own computation. Polls every 10 s while `enabled`: the numbers are aggregates over
+ * Read off `GET /events/{id}/figures` — two queries, cheap enough for a wall that
+ * reloads it — whose reaction times are the PDF's own computation. Polls every 10 s while `enabled`: the numbers are aggregates over
  * the whole Ereignis, a few seconds behind the board is fine, and the oldest-waiting
  * age re-renders with each answer. `pauseWhenHidden` is the caller's — a wall passes
  * false (see `usePolling`).
@@ -33,12 +33,12 @@ export function useEventFigures(
   const load = useCallback(async () => {
     if (!eventId) return
     try {
-      const stats = await apiClient.getEventStats(eventId)
-      if (!stats?.figures) {
+      const figures = await apiClient.getEventFigures(eventId)
+      if (!figures) {
         setState((prev) => ({ ...prev, failed: true }))
         return
       }
-      setState({ figures: stats.figures, failed: false })
+      setState({ figures, failed: false })
     } catch {
       setState((prev) => ({ ...prev, failed: true }))
     }

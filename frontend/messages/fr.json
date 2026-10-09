@@ -628,7 +628,7 @@
       "legendMedian": "Médiane",
       "legendP90": "jusqu’au P90",
       "noneYet": "aucune encore",
-      "definitions": "Temps depuis la réception jusqu’à la première atteinte de l’étape ; une carte qui a sauté une colonne compte quand même. Clôture = dernière clôture : une annonce rouverte ne compte qu’une fois clôturée à nouveau. P90 = 9 interventions sur 10 ont été aussi rapides ou plus rapides. Les mêmes valeurs que dans le rapport d’intervention (PDF).",
+      "definitions": "Temps depuis la réception jusqu’à la première atteinte de l’étape ; une carte qui a sauté une colonne compte quand même. Une annonce créée déjà engagée (terrain « Nous prenons en charge ») compte pour 0′ ; un déplacement annulé dans les 2 minutes ne compte pas. Clôture = dernière clôture : une annonce rouverte ne compte qu’une fois clôturée à nouveau. P90 = 9 interventions sur 10 ont été aussi rapides ou plus rapides. Les mêmes valeurs que dans le rapport d’intervention (PDF).",
       "empty": "Aucune annonce dans cet événement pour l’instant.",
       "loading": "Chargement des indicateurs …",
       "loadFailed": "Impossible de charger les indicateurs.",

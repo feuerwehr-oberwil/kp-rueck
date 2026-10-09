@@ -110,5 +110,4 @@ export interface ApiEventStats {
   personnel_total: number
   avg_duration_minutes: number
   resource_utilization_percent: number
-  figures: ApiEventFigures
 }

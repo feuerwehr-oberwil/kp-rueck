@@ -106,7 +106,8 @@ LABELS: dict[str, str] = {
     # that skipped a column still counts as dispatched; a reopened one is closed
     # by its last «Abgeschlossen».
     "reaction_hint": (
-        "Zeit ab Eingang bis zum ersten Erreichen der Stufe (auch wenn eine Spalte übersprungen wurde), "
+        "Zeit ab Eingang bis zum ersten Erreichen der Stufe (auch wenn eine Spalte übersprungen wurde; "
+        "schon disponiert angelegt = 0:00; innert 2 Minuten Zurückgenommenes zählt nicht), "
         "Abschluss = letzter Abschluss. In hh:mm."
     ),
     "col_to_reko": "→ Reko",

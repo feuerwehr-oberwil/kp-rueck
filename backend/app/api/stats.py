@@ -29,8 +29,6 @@ async def get_event_stats(
         - Personnel availability (X/Y available)
         - Average incident duration
         - Resource utilization percentage
-        - Kennzahlen: Lage counts and Reaktionszeiten per priority (median / P90),
-          the same stage times as the PDF's Reaktionszeiten table
     """
     # Verify event exists
     event_result = await db.execute(select(models.Event).where(models.Event.id == event_id))
@@ -113,5 +111,34 @@ async def get_event_stats(
         personnel_total=total_personnel,
         avg_duration_minutes=avg_duration_minutes,
         resource_utilization_percent=round(utilization, 1),
-        figures=schemas.EventFigures.model_validate(await load_event_figures(db, incidents)),
     )
+
+
+@router.get("/{event_id}/figures", response_model=schemas.EventFigures)
+async def get_event_figures(
+    event_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> schemas.EventFigures:
+    """Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)
+    and the oldest «hoch» Meldung still waiting.
+
+    The same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).
+    Its own route rather than part of ``/stats``: the board and the wall reload it every
+    10 s, and this needs two queries (incidents, their transitions), nothing else.
+    """
+    event = await db.get(models.Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    incidents = (
+        (
+            await db.execute(
+                select(models.Incident).where(
+                    models.Incident.event_id == event_id, models.Incident.deleted_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return schemas.EventFigures.model_validate(await load_event_figures(db, incidents))

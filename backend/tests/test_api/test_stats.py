@@ -439,8 +439,8 @@ async def test_get_stats_utilization_rounded(
 async def test_get_stats_figures_reaction_times(
     authenticated_client: AsyncClient, db_session: AsyncSession, test_event: Event
 ):
-    """The Kennzahlen ride on the stats endpoint: counts per bucket and the
-    Reaktionszeiten per priority, read off the status transitions."""
+    """GET /events/{id}/figures: counts per bucket and the Reaktionszeiten per
+    priority, read off the status transitions."""
     from app.models import StatusTransition
 
     t0 = datetime.now(UTC) - timedelta(hours=2)
@@ -507,9 +507,9 @@ async def test_get_stats_figures_reaction_times(
     )
     await db_session.commit()
 
-    response = await authenticated_client.get(f"/api/events/{test_event.id}/stats")
+    response = await authenticated_client.get(f"/api/events/{test_event.id}/figures")
     assert response.status_code == 200
-    figures = response.json()["figures"]
+    figures = response.json()
 
     assert (figures["total"], figures["waiting"], figures["in_progress"], figures["done"]) == (3, 1, 2, 0)
     high = next(p for p in figures["by_priority"] if p["priority"] == "high")
@@ -520,3 +520,11 @@ async def test_get_stats_figures_reaction_times(
     assert low["closed"]["count"] == 0
     assert figures["oldest_waiting_high"]["incident_id"] == str(waiting.id)
     assert figures["oldest_waiting_high"]["title"] == "Baum"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_get_figures_requires_auth_and_an_event(client: AsyncClient, authenticated_client: AsyncClient):
+    assert (await authenticated_client.get(f"/api/events/{uuid4()}/figures")).status_code == 404
+    client.cookies.clear()
+    assert (await client.get(f"/api/events/{uuid4()}/figures")).status_code == 401

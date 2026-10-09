@@ -13,8 +13,10 @@ def _inc(status: str = "incoming", priority: str = "medium", created: datetime |
     return SimpleNamespace(id=uuid4(), status=status, priority=priority, title=title, created_at=created)
 
 
-def _t(inc, to_status: str, minutes: float):
-    return SimpleNamespace(incident_id=inc.id, to_status=to_status, timestamp=T0 + timedelta(minutes=minutes))
+def _t(inc, to_status: str, minutes: float, from_status: str | None = None):
+    return SimpleNamespace(
+        incident_id=inc.id, from_status=from_status, to_status=to_status, timestamp=T0 + timedelta(minutes=minutes)
+    )
 
 
 class TestStageTimes:
@@ -70,6 +72,57 @@ class TestStageTimes:
             [_t(inc, "active", 10), _t(inc, "complete", 40), _t(inc, "active", 50), _t(inc, "complete", 90)],
         )[inc.id]
         assert times.closed == 90 * 60
+
+    def test_created_enroute_without_records_is_dispatched_at_eingang(self):
+        # /feld «Wir übernehmen»: born `enroute`, no transition row for it.
+        inc = _inc(status="enroute")
+        times = stage_times([inc], [])[inc.id]
+        assert times.dispatched == 0
+        assert times.on_scene is None
+
+    def test_created_enroute_then_arrived(self):
+        inc = _inc(status="active")
+        times = stage_times([inc], [_t(inc, "active", 25, from_status="enroute")])[inc.id]
+        # Disponiert at Eingang, not at the crew's arrival 25 minutes later.
+        assert times.dispatched == 0
+        assert times.on_scene == 25 * 60
+
+    def test_plain_incoming_without_records_reaches_nothing(self):
+        inc = _inc(status="incoming")
+        times = stage_times([inc], [])[inc.id]
+        assert (times.reko, times.dispatched, times.on_scene) == (None, None, None)
+
+    def test_misdrag_put_right_within_two_minutes_is_not_a_dispatch(self):
+        inc = _inc(status="enroute")
+        times = stage_times(
+            [inc],
+            [
+                _t(inc, "enroute", 1, from_status="incoming"),
+                _t(inc, "incoming", 1.5, from_status="enroute"),
+                _t(inc, "enroute", 20, from_status="incoming"),
+            ],
+        )[inc.id]
+        assert times.dispatched == 20 * 60
+
+    def test_moving_back_after_two_minutes_keeps_the_dispatch(self):
+        inc = _inc(status="enroute")
+        times = stage_times(
+            [inc],
+            [
+                _t(inc, "enroute", 5, from_status="incoming"),
+                _t(inc, "incoming", 9, from_status="enroute"),
+                _t(inc, "enroute", 30, from_status="incoming"),
+            ],
+        )[inc.id]
+        assert times.dispatched == 5 * 60
+
+    def test_moving_on_quickly_is_progress_not_a_correction(self):
+        inc = _inc(status="active")
+        times = stage_times(
+            [inc], [_t(inc, "enroute", 5, from_status="incoming"), _t(inc, "active", 5.5, from_status="enroute")]
+        )[inc.id]
+        assert times.dispatched == 5 * 60
+        assert times.on_scene == 5.5 * 60
 
     def test_transition_before_creation_clamps_to_zero(self):
         inc = _inc(status="enroute")

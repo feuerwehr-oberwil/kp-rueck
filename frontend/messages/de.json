@@ -2416,7 +2416,7 @@
       "legendMedian": "Median",
       "legendP90": "bis P90",
       "noneYet": "noch keine",
-      "definitions": "Zeit ab Eingang bis zum ersten Erreichen der Stufe; eine Karte, die eine Spalte übersprungen hat, zählt trotzdem. Abschluss = letzter Abschluss: eine wieder geöffnete Meldung zählt erst, wenn sie erneut abgeschlossen ist. P90 = 9 von 10 Einsätzen waren gleich schnell oder schneller. Dieselben Werte wie im Einsatzbericht (PDF).",
+      "definitions": "Zeit ab Eingang bis zum ersten Erreichen der Stufe; eine Karte, die eine Spalte übersprungen hat, zählt trotzdem. Eine Meldung, die schon disponiert angelegt wurde (Feld «Wir übernehmen»), zählt mit 0′; eine Verschiebung, die innert 2 Minuten zurückgenommen wurde, zählt nicht. Abschluss = letzter Abschluss: eine wieder geöffnete Meldung zählt erst, wenn sie erneut abgeschlossen ist. P90 = 9 von 10 Einsätzen waren gleich schnell oder schneller. Dieselben Werte wie im Einsatzbericht (PDF).",
       "empty": "Noch keine Meldungen in diesem Ereignis.",
       "loading": "Kennzahlen werden geladen …",
       "loadFailed": "Kennzahlen konnten nicht geladen werden.",

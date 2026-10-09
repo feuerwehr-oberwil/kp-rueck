@@ -26,6 +26,16 @@ again, the closing that stuck is the one that counts. The first two stages keep 
 FIRST reach — they measure how fast the KP reacted, and a later re-entry (Rückfahrt →
 Einsatz) does not undo that.
 
+**Where it started.** The status an incident was created in counts as reached at
+Eingang (0′): /feld «Wir übernehmen» creates it straight as ``enroute`` without a
+transition, and reading only transitions made its Disponiert the crew's arrival. The
+initial status is the first transition's ``from_status``, or the current status when
+there is none.
+
+**Corrections.** A stage left again *backwards* within two minutes (a mis-drag put
+right, an undo) was not reached; the next real entry counts. Moving on (Disponiert →
+Im Einsatz a minute later) is progress and keeps the reach.
+
 A transition stamped before the incident's own ``created_at`` (clock skew, a backfilled
 alarm) clamps to 0 rather than producing a negative reaction time.
 
@@ -41,7 +51,7 @@ import statistics
 import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
 from sqlalchemy import select
@@ -66,6 +76,15 @@ DONE_STATUSES = frozenset({"complete"})
 
 PRIORITIES = ("high", "medium", "low")
 
+#: Board order — «behind» a stage means a lower rank than its first status.
+STATUS_RANK = {
+    s: i for i, s in enumerate(("incoming", "reko", "reko_done", "enroute", "active", "returning", "complete"))
+}
+
+#: A stage left again backwards within this long was a correction (mis-drag, undo),
+#: not a reach — the same two minutes the crew's time on duty ignores a release in.
+CORRECTION_WINDOW = timedelta(minutes=2)
+
 
 class _IncidentLike(Protocol):
     """Read-only view of an incident — a model row, or a plain object in a test."""
@@ -85,6 +104,8 @@ class _IncidentLike(Protocol):
 class _TransitionLike(Protocol):
     @property
     def incident_id(self) -> uuid.UUID: ...
+    @property
+    def from_status(self) -> str | None: ...
     @property
     def to_status(self) -> str: ...
     @property
@@ -153,16 +174,53 @@ def _seconds_since(start: datetime, at: datetime) -> float:
     return max(0.0, (at - start).total_seconds())
 
 
+def _initial_status(inc: _IncidentLike, timeline: Sequence[tuple[datetime, str, str | None]]) -> str:
+    """The status the incident was CREATED in.
+
+    Not always «incoming»: /feld «Wir übernehmen» creates the incident straight as
+    ``enroute`` and writes no transition for it. The first transition's
+    ``from_status`` says where it started; with no transition at all, the current
+    status is the one it was created in.
+    """
+    if timeline:
+        return timeline[0][2] or "incoming"
+    return inc.status
+
+
+def _first_reach(stage: Stage, start: datetime, steps: Sequence[tuple[datetime, str]]) -> float | None:
+    """First time ``steps`` entered ``stage`` and was not taken back as a correction.
+
+    A reach counts unless the incident went back BEHIND the stage within
+    ``CORRECTION_WINDOW`` (a mis-drag put right at once). Moving on to a later
+    status — Disponiert → Im Einsatz a minute later — is progress, not a correction.
+    """
+    statuses = STAGE_STATUSES[stage]
+    floor = min(STATUS_RANK[s] for s in statuses)
+    for i, (at, status) in enumerate(steps):
+        if status not in statuses or (i > 0 and steps[i - 1][1] in statuses):
+            continue
+        taken_back = False
+        for later_at, later_status in steps[i + 1 :]:
+            if later_at - at >= CORRECTION_WINDOW:
+                break
+            if STATUS_RANK.get(later_status, floor) < floor:
+                taken_back = True
+                break
+        if not taken_back:
+            return _seconds_since(start, at)
+    return None
+
+
 def stage_times(
     incidents: Iterable[_IncidentLike],
     transitions: Iterable[_TransitionLike],
 ) -> dict[uuid.UUID, StageTimes]:
     """Stage times per incident — the shared core of the PDF table and the Kennzahlen."""
-    # (when, to_status) per incident, timestamps normalised; a row without one is dropped.
-    by_incident: dict[uuid.UUID, list[tuple[datetime, str]]] = {}
+    # (when, to_status, from_status) per incident, timestamps normalised; a row without one is dropped.
+    by_incident: dict[uuid.UUID, list[tuple[datetime, str, str | None]]] = {}
     for t in transitions:
         if t.timestamp is not None:
-            by_incident.setdefault(t.incident_id, []).append((_utc(t.timestamp), t.to_status))
+            by_incident.setdefault(t.incident_id, []).append((_utc(t.timestamp), t.to_status, t.from_status))
 
     result: dict[uuid.UUID, StageTimes] = {}
     for inc in incidents:
@@ -170,21 +228,17 @@ def stage_times(
             result[inc.id] = StageTimes()
             continue
         start = _utc(inc.created_at)
-        first: dict[Stage, float] = {}
-        last_complete: datetime | None = None
-        for at, to_status in sorted(by_incident.get(inc.id, [])):
-            for stage in ("reko", "dispatched", "on_scene"):
-                if stage not in first and to_status in STAGE_STATUSES[stage]:
-                    first[stage] = _seconds_since(start, at)
-            if to_status in STAGE_STATUSES["closed"]:
-                last_complete = at
+        timeline = sorted(by_incident.get(inc.id, []), key=lambda row: row[0])
+        # The status it was created in counts as reached at Eingang (0′).
+        steps = [(start, _initial_status(inc, timeline))] + [(at, to) for at, to, _ in timeline]
+        last_complete = next((at for at, status in reversed(steps) if status in DONE_STATUSES), None)
         closed = (
             _seconds_since(start, last_complete) if last_complete is not None and inc.status in DONE_STATUSES else None
         )
         result[inc.id] = StageTimes(
-            reko=first.get("reko"),
-            dispatched=first.get("dispatched"),
-            on_scene=first.get("on_scene"),
+            reko=_first_reach("reko", start, steps),
+            dispatched=_first_reach("dispatched", start, steps),
+            on_scene=_first_reach("on_scene", start, steps),
             closed=closed,
         )
     return result
