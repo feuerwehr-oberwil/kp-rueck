@@ -2,9 +2,9 @@
 
 **This is the only part of the agent with third-party dependencies** (`python-escpos`,
 `pillow`, pulled in via `formatters`). They are imported inside `print_job`, not at module
-import time, so a CUPS-only station can run the agent straight from a stdlib Python with
-nothing installed — the bare-Pi install path this project actually uses. Import this module
-freely; it only reaches for the packages when a job is really being printed.
+import time, so the agent starts on a stdlib Python with nothing installed (a dry run needs
+nothing more, and a real job reports what is missing). Import this module freely; it only
+reaches for the packages when a job is really being printed.
 
 Note on the filename: this is `outputs/escpos.py` while the dependency is the top-level
 `escpos` package. That is safe — Python 3 imports are absolute, so `from escpos.printer
@@ -58,7 +58,6 @@ class EscposOutput:
     """
 
     name = "escpos"
-    consumes = "payload"
 
     def __init__(self, ip: str = "", port: int = 9100, *, dry_run: bool = False,
                  connect_timeout_sec: float = DEFAULT_CONNECT_TIMEOUT_SEC,

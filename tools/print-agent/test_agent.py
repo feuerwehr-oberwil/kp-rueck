@@ -1,10 +1,10 @@
-"""End-to-end tests for the unified print agent, against stub backends.
+"""End-to-end tests for the print agent, against stub backends.
 
 The agent cannot be proven on real hardware in CI, so these tests drive the whole path that
-does not need a printer: the real HTTP client against a real (stub) HTTP server speaking each
-backend's actual wire contract, the real claim/report state machine, and the real CUPS output
-driving fake `lp`/`lpstat` binaries on PATH. What is left unproven is exactly one thing —
-whether paper comes out — and that is what the manual test on the Pi is for.
+does not need a printer: the real HTTP client against a real (stub) HTTP server speaking KP
+Rück's actual wire contract, the real claim/report state machine, and the ESC/POS output in
+dry-run mode. What is left unproven is exactly one thing — whether paper comes out — and that
+is what the manual test on the Pi is for.
 
 Stdlib only, like the agent itself. Run: `uv run pytest tools/print-agent -q`
 """
@@ -12,7 +12,6 @@ Stdlib only, like the agent itself. Run: `uv run pytest tools/print-agent -q`
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import textwrap
@@ -32,13 +31,9 @@ from core import (  # noqa: E402
     QR_MIN_BOX_DOTS,
     QR_TARGET_DOTS,
     FatalError,
-    Job,
     PrintResult,
     qr_box_size,
 )
-
-PDF_BYTES = b"%PDF-1.4 fake"
-
 
 class _Stub(HTTPServer):
     """Records what the agent did, so a test can assert on the conversation."""
@@ -53,51 +48,6 @@ class _Stub(HTTPServer):
     @property
     def url(self) -> str:
         return f"http://127.0.0.1:{self.server_address[1]}"
-
-
-class FrontHandler(BaseHTTPRequestHandler):
-    """Implements kp-front's three endpoints."""
-
-    def log_message(self, *a):  # keep pytest output readable
-        pass
-
-    def _auth_ok(self) -> bool:
-        return self.headers.get("X-Print-Agent-Secret") == "front-secret"
-
-    def do_POST(self):
-        self.server.seen.append(("POST", self.path))
-        if not self._auth_ok():
-            self.send_response(403); self.end_headers(); return
-        if self.path == "/api/print-agent/claim":
-            self.server.claims += 1
-            if self.server.claims > 1:  # one job, then an empty queue
-                self.send_response(204); self.end_headers(); return
-            # `kind` is in the stub because leaving it out is what let the job_type/kind
-            # mismatch in protocols/front.py survive: with no field on the wire, the
-            # driver's `or "document"` fallback looked like correct behaviour.
-            body = json.dumps(
-                {"id": "job-1", "filename": "rapport.pdf", "color": False, "kind": "report"}
-            ).encode()
-            self.send_response(200); self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body))); self.end_headers()
-            self.wfile.write(body)
-        elif self.path.endswith("/status"):
-            length = int(self.headers.get("Content-Length", 0))
-            self.server.reported.append(json.loads(self.rfile.read(length)))
-            self.send_response(200); self.end_headers()
-        else:
-            self.send_response(404); self.end_headers()
-
-    def do_GET(self):
-        self.server.seen.append(("GET", self.path))
-        if not self._auth_ok():
-            self.send_response(403); self.end_headers(); return
-        if self.path == "/api/print-agent/jobs/job-1/file":
-            self.send_response(200); self.send_header("Content-Type", "application/pdf")
-            self.send_header("Content-Length", str(len(PDF_BYTES))); self.end_headers()
-            self.wfile.write(PDF_BYTES)
-        else:
-            self.send_response(404); self.end_headers()
 
 
 class RueckHandler(BaseHTTPRequestHandler):
@@ -151,116 +101,10 @@ def _serve(handler):
 
 
 @pytest.fixture
-def front_server():
-    srv = _serve(FrontHandler)
-    yield srv
-    srv.shutdown()
-
-
-@pytest.fixture
 def rueck_server():
     srv = _serve(RueckHandler)
     yield srv
     srv.shutdown()
-
-
-@pytest.fixture
-def fake_cups(tmp_path, monkeypatch):
-    """Put fake `lp` and `lpstat` on PATH so the CUPS driver can be exercised for real.
-
-    `lp` records its argv so the test can assert on the options actually passed, and reports
-    a request id the way real CUPS does. `lpstat` reports an empty queue, i.e. the job drained.
-    """
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
-    argv_log = tmp_path / "lp-argv.json"
-
-    (bindir / "lp").write_text(textwrap.dedent(f"""\
-        #!/usr/bin/env python3
-        import json, sys
-        json.dump(sys.argv[1:], open({str(argv_log)!r}, "w"))
-        print("request id is FakePrinter-42 (1 file(s))")
-        """))
-    (bindir / "lpstat").write_text("#!/usr/bin/env python3\nprint('')\n")
-    for f in ("lp", "lpstat"):
-        os.chmod(bindir / f, 0o755)
-    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
-    return argv_log
-
-
-# --- KP Front protocol + CUPS output ---------------------------------------------------
-
-
-def test_front_backend_claims_downloads_prints_and_reports(front_server, fake_cups):
-    backend = _build({
-        "name": "front", "protocol": "kp-front", "url": front_server.url,
-        "secret": "front-secret", "output": "cups", "printer": "FakePrinter",
-    })
-    backend.run(threading.Event(), once=True)
-
-    paths = [p for _, p in front_server.seen]
-    assert "/api/print-agent/claim" in paths
-    assert "/api/print-agent/jobs/job-1/file" in paths
-    assert front_server.reported == [{"status": "done", "error": None}]
-
-    argv = json.loads(fake_cups.read_text())
-    assert argv[:2] == ["-d", "FakePrinter"]
-    assert "media=A4" in argv and "sides=two-sided-long-edge" in argv
-    # Not a colour job, so monochrome must have been requested.
-    assert "print-color-mode=monochrome" in argv
-    # The PDF is passed as a real file that exists at call time.
-    assert argv[-1].endswith(".pdf")
-
-
-def test_front_job_kind_survives_the_wire(front_server, fake_cups):
-    """kp-front sends `kind`; the driver must read that name and not kp-rueck's `job_type`.
-
-    It read `job_type` for a while and nothing caught it: the CUPS output ignores `kind`, and
-    the test stub omitted the field, so the `or "document"` fallback looked deliberate. The
-    assertion is on the parsed Job rather than on printer behaviour for exactly that reason.
-    """
-    backend = _build({
-        "name": "front", "protocol": "kp-front", "url": front_server.url,
-        "secret": "front-secret", "output": "cups", "printer": "FakePrinter",
-    })
-    jobs = backend.protocol.poll()
-    assert [j.kind for j in jobs] == ["report"]
-
-
-def test_front_lp_options_from_config_come_last(front_server, fake_cups):
-    """A station overriding a default must win: CUPS honours the LAST occurrence."""
-    backend = _build({
-        "name": "front", "protocol": "kp-front", "url": front_server.url,
-        "secret": "front-secret", "output": "cups", "printer": "FakePrinter",
-        "lp_options": ["-o", "sides=one-sided"],
-    })
-    backend.run(threading.Event(), once=True)
-
-    argv = json.loads(fake_cups.read_text())
-    duplex, simplex = argv.index("sides=two-sided-long-edge"), argv.index("sides=one-sided")
-    assert simplex > duplex, "the configured override must come after the default"
-
-
-def test_front_wrong_secret_is_fatal_not_a_retry_loop(front_server, fake_cups):
-    backend = _build({
-        "name": "front", "protocol": "kp-front", "url": front_server.url,
-        "secret": "wrong", "output": "cups", "printer": "FakePrinter",
-    })
-    with pytest.raises(FatalError):
-        backend.protocol.poll()
-
-
-def test_front_job_never_silently_disappears(front_server, fake_cups, monkeypatch):
-    """If printing fails, the backend must be told — a claimed job with no report is stuck."""
-    from outputs.cups import CupsOutput
-    monkeypatch.setattr(CupsOutput, "print_job", lambda self, job: (False, "printer on fire"))
-
-    backend = _build({
-        "name": "front", "protocol": "kp-front", "url": front_server.url,
-        "secret": "front-secret", "output": "cups", "printer": "FakePrinter",
-    })
-    backend.run(threading.Event(), once=True)
-    assert front_server.reported == [{"status": "failed", "error": "printer on fire"}]
 
 
 # --- KP Rück protocol + ESC/POS output --------------------------------------------------
@@ -543,33 +387,55 @@ def test_qr_sizing_is_clamped_at_both_ends():
 # --- Configuration ----------------------------------------------------------------------
 
 
-def test_both_backends_run_from_one_config(tmp_path, front_server, rueck_server, fake_cups):
+def test_several_backends_run_from_one_config(tmp_path, rueck_server):
     cfg = tmp_path / "agent.json"
     cfg.write_text(json.dumps({"backends": [
-        {"name": "front", "protocol": "kp-front", "url": front_server.url,
-         "secret": "front-secret", "output": "cups", "printer": "FakePrinter"},
+        {"name": "rueck", "protocol": "kp-rueck", "url": rueck_server.url,
+         "secret": "rueck-token", "output": "escpos", "dry_run": True},
+        {"name": "uebung", "protocol": "kp-rueck", "url": "http://training.example.org",
+         "secret": "t", "output": "escpos", "dry_run": True},
+    ]}))
+    backends = load_backends(str(cfg))
+    assert [b.name for b in backends] == ["rueck", "uebung"]
+    assert {b.protocol.name for b in backends} == {"kp-rueck"}
+
+
+def test_a_leftover_kp_front_entry_does_not_stop_the_thermal_printer(tmp_path, rueck_server, capsys):
+    """KP Front removed its print relay. A box that served both systems must keep printing
+    KP Rück's slips after the update, and say in the log which entry to delete."""
+    cfg = tmp_path / "agent.json"
+    cfg.write_text(json.dumps({"backends": [
+        {"name": "front", "protocol": "kp-front", "url": "https://front.example.org",
+         "secret": "front-secret", "output": "cups", "printer": "HP_LaserJet"},
         {"name": "rueck", "protocol": "kp-rueck", "url": rueck_server.url,
          "secret": "rueck-token", "output": "escpos", "dry_run": True},
     ]}))
     backends = load_backends(str(cfg))
-    assert [b.name for b in backends] == ["front", "rueck"]
-    assert backends[0].protocol.name == "kp-front"
-    assert backends[1].protocol.name == "kp-rueck"
+    assert [b.name for b in backends] == ["rueck"]
+    assert "backend 'front' skipped" in capsys.readouterr().out
 
 
-def test_legacy_kp_front_env_still_works(monkeypatch):
-    """The previous agents' environments must keep working untouched."""
+def test_a_config_with_only_kp_front_says_why_it_has_nothing_to_do(tmp_path):
+    cfg = tmp_path / "agent.json"
+    cfg.write_text(json.dumps({"backends": [
+        {"name": "front", "protocol": "kp-front", "url": "https://front.example.org",
+         "secret": "s", "output": "cups", "printer": "HP"},
+    ]}))
+    with pytest.raises(SystemExit) as e:
+        load_backends(str(cfg))
+    assert "KP Front no longer prints through this agent" in str(e.value)
+
+
+def test_the_old_kp_front_env_is_ignored_next_to_kp_rueck(monkeypatch, capsys):
     monkeypatch.setenv("KP_BASE_URL", "https://front.example.org")
     monkeypatch.setenv("KP_PRINT_AGENT_SECRET", "s")
     monkeypatch.setenv("KP_PRINTER", "Laser")
-    monkeypatch.setenv("KP_LP_OPTS", "-o sides=one-sided")
-    monkeypatch.delenv("BACKEND_URL", raising=False)
+    monkeypatch.setenv("BACKEND_URL", "http://backend:8000")
+    monkeypatch.setenv("AGENT_TOKEN", "t")
 
     backends = load_backends(None)
-    assert len(backends) == 1
-    assert backends[0].protocol.name == "kp-front"
-    assert backends[0].output.printer == "Laser"
-    assert backends[0].output.lp_options == ["-o", "sides=one-sided"]
+    assert [b.protocol.name for b in backends] == ["kp-rueck"]
+    assert "KP_BASE_URL is ignored" in capsys.readouterr().out
 
 
 def test_legacy_kp_rueck_env_still_works(monkeypatch):
@@ -598,32 +464,20 @@ def test_tuning_knobs_actually_reach_the_drivers(monkeypatch):
     assert (proto.poll_idle_sec, proto.poll_active_sec, proto.active_duration_sec) == (31.0, 3.0, 77.0)
     assert proto.long_poll_sec == 12.0
 
-    monkeypatch.delenv("BACKEND_URL", raising=False)
-    monkeypatch.setenv("KP_BASE_URL", "https://front.example.org")
-    monkeypatch.setenv("KP_PRINT_AGENT_SECRET", "s")
-    monkeypatch.setenv("KP_PRINTER", "Laser")
-    monkeypatch.setenv("KP_POLL_SEC", "9")
-    monkeypatch.setenv("KP_CLAIM_TIMEOUT_SEC", "45")
-    monkeypatch.setenv("KP_CUPS_TIMEOUT_SEC", "120")
-
-    backend = load_backends(None)[0]
-    assert (backend.protocol.poll_sec, backend.protocol.claim_timeout_sec) == (9.0, 45.0)
-    assert backend.output.cups_timeout_sec == 120.0
-
 
 def test_a_nonsense_tuning_value_is_refused_not_silently_defaulted():
     with pytest.raises(SystemExit) as e:
-        _build({"name": "x", "protocol": "kp-front", "url": "http://x", "secret": "s",
-                "output": "cups", "printer": "p", "poll_sec": "soon"})
-    assert "non-numeric poll_sec" in str(e.value)
+        _build({"name": "x", "protocol": "kp-rueck", "url": "http://x", "secret": "s",
+                "output": "escpos", "poll_idle_sec": "soon"})
+    assert "non-numeric poll_idle_sec" in str(e.value)
 
 
-def test_mismatched_protocol_and_output_is_refused_at_startup():
+def test_an_unknown_output_is_refused_at_startup():
     """Caught when the config is read, not at 3am on the first real job."""
     with pytest.raises(SystemExit) as e:
-        _build({"name": "x", "protocol": "kp-front", "url": "http://x",
-                "secret": "s", "output": "escpos"})
-    assert "kp-front goes with cups" in str(e.value)
+        _build({"name": "x", "protocol": "kp-rueck", "url": "http://x",
+                "secret": "s", "output": "cups", "printer": "HP"})
+    assert "unknown output 'cups'" in str(e.value)
 
 
 # --- Ordered destinations: print somewhere rather than nowhere ---------------------------
@@ -709,105 +563,10 @@ def test_a_pinned_backup_keeps_its_own_address(rueck_server):
 
 
 def test_a_laser_cannot_stand_in_for_the_thermal_printer():
-    """kp-rueck sends structured JSON; CUPS wants a PDF. Refuse the chain, don't discover it live."""
+    """kp-rueck sends structured JSON only ESC/POS renders. Refuse the chain, don't discover it live."""
     with pytest.raises(SystemExit) as e:
         _chain("http://x", [{"output": "escpos"}, {"output": "cups", "printer": "HP"}])
     assert "destination #2" in str(e.value)
-
-
-def test_a_queue_that_vanished_with_its_printer_is_caught(monkeypatch):
-    """The live case at the station, and the reason wording must not be the test.
-
-    Every queue there is `implicitclass://` from mDNS, so cups-browsed DELETES it while the
-    printer is off. Real CUPS on the Pi answers `lpstat: Invalid destination name in list
-    "…"` — a check for the word "unknown" failed open on exactly the case it existed for.
-    """
-    from outputs.cups import CupsOutput
-
-    def missing(argv, **kwargs):
-        return subprocess.CompletedProcess(
-            argv, 1, "", 'lpstat: Invalid destination name in list "HP_LaserJet".\n'
-        )
-
-    monkeypatch.setattr("outputs.cups.subprocess.run", missing)
-    blocked = CupsOutput("HP_LaserJet").unavailable()
-    assert blocked and "gibt es nicht" in blocked
-    assert "Invalid destination name" in blocked
-
-
-def test_a_switched_off_printer_is_found_before_the_job_is_handed_over(monkeypatch):
-    """The case the queue state cannot answer.
-
-    CUPS stops a queue only AFTER a job has failed on it, so a printer somebody unplugged
-    still reports `idle` and `accepting requests`. Without knocking on the device, the first
-    Einsatzzettel goes into the spooler and the backup printer never hears about it.
-    """
-    from outputs.cups import CupsOutput
-
-    out = CupsOutput("HP_LaserJet")
-    monkeypatch.setattr(CupsOutput, "device_address", lambda self: ("10.0.0.7", 9100))
-
-    # Nothing is listening on a closed port of an address that black-holes: simulate the
-    # timeout the real probe would hit.
-    def refuse(address, timeout):
-        raise TimeoutError("timed out")
-
-    monkeypatch.setattr("outputs.cups.socket.create_connection", refuse)
-    assert "antwortet nicht" in (out.unreachable_device() or "")
-
-
-def test_a_printer_that_answers_is_left_to_cups(monkeypatch):
-    """A refusal is an answer: something is there, and CUPS speaks its protocol better."""
-    from outputs.cups import CupsOutput
-
-    out = CupsOutput("HP_LaserJet")
-    monkeypatch.setattr(CupsOutput, "device_address", lambda self: ("10.0.0.7", 9100))
-
-    def refused(address, timeout):
-        raise ConnectionRefusedError("nope")
-
-    monkeypatch.setattr("outputs.cups.socket.create_connection", refused)
-    assert out.unreachable_device() is None
-
-
-def test_a_usb_printer_is_never_probed(monkeypatch):
-    """No host to knock on — and a USB station must not be held up by a check meant for LANs."""
-    from outputs.cups import CupsOutput
-
-    out = CupsOutput("USB_Printer")
-    monkeypatch.setattr(
-        "outputs.cups.subprocess.run",
-        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, "device for USB_Printer: usb://HP/LaserJet\n", ""),
-    )
-    assert out.device_address() is None
-    assert out.unreachable_device() is None
-
-
-def test_the_device_address_comes_from_the_queues_own_uri(monkeypatch):
-    monkeypatch.setattr(
-        "outputs.cups.subprocess.run",
-        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, "device for HP: socket://10.0.0.7\n", ""),
-    )
-    from outputs.cups import CupsOutput
-    # socket:// with no port means 9100 — the JetDirect default, not a guess.
-    assert CupsOutput("HP").device_address() == ("10.0.0.7", 9100)
-
-
-def test_a_stopped_cups_queue_is_a_fail_over_not_a_thirty_minute_wait(fake_cups, monkeypatch):
-    """`lp` accepts jobs for a disabled queue, so the chain has to ask before handing over."""
-    from outputs.cups import CupsOutput
-
-    monkeypatch.setattr(CupsOutput, "unavailable",
-                        lambda self: "CUPS-Warteschlange 'Dead' ist gestoppt" if self.printer == "Dead" else None)
-
-    backend = _build({"name": "front", "protocol": "kp-front", "url": "http://x", "secret": "s",
-                      "destinations": [{"output": "cups", "printer": "Dead"},
-                                       {"output": "cups", "printer": "FakePrinter"}]})
-    result, index, skipped = backend._print_somewhere(
-        Job(id="j", backend="http://x", kind="report", document=PDF_BYTES, filename="r.pdf")
-    )
-    assert result.ok and index == 1, "the working queue should have taken it"
-    assert "gestoppt" in skipped[0]
 
 
 def test_no_configuration_at_all_explains_itself(monkeypatch):
@@ -832,7 +591,7 @@ def test_the_agent_core_imports_without_third_party_packages():
                 if name.split(".")[0] in {"escpos", "PIL", "httpx"}:
                     raise ImportError(f"{name} is blocked for this test")
         sys.meta_path.insert(0, Blocker())
-        import agent, outputs.escpos, outputs.cups, protocols.front, protocols.rueck
+        import agent, outputs.escpos, protocols.rueck
         print("ok")
     """)
     run = subprocess.run([sys.executable, "-c", script], cwd=here, capture_output=True, text=True)

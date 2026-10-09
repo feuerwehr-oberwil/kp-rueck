@@ -13,7 +13,7 @@ Authenticated with `X-Agent-Token`, matching the backend's `PRINT_AGENT_TOKEN`. 
 endpoints are fail-closed: with no token configured on the backend they answer 403 for
 everyone, so an empty token here is a configuration error, not an anonymous mode.
 
-The pending call LONG-POLLS, like kp-front's claim: `wait` asks the backend to hold the
+The pending call LONG-POLLS: `wait` asks the backend to hold the
 request open until a job is queued, so a slip reaches the printer in milliseconds rather
 than on the next poll. That matters most for the very first print of an operation — the
 Einsatzzettel at alarm time — which is exactly when the old adaptive poll was at its slowest,
@@ -61,10 +61,9 @@ LONG_POLL_TIMEOUT_MARGIN_SEC = 20.0
 
 
 class RueckProtocol:
-    """Speaks to a KP Rück backend. Produces structured jobs, so it pairs with `escpos`."""
+    """Speaks to a KP Rück backend. Produces structured jobs for the `escpos` output."""
 
     name = "kp-rueck"
-    wants = "payload"
 
     def __init__(self, url: str, token: str, *, poll_idle_sec: float = DEFAULT_POLL_IDLE_SEC,
                  poll_active_sec: float = DEFAULT_POLL_ACTIVE_SEC,
