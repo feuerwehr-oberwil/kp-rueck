@@ -26,12 +26,11 @@ import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Person, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
+import { useOperations, type Operation, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
-import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -39,9 +38,8 @@ import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
-import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
-import { applyResourceDrop, useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
-import { useCommandDispatch, type DispatchCommand } from "@/lib/hooks/use-command-dispatch"
+import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
+import type { DispatchCommand } from "@/lib/hooks/use-command-dispatch"
 import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
@@ -56,16 +54,12 @@ import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
-import { columns, findAuftragForStop, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
-import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
+import { columns } from "@/lib/kanban-utils"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
-import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
-import { getIncidentLocationLabel, getIncidentTypeLabel, getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { useCardView } from "@/lib/card-view"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { summarizeChecklist } from "@/lib/checklist-tasks"
-import { useChecklistFacts } from "@/lib/hooks/use-checklist-facts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { BoardLoadErrorPanel } from "@/components/board-load-error"
@@ -80,27 +74,18 @@ import type { ThermoPrintOptions } from "@/components/print/print-hub-sheet"
 import type { Incident } from "@/lib/types/incidents"
 import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
 import { cn } from "@/lib/utils"
-import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
-import { isStringArray } from "@/lib/utils/safe-storage"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
 import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
 import { BoardDialogs } from "@/components/board/board-dialogs"
-
-/** Events whose Bereitschaft checklist the operator has closed — see the auto-open effect. */
-const CHECKLIST_DISMISSED_KEY = "kp-board-checklistDismissedEvents"
-/** How many dismissals to keep; enough for a season of Einsätze, bounded on purpose. */
-const CHECKLIST_DISMISSED_LIMIT = 30
-
-/** Priority → its label key under `kanban.common`, for the toast a keyboard
- *  priority change raises. */
-const PRIORITY_LABEL_KEYS: Record<Operation["priority"], "priorityLow" | "priorityMedium" | "priorityHigh"> = {
-  low: "priorityLow",
-  medium: "priorityMedium",
-  high: "priorityHigh",
-}
+import { useBoardDialogActions } from "@/components/board/use-board-dialog-actions"
+import { useBoardDispatch } from "@/components/board/use-board-dispatch"
+import { useResourceBindings } from "@/components/board/use-resource-bindings"
+import { useBoardChecklist } from "@/components/board/use-board-checklist"
+import { useBoardCommandHandlers } from "@/components/board/use-board-command-handlers"
+import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
   const {
@@ -238,12 +223,6 @@ export default function FireStationDashboard() {
   const tRes = useTranslations('kanban.resources')
   const tPrint = useTranslations('print.toasts')
   const tSidePanel = useTranslations('kanban.sidePanel')
-  // Column titles, for the toasts a keyboard mutation raises.
-  const tColumns = useTranslations('kanban.columns')
-  // The board's one «Rückgängig» label — reused rather than copied.
-  const tNotifications = useTranslations('notifications.operations')
-  // ⌘K type-to-dispatch receipts.
-  const tPalette = useTranslations('common.commandPalette')
   const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
@@ -750,395 +729,85 @@ export default function FireStationDashboard() {
   // Use ref to track drag state more reliably
   const isDraggingOperationRef = useRef(false)
 
-  const setRouteStopStatus = useCallback((operationId: string, newStatus: OperationStatus) => {
-    const operation = operations.find((op) => op.id === operationId)
-    if (!operation || operation.status === "complete") return
-    // The stop control shows a lossy MIRROR of the real status: reko + reko_done
-    // both read as "Offen" (incoming). Re-selecting the bucket the incident is
-    // already in must be a no-op — otherwise writing "incoming" back regresses a
-    // reko/reko-done incident all the way to eingegangen, discarding its progress.
-    if (toMirrorStatus(operation) === newStatus) return
-    requestStatusChange(operationId, newStatus)
-  }, [operations, requestStatusChange])
-
-  // Which columns this screen has folded away. Seven columns do not fit on
-  // every command-post monitor, and the two that matter right now must not be
-  // behind a horizontal scrollbar. Per DEVICE, not per operator account: the
-  // fold answers «how wide is this monitor», which nobody wants inherited on
-  // the next machine — same hook, same reasoning as both wall boards.
-  const collapsedColumns = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
-  expandColumnRef.current = collapsedColumns.expand
-
-  // One-shot column sort: persist the chosen column's order without turning off
-  // manual drag-and-drop ordering afterwards.
-  const handleColumnSort = useCallback((columnId: string, key: 'priority' | 'age' | 'auftrag' | 'type') => {
-    const column = columns.find((candidate) => candidate.id === columnId)
-    if (!column) return
-
-    const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 }
-    const byAge = (a: Operation, b: Operation) => a.dispatchTime.getTime() - b.dispatchTime.getTime()
-    const groupName = (id: string | null) => (id ? groups.find((g) => g.id === id)?.name ?? '' : '')
-    const cmp = (a: Operation, b: Operation): number => {
-      switch (key) {
-        case 'priority':
-          return (priorityRank[a.priority] - priorityRank[b.priority]) || byAge(a, b)
-        case 'type':
-          return getIncidentTypeLabel(a.incidentType).localeCompare(getIncidentTypeLabel(b.incidentType)) || byAge(a, b)
-        case 'auftrag':
-          // Cluster grouped stops together (by route name, then stop order);
-          // ungrouped cards fall after, oldest first.
-          if (!!a.groupId !== !!b.groupId) return a.groupId ? -1 : 1
-          if (a.groupId && b.groupId && a.groupId !== b.groupId) {
-            return groupName(a.groupId).localeCompare(groupName(b.groupId))
-          }
-          if (a.groupId && b.groupId) return a.groupPosition - b.groupPosition
-          return byAge(a, b)
-        default:
-          return byAge(a, b)
-      }
-    }
-    const columnOperations = operations.filter((op) => column.status.includes(op.status)).sort(cmp)
-    const ordered = columnOperations.map((op) => op.id)
-
-    // Replace only this column's slots so every other column keeps its order.
-    setOperations((prev) => {
-      let nextIndex = 0
-      return prev.map((op) => column.status.includes(op.status) ? columnOperations[nextIndex++] : op)
-    })
-    // No toast: the column reorders under the operator's eyes, so confirming it
-    // in words is noise on a surface whose job is staying calm.
-    reorderColumn(ordered)
-  }, [operations, groups, setOperations, reorderColumn])
-
-  // Open the "Ressourcen übertragen" dialog from the card context menu. Loads the
-  // event's incidents as transfer targets (mirrors side-panel's handleOpenTransfer).
-  const handleOpenTransfer = useCallback(async (operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (!op || !selectedEvent) {
-      toast.error(tCommon('error'), { description: tCommon('noEventSelected') })
-      return
-    }
-    try {
-      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
-      const incidents: Incident[] = apiIncidents.map(inc => {
-        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
-        return {
-          ...rest,
-          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
-          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
-          created_at: new Date(created_at),
-          updated_at: new Date(updated_at),
-          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
-          completed_at: completed_at ? new Date(completed_at) : null,
-          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
-          assigned_vehicles: assigned_vehicles.map(v => ({ ...v, assigned_at: new Date(v.assigned_at) })),
-        }
-      })
-      setTransferAvailableIncidents(incidents)
-      setTransferSourceOp(op)
-    } catch (error) {
-      console.error("Failed to load incidents:", error)
-      toast.error(tCommon('loadFailed'))
-    }
-  }, [operations, selectedEvent, tCommon])
-
-  // Perform the transfer. The backend returns a specific German reason on failure.
-  const handleTransfer = useCallback(async (targetIncidentId: string) => {
-    if (!transferSourceOp) return
-    try {
-      setIsTransferring(true)
-      await apiClient.transferAssignments(transferSourceOp.id, targetIncidentId)
-      setTransferSourceOp(null)
-      toast.success(tCommon('transferResources'))
-    } catch (error) {
-      toast.error(tCommon('transferFailed'), {
-        description: (error instanceof Error && error.message) || tCommon('transferFailedDescription'),
-      })
-    } finally {
-      setIsTransferring(false)
-    }
-  }, [transferSourceOp, tCommon])
-
-  /** «X → Im Einsatz» — a keyboard move can land on a card that is scrolled out
-   *  of sight, so the board says what it just did. */
-  const notifyStatusMove = useCallback((operation: Operation, newStatus: OperationStatus) => {
-    toast.success(tCommon('statusMovedToast', {
-      name: getIncidentLocationLabel(operation),
-      status: tColumns(newStatus),
-    }))
-  }, [tCommon, tColumns])
-
-  const moveOperationRight = useCallback((operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
-
-    const currentColumnIndex = columns.findIndex((col) => col.status.includes(operation.status))
-    if (currentColumnIndex < columns.length - 1) {
-      const nextColumn = columns[currentColumnIndex + 1]
-      const newStatus = nextColumn.status[0] as OperationStatus
-      const previousStatus = operation.status
-      updateOperation(operationId, { status: newStatus })
-      notifyStatusMove(operation, newStatus)
-      if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-      if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-      if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
-      if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
-      if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
-    }
-  }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog, triggerRekoCheck, triggerRekoFormCheck, triggerReturningVehicleCheck, promptMaterialDecision])
-
-  const moveOperationLeft = useCallback((operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (!operation) return
-
-    const currentColumnIndex = columns.findIndex((col) => col.status.includes(operation.status))
-    if (currentColumnIndex > 0) {
-      const prevColumn = columns[currentColumnIndex - 1]
-      const newStatus = prevColumn.status[0] as OperationStatus
-      const previousStatus = operation.status
-      updateOperation(operationId, { status: newStatus })
-      notifyStatusMove(operation, newStatus)
-      // Backwards into «Disponiert / Anfahrt» is a correction, not a new
-      // dispatch — the workflow decides which dialog that means.
-      if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-    }
-  }, [operations, updateOperation, notifyStatusMove, triggerDisponiertDialog])
-
-  // Quick-assign (number keys / command palette) toggle of a vehicle onto an
-  // incident. For a GROUPED incident the route owns resources, so route the
-  // assign/unassign to the Auftrag — otherwise a per-incident row would be
-  // created that never renders on a grouped card (a hidden assignment).
-  //
-  // Toasts either way: one keystroke moving a Tanklöschfahrzeug on or off an
-  // incident is exactly the mutation that must not happen in silence.
-  const toggleVehicleAssignment = useCallback(
-    (op: Operation, vehicle: { id: string; name: string }) => {
-      const notify = (assigned: boolean) => {
-        toast.success(
-          tCommon(assigned ? 'vehicleAssignedToast' : 'vehicleRemovedToast', {
-            vehicle: vehicle.name,
-            name: getIncidentLocationLabel(op),
-          }),
-        )
-      }
-      // Removing says itself — with «Rückgängig» — through the release toast.
-      if (op.groupId) {
-        const existing = getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id)
-        if (existing) {
-          void release.releaseRouteResource(op.groupId, existing.assignmentId)
-        } else {
-          assignGroupResource(op.groupId, "vehicle", vehicle.id)
-          notify(true)
-        }
-        return
-      }
-      if (op.vehicles.includes(vehicle.name)) {
-        void release.releaseVehicle(op.id, vehicle.name)
-      } else {
-        assignVehicleToOperation(vehicle.id, vehicle.name, op.id)
-        notify(true)
-      }
-    },
-    [getGroupResources, release, assignGroupResource, assignVehicleToOperation, tCommon],
-  )
-
-  /** Priority by keystroke — the card only shows it as a small chevron, so the
-   *  change says itself. */
-  const setOperationPriority = useCallback((operationId: string, priority: Operation["priority"]) => {
-    const operation = operations.find((op) => op.id === operationId)
-    if (!operation) return
-    const previous = operation.priority
-    updateOperation(operationId, { priority })
-    toast.success(
-      tCommon('priorityChangedToast', {
-        name: getIncidentLocationLabel(operation),
-        priority: tCommon(PRIORITY_LABEL_KEYS[priority]),
-      }),
-      previous === priority ? undefined : {
-        action: {
-          label: tNotifications('undoLabel'),
-          onClick: () => updateOperation(operationId, { priority: previous }),
-        },
-      },
-    )
-  }, [operations, updateOperation, tCommon, tNotifications])
-
-  /** «Zu Fuss» by keystroke — a vehicle-less dispatch is a radio-relevant fact. */
-  const toggleZuFuss = useCallback((operationId: string) => {
-    const operation = operations.find((op) => op.id === operationId)
-    if (!operation) return
-    const next = !operation.zuFuss
-    updateOperation(operationId, { zuFuss: next })
-    toast.success(
-      tCommon(next ? 'zuFussOnToast' : 'zuFussOffToast', { name: getIncidentLocationLabel(operation) }),
-      {
-        action: {
-          label: tNotifications('undoLabel'),
-          onClick: () => updateOperation(operationId, { zuFuss: !next }),
-        },
-      },
-    )
-  }, [operations, updateOperation, tCommon, tNotifications])
-
-  /** The driver decision is read out on the radio and printed on the slip, so
-   *  the pill's click gets the same receipt as every other card mutation. The
-   *  underlying hook is optimistic and toasts on failure by itself. */
-  const handleToggleDriverStay = useCallback((operationId: string, vehicleName: string) => {
-    const operation = operations.find((op) => op.id === operationId)
-    const next = !(operation?.vehicleDriverStay?.get(vehicleName) ?? false)
-    toggleDriverStay(operationId, vehicleName)
-    toast.success(
-      tCommon(next ? 'driverStaysToast' : 'driverReturnsToast', { vehicle: vehicleName }),
-      {
-        description: tCommon('driverStayToastHint'),
-        action: {
-          label: tNotifications('undoLabel'),
-          onClick: () => toggleDriverStay(operationId, vehicleName),
-        },
-      },
-    )
-  }, [operations, toggleDriverStay, tCommon, tNotifications])
-
-  /** Stage an incident for the delete confirmation — the context menu's
-   *  destructive row and the Delete key share this one path. */
-  const handleRequestDelete = useCallback((operationId: string) => {
-    const operation = operations.find((op) => op.id === operationId)
-    if (!operation) return
-    setOperationToDelete(operation)
-    setDeleteDialogOpen(true)
-  }, [operations])
-
-  // Doppelbelegung across Aufträge and Einsätze — see use-assignment-conflicts.
   const {
+    setRouteStopStatus,
+    collapsedColumns,
+    handleColumnSort,
+    handleOpenTransfer,
+    handleTransfer,
+    moveOperationRight,
+    moveOperationLeft,
+    toggleVehicleAssignment,
+    setOperationPriority,
+    toggleZuFuss,
+    handleToggleDriverStay,
+    handleRequestDelete,
     assignVehicleToGroupWithConflict,
     groupsHolding,
     releaseFromGroups,
-    askRouteConflict,
     assignVehicleToIncidentWithConflict,
-  } = useAssignmentConflicts({
-    vehicleTypes,
-    groups,
-    operations,
+    askRouteConflict,
+  } = useBoardCardActions({
     requestResourceConflict,
-    assignGroupResource,
-    unassignGroupResource,
+    operations,
+    updateOperation,
+    setOperations,
+    reorderColumn,
     removeVehicle,
     assignVehicleToOperation,
+    groups,
+    unassignGroupResource,
+    assignGroupResource,
+    getGroupResources,
+    release,
+    selectedEvent,
+    expandColumnRef,
+    vehicleTypes,
+    setDeleteDialogOpen,
+    setOperationToDelete,
+    setTransferSourceOp,
+    transferSourceOp,
+    setTransferAvailableIncidents,
+    setIsTransferring,
+    toggleDriverStay,
+    triggerRekoFormCheck,
+    triggerRekoCheck,
+    promptMaterialDecision,
+    triggerReturningVehicleCheck,
+    triggerDisponiertDialog,
+    requestStatusChange,
   })
 
-  // Register command palette handlers
-  useEffect(() => {
-    registerHandlers({
-      onNewOperation: () => setNewEmergencyModalOpen(true),
-      onRefresh: () => {
-        refreshOperations()
-      },
-      onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
-      onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
-      onToggleVehicleStatus: () => setActiveFooterSheet(prev => prev === 'vehicles' ? null : 'vehicles'),
-      onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
-      onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
-      onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
-      onToggleJournal: () => setActiveFooterSheet(prev => prev === 'journal' ? null : 'journal'),
-      onToggleFigures: () => setActiveFooterSheet(prev => prev === 'figures' ? null : 'figures'),
-      onToggleCrewDuty: () => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew'),
-      onToggleAuftraege: () => setActiveFooterSheet(prev => {
-        if (prev === 'auftraege') return null
-        setAuftraegeFocusGroupId(null)
-        return 'auftraege'
-      }),
-      onOpenAuftrag: (groupId: string) => {
-        setAuftraegeFocusGroupId(groupId)
-        setActiveFooterSheet('auftraege')
-      },
-      onToggleNotifications: toggleNotificationSidebar,
-      onToggleSidePanel: () =>
-        setSidePanelMode(prev => (prev === 'collapsed' ? 'detail' : 'collapsed')),
-      onSidePanelDetail: () => setSidePanelMode('detail'),
-      onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
-      // Everything below acts on the SELECTED card, never on the hovered one:
-      // while the palette is open the pointer is over the palette, and a
-      // command that mutates has to name the card the operator chose.
-      onToggleZuFuss: () => {
-        if (selectedOperationId) toggleZuFuss(selectedOperationId)
-      },
-      onSearchPersonnel: () => {
-        setShowLeftSidebar(true)
-        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 50)
-      },
-      onSearchMaterial: () => {
-        setShowRightSidebar(true)
-        setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
-      },
-      hasSelectedIncident: !!selectedOperationId,
-      onEditIncident: () => {
-        if (selectedOperationId) {
-          const operation = operations.find(op => op.id === selectedOperationId)
-          if (operation) {
-            openIncidentDetail(operation.id)
-          }
-        }
-      },
-      onDeleteIncident: () => {
-        if (selectedOperationId) handleRequestDelete(selectedOperationId)
-      },
-      onMoveStatusForward: () => {
-        if (selectedOperationId) {
-          moveOperationRight(selectedOperationId)
-        }
-      },
-      onMoveStatusBackward: () => {
-        if (selectedOperationId) {
-          moveOperationLeft(selectedOperationId)
-        }
-      },
-      onSetPriority: (priority) => {
-        if (selectedOperationId) setOperationPriority(selectedOperationId, priority)
-      },
-      onAssignVehicle: (vehicleNumber) => {
-        if (selectedOperationId) {
-          const vehicleType = vehicleTypes[vehicleNumber - 1]
-          if (vehicleType) {
-            const operation = operations.find(op => op.id === selectedOperationId)
-            if (operation) toggleVehicleAssignment(operation, vehicleType)
-          }
-        }
-      },
-      // Type-to-dispatch: a fresh getter per registration, so the palette's
-      // vocabulary follows the board while it is open.
-      getDispatchVocabulary: () => dispatchRef.current.vocabulary(),
-      onDispatch: isEditor ? (command) => dispatchRef.current.run(command) : undefined,
-      onDispatchJump: (target) => dispatchRef.current.jump(target),
-      onOpenIncident: (incidentId) => {
-        scrollToCard(incidentId)
-        openIncidentDetail(incidentId)
-      },
-    })
-    return () => clearHandlers()
-  }, [
-    isEditor,
-    scrollToCard,
-    // The palette's vocabulary is read through `getDispatchVocabulary`; a new
-    // registration whenever what it lists changes keeps an open palette current.
-    personnel,
+  useBoardCommandHandlers({
     fleet,
-    materials,
-    outOfServiceVehicleIds,
-    registerHandlers,
-    clearHandlers,
-    refreshOperations,
-    toggleNotificationSidebar,
-    selectedOperationId,
     operations,
+    materials,
+    refreshOperations,
+    outOfServiceVehicleIds,
+    dispatchRef,
+    personnel,
+    isEditor,
+    toggleNotificationSidebar,
+    clearHandlers,
+    registerHandlers,
+    router,
+    scrollToCard,
+    selectedOperationId,
+    setNewEmergencyModalOpen,
+    setShowRightSidebar,
+    setSidePanelMode,
+    setShowLeftSidebar,
+    openIncidentDetail,
     vehicleTypes,
+    setActiveFooterSheet,
+    setAuftraegeFocusGroupId,
     moveOperationRight,
     moveOperationLeft,
+    toggleVehicleAssignment,
     setOperationPriority,
     toggleZuFuss,
     handleRequestDelete,
-    toggleVehicleAssignment,
-    openIncidentDetail,
-  ])
+  })
 
   // Show empty state if no event is selected (removed automatic redirect)
   // useEffect(() => {
@@ -1147,74 +816,15 @@ export default function FireStationDashboard() {
   //   }
   // }, [isMounted, isEventLoaded, selectedEvent, router])
 
-  // Checklist popover state and live readiness progress (persistent reference)
-  const [checklistPopoverOpen, setChecklistPopoverOpen] = useState(false)
-  // Bumped when the popover ticks or un-ticks a row: those overrides live in
-  // localStorage, which no snapshot or socket event will ever report.
-  const [checklistOverridesVersion, setChecklistOverridesVersion] = useState(0)
-  const autoOpenedEventRef = useRef<string | null>(null)
-  // What is remembered is the DISMISSAL, per event — not whether the popover
-  // happened to be open. A checklist the operator closed stays closed for that
-  // Einsatz across navigation and reload; a genuinely new event may still
-  // auto-open once. The popover itself always starts closed, since restoring an
-  // open overlay on load is not what «bleibt zu» means.
-  const [dismissedChecklistEvents, setDismissedChecklistEvents] = usePersistedState<string[]>(
-    CHECKLIST_DISMISSED_KEY,
-    [],
-    isStringArray,
-  )
-
-  const handleChecklistOpenChange = useCallback(
-    (open: boolean) => {
-      setChecklistPopoverOpen(open)
-      if (open || !selectedEvent) return
-      setDismissedChecklistEvents((previous) =>
-        previous.includes(selectedEvent.id)
-          ? previous
-          : [...previous, selectedEvent.id].slice(-CHECKLIST_DISMISSED_LIMIT),
-      )
-    },
-    [selectedEvent, setDismissedChecklistEvents],
-  )
-
-  // The setup checklist is an operational aid for real callouts (printer, real
-  // check-in workflow, offline maps). It's noise in the public demo, so hide it
-  // there entirely. Fetched once — demo mode never changes mid-session.
-  const [isDemo, setIsDemo] = useState(false)
-  useEffect(() => {
-    apiClient.getDemoStatus().then((s) => setIsDemo(!!s?.demo)).catch(() => {})
-  }, [])
-
-  // Readiness progress for the persistent "Bereitschaft" badge, live even while
-  // the popover is closed. Rare users forget the steps, not the app — keeping
-  // "what still needs doing" visible at a glance, every callout. Derived from
-  // the board's snapshot (see useChecklistFacts) rather than polled per badge.
-  const checklistEnabled = !!selectedEvent && isMounted && !isDemo
-  const checklistFacts = useChecklistFacts({ enabled: checklistEnabled })
-  const checklistProgress = useMemo(() => {
-    // Disabled in the demo — keep progress empty so the badge/popover never show.
-    // Until the facts arrive: nothing yet, same as before the first poll landed.
-    if (!checklistEnabled || !selectedEvent || !checklistFacts) return { completed: 0, total: 0 }
-    return summarizeChecklist(selectedEvent.id, checklistFacts)
-    // checklistOverridesVersion: the summary reads the overrides from localStorage.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checklistEnabled, selectedEvent, checklistFacts, checklistOverridesVersion])
-
-  // Auto-open the checklist once per event whenever setup is still incomplete
-  // (regardless of event age), then hand off to the persistent button so it
-  // never re-nags after the user has dismissed it — not this session (the ref)
-  // and not on the next reload either (the persisted dismissal). The dismissal
-  // list is read from localStorage on mount, well before `checklistProgress`
-  // arrives from the API, so it always gets the first word.
-  useEffect(() => {
-    if (!selectedEvent || !isMounted) return
-    if (checklistProgress.total === 0) return
-    if (checklistProgress.completed >= checklistProgress.total) return
-    if (autoOpenedEventRef.current === selectedEvent.id) return
-    if (dismissedChecklistEvents.includes(selectedEvent.id)) return
-    autoOpenedEventRef.current = selectedEvent.id
-    setChecklistPopoverOpen(true)
-  }, [selectedEvent, isMounted, checklistProgress, dismissedChecklistEvents])
+  const {
+    checklistPopoverOpen,
+    setChecklistOverridesVersion,
+    handleChecklistOpenChange,
+    checklistProgress,
+  } = useBoardChecklist({
+    selectedEvent,
+    isMounted,
+  })
 
   // Load vehicles from API to populate vehicle types for shortcuts
   useEffect(() => {
@@ -1591,158 +1201,24 @@ export default function FireStationDashboard() {
     return bestCount > operations.length / 2 ? best : null
   }, [operations])
 
-  /**
-   * Everywhere this person is held — all of it, not the first hit.
-   *
-   * `filter`, not `find`: after a double booking the second incident used to be
-   * unreachable from the sidebar, because a second click resolved to the same
-   * first match. The special functions come straight out of the context (they
-   * are already on the person) instead of a per-click API fetch that only ever
-   * looked at `driver`.
-   */
-  const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
-    const bindings: ResourceBinding[] = []
-    for (const op of operations) {
-      if (op.crew.includes(person.name)) {
-        bindings.push({
-          key: `incident-${op.id}`,
-          kind: "incident",
-          targetId: op.id,
-          label: getIncidentRefLabel(op, 60),
-          detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
-        })
-      }
-      if (op.assignedReko?.id === person.id) {
-        bindings.push({
-          key: `reko-${op.id}`,
-          kind: "incident",
-          targetId: op.id,
-          label: getIncidentRefLabel(op, 60),
-          detail: tCommon('reko'),
-        })
-      }
-    }
-    for (const group of groups) {
-      if (getGroupResources(group.id).personnel.some((p) => p.name === person.name)) {
-        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
-      }
-    }
-    // Reko is an Ereignis-level function first and an incident assignment second:
-    // `isReko` is set from the event's special functions, while `assignedReko`
-    // needs an assignment row on a specific incident. A Reko-Offizier who has not
-    // been sent anywhere yet has the flag and no incident — and produced exactly
-    // nothing when clicked, because the loop above found no binding to list.
-    // Same shape as the Fahrer below: the incident when there is one, the bare
-    // function when there is not.
-    if (person.isReko && !bindings.some((b) => b.key.startsWith("reko-"))) {
-      bindings.push({
-        key: "fn-reko",
-        kind: "function",
-        targetId: null,
-        label: tCommon('reko'),
-        detail: tCommon('specialFunctionNoIncident'),
-      })
-    }
-    // Station functions. They bind a person as hard as an incident does, and
-    // they are exactly the rows whose click used to do nothing at all.
-    if (person.isDriver) {
-      const drivenOp = person.driverVehicleName
-        ? operations.find((op) => op.vehicles.includes(person.driverVehicleName!))
-        : undefined
-      bindings.push({
-        key: "fn-driver",
-        kind: drivenOp ? "incident" : "function",
-        targetId: drivenOp?.id ?? null,
-        label: person.driverVehicleName || tCommon('driver'),
-        detail: drivenOp ? getIncidentRefLabel(drivenOp, 60) : tCommon('specialFunctionNoIncident'),
-      })
-    }
-    if (person.isMagazin) bindings.push({ key: "fn-magazin", kind: "function", targetId: null, label: tCommon('magazin'), detail: tCommon('specialFunctionNoIncident') })
-    if (person.isTelefondienst) bindings.push({ key: "fn-telefon", kind: "function", targetId: null, label: tCommon('telefondienst'), detail: tCommon('specialFunctionNoIncident') })
-    if (person.isKommandoposten) bindings.push({ key: "fn-kp", kind: "function", targetId: null, label: tCommon('kommandoposten'), detail: tCommon('specialFunctionNoIncident') })
-    return bindings
-  }, [operations, groups, getGroupResources, groupNames, tCommon])
-
-  const collectMaterialBindings = useCallback((material: Material): ResourceBinding[] => {
-    const bindings: ResourceBinding[] = []
-    // ONE row per Auftrag, like the person rows: an engagement anywhere inside
-    // a route — the route owning the unit, or a direct assignment to one of
-    // its stops — reads as «Auftrag X», once. Only incidents outside every
-    // Auftrag keep their own row.
-    const routeGroupIds = new Set<string>()
-    for (const group of groups) {
-      if (getGroupResources(group.id).materials.some((m) => m.resourceId === material.id)) {
-        routeGroupIds.add(group.id)
-      }
-    }
-    for (const op of operations) {
-      if (!op.materials.includes(material.id)) continue
-      if (op.groupId) {
-        routeGroupIds.add(op.groupId)
-        continue
-      }
-      bindings.push({
-        key: `incident-${op.id}`,
-        kind: "incident",
-        targetId: op.id,
-        label: getIncidentRefLabel(op, 60),
-        detail: "",
-      })
-    }
-    for (const group of groups) {
-      if (routeGroupIds.has(group.id)) {
-        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
-      }
-    }
-    return bindings
-  }, [operations, groups, getGroupResources])
-
-  /**
-   * Follow one binding: a card to scroll to, or the Auftrag sheet to open.
-   *
-   * A card the board's own search is currently hiding is not there to be scrolled
-   * to, and `scrollToCard` would quietly find nothing — so the query that hides it
-   * is cleared first. The rest of the "nothing happens" cases are gone at the
-   * source: a binding that cannot be followed is not offered as a button.
-   */
-  const followBinding = useCallback((binding: ResourceBinding) => {
-    if (binding.kind === "incident" && binding.targetId) {
-      if (!filteredOperations.some((op) => op.id === binding.targetId)) setSearchQuery('')
-      scrollToCard(binding.targetId)
-      // …and open it. «Wo ist die Motorsäge?» is answered by the card, but the
-      // operator asked in order to look at it. No modal on a narrow viewport:
-      // that would cover the resource list they are working through.
-      openIncidentDetail(binding.targetId, undefined, undefined, { allowModal: false })
-    } else if (binding.kind === "route" && binding.targetId) {
-      setAuftraegeFocusGroupId(binding.targetId)
-      setActiveFooterSheet('auftraege')
-    }
-  }, [scrollToCard, filteredOperations, setSearchQuery, openIncidentDetail])
-
-  /**
-   * A sidebar person row answers «wo ist diese Person?» — always.
-   *
-   * Every early return here used to be a click that did nothing: a free person
-   * failed the occupancy gate, and an occupied one with no listable binding (the
-   * Reko-Offizier who is not on an incident yet) fell through the second. The
-   * popover now opens in both cases and says so in words; only the one-incident
-   * shortcut still jumps straight to the card, which is what operators know.
-   */
-  const handlePersonClick = (person: Person) => {
-    const bindings = collectPersonBindings(person)
-    const only = soleDestination(bindings)
-    if (only) {
-      followBinding(only)
-      return
-    }
-    setBindingsPopover({
-      kind: "person",
-      id: person.id,
-      title: person.name,
-      subtitle: person.role ?? "",
-      bindings,
-    })
-  }
+  const {
+    collectPersonBindings,
+    collectMaterialBindings,
+    followBinding,
+    handlePersonClick,
+  } = useResourceBindings({
+    operations,
+    getGroupResources,
+    groups,
+    scrollToCard,
+    setSearchQuery,
+    openIncidentDetail,
+    setActiveFooterSheet,
+    setAuftraegeFocusGroupId,
+    setBindingsPopover,
+    groupNames,
+    filteredOperations,
+  })
 
   /** Right-click on a sidebar row → the same `{ out_of_service }` PUT the
    *  Materialverwaltung sends. Set or not set; no reason, no cause list. */
@@ -1801,206 +1277,55 @@ export default function FireStationDashboard() {
     })
   }
 
-  // ---------------------------------------------------------------------------
-  // Type-to-dispatch (⌘K «14 tlf meier», `lib/command-dispatch.ts`). The parser
-  // reads the vocabulary below; ↵ runs through the drop path
-  // (`applyResourceDrop` with the board's own wrappers) so nothing a drag would
-  // ask is skipped; «meier» alone answers «wo ist Meier?» like a sidebar click.
-  const dispatchVocabulary = (): DispatchVocabulary => ({
-    incidents: operations
-      .filter((op) => typeof op.number === "number")
-      .map((op) => ({
-        id: op.id,
-        number: op.number as number,
-        label: getIncidentLocationLabel(op),
-        type: getIncidentTypeLabel(op.incidentType),
-        status: op.status,
-        priority: op.priority,
-      })),
-    persons: personnel.map((person) => ({
-      id: person.id,
-      name: person.name,
-      detail: person.role || undefined,
-      incidentIds: operations
-        .filter((op) => op.crew.includes(person.name) || op.assignedReko?.id === person.id)
-        .map((op) => op.id),
-    })),
-    vehicles: fleet
-      .filter((vehicle) => !vehicle.archived_at)
-      .map((vehicle) => ({
-        id: vehicle.id,
-        name: vehicle.name,
-        type: vehicle.type,
-        callSign: vehicle.radio_call_sign || undefined,
-        detail: vehicle.radio_call_sign || undefined,
-        outOfService: outOfServiceVehicleIds.has(vehicle.id),
-        incidentIds: operations.filter((op) => op.vehicles.includes(vehicle.name)).map((op) => op.id),
-      })),
-    materials: materials.map((material) => ({
-      id: material.id,
-      name: material.name,
-      detail: material.category || undefined,
-      outOfService: material.outOfService,
-      available: materialResourceState(material) === "available",
-      incidentIds: operations.filter((op) => op.materials.includes(material.id)).map((op) => op.id),
-    })),
-  })
-
-  const assignFromPalette = (resource: DispatchResource, operationId: string) => {
-    const destination = { type: "operation-drop", operationId }
-    const deps = {
-      operations,
-      assignPersonToOperation: boardAssignPerson,
-      assignRekoPersonToOperation,
-      assignMaterialToOperation: boardAssignMaterial,
-      assignVehicleToOperation: assignVehicleToIncidentWithConflict,
-      assignGroupResource: boardAssignGroupResource,
-    }
-    if (resource.kind === "person") {
-      const person = personnel.find((candidate) => candidate.id === resource.id)
-      if (person) applyResourceDrop({ type: "person", person }, destination, deps)
-    } else if (resource.kind === "vehicle") {
-      applyResourceDrop({ type: "driver-vehicle", vehicleId: resource.id, vehicleName: resource.name }, destination, deps)
-    } else {
-      const material = materials.find((candidate) => candidate.id === resource.id)
-      if (material) applyResourceDrop({ type: "material", material }, destination, deps)
-    }
-  }
-
-  const runDispatch = useCommandDispatch({
-    getOperation: (operationId) => operationsRef.current.find((op) => op.id === operationId),
-    getGroupResources,
-    // The Doppelbelegung prompt and the driver prompt a vehicle raises when it
-    // lands without a driver — each waits for the one before it — and the
-    // context's own signal that an assignment may still ask (driver check,
-    // a resolved move still re-assigning).
-    isQuestionOpen: () => resourceConflict !== null || vehicleNeedingDriver !== null || isAssignmentSettling(),
-    getOperations: () => operationsRef.current,
-    getGroupsHolding: (resource) =>
-      groups.filter((group) =>
-        group.assignments.some(
-          (assignment) =>
-            assignment.resourceId === resource.id &&
-            assignment.resourceType === (resource.kind === "person" ? "personnel" : resource.kind),
-        ),
-      ),
-    labelOf: (operation) => getIncidentLocationLabel(operation),
-    restore: release.restore,
-    assign: assignFromPalette,
-    setPriority: (operationId, priority) => updateOperation(operationId, { priority }),
-    moveStatus: (operationId, status, previous) => {
-      updateOperation(operationId, { status })
-      afterStatusMove(operationId, status, previous)
-    },
-    revertPriority: (operationId, priority) => updateOperation(operationId, { priority }),
-    revertStatus: (operationId, status) => updateOperation(operationId, { status }),
-    removeCrew,
+  const {
+    handleVehicleAssign,
+    handleOperationDelete,
+    handleVehicleRemove,
+    handleOperationUpdate,
+    handleCardClick,
+    handleCardSelect,
+  } = useBoardDispatch({
     removeReko,
-    removeVehicle,
-    removeMaterial,
-    unassignGroupResource,
-    report: (outcome, undo) => {
-      const parts: string[] = []
-      if (outcome.assigned.length > 0) {
-        parts.push(tPalette('dispatch.toastAssigned', { names: outcome.assigned.map((resource) => resource.name).join(", ") }))
-      }
-      // Said, not hidden: a «Hierher verschieben» took them off somewhere, and
-      // «Rückgängig» puts them back there.
-      for (const item of outcome.moved) {
-        parts.push(tPalette('dispatch.toastMoved', { name: item.name, from: item.targetLabel }))
-      }
-      if (outcome.status) parts.push(tPalette('dispatch.toastStatus', { status: tColumns(outcome.status.to) }))
-      if (outcome.priority) {
-        parts.push(tPalette('dispatch.toastPriority', { priority: tCommon(PRIORITY_LABEL_KEYS[outcome.priority.to]) }))
-      }
-      toast.success(
-        tPalette('dispatch.toastTitle', {
-          number: outcome.operation.number ?? "",
-          name: getIncidentLocationLabel(outcome.operation),
-        }),
-        {
-          description: parts.join(" · "),
-          action: {
-            label: tNotifications('undoLabel'),
-            onClick: () => {
-              void undo().then(() => toast.success(tPalette('dispatch.toastUndone')))
-            },
-          },
-        },
-      )
-    },
-  })
-
-  const jumpFromPalette = (target: DispatchResource) => {
-    if (target.kind === "person") {
-      const person = personnel.find((candidate) => candidate.id === target.id)
-      if (!person) return
-      const only = soleDestination(collectPersonBindings(person))
-      if (only) followBinding(only)
-      else {
-        // Free, or in several places: the sidebar row says which.
-        setShowLeftSidebar(true)
-        setPersonnelSearchQuery(person.name)
-      }
-    } else if (target.kind === "material") {
-      const material = materials.find((candidate) => candidate.id === target.id)
-      if (!material) return
-      const only = soleDestination(collectMaterialBindings(material))
-      if (only) followBinding(only)
-      else {
-        setShowRightSidebar(true)
-        setMaterialSearchQuery(material.name)
-      }
-    } else {
-      const onIncident = operations.find((op) => op.vehicles.includes(target.name))
-      const onRoute = groups.find((group) =>
-        group.assignments.some((assignment) => assignment.resourceType === "vehicle" && assignment.resourceId === target.id),
-      )
-      if (onIncident) {
-        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "" })
-      } else if (onRoute) {
-        setAuftraegeFocusGroupId(onRoute.id)
-        setActiveFooterSheet('auftraege')
-      } else {
-        // Nowhere: the Fahrzeuge sheet is where a free vehicle is seen.
-        setActiveFooterSheet('vehicles')
-      }
-    }
-  }
-
-  dispatchRef.current = {
-    vocabulary: dispatchVocabulary,
-    run: (command) => {
-      void runDispatch(command)
-    },
-    jump: jumpFromPalette,
-  }
-
-  // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleRemove, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
-    selectedOperation,
-    updateOperation,
-    removeVehicle: release.releaseVehicle,
+    operations,
+    outOfServiceVehicleIds,
     assignVehicleToOperation,
+    materials,
+    removeCrew,
+    removeMaterial,
+    removeVehicle,
     deleteOperation,
+    resourceConflict,
+    vehicleNeedingDriver,
+    updateOperation,
+    fleet,
+    isAssignmentSettling,
+    assignRekoPersonToOperation,
+    getGroupResources,
+    groups,
+    unassignGroupResource,
+    release,
+    dispatchRef,
+    personnel,
+    operationsRef,
+    setPersonnelSearchQuery,
+    setMaterialSearchQuery,
+    selectedOperation,
+    setShowRightSidebar,
+    setShowLeftSidebar,
+    openIncidentDetail,
+    setActiveFooterSheet,
+    setAuftraegeFocusGroupId,
+    broadcast,
+    isDraggingOperationRef,
+    assignVehicleToIncidentWithConflict,
+    boardAssignPerson,
+    boardAssignMaterial,
+    boardAssignGroupResource,
+    afterStatusMove,
+    collectPersonBindings,
+    collectMaterialBindings,
+    followBinding,
   })
-
-  // `tab`/`section` come from the card and say which BLOCK was clicked — the
-  // card routes into the detail rather than always landing on one tab. Both
-  // handlers just forward them; the card decides which of the two it calls
-  // (modal below the side-panel breakpoint, selection above it).
-  const handleCardClick = (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => {
-    // Don't open modal if we just finished dragging
-    if (isDraggingOperationRef.current) {
-      return
-    }
-    openIncidentDetail(operation.id, tab, section)
-    broadcast("incident:selected", operation.id)
-  }
-
-  const handleCardSelect = (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => {
-    openIncidentDetail(operation.id, tab, section)
-  }
 
   // Derived state for convenience
   const vehicleStatusSheetOpen = activeFooterSheet === 'vehicles'
@@ -2036,244 +1361,65 @@ export default function FireStationDashboard() {
     [materialOnSite, materials],
   )
 
-  // «Rapport erfassen» is a write, so the caret belongs in the Kurzbericht.
-  // Everything that merely opens the same tab to read (a Feldmeldung in the
-  // bell, the green icon on a card that already has one) passes no section.
-  const handleOpenRapport = useCallback((operationId: string) => {
-    setActiveFooterSheet(null)
-    openIncidentDetail(operationId, 'rapport', 'kurzbericht')
-  }, [openIncidentDetail])
-
-  /** Opening the Appell closes the sheet underneath it — two stacked layers for one job
-   *  is one too many. */
-  const openAttendance = () => {
-    setActiveFooterSheet(null)
-    setAttendanceOpen(true)
-  }
-
-  /** Where this person is still assigned, so a check-out can warn instead of surprising.
-   *  Never used to block, and never to release the assignment. */
-  const assignmentLabelForPerson = useCallback(
-    (person: { name: string }) =>
-      operations.find((op) => op.status !== 'complete' && op.crew.includes(person.name))?.location ?? null,
-    [operations]
-  )
-
-  /** Sidebar «Anrückend» → present: the ordinary check-in, then the roster reloads and the
-   *  person moves from that block into «Frei». Errors surface in the block's own toast. */
-  const checkInFromDivera = useCallback(
-    async (personnelId: string) => {
-      if (!selectedEvent) return
-      await apiClient.checkInPersonnelForEvent(personnelId, selectedEvent.id)
-      await refreshPersonnel()
-    },
-    [selectedEvent, refreshPersonnel]
-  )
-
-  const copyCheckInUrlToClipboard = async () => {
-    if (!checkInUrl) return
-
-    try {
-      const { copyToClipboard } = await import('@/lib/utils')
-      await copyToClipboard(checkInUrl)
-      setCopied(true)
-      toast.success(tCommon('linkCopied'))
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error(tCommon('copyFailed'))
-    }
-  }
-
-  // The Reko trupp's link is the field link now — `/reko-dashboard` is gone
-  // (plan 26, decision 24) and `/feld` absorbed everything it did.
-  // Check-In and Anzeige links live in the Links & QR sheet too (it mints them
-  // itself), so the page no longer generates either.
-
-  // Handle resource assignment dialog. A grouped incident owns no resources of its
-  // own — the Auftrag (route) does — so assigning from its card buttons or the
-  // detail modal edits the route instead of the single stop.
-  const handleOpenAssignmentDialog = (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string, search?: string) => {
-    const op = operations.find((o) => o.id === operationId)
-    // A stop's resources belong to the Auftrag, never to the stop — including
-    // when the «es fehlt noch etwas» modal is what sent us here. Resolved via
-    // the routes, because a just-added stop has no groupId of its own yet.
-    const auftrag = findAuftragForStop(groups, op)
-    if (auftrag) {
-      handleAssignRouteResource(resourceType, auftrag.id)
-      return
-    }
-    setAssignmentResourceType(resourceType)
-    setAssignmentOperationId(operationId)
-    setAssignmentInitialSearch(search)
-    setAssignmentDialogOpen(true)
-  }
-
-  // «Material zuteilen» / «Personal zuteilen» on a field request in the
-  // notification sidebar (R13) — the same dialog, searched for the item.
-  // Through a ref so the registration does not churn on every render.
-  const openAssignmentRef = useRef(handleOpenAssignmentDialog)
-  openAssignmentRef.current = handleOpenAssignmentDialog
-  useEffect(() => {
-    if (!isEditor) return
-    registerAssignHandler((incidentId, resourceType, search) =>
-      openAssignmentRef.current(resourceType, incidentId, search),
-    )
-    return () => registerAssignHandler(null)
-  }, [isEditor, registerAssignHandler])
-
-  // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
-  // an incident already in another route MOVES it (addStops reassigns group_id).
-  const handleConfirmAddStops = (incidentIds: string[]) => {
-    if (!stopPickerGroupId || incidentIds.length === 0) return
-    const groupId = stopPickerGroupId
-    closedStopGuard.guard(incidentIds, async () => {
-      const ok = await addStopsToGroup(groupId, incidentIds)
-      if (ok) toast.success(tDash('stopsAddedToast', { count: incidentIds.length }))
-    })
-  }
-
-  // "An Auftrag verteilen" — open the route picker for a single incident.
-  const handleDistributeToAuftrag = (operationId: string) => {
-    setAuftragPickerIncidentId(operationId)
-  }
-
-  const performDistribute = (groupId: string, incidentId: string) => {
-    closedStopGuard.guard([incidentId], async () => {
-      const ok = await addStopsToGroup(groupId, [incidentId])
-      if (ok) {
-        const group = groups.find((g) => g.id === groupId)
-        toast.success(tDash('distributedToast', { name: group?.name ?? '' }))
-      }
-    })
-  }
-
-  const handleChooseAuftrag = (groupId: string) => {
-    if (!auftragPickerIncidentId) return
-    const incidentId = auftragPickerIncidentId
-    // Two moves that cannot be taken back ask first (there is no undo yet):
-    // pulling a stop OUT of another Auftrag, and folding an already
-    // disponierter Einsatz into a route.
-    const op = operations.find((candidate) => candidate.id === incidentId)
-    const otherGroup =
-      op?.groupId && op.groupId !== groupId ? groups.find((g) => g.id === op.groupId) : undefined
-    const dispatched = !!op && ['enroute', 'active', 'returning'].includes(op.status)
-    if (otherGroup || dispatched) {
-      setDistributeConfirm({
-        groupId,
-        incidentId,
-        incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
-        fromName: otherGroup?.name ?? null,
-        dispatched,
-      })
-      return
-    }
-    performDistribute(groupId, incidentId)
-  }
-
-  // "Aus Auftrag entfernen" — detach the incident from its current route (it
-  // stays on the board, ungrouped). Only offered when it's already in a route.
-  const handleRemoveFromAuftrag = async () => {
-    if (!auftragPickerIncidentId) return
-    const op = operations.find((o) => o.id === auftragPickerIncidentId)
-    if (!op?.groupId) return
-    // The release toast («… von <Auftrag> gelöst · Rückgängig») says it.
-    await release.releaseStop(op.groupId, auftragPickerIncidentId)
-  }
-
-  // Route-level resource assign: open the standard assignment dialog scoped to the
-  // ROUTE (Auftrag). Assign/remove hit the group directly, so it works even with
-  // zero stops — the route owns the resources, not any single incident.
-  const handleAssignRouteResource = (resourceType: 'crew' | 'vehicles' | 'materials', groupId: string) => {
-    setRouteAssign({ groupId, resourceType })
-    setAssignmentResourceType(resourceType)
-    setAssignmentDialogOpen(true)
-  }
-
-  // Handle Reko assignment dialog (from context menu)
-  const handleOpenRekoAssignDialog = (operationId: string) => {
-    setRekoAssignOperationId(operationId)
-    setRekoAssignDialogOpen(true)
-  }
-
-  // Handle toggling Nachbarhilfe status (from context menu)
-  const handleToggleNachbarhilfe = (operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (operation) {
-      updateOperation(operationId, { nachbarhilfe: !operation.nachbarhilfe })
-    }
-  }
-
-  // Handle toggling Am Warten status (from context menu)
-  const handleToggleAmWarten = (operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (operation) {
-      updateOperation(operationId, { amWarten: !operation.amWarten })
-    }
-  }
-
-  // Handle toggling Zu Fuss status (from context menu or badge removal)
-  const handleToggleZuFuss = (operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (operation) {
-      updateOperation(operationId, { zuFuss: !operation.zuFuss })
-    }
-  }
-
-  // Get assigned resources for selected operation
-  const getAssignedResourcesForOperation = (operationId: string) => {
-    const operation = operations.find(op => op.id === operationId)
-    if (!operation) {
-      return {
-        assignedPersonnel: [],
-        assignedVehicles: [],
-        assignedMaterials: []
-      }
-    }
-
-    return {
-      assignedPersonnel: operation.crew,
-      assignedVehicles: operation.vehicles,
-      assignedMaterials: operation.materials
-    }
-  }
-
-  const assignedResources = assignmentOperationId
-    ? getAssignedResourcesForOperation(assignmentOperationId)
-    : { assignedPersonnel: [], assignedVehicles: [], assignedMaterials: [] }
-
-  // When the assignment dialog is scoped to a ROUTE, its assigned lists +
-  // assign/remove callbacks target the Auftrag's resources instead of a stop.
-  const routeGroupResources = routeAssign ? getGroupResources(routeAssign.groupId) : null
-  const routeOwnIds = routeAssign
-    ? new Set(groups.find((group) => group.id === routeAssign.groupId)?.assignments.map((a) => `${a.resourceType}:${a.resourceId}`) ?? [])
-    : new Set<string>()
-  const occupiedPersonnelIds = new Set([...occupiedResourceIds.personnel].filter((id) => !routeOwnIds.has(`personnel:${id}`)))
-  const occupiedVehicleIds = new Set([...occupiedResourceIds.vehicle].filter((id) => !routeOwnIds.has(`vehicle:${id}`)))
-  const occupiedMaterialIds = new Set([...occupiedResourceIds.material].filter((id) => !routeOwnIds.has(`material:${id}`)))
-
-  /** «Freigegeben werden: 2 Personen, MTW» — what a delete hands back, named in
-   *  the confirmation. Null when the card carries nothing. */
-  const deleteReleaseHint = useMemo(() => {
-    if (!operationToDelete) return null
-    const parts = [
-      operationToDelete.crew.length ? tCommon('personCount', { count: operationToDelete.crew.length }) : null,
-      operationToDelete.vehicles.length ? operationToDelete.vehicles.join(', ') : null,
-    ].filter(Boolean)
-    return parts.length ? tCommon('deleteIncidentReleases', { what: parts.join(', ') }) : null
-  }, [operationToDelete, tCommon])
-
-  // Handle operation deletion from keyboard shortcut
-  const handleDeleteOperationConfirm = async () => {
-    if (!operationToDelete) return
-    try {
-      await deleteOperation(operationToDelete.id)
-    } catch (error) {
-      console.error('Failed to delete operation:', error)
-      toast.error(tCommon('deleteFailed'))
-    } finally {
-      setOperationToDelete(null)
-    }
-  }
+  const {
+    handleOpenRapport,
+    openAttendance,
+    assignmentLabelForPerson,
+    checkInFromDivera,
+    copyCheckInUrlToClipboard,
+    handleOpenAssignmentDialog,
+    handleConfirmAddStops,
+    handleDistributeToAuftrag,
+    performDistribute,
+    handleChooseAuftrag,
+    handleRemoveFromAuftrag,
+    handleAssignRouteResource,
+    handleOpenRekoAssignDialog,
+    handleToggleNachbarhilfe,
+    handleToggleAmWarten,
+    handleToggleZuFuss,
+    assignedResources,
+    routeGroupResources,
+    occupiedPersonnelIds,
+    occupiedVehicleIds,
+    occupiedMaterialIds,
+    deleteReleaseHint,
+    handleDeleteOperationConfirm,
+  } = useBoardDialogActions({
+    occupiedResourceIds,
+    deleteOperation,
+    operations,
+    updateOperation,
+    refreshPersonnel,
+    getGroupResources,
+    addStopsToGroup,
+    groups,
+    release,
+    closedStopGuard,
+    selectedEvent,
+    isEditor,
+    registerAssignHandler,
+    openIncidentDetail,
+    setActiveFooterSheet,
+    stopPickerGroupId,
+    setAuftragPickerIncidentId,
+    auftragPickerIncidentId,
+    setDistributeConfirm,
+    routeAssign,
+    setRouteAssign,
+    checkInUrl,
+    setCopied,
+    setAttendanceOpen,
+    setOperationToDelete,
+    operationToDelete,
+    setAssignmentDialogOpen,
+    setAssignmentResourceType,
+    setAssignmentOperationId,
+    assignmentOperationId,
+    setAssignmentInitialSearch,
+    setRekoAssignDialogOpen,
+    setRekoAssignOperationId,
+  })
 
   // Don't render drag and drop until client-side to avoid hydration errors.
   // Inside ProtectedRoute like every other branch, so all three share ONE ProtectedRoute at
