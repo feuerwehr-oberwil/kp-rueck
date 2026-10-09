@@ -28,7 +28,10 @@ x-logging: &default-logging
 
 services:
   db:
-    image: postgres:16-alpine
+    # Docker Official Images via AWS ECR Public: the same image (same digest) as Docker Hub's
+    # `postgres`, without Docker Hub's anonymous pull limit. CI boots this stack on every push,
+    # and that limit failed it at random (09.10.2026). caddy below likewise.
+    image: public.ecr.aws/docker/library/postgres:16-alpine
     restart: unless-stopped
     # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak
@@ -241,7 +244,7 @@ services:
   # The single origin. With DOMAIN set it fetches a certificate automatically; without one it
   # serves plain HTTP on HTTP_PORT for a trusted LAN.
   caddy:
-    image: caddy:2-alpine
+    image: public.ecr.aws/docker/library/caddy:2-alpine
     restart: unless-stopped
     # Memory ceiling. Not a reservation – it decides WHO gets killed when the box runs out,
     # rather than leaving that to the kernel's choice of victim. Numbers are ~2x the peak

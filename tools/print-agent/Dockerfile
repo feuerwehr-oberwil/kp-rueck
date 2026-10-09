@@ -2,7 +2,7 @@
 #
 # The image installs the ESC/POS extra, because a containerised agent is how the thermal
 # printer is run.
-FROM python:3.14-slim
+FROM public.ecr.aws/docker/library/python:3.14-slim
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 

@@ -123,7 +123,8 @@ jobs:
         run: |
           mkdir -p /tmp/scan
           git archive HEAD | tar -x -C /tmp/scan
-          docker run --rm -v /tmp/scan:/repo zricethezav/gitleaks:latest \
+          # GHCR: the same image as Docker Hub's zricethezav/gitleaks, without its pull limit.
+          docker run --rm -v /tmp/scan:/repo ghcr.io/gitleaks/gitleaks:latest \
             detect --source /repo --no-git --redact --exit-code 1
 
   # ============================================
@@ -680,7 +681,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # ECR Public mirror of the Docker Official Image (same image, same digest): Docker Hub's
+        # anonymous pull limit failed CI jobs at random (09.10.2026). Same for every image CI pulls.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -949,7 +952,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -1087,7 +1090,7 @@ jobs:
       postgres:
         # -alpine, as production runs it: the image's collation decides the order of names the
         # backend sorts, which is on screen (scripts/visual-test.sh).
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck

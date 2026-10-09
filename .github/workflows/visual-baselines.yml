@@ -49,7 +49,7 @@ jobs:
     # Same stack as the `visual` job in ci.yml — keep the two in step.
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
