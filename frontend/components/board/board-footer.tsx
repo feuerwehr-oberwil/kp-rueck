@@ -13,7 +13,7 @@
 import type { ComponentProps, Dispatch, SetStateAction } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
-import { ChartColumn, ClipboardCheck, FileText, Plus, Printer, QrCode, Sparkles, Truck, Waypoints } from "lucide-react"
+import { BookOpenText, ChartColumn, ClipboardCheck, FileText, Plus, Printer, QrCode, Sparkles, Truck, Waypoints } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils"
 /** The footer sheets. Only one is open at a time; `'print'` is the one
  *  print/export sheet (thermal slip, A4 status print, per-event export);
  *  `'crew'` is the Dienstzeiten overview, opened from the Personen-Leiste. */
-export type FooterSheet = 'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | 'figures' | 'crew'
+export type FooterSheet = 'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | 'figures' | 'crew' | 'journal'
 
 /**
  * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it
@@ -113,6 +113,7 @@ export interface BoardFooterProps {
   cmdHint: string
   filedRapports: ReturnType<typeof selectFiledRapports>
   handleChecklistOpenChange: (open: boolean) => void
+  journalSheetOpen: boolean
   linksSheetOpen: boolean
   openRapports: ReturnType<typeof selectOpenRapports>
   printSheetOpen: boolean
@@ -140,6 +141,7 @@ export function BoardFooter({
   cmdHint,
   filedRapports,
   handleChecklistOpenChange,
+  journalSheetOpen,
   linksSheetOpen,
   openRapports,
   printSheetOpen,
@@ -354,6 +356,25 @@ export function BoardFooter({
                   ),
                 }]
               : []),
+            /* The Einsatztagebuch (idea R8): the Ereignis' log — the board's own
+               facts plus the lines that belong to no card. Always there: an
+               empty log is still where the first line gets written. */
+            {
+              key: 'journal',
+              node: (
+                <ToolbarToggle
+                  icon={BookOpenText}
+                  label={tDash('journal')}
+                  active={journalSheetOpen}
+                  disabled={!selectedEvent}
+                  title={tDash('journalTitle')}
+                  onActivate={() => {
+                    if (!selectedEvent) return
+                    setActiveFooterSheet(journalSheetOpen ? null : 'journal')
+                  }}
+                />
+              ),
+            },
             /* Kennzahlen: the live Lage numbers and Reaktionszeiten — on a
                training Ereignis the Übungsauswertung. */
             {

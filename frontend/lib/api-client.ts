@@ -79,6 +79,8 @@ import {
   type ApiGroupAssignmentCreate,
   type ApiStatusTransition,
   type ApiIncidentTimelineResponse,
+  type ApiJournalEntry,
+  type ApiJournalPage,
   type ApiKpFieldMessage,
   type ApiFieldRequest,
   type ApiFieldRequestCreate,
@@ -793,6 +795,34 @@ class ApiClient {
 
   async getIncidentTimeline(id: string): Promise<ApiIncidentTimelineResponse> {
     return this.request<ApiIncidentTimelineResponse>(`/api/incidents/${id}/timeline`)
+  }
+
+  /** The Ereignis' Einsatztagebuch; `sinceSeq` = the `latest_seq` last seen (0 = all). */
+  async getJournal(eventId: string, sinceSeq = 0): Promise<ApiJournalPage> {
+    return this.request<ApiJournalPage>(`/api/events/${eventId}/journal?since_seq=${sinceSeq}`)
+  }
+
+  /** A manual Einsatztagebuch line. `clientId` makes a retry after a lost answer harmless. */
+  async appendJournal(
+    eventId: string,
+    body: { client_id: string; text: string; incident_id?: string | null },
+  ): Promise<ApiJournalEntry> {
+    return this.request<ApiJournalEntry>(`/api/events/${eventId}/journal`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  /** Correct a manual line — appended, the original stays. */
+  async correctJournal(
+    eventId: string,
+    entryId: string,
+    body: { client_id: string; text: string },
+  ): Promise<ApiJournalEntry> {
+    return this.request<ApiJournalEntry>(`/api/events/${eventId}/journal/${entryId}/corrections`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
   }
 
   /** «Meldung an den Trupp» — the KP's half of the field message loop (§P3.2). */

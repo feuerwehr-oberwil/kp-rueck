@@ -267,7 +267,8 @@
         "confirmSplit": "deux personnes ?",
         "choiceConfirm": "confirmer pour « {text} »",
         "toastMoved": "{name} retiré de {from}"
-      }
+      },
+      "journal": "Ouvrir le journal d'intervention"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -1790,7 +1791,9 @@
       "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
       "distributeConfirmAction": "Oui, ajouter",
-      "figures": "Indicateurs"
+      "figures": "Indicateurs",
+      "journal": "Journal",
+      "journalTitle": "Journal (J)"
     },
     "missingResources": {
       "title": "Il manque des ressources",
@@ -2662,7 +2665,8 @@
       "management": "Administration",
       "support": "Support",
       "account": "Compte",
-      "linksAndQr": "Liens & QR"
+      "linksAndQr": "Liens & QR",
+      "journal": "Journal d'intervention"
     },
     "pageNav": {
       "main": "Navigation principale",
@@ -2852,7 +2856,9 @@
         "vehicle": "Véhicule",
         "alarm": "Exercice",
         "time": "Délai dépassé"
-      }
+      },
+      "fieldReport": "Nouvelle place de sinistre",
+      "fieldReportDirect": "Nouvelle place de sinistre – le groupe s’y rend directement"
     },
     "sidebar": {
       "title": "Notifications",
@@ -4370,5 +4376,80 @@
       "splitHint": "Remettre le message sur le tableau comme intervention à part"
     },
     "feldMerged": "Ajouté à l’intervention existante – le PC le voit comme complément."
+  },
+  "journal": {
+    "title": "Journal d'intervention",
+    "description": "Tout ce qui s'est passé dans l'événement – le plus récent d'abord.",
+    "filter": "Filtrer",
+    "filterOn": "Filtré : {filters}",
+    "filterSummary": "Filtré : {filters}",
+    "showAll": "Tout afficher",
+    "resetFilter": "Réinitialiser le filtre",
+    "filters": {
+      "all": "Tous",
+      "manual": "Manuel",
+      "field": "Terrain",
+      "status": "Statut",
+      "resources": "Moyens"
+    },
+    "loading": "Chargement du journal …",
+    "loadFailed": "Le journal n'a pas pu être chargé.",
+    "retry": "Réessayer",
+    "emptyTitle": "Aucune entrée pour l'instant",
+    "emptyEditor": "Les changements de statut, attributions et messages apparaissent ici d'eux-mêmes. Ce qui n'appartient à aucune intervention se saisit ci-dessous.",
+    "emptyViewer": "Les changements de statut, attributions et messages apparaissent ici d'eux-mêmes.",
+    "emptyFilteredTitle": "Aucune entrée dans ce filtre",
+    "emptyFiltered": "Filtré : {filters}.",
+    "corrected": "corrigé {time}",
+    "correct": "Corriger l'entrée",
+    "correcting": "Correction de «{text}» – l'original reste visible.",
+    "cancelCorrection": "Annuler la correction",
+    "placeholder": "Entrée …",
+    "placeholderCorrect": "Nouveau libellé",
+    "inputLabel": "Nouvelle entrée du journal",
+    "submit": "Inscrire",
+    "submitCorrect": "Corriger",
+    "saveFailed": "Non enregistré – le texte est toujours là. Renvoyer.",
+    "linkTitle": "Lier une intervention",
+    "linkSearch": "Chercher une intervention par numéro ou lieu",
+    "linkSearchPlaceholder": "Numéro ou lieu",
+    "linkNone": "Aucune intervention ne correspond.",
+    "linkClosed": "terminée",
+    "unlink": "Retirer le lien",
+    "rows": {
+      "created": "Intervention créée",
+      "deleted": "Intervention supprimée",
+      "restored": "Intervention restaurée",
+      "assigned": "{name} attribué",
+      "unassigned": "{name} retiré de l'intervention",
+      "reko": "Rapport de reconnaissance reçu",
+      "rekoWith": "Rapport de reconnaissance reçu : {text}",
+      "alarm": "Alarme Divera déclenchée ({count} destinataires)",
+      "alarmPlain": "Alarme Divera déclenchée",
+      "fromField": "{name} :",
+      "toField": "{name} à l'équipe :",
+      "unknown": "Inconnu",
+      "merge": "Signalement «{other}» fusionné",
+      "mergedInto": "Fusionné dans «{other}»",
+      "unmerge": "Fusion avec «{other}» annulée",
+      "sourceKp": "saisi au PC",
+      "sourceGps": "GPS",
+      "field": {
+        "field_arrived": "Arrivée sur place signalée",
+        "field_arrived_cleared": "Arrivée sur place retirée",
+        "field_complete": "Intervention terminée signalée",
+        "field_complete_cleared": "« Terminé » retiré",
+        "field_pickup_requested": "Récupération nécessaire",
+        "field_pickup_cleared": "Récupération effectuée",
+        "rapport_submitted": "Rapport de place sinistrée saisi",
+        "reko_arrived": "Reconnaissance sur place",
+        "reko_arrived_cleared": "Arrivée de la reconnaissance retirée",
+        "field_request_in_progress": "Demande en cours",
+        "field_request_done": "Demande traitée",
+        "field_request_open": "Demande rouverte"
+      }
+    },
+    "refDeleted": "{ref} (supprimée)",
+    "refMerged": "{ref} → {target}"
   }
 }

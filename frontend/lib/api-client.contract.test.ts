@@ -73,11 +73,11 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
       .filter((name) => name !== 'constructor' && !INTERNAL.has(name))
       .sort()
     expect(names).toEqual([
-    'addStopsToGroup', 'applyRapportMaterialDecisions', 'archiveDiveraEmergency', 'archiveEvent',
+    'addStopsToGroup', 'appendJournal', 'applyRapportMaterialDecisions', 'archiveDiveraEmergency', 'archiveEvent',
     'archiveMaterialResource', 'archiveVehicle', 'assignGroupResource', 'assignRekoPersonnel',
     'assignResource', 'assignSpecialFunction', 'attachEmergencyToEvent', 'bulkAttachEmergencies',
     'checkInPersonnel', 'checkInPersonnelForEvent', 'checkOutAllPersonnel', 'checkOutPersonnel',
-    'checkOutPersonnelForEvent', 'claimFeldPerson', 'claimSetup', 'clearPersonnelAttendance',
+    'checkOutPersonnelForEvent', 'claimFeldPerson', 'claimSetup', 'clearPersonnelAttendance', 'correctJournal',
     'createAuftragTemplate', 'createDemoSandbox', 'createEvent', 'createFeldIncident', 'createFieldRequest', 'createIncident',
     'createIncidentGroup', 'createIntakeAlarm', 'createMaterialGroup', 'createMaterialResource',
     'createPersonnel', 'createRekoReportAsEditor', 'createUser', 'createVehicle', 'deleteAuftragTemplate',
@@ -99,7 +99,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'getFeldPersonnel', 'getFeldRapport', 'getFieldRequests', 'getGpsSimulations', 'getGroupAssignments',
     'getIncident', 'getIncidentAssignments', 'getIncidentGroups', 'getIncidentParticipants',
     'getIncidentRapport', 'getIncidentRekoReports', 'getIncidentStatusHistory', 'getIncidentTimeline',
-    'getIncidents', 'getIncidentsWithTotal', 'getIntakeContext', 'getIntegrations', 'getKpFieldMessages',
+    'getIncidents', 'getIncidentsWithTotal', 'getIntakeContext', 'getIntegrations', 'getJournal', 'getKpFieldMessages',
     'getMaterialById', 'getMaterialGroups', 'getPendingPrintJobs', 'getPersonnelById',
     'getPersonnelSpecialFunctions', 'getPrintJob', 'getPrinterStatus', 'getRapportMaterialReturn',
     'getRekoForm', 'getReportLogoUrl', 'getResourceHistory', 'getRosterSnapshot', 'getSetting', 'getSetupStatus', 'getSyncConfig',
@@ -155,6 +155,10 @@ const rows: Row[] = [
   ['getSyncVersion', () => apiClient.getSyncVersion('e 1'), 'GET', '/api/incidents/sync-version?event_id=e%201'],
   ['setRekoArrived(now)', () => apiClient.setRekoArrived('i1'), 'POST', '/api/incidents/i1/reko-arrived', {}],
   ['setRekoArrived(clear)', () => apiClient.setRekoArrived('i1', null), 'POST', '/api/incidents/i1/reko-arrived', { arrived_at: null }],
+  // Einsatztagebuch
+  ['getJournal', () => apiClient.getJournal('e1', 7), 'GET', '/api/events/e1/journal?since_seq=7'],
+  ['appendJournal', () => apiClient.appendJournal('e1', { client_id: 'c1', text: 'x', incident_id: 'i1' }), 'POST', '/api/events/e1/journal', { client_id: 'c1', text: 'x', incident_id: 'i1' }],
+  ['correctJournal', () => apiClient.correctJournal('e1', 'j1', { client_id: 'c2', text: 'y' }), 'POST', '/api/events/e1/journal/j1/corrections', { client_id: 'c2', text: 'y' }],
   // Aufträge
   ['getIncidentGroups', () => apiClient.getIncidentGroups('e 1'), 'GET', '/api/incident-groups/?event_id=e%201'],
   ['reorderIncidentGroups', () => apiClient.reorderIncidentGroups('e1', ['g2', 'g1']), 'POST', '/api/incident-groups/reorder', { event_id: 'e1', ordered_ids: ['g2', 'g1'] }],

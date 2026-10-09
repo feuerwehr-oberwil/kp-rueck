@@ -113,6 +113,7 @@ beforeEach(() => {
     onTogglePrint: vi.fn(),
     onSidePanelMap: vi.fn(),
     onToggleNotifications: vi.fn(),
+    onToggleJournal: vi.fn(),
   } as unknown as KanbanShortcutsActions;
 });
 
@@ -395,6 +396,18 @@ describe("useKanbanShortcuts", () => {
       renderHook(() => useKanbanShortcuts(baseState(), actions));
       press("a");
       expect(actions.onToggleAuftraege).toHaveBeenCalledTimes(1);
+    });
+
+    it("'j' toggles the Einsatztagebuch, but never while typing", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("j");
+      press("J");
+      expect(actions.onToggleJournal).toHaveBeenCalledTimes(2);
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+      expect(actions.onToggleJournal).toHaveBeenCalledTimes(2);
+      input.remove();
     });
 
     it("'z' toggles the Kennzahlen footer sheet", () => {

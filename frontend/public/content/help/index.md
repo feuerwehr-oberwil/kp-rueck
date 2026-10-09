@@ -13,6 +13,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«Rapporte» in der Fusszeile.** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
+**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuteilungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse wird ein Einsatz verknüpft. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Mittel. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
 **«Kennzahlen» in der Fusszeile (`Z`).** Die Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF). Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
 
 ### Kartenansicht (`G M`)
@@ -568,6 +569,7 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | `D` | Drucken & Export öffnen/schliessen |
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
+| `J` | Einsatztagebuch öffnen/schliessen |
 | `Z` | Kennzahlen (Lage, Reaktionszeiten) öffnen/schliessen |
 
 ### Kanban-Board – Einsatz (Maus über der Karte)

@@ -158,7 +158,8 @@
         "confirmSplit": "zwei Personen?",
         "choiceConfirm": "bestätigen für «{text}»",
         "toastMoved": "{name} von {from} abgezogen"
-      }
+      },
+      "journal": "Einsatztagebuch öffnen"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -251,7 +252,8 @@
       "management": "Verwaltung",
       "support": "Support",
       "account": "Konto",
-      "linksAndQr": "Links & QR"
+      "linksAndQr": "Links & QR",
+      "journal": "Einsatztagebuch"
     },
     "pageNav": {
       "main": "Hauptnavigation",
@@ -552,7 +554,9 @@
       "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
       "distributeConfirmAction": "Ja, aufnehmen",
-      "figures": "Kennzahlen"
+      "figures": "Kennzahlen",
+      "journal": "Tagebuch",
+      "journalTitle": "Tagebuch (J)"
     },
     "missingResources": {
       "title": "Ressourcen fehlen",
@@ -3160,7 +3164,9 @@
         "vehicle": "Fahrzeug",
         "alarm": "Übung",
         "time": "Zeitlimit überschritten"
-      }
+      },
+      "fieldReport": "Neuer Schadenplatz",
+      "fieldReportDirect": "Neuer Schadenplatz – Trupp fährt direkt hin"
     },
     "sidebar": {
       "title": "Benachrichtigungen",
@@ -4370,5 +4376,80 @@
       "splitHint": "Die Meldung wieder als eigenen Einsatz aufs Board holen"
     },
     "feldMerged": "Zum bestehenden Einsatz hinzugefügt – der KP sieht es als Nachtrag."
+  },
+  "journal": {
+    "title": "Einsatztagebuch",
+    "description": "Alles, was im Ereignis geschah – neueste zuerst.",
+    "filter": "Filtern",
+    "filterOn": "Gefiltert: {filters}",
+    "filterSummary": "Gefiltert: {filters}",
+    "showAll": "Alle zeigen",
+    "resetFilter": "Filter zurücksetzen",
+    "filters": {
+      "all": "Alle",
+      "manual": "Manuell",
+      "field": "Feld",
+      "status": "Status",
+      "resources": "Mittel"
+    },
+    "loading": "Einsatztagebuch wird geladen …",
+    "loadFailed": "Einsatztagebuch konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "emptyTitle": "Noch keine Einträge",
+    "emptyEditor": "Statuswechsel, Zuteilungen und Meldungen erscheinen hier von selbst. Was zu keinem Einsatz gehört, unten eintragen.",
+    "emptyViewer": "Statuswechsel, Zuteilungen und Meldungen erscheinen hier von selbst.",
+    "emptyFilteredTitle": "Keine Einträge in diesem Filter",
+    "emptyFiltered": "Gefiltert: {filters}.",
+    "corrected": "korrigiert {time}",
+    "correct": "Eintrag korrigieren",
+    "correcting": "Korrektur von «{text}» – das Original bleibt sichtbar.",
+    "cancelCorrection": "Korrektur abbrechen",
+    "placeholder": "Eintrag …",
+    "placeholderCorrect": "Neuer Wortlaut",
+    "inputLabel": "Neuer Eintrag im Einsatztagebuch",
+    "submit": "Eintragen",
+    "submitCorrect": "Korrigieren",
+    "saveFailed": "Nicht gespeichert – der Text ist noch da. Erneut senden.",
+    "linkTitle": "Einsatz verknüpfen",
+    "linkSearch": "Einsatz nach Nummer oder Ort suchen",
+    "linkSearchPlaceholder": "Nummer oder Ort",
+    "linkNone": "Kein Einsatz passt.",
+    "linkClosed": "abgeschlossen",
+    "unlink": "Verknüpfung entfernen",
+    "rows": {
+      "created": "Einsatz erstellt",
+      "deleted": "Einsatz gelöscht",
+      "restored": "Einsatz wiederhergestellt",
+      "assigned": "{name} zugeteilt",
+      "unassigned": "{name} vom Einsatz abgezogen",
+      "reko": "Reko-Bericht eingegangen",
+      "rekoWith": "Reko-Bericht eingegangen: {text}",
+      "alarm": "Divera-Alarm ausgelöst ({count} Empfänger)",
+      "alarmPlain": "Divera-Alarm ausgelöst",
+      "fromField": "{name}:",
+      "toField": "{name} an Trupp:",
+      "unknown": "Unbekannt",
+      "merge": "Meldung «{other}» zusammengeführt",
+      "mergedInto": "Zusammengeführt in «{other}»",
+      "unmerge": "Zusammenführung mit «{other}» aufgehoben",
+      "sourceKp": "im KP erfasst",
+      "sourceGps": "GPS",
+      "field": {
+        "field_arrived": "Vor Ort gemeldet",
+        "field_arrived_cleared": "Meldung «vor Ort» zurückgenommen",
+        "field_complete": "Einsatz beendet gemeldet",
+        "field_complete_cleared": "Meldung «beendet» zurückgenommen",
+        "field_pickup_requested": "Abholung nötig",
+        "field_pickup_cleared": "Abholung erledigt",
+        "rapport_submitted": "Schadenplatz-Rapport erfasst",
+        "reko_arrived": "Reko vor Ort",
+        "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
+        "field_request_in_progress": "Anfrage in Arbeit",
+        "field_request_done": "Anfrage erledigt",
+        "field_request_open": "Anfrage wieder offen"
+      }
+    },
+    "refDeleted": "{ref} (gelöscht)",
+    "refMerged": "{ref} → {target}"
   }
 }

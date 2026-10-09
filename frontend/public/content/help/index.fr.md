@@ -13,6 +13,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« Rapports » dans la barre du bas.** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
+**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse lie une intervention. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Moyens. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
 **« Indicateurs » dans la barre du bas (`Z`).** La situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF). Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
 
 ### Vue carte (`G M`)
@@ -572,6 +573,7 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `D` | Ouvrir/fermer Impression et export |
 | `R` / `F5` | Actualiser |
 | `F` | État des véhicules |
+| `J` | Ouvrir/fermer le journal d’intervention |
 | `Z` | Ouvrir/fermer les indicateurs (situation, temps de réaction) |
 
 ### Tableau kanban – intervention (souris sur la carte)

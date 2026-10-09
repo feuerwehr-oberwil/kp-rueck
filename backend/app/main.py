@@ -41,6 +41,7 @@ from .api.help import router as help_router
 from .api.incidents import router as incidents_router
 from .api.intake import router as intake_router
 from .api.integrations import router as integrations_router
+from .api.journal import router as journal_router
 from .api.materials import groups_router as material_groups_router
 from .api.materials import router as materials_router
 from .api.notifications import router as notifications_router
@@ -92,6 +93,7 @@ from .middleware.request_id import RequestIDMiddleware, get_request_id, request_
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.alerting import AlarmBlockedError
+from .services.journal_backfill import backfill_on_boot
 from .services.settings import initialize_default_settings
 from .utils.error_codes import CodedHTTPException, coded_http_exception_handler
 from .websocket_manager import set_divera_poll_callback, ws_manager
@@ -204,6 +206,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.warning(f"Default settings initialization failed: {e}")
         break  # Only need one session (outside `finally`: there it would swallow errors)
+
+    # Einsatztagebuch: fill in what the log does not hold yet — on the first boot of this
+    # version the whole history, afterwards whatever an old instance wrote during a cutover
+    # or the flush hook had to skip. Idempotent; never stops the boot.
+    await backfill_on_boot(engine)
 
     # Development auth bypass fabricates its "dev-user" in memory, with a fixed
     # id and no row behind it. Anything that records WHO did something –
@@ -603,6 +610,7 @@ app.include_router(auftrag_templates_router, prefix=settings.api_v1_prefix)
 app.include_router(diag_router, prefix=settings.api_v1_prefix)
 app.include_router(divera_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
+app.include_router(journal_router, prefix=settings.api_v1_prefix)
 app.include_router(firehub_router, prefix=settings.api_v1_prefix)
 app.include_router(geocoding_router, prefix=settings.api_v1_prefix)
 app.include_router(exports_router, prefix=settings.api_v1_prefix)

@@ -84,6 +84,8 @@ export interface KanbanShortcutsActions {
   onToggleLinks: () => void
   /** Opens/closes the Schadenplatz-Rapporte backlog sheet. */
   onToggleRapporte: () => void
+  /** Opens/closes the Einsatztagebuch (idea R8). */
+  onToggleJournal: () => void
   /** Opens/closes the Kennzahlen sheet. */
   onToggleFigures: () => void
   /** Switch side panel to Map view (no-op if collapsed). */
@@ -336,6 +338,13 @@ export function useKanbanShortcuts(
       if ((e.key === "z" || e.key === "Z") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         actions.onToggleFigures()
+        return
+      }
+
+      // «Journal» — the Einsatztagebuch. `j` was free; letter-matched like `o`.
+      if ((e.key === "j" || e.key === "J") && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        actions.onToggleJournal()
         return
       }
 

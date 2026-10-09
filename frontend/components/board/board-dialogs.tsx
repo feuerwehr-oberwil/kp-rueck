@@ -30,6 +30,7 @@ import { IncidentStatusWorkflowDialogs, type useIncidentStatusWorkflow } from "@
 import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
+import { JournalSheet } from "@/components/journal/journal-sheet"
 import { RapportBacklogSheet, type selectFiledRapports, type selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -527,6 +528,19 @@ export function BoardDialogs({
         onOpenRapport={handleOpenRapport}
       />
 
+      {/* Einsatztagebuch — `J`, the footer pill, the palette, the phone's «Mehr» */}
+      <JournalSheet
+        open={activeFooterSheet === 'journal'}
+        onOpenChange={(open) => !open && activeFooterSheet === 'journal' && setActiveFooterSheet(null)}
+        eventId={selectedEvent?.id ?? null}
+        operations={operations}
+        isEditor={isEditor}
+        onOpenIncident={(id) => {
+          setActiveFooterSheet(null)
+          openIncidentDetail(id)
+        }}
+      />
+
       {/* Kennzahlen — Lage numbers + Reaktionszeiten (Übungsauswertung on a training Ereignis) */}
       <FiguresSheet
         open={activeFooterSheet === 'figures'}
@@ -717,6 +731,7 @@ export function BoardDialogs({
         currentPage="kanban"
         hasSelectedEvent={!!selectedEvent}
         onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
+        onJournal={selectedEvent ? () => setActiveFooterSheet('journal') : undefined}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
         onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}

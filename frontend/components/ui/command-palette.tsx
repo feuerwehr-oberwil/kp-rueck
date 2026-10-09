@@ -58,6 +58,7 @@ import {
   Palette,
   QrCode,
   FileText,
+  BookOpenText,
   ChartColumn,
   Clock,
 } from "lucide-react"
@@ -141,6 +142,7 @@ export function CommandPalette() {
     onTogglePrint,
     onToggleLinks,
     onToggleRapporte,
+    onToggleJournal,
     onToggleFigures,
     onToggleCrewDuty,
     onOpenAuftrag,
@@ -411,6 +413,13 @@ export function CommandPalette() {
                   <FileText className="mr-2 h-4 w-4" />
                   <span>{t('rapporte')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">O</span>
+                </CommandItem>
+              )}
+              {onToggleJournal && (
+                <CommandItem onSelect={() => runCommand(onToggleJournal)}>
+                  <BookOpenText className="mr-2 h-4 w-4" />
+                  <span>{t('journal')}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">J</span>
                 </CommandItem>
               )}
               {onToggleFigures && (

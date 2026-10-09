@@ -17,6 +17,8 @@ export interface CommandPaletteHandlers {
   onToggleLinks?: () => void
   /** Opens the Schadenplatz-Rapporte backlog sheet — key «O» (offene Rapporte). */
   onToggleRapporte?: () => void
+  /** Opens the Einsatztagebuch — key «J». */
+  onToggleJournal?: () => void
   /** Opens the Kennzahlen sheet (Lage, Reaktionszeiten) — key «Z». */
   onToggleFigures?: () => void
   /** Opens the Dienstzeiten overview (who is here for how long). No single key. */

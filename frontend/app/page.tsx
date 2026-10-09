@@ -1039,6 +1039,7 @@ export default function FireStationDashboard() {
       onTogglePrint: () => setActiveFooterSheet(prev => prev === 'print' ? null : 'print'),
       onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
       onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
+      onToggleJournal: () => setActiveFooterSheet(prev => prev === 'journal' ? null : 'journal'),
       onToggleFigures: () => setActiveFooterSheet(prev => prev === 'figures' ? null : 'figures'),
       onToggleCrewDuty: () => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
@@ -1264,8 +1265,8 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle, Aufträge, Drucken, Links, Rapporte and Kennzahlen footers are non-modal
-        // on desktop: keep their toggle keys (F / A / D / T / O / Z) able to close
+        // Vehicle, Aufträge, Drucken, Links, Rapporte, Tagebuch and Kennzahlen footers are non-modal
+        // on desktop: keep their toggle keys (F / A / D / T / O / J / Z) able to close
         // them again. Every other shortcut still stops at an open sheet — it is
         // only the key that opened this one that stays live.
         (!!activeFooterSheet &&
@@ -1274,6 +1275,7 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'print' &&
           activeFooterSheet !== 'links' &&
           activeFooterSheet !== 'rapporte' &&
+          activeFooterSheet !== 'journal' &&
           activeFooterSheet !== 'figures') ||
         deleteDialogOpen,
       hoveredOperationId,
@@ -1331,6 +1333,7 @@ export default function FireStationDashboard() {
       onTogglePrint: () => setActiveFooterSheet((prev) => (prev === 'print' ? null : 'print')),
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
       onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
+      onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
       onToggleFigures: () => setActiveFooterSheet((prev) => (prev === 'figures' ? null : 'figures')),
       onToggleNotifications: toggleNotificationSidebar,
     },
@@ -2658,6 +2661,7 @@ export default function FireStationDashboard() {
           figuresSheetOpen={figuresSheetOpen}
           filedRapports={filedRapports}
           handleChecklistOpenChange={handleChecklistOpenChange}
+          journalSheetOpen={activeFooterSheet === 'journal'}
           linksSheetOpen={linksSheetOpen}
           openRapports={openRapports}
           printSheetOpen={printSheetOpen}

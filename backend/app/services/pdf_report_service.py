@@ -42,8 +42,10 @@ from reportlab.platypus import (
 )
 
 from ..models import Incident, IncidentAssignment, RekoReport, SchadenplatzReport
+from ..schemas.journal import JournalEntryOut
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
+from .journal import merged_into as journal_merged_into
 from .photo_storage import ExportPhoto
 from .reaction_times import Stage, stage_times
 
@@ -116,7 +118,7 @@ LABELS: dict[str, str] = {
     "col_to_abschluss": "→ Abschluss",
     # Einsatztagebuch (chronological journal)
     "journal_title": "Einsatztagebuch",
-    "journal_hint": "Automatisch aus den Protokolldaten erstellt, chronologisch.",
+    "journal_hint": "Das Einsatztagebuch des Ereignisses – automatische und manuelle Einträge, chronologisch.",
     "journal_empty": "Keine Einträge vorhanden.",
     "col_time": "Zeit",
     "col_incident": "Einsatz",
@@ -135,6 +137,17 @@ LABELS: dict[str, str] = {
     "journal_divera_alarm_plain": "Divera-Alarm ausgelöst",
     "journal_incident_deleted": "Einsatz gelöscht",
     "journal_incident_restored": "Einsatz wiederhergestellt",
+    "journal_message_from_field": "Meldung vom Feld ({name}): {text}",
+    "journal_message_to_field": "Meldung an den Trupp ({name}): {text}",
+    "journal_unknown_author": "unbekannt",
+    "journal_incident_merge": "Meldung «{other}» zusammengeführt",
+    "journal_incident_merged_into": "Zusammengeführt in «{other}»",
+    "journal_incident_unmerge": "Zusammenführung mit «{other}» aufgehoben",
+    # The Einsatz column of a line whose Einsatz is no longer on the board.
+    "journal_ref_deleted": "{ref} (gelöscht)",
+    "journal_ref_merged": "{ref} (zusammengeführt in «{target}»)",
+    # A corrected manual line: newest wording, and the paper says it was corrected.
+    "journal_corrected": "{text} (korrigiert {time}; ursprünglich: «{original}»)",
     # Resource overviews (field test 07.09.): who/what was where, first to
     # last, without opening every incident block. One row per assignment.
     "vehicle_overview_title": "Fahrzeug-Übersicht",
@@ -1723,16 +1736,39 @@ def _user_display(data: EventReportData, user_id: uuid.UUID | None) -> str:
     return user.display_name or user.username
 
 
-def _incident_ref(data: EventReportData, incident_id: uuid.UUID | None) -> str:
+def _row_incident_ref(row: JournalEntryOut, merged: dict[uuid.UUID, str]) -> str:
     """The incident's short title for the journal's second column, or "" – an
-    event-level entry belongs to no incident and an empty cell says so."""
-    if incident_id is None:
-        return ""
-    inc = data.incident_map.get(incident_id)
-    if inc is None or not inc.title:
-        return ""
-    return _truncate(inc.title, 45)
+    event-level entry belongs to no incident and an empty cell says so.
 
+    An Einsatz that no longer stands on the board keeps its lines (the record is
+    append-only) and says why it is gone: merged into another card, or deleted.
+    """
+    if not row.incident_title:
+        return ""
+    ref = _truncate(row.incident_title, 45)
+    if row.incident_id is not None and row.incident_id in merged:
+        return LABELS["journal_ref_merged"].format(ref=ref, target=_truncate(merged[row.incident_id], 45))
+    if row.incident_deleted:
+        return LABELS["journal_ref_deleted"].format(ref=ref)
+    return ref
+
+
+# Field facts (`kind == "field"`, `data.type`) and who reported them.
+_FIELD_LABELS: dict[str, str] = {
+    "field_arrived": "Vor Ort gemeldet",
+    "field_arrived_cleared": "Meldung «vor Ort» zurückgenommen",
+    "field_complete": "Einsatz beendet gemeldet",
+    "field_complete_cleared": "Meldung «beendet» zurückgenommen",
+    "field_pickup_requested": "Abholung nötig",
+    "field_pickup_cleared": "Abholung erledigt",
+    "rapport_submitted": "Schadenplatz-Rapport erfasst",
+    "reko_arrived": "Reko vor Ort",
+    "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
+    "field_request_in_progress": "Anfrage in Arbeit",
+    "field_request_done": "Anfrage erledigt",
+    "field_request_open": "Anfrage wieder offen",
+}
+_FIELD_SOURCES: dict[str, str] = {"kp": "im KP erfasst", "gps": "GPS"}
 
 # Incident sources worth calling out in the "erstellt" journal line.
 _SOURCE_LABELS: dict[str, str] = {
@@ -1741,71 +1777,88 @@ _SOURCE_LABELS: dict[str, str] = {
 }
 
 
-def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
-    """Build the merged Einsatztagebuch timeline from whitelisted sources.
+def journal_row_text(row: JournalEntryOut) -> str:
+    """One journal row as the German sentence the Einsatztagebuch prints.
 
-    Sources: incident creation, status transitions, resource (un)assignments,
-    submitted reko reports, and the whitelisted audit rows (Divera alarms,
-    incident delete/restore). Anything else – field-level updates, logins,
-    exports, settings changes – is deliberately excluded.
+    The rows themselves carry structured facts (`services/journal.py`); this is where they
+    become German. The app says the same in the reader's language (`lib/journal.ts`).
     """
-    entries: list[JournalEntry] = []
-
-    # Incident created
-    for inc in data.incidents:
-        if inc.created_at is None:
-            continue
-        text = LABELS["journal_incident_created"].format(title=_truncate(inc.title or LABELS["none"], 60))
-        source_label = _SOURCE_LABELS.get(getattr(inc, "source", None) or "")
-        if source_label:
-            text += f" ({source_label})"
-        entries.append(JournalEntry(inc.created_at, _incident_ref(data, inc.id), text))
-
-    # Status transitions
-    for t in data.transitions:
-        if t.timestamp is None:
-            continue
-        text = LABELS["journal_status_change"].format(
-            from_status=STATUS_LABELS.get(t.from_status, t.from_status),
-            to_status=STATUS_LABELS.get(t.to_status, t.to_status),
+    data = row.data or {}
+    kind = row.kind
+    if kind == "incident":
+        action = data.get("action")
+        if action == "deleted":
+            return LABELS["journal_incident_deleted"]
+        if action == "restored":
+            return LABELS["journal_incident_restored"]
+        if action in ("merge", "merged_into", "unmerge"):
+            other = data.get("other_title") or LABELS["none"]
+            return LABELS[f"journal_incident_{action}"].format(other=_truncate(str(other), 60))
+        title = row.incident_title or data.get("title") or LABELS["none"]
+        text = LABELS["journal_incident_created"].format(title=_truncate(title, 60))
+        source_label = _SOURCE_LABELS.get(data.get("source") or "")
+        return f"{text} ({source_label})" if source_label else text
+    if kind == "status":
+        from_status = data.get("from_status") or ""
+        to_status = data.get("to_status") or ""
+        return LABELS["journal_status_change"].format(
+            from_status=STATUS_LABELS.get(from_status, from_status),
+            to_status=STATUS_LABELS.get(to_status, to_status),
         )
-        entries.append(JournalEntry(t.timestamp, _incident_ref(data, t.incident_id), text))
-
-    # Resource assignments / releases (assignment rows carry the timestamps)
-    for a in data.assignments:
-        name = _resource_name(data, a)
-        ref = _incident_ref(data, a.incident_id)
-        if a.assigned_at is not None:
-            entries.append(JournalEntry(a.assigned_at, ref, LABELS["journal_assigned"].format(name=name)))
-        if a.unassigned_at is not None:
-            entries.append(JournalEntry(a.unassigned_at, ref, LABELS["journal_unassigned"].format(name=name)))
-
-    # Reko reports (submitted only – drafts are not yet "incoming")
-    for reko in data.reko_reports:
-        if reko.is_draft or reko.submitted_at is None:
-            continue
+    if kind == "assignment":
+        name = data.get("resource_name") or LABELS["none"]
+        label = "journal_unassigned" if data.get("action") == "unassigned" else "journal_assigned"
+        return LABELS[label].format(name=name)
+    if kind == "reko":
         text = LABELS["journal_reko_received"]
-        if reko.summary_text:
-            text += f": {_truncate(reko.summary_text, 80)}"
-        entries.append(JournalEntry(reko.submitted_at, _incident_ref(data, reko.incident_id), text))
+        return f"{text}: {_truncate(row.text, 80)}" if row.text else text
+    if kind == "alarm":
+        count = data.get("recipients")
+        if count:
+            return LABELS["journal_divera_alarm"].format(count=count)
+        return LABELS["journal_divera_alarm_plain"]
+    if kind == "field":
+        field_label = _FIELD_LABELS.get(str(data.get("type") or ""))
+        if field_label is None:
+            return row.text or ""  # a field fact of a type this build does not know
+        line = f"{field_label}: {row.text}" if row.text else field_label
+        source = _FIELD_SOURCES.get(str(data.get("source") or ""))
+        return f"{line} ({source})" if source else line
+    if kind == "message":
+        label = "journal_message_to_field" if data.get("direction") == "to_field" else "journal_message_from_field"
+        who = row.author_name or LABELS["journal_unknown_author"]
+        return LABELS[label].format(name=who, text=row.text or "")
+    # manual lines: the sentence as it was written
+    return row.text or ""
 
-    # Whitelisted audit rows (Divera alarms, incident delete/restore)
-    for entry in data.audit_entries:
-        if entry.timestamp is None:
+
+def build_journal_entries(data: EventReportData) -> list[JournalEntry]:
+    """The Einsatztagebuch chapter — the Ereignis' journal log, oldest first.
+
+    Single source: the same rows the board's journal drawer shows (`journal_entries`).
+    A corrected manual line prints in its newest wording at its ORIGINAL time, and says
+    that it was corrected and what it said before — the paper hides nothing either.
+    """
+    corrections: dict[uuid.UUID, list[JournalEntryOut]] = {}
+    for row in data.journal:
+        if row.corrects_id is not None:
+            corrections.setdefault(row.corrects_id, []).append(row)
+
+    merged = journal_merged_into(data.journal)
+    entries: list[JournalEntry] = []
+    for row in data.journal:
+        if row.corrects_id is not None:
             continue
-        if entry.action_type == "divera_alarm":
-            recipients = (entry.changes_json or {}).get("recipients")
-            if recipients:
-                text = LABELS["journal_divera_alarm"].format(count=len(recipients))
-            else:
-                text = LABELS["journal_divera_alarm_plain"]
-        elif entry.action_type == "delete":
-            text = LABELS["journal_incident_deleted"]
-        elif entry.action_type == "restore":
-            text = LABELS["journal_incident_restored"]
-        else:
-            continue  # defensive: never render non-whitelisted actions
-        entries.append(JournalEntry(entry.timestamp, _incident_ref(data, entry.resource_id), text))
+        text = journal_row_text(row)
+        later = sorted(corrections.get(row.id, []), key=lambda r: _as_utc(r.created_at))
+        if later:
+            latest = later[-1]
+            text = LABELS["journal_corrected"].format(
+                text=latest.text or "",
+                time=_as_utc(latest.created_at).astimezone(LOCAL_TZ).strftime("%H:%M"),
+                original=_truncate(row.text or "", 80),
+            )
+        entries.append(JournalEntry(row.occurred_at, _row_incident_ref(row, merged), text))
 
     entries.sort(key=lambda e: _as_utc(e.timestamp))
     return entries
