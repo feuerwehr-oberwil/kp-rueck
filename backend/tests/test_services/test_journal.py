@@ -204,6 +204,44 @@ class TestHook:
         assert rows["field_pickup_requested"].text == "3 Pers. beim Bach"
         assert rows["field_pickup_requested"].author_name is None
 
+    async def test_a_field_request_changing_state_is_a_field_line(
+        self, db_session: AsyncSession, test_incident: Incident, test_user: User
+    ):
+        """R13: «in Arbeit», «erledigt», «wieder offen» – what, who in the KP, and never
+        «im KP erfasst» (it always is). An unknown target state is not guessed at."""
+        for to in ("in_progress", "done", "open", "archived"):
+            db_session.add(
+                AuditLog(
+                    action_type="field_request_status",
+                    resource_type="incident",
+                    resource_id=test_incident.id,
+                    user_id=test_user.id,
+                    changes_json={
+                        "request_id": str(uuid.uuid4()),
+                        "kind": "material",
+                        "label": "Material: Pumpe",
+                        "to": to,
+                    },
+                )
+            )
+        await db_session.commit()
+        rows = [r for r in await _rows(db_session, test_incident.event_id) if r.kind == "field"]
+        assert sorted(r.data["type"] for r in rows) == [
+            "field_request_done",
+            "field_request_in_progress",
+            "field_request_open",
+        ]
+        assert {r.text for r in rows} == {"Material: Pumpe"}
+        assert {r.author_name for r in rows} == {"test_editor"}
+        assert all(r.data["source"] is None for r in rows)
+        assert "field_request_status" in journal_service.JOURNAL_AUDIT_ACTIONS
+        # …and the PDF says it in German, the way the board does.
+        from app.services.pdf_report_service import journal_row_text
+
+        done = next(r for r in rows if r.data["type"] == "field_request_done")
+        out = next(o for o in await journal_rows(db_session, test_incident.event_id) if o.id == done.id)
+        assert journal_row_text(out) == "Anfrage erledigt: Material: Pumpe"
+
     async def test_gps_arrival_says_gps(self, db_session: AsyncSession, test_incident: Incident):
         from app.services.gps_automation import GPS_SYSTEM_USER_ID
 
@@ -383,6 +421,20 @@ async def _seed_history(db: AsyncSession, event: Event, user: User) -> Incident:
                 timestamp=at(50),
             ),
             AuditLog(
+                action_type="field_request_status",
+                resource_type="incident",
+                resource_id=inc.id,
+                user_id=user.id,
+                changes_json={
+                    "request_id": str(uuid.uuid4()),
+                    "kind": "material",
+                    "label": "Material: Tauchpumpe Gr. ×2",
+                    "from": "open",
+                    "to": "done",
+                },
+                timestamp=at(30),
+            ),
+            AuditLog(
                 action_type="merge",
                 resource_type="incident",
                 resource_id=inc.id,
@@ -415,8 +467,8 @@ async def _seed_history(db: AsyncSession, event: Event, user: User) -> Incident:
 
 
 # 2 created, status, 3 assignment lines, Reko + its arrival, 2 Meldungen, alarm,
-# arrival, pickup, merge + merged_into
-ROWS_PER_HISTORY = 15
+# arrival, pickup, a field request done, merge + merged_into
+ROWS_PER_HISTORY = 16
 
 
 def _shape(rows: list[JournalEntry]) -> list[tuple]:

@@ -1764,6 +1764,9 @@ _FIELD_LABELS: dict[str, str] = {
     "rapport_submitted": "Schadenplatz-Rapport erfasst",
     "reko_arrived": "Reko vor Ort",
     "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
+    "field_request_in_progress": "Anfrage in Arbeit",
+    "field_request_done": "Anfrage erledigt",
+    "field_request_open": "Anfrage wieder offen",
 }
 _FIELD_SOURCES: dict[str, str] = {"kp": "im KP erfasst", "gps": "GPS"}
 

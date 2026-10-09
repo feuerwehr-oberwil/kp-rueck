@@ -4443,7 +4443,10 @@
         "field_pickup_cleared": "Abholung erledigt",
         "rapport_submitted": "Schadenplatz-Rapport erfasst",
         "reko_arrived": "Reko vor Ort",
-        "reko_arrived_cleared": "Reko-Ankunft zurückgenommen"
+        "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
+        "field_request_in_progress": "Anfrage in Arbeit",
+        "field_request_done": "Anfrage erledigt",
+        "field_request_open": "Anfrage wieder offen"
       }
     },
     "refDeleted": "{ref} (gelöscht)",

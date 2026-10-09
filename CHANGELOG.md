@@ -35,7 +35,8 @@ will keep holding.
   playback, no voice. The board writes its own rows as things happen (status changes,
   resources assigned and released, Meldungen from and to the field, Reko reports and the Reko
   arriving, Divera alarms, Einsatz created/deleted/restored/merged, and the field facts:
-  arrived, done, pickup needed/done – set and taken back –, Rapport filed), in the same
+  arrived, done, pickup needed/done – set and taken back –, Rapport filed, a request from the
+  field set *in Arbeit*, *erledigt* or reopened), in the same
   transaction, whichever path made the change. The bell is not a source: a notification is
   rebuilt and de-duplicated as the board sees fit, so a GPS «vehicle on scene» does not appear
   in the log. A one-line input takes what belongs to no card («Gemeindepräsident informiert»);
@@ -50,15 +51,6 @@ will keep holding.
   deleted or merged stay in the record and say so in the Einsatz column («(gelöscht)»,
   «(zusammengeführt in «…»)»).
 
-### Upgrade notes
-
-- Migration `d5f1a7c3e9b2` creates `journal_entries`; the **first boot afterwards fills it**
-  from what the database already holds (`services/journal_backfill.py`), so the PDF of an
-  existing Ereignis keeps every line it printed. The backfill runs on every boot and only adds
-  what is missing – it also picks up what an old instance wrote during a rolling update.
-  Meldungen vom Feld whose audit rows were already swept by `AUDIT_RETENTION_DAYS` cannot be
-  recovered; from now on the log is kept for as long as the Ereignis exists, independent of the
-  audit retention.
 - **Roster snapshot: read the personnel list from a file the station publishes.** Set
   `ROSTER_SNAPSHOT_SOURCE` to an `https://` address (optional `ROSTER_SNAPSHOT_TOKEN`) or a path,
   and the backend polls that `roster-snapshot/1` file hourly. People are matched by the
@@ -186,6 +178,16 @@ will keep holding.
   `feeds.meteoalarm.org` and `www.alert.swiss`; `WEATHER_ENABLED=false` turns it off (stations
   outside Switzerland, or without outbound access). The backend image grows by about 74 MB
   (numpy + h5py, needed to read the radar files).
+
+### Upgrade notes
+
+- Migration `d5f1a7c3e9b2` creates `journal_entries`; the **first boot afterwards fills it**
+  from what the database already holds (`services/journal_backfill.py`), so the PDF of an
+  existing Ereignis keeps every line it printed. The backfill runs on every boot and only adds
+  what is missing – it also picks up what an old instance wrote during a rolling update.
+  Meldungen vom Feld whose audit rows were already swept by `AUDIT_RETENTION_DAYS` cannot be
+  recovered; from now on the log is kept for as long as the Ereignis exists, independent of the
+  audit retention.
 
 ### Changed
 

@@ -4443,7 +4443,10 @@
         "field_pickup_cleared": "Récupération effectuée",
         "rapport_submitted": "Rapport de place sinistrée saisi",
         "reko_arrived": "Reconnaissance sur place",
-        "reko_arrived_cleared": "Arrivée de la reconnaissance retirée"
+        "reko_arrived_cleared": "Arrivée de la reconnaissance retirée",
+        "field_request_in_progress": "Demande en cours",
+        "field_request_done": "Demande traitée",
+        "field_request_open": "Demande rouverte"
       }
     },
     "refDeleted": "{ref} (supprimée)",

@@ -178,6 +178,17 @@ SELECTS: tuple[str, ...] = (
       AND l.action_type IN ('field_arrived', 'field_arrived_cleared', 'field_complete', 'field_complete_cleared',
                             'field_pickup_requested', 'field_pickup_cleared', 'rapport_submitted')
     """,
+    # Anfrage vom Feld: in Arbeit / erledigt / wieder offen (R13)
+    f"""
+    SELECT i.event_id, i.id, 'field', NULLIF(btrim(l.changes_json->>'label'), ''),
+           jsonb_build_object('type', 'field_request_' || (l.changes_json->>'to'), 'source', NULL),
+           l.timestamp, LEFT({_USER_NAME}, 100), l.user_id, 'audit:' || l.id
+    FROM audit_log l
+    JOIN incidents i ON i.id = l.resource_id
+    LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.resource_type = 'incident' AND l.action_type = 'field_request_status'
+      AND l.changes_json->>'to' IN ('open', 'in_progress', 'done')
+    """,
     # Einsatz gelöscht / wiederhergestellt / zusammengeführt / getrennt
     f"""
     SELECT i.event_id, i.id, 'incident', NULL,

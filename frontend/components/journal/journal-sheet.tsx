@@ -67,6 +67,10 @@ const FIELD_TYPES = new Set([
   "rapport_submitted",
   "reko_arrived",
   "reko_arrived_cleared",
+  // a request from the field (R13) changing state; the text is the request's label
+  "field_request_in_progress",
+  "field_request_done",
+  "field_request_open",
 ])
 
 export interface JournalSheetProps {

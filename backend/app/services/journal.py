@@ -76,6 +76,12 @@ FIELD_AUDIT_ACTIONS: frozenset[str] = frozenset(
     }
 )
 
+#: A request from the field (R13) changing state – in Arbeit, erledigt, wieder offen. The row
+#: says which (``data.type`` = ``field_request_<to>``, the same labels table as the other
+#: field facts) and what (``text`` = the request's German one-line label).
+REQUEST_AUDIT_ACTIONS: frozenset[str] = frozenset({"field_request_status"})
+REQUEST_STATES: frozenset[str] = frozenset({"open", "in_progress", "done"})
+
 #: Lifecycle actions on an Einsatz → the `data.action` the row carries. `merge` sits on
 #: the card a duplicate report went into, `merged_into` on the report, `unmerge` on both
 #: (services/duplicates, R2). Listed even before that code is on main: an action nobody
@@ -90,7 +96,7 @@ INCIDENT_AUDIT_ACTIONS: dict[str, str] = {
 
 #: Every audit action that is a journal fact (incident-scoped only).
 JOURNAL_AUDIT_ACTIONS: frozenset[str] = frozenset(
-    {"field_message", "divera_alarm", *FIELD_AUDIT_ACTIONS, *INCIDENT_AUDIT_ACTIONS}
+    {"field_message", "divera_alarm", *FIELD_AUDIT_ACTIONS, *REQUEST_AUDIT_ACTIONS, *INCIDENT_AUDIT_ACTIONS}
 )
 
 #: The category a filter chip groups kinds under. Mirrors `frontend/lib/journal.ts`.
@@ -329,6 +335,21 @@ class _Collector:
                 incident=incident,
                 occurred_at=obj.timestamp,
                 data={"recipients": len(recipients) if isinstance(recipients, list) else None},
+                author_name=who,
+                created_by=obj.user_id,
+            )
+        elif action in REQUEST_AUDIT_ACTIONS:
+            to = changes.get("to")
+            if to not in REQUEST_STATES:
+                return
+            self.add(
+                key=key,
+                kind="field",
+                incident=incident,
+                occurred_at=obj.timestamp,
+                text=str(changes.get("label") or "").strip() or None,
+                data={"type": f"field_request_{to}", "source": None},
+                # always somebody in the KP: the board's buttons, or the completion that closed it
                 author_name=who,
                 created_by=obj.user_id,
             )
