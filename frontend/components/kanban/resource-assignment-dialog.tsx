@@ -39,6 +39,9 @@ interface ResourceAssignmentDialogProps {
   onOpenChange: (open: boolean) => void
   resourceType: 'crew' | 'vehicles' | 'materials' | null
   operationId: string | null
+  /** The search the dialog opens with — a field request's item (R13), so
+   *  «Material zuteilen» on «Tauchpumpe Gr. ×2» lands on the pumps. */
+  initialSearch?: string
   /** Whether the dialog is assigning to a single incident or to an Auftrag (route).
    *  Drives the title/label wording; defaults to 'incident'. */
   assignTarget?: 'incident' | 'route'
@@ -155,6 +158,7 @@ export function ResourceAssignmentDialog({
   onOpenChange,
   resourceType,
   operationId,
+  initialSearch,
   assignTarget = 'incident',
   routeName,
   personnel,
@@ -229,9 +233,10 @@ export function ResourceAssignmentDialog({
     if (open && !wasOpenRef.current) {
       setSelectedPersonnel(new Set(assignedPersonnel))
       setSelectedMaterials(new Set(assignedMaterials))
+      if (initialSearch) setSearchQuery(initialSearch)
     }
     wasOpenRef.current = open
-  }, [open, assignedPersonnel, assignedMaterials])
+  }, [open, assignedPersonnel, assignedMaterials, initialSearch])
 
   // Reset search + category filter on close, and clear the category filter
   // whenever the resource type changes (its categories no longer apply).

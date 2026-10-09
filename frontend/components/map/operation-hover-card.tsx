@@ -29,6 +29,8 @@ const TITLE: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 600 }
 const META: CSSProperties = { margin: "2px 0 0", fontSize: 11, color: "#6b7280" }
 const ROW: CSSProperties = { margin: "2px 0 0", fontSize: 11 }
 const MUTED: CSSProperties = { color: "#6b7280" }
+/** The Einsatz number before the address — the card's quiet mono, inline-styled like the rest of this card. */
+export const MAP_INCIDENT_NUMBER: CSSProperties = { fontFamily: "var(--font-mono)", fontWeight: 500, color: "#6b7280", marginRight: 4 }
 const ROUTE_BLOCK: CSSProperties = {
   margin: "5px 0 0",
   paddingTop: 4,
@@ -94,6 +96,7 @@ export function OperationHoverCard({
     <div style={CARD}>
       <p style={TITLE}>
         {seq !== undefined ? `${seq}. ` : ""}
+        {operation.number != null && <span style={MAP_INCIDENT_NUMBER}>{operation.number}</span>}
         {address}
       </p>
       <p style={META}>

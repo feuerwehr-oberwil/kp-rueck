@@ -166,7 +166,12 @@ DEFAULT_SETTINGS = {
     # Stored ONE CHIP PER LINE, because the settings table is string-valued and
     # the Einstellungen page edits it in the same Textarea shape as the templates
     # next to it. Blank lines are dropped on read (`parse_message_chips`).
-    "feld.message_chips": "Verstärkung nötig\nMaterial nötig\nfertig in ~30 Min\nEinsatzstelle übergeben",
+    #
+    # «Verstärkung nötig» and «Material nötig» used to be chips here. Since R13
+    # they are fixed, structured buttons on /feld (what, how many), so they left
+    # the default; a station that kept them in its own list does not see them
+    # twice — `without_structured_chips` drops them on the way to the phone.
+    "feld.message_chips": "fertig in ~30 Min\nEinsatzstelle übergeben",
     # The same, for a FAHRER. A driver may not report «Angekommen» or «Einsatz
     # beendet» — those are the working crew's statements about a Schadenplatz and
     # the server refuses them (`WORK_SOURCES`) — so the crew's chips read wrong
@@ -218,6 +223,16 @@ def parse_message_chips(value: str | None) -> list[str]:
     if not value:
         return []
     return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+# The chips that became structured /feld requests (R13). Compared case- and
+# space-insensitively, because a station typed them into a Textarea.
+STRUCTURED_REQUEST_CHIPS: frozenset[str] = frozenset({"verstärkung nötig", "material nötig"})
+
+
+def without_structured_chips(chips: list[str]) -> list[str]:
+    """The chips minus the two that are fixed request buttons on /feld now."""
+    return [chip for chip in chips if " ".join(chip.casefold().split()) not in STRUCTURED_REQUEST_CHIPS]
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:

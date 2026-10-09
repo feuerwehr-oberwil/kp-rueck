@@ -1,7 +1,7 @@
 """divera_emergencies: the Rückmeldungen Divera reports on the alarm
 
 Revision ID: a9d3f1c7e2b5
-Revises: c4e8a2f61d97
+Revises: d9a4c2e7b1f3
 Create Date: 2026-10-08 00:00:00.000000
 
 The poller already GETs ``/alarms`` every 30 s while somebody is connected, and
@@ -23,7 +23,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a9d3f1c7e2b5"
-down_revision: str | Sequence[str] | None = "c4e8a2f61d97"
+down_revision: str | Sequence[str] | None = "d9a4c2e7b1f3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

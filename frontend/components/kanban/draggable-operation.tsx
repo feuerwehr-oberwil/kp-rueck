@@ -1,5 +1,6 @@
 "use client"
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
@@ -8,7 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { RemovableChip } from "@/components/ui/removable-chip"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
+import { DuplicateFlag } from '@/components/duplicates/duplicate-flag'
 import { PickupBadge } from "@/components/kanban/pickup-badge"
+import { FieldRequestCardRows } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
   ContextMenu,
@@ -577,7 +580,12 @@ function DraggableOperationBase({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-base text-foreground leading-tight break-words">{locationLabel}</h3>
+                <h3 className="font-bold text-base text-foreground leading-tight break-words">
+                  {/* The incident's number — what ⌘K takes («14 tlf meier»). Quiet
+                      mono, so the address stays the heading. */}
+                  <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
+                  {locationLabel}
+                </h3>
                 {/* Abholung. Deliberately NOT gated on status: completing the
                     card auto-releases the crew while they are still standing at
                     the address, so this is the moment it matters most. */}
@@ -691,6 +699,20 @@ function DraggableOperationBase({
           {/* Above «Am Warten» and everything else in this stack: "the thing at
               this address is real" outranks every other qualifier on the card. */}
           {operation.fromRealAlarm && <RealAlarmBadge />}
+
+          {/* An automatic door put this card next to an open one — answered
+              right here: «Zusammenführen» or «Kein Duplikat» (R2). */}
+          {operation.possibleDuplicateOf && (
+            <DuplicateFlag operationId={operation.id} targetId={operation.possibleDuplicateOf} canEdit={canDrag} />
+          )}
+
+          {/* What the field asked for and nobody has handled yet (R13) —
+              «Material: Tauchpumpe Gr. ×2 — offen». Opens the detail on the
+              tab where the list and its buttons are. Stays until «Erledigt»;
+              closing the bell entry does not take it away. */}
+          {(operation.fieldRequests?.length ?? 0) > 0 && (
+            <FieldRequestCardRows requests={operation.fieldRequests ?? []} onOpen={openDetailFrom('rapport')} />
+          )}
 
           {/* «Am Warten», with what is being waited for. The flag alone was a
               tooltip on a clock glyph, which said nothing an operator can act
@@ -1393,6 +1415,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
 
   return (
     prevProps.operation.id === nextProps.operation.id &&
+    prevProps.operation.number === nextProps.operation.number &&
     prevProps.operation.status === nextProps.operation.status &&
     prevProps.operation.priority === nextProps.operation.priority &&
     prevProps.operation.location === nextProps.operation.location &&
@@ -1421,6 +1444,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     // is compared like every other thing the card draws rather than trusted to
     // stay constant.
     prevProps.operation.fromRealAlarm === nextProps.operation.fromRealAlarm &&
+    prevProps.operation.possibleDuplicateOf === nextProps.operation.possibleDuplicateOf &&
     // The field reports drive two card badges; without them here a card that
     // just got "Abholung nötig" over the WebSocket would not repaint.
     prevProps.operation.pickupNeeded === nextProps.operation.pickupNeeded &&

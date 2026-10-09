@@ -91,6 +91,7 @@ from .middleware.security_headers import SecurityHeadersMiddleware
 from .seed import seed_database
 from .services.alerting import AlarmBlockedError
 from .services.settings import initialize_default_settings
+from .utils.error_codes import CodedHTTPException, coded_http_exception_handler
 from .websocket_manager import set_divera_poll_callback, ws_manager
 from .websocket_manager import sio as socket_server
 
@@ -484,6 +485,9 @@ async def alarm_blocked_handler(request: Request, exc: Exception) -> JSONRespons
 
 
 app.add_exception_handler(AlarmBlockedError, alarm_blocked_handler)
+# `/feld` errors carry a stable code beside the German detail (`utils/error_codes.py`).
+# Looked up by class, so it wins over FastAPI's HTTPException handler for this subclass.
+app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

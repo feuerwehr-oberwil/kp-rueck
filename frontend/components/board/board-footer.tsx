@@ -13,7 +13,7 @@
 import type { ComponentProps, Dispatch, SetStateAction } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
-import { ClipboardCheck, FileText, Plus, Printer, QrCode, Sparkles, Truck, Waypoints } from "lucide-react"
+import { ChartColumn, ClipboardCheck, FileText, Plus, Printer, QrCode, Sparkles, Truck, Waypoints } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,8 +27,9 @@ import type { useEvent } from "@/lib/contexts/event-context"
 import { cn } from "@/lib/utils"
 
 /** The footer sheets. Only one is open at a time; `'print'` is the one
- *  print/export sheet (thermal slip, A4 status print, per-event export). */
-export type FooterSheet = 'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte'
+ *  print/export sheet (thermal slip, A4 status print, per-event export);
+ *  `'crew'` is the Dienstzeiten overview, opened from the Personen-Leiste. */
+export type FooterSheet = 'links' | 'vehicles' | 'print' | 'auftraege' | 'rapporte' | 'figures' | 'crew'
 
 /**
  * One footer-toolbar pill: icon + label, highlighted when the sheet/dialog it
@@ -104,6 +105,7 @@ type CardViewMenuProps = ComponentProps<typeof CardViewMenu>
 export interface BoardFooterProps {
   applyCardViewPreset: CardViewMenuProps["onApplyPreset"]
   auftraegeSheetOpen: boolean
+  figuresSheetOpen: boolean
   cardView: CardViewMenuProps["view"]
   cardViewPreset: CardViewMenuProps["preset"]
   checklistPopoverOpen: boolean
@@ -130,6 +132,7 @@ export interface BoardFooterProps {
 export function BoardFooter({
   applyCardViewPreset,
   auftraegeSheetOpen,
+  figuresSheetOpen,
   cardView,
   cardViewPreset,
   checklistPopoverOpen,
@@ -351,6 +354,23 @@ export function BoardFooter({
                   ),
                 }]
               : []),
+            /* Kennzahlen: the live Lage numbers and Reaktionszeiten — on a
+               training Ereignis the Übungsauswertung. */
+            {
+              key: 'figures',
+              node: (
+                <ToolbarToggle
+                  icon={ChartColumn}
+                  label={tDash('figures')}
+                  active={figuresSheetOpen}
+                  disabled={!selectedEvent}
+                  onActivate={() => {
+                    if (!selectedEvent) return
+                    setActiveFooterSheet(figuresSheetOpen ? null : 'figures')
+                  }}
+                />
+              ),
+            },
             /* One pill for every way onto paper. "Drucken" and "Thermo"
                used to sit here as two near-identical printer icons; they
                are now two columns inside the one sheet. */

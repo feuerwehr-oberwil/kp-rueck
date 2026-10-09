@@ -287,8 +287,12 @@ async def get_incidents(
         name_rows = await db.execute(select(Personnel.id, Personnel.name).where(Personnel.id.in_(leader_ids)))
         leader_names = {row.id: row.name for row in name_rows}
 
+    # The field's open requests (R13) — what the card shows as still owed.
+    open_requests = await feld_crud.open_requests_for_incidents(db, incident_ids)
+
     # Populate status_changed_at, assigned_vehicles, has_completed_reko, and reko_arrived_at for each incident
     for incident in incidents:
+        incident.field_requests = open_requests.get(incident.id, [])
         arrival = field_arrived_map.get(incident.id)
         incident.field_arrived_at = arrival[0] if arrival else None
         incident.field_arrived_by = arrival[1] if arrival else None
@@ -382,6 +386,7 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
         incident.has_schadenplatz_rapport = bool(feld_row and not feld_row.is_draft)
         incident.has_schadenplatz_rapport_draft = bool(feld_row and feld_row.is_draft)
         incident.has_been_dispatched = await is_dispatched(db, incident)
+        incident.field_requests = (await feld_crud.open_requests_for_incidents(db, [incident.id])).get(incident.id, [])
 
         # Effective Einsatzleiter, same rule as the batched list above.
         active_leader_rows = await db.execute(
@@ -556,6 +561,10 @@ async def _apply_completion_release(
     incident.group_resources_released = group_released
 
     transition.released_assignments_json = released + group_entries or None
+
+    # The field's open Meldungen (sentences) close with the place (R13, owner
+    # decision); Material, Verstärkung and Abholung stay open on purpose.
+    await feld_crud.close_messages_on_completion(db, incident, user=current_user, request=request)
 
 
 async def _undo_completion_release(
@@ -978,6 +987,11 @@ async def restore_incident(
 
     if incident.deleted_at is None:
         raise ValueError("Incident is not deleted")
+    # A merged report comes back through «Trennen» (POST /unmerge), which also
+    # takes its Nachtrag back out of the card it went into. A plain restore
+    # would leave the same report on the board twice.
+    if incident.merged_into_id is not None:
+        raise ValueError("Incident was merged; unmerge it instead")
 
     # If the delete stamped `completed_at` as a side effect (both timestamps set
     # to the same `now`), clear it so the restored incident isn't wrongly

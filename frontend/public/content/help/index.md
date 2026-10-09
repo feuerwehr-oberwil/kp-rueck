@@ -13,6 +13,8 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«Rapporte» in der Fusszeile.** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
+**«Kennzahlen» in der Fusszeile (`Z`).** Die Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF). Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
+
 ### Kartenansicht (`G M`)
 Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Grün/Gelb/Rot).
 
@@ -220,6 +222,14 @@ scharfstellen.
 3. Einsatz erscheint in "Eingegangen"
 4. Priorität setzen (`Shift+1/2/3`)
 5. Entscheiden: Direkt disponieren oder erst Reko?
+
+Steht schon ein offener Einsatz desselben Ereignisses innerhalb von 50 m oder an derselben Adresse,
+sagt der Dialog unter dem Einsatzort «Möglicherweise dasselbe wie …». **Zusammenführen** hängt die
+Meldung samt Melder als Nachtrag an jenen Einsatz – es entsteht keine zweite Karte. **Trotzdem neu**
+blendet den Hinweis aus. Alarme, die automatisch hereinkommen (Divera, Alarm-Link), werden nie von
+selbst zusammengeführt: Ihre Karte zeigt «Mögliches Duplikat von …» mit **Zusammenführen** und
+**Kein Duplikat**. Rückgängig machen: «Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf
+des Einsatzes.
 
 ### Reko durchführen
 
@@ -507,6 +517,32 @@ Drücken Sie `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle sa
 Tastaturkürzel und ist auch über das Benutzermenü ("Befehle & Tastaturkürzel")
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
+### Zuweisen durch Tippen
+Auf dem Board versteht die Befehlspalette auch Einsätze, Personen, Fahrzeuge und Material –
+nur mit Leerzeichen, ohne Sonderzeichen. Vorne steht der Einsatz: seine Nummer (klein vor der
+Adresse auf der Karte) oder seine Adresse (`bachweg 3`, auch nur der Anfang `bachw`) bzw.
+Einsatzart; danach folgt alles in beliebiger Reihenfolge:
+
+| Eingabe | Was ↵ macht |
+|---------|-------------|
+| `14 tlf meier` | TLF und Meier dem Einsatz 14 zuweisen |
+| `bachweg 3 tlf meier` | dasselbe, den Einsatz über seine Adresse genannt |
+| `14 einsatz`, `14 dispo` | Einsatz 14 nach «Im Einsatz» bzw. «Disponiert / Anfahrt» schieben |
+| `14 hoch` | Priorität Hoch |
+| `14` | Einsatz 14 öffnen |
+| `meier`, `tlf` | zeigen, wo Meier bzw. das TLF gerade ist |
+
+Namen gehen mit Vor- oder Nachname oder beidem, Anfänge reichen (`must` für Muster), Umlaute
+sind egal (`muller`, `mueller`), ein Tippfehler wird erkannt – zugewiesen wird ein so gefundener
+Name aber erst nach einem Klick auf «meintest du?». Statuswörter verstehen Deutsch und
+Französisch. Die Zeile unter der Eingabe zeigt genau, was ↵ tun wird; unbekannte Wörter sind
+grau und werden ignoriert. Passt ein Wort auf mehrere (zwei Meier, oder «Hoch» als Name und als
+Priorität, zwei Einsätze am Bachweg), stehen sie darunter zur Auswahl – geraten wird nie. Die
+Adresse endet dort, wo ein Fahrzeug, eine Person oder ein Statuswort beginnt; eine Hausnummer
+allein ist nie eine Adresse (`14` bleibt Einsatz 14). Ohne Nummer vorne bleibt ↵ bei
+den gewohnten Befehlen («neu» ist weiterhin «Neuer Einsatz»). Es gelten dieselben Rückfragen wie beim Ziehen
+(Doppelbelegung, Fahrer), und die Meldung danach hat **Rückgängig**.
+
 Die globalen Kürzel (`G …` und `?`) gelten auf jeder Seite der Bedienoberfläche – Board,
 Karte, Ereignisse, Einstellungen, Hilfe, Übung, Alarmeingang. Sie ruhen,
 solange ein Dialog oder ein Menü offen ist, und auf den Wandanzeigen (`/display`) sowie den
@@ -532,6 +568,7 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | `D` | Drucken & Export öffnen/schliessen |
 | `R` / `F5` | Aktualisieren |
 | `F` | Fahrzeugstatus |
+| `Z` | Kennzahlen (Lage, Reaktionszeiten) öffnen/schliessen |
 
 ### Kanban-Board – Einsatz (Maus über der Karte)
 | Shortcut | Aktion |

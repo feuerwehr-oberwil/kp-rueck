@@ -32,6 +32,7 @@
  * They belong in the detail dialog, where somebody is already looking.
  */
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { useTranslations } from "next-intl"
 import {
   AlertTriangle, Axe, Binoculars, Building2, ChevronDown, ChevronUp, FileCheck, FileText, Footprints,
@@ -195,6 +196,7 @@ export function DisplayIncidentCard({
               {/* Size unchanged: read from across the room, a smaller title is
                   the worse trade. It hyphenates instead (WALL_TEXT_WRAP). */}
               <h3 className={cn("font-bold text-base text-foreground leading-tight", WALL_TEXT_WRAP)}>
+                <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
                 {getIncidentLocationLabel(operation)}
               </h3>
               {/* A crew standing at the kerb is the last thing a wall display

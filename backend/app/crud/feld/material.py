@@ -537,3 +537,14 @@ async def material_overview(db: AsyncSession, event_id: uuid.UUID) -> list[dict[
 
     items.sort(key=lambda item: item["name"].lower())
     return items
+
+
+async def request_material_names(db: AsyncSession) -> list[str]:
+    """The names a crew picks from for «Material nötig» (R13).
+
+    Distinct names of the live inventory, sorted — «Tauchpumpe Gr.» once, not
+    once per unit. Names only: where each unit is and whether it is free is the
+    KP's question to answer, and the request is what makes them ask it.
+    """
+    result = await db.execute(select(Material.name).where(Material.archived_at.is_(None)).distinct())
+    return sorted({name.strip() for name in result.scalars().all() if name and name.strip()}, key=str.casefold)

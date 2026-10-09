@@ -47,6 +47,11 @@ export interface Person {
   roleSortOrder: number
   /** Whether the person is linked to Divera (addressable for outbound alarms). */
   diveraLinked?: boolean
+  /**
+   * When they checked in for this Ereignis (ISO). Time on duty runs from here —
+   * never from the current assignment, which a move resets (lib/crew-duty.ts).
+   */
+  checkedInAt?: string | null
 }
 
 interface PersonnelContextType {
@@ -75,6 +80,7 @@ const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
   tags: apiPerson.tags || [],
   roleSortOrder: apiPerson.role_sort_order,
   diveraLinked: apiPerson.divera_linked ?? false,
+  checkedInAt: apiPerson.checked_in_at ?? null,
 })
 
 export function PersonnelProvider({ children }: { children: ReactNode }) {

@@ -5,7 +5,8 @@ import { join, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import manifest from './manifest'
+import { buildManifest, manifestLocale } from './web-manifest'
+import { GET } from '@/app/manifest.webmanifest/route'
 
 const FRONTEND = resolve(__dirname, '..')
 const ROOT = resolve(FRONTEND, '..')
@@ -19,7 +20,7 @@ function pngSize(path: string) {
 }
 
 describe('web app manifest', () => {
-  const m = manifest()
+  const m = buildManifest()
 
   it('names the app «KP Rück» and opens it standalone on the ink tile colour', () => {
     expect(m.name).toBe('KP Rück')
@@ -40,6 +41,32 @@ describe('web app manifest', () => {
       expect(existsSync(path), icon.src).toBe(true)
       expect(pngSize(path), icon.src).toBe(icon.sizes)
     }
+  })
+})
+
+describe('manifest language', () => {
+  it('is German by default, French when the layout links ?lang=fr', async () => {
+    expect(buildManifest().lang).toBe('de-CH')
+    expect(buildManifest().description).toBe('Einsatzübersicht für die Mannschafts- und Materialdisposition der Feuerwehr.')
+
+    const fr = await (await GET(new Request('http://kp.test/manifest.webmanifest?lang=fr'))).json()
+    expect(fr.lang).toBe('fr-CH')
+    expect(fr.description).toMatch(/^Vue d’ensemble des interventions/)
+    expect(fr.name).toBe('KP Rück')
+  })
+
+  it('never announces a locale that does not ship: Italian (empty catalogue) and junk fall back to German', async () => {
+    expect(manifestLocale('it')).toBe('de')
+    expect(manifestLocale('xx')).toBe('de')
+    expect(manifestLocale(null)).toBe('de')
+    const it = await GET(new Request('http://kp.test/manifest.webmanifest?lang=it'))
+    expect(it.headers.get('content-type')).toContain('application/manifest+json')
+    expect((await it.json()).lang).toBe('de-CH')
+  })
+
+  it('is linked from the layout with the locale in the URL (a manifest is fetched without cookies)', () => {
+    const layout = readFileSync(join(FRONTEND, 'app/layout.tsx'), 'utf8')
+    expect(layout).toContain('manifest: `/manifest.webmanifest?lang=${')
   })
 })
 
