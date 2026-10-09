@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env'
+import type { ApiWeather } from './weather'
 import { translateOutsideReact } from './i18n-messages'
 import {
   markRestReachable,
@@ -13,6 +14,7 @@ import {
   REQUEST_TIMEOUT_MS,
   type RequestOptions,
 } from './api/http'
+import { errorCodeOf, messageForErrorCode } from './api/error-codes'
 import type { SyncStatusResponse, SyncHistoryEntry, SyncConfig, SyncResult } from '@/types/sync'
 
 // Re-export every API type so existing consumers (`import { type ApiX } from '@/lib/api-client'`)
@@ -35,6 +37,7 @@ import {
   type ApiEventSpecialFunctionResponse,
   type ApiEventStats,
   type ApiEventFigures,
+  type ApiPersonnelActivity,
   type ApiPersonnel,
   type ApiPersonnelListItem,
   type ApiCheckInStats,
@@ -274,6 +277,8 @@ export type FeldUnlockFailure =
   | { kind: 'locked'; retryAfterSeconds: number }
   /** The link token expired (30 days). The code cannot fix this. */
   | { kind: 'expired' }
+  /** The address is not the poster's link any more (backend `feld_reopen_qr`): scan the QR again. */
+  | { kind: 'reopen' }
   /** The request never reached the server, so nothing was checked. */
   | { kind: 'offline' }
 
@@ -1341,8 +1346,12 @@ class ApiClient {
         // invalid type) — the crew has to see them, not a status code.
         let message = translateOutsideReact('errors.api.photoUploadFailed')
         try {
-          const detail = (JSON.parse(xhr.responseText) as { detail?: unknown }).detail
-          if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
+          const body = JSON.parse(xhr.responseText) as { detail?: unknown }
+          const detail = body.detail
+          // A coded error (size, type, limit) in the crew's language first.
+          const localized = messageForErrorCode(body)
+          if (localized) message = localized
+          else if (detail) message = typeof detail === 'string' ? detail : JSON.stringify(detail)
         } catch {
           // Not JSON — keep the generic message.
         }
@@ -1538,6 +1547,11 @@ class ApiClient {
   /** Kennzahlen: Lage counts + Reaktionszeiten per priority (the PDF's stage times). */
   async getEventFigures(eventId: string): Promise<ApiEventFigures> {
     return this.request<ApiEventFigures>(`/api/events/${eventId}/figures`)
+  }
+
+  /** Time on duty of everybody checked in (the Dienstzeiten overview), longest first. */
+  async getEventPersonnelActivity(eventId: string): Promise<ApiPersonnelActivity[]> {
+    return this.request<ApiPersonnelActivity[]>(`/api/events/${eventId}/personnel-activity`)
   }
 
   // Training Automation
@@ -1955,6 +1969,20 @@ class ApiClient {
     return this.request<ApiTraccarStatus>('/api/traccar/status')
   }
 
+  // Weather layer (radar + official warnings at the station). Silent: it is an optional
+  // overlay, and a feed or backend hiccup must never toast over the map – the layer shows its
+  // own «Stand hh:mm» instead. One try, no retries: the next poll is a minute away anyway.
+  async getWeather(viewerToken?: string): Promise<ApiWeather> {
+    const query = viewerToken ? `?token=${encodeURIComponent(viewerToken)}` : ''
+    return this.request<ApiWeather>(`/api/weather/${query}`, { skipToast: true, maxRetries: 0 })
+  }
+
+  /** A radar frame's PNG. Public and immutable on the backend, so MapLibre may load it as a
+   *  plain image (no session cookie needed, cached for good by the browser). */
+  weatherRadarFrameUrl(key: string): string {
+    return `${this.getBaseUrl()}/api/weather/radar/${encodeURIComponent(key)}.png`
+  }
+
   async getVehiclePositions(): Promise<ApiVehiclePosition[]> {
     return this.request<ApiVehiclePosition[]>('/api/traccar/positions', {
       skipToast: true,
@@ -2085,10 +2113,8 @@ class ApiClient {
 
     // `detail` is an object on the two answers that carry numbers and a plain
     // string on everything else (including a backend older than this client).
-    const detail = await response
-      .json()
-      .then((body: { detail?: unknown }) => body?.detail)
-      .catch(() => undefined)
+    const body = (await response.json().catch(() => undefined)) as { detail?: unknown; code?: unknown } | undefined
+    const detail = body?.detail
     const field = (name: string): number | null => {
       if (typeof detail !== 'object' || detail === null) return null
       const value = (detail as Record<string, unknown>)[name]
@@ -2107,6 +2133,10 @@ class ApiClient {
     if (response.status === 401 || response.status === 404) {
       throw new FeldUnlockError({ kind: 'expired' })
     }
+    // The URL carries a device credential, not the poster's link (a bookmarked or
+    // shared address after unlocking). No code opens that door — it used to read
+    // «Falscher Code», which sent people typing the right digits again and again.
+    if (errorCodeOf(body) === 'feld_reopen_qr') throw new FeldUnlockError({ kind: 'reopen' })
     throw new FeldUnlockError({ kind: 'wrong', attemptsLeft: field('attempts_left') })
   }
 

@@ -132,13 +132,13 @@ class CheckInListResponse(BaseModel):
 
 
 class PersonnelActivity(BaseModel):
-    """Personnel activity tracking for fatigue monitoring."""
+    """One checked-in person's time on duty (``GET /events/{id}/stats``, `api/stats.py`)."""
 
     personnel_id: UUID
     name: str
     role: str | None = None
-    status: str
-    active_duration_minutes: int  # Time since checked in (for assigned personnel)
-    assignment_count: int  # Number of incidents assigned to
-    current_incident_title: str | None = None  # Current incident title if assigned
+    status: str  # "assigned" while on an incident or Auftrag, else the roster status
+    active_duration_minutes: int  # Time on duty: since checked_in_at (arrival), not since the current assignment
+    assignment_count: int  # Einsätze worked this Ereignis: distinct incidents + Aufträge, finished and current
+    current_incident_title: str | None = None  # Where they are now (short address / Auftrag name), « · »-joined
     checked_in_at: datetime | None = None

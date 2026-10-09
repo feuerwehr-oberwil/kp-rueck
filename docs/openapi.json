@@ -15553,6 +15553,86 @@
         }
       }
     },
+    "/api/events/{event_id}/personnel-activity": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Personnel Activity",
+        "description": "Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.\n\nThe same rows as ``personnel_activity`` in ``/stats``, without the incident statistics\naround them: the overview asks again whenever somebody's assignment changes.",
+        "operationId": "get_personnel_activity_api_events__event_id__personnel_activity_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonnelActivity"
+                  },
+                  "title": "Response Get Personnel Activity Api Events  Event Id  Personnel Activity Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sync/status": {
       "get": {
         "tags": [
@@ -19328,6 +19408,132 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/weather/": {
+      "get": {
+        "tags": [
+          "weather"
+        ],
+        "summary": "Get Weather",
+        "description": "Radar frames + warnings for the station, as last polled. `enabled: false` when the\ndeployment switched the layer off (WEATHER_ENABLED=false).",
+        "operationId": "get_weather_api_weather__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Viewer token (wall display)",
+              "title": "Token"
+            },
+            "description": "Viewer token (wall display)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeatherOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/weather/radar/{key}.png": {
+      "get": {
+        "tags": [
+          "weather"
+        ],
+        "summary": "Get Radar Frame",
+        "description": "One radar frame as a transparent PNG in Web Mercator. Immutable: a key is a 5-minute slot.",
+        "operationId": "get_radar_frame_api_weather_radar__key__png_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "Frame not (or no longer) cached"
           },
           "422": {
             "description": "Validation Error",
@@ -27026,6 +27232,18 @@
             "type": "string",
             "title": "Message"
           },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params"
+          },
           "incident_id": {
             "anyOf": [
               {
@@ -27716,7 +27934,7 @@
           "assignment_count"
         ],
         "title": "PersonnelActivity",
-        "description": "Personnel activity tracking for fatigue monitoring."
+        "description": "One checked-in person's time on duty (``GET /events/{id}/stats``, `api/stats.py`)."
       },
       "PersonnelCheckInResponse": {
         "properties": {
@@ -28563,6 +28781,120 @@
         ],
         "title": "PublicIncidentCreate",
         "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and the\noperator-only flags (nachbarhilfe, am_warten, zu_fuss, the Auftrag, …) are set\nlater by an editor on the board. Validators mirror ``IncidentBase``.\n\nThe two free-text columns are NOT interchangeable, and the form's two text\nfields land in them the way the board reads them: ``description`` is what the\nboard labels «Meldung» — what the caller said the thing IS — and\n``internal_notes`` is «Notizen», the extra hints that came with the call.\nBefore this, the form's Meldung went into ``title``, which the board only ever\nshows as a fallback for a missing address, so the one sentence the caller\nactually gave was invisible on a card that had an address."
+      },
+      "RadarFrameOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "time"
+        ],
+        "title": "RadarFrameOut"
+      },
+      "RadarLegendStep": {
+        "properties": {
+          "min_mm_h": {
+            "type": "number",
+            "title": "Min Mm H"
+          },
+          "color": {
+            "type": "string",
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min_mm_h",
+          "color"
+        ],
+        "title": "RadarLegendStep"
+      },
+      "RadarOut": {
+        "properties": {
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/RadarFrameOut"
+            },
+            "type": "array",
+            "title": "Frames"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coordinates"
+          },
+          "data_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Time"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "stale_after_seconds": {
+            "type": "integer",
+            "title": "Stale After Seconds"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WeatherSourceStatus"
+          },
+          "legend": {
+            "items": {
+              "$ref": "#/components/schemas/RadarLegendStep"
+            },
+            "type": "array",
+            "title": "Legend"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "frames",
+          "coordinates",
+          "data_time",
+          "stale",
+          "stale_after_seconds",
+          "status",
+          "legend",
+          "attribution",
+          "source_url"
+        ],
+        "title": "RadarOut"
       },
       "RapportExtraMaterialRow": {
         "properties": {
@@ -31808,6 +32140,295 @@
         "type": "object",
         "title": "VehicleUpdate",
         "description": "Schema for updating vehicle.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /vehicles/{id}/archive and /restore."
+      },
+      "WarningText": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "title": "Event"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "instructions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Instructions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event",
+          "headline",
+          "description",
+          "instructions"
+        ],
+        "title": "WarningText",
+        "description": "Verbatim from the source – the board must not reword an official warning."
+      },
+      "WarningsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WeatherWarningOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WeatherSourceStatus"
+            },
+            "type": "object",
+            "title": "Sources"
+          },
+          "stale_after_seconds": {
+            "type": "integer",
+            "title": "Stale After Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "sources",
+          "stale_after_seconds"
+        ],
+        "title": "WarningsOut"
+      },
+      "WeatherOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "station_configured": {
+            "type": "boolean",
+            "title": "Station Configured",
+            "default": false
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "radar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadarOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WarningsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "WeatherOut"
+      },
+      "WeatherSourceStatus": {
+        "properties": {
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale"
+          }
+        },
+        "type": "object",
+        "title": "WeatherSourceStatus"
+      },
+      "WeatherWarningOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "sent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent"
+          },
+          "onset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onset"
+          },
+          "expires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "texts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WarningText"
+            },
+            "type": "object",
+            "title": "Texts"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "level",
+          "sender",
+          "region",
+          "texts"
+        ],
+        "title": "WeatherWarningOut"
       },
       "WsTokenResponse": {
         "properties": {

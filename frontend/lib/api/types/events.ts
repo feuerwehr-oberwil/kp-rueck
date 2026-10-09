@@ -104,10 +104,27 @@ export interface ApiEventFigures {
   oldest_waiting_high: { incident_id: string; title: string; created_at: string } | null
 }
 
+/** One checked-in person's time on duty (backend `PersonnelActivity`, longest on duty first). */
+export interface ApiPersonnelActivity {
+  personnel_id: string // UUID
+  name: string
+  role: string | null
+  /** "assigned" while on an incident or Auftrag, else the roster status. */
+  status: string
+  /** Since check-in (arrival) — not since the current assignment. */
+  active_duration_minutes: number
+  /** Einsätze worked this Ereignis: distinct incidents + Aufträge, finished and current. */
+  assignment_count: number
+  /** Where they are now (short address / Auftrag name), « · »-joined. */
+  current_incident_title: string | null
+  checked_in_at: string | null
+}
+
 export interface ApiEventStats {
   status_counts: Record<string, number> // Keys are incident statuses as strings
   personnel_available: number
   personnel_total: number
   avg_duration_minutes: number
   resource_utilization_percent: number
+  personnel_activity: ApiPersonnelActivity[]
 }

@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, NamedTuple
 
-from fastapi import HTTPException, Request, UploadFile
+from fastapi import Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,9 +26,11 @@ from ...models import (
     Vehicle,
 )
 from ...schemas.feld import RapportUpdate
+from ...services import notification_params as texts
 from ...services.audit import log_action
 from ...services.notification_service import create_field_notification
 from ...services.photo_storage import photo_storage
+from ...utils.error_codes import CodedHTTPException, ErrorCode
 from .reports import FieldActor, _broadcast, _get_or_create_report, _location, _stamp_updated_by
 from .visibility import get_incident_leaders
 
@@ -1130,12 +1132,14 @@ async def save_rapport(
     # operator would be toasting themselves. The audit entry above keeps the
     # kp/feld provenance either way.
     if submitting and was_draft and incident.event_id and actor.is_field:
+        message, params = texts.rapport_submitted(await _location(db, incident), actor.kind, actor.personnel_name)
         await create_field_notification(
             db,
             notification_type="rapport_submitted",
             incident_id=incident.id,
             event_id=incident.event_id,
-            message=f"Rapport erfasst: {await _location(db, incident)}{actor.suffix}",
+            message=message,
+            params=params,
         )
     await _broadcast(incident)
 
@@ -1214,7 +1218,7 @@ async def remove_photo(
     report = result.scalar_one_or_none()
     current = list(report.photos_json or []) if report else []
     if report is None or filename not in current:
-        raise HTTPException(status_code=404, detail="Foto nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
     photo_storage.delete_photo(incident.id, filename)
     report.photos_json = [name for name in current if name != filename]
