@@ -5,7 +5,7 @@
  * training Ereignis. The Lagekarte and the settings/help pages pass no callbacks, so outside an
  * Übung the heading used to stand alone over nothing (owner, 03.10.2026).
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
@@ -65,5 +65,22 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
     renderWithIntl(<MobileBottomNavigation currentPage="kanban" onLinks={vi.fn()} />)
     await openSheet()
     expect(screen.queryByText('Schnellzugriff')).toBeNull()
+  })
+})
+
+describe('MobileBottomNavigation tap animation', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('leaves no timer behind when the bar unmounts mid-animation', async () => {
+    vi.useFakeTimers()
+    const { unmount } = renderWithIntl(<MobileBottomNavigation currentPage="map" />)
+    // A plain click: userEvent would wait on the faked clock.
+    screen.getByRole('button', { name: 'Mehr Optionen' }).click()
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
+    unmount()
+    // The 200 ms reset used to outlive the bar and fire after jsdom was gone (CI flake).
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

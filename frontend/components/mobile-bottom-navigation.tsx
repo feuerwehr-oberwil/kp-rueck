@@ -10,7 +10,7 @@
 import { BookOpenText, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -103,10 +103,20 @@ export function MobileBottomNavigation({
     || !!onJournal
     || !!selectedEvent?.training_flag
 
-  // Handle tap animation
+  // Handle tap animation. The timer is kept and cleared on unmount: a tab tap usually
+  // navigates away, and a 200 ms timer outliving the bar set state on an unmounted component
+  // (in the unit tests it fired after jsdom was torn down – «window is not defined», a red CI).
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (tapTimer.current) clearTimeout(tapTimer.current)
+  }, [])
   const handleTap = (tabId: string) => {
     setTapAnimation(tabId)
-    setTimeout(() => setTapAnimation(null), 200)
+    if (tapTimer.current) clearTimeout(tapTimer.current)
+    tapTimer.current = setTimeout(() => {
+      tapTimer.current = null
+      setTapAnimation(null)
+    }, 200)
   }
 
   return (
