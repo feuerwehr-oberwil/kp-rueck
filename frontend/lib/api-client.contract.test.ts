@@ -103,7 +103,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'getRekoForm', 'getReportLogoUrl', 'getResourceHistory', 'getSetting', 'getSetupStatus', 'getSyncConfig',
     'getSyncHistory', 'getSyncStatus', 'getSyncVersion', 'getTraccarStatus', 'getTrainingLocations',
     'getUser', 'getUsers', 'getVehicleById', 'getVehiclePositions', 'getVehicleStatus', 'getVehicleTrails',
-    'getVehicles', 'getViewerData', 'logoutFeld', 'manualDispatch', 'markRekoArrived', 'mintFeldRekoLink',
+    'getVehicles', 'getViewerData', 'getWeather', 'logoutFeld', 'manualDispatch', 'markRekoArrived', 'mintFeldRekoLink',
     'previewExcelImport', 'queueAbhollistePrint', 'queueAssignmentPrint', 'queueBoardPrint',
     'queueQRCodePrint', 'queueTestPrint', 'recordGroupAnnouncement', 'regenerateFeldCode',
     'releaseAllResources', 'removeStopFromGroup', 'reorderAuftragTemplates', 'reorderGroupStops',
@@ -124,6 +124,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'updateMaterialResource', 'updatePersonnel', 'updatePersonnelCategorySortOrder', 'updateRekoReport',
     'updateSetting', 'updateSyncConfig', 'updateUser', 'updateVehicle', 'uploadFeldPhoto',
     'uploadRapportPhoto', 'uploadRekoPhoto', 'uploadRekoPhotoAsEditor', 'uploadReportLogo',
+    'weatherRadarFrameUrl',
     ])
   })
 })

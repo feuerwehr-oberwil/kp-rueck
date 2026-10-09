@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from './env'
+import type { ApiWeather } from './weather'
 import { translateOutsideReact } from './i18n-messages'
 import {
   markRestReachable,
@@ -1951,6 +1952,20 @@ class ApiClient {
   // Traccar GPS Tracking
   async getTraccarStatus(): Promise<ApiTraccarStatus> {
     return this.request<ApiTraccarStatus>('/api/traccar/status')
+  }
+
+  // Weather layer (radar + official warnings at the station). Silent: it is an optional
+  // overlay, and a feed or backend hiccup must never toast over the map – the layer shows its
+  // own «Stand hh:mm» instead. One try, no retries: the next poll is a minute away anyway.
+  async getWeather(viewerToken?: string): Promise<ApiWeather> {
+    const query = viewerToken ? `?token=${encodeURIComponent(viewerToken)}` : ''
+    return this.request<ApiWeather>(`/api/weather/${query}`, { skipToast: true, maxRetries: 0 })
+  }
+
+  /** A radar frame's PNG. Public and immutable on the backend, so MapLibre may load it as a
+   *  plain image (no session cookie needed, cached for good by the browser). */
+  weatherRadarFrameUrl(key: string): string {
+    return `${this.getBaseUrl()}/api/weather/radar/${encodeURIComponent(key)}.png`
   }
 
   async getVehiclePositions(): Promise<ApiVehiclePosition[]> {

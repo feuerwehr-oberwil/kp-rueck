@@ -80,6 +80,17 @@ async function stubNetwork(context: BrowserContext) {
   await context.route(/\/api\/notifications\/\?/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );
+  // The weather layer (GET /api/weather/) is the backend relaying LIVE MeteoSwiss radar and
+  // Alertswiss/MeteoAlarm warnings – whatever is in force in the region on the day of the run
+  // («Feuerverbot · bis auf Widerruf»). Answered as a station with the layer switched off,
+  // so the map screenshot does not change with the real weather.
+  await context.route(/\/api\/weather\//, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ enabled: false, station_configured: false, generated_at: null, radar: null, warnings: null }),
+    }),
+  );
 }
 
 type VisualFixtures = {
