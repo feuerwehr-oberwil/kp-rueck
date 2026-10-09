@@ -328,12 +328,14 @@ async def create_field_report(
 
     if merge_target is not None:
         await db.refresh(merge_target)
+        message, params = texts.field_merged(await _location(db, merge_target), person.name)
         await create_field_notification(
             db,
             notification_type="field_report",
             incident_id=merge_target.id,
             event_id=event_id,
-            message=f"Nachtrag vom Feld: {await _location(db, merge_target)} ({person.name})",
+            message=message,
+            params=params,
             severity="info",
         )
         return incident, mode

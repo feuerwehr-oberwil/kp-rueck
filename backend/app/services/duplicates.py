@@ -379,6 +379,10 @@ async def _work_on_card(db: AsyncSession, card: models.Incident) -> str | None:
                 models.AuditLog.action_type == "field_message",
             ),
         ),
+        # A request from the field (R13) is work, open or done – and an open one would
+        # vanish with the card. Most arrive with a «field_message» row above; one taken
+        # over the radio or an Abholung is checked here on its own.
+        ("Anfragen vom Feld", select(models.FieldRequest.id).where(models.FieldRequest.incident_id == card.id)),
         (
             "Meldungen an den Trupp",
             select(models.IncidentFieldMessage.id).where(models.IncidentFieldMessage.incident_id == card.id),

@@ -943,7 +943,9 @@ async def report_new_incident(
             or merge_target.merged_into_id is not None
             or merge_target.status == "complete"
         ):
-            raise HTTPException(status_code=409, detail="Dieser Einsatz ist nicht mehr offen. Bitte neu melden.")
+            raise CodedHTTPException(
+                409, ErrorCode.FELD_MERGE_TARGET_CLOSED, "Dieser Einsatz ist nicht mehr offen. Bitte neu melden."
+            )
 
     try:
         incident, mode = await crud.create_field_report(
@@ -951,7 +953,7 @@ async def report_new_incident(
         )
     except MergeRefusedError as e:
         await db.rollback()
-        raise HTTPException(status_code=e.status_code, detail=e.reason) from None
+        raise CodedHTTPException(e.status_code, ErrorCode.FELD_MERGE_REFUSED, e.reason) from None
 
     if merge_target is not None:
         target_response = await board_response(db, merge_target)

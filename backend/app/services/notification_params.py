@@ -292,6 +292,16 @@ def field_report(place: str, by: str, *, direct: bool) -> Built:
     return (message, {"place": place, "by": by, "direct": direct})
 
 
+def field_merged(place: str, by: str) -> Built:
+    """``field_report`` for a /feld report folded into an open card (R2 «Zusammenführen»).
+
+    Same type as a new Schadenplatz – it is news from the field about a card – but
+    ``merged`` says it is a Nachtrag on an existing one, not a new card. ``place`` is
+    the card it went into.
+    """
+    return (f"Nachtrag vom Feld: {place} ({by})", {"place": place, "by": by, "merged": True})
+
+
 def feld_code_rotated(event_name: str) -> Built:
     return (f"Feld-Code für {event_name} nach zu vielen Fehlversuchen neu erzeugt", {"event": event_name})
 

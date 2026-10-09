@@ -23,7 +23,17 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog, DiveraEmergency, Event, Incident, IncidentAssignment, Personnel, Setting, User
+from app.models import (
+    AuditLog,
+    DiveraEmergency,
+    Event,
+    FieldRequest,
+    Incident,
+    IncidentAssignment,
+    Personnel,
+    Setting,
+    User,
+)
 from app.services.tokens import generate_alarm_token
 from tests.conftest import feld_device_token
 
@@ -479,6 +489,15 @@ class TestFeld:
         assert "(Feld · Brunner Marco): Ast auf Fahrbahn" in target.internal_notes
         # The take-over is not run on a merged Meldung.
         assert target.status == "incoming"
+        # The bell says «Nachtrag» on the card it went into, as facts the client words.
+        from app.models import Notification
+
+        bell = (
+            await db_session.execute(select(Notification).where(Notification.incident_id == target.id))
+        ).scalar_one()
+        assert bell.type == "field_report"
+        assert bell.message == "Nachtrag vom Feld: Hauptstrasse 6, 4104 Oberwil (Brunner Marco)"
+        assert bell.params == {"place": "Hauptstrasse 6, 4104 Oberwil", "by": "Brunner Marco", "merged": True}
 
     async def test_feld_cannot_merge_into_a_closed_card(
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event
@@ -499,6 +518,11 @@ class TestFeld:
             },
         )
         assert response.status_code == 409
+        # Said in the crew's language on the phone; the German sentence stays the detail.
+        assert response.json() == {
+            "detail": "Dieser Einsatz ist nicht mehr offen. Bitte neu melden.",
+            "code": "feld_merge_target_closed",
+        }
 
 
 class TestWhatAMergeMustNotDo:
@@ -554,6 +578,20 @@ class TestWhatAMergeMustNotDo:
         response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
         assert response.status_code == 409
         assert "Meldungen vom Feld" in response.json()["detail"]
+
+    @pytest.mark.parametrize("status", ["open", "done"])
+    async def test_a_card_with_a_field_request_is_not_hidden(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, status: str
+    ) -> None:
+        """A request from the field (R13) – open or already handled – stays on its own card:
+        an open one would vanish with it, a handled one is work done there."""
+        target = await _card(db_session, test_event)
+        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
+        db_session.add(FieldRequest(incident_id=dup.id, kind="material", status=status, item="Tauchpumpe", quantity=1))
+        await db_session.commit()
+        response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
+        assert response.status_code == 409
+        assert "Anfragen vom Feld" in response.json()["detail"]
 
     async def test_nothing_can_be_assigned_to_a_merged_card(
         self,
