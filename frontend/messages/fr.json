@@ -3782,6 +3782,7 @@
         "unchanged": "Fichier inchangé depuis la dernière synchronisation.",
         "summary": "dernière synchronisation : {created} nouveaux · {updated} modifiés · {deactivated} désactivés.",
         "unmatched": "{n} non attribués : {names}",
+        "postponed": "En attente de la fin de leur engagement : {names}",
         "unknownRanks": "Grades inconnus (fonction inchangée) : {ranks}",
         "fileDate": "Date du fichier : {time}",
         "lastSuccess": "dernier succès : {time}",

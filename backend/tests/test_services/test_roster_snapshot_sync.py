@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import copy
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -216,3 +217,129 @@ async def test_the_registry_reports_the_source(source):
     reg = integrations()
     entry = next(p for p in reg.known_providers if p.provider == "roster-snapshot")
     assert entry.implemented is True and entry.configured is True
+
+
+# --- review round (08.10.2026) ------------------------------------------------------------
+
+
+def _crew(source: Path, n: int = 10, *, keep: int | None = None, at: str = "2026-08-02T04:00:00+00:00") -> None:
+    people = [
+        {"external_id": f"p{i}", "display_name": f"Person{i:02d} Vorname", "active": True, "identities": []}
+        for i in range(n)
+    ]
+    listed = people[: keep if keep is not None else n]
+    _write(source, {**EXAMPLE_SNAPSHOT, "people": listed, "count": len(listed), "generated_at": at})
+
+
+async def test_a_run_that_crashes_writes_nothing_and_records_why(db_session, source, monkeypatch):
+    await sync.run(db_session, trigger="manual")
+    good = (await sync.read_status(db_session))["lastGood"]
+    doc = copy.deepcopy(EXAMPLE_SNAPSHOT)
+    doc["people"][0]["display_name"] = "Muster-Keller Hans"
+    doc["generated_at"] = "2026-08-03T04:00:00+00:00"
+    _write(source, doc)
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("unique violation, row (…)")
+
+    monkeypatch.setattr(sync, "apply", boom)
+    status = await sync.run(db_session, trigger="scheduled")
+
+    assert status["lastError"] == "run failed: RuntimeError"  # the type, never the row values
+    assert status["lastGood"] == good
+    stored = await sync.read_status(db_session)
+    assert stored["outcome"]["refused"] == "run failed: RuntimeError"
+    assert "Muster-Keller Hans" not in await _people(db_session)
+
+
+async def test_nobody_checked_in_is_taken_off_until_they_check_out(db_session, source, test_event):
+    from app.models import EventAttendance
+
+    _crew(source)
+    await sync.run(db_session, trigger="manual")
+    leaver = (await _people(db_session))["Person09 Vorname"]
+    attendance = EventAttendance(event_id=test_event.id, personnel_id=leaver.id, checked_in=True)
+    db_session.add(attendance)
+    await db_session.commit()
+
+    _crew(source, keep=9, at="2026-08-03T04:00:00+00:00")
+    status = await sync.run(db_session, trigger="scheduled", skip_unchanged=True)
+    assert status["outcome"]["deactivated"] == 0
+    assert [p["display_name"] for p in status["postponed"]] == ["Person09 Vorname"]
+    assert (await _people(db_session))["Person09 Vorname"].status == "available"
+
+    attendance.checked_out_at = datetime.now(UTC)
+    await db_session.commit()
+    status = await sync.run(db_session, trigger="scheduled", skip_unchanged=True)  # same file
+    assert status["outcome"]["deactivated"] == 1 and status["postponed"] == []
+    assert (await _people(db_session))["Person09 Vorname"].status == "unavailable"
+
+
+async def test_an_applied_run_nudges_the_open_boards(db_session, source, monkeypatch):
+    sent: list[tuple] = []
+
+    async def fake(data, action="update"):
+        sent.append((data, action))
+
+    monkeypatch.setattr(sync, "broadcast_personnel_update", fake)
+    await sync.run(db_session, trigger="manual")
+    assert sent and sent[0][1] == "sync" and sent[0][0]["created"] == 3
+    sent.clear()
+    await sync.run(db_session, trigger="manual")  # nothing changed → no nudge
+    assert sent == []
+
+
+async def test_a_renamed_provider_still_brings_back_who_it_took_off(db_session, source):
+    _crew(source, n=6)
+    await sync.run(db_session, trigger="manual")
+    _crew(source, n=6, keep=5, at="2026-08-03T04:00:00+00:00")
+    await sync.run(db_session, trigger="manual")
+    assert (await _people(db_session))["Person05 Vorname"].status == "unavailable"
+
+    # the publisher renames its provider key; Person05 is back
+    people = [
+        {"external_id": f"q{i}", "display_name": f"Person{i:02d} Vorname", "active": True, "identities": []}
+        for i in range(6)
+    ]
+    _write(
+        source,
+        {
+            **EXAMPLE_SNAPSHOT,
+            "provider": "neuer-stamm",
+            "people": people,
+            "count": 6,
+            "generated_at": "2026-08-04T04:00:00+00:00",
+        },
+    )
+    await sync.run(db_session, trigger="manual")
+    person = (await _people(db_session))["Person05 Vorname"]
+    assert person.status == "available"
+    rows = (
+        (
+            await db_session.execute(
+                select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.personnel_id == person.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert not any((r.metadata_json or {}).get("deactivated_by_snapshot") for r in rows)
+
+
+async def test_somebody_divera_knows_is_never_renamed(db_session, source):
+    """The Divera sync matches BY NAME and «remove stale» deletes who it no longer finds."""
+    doc = copy.deepcopy(EXAMPLE_SNAPSHOT)
+    doc["people"][0]["identities"] = [{"provider": "divera", "external_id": "4711"}]
+    doc["people"][0]["display_name"] = "Hans Muster"
+    _write(source, doc)
+    hans = Personnel(name="Muster Hans", role="Offizier", status="available", tags=[])
+    db_session.add(hans)
+    await db_session.flush()
+    db_session.add(PersonnelExternalIdentity(personnel_id=hans.id, provider="divera", external_id="4711"))
+    await db_session.commit()
+
+    await sync.run(db_session, trigger="manual")
+    second = await sync.run(db_session, trigger="manual")
+
+    assert "Muster Hans" in await _people(db_session) and "Hans Muster" not in await _people(db_session)
+    assert second["outcome"]["updated"] == 0  # and it stays quiet about it

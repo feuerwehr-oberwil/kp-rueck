@@ -39,7 +39,8 @@ source at the path inside the container.
 1. **Fetch** (≤ 5 MB, 30 s timeout). A failure – unreachable, HTTP error, missing file – changes
    nothing.
 2. **Validate** against the contract, including the medical-key guard (§5). An invalid document,
-   or one **older than the one already applied**, changes nothing. The roster stays exactly as
+   one **older than the one already applied** or stamped more than 5 minutes **in the future**,
+   or a run that crashes while writing, changes nothing. The roster stays exactly as
    the last good snapshot left it, and the status says why.
 3. **Match** every person in the file to a local person, in this order:
    - the snapshot's own key (`provider` + `external_id`) in `personnel_external_identities`;
@@ -49,8 +50,9 @@ source at the path inside the container.
 
    Two candidates for a name is `ambiguous_name`; identities pointing at two different people –
    or at a person who already holds a *different* id at that provider – is
-   `conflicting_identity`. Both are skipped and reported. **An existing identity link is never
-   rewritten.**
+   `conflicting_identity` – also when that person was only found by name, so a namesake is never
+   created a second time. Both are skipped and reported. **An existing identity link is never
+   rewritten**, and an entry may not list an identity under the file's own `provider`.
 4. **Write**: create new people (`status = available`), rename, map the rank key to a role word
    (`kdt`/`maj`/`hptm`/`oblt`/`lt` → Offizier, `fw`/`wm` → Wachtmeister, `kpl` → Korporal,
    `gfr`/`fwm`/`sdt` → Mannschaft; any other key is reported and `role` left alone), attach
@@ -58,6 +60,14 @@ source at the path inside the container.
 5. **Deactivate** the people the file lists as inactive and – only for `complete: true` – the
    people carrying this provider's key whom the file no longer lists. Hand-entered people and
    people only Divera knows are never touched by absence. **Nobody is deleted.**
+6. **Never mid-operation.** A person checked in to, or assigned on, an Ereignis that is not
+   archived keeps their place; the deactivation is postponed (shown as «Wartet, bis sie nicht
+   mehr im Einsatz sind») and a later run applies it, even if the file has not changed.
+7. **Names Divera knows stay.** People with a Divera identity are never renamed: the Divera
+   sync matches by name, and with «remove stale» it would delete whoever it no longer finds.
+   Publish names in the same «Nachname Vorname» form Divera uses if you want them to agree.
+
+Every applied run sends one `personnel_update` so open boards reload.
 
 **«Deactivated» in KP Rück** is `status = unavailable` plus a mark on the person's snapshot
 identity row. `status` is the board's availability and belongs to the operators – somebody on
@@ -81,7 +91,9 @@ docker compose exec backend uv run python -m app.services.roster_snapshot_sync r
 # or: POST /api/integrations/roster-snapshot/sync  {"force": true}   (admin)
 ```
 
-A run that would leave **no** available person is refused even with `--force`.
+A run that would leave **no** available person is refused even with `--force`. `--force` also
+overrides the «older than applied» guard – the way out when a publisher's wrong clock left a
+last good file dated in the future.
 
 ## 4. Seeing what happened
 

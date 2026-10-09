@@ -110,6 +110,12 @@ export function RosterSnapshotStatus() {
           })}
         </>
       )}
+      {(status?.postponed?.length ?? 0) > 0 && (
+        <>
+          <br />
+          {t('postponed', { names: (status?.postponed ?? []).map((p) => p.display_name).join(', ') })}
+        </>
+      )}
       {unknownRanks.length > 0 && (
         <>
           <br />

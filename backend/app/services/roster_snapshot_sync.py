@@ -50,7 +50,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
-from ..models import Personnel, PersonnelExternalIdentity, Setting
+from ..models import (
+    Event,
+    EventAttendance,
+    Incident,
+    IncidentAssignment,
+    Personnel,
+    PersonnelExternalIdentity,
+    Setting,
+)
 from ..roster_snapshot_ingest import (
     LastGood,
     LocalPerson,
@@ -60,6 +68,7 @@ from ..roster_snapshot_ingest import (
     refused_outcome,
     status_json,
 )
+from ..websocket_manager import broadcast_personnel_update
 from .audit import log_action
 
 logger = logging.getLogger(__name__)
@@ -198,11 +207,18 @@ async def apply(
         rank = write.fields.get("rank")
         if rank:
             person.role = RANK_ROLE.get(rank, person.role)
-        if write.reactivate and meta.get(_MARK):
-            person.status = meta.get("status_before") or "available"
-            meta.pop(_MARK, None)
-            meta.pop("status_before", None)
         own.metadata_json = meta or None
+        if write.reactivate:
+            # The mark may sit on ANOTHER of the person's rows — the snapshot's provider key was
+            # renamed since it was set. Clear it wherever it is, or they stay «left» forever.
+            for (row_pid, _prov), ident in ident_rows.items():
+                mark = dict(ident.metadata_json or {})
+                if row_pid != pid or not mark.get(_MARK):
+                    continue
+                person.status = mark.get("status_before") or "available"
+                mark.pop(_MARK, None)
+                mark.pop("status_before", None)
+                ident.metadata_json = mark or None
     await db.flush()
 
     for gone in rec.deactivations:
@@ -218,6 +234,33 @@ async def apply(
     await db.flush()
 
 
+async def busy_person_ids(db: AsyncSession) -> set[str]:
+    """People on duty right now: checked in to, or assigned on, an Ereignis that is not archived.
+    Their deactivation waits for a later run — nobody is taken off the board mid-operation."""
+    checked_in = (
+        select(EventAttendance.personnel_id)
+        .join(Event, Event.id == EventAttendance.event_id)
+        .where(
+            EventAttendance.checked_in.is_(True),
+            EventAttendance.checked_out_at.is_(None),
+            Event.archived_at.is_(None),
+        )
+    )
+    assigned = (
+        select(IncidentAssignment.resource_id)
+        .join(Incident, Incident.id == IncidentAssignment.incident_id)
+        .join(Event, Event.id == Incident.event_id)
+        .where(
+            IncidentAssignment.resource_type == "personnel",
+            IncidentAssignment.unassigned_at.is_(None),
+            Incident.deleted_at.is_(None),
+            Event.archived_at.is_(None),
+        )
+    )
+    ids = set((await db.execute(checked_in)).scalars()) | set((await db.execute(assigned)).scalars())
+    return {str(i) for i in ids}
+
+
 async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_unchanged: bool = False) -> dict[str, Any]:
     """Fetch, reconcile, apply, record — and commit. Returns the stored status document.
 
@@ -231,23 +274,27 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
     last_good = LastGood.from_json(previous.get("lastGood"))
     now = datetime.now(UTC).isoformat()
 
-    try:
-        raw = await read_source(source, settings.roster_snapshot_token or None)
-    except ValueError as e:
-        await db.rollback()
+    async def _refused(reason: str) -> dict[str, Any]:
+        """Nothing written; the previous report's lastGood stands and the reason is recorded."""
         status = {
             **previous,
             "trigger": trigger,
-            "outcome": refused_outcome(str(e), last_good=last_good).model_dump(mode="json", by_alias=True),
+            "outcome": refused_outcome(reason, last_good=last_good).model_dump(mode="json", by_alias=True),
             "held": False,
             "unchanged": False,
             "pendingDeactivations": 0,
             "lastAttempt": now,
-            "lastError": str(e)[:400],
+            "lastError": reason[:400],
         }
         await _write_status(db, status)
         await db.commit()
         return status
+
+    try:
+        raw = await read_source(source, settings.roster_snapshot_token or None)
+    except ValueError as e:
+        await db.rollback()
+        return await _refused(str(e))
 
     try:
         people, rows, ident_rows = await load_people(db)
@@ -258,8 +305,14 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
             max_deactivate_pct=settings.roster_snapshot_max_deactivate_pct,
             last_good=last_good,
             force=force,
-            skip_unchanged=skip_unchanged,
+            # A run that postponed somebody looks again even when the file has not moved — the
+            # person it waited for may be free now.
+            skip_unchanged=skip_unchanged and not previous.get("postponed"),
             now=datetime.now(UTC),
+            busy_ids=await busy_person_ids(db),
+            # The Divera sync matches people BY NAME (and «remove stale» deletes the ones it no
+            # longer finds), so a snapshot must never rename somebody Divera knows.
+            keep_names_for=("divera",),
         )
         applied_at = previous.get("appliedAt")
         if rec.refused is None and not rec.unchanged:
@@ -287,10 +340,27 @@ async def run(db: AsyncSession, *, trigger: str, force: bool = False, skip_uncha
         }
         await _write_status(db, status)
         await db.commit()
-    except Exception:
+    except Exception as e:
+        # ⚠️ Rolled back FIRST, then reported like a refused file — a run that crashes must not
+        # look like one that never happened. Only the exception TYPE is quoted: a database
+        # error's text can carry row values.
         await db.rollback()
         logger.exception("Roster snapshot run failed")
-        raise
+        return await _refused(f"run failed: {type(e).__name__}")
+    if rec.refused is None and not rec.unchanged and (rec.creates or rec.updates or rec.deactivations):
+        # One nudge for the open boards: they reload on personnel_update (operations-context).
+        try:
+            await broadcast_personnel_update(
+                {
+                    "source": "roster-snapshot",
+                    "created": rec.outcome.created,
+                    "updated": rec.outcome.updated,
+                    "deactivated": rec.outcome.deactivated,
+                },
+                action="sync",
+            )
+        except Exception:
+            logger.warning("Roster snapshot: board broadcast failed (non-fatal)", exc_info=True)
     logger.info(
         "Roster snapshot (%s): %s — +%d created, %d updated, %d deactivated, %d unmatched",
         trigger,

@@ -114,6 +114,8 @@ export interface ApiRosterSnapshotStatus {
   activeBefore?: number
   deactivationLimit?: number | null
   pendingDeactivations?: number
+  /** deactivations waiting because the person is checked in / assigned on an open Ereignis */
+  postponed?: Array<{ display_name: string; reason: string }>
   unmatchedTotal?: number
   lastAttempt?: string | null
   lastSuccess?: string | null

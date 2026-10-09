@@ -58,11 +58,13 @@ describe('RosterSnapshotStatus', () => {
           ],
         },
         lastGood: { generatedAt: '2026-10-08T04:00:00+00:00', count: 40, provider: 'wehr' },
+        postponed: [{ display_name: 'Keller Urs', reason: 'absent_from_snapshot' }],
       },
     })
     renderWithIntl(<RosterSnapshotStatus />)
     expect(await screen.findByText(/2 neu · 1 geändert · 0 deaktiviert/)).toBeTruthy()
     expect(screen.getByText(/1 nicht zugeordnet: Meier Peter/)).toBeTruthy() // a former member is not a problem
     expect(screen.getByText(/zgf/)).toBeTruthy()
+    expect(screen.getByText(/nicht mehr im Einsatz sind: Keller Urs/)).toBeTruthy()
   })
 })

@@ -2250,6 +2250,7 @@
         "unchanged": "Datei unverändert seit dem letzten Abgleich.",
         "summary": "letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert.",
         "unmatched": "{n} nicht zugeordnet: {names}",
+        "postponed": "Wartet, bis sie nicht mehr im Einsatz sind: {names}",
         "unknownRanks": "Unbekannte Dienstgrade (Funktion unverändert): {ranks}",
         "fileDate": "Stand der Datei: {time}",
         "lastSuccess": "zuletzt erfolgreich: {time}",
