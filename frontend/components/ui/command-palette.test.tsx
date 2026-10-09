@@ -185,13 +185,12 @@ describe("CommandPalette — the existing list keeps working", () => {
     const { user, onDispatch } = setup({ onNewOperation })
     await typeIn(user, "neu")
     // «neu» is also the status word «Eingegangen», but with no number the
-    // preview can only ask for one: it goes last and is not what ↵ runs.
-    // (Which command ranks first among the rest is cmdk's own scoring, which
-    // jsdom does not lay out; the browser check is in the PR screenshots.)
+    // preview can only ask for one: it ranks last (CommandRankGroups orders by
+    // score) and ↵ runs the command.
     const options = screen.getAllByRole("option")
     expect(options.at(-1)).toHaveTextContent("Einsatznummer voranstellen")
-    expect(selected()).not.toHaveTextContent("Einsatznummer voranstellen")
-    await user.click(screen.getByRole("option", { name: /Neuer Einsatz/ }))
+    expect(selected()).toHaveTextContent("Neuer Einsatz")
+    await user.keyboard("{Enter}")
     expect(onNewOperation).toHaveBeenCalledTimes(1)
     expect(onDispatch).not.toHaveBeenCalled()
   })

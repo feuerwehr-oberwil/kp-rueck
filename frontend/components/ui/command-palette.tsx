@@ -95,15 +95,20 @@ function paletteFilter(value: string, search: string, keywords?: string[]): numb
  * – so a preview that could not run anyway (blocked) or only guesses at a name
  * (prefix/typo jump) goes to the bottom, and ↵ falls through to the command.
  * Only a full-name jump («schneider») outranks the list.
+ *
+ * «Bottom» is a score, not a DOM position: `CommandRankGroups` orders rows and
+ * groups by score, so the low previews sit below any real match cmdk's
+ * filter can produce (its scores do not get near `LAST`).
  */
+const LAST = 0.0001
 function previewScore(parsed: ParsedDispatch): number {
   const { plan } = parsed
   if (plan.kind === "dispatch" || plan.kind === "open") return 2
   if (plan.kind === "blocked") {
     const numbered = plan.reason === "unknown-incident" || (plan.reason === "ambiguous" && plan.incident !== null)
-    return numbered ? 2 : 0.2
+    return numbered ? 2 : LAST
   }
-  if (plan.kind === "jump") return plan.exact ? 2 : 0.3
+  if (plan.kind === "jump") return plan.exact ? 2 : LAST
   return 0
 }
 
@@ -282,7 +287,9 @@ export function CommandPalette() {
           <CommandItem
             key={`${token.pickKey}-${targetKey(choice)}`}
             // Right under the preview, wherever it ranks, best first.
-            value={`${DISPATCH_VALUE}${(previewScore(parsed) - (index + 1) / 1000).toFixed(4)}:${token.pickKey}:${targetKey(choice)}`}
+            // Just under the preview, best first – a fraction of its score, so a
+            // bottom-ranked preview keeps its choices at the bottom too.
+            value={`${DISPATCH_VALUE}${previewScore(parsed) * (1 - (index + 1) / 100)}:${token.pickKey}:${targetKey(choice)}`}
             onSelect={() => pickChoice(token, choice)}
           >
             <DispatchChoice token={token} choice={choice} />
