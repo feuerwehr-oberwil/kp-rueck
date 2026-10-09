@@ -1430,6 +1430,9 @@ class FieldRequest(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     done_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The phone's own id for this request. «Nochmals senden» after a lost answer
+    # repeats it, and a repeat is a no-op instead of a second work item.
+    client_request_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True, unique=True)
 
     @property
     def label(self) -> str:
@@ -1446,6 +1449,14 @@ class FieldRequest(Base):
         CheckConstraint("status IN ('open', 'in_progress', 'done')", name="valid_field_request_status"),
         Index("idx_field_requests_incident", "incident_id"),
         Index("idx_field_requests_status", "status"),
+        # At most ONE open Abholung work item per incident — two crews tapping
+        # at once must not leave a second open row behind the flag.
+        Index(
+            "uq_field_requests_open_pickup",
+            "incident_id",
+            unique=True,
+            postgresql_where=sa_text("kind = 'pickup' AND status IN ('open', 'in_progress')"),
+        ),
     )
 
 

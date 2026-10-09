@@ -484,6 +484,9 @@ class FeldMessageRequest(BaseModel):
     message: str = Field(default="", max_length=500)
     item: str | None = Field(default=None, max_length=120)
     quantity: int | None = Field(default=None, ge=1, le=99)
+    # The phone's own id for this request; «Nochmals senden» repeats it and the
+    # server treats the repeat as a no-op. Optional — older phones omit it.
+    client_request_id: UUID | None = None
 
     @model_validator(mode="after")
     def _something_to_say(self) -> "FeldMessageRequest":

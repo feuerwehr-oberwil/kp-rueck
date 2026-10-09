@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import (
@@ -25,7 +26,13 @@ from ...services.audit import log_action
 from ...services.incident_display import get_home_city, location_display
 from ...services.notification_service import create_field_notification
 from ...websocket_manager import broadcast_incident_update
-from .requests import close_request, dismiss_linked_notification, open_pickup_request, user_display
+from .requests import (
+    close_request,
+    dismiss_pickup_bells,
+    open_pickup_request,
+    open_pickup_requests,
+    user_display,
+)
 
 # ============================================
 # Field reports — the writes (phase 1)
@@ -407,8 +414,15 @@ async def record_pickup(
 
     Clearing wipes the note and both provenance columns: "abgeholt" is the end of
     the fact, not a historical record, and the audit log keeps the history.
+
+    The incident row is locked first (R13): two crews tapping «Abholung» at the
+    same moment are applied one after the other, so the second one edits the
+    first one's work item instead of opening a second (the partial unique index
+    ``uq_field_requests_open_pickup`` backs that up).
     """
+    await db.refresh(incident, with_for_update=True)
     if incident.pickup_needed == needed and (not needed or (incident.pickup_note or None) == (note or None)):
+        await db.commit()  # release the lock
         return False
 
     incident.pickup_needed = needed
@@ -438,16 +452,20 @@ async def record_pickup(
         incident.pickup_note = None
         incident.pickup_requested_at = None
         incident.pickup_requested_by = None
-        if work_item is not None:
-            # «Wir fahren selbst» from the crew closes it too — with the crew's
-            # name on it, because that is who answered it.
+        # «Wir fahren selbst» from the crew closes it too — with the crew's name
+        # on it, because that is who answered it. ALL open rows, should a race
+        # ever have left two, and every «Abholung nötig» bell of the incident
+        # (a note edit adds one each time) — the request is answered.
+        closer = None if actor.is_field else actor.user
+        now = datetime.now(UTC)
+        for open_row in await open_pickup_requests(db, incident.id):
             close_request(
-                work_item,
-                user=None if actor.is_field else actor.user,
+                open_row,
+                user=closer,
                 name=actor.personnel_name if actor.is_field else user_display(actor.user),
-                now=datetime.now(UTC),
+                now=now,
             )
-            await dismiss_linked_notification(db, work_item, None if actor.is_field else actor.user, datetime.now(UTC))
+        await dismiss_pickup_bells(db, incident.id, closer, now)
 
     await log_action(
         db=db,
@@ -500,6 +518,7 @@ async def create_field_request(
     kind: str = "message",
     item: str | None = None,
     quantity: int | None = None,
+    client_request_id: uuid.UUID | None = None,
     request: Request | None = None,
 ) -> tuple[FieldRequest, Notification | None] | None:
     """A Meldung an den KP — a work item, a bell entry **and** a Journal entry.
@@ -522,6 +541,14 @@ async def create_field_request(
     if kind != "message" and not (text or item or quantity):
         return None
 
+    # «Nochmals senden» after an answer that got lost on the way back repeats
+    # the phone's own id: the request already exists, and a repeat is a no-op —
+    # no second work item, no second bell, no second Journal line.
+    if client_request_id is not None:
+        existing = await _request_by_client_id(db, client_request_id)
+        if existing is not None:
+            return existing, None
+
     work_item = FieldRequest(
         incident_id=incident.id,
         kind=kind,
@@ -532,9 +559,17 @@ async def create_field_request(
         created_by_personnel_id=actor.personnel_id,
         created_by_user_id=actor.user.id if actor.user and not actor.is_field else None,
         created_by_name=actor.personnel_name if actor.is_field else user_display(actor.user),
+        client_request_id=client_request_id,
     )
     db.add(work_item)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # The same id raced in from a second tap: the other one won.
+        await db.rollback()
+        if client_request_id is not None and (existing := await _request_by_client_id(db, client_request_id)):
+            return existing, None
+        raise
     label = work_item.label
 
     await log_action(
@@ -577,6 +612,11 @@ async def create_field_request(
     return work_item, notification
 
 
+async def _request_by_client_id(db: AsyncSession, client_request_id: uuid.UUID) -> FieldRequest | None:
+    result = await db.execute(select(FieldRequest).where(FieldRequest.client_request_id == client_request_id))
+    return result.scalar_one_or_none()
+
+
 async def record_field_message(
     db: AsyncSession,
     incident: Incident,
@@ -586,11 +626,20 @@ async def record_field_message(
     kind: str = "message",
     item: str | None = None,
     quantity: int | None = None,
+    client_request_id: uuid.UUID | None = None,
     request: Request | None = None,
 ) -> Notification | None:
     """``create_field_request`` for callers that only want the bell entry back."""
     created = await create_field_request(
-        db, incident, actor=actor, message=message, kind=kind, item=item, quantity=quantity, request=request
+        db,
+        incident,
+        actor=actor,
+        message=message,
+        kind=kind,
+        item=item,
+        quantity=quantity,
+        client_request_id=client_request_id,
+        request=request,
     )
     return created[1] if created else None
 

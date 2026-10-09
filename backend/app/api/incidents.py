@@ -548,6 +548,10 @@ async def send_field_message(
     return row
 
 
+# Said when a field request moved on under the operator (another board was faster).
+_REQUEST_MOVED_ON = "Diese Anforderung wurde inzwischen geändert – bitte neu laden."
+
+
 @router.get("/{incident_id}/field-requests", response_model=list[schemas.FieldRequestResponse])
 async def list_field_requests(
     incident_id: uuid.UUID,
@@ -591,6 +595,7 @@ async def create_field_request(
         kind=payload.kind,
         item=payload.item,
         quantity=payload.quantity,
+        client_request_id=payload.client_request_id,
         request=request,
     )
     if created is None:  # the schema already refuses an empty request; belt and braces
@@ -621,26 +626,44 @@ async def update_field_request(
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
-    row = await feld_crud.get_request(db, incident_id, request_id)
+    row = await feld_crud.get_request(db, incident_id, request_id, lock=True)
     if row is None:
         raise HTTPException(status_code=404, detail="Anforderung nicht gefunden")
+    if payload.expected_status is not None and row.status != payload.expected_status:
+        raise HTTPException(status_code=409, detail=_REQUEST_MOVED_ON)
 
     if row.kind == "pickup" and payload.status == "done":
-        if incident.pickup_needed:
+        if row.status == "done":
+            await db.commit()  # nothing to do — release the row lock
+            return row
+        open_pickup = await feld_crud.open_pickup_request(db, incident_id)
+        if incident.pickup_needed and open_pickup is not None and open_pickup.id == row.id:
+            # THE open Abholung: close it through the flag, like the chip does.
             await feld_crud.record_pickup(
                 db, incident, actor=feld_crud.FieldActor(user=current_user), needed=False, request=request
             )
         else:
+            # A leftover row that is not the current Abholung: close just it.
             await feld_crud.set_request_status(db, incident, row, status="done", user=current_user, request=request)
+            await feld_crud._broadcast(incident)
     elif row.kind == "pickup" and row.status == "done":
+        await db.commit()
         raise HTTPException(
             status_code=409,
             detail="Eine erledigte Abholung wird nicht wieder geöffnet – neu anfordern («Abholung nötig»).",
         )
-    elif await feld_crud.set_request_status(
-        db, incident, row, status=payload.status, user=current_user, request=request
-    ):
-        await feld_crud._broadcast(incident)
+    else:
+        try:
+            changed = await feld_crud.set_request_status(
+                db, incident, row, status=payload.status, user=current_user, request=request
+            )
+        except feld_crud.RequestConflictError:
+            await db.commit()
+            raise HTTPException(status_code=409, detail=_REQUEST_MOVED_ON) from None
+        if changed:
+            await feld_crud._broadcast(incident)
+        else:
+            await db.commit()
     await db.refresh(row)
     return row
 

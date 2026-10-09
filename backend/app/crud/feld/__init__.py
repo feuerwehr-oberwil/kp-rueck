@@ -99,6 +99,8 @@ from .reports import (
 )
 from .requests import (
     OPEN_STATUSES,
+    RequestConflictError,
+    close_messages_on_completion,
     get_request,
     mark_seen_by_notification,
     open_pickup_request,
@@ -149,6 +151,7 @@ __all__ = [
     "_DANGER_KEYS",
     "FeldSource",
     "FieldActor",
+    "RequestConflictError",
     "_board_material_units",
     "_board_personnel_count",
     "_briefings",
@@ -175,6 +178,7 @@ __all__ = [
     "add_photo",
     "apply_material_decisions",
     "claim_is_live",
+    "close_messages_on_completion",
     "code_matches",
     "consume_unlock",
     "create_claim",

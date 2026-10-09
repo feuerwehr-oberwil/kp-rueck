@@ -1184,5 +1184,6 @@ async def report_message(
         kind=payload.kind,
         item=payload.item,
         quantity=payload.quantity,
+        client_request_id=payload.client_request_id,
         request=request,
     )

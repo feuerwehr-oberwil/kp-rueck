@@ -23705,6 +23705,18 @@
               }
             ],
             "title": "Quantity"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           }
         },
         "type": "object",
@@ -24486,6 +24498,22 @@
               "done"
             ],
             "title": "Status"
+          },
+          "expected_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Status"
           }
         },
         "type": "object",
@@ -24493,7 +24521,7 @@
           "status"
         ],
         "title": "FieldRequestStatusUpdate",
-        "description": "The KP working a request: offen → in Arbeit → erledigt, or back to offen."
+        "description": "The KP working a request: offen → in Arbeit → erledigt, or back to offen.\n\n``expected_status`` is the state the operator's screen showed; when the row\nhas moved on meanwhile (a second operator), the change is refused with 409\ninstead of overwriting what the other one did."
       },
       "FireHubOperation": {
         "properties": {

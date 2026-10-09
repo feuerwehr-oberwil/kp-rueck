@@ -46,6 +46,12 @@ class FieldRequestResponse(BaseModel):
 
 
 class FieldRequestStatusUpdate(BaseModel):
-    """The KP working a request: offen → in Arbeit → erledigt, or back to offen."""
+    """The KP working a request: offen → in Arbeit → erledigt, or back to offen.
+
+    ``expected_status`` is the state the operator's screen showed; when the row
+    has moved on meanwhile (a second operator), the change is refused with 409
+    instead of overwriting what the other one did.
+    """
 
     status: FieldRequestStatus
+    expected_status: FieldRequestStatus | None = None

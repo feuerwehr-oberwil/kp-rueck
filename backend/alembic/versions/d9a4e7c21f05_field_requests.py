@@ -49,6 +49,7 @@ def upgrade() -> None:
         sa.Column("done_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("done_by_user_id", PG_UUID(as_uuid=True), nullable=True),
         sa.Column("done_by_name", sa.String(length=100), nullable=True),
+        sa.Column("client_request_id", PG_UUID(as_uuid=True), nullable=True),
         sa.ForeignKeyConstraint(["incident_id"], ["incidents.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["created_by_personnel_id"], ["personnel.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
@@ -56,9 +57,19 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["done_by_user_id"], ["users.id"], ondelete="SET NULL"),
         sa.CheckConstraint("kind IN ('message', 'material', 'personnel', 'pickup')", name="valid_field_request_kind"),
         sa.CheckConstraint("status IN ('open', 'in_progress', 'done')", name="valid_field_request_status"),
+        # A phone's «Nochmals senden» repeats its own id; a repeat is a no-op.
+        sa.UniqueConstraint("client_request_id"),
     )
     op.create_index("idx_field_requests_incident", "field_requests", ["incident_id"])
     op.create_index("idx_field_requests_status", "field_requests", ["status"])
+    # At most one open Abholung work item per incident.
+    op.create_index(
+        "uq_field_requests_open_pickup",
+        "field_requests",
+        ["incident_id"],
+        unique=True,
+        postgresql_where=sa.text("kind = 'pickup' AND status IN ('open', 'in_progress')"),
+    )
 
     # The open Abholungen that exist right now get their work item.
     op.execute(
@@ -72,9 +83,26 @@ def upgrade() -> None:
         WHERE i.pickup_needed IS TRUE
         """
     )
+    # …linked to the bell entry that announced it, so dismissing that one is
+    # «gesehen» and closing the request takes it with it.
+    op.execute(
+        """
+        UPDATE field_requests fr
+        SET notification_id = (
+            SELECT n.id FROM notifications n
+            WHERE n.incident_id = fr.incident_id
+              AND n.type = 'field_pickup'
+              AND n.created_at >= fr.created_at - interval '5 seconds'
+            ORDER BY n.created_at
+            LIMIT 1
+        )
+        WHERE fr.kind = 'pickup' AND fr.notification_id IS NULL
+        """
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("uq_field_requests_open_pickup", table_name="field_requests")
     op.drop_index("idx_field_requests_status", table_name="field_requests")
     op.drop_index("idx_field_requests_incident", table_name="field_requests")
     op.drop_table("field_requests")

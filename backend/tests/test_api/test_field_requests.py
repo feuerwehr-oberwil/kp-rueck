@@ -371,3 +371,140 @@ class TestPhonePayload:
         body = response.json()
         assert body["message_chips"] == ["Pumpe läuft"]
         assert body["request_materials"] == ["Absperrband", "Tauchpumpe Gr."]
+
+
+class TestReviewHardening:
+    """The review of #172: transitions, races, leftover bells, repeats, completion."""
+
+    async def _message(self, client: AsyncClient, incident: Ref, params: dict[str, str], body: dict) -> None:
+        response = await client.post(f"/api/feld/incidents/{incident.id}/message", params=params, json=body)
+        assert response.status_code == 204, response.text
+
+    async def test_done_goes_back_only_through_reopen(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident, _person, params = await _setup(db_session, test_event, test_user)
+        await self._message(editor_client, incident, params, {"message": "Pumpe läuft"})
+        [row] = await _requests(db_session, incident)
+        url = f"/api/incidents/{incident.id}/field-requests/{row.id}"
+        assert (await editor_client.patch(url, json={"status": "done"})).status_code == 200
+        assert (await editor_client.patch(url, json={"status": "in_progress"})).status_code == 409
+        assert (await editor_client.patch(url, json={"status": "open"})).json()["status"] == "open"
+
+    async def test_a_stale_screen_is_refused(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident, _person, params = await _setup(db_session, test_event, test_user)
+        await self._message(editor_client, incident, params, {"message": "Pumpe läuft"})
+        [row] = await _requests(db_session, incident)
+        url = f"/api/incidents/{incident.id}/field-requests/{row.id}"
+        assert (
+            await editor_client.patch(url, json={"status": "in_progress", "expected_status": "open"})
+        ).status_code == 200
+        # A second operator still looking at «offen»:
+        stale = await editor_client.patch(url, json={"status": "done", "expected_status": "open"})
+        assert stale.status_code == 409
+        [row] = await _requests(db_session, incident)
+        assert row.status == "in_progress"
+
+    async def test_erledigt_on_an_old_pickup_never_closes_the_current_one(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident, _person, params = await _setup(db_session, test_event, test_user)
+        url = f"/api/feld/incidents/{incident.id}/pickup"
+        await editor_client.post(url, params=params, json={"needed": True})
+        await editor_client.post(url, params=params, json={"needed": False})
+        await editor_client.post(url, params=params, json={"needed": True, "note": "zweites Mal"})
+        old, current = await _requests(db_session, incident)
+        assert (old.status, current.status) == ("done", "open")
+
+        response = await editor_client.patch(
+            f"/api/incidents/{incident.id}/field-requests/{old.id}", json={"status": "done"}
+        )
+        assert response.status_code == 200
+        card = await _board_card(editor_client, incident)
+        assert card["pickup_needed"] is True
+        assert [r["id"] for r in card["field_requests"]] == [str(current.id)]
+
+    async def test_only_one_open_pickup_row_can_exist(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        from sqlalchemy.exc import IntegrityError
+
+        incident, _person, _params = await _setup(db_session, test_event, test_user)
+        db_session.add_all(
+            [
+                FieldRequest(incident_id=incident.id, kind="pickup", status="open"),
+                FieldRequest(incident_id=incident.id, kind="pickup", status="in_progress"),
+            ]
+        )
+        with pytest.raises(IntegrityError):
+            await db_session.commit()
+        await db_session.rollback()
+
+    async def test_closing_an_abholung_clears_every_bell_its_note_edits_added(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident, _person, params = await _setup(db_session, test_event, test_user)
+        url = f"/api/feld/incidents/{incident.id}/pickup"
+        await editor_client.post(url, params=params, json={"needed": True})
+        await editor_client.post(url, params=params, json={"needed": True, "note": "beim Brunnen"})
+        await editor_client.post(url, params=params, json={"needed": True, "note": "beim Brunnen, 3 Personen"})
+        [row] = await _requests(db_session, incident)
+        await editor_client.patch(f"/api/incidents/{incident.id}/field-requests/{row.id}", json={"status": "done"})
+
+        bells = (
+            (
+                await db_session.execute(
+                    select(Notification)
+                    .where(Notification.incident_id == incident.id, Notification.type == "field_pickup")
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        needed = [b for b in bells if b.message.startswith("Abholung nötig")]
+        assert len(needed) == 3
+        assert all(b.dismissed for b in needed)
+
+    async def test_a_repeated_send_is_one_request(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident, _person, params = await _setup(db_session, test_event, test_user)
+        body = {"kind": "material", "item": "Tauchpumpe Gr.", "quantity": 2, "client_request_id": str(uuid4())}
+        await self._message(editor_client, incident, params, body)
+        await self._message(editor_client, incident, params, body)  # «Nochmals senden»
+        assert len(await _requests(db_session, incident)) == 1
+        bells = (
+            (await db_session.execute(select(Notification).where(Notification.incident_id == incident.id)))
+            .scalars()
+            .all()
+        )
+        assert len(bells) == 1
+        entries = (
+            (await db_session.execute(select(AuditLog).where(AuditLog.action_type == "field_message"))).scalars().all()
+        )
+        assert len(entries) == 1
+
+    async def test_completing_the_place_closes_its_sentences_not_its_asks(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        incident, _person, params = await _setup(db_session, test_event, test_user)
+        await self._message(editor_client, incident, params, {"message": "Pumpe läuft"})
+        await self._message(editor_client, incident, params, {"kind": "material", "item": "Wassersauger"})
+        response = await editor_client.post(
+            f"/api/incidents/{incident.id}/status", json={"from_status": "active", "to_status": "complete"}
+        )
+        assert response.status_code == 200, response.text
+
+        rows = {r.kind: r for r in await _requests(db_session, incident)}
+        assert rows["message"].status == "done"
+        assert rows["message"].done_by_name is not None
+        assert rows["material"].status == "open"
+        audit = (
+            (await db_session.execute(select(AuditLog).where(AuditLog.action_type == "field_request_status")))
+            .scalars()
+            .all()
+        )
+        assert [(a.changes_json or {}).get("reason") for a in audit] == ["incident_completed"]

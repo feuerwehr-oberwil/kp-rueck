@@ -562,6 +562,10 @@ async def _apply_completion_release(
 
     transition.released_assignments_json = released + group_entries or None
 
+    # The field's open Meldungen (sentences) close with the place (R13, owner
+    # decision); Material, Verstärkung and Abholung stay open on purpose.
+    await feld_crud.close_messages_on_completion(db, incident, user=current_user, request=request)
+
 
 async def _undo_completion_release(
     db: AsyncSession,
