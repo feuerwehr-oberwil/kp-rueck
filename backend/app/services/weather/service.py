@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -77,15 +78,22 @@ class SourceStatus:
     last_error: str | None = None
     last_error_at: datetime | None = None
 
-    def ok(self, now: datetime) -> None:
+    def ok(self, now: datetime) -> bool:
+        """Record a success. True when this ends a failure streak (worth one log line)."""
+        recovered = self.last_error is not None
         self.last_attempt_at = now
         self.last_success_at = now
         self.last_error = None
+        return recovered
 
-    def failed(self, now: datetime, error: str) -> None:
+    def failed(self, now: datetime, error: str) -> bool:
+        """Record a failure. True when it starts a streak – a feed down for a day must not
+        write 288 warnings; the first one and the recovery are what an operator needs."""
+        first = self.last_error is None
         self.last_attempt_at = now
         self.last_error = error
         self.last_error_at = now
+        return first
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -132,6 +140,21 @@ def in_switzerland(lat: float, lon: float) -> bool:
     return west <= float(east[0]) <= east_max and south <= float(north[0]) <= north_max
 
 
+def _decode_and_render(data: bytes) -> radar.RenderedFrame:
+    return radar.render_frame(radar.parse_rzc(data))
+
+
+def _meteoalarm_from_bytes(data: bytes) -> list[dict[str, Any]]:
+    return warnings.meteoalarm_candidates(json.loads(data))
+
+
+def _log_failure(first: bool, what: str, exc: BaseException) -> None:
+    if first:
+        logger.warning("Weather %s poll failed: %s (logged once until it recovers)", what, _short_error(exc))
+    else:
+        logger.debug("Weather %s poll still failing: %s", what, _short_error(exc))
+
+
 class WeatherService:
     def __init__(self) -> None:
         self.state = WeatherState()
@@ -154,10 +177,10 @@ class WeatherService:
             client = client or self._client()
             try:
                 await self._poll_radar(client, now)
-                self.state.radar_status.ok(now)
+                if self.state.radar_status.ok(now):
+                    logger.info("Weather radar recovered")
             except Exception as exc:
-                self.state.radar_status.failed(now, _short_error(exc))
-                logger.warning("Weather radar poll failed: %s", _short_error(exc))
+                _log_failure(self.state.radar_status.failed(now, _short_error(exc)), "radar", exc)
             finally:
                 self._prune_frames(now)
                 if own_client:
@@ -177,8 +200,9 @@ class WeatherService:
                     self.state.radar_given_up.add(key)
                 continue
             response.raise_for_status()
-            grid = radar.parse_rzc(response.content)
-            frame = await asyncio.to_thread(radar.render_frame, grid)
+            # Decoding and rendering are CPU work (~1 s a frame): off the event loop, so the board's
+            # requests and sockets never wait on a radar frame.
+            frame = await asyncio.to_thread(_decode_and_render, response.content)
             self.state.frames[radar.frame_key(frame.time)] = frame
         self.state.frames = OrderedDict(sorted(self.state.frames.items()))
         if not self.state.frames:
@@ -223,10 +247,10 @@ class WeatherService:
             candidates = await fetch(client, now)
             if candidates is not None:
                 self.state.candidates[name] = candidates
-            status.ok(now)
+            if status.ok(now):
+                logger.info("Weather warnings (%s) recovered", name)
         except Exception as exc:
-            status.failed(now, _short_error(exc))
-            logger.warning("Weather warnings (%s) poll failed: %s", name, _short_error(exc))
+            _log_failure(status.failed(now, _short_error(exc)), f"warnings ({name})", exc)
         # Re-select from what we have – new or last-known – for the CURRENT station, so a changed
         # coordinate takes effect even while a feed is down.
         station = self.state.station
@@ -234,8 +258,8 @@ class WeatherService:
             self.state.selected[name] = []
         elif name in self.state.candidates:
             lat, lon = station
-            self.state.selected[name] = warnings.select(
-                self.state.candidates[name], lat, lon, now, in_switzerland=in_switzerland(lat, lon)
+            self.state.selected[name] = await asyncio.to_thread(
+                warnings.select, self.state.candidates[name], lat, lon, now, in_switzerland(lat, lon)
             )
 
     async def _fetch_meteoalarm(self, client: httpx.AsyncClient, now: datetime) -> list[dict[str, Any]] | None:
@@ -254,7 +278,8 @@ class WeatherService:
             return None  # unchanged: keep the candidates we have
         response = await client.get(METEOALARM_JSON)
         response.raise_for_status()
-        candidates = warnings.meteoalarm_candidates(response.json())
+        # 2 MB of JSON and 57 polygons: parsed in a thread, not on the event loop.
+        candidates = await asyncio.to_thread(_meteoalarm_from_bytes, response.content)
         self.state.meteoalarm_atom_hash = atom_hash
         self.state.meteoalarm_full_at = now
         return candidates
@@ -264,11 +289,11 @@ class WeatherService:
         for lang in ALERTSWISS_LANGUAGES:
             response = await client.get(ALERTSWISS_JSON.format(lang=lang))
             response.raise_for_status()
-            body = response.json()
+            body = await asyncio.to_thread(json.loads, response.content)
             if not isinstance(body, dict) or not isinstance(body.get("alerts"), list):
                 raise ValueError("unexpected Alertswiss payload")
             payloads[lang] = body
-        return warnings.alertswiss_candidates(payloads)
+        return await asyncio.to_thread(warnings.alertswiss_candidates, payloads)
 
     # --- What the board reads ---------------------------------------------------------------
 

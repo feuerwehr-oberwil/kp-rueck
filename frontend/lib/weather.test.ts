@@ -5,6 +5,7 @@ import {
   frameAgeMinutes,
   isStale,
   radarIsStale,
+  serverClockOffset,
   warningLevelColor,
   warningText,
   type ApiWeather,
@@ -65,6 +66,15 @@ describe('staleness is measured on the device, not trusted from the server', () 
   it('ages a frame against the limit', () => {
     expect(radarIsStale(radar, NOW)).toBe(false) // 10 min old, limit 15
     expect(radarIsStale(radar, NOW + 6 * 60_000)).toBe(true) // 16 min old
+  })
+  it('trusts the backend when it already called the radar stale', () => {
+    expect(radarIsStale({ ...radar, stale: true }, NOW)).toBe(true)
+  })
+  it('measures the backend clock offset from generated_at', () => {
+    // The tablet's clock runs 10 min behind the server: the offset puts it right.
+    expect(serverClockOffset('2026-10-08T17:30:00Z', NOW - 10 * 60_000)).toBe(10 * 60_000)
+    expect(serverClockOffset(null, NOW)).toBe(0)
+    expect(serverClockOffset('garbage', NOW)).toBe(0)
   })
   it('treats no time at all as stale', () => {
     expect(isStale(null, 900, NOW)).toBe(true)

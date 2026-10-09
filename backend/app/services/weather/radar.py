@@ -20,6 +20,7 @@ import io
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 
 import h5py
 import numpy as np
@@ -161,20 +162,37 @@ def _palette() -> tuple[list[int], bytes]:
     return rgb, bytes(alpha)
 
 
-def render_frame(grid: RadarGrid, oversample: float = 1.5) -> RenderedFrame:
-    """Resample the LV95 grid onto Web Mercator and colour it.
+@dataclass(frozen=True)
+class _ResamplePlan:
+    """Where every output pixel takes its value from – the same for every frame of a domain."""
 
-    `oversample` > 1 makes the output pixel smaller than the 1 km cell, so the nearest-cell
-    lookup does not visibly drop or double cells where the two grids drift against each other.
-    """
-    lats = [c[0] for c in grid.corners.values()]
-    lons = [c[1] for c in grid.corners.values()]
+    height: int
+    width: int
+    inside: NDArray[np.bool_]  # (height, width): pixel lies on the radar grid
+    source: NDArray[np.intp]  # flat index into the radar grid, one per `inside` pixel
+    coordinates: tuple[tuple[float, float], ...]
+
+
+@lru_cache(maxsize=2)
+def _resample_plan(
+    corners: tuple[tuple[str, tuple[float, float]], ...],
+    shape: tuple[int, int],
+    east0: float,
+    north0: float,
+    xscale: float,
+    yscale: float,
+    oversample: float,
+) -> _ResamplePlan:
+    """The projection work of `render_frame`, done once per domain instead of once per frame:
+    projecting ~1.3 M pixel centres allocated some 100 MB of temporaries every 5 minutes."""
+    lats = [c[0] for _, c in corners]
+    lons = [c[1] for _, c in corners]
     west, east = lon_to_mercator_x(min(lons)), lon_to_mercator_x(max(lons))
     south, north = lat_to_mercator_y(min(lats)), lat_to_mercator_y(max(lats))
 
     # Mercator stretches distances by 1/cos(lat); size the pixel to the domain's middle latitude.
     mid_lat = math.radians((min(lats) + max(lats)) / 2)
-    pixel = grid.xscale / math.cos(mid_lat) / oversample
+    pixel = xscale / math.cos(mid_lat) / oversample
     width = math.ceil((east - west) / pixel)
     height = math.ceil((north - south) / pixel)
     east = west + width * pixel
@@ -185,27 +203,11 @@ def render_frame(grid: RadarGrid, oversample: float = 1.5) -> RenderedFrame:
     lon = mercator_x_to_lon(xs)[np.newaxis, :].repeat(height, axis=0)
     lat = mercator_y_to_lat(ys)[:, np.newaxis].repeat(width, axis=1)
     e, n = wgs84_to_lv95(lat, lon)
-    col = np.floor((e - grid.east0) / grid.xscale).astype(np.int64)
-    row = np.floor((grid.north0 - n) / grid.yscale).astype(np.int64)
-    rows, cols = grid.values.shape
+    col = np.floor((e - east0) / xscale).astype(np.int64)
+    row = np.floor((north0 - n) / yscale).astype(np.int64)
+    rows, cols = shape
     inside = (col >= 0) & (col < cols) & (row >= 0) & (row < rows)
-
-    sampled = np.full((height, width), np.nan)
-    sampled[inside] = grid.values[row[inside], col[inside]]
-    thresholds = np.array([step for step, _, _ in PRECIP_RAMP])
-    with np.errstate(invalid="ignore"):
-        index = np.digitize(sampled, thresholds)  # 0 below the first step, NaN → len+… guarded below
-    index[np.isnan(sampled)] = 0
-
-    covered = np.isfinite(grid.values)
-    wet = covered & (grid.values >= thresholds[0])
-    wet_fraction = float(wet.sum() / covered.sum()) if covered.any() else 0.0
-
-    image = Image.fromarray(index.astype(np.uint8), mode="P")
-    rgb, alpha = _palette()
-    image.putpalette(rgb)
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG", optimize=True, transparency=alpha)
+    source = (row[inside] * cols + col[inside]).astype(np.intp)
 
     west_lon = float(mercator_x_to_lon(np.array([west]))[0])
     east_lon = float(mercator_x_to_lon(np.array([east]))[0])
@@ -217,7 +219,41 @@ def render_frame(grid: RadarGrid, oversample: float = 1.5) -> RenderedFrame:
         (east_lon, south_lat),
         (west_lon, south_lat),
     )
-    return RenderedFrame(time=grid.time, png=buffer.getvalue(), coordinates=coordinates, wet_fraction=wet_fraction)
+    return _ResamplePlan(height=height, width=width, inside=inside, source=source, coordinates=coordinates)
+
+
+def render_frame(grid: RadarGrid, oversample: float = 1.5) -> RenderedFrame:
+    """Resample the LV95 grid onto Web Mercator and colour it.
+
+    `oversample` > 1 makes the output pixel smaller than the 1 km cell, so the nearest-cell
+    lookup does not visibly drop or double cells where the two grids drift against each other.
+    """
+    plan = _resample_plan(
+        tuple(sorted(grid.corners.items())),
+        (int(grid.values.shape[0]), int(grid.values.shape[1])),
+        grid.east0,
+        grid.north0,
+        grid.xscale,
+        grid.yscale,
+        oversample,
+    )
+    thresholds = np.array([step for step, _, _ in PRECIP_RAMP])
+    with np.errstate(invalid="ignore"):
+        classes = np.digitize(grid.values, thresholds).astype(np.uint8)  # per radar cell, 0 = dry
+    classes[np.isnan(grid.values)] = 0
+    index = np.zeros((plan.height, plan.width), dtype=np.uint8)
+    index[plan.inside] = classes.ravel()[plan.source]
+
+    covered = np.isfinite(grid.values)
+    wet = covered & (np.nan_to_num(grid.values) >= thresholds[0])
+    wet_fraction = float(wet.sum() / covered.sum()) if covered.any() else 0.0
+
+    image = Image.fromarray(index, mode="P")
+    rgb, alpha = _palette()
+    image.putpalette(rgb)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG", optimize=True, transparency=alpha)
+    return RenderedFrame(time=grid.time, png=buffer.getvalue(), coordinates=plan.coordinates, wet_fraction=wet_fraction)
 
 
 def value_at(grid: RadarGrid, lat: float, lon: float) -> float | None:

@@ -28,33 +28,42 @@ const HOLD_TICKS = 3
 
 /**
  * Frame selection + loop. Follows the newest frame as new ones arrive – unless the operator
- * scrubbed back, then it stays where they put it.
+ * scrubbed back, then it stays ON THAT FRAME. The pick is stored as the frame's key, not its
+ * position: every 5 minutes the hour shifts by one (oldest out, newest in), and a stored index
+ * would silently slide to a frame five minutes later. A picked frame that has aged out of the
+ * hour falls back to «now».
  */
 export function useRadarPlayback(radar: WeatherRadar | null | undefined) {
+  const frames = radar?.frames
   const latest = latestFrameIndex(radar)
-  const [picked, setPicked] = useState<number | null>(null) // null = follow the newest
+  const [pickedKey, setPickedKey] = useState<string | null>(null) // null = follow the newest
   const [playing, setPlaying] = useState(false)
   const hold = useRef(0)
-  const frameIndex = picked === null ? latest : Math.min(picked, latest)
+  const pickedIndex = pickedKey === null || !frames ? -1 : frames.findIndex((f) => f.key === pickedKey)
+  const frameIndex = pickedIndex >= 0 ? pickedIndex : latest
 
-  // The interval reads the index through a ref, so the step itself is a plain setState –
+  // The interval reads index and frames through refs, so the step itself is a plain setState –
   // no side effects inside an updater (StrictMode runs those twice).
   const indexRef = useRef(frameIndex)
+  const framesRef = useRef(frames)
   useEffect(() => {
     indexRef.current = frameIndex
-  }, [frameIndex])
+    framesRef.current = frames
+  }, [frameIndex, frames])
 
   useEffect(() => {
     if (!playing || latest < 1) return
     const timer = setInterval(() => {
+      const list = framesRef.current ?? []
       const index = indexRef.current
-      if (index < latest) {
-        setPicked(index + 1)
+      const last = list.length - 1
+      if (index < last) {
+        setPickedKey(list[index + 1].key)
       } else if (hold.current < HOLD_TICKS) {
         hold.current += 1
       } else {
         hold.current = 0
-        setPicked(0)
+        setPickedKey(list[0]?.key ?? null)
       }
     }, STEP_MS)
     return () => clearInterval(timer)
@@ -63,16 +72,16 @@ export function useRadarPlayback(radar: WeatherRadar | null | undefined) {
   const pick = useCallback(
     (index: number) => {
       setPlaying(false)
-      setPicked(index >= latest ? null : index)
+      setPickedKey(index >= latest ? null : frames?.[index]?.key ?? null)
     },
-    [latest],
+    [latest, frames],
   )
   const togglePlaying = useCallback(() => {
     hold.current = 0
     if (playing) {
       // Stopping lands back on «now» – the state the panel is calm in.
       setPlaying(false)
-      setPicked(null)
+      setPickedKey(null)
     } else {
       setPlaying(true)
     }

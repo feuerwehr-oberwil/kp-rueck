@@ -13,6 +13,7 @@ Nothing here touches the network: the pollers get an httpx MockTransport.
 
 import io
 import json
+import logging
 import math
 import pathlib
 from datetime import UTC, datetime, timedelta
@@ -349,3 +350,30 @@ def test_snapshot_orders_frames_by_time_whatever_the_insertion_order(frame: rada
     snapshot = service.snapshot(frame.time + timedelta(minutes=3))
     assert [f["key"] for f in snapshot["radar"]["frames"]] == [older.key, frame.key]
     assert snapshot["radar"]["data_time"] == frame.time.isoformat()
+
+
+def test_alertswiss_circle_only_areas_are_matched_by_distance():
+    """Uri's «Bristenstrasse» notice (live 09.10.2026) is a 267 m circle with no polygon."""
+    swiss = warnings.alertswiss_candidates({"de": _json("alertswiss_de.json"), "fr": _json("alertswiss_fr.json")})
+    bristen = next(c for c in swiss if c["id"] == "alertswiss:POA-1368907708-2")
+    ((lat, lon, radius),) = bristen["areas"][0]["circles"]
+    assert (lat, lon) == (46.7697, 8.67591) and abs(radius - 266.6) < 0.1
+    (inside,) = warnings.select([bristen], 46.7697 + 0.001, 8.67591, NOW)  # ~110 m north
+    assert inside["region"] == "Bristenstrasse"
+    assert warnings.select([bristen], 46.7697 + 0.004, 8.67591, NOW) == []  # ~450 m north
+    assert warnings.select(swiss, *OBERWIL, NOW)[0]["sender"] == "Kanton Basel-Landschaft"
+
+
+async def test_a_dead_feed_warns_once_and_says_when_it_is_back(caplog):
+    service = WeatherService()
+    caplog.set_level(logging.INFO, logger="app.services.weather.service")
+    async with _router({"https://": httpx.ConnectError("down")}) as c:
+        for minutes in (0, 5, 10):
+            await service.poll_radar(client=c, now=NOW + timedelta(minutes=minutes))
+    warnings_logged = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings_logged) == 1
+    caplog.clear()
+    now = FIXTURE_FRAME_TIME + timedelta(minutes=2)
+    async with _router({radar.frame_url(FIXTURE_FRAME_TIME): httpx.Response(200, content=RZC.read_bytes())}) as c:
+        await service.poll_radar(client=c, now=now)
+    assert any("recovered" in r.getMessage() for r in caplog.records)

@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
-from .geo import point_in_ring
+from .geo import haversine_m, point_in_ring
 
 #: MeteoAlarm awareness levels: 1 green (no warning; the feed uses it for «lifted» updates),
 #: 2 yellow, 3 orange, 4 red. Only 2+ is a warning.
@@ -201,8 +201,11 @@ def alertswiss_candidates(payloads: dict[str, dict[str, Any]]) -> list[dict[str,
                             continue
                     if len(ring) >= 3:
                         rings.append(ring)
-                if rings:
-                    areas.append({"name": _as_text(area.get("description"), "description"), "rings": rings})
+                circles = [c for c in (_alertswiss_circle(c) for c in area.get("circles", []) or []) if c]
+                if rings or circles:
+                    areas.append(
+                        {"name": _as_text(area.get("description"), "description"), "rings": rings, "circles": circles}
+                    )
             links = [link for link in alert.get("links", []) or [] if isinstance(link, dict) and link.get("href")]
             merged[identifier] = {
                 "id": f"alertswiss:{identifier}",
@@ -222,9 +225,29 @@ def alertswiss_candidates(payloads: dict[str, dict[str, Any]]) -> list[dict[str,
     return list(merged.values())
 
 
+def _alertswiss_circle(circle: Any) -> tuple[float, float, float] | None:
+    """`{"centerPosition": ["46.76970", "8.67591"], "radius": "0.2666"}` → (lat, lon, metres).
+
+    A local notice (a closed road, a blasting zone) often comes as a circle only. The radius is
+    in KILOMETRES, as in the CAP 1.2 `<circle>` this feed is built from («lat,lon radius», km).
+    """
+    if not isinstance(circle, dict):
+        return None
+    try:
+        lat, lon = (float(v) for v in circle["centerPosition"][:2])
+        radius_km = float(circle["radius"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if radius_km <= 0:
+        return None
+    return lat, lon, radius_km * 1000.0
+
+
 def _covering_area(candidate: dict[str, Any], lat: float, lon: float) -> str | None:
     for area in candidate["areas"]:
         if any(point_in_ring(lat, lon, ring) for ring in area["rings"]):
+            return str(area["name"])
+        if any(haversine_m(lat, lon, c_lat, c_lon) <= radius for c_lat, c_lon, radius in area.get("circles", [])):
             return str(area["name"])
     return None
 

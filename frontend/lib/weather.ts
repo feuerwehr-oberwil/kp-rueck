@@ -3,8 +3,9 @@
  *
  * Three rules the helpers here keep:
  * - **Never old as current.** A source is stale once its data is older than the backend's
- *   `stale_after_seconds`, measured HERE against the device clock – if the backend itself is
- *   unreachable the last answer keeps aging on screen instead of freezing as «fresh».
+ *   `stale_after_seconds`, measured on the BACKEND's clock (device clock + `serverClockOffset`) –
+ *   if the backend itself is unreachable the last answer keeps aging on screen instead of
+ *   freezing as «fresh».
  * - **Verbatim.** A MeteoSwiss warning may only be passed on unaltered (MetO art. 5): the texts
  *   are picked by language, never shortened or rephrased. The chip shows the source's own
  *   `event` word; the full text is one tap away.
@@ -95,8 +96,22 @@ export function isStale(time: string | null | undefined, staleAfterSeconds: numb
   return now - at > staleAfterSeconds * 1000
 }
 
+/** The backend already called it stale, or it has aged past the limit since. */
 export function radarIsStale(radar: WeatherRadar, now: number): boolean {
-  return isStale(radar.data_time, radar.stale_after_seconds, now)
+  return radar.stale || isStale(radar.data_time, radar.stale_after_seconds, now)
+}
+
+/**
+ * How far the backend's clock is ahead of this device's (ms): `generated_at` minus the moment the
+ * answer arrived. All staleness is judged on «device now + offset» – the backend's clock, which
+ * also stamped the data – so a tablet whose clock is ten minutes off neither greys out fresh rain
+ * nor passes old rain as current. Between answers the device clock keeps it running, so a
+ * backend that stops answering still ages on screen. (Network latency adds at most a second.)
+ */
+export function serverClockOffset(generatedAt: string | null | undefined, receivedAt: number): number {
+  if (!generatedAt) return 0
+  const at = Date.parse(generatedAt)
+  return Number.isNaN(at) ? 0 : at - receivedAt
 }
 
 /** The warnings still in force (or still to come) at `now`, highest level first. */
