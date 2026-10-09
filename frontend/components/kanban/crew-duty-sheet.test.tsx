@@ -138,33 +138,18 @@ describe('CrewDutySheet', () => {
   })
 })
 
-describe('DraggablePerson time on duty', () => {
+describe('the default views stay quiet', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['Date'] })
     vi.setSystemTime(NOW)
   })
   afterEach(() => vi.useRealTimers())
 
-  it('shows how long a free person has been here, coloured past the threshold', () => {
-    renderWithIntl(<DraggablePerson person={person('Meier Anna', 250)} fatigueHours={4} />)
-    const time = screen.getByText("4h 10'")
-    expect(time).toHaveAttribute('data-duty-level', 'long')
-    expect(time.getAttribute('aria-label')).toMatch(/^Seit \d\d:\d\d im Einsatz – 4 Stunden 10 Minuten, über 4 h$/)
-  })
-
-  it('stays calm below the threshold and when the setting is off', () => {
-    renderWithIntl(
-      <>
-        <DraggablePerson person={person('Frisch Eva', 20)} fatigueHours={4} />
-        <DraggablePerson person={person('Müller Hans', 900)} fatigueHours={0} />
-      </>,
-    )
-    expect(screen.getByText("20'")).toHaveAttribute('data-duty-level', 'normal')
-    expect(screen.getByText("15h 0'")).toHaveAttribute('data-duty-level', 'normal')
-  })
-
-  it('shows nothing without a check-in stamp', () => {
-    renderWithIntl(<DraggablePerson person={person('Ohne Stempel', null)} fatigueHours={4} />)
+  // Owner, 09.10.2026: the time on duty belongs in the Dienstzeiten sheet, not on every row.
+  it('a sidebar person row shows no time on duty, however long they have been here', () => {
+    renderWithIntl(<DraggablePerson person={person('Müller Hans', 400)} />)
+    expect(screen.getByText('Müller Hans')).toBeInTheDocument()
     expect(document.querySelector('[data-duty-level]')).toBeNull()
+    expect(screen.queryByText("6h 40'")).toBeNull()
   })
 })

@@ -683,7 +683,6 @@ export function BoardDialogs({
         onOpenChange={setMobilePersonnelSheetOpen}
         personnel={personnel}
         operations={operations}
-        fatigueHours={fatigueHours}
         onOpenCrewDuty={() => {
           // One layer at a time on the phone: the overview replaces the list.
           setMobilePersonnelSheetOpen(false)

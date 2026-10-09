@@ -57,8 +57,6 @@ export interface PersonnelSidebarProps {
   personEngagements: Map<string, PersonEngagement>
   followBinding: (binding: ResourceBinding) => void
   rosterSummary: ReturnType<typeof summarizeRoster>
-  /** The station's fatigue threshold (hours) — the rows' time-on-duty colouring. */
-  fatigueHours: number
   /** Opens the Dienstzeiten overview. */
   onOpenCrewDuty: () => void
 }
@@ -87,7 +85,6 @@ export function PersonnelSidebar({
   personEngagements,
   followBinding,
   rosterSummary,
-  fatigueHours,
   onOpenCrewDuty,
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
@@ -233,7 +230,6 @@ export function PersonnelSidebar({
                               onClick={() => handlePersonClick(person)}
                               assignmentCount={doubleBookedPersons.counts.get(person.name)}
                               engagement={personEngagements.get(person.name)}
-                              fatigueHours={fatigueHours}
                             />
                           </div>
                         </PopoverAnchor>
@@ -293,7 +289,7 @@ export function PersonnelSidebar({
               )}
             </div>
           )}
-          {/* Who is here for how long — the overview behind the rows' times.
+          {/* Who is here for how long — the Dienstzeiten overview.
               Its own line: beside the counter it pushed «2 frei» onto two lines. */}
           {isLoaded && !boardNeverLoaded && personnel.length > 0 && (
             <div className="mt-0.5 flex justify-center">

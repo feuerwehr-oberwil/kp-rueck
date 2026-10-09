@@ -11,7 +11,6 @@ import { abbreviateRank } from "@/lib/roster-order"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
-import { OnDutyTime } from "./on-duty-time"
 
 interface DraggablePersonProps {
   person: Person
@@ -23,10 +22,6 @@ interface DraggablePersonProps {
    *  the parent via `usePersonEngagements` — a prop, not a hook, so this
    *  memoized card does not subscribe to the whole operations context (§P3.5). */
   engagement?: PersonEngagement
-  /** The station's «Personalermüdung (Std.)» — the time-on-duty figure turns
-   *  amber from here (lib/crew-duty.ts). Passed in, like `engagement`, so the
-   *  memoized row does not subscribe to the notification context. */
-  fatigueHours?: number
 }
 
 /**
@@ -52,7 +47,7 @@ export function personFunctionLabel(
     .join(' · ')
 }
 
-function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engagement, fatigueHours = 4 }: DraggablePersonProps) {
+function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engagement }: DraggablePersonProps) {
   const t = useTranslations('kanban')
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -187,19 +182,14 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
             </div>
           </div>
 
-          {/* Second quiet line: where the person is (incident address or
-              Auftrag first, function — Fahrer TLF, Reko, Telefondienst … — as
-              the fallback; the binding used to live only in a hover tooltip),
-              and at the rail how long they have been here. The time is on
-              every row, free ones too: «wen schicke ich?» is also «wer ist
-              noch frisch?». It sits on this line rather than beside the name,
-              which the narrow sidebar already truncates. */}
-          {((isOccupied && (engagement?.short || functionLabel)) || person.checkedInAt) && (
-            <div className="flex items-baseline justify-between gap-2 text-[11px] leading-tight text-muted-foreground">
-              <span className="min-w-0 truncate" title={isOccupied ? occupiedTooltip : undefined}>
-                {isOccupied ? (engagement?.short ?? functionLabel) : null}
-              </span>
-              <OnDutyTime checkedInAt={person.checkedInAt} fatigueHours={fatigueHours} />
+          {/* Where the person is, as a second quiet line — the binding used to
+              live only in a hover tooltip. Incident address or Auftrag first,
+              function (Fahrer TLF, Reko, Telefondienst …) as the fallback.
+              Time on duty is deliberately NOT here (owner, 09.10.: too much in
+              the default view) — it lives in the Dienstzeiten sheet. */}
+          {isOccupied && (engagement?.short || functionLabel) && (
+            <div className="truncate text-[11px] leading-tight text-muted-foreground" title={occupiedTooltip}>
+              {engagement?.short ?? functionLabel}
             </div>
           )}
         </div>
@@ -222,8 +212,6 @@ export const DraggablePerson = memo(DraggablePersonBase, (prevProps, nextProps) 
     prevProps.person.isTelefondienst === nextProps.person.isTelefondienst &&
     prevProps.person.isKommandoposten === nextProps.person.isKommandoposten &&
     JSON.stringify(prevProps.person.tags) === JSON.stringify(nextProps.person.tags) &&
-    prevProps.person.checkedInAt === nextProps.person.checkedInAt &&
-    prevProps.fatigueHours === nextProps.fatigueHours &&
     prevProps.disabled === nextProps.disabled &&
     prevProps.assignmentCount === nextProps.assignmentCount &&
     // The engagement label is derived state — compare by value, not identity,
