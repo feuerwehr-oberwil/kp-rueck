@@ -4446,7 +4446,9 @@
         "reko_arrived_cleared": "Arrivée de la reconnaissance retirée",
         "field_request_in_progress": "Demande en cours",
         "field_request_done": "Demande traitée",
-        "field_request_open": "Demande rouverte"
+        "field_request_open": "Demande rouverte",
+        "field_request_moved": "Demande reprise de {other}",
+        "field_request_returned": "Demande revenue de {other}"
       }
     },
     "refDeleted": "{ref} (supprimée)",

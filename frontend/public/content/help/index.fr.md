@@ -227,8 +227,10 @@ fenêtre l’indique sous le lieu : « Peut-être identique à … ». **Fusionn
 l’annonceur comme complément à cette intervention – sans deuxième carte. **Créer quand même** masque
 l’indication. Les alarmes reçues automatiquement (Divera, lien d’alarme) ne sont jamais fusionnées
 d’elles-mêmes : leur carte affiche « Doublon possible de … » avec **Fusionner** et **Pas un doublon**.
-Pour annuler : « Annuler » dans le message en bas à droite, ou **Séparer** dans l’historique de
-l’intervention.
+Les demandes du terrain (matériel, renfort, messages, récupération) suivent la fusion ; si les deux
+cartes attendent une récupération, une seule reste ouverte, avec les deux notes. Pour annuler :
+« Annuler » dans le message en bas à droite, ou **Séparer** dans l’historique de l’intervention – les
+demandes reviennent alors.
 
 ### Faire une reconnaissance
 

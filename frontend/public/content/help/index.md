@@ -229,8 +229,10 @@ sagt der Dialog unter dem Einsatzort «Möglicherweise dasselbe wie …». **Zus
 Meldung samt Melder als Nachtrag an jenen Einsatz – es entsteht keine zweite Karte. **Trotzdem neu**
 blendet den Hinweis aus. Alarme, die automatisch hereinkommen (Divera, Alarm-Link), werden nie von
 selbst zusammengeführt: Ihre Karte zeigt «Mögliches Duplikat von …» mit **Zusammenführen** und
-**Kein Duplikat**. Rückgängig machen: «Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf
-des Einsatzes.
+**Kein Duplikat**. Anfragen vom Feld (Material, Verstärkung, Meldungen, Abholung) ziehen beim
+Zusammenführen mit um; warten beide Karten auf eine Abholung, bleibt eine offen, mit beiden Notizen.
+Rückgängig machen: «Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf des Einsatzes –
+die Anfragen gehen dabei zurück.
 
 ### Reko durchführen
 

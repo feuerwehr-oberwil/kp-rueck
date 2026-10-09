@@ -1227,12 +1227,21 @@ async def get_incident_timeline(
     # notification is dismissible and the audit log is not rendered anywhere on
     # the incident, so what a crew radioed in was visible nowhere afterwards.
     # Reading them back here is what puts them in the incident's own history.
+    #
+    # …including the ones sent to a duplicate card that was merged into this one:
+    # their requests moved here with the merge (services/merge_requests.py), so
+    # the sentences that came with them belong in this thread too.
+    merged_here = (
+        (await db.execute(select(models.Incident.id).where(models.Incident.merged_into_id == incident_id)))
+        .scalars()
+        .all()
+    )
     messages_result = await db.execute(
         select(models.AuditLog, models.User)
         .outerjoin(models.User, models.AuditLog.user_id == models.User.id)
         .where(
             models.AuditLog.resource_type == "incident",
-            models.AuditLog.resource_id == incident_id,
+            models.AuditLog.resource_id.in_([incident_id, *merged_here]),
             models.AuditLog.action_type == "field_message",
         )
     )
