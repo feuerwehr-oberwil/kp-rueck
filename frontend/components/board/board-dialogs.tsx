@@ -22,6 +22,7 @@ import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import { RekoPickerDialog } from "@/components/event-setup-checklist"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
+import { FiguresSheet } from "@/components/kanban/figures-sheet"
 import { CrewDutySheet } from "@/components/kanban/crew-duty-sheet"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
@@ -515,6 +516,16 @@ export function BoardDialogs({
         rapports={openRapports}
         filed={filedRapports}
         onOpenRapport={handleOpenRapport}
+      />
+
+      {/* Kennzahlen — Lage numbers + Reaktionszeiten (Übungsauswertung on a training Ereignis) */}
+      <FiguresSheet
+        open={activeFooterSheet === 'figures'}
+        onOpenChange={(open) => !open && activeFooterSheet === 'figures' && setActiveFooterSheet(null)}
+        eventId={selectedEvent?.id ?? null}
+        training={!!selectedEvent?.training_flag}
+        operations={operations}
+        onOpenIncident={handleOpenIncidentFromNotification}
       />
 
       {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}

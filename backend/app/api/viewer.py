@@ -21,6 +21,7 @@ from ..crud import vehicles as vehicles_crud
 from ..database import get_db
 from ..services import incident_display
 from ..services.gps_simulation import gps_simulation
+from ..services.reaction_times import load_event_figures
 from ..services.tokens import generate_viewer_token, validate_viewer_token
 from ..traccar import traccar_client
 from .special_functions import _enrich_assignments
@@ -170,6 +171,9 @@ async def get_viewer_data(
         "special_functions": [
             schemas.ViewerSpecialFunction.model_validate(sf).model_dump(mode="json") for sf in special_functions
         ],
+        # Kennzahlen for the status wall: counts and reaction times only — no names,
+        # nothing a shared link does not already show row by row.
+        "figures": schemas.EventFigures.model_validate(await load_event_figures(db, incidents)).model_dump(mode="json"),
         # incident_id → Reko result. Photo FILENAMES ride along; the same token
         # opens /api/photos for this event only (ViewerRekoSummary, serve_photo).
         "reko_summaries": viewer_reko_summaries,
