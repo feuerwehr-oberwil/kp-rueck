@@ -74,7 +74,8 @@ function subscribeTick(listener: () => void): () => void {
 
 const getTick = () => tick
 
-function useMinuteTick(): number {
+/** Re-render once a minute, on the one shared timer (also the crew's time-on-duty chips). */
+export function useMinuteTick(): number {
   return useSyncExternalStore(subscribeTick, getTick, getTick)
 }
 

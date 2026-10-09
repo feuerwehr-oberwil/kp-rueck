@@ -58,7 +58,7 @@ from ..schemas import (
     SimulateVehicleBreakdownResponse,
     TrainingLocationResponse,
 )
-from ..services import incident_display
+from ..services import incident_display, notification_params
 from ..services.divera_intake import broadcast_emergency_received
 from ..services.tokens import generate_form_token
 from ..services.training import (
@@ -602,11 +602,13 @@ async def simulate_escalation(
     incident.priority = "high"
     incident.description = f"{incident.description or ''}\n\n⚠️ Lagemeldung Feld: {text}".strip()
 
+    message, params = notification_params.training_escalation(incident.title, text)
     db.add(
         Notification(
             type="training_emergency",
             severity="critical",
-            message=f"Lage verschärft: {incident.title} – {text}",
+            message=message,
+            params=params,
             incident_id=incident.id,
             event_id=event_id,
             dismissed=False,
@@ -642,12 +644,13 @@ async def simulate_reinforcement_request(
         )
 
     request_text = generate_reinforcement_request(incident.type)
-    message = f"Feld fordert Verstärkung: {request_text} – {incident.title}"
+    message, params = notification_params.training_reinforcement(incident.title, request_text)
     db.add(
         Notification(
             type="training_emergency",
             severity="warning",
             message=message,
+            params=params,
             incident_id=incident.id,
             event_id=event_id,
             dismissed=False,
@@ -1196,12 +1199,13 @@ async def simulate_vehicle_breakdown(
     # the two on its own — the drift `crud/materials.py` exists to prevent.
     apply_out_of_service(vehicle, True)
 
-    message = f"Fahrzeug {vehicle.name} ausgefallen: {incident.title} – Ersatz disponieren"
+    message, params = notification_params.training_vehicle_down(vehicle.name, incident.title)
     db.add(
         Notification(
             type="training_emergency",
             severity="critical",
             message=message,
+            params=params,
             incident_id=incident.id,
             event_id=event_id,
             dismissed=False,

@@ -10,6 +10,7 @@ import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { DuplicateFlag } from '@/components/duplicates/duplicate-flag'
 import { PickupBadge } from "@/components/kanban/pickup-badge"
+import { FieldRequestCardRows } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import {
   ContextMenu,
@@ -697,6 +698,14 @@ function DraggableOperationBase({
               right here: «Zusammenführen» or «Kein Duplikat» (R2). */}
           {operation.possibleDuplicateOf && (
             <DuplicateFlag operationId={operation.id} targetId={operation.possibleDuplicateOf} canEdit={canDrag} />
+          )}
+
+          {/* What the field asked for and nobody has handled yet (R13) —
+              «Material: Tauchpumpe Gr. ×2 — offen». Opens the detail on the
+              tab where the list and its buttons are. Stays until «Erledigt»;
+              closing the bell entry does not take it away. */}
+          {(operation.fieldRequests?.length ?? 0) > 0 && (
+            <FieldRequestCardRows requests={operation.fieldRequests ?? []} onOpen={openDetailFrom('rapport')} />
           )}
 
           {/* «Am Warten», with what is being waited for. The flag alone was a

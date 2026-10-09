@@ -114,6 +114,25 @@ async def test_viewer_data_keeps_the_situation(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_viewer_data_carries_the_kennzahlen(
+    client: AsyncClient,
+    test_event: Event,
+    melder_incident: Incident,
+):
+    """The status wall's Kennzahlen section: counts and the oldest waiting «hoch» — and
+    nothing of the Melder, who is not part of a figure."""
+    token = generate_viewer_token(test_event.id)
+    figures = (await client.get(f"/api/viewer/data?token={token}")).json()["figures"]
+
+    assert figures["waiting"] >= 1
+    assert [p["priority"] for p in figures["by_priority"]] == ["high", "medium", "low"]
+    assert figures["oldest_waiting_high"]["incident_id"] == str(melder_incident.id)
+    assert "Meier" not in str(figures)
+    assert "061" not in str(figures)
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_viewer_data_omits_the_operator_and_the_workflow_bookkeeping(
     client: AsyncClient,
     test_event: Event,

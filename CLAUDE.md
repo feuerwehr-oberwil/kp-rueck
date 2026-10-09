@@ -103,6 +103,15 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
 **Test Infrastructure:**
 - Unit tests: Vitest + React Testing Library + jsdom (config: `vitest.config.ts`, setup: `vitest.setup.ts`). Files: `**/*.{test,spec}.{ts,tsx}` outside `tests/`.
 - E2E: Playwright with TypeScript, Page Object Model + Custom Fixtures, Factory pattern + API helpers, located in `frontend/tests/`.
+- Visual regression: `just visual` – nine frozen screens (`frontend/tests/visual/*.visual.ts`,
+  own config `playwright.visual.config.ts`) from a production build against `app.seed_visual`
+  (the demo storm evening at one fixed instant; the browser clock frozen at the same instant,
+  basemap tiles stubbed flat), compared with the PNGs in `tests/visual/__screenshots__/`. CI
+  job `visual` (on probation, not required yet). Baselines come from CI only
+  (`visual-baselines.yml` → `just visual-accept <run-id>`); a local run is a look, not a
+  verdict. **Never accept a baseline to turn the check green** – only a deliberate visual
+  change, in its own commit with the reason. A new time- or server-clock-dependent thing on
+  one of those screens needs pinning in the seed/fixture, not a mask. `docs/VISUAL_TESTS.md`.
 
 ## Architecture Overview
 
@@ -376,7 +385,10 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   of the picker. Today: **`de` + `fr` ship, `it` is still `{}`**. Locale is per-device via the
   `NEXT_LOCALE` cookie. The in-app help is a separate per-language Markdown file
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
-  Backend output (API error details, PDFs, exports, thermal print) is German-only for now.
+  Backend output (API error details, PDFs, exports, thermal print) is German-only for now –
+  except notifications (`type` + `params`, see «Notification text») and the `/feld` errors,
+  which carry a stable `code` the client says per locale (`errors.codes.*`,
+  `backend/app/utils/error_codes.py`; raise `CodedHTTPException`, keep the German `detail`).
   **Renaming a key means renaming every call site**: next-intl renders a missing key as its
   path instead of throwing. `lib/i18n-keys-used.test.ts` resolves every literal `t('…')` to its
   `useTranslations` namespace and fails on keys absent from `de.json`; dynamic `${…}` keys
@@ -410,9 +422,13 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   «Anzeigedauer» setting). A bare `toast()` bypasses that and must spread `toastLifetime(ms)`.
   Phone placement reads `--nav-reserve` / `--sheet-top` / `--kb-inset` on `<html>`.
 - **Notification text**: toasts and the bell show a notification as line 1 = what is asked,
-  line 2 = where · who, source as glyph (`lib/notification-format.ts`, which takes the backend's
-  German sentence apart per type). Changing or adding a backend notification template means a
-  case + test there; an unmatched sentence falls back to one line, so nothing is lost.
+  line 2 = where · who, source as glyph (`lib/notification-format.ts`). The backend sends
+  `type` + `params` (the facts, one shape per type) and a German `message`; every row is built by
+  one function in `backend/app/services/notification_params.py` that returns both, and the
+  client renders `params` through `notifications.messages.*` in the device's language. Adding or
+  changing a notification = a builder there (+ its pinned test) and a case + copy (de AND fr) +
+  test in `notification-format.ts`. A row without params, an unknown type/variant or a missing
+  fact falls back to the German `message` on one line, so nothing is lost. Never parse `message`.
 - **«Gespeichert» means the server confirmed it** (`lib/field-save.ts`, `components/kanban/field-save-status.tsx`).
   The detail's free-text fields show «Wird gespeichert …» / «Gespeichert – hh:mm» / «Nicht gespeichert»
   under the field. The store is fed by `updateOperation` (the one funnel) and a field is «saved» only
@@ -503,7 +519,7 @@ Firefighting command post operators (KP Rück) managing active incidents in high
 - **Visual tone**: Clean, information-dense, dark-mode-first. Inspired by Linear and Trello – minimal chrome, excellent information hierarchy, smooth interactions. Borrows density and seriousness from military C2 and dispatch systems but wrapped in modern, approachable UI patterns.
 - **Typography**: Sora (sans) + Spline Sans Mono – the faces KP Front and kp-rueck.ch use; see «Type & corners» below
 - **Color**: Red is the fire-service identity (logo) and the priority/danger signal – it is **not** the action or selection colour. Warm grays, slate selection, ink main button; status colors carry meaning and must be consistent. See «Colour roles» below.
-- **App icon**: the sibling of KP Front's (ink tile, white «kp», red «rück», the board glyph). Drawn ONLY in `scripts/build-icons.mjs`; it writes `frontend/app/icon.svg` and renders `frontend/public/icons/*.png` + `scripts/build-icons.lock.json` – rerun it after any artwork change, never edit the outputs (`--check` in `app/manifest.test.ts` fails otherwise). The home-screen icon must stay a PNG: iOS ignores an SVG apple-touch-icon.
+- **App icon**: the sibling of KP Front's (ink tile, white «kp», red «rück», the board glyph). Drawn ONLY in `scripts/build-icons.mjs`; it writes `frontend/app/icon.svg` and renders `frontend/public/icons/*.png` + `scripts/build-icons.lock.json` – rerun it after any artwork change, never edit the outputs (`--check` in `lib/web-manifest.test.ts` fails otherwise). The home-screen icon must stay a PNG: iOS ignores an SVG apple-touch-icon.
 - **Anti-references**: Avoid playful/consumer aesthetics (Slack, Figma), gamification, decorative illustrations, or anything that undermines the seriousness of the operational context.
 
 ### Colour roles

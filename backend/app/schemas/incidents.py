@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_serializer, field_validator
 
+from .field_requests import FieldRequestResponse
+
 # The provenances an editor may claim from the board (plan 26 §6, sweep 27 §P5b.3).
 # "operator" = typed in at the KP, "intake" = the operator took the call and
 # says so, "feld" = a Trupp standing in front of the thing reported it — usually
@@ -299,6 +301,10 @@ class IncidentResponse(IncidentBase):
     pickup_note: str | None = None
     pickup_requested_at: datetime | None = None
     pickup_requested_by: UUID | None = None
+    # The field's requests that are still to be worked (R13): open and «in
+    # Arbeit», oldest first. Done ones live in the detail's list
+    # (`GET /incidents/{id}/field-requests`) — the card shows only what is owed.
+    field_requests: list[FieldRequestResponse] = []
     # The effective Einsatzleiter's name (services.incident_leader): the active
     # `is_leader` assignment when one exists, the leader of record
     # (`Incident.leader_personnel_id`) otherwise. Carried on the list response

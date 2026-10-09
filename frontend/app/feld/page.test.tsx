@@ -38,7 +38,18 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPush }),
 }))
 
+// What `unlockFeld` rejects with; the page tells its failures apart by `failure.kind`.
+const FeldUnlockError = vi.hoisted(
+  () =>
+    class FeldUnlockError extends Error {
+      constructor(readonly failure: { kind: string }) {
+        super(failure.kind)
+      }
+    },
+)
+
 vi.mock('@/lib/api-client', () => ({
+  FeldUnlockError,
   apiClient: {
     getFeldPersonnel,
     getFeldAssignments,
@@ -280,6 +291,21 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     expect(await screen.findByRole('heading', { name: 'Code eingeben' })).toBeInTheDocument()
     expect(screen.queryByText('Muster Hans')).not.toBeInTheDocument()
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
+  })
+
+  it('an address that is not the poster link asks for the QR code again, not for the digits', async () => {
+    // The backend answers `feld_reopen_qr`; this used to read «Falscher Code».
+    forgetDevice()
+    setParams({ token: 'feld-token' })
+    unlockFeld.mockRejectedValue(new FeldUnlockError({ kind: 'reopen' }))
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.type(await screen.findByRole('textbox'), '4713')
+
+    expect(await screen.findByRole('heading', { name: 'QR-Code neu öffnen' })).toBeInTheDocument()
+    expect(screen.getByText('Bitte den QR-Code auf dem Plakat erneut scannen.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
   it('the code binds the device, and the slip then opens its Schadenplatz', async () => {

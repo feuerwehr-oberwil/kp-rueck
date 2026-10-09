@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
-import { apiClient, ApiError, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
+import { apiClient, ApiError, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle, type ApiFieldRequest, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate, type IncidentStatus } from "@/lib/api-client"
 import { formatLocationForDisplay, setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -155,6 +155,9 @@ export interface Operation {
   pickupNote?: string
   pickupRequestedAt?: Date | null
   pickupRequestedBy?: string | null
+  /** The field's requests still to be worked (R13): open + «in Arbeit», oldest
+   *  first. The card shows them, the sidebar lists them across the board. */
+  fieldRequests?: ApiFieldRequest[]
   /** A Schadenplatz-Rapport has been FILED for this incident (not a draft).
    *  Drives the card chip, and the muted "kein Rapport" marker once a card
    *  reaches `complete` without one — a marker, never a block (decision 10). */

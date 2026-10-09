@@ -1,7 +1,7 @@
 """incidents: possible duplicate flag and merged-into link
 
 Revision ID: d2a9e6f41c83
-Revises: c4e8a2f61d97
+Revises: d9a4e7c21f05
 Create Date: 2026-10-08 00:00:00.000000
 
 A second call about the same Schadenplatz used to be a second card: the board
@@ -28,7 +28,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d2a9e6f41c83"
-down_revision: str | Sequence[str] | None = "c4e8a2f61d97"
+down_revision: str | Sequence[str] | None = "d9a4e7c21f05"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

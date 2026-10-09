@@ -37,6 +37,7 @@ from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Incident, IncidentAssignment, RekoReport, User
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_assignment_update,
@@ -67,7 +68,7 @@ async def _require_form_token(
     """Validate form scope and the live field device behind any derived credential."""
     claims = decode_form_token(token, str(incident_id))
     if claims is None:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
     binding = claims.field_binding
     if binding is None:
         # Standalone board-issued links have no field device to revoke.
@@ -75,12 +76,16 @@ async def _require_form_token(
     from ..crud.feld import claim_is_live
 
     if not await claim_is_live(db, binding.claim_id, binding.event_id, binding.personnel_id):
-        raise HTTPException(status_code=401, detail="Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben.")
+        raise CodedHTTPException(
+            401, ErrorCode.FELD_DEVICE_SIGNED_OUT, "Dieses Gerät wurde abgemeldet. Bitte den Code neu eingeben."
+        )
     incident = await db.get(Incident, incident_id)
     if incident is None or incident.event_id != binding.event_id:
-        raise HTTPException(status_code=401, detail="Ungültiger Zugriffscode")
+        raise CodedHTTPException(401, ErrorCode.FELD_FORM_TOKEN_INVALID, "Ungültiger Zugriffscode")
     if personnel_id is not None and personnel_id != binding.personnel_id:
-        raise HTTPException(status_code=403, detail="Der Zugriffscode gehört zu einer anderen Person.")
+        raise CodedHTTPException(
+            403, ErrorCode.FELD_TOKEN_OTHER_PERSON, "Der Zugriffscode gehört zu einer anderen Person."
+        )
     return binding.personnel_id
 
 
@@ -188,7 +193,7 @@ async def submit_reko_report(
     """
     field_token = report_data.token
     if field_token is not None and not validate_form_token(field_token, str(report_data.incident_id)):
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
 
     user = await _require_user_or_form_token(
         request,
@@ -280,7 +285,7 @@ async def update_report(
     result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
     existing = result.scalar_one_or_none()
     if not existing:
-        raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
 
     user = await _require_user_or_form_token(
         request,
@@ -304,7 +309,7 @@ async def update_report(
                 and existing.submitted_by_personnel_id != claims.field_binding.personnel_id
             )
         ):
-            raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Bericht.")
+            raise CodedHTTPException(403, ErrorCode.REKO_REPORT_NO_ACCESS, "Kein Zugriff auf diesen Bericht.")
 
     try:
         updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
@@ -333,7 +338,7 @@ async def update_report(
         return response_data
     except ValueError as e:
         logger.warning("Reko report update failed: %s", e)
-        raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND) from e
+        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND) from e
 
 
 @router.get("/{report_id}", response_model=schemas.RekoReportResponse)
@@ -353,7 +358,7 @@ async def get_report(
     report = result.scalar_one_or_none()
 
     if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, "Report not found")
 
     await _require_user_or_form_token(request, report.incident_id, token, access_token, authorization, db)
 
@@ -654,7 +659,7 @@ async def upload_photo(
     # A token that is present but wrong stays a 400 whoever is logged in: a
     # leaked link must not become a way to write into another incident.
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
 
     user = await _require_user_or_form_token(
         request, incident_id, x_reko_token, access_token, authorization, db, write=True
@@ -665,10 +670,7 @@ async def upload_photo(
         # Check file size (read first chunk to estimate)
         contents = await file.read()
         if len(contents) > 1 * 1024 * 1024:  # 1MB
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Demo-Modus: Maximale Dateigrösse 1MB.",
-            )
+            raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
         # Reset file position for photo_storage
         await file.seek(0)
 
@@ -681,9 +683,8 @@ async def upload_photo(
         )
         total_photos = sum(r[0] for r in total_photos_result)
         if total_photos >= 15:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Demo-Modus: Maximale Anzahl Fotos (15) erreicht.",
+            raise CodedHTTPException(
+                403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht."
             )
 
     try:
@@ -739,7 +740,7 @@ async def delete_photo(
         { "success": true }
     """
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
 
     user = await _require_user_or_form_token(
         request, incident_id, x_reko_token, access_token, authorization, db, write=True
@@ -756,7 +757,7 @@ async def delete_photo(
     # Check if photo exists in report
     current_photos = report.photos_json if report.photos_json else []
     if filename not in current_photos:
-        raise HTTPException(status_code=404, detail="Photo not found in report")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found in report")
 
     # Follow-up drafts inherit photos from earlier submissions. Unlinking one
     # report must preserve the file while any other report still references it.
@@ -882,7 +883,7 @@ async def serve_photo(
         if personnel_id is not None:
             report_query = report_query.where(RekoReport.submitted_by_personnel_id == personnel_id)
         if await db.scalar(report_query) is None:
-            raise HTTPException(status_code=404, detail="Photo not found")
+            raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
     else:
         viewer_event_id = validate_viewer_token(token) if token else None
         if viewer_event_id is None:
@@ -893,15 +894,15 @@ async def serve_photo(
     incident = incident_result.scalar_one_or_none()
 
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, "Incident not found")
 
     if viewer_event_id and not await _viewer_token_may_see_photo(db, incident, filename, viewer_event_id):
-        raise HTTPException(status_code=404, detail="Photo not found")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
 
     # Get photo path and verify it exists (this is also the path-traversal guard)
     file_path = photo_storage.get_photo_path(incident_id, filename)
     if not file_path:
-        raise HTTPException(status_code=404, detail="Photo not found")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
 
     # Log photo access for audit trail. `user=None` on the token door is the
     # provenance itself: nobody was logged in, somebody held a scoped link.

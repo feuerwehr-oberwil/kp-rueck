@@ -9,15 +9,18 @@
  * Now it reads «Verstärkung nötig» / «Bahnhofstrasse 1, Coop Center · Bendik
  * Dimitri».
  *
- * The backend sends one German sentence per notification (no structured
- * fields), written by a handful of known templates per type
- * (backend/app/crud/feld/reports.py, crud/feld/melden.py, crud/feld/rapport.py,
- * services/notification_service.py, api/training.py, services/training.py).
- * This takes those sentences apart again by type. Anything that does not match
- * its template — an older wording, a new one — comes back whole as `what`: the
- * worst case is the sentence as it was, never a lost word. The tests pin one
- * real sentence per template.
+ * The backend sends every notification as `type` + `params` — the facts it is
+ * made of (place, person, minutes, …), one shape per type, listed in
+ * backend/app/services/notification_params.py — and this file says them in the
+ * operator's language (`notifications.messages.*` in messages/<locale>.json).
+ * The German `message` beside them is the fallback: a row from before `params`
+ * existed, a type or variant this client does not know, or params missing a
+ * fact the sentence needs all come back as that sentence, whole, on one line.
+ * Worst case is the German sentence as it always was — never a lost word, and
+ * never a sentence guessed back out of prose.
  */
+import { formatDuration } from '@/lib/duration'
+import { fieldRequestLabel } from '@/lib/field-requests'
 import type { Notification, NotificationType } from '@/lib/types/notification'
 
 /** Who or what the notification comes from — drawn as the leading glyph. */
@@ -33,13 +36,13 @@ export interface NotificationParts {
   source: NotificationSource
 }
 
-/** The two sentences the formatter has to write itself (everything else is the backend's own words). */
-export interface NotificationFormatLabels {
-  /** field_report: a new Schadenplatz from the field, e.g. «Neuer Schadenplatz». */
-  fieldReport: string
-  /** field_report when the crew took it on and is already driving there. */
-  fieldReportDirect: string
-}
+/**
+ * A translator for the ROOT namespace (`useTranslations()` / next-intl's
+ * `createTranslator`). Root, because besides `notifications.messages` the
+ * sentences borrow the board's column titles (`kanban.columns`) and the Reko
+ * danger labels (`reko.reportSection.dangerBadges`).
+ */
+export type NotificationTranslator = (key: string, values?: Record<string, string | number>) => string
 
 const SOURCE_BY_TYPE: Partial<Record<NotificationType, NotificationSource>> = {
   field_message: 'feld',
@@ -53,26 +56,230 @@ const SOURCE_BY_TYPE: Partial<Record<NotificationType, NotificationSource>> = {
   vehicle_arrived: 'vehicle',
   vehicle_returned: 'vehicle',
   time_overdue: 'time',
+  training_emergency: 'alarm',
 }
 
-/** `training_emergency` is not in the frontend union, but the backend sends it. */
 function sourceOf(type: string): NotificationSource {
-  if (type === 'training_emergency') return 'alarm'
   return SOURCE_BY_TYPE[type as NotificationType] ?? 'system'
 }
 
-/** «Prefix: rest» at the first «: ». */
-function splitPrefix(message: string): [string, string] | null {
-  const at = message.indexOf(': ')
-  if (at <= 0) return null
-  return [message.slice(0, at), message.slice(at + 2)]
+/** Thrown inside the builders when a fact the sentence needs is absent — caught as «use the German sentence». */
+class MissingParam extends Error {}
+
+type Params = Record<string, unknown>
+
+/** A required string fact. */
+function str(params: Params, key: string): string {
+  const value = params[key]
+  if (typeof value !== 'string' || value === '') throw new MissingParam(key)
+  return value
 }
 
-/** «rest · who» at the LAST « · » — the actor suffix every /feld notification ends with. */
-function splitActor(rest: string): [string, string | undefined] {
-  const at = rest.lastIndexOf(' · ')
-  if (at <= 0) return [rest, undefined]
-  return [rest.slice(0, at), rest.slice(at + 3)]
+/** An optional string fact. */
+function optStr(params: Params, key: string): string | undefined {
+  const value = params[key]
+  return typeof value === 'string' && value !== '' ? value : undefined
+}
+
+/** A required number fact. */
+function num(params: Params, key: string): number {
+  const value = params[key]
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new MissingParam(key)
+  return value
+}
+
+const M = 'notifications.messages'
+
+/** The person behind a /feld notification: their name, or how it was recorded. */
+function actorLabel(params: Params, t: NotificationTranslator): string | undefined {
+  const name = optStr(params, 'actor_name')
+  switch (params.actor_kind) {
+    case 'field':
+      return name ?? t(`${M}.actorField`)
+    case 'kp':
+      return t(`${M}.actorKp`)
+    case 'gps':
+      return t(`${M}.actorGps`)
+    default:
+      return name
+  }
+}
+
+/**
+ * A label looked up by a key that came over the wire (a status, a danger flag).
+ * next-intl answers an unknown key with the key path itself; a status this client
+ * does not know yet reads better as its raw value than as «kanban.columns.x».
+ */
+function label(t: NotificationTranslator, key: string, raw: string): string {
+  const out = t(key)
+  return out === key || out.endsWith(`.${raw}`) ? raw : out
+}
+
+/** «Angekommen» / «Angekommen – Karte in «Im Einsatz» verschoben». */
+function withMove(what: string, params: Params, t: NotificationTranslator): string {
+  const movedTo = optStr(params, 'moved_to')
+  if (!movedTo) return what
+  return t(`${M}.movedTo`, { what, column: label(t, `kanban.columns.${movedTo}`, movedTo) })
+}
+
+/** A `field_message`'s «what»: the text, or a structured request's label in the reader's language. */
+function fieldMessageWhat(params: Params, t: NotificationTranslator): string {
+  const text = str(params, 'text')
+  const kind = optStr(params, 'request_kind')
+  if (kind !== 'material' && kind !== 'personnel' && kind !== 'pickup') return text
+  const quantity = typeof params.quantity === 'number' ? params.quantity : null
+  return fieldRequestLabel(
+    { kind, item: optStr(params, 'item') ?? null, quantity, text: optStr(params, 'note') ?? null, label: text },
+    (key, values) => t(`feld.requests.${key}`, values),
+  )
+}
+
+type Built = Omit<NotificationParts, 'source'>
+
+/** One builder per type. `undefined` = this type/variant is not known here → the German sentence. */
+function build(type: string, p: Params, t: NotificationTranslator): Built | undefined {
+  switch (type) {
+    case 'field_message':
+      // The crew's own words are the point – or, for a structured request (R13), its
+      // one line («Material: Tauchpumpe Gr. ×2 – Notiz») worded the way the card words it.
+      return { what: fieldMessageWhat(p, t), where: optStr(p, 'place'), who: actorLabel(p, t) }
+
+    case 'field_report':
+      return {
+        what: t(p.direct === true ? `${M}.fieldReportDirect` : `${M}.fieldReport`),
+        where: str(p, 'place'),
+        who: optStr(p, 'by'),
+      }
+
+    case 'field_arrived':
+      return { what: withMove(t(`${M}.fieldArrived`), p, t), where: str(p, 'place'), who: actorLabel(p, t) }
+
+    case 'field_complete':
+      return { what: withMove(t(`${M}.fieldComplete`), p, t), where: str(p, 'place'), who: actorLabel(p, t) }
+
+    case 'field_pickup': {
+      const note = optStr(p, 'note')
+      const what =
+        p.needed === false
+          ? t(`${M}.pickupDone`)
+          : note
+            ? t(`${M}.pickupNeededNote`, { note })
+            : t(`${M}.pickupNeeded`)
+      return { what, where: str(p, 'place'), who: actorLabel(p, t) }
+    }
+
+    case 'rapport_submitted':
+      return { what: t(`${M}.rapportSubmitted`), where: str(p, 'place'), who: actorLabel(p, t) }
+
+    case 'reko_arrived':
+      return { what: t(`${M}.rekoArrived`), where: str(p, 'place'), who: optStr(p, 'by') }
+
+    case 'reko_submitted': {
+      const verdict = t(p.relevant === false ? `${M}.rekoNotRelevant` : `${M}.rekoRelevant`)
+      const details: string[] = []
+      if (typeof p.personnel_count === 'number' && p.personnel_count > 0) {
+        details.push(t(`${M}.rekoPersonnel`, { count: p.personnel_count }))
+      }
+      if (typeof p.duration_hours === 'number' && p.duration_hours > 0) {
+        details.push(t(`${M}.rekoDuration`, { hours: p.duration_hours }))
+      }
+      const dangers = Array.isArray(p.dangers) ? p.dangers.filter((d): d is string => typeof d === 'string') : []
+      if (dangers.length > 0) {
+        details.push(
+          t(`${M}.rekoDangers`, { list: dangers.map((d) => label(t, `reko.reportSection.dangerBadges.${d}`, d)).join(', ') }),
+        )
+      }
+      return {
+        what: details.length > 0 ? `${verdict} (${details.join(', ')})` : verdict,
+        where: str(p, 'place'),
+        who: optStr(p, 'by'),
+      }
+    }
+
+    case 'vehicle_arrived':
+    case 'vehicle_returned':
+      if (p.variant === 'on_site') {
+        return { what: t(`${M}.vehicleOnSite`, { vehicle: str(p, 'vehicle') }), where: str(p, 'place') }
+      }
+      if (p.variant === 'returned') return { what: t(`${M}.vehicleReturned`, { vehicle: str(p, 'vehicle') }) }
+      return undefined
+
+    case 'time_overdue': {
+      const duration = formatDuration(num(p, 'minutes') * 60_000, 'clock')
+      if (p.variant === 'status') {
+        return {
+          what: t(`${M}.timeInStatus`, { duration, status: label(t, `kanban.columns.${str(p, 'status')}`, str(p, 'status')) }),
+          where: str(p, 'place'),
+        }
+      }
+      if (p.variant === 'not_archived') return { what: t(`${M}.timeNotArchived`, { duration }), where: str(p, 'place') }
+      return undefined
+    }
+
+    case 'training_emergency': {
+      const title = str(p, 'title')
+      switch (p.variant) {
+        case 'new': {
+          const address = optStr(p, 'address')
+          return { what: t(`${M}.trainingNew`), where: address ? `${title} (${address})` : title }
+        }
+        case 'escalation':
+          return { what: t(`${M}.trainingEscalation`, { text: str(p, 'text') }), where: title }
+        case 'reinforcement':
+          return { what: t(`${M}.trainingReinforcement`, { text: str(p, 'text') }), where: title }
+        case 'vehicle_down':
+          return { what: t(`${M}.trainingVehicleDown`, { vehicle: str(p, 'vehicle') }), where: title }
+        default:
+          return undefined
+      }
+    }
+
+    // Crew past the time-on-duty threshold: one row for everybody, the names as «who».
+    case 'personnel_fatigue': {
+      const hours = num(p, 'hours')
+      const count = num(p, 'count')
+      const people = Array.isArray(p.people) ? p.people : []
+      const names = people
+        .map((person) => {
+          const entry = (person ?? {}) as Params
+          return t(`${M}.fatiguePerson`, { name: str(entry, 'name'), hours: num(entry, 'hours') })
+        })
+        .join(', ')
+      const more = typeof p.more === 'number' ? p.more : 0
+      return {
+        what: count === 1 ? t(`${M}.fatigueOne`, { hours }) : t(`${M}.fatigueMany`, { count, hours }),
+        who: more > 0 ? t(`${M}.fatigueMore`, { names, count: more }) : names || undefined,
+      }
+    }
+
+    // The rest is one sentence about no Schadenplatz — it stays one line.
+    case 'no_personnel':
+      return { what: t(`${M}.noPersonnel`) }
+
+    case 'no_materials': {
+      const location = str(p, 'location')
+      const available = num(p, 'available')
+      return {
+        what: available === 0 ? t(`${M}.materialsNone`, { location }) : t(`${M}.materialsLow`, { location, count: available }),
+      }
+    }
+
+    case 'missing_location':
+      return { what: t(`${M}.missingLocation`, { title: str(p, 'title') }) }
+
+    case 'event_size_limit': {
+      const values = { used: num(p, 'used_gb'), limit: num(p, 'limit_gb') }
+      if (p.store === 'database') return { what: t(`${M}.storageDatabase`, values) }
+      if (p.store === 'photos') return { what: t(`${M}.storagePhotos`, values) }
+      return undefined
+    }
+
+    case 'feld_code_rotated':
+      return { what: t(`${M}.feldCodeRotated`, { event: str(p, 'event') }) }
+
+    default:
+      return undefined
+  }
 }
 
 const clean = (parts: NotificationParts): NotificationParts => ({
@@ -83,94 +290,20 @@ const clean = (parts: NotificationParts): NotificationParts => ({
 })
 
 export function notificationParts(
-  notification: Pick<Notification, 'type' | 'message'>,
-  labels: NotificationFormatLabels,
+  notification: Pick<Notification, 'type' | 'message' | 'params'>,
+  t: NotificationTranslator,
 ): NotificationParts {
-  const { message } = notification
   const type = notification.type as string
   const source = sourceOf(type)
-  const whole: NotificationParts = { what: message, source }
-
-  switch (type) {
-    // «Meldung vom Feld (Bendik Dimitri) – Bahnhofstrasse 1, Coop Center: Verstärkung nötig»
-    // «Meldung vom Feld: Verstärkung nötig» (no person, no place)
-    case 'field_message': {
-      const full = /^Meldung vom Feld \((.+?)\) – (.+?): ([\s\S]+)$/.exec(message)
-      if (full) return clean({ what: full[3], where: full[2], who: full[1], source })
-      const bare = /^Meldung vom Feld: ([\s\S]+)$/.exec(message)
-      if (bare) return clean({ what: bare[1], source })
-      return whole
-    }
-
-    // «Meldung vom Feld: Hauptstrasse 41 (Fabio Wyss)»
-    // «Meldung vom Feld – Trupp fährt direkt hin: Hauptstrasse 41 (Fabio Wyss)»
-    case 'field_report': {
-      const m = /^Meldung vom Feld( – Trupp fährt direkt hin)?: (.+) \(([^()]+)\)$/.exec(message)
-      if (!m) return whole
-      return clean({ what: m[1] ? labels.fieldReportDirect : labels.fieldReport, where: m[2], who: m[3], source })
-    }
-
-    // «Angekommen: Mühlemattstrasse 18 · Bendik Dimitri»
-    // «Einsatz beendet gemeldet: …», «Abholung nötig: … (Notiz) · …», «Abholung erledigt: …»,
-    // «Rapport erfasst: … · im KP erfasst»
-    case 'field_arrived':
-    case 'field_complete':
-    case 'field_pickup':
-    case 'rapport_submitted': {
-      const split = splitPrefix(message)
-      if (!split) return whole
-      const [where, who] = splitActor(split[1])
-      // the pickup's note («2 Personen beim Hintereingang») is part of what is asked
-      const note = type === 'field_pickup' ? /^(.+) \(([^()]+)\)$/.exec(where) : null
-      if (note) return clean({ what: `${split[0]} – ${note[2]}`, where: note[1], who, source })
-      return clean({ what: split[0], where, who, source })
-    }
-
-    // «Reko vor Ort: Lisa Hoffmann bei Mühlemattstrasse 18» / «Reko vor Ort: Mühlemattstrasse 18»
-    case 'reko_arrived': {
-      const m = /^(Reko vor Ort): (?:(.+?) bei )?(.+)$/.exec(message)
-      if (!m) return whole
-      return clean({ what: m[1], where: m[3], who: m[2], source })
-    }
-
-    // «Reko abgeschlossen: Hauptstrasse 41 von Lisa Hoffmann – Einsatz relevant (3 Pers., ~2h)»
-    case 'reko_submitted': {
-      const m = /^(Reko abgeschlossen): (.+?)(?: von (.+?))? – (.+)$/.exec(message)
-      if (!m) return whole
-      return clean({ what: `${m[1]} – ${m[4]}`, where: m[2], who: m[3], source })
-    }
-
-    // «TLF vor Ort: Mühlemattstrasse 18»
-    case 'vehicle_arrived': {
-      const split = splitPrefix(message)
-      if (!split) return whole
-      return clean({ what: split[0], where: split[1], source })
-    }
-
-    // «Mühlemattstrasse 18: 56m im Status «Disponiert»» — the place comes FIRST here
-    case 'time_overdue': {
-      const split = splitPrefix(message)
-      if (!split) return whole
-      return clean({ what: split[1], where: split[0], source })
-    }
-
-    // «Lage verschärft: Wasser im Keller – Wasser steigt …»
-    // «Fahrzeug TLF ausgefallen: Wasser im Keller – Ersatz disponieren»
-    // «Neuer Übungs-Einsatz: Wasser im Keller (Bahnhofstrasse 1)»
-    case 'training_emergency': {
-      const split = splitPrefix(message)
-      if (!split) return whole
-      const [prefix, rest] = split
-      const dash = rest.indexOf(' – ')
-      if (dash > 0) return clean({ what: `${prefix} – ${rest.slice(dash + 3)}`, where: rest.slice(0, dash), source })
-      return clean({ what: prefix, where: rest, source })
-    }
-
-    // vehicle_returned («TLF zurück im Magazin»), no_personnel, no_materials,
-    // personnel_fatigue, missing_location, event_size_limit, feld_code_rotated:
-    // one sentence about no Schadenplatz — it stays one line.
-    default:
-      return whole
+  const whole: NotificationParts = { what: notification.message, source }
+  const { params } = notification
+  if (!params || typeof params !== 'object') return whole
+  try {
+    const built = build(type, params, t)
+    return built ? clean({ ...built, source }) : whole
+  } catch (error) {
+    if (error instanceof MissingParam) return whole
+    throw error
   }
 }
 

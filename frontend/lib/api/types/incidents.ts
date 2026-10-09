@@ -3,6 +3,7 @@
  */
 
 import type { ApiAssignedVehicle } from './vehicles'
+import type { ApiFieldRequest } from './feld'
 
 export type IncidentType =
   | 'brandbekaempfung'
@@ -123,6 +124,8 @@ export interface ApiIncident {
   pickup_note?: string | null
   pickup_requested_at?: string | null
   pickup_requested_by?: string | null
+  /** The field's requests still to be worked — open and «in Arbeit» (R13). */
+  field_requests?: ApiFieldRequest[]
   /** The effective Einsatzleiter's name: the active is_leader assignment when
    *  one exists, the leader of record otherwise — so a CLOSED incident (whose
    *  assignments were released) still names who led it. */

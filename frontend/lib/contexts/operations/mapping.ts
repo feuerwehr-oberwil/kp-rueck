@@ -107,6 +107,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     pickupNote: incident.pickup_note || "",
     pickupRequestedAt: incident.pickup_requested_at ? new Date(incident.pickup_requested_at) : null,
     pickupRequestedBy: incident.pickup_requested_by ?? null,
+    fieldRequests: incident.field_requests ?? [],
     hasSchadenplatzRapport: incident.has_schadenplatz_rapport ?? false,
     hasSchadenplatzRapportDraft: incident.has_schadenplatz_rapport_draft ?? false,
     hasBeenDispatched: incident.has_been_dispatched ?? false,

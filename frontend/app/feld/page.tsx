@@ -323,6 +323,8 @@ function FeldSurface() {
   // report «Angekommen» or «Einsatz beendet» at all, so «fertig in ~30 Min»
   // is not their sentence. The row's source picks, not the person's roles.
   const [messageChips, setMessageChips] = useState<string[]>([])
+  // «Material nötig» picks from the station's material names (R13).
+  const [requestMaterials, setRequestMaterials] = useState<string[]>([])
   const [driverMessageChips, setDriverMessageChips] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
@@ -593,6 +595,7 @@ function FeldSurface() {
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
       setDriverMessageChips(data.driver_message_chips ?? [])
+      setRequestMaterials(data.request_materials ?? [])
       setEventName(data.event_name)
       setCheckedIn(Boolean(data.checked_in))
       const roles = data.functions ?? []
@@ -1175,14 +1178,18 @@ function FeldSurface() {
     // An expired link is its own screen: no field, no button. The four digits
     // cannot fix a token that ran out, so asking for them again is the one
     // thing this page must stop doing.
-    if (codeError?.kind === 'expired') {
+    // Same for an address that is not the poster's link (`reopen`): scan again.
+    if (codeError?.kind === 'expired' || codeError?.kind === 'reopen') {
+      const reopen = codeError.kind === 'reopen'
       return (
         <div className="min-h-screen bg-background flex flex-col justify-center p-6">
           <div className="mx-auto w-full max-w-xs">
-            <h1 className="mb-6 text-center text-2xl font-semibold">{t('code.expiredTitle')}</h1>
+            <h1 className="mb-6 text-center text-2xl font-semibold">
+              {t(reopen ? 'code.reopenTitle' : 'code.expiredTitle')}
+            </h1>
             <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-              <p className="font-medium">{t('code.expiredHeading')}</p>
-              <p className="mt-0.5">{t('code.expiredBody')}</p>
+              <p className="font-medium">{t(reopen ? 'code.reopenHeading' : 'code.expiredHeading')}</p>
+              <p className="mt-0.5">{t(reopen ? 'code.reopenBody' : 'code.expiredBody')}</p>
             </div>
             <p className="mt-3 rounded-lg border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground">
               {t('code.expiredFoot')}
@@ -1514,6 +1521,9 @@ function FeldSurface() {
                 personnelId={selectedPerson.personnel_id}
                 token={token}
                 messageChips={selectedAssignment.source === 'driver' ? driverMessageChips : messageChips}
+                requestMaterials={requestMaterials}
+                // A sent request shows up in «Angefordert» at once, not on the next poll.
+                onSent={() => loadAssignments(selectedPerson.personnel_id, { silent: true })}
                 onReported={applyFieldReport}
                 // The journey's third step: carries the eye to the form below
                 // — only when that form is actually mounted on this page.

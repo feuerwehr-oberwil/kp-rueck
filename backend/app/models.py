@@ -593,6 +593,12 @@ class Incident(Base):
     # Batched on so a completed incident — whose assignments were released —
     # can still say who to call about it.
     leader_name: str | None
+    # The field's open + «in Arbeit» requests (R13), batched on by the board
+    # query (`crud.feld.open_requests_for_incidents`) so the card can show what
+    # is still owed without a request per card.
+    # FieldRequest rows. `Any`, not the class: SQLAlchemy resolves these
+    # annotations at mapping time, and FieldRequest is defined further down.
+    field_requests: list[Any]
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
@@ -1357,6 +1363,125 @@ class IncidentFieldMessage(Base):
     __table_args__ = (Index("idx_incident_field_messages_incident", "incident_id"),)
 
 
+def field_request_label(kind: str, item: str | None, quantity: int | None, text: str | None) -> str:
+    """«Material: Tauchpumpe Gr. ×2 – in den Keller» — one request as one line.
+
+    German on purpose: it is the backend's sentence (bell, audit, PDF), and the
+    clients render their own localised label from the structured columns.
+    """
+    note = (text or "").strip()
+    if kind == "material":
+        what = (item or "").strip()
+        head = "Material" + (f": {what}" if what else "")
+        if quantity:
+            head += f" ×{quantity}" if what else f": {quantity}"
+    elif kind == "personnel":
+        head = "Verstärkung"
+        parts = [f"{quantity} {'Person' if quantity == 1 else 'Personen'}" if quantity else "", (item or "").strip()]
+        detail = " ".join(part for part in parts if part)
+        if detail:
+            head += f": {detail}"
+    elif kind == "pickup":
+        head = "Abholung"
+    else:
+        return note
+    return f"{head} – {note}" if note else head
+
+
+class FieldRequest(Base):
+    """One thing the field asked the KP for — a WORKABLE item, not a sentence (R13).
+
+    Every Meldung from `/feld` used to become a bell entry plus an audit row and
+    nothing else: dismissing the bell was the only "handling" there was, and it
+    erased the request from every surface except the thread in the detail. A row
+    here is what the card, the detail and the notification sidebar all read, and
+    its ``status`` is the one answer to «hat das jemand erledigt?»:
+
+    ``open`` → ``in_progress`` (optional) → ``done``, with who/when on ``done``.
+    ``seen_at`` is separate on purpose — dismissing the notification is the KP
+    saying «gesehen», which the crew is told, but it is NOT handling it.
+
+    Four kinds:
+
+    * ``message`` — a chip or a typed sentence (``text``).
+    * ``material`` — «Material nötig», structured: ``item`` (a material name off
+      the station's inventory, or free text) × ``quantity``, ``text`` = note.
+    * ``personnel`` — «Verstärkung nötig»: ``quantity`` people, ``item`` = what
+      kind (optional), ``text`` = note.
+    * ``pickup`` — mirrors ``Incident.pickup_needed`` (decision 24). The flag
+      stays the truth the map, Restliste and PDF read; this row is its work item
+      and is opened/closed only by ``crud.feld.record_pickup``.
+
+    Names are denormalised at write time like ``IncidentFieldMessage``: `/feld`
+    is a login-less door and must not join against ``users``.
+    """
+
+    __tablename__ = "field_requests"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    item: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Provenance (decision 28): a crew tap carries the person, a KP entry the user.
+    created_by_personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # The bell entry announcing it — so dismissing it can stamp «gesehen», and
+    # handling the request can take the bell entry away with it.
+    notification_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("notifications.id", ondelete="SET NULL"), nullable=True
+    )
+
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    in_progress_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    in_progress_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    done_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    done_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The phone's own id for this request. «Nochmals senden» after a lost answer
+    # repeats it, and a repeat is a no-op instead of a second work item.
+    client_request_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True, unique=True)
+
+    @property
+    def label(self) -> str:
+        """The German one-liner the bell, the audit log and the PDF carry."""
+        return field_request_label(self.kind, self.item, self.quantity, self.text)
+
+    @property
+    def from_field(self) -> bool:
+        """A crew tapped it (True) or the KP took it over the radio (False)."""
+        return self.created_by_user_id is None
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('message', 'material', 'personnel', 'pickup')", name="valid_field_request_kind"),
+        CheckConstraint("status IN ('open', 'in_progress', 'done')", name="valid_field_request_status"),
+        Index("idx_field_requests_incident", "incident_id"),
+        Index("idx_field_requests_status", "status"),
+        # At most ONE open Abholung work item per incident — two crews tapping
+        # at once must not leave a second open row behind the flag.
+        Index(
+            "uq_field_requests_open_pickup",
+            "incident_id",
+            unique=True,
+            postgresql_where=sa_text("kind = 'pickup' AND status IN ('open', 'in_progress')"),
+        ),
+    )
+
+
 # ============================================
 # AUDIT LOGGING
 # ============================================
@@ -1501,7 +1626,20 @@ class Notification(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    # The German sentence. Still written for every row: it is what an older client, the
+    # audit trail and the dedup/auto-resolve matching read, and the only text a row from
+    # before `params` has. The bell renders `type` + `params` in the operator's language
+    # (frontend/lib/notification-format.ts) and falls back to this when `params` is NULL.
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    # The facts the sentence is made of (place, person, minutes, …), keyed per type —
+    # the shapes are listed in `services/notification_params.py`. NULL on legacy rows.
+    params: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Who a grouped notification is about, as stable keys — for `personnel_fatigue` one
+    # «<personnel_id>@<checked_in_at>» per person named (one per shift: a re-check-in is a new
+    # key). Dismissing the row acknowledges exactly these; anybody else past the threshold
+    # raises a new one (`_sync_fatigue_notification`). NULL on every other type and on rows
+    # from before the grouping.
+    subject_keys: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     # Optional associations
     incident_id: Mapped[UUID | None] = mapped_column(

@@ -57,6 +57,7 @@ import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
+import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import {
@@ -186,7 +187,7 @@ export interface OperationDetailContentProps {
    *  not an inline picker. */
   onAssignVehicle?: (vehicleId: string, vehicleName: string, operationId: string) => void
   onRemoveVehicle?: (operationId: string, vehicleName: string) => void
-  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string) => void
+  onAssignResource?: (resourceType: 'crew' | 'vehicles' | 'materials', operationId: string, search?: string) => void
   onRemoveCrew?: (operationId: string, crewName: string) => void
   onRemoveMaterial?: (operationId: string, materialId: string) => void
   diveraEnabled?: boolean
@@ -1768,6 +1769,19 @@ export function OperationDetailContent({
                   «Reko vor Ort» lives on the Reko tab with the rest of the
                   reconnaissance. */}
               <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
+
+              {/* Everything the field asked for, with its state (R13): offen →
+                  in Arbeit → erledigt, who and when. «Material zuteilen» opens
+                  the same assignment dialog as the «+» on the resource rows. */}
+              <FieldRequestList
+                operation={operation}
+                canEdit={canEdit}
+                onAssign={
+                  canEdit && onAssignResource
+                    ? (incidentId, resourceType, search) => onAssignResource(resourceType, incidentId, search)
+                    : undefined
+                }
+              />
 
               {/* Everything the crew said, plus the two reports that used to be
                   toggles (§18.19). Before this thread existed a Meldung became a
