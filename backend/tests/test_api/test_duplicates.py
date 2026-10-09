@@ -204,7 +204,10 @@ class TestMergeBeforeACardExists:
         (merge,) = await _audit(db_session, target.id, "merge")
         assert merge.changes_json["merged_incident_id"] == str(report.id)
         assert merge.changes_json["filled_fields"] == ["contact", "contact_phone"]
-        assert "079" not in str(merge.changes_json)
+        # The phone number, not «079»: the row also carries UUIDs, and one of them containing
+        # «079» failed main CI on 09.10. (2363b290).
+        assert "079 123 45 67" not in str(merge.changes_json)
+        assert "Meier" not in str(merge.changes_json)
         assert await _audit(db_session, report.id, "merged_into")
 
     async def test_a_filled_melder_is_never_overwritten(
