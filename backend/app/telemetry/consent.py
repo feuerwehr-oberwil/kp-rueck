@@ -4,7 +4,7 @@ The one module in ``app/telemetry/`` that is NOT vendored byte-for-byte from kp-
 has to live wherever a given app already keeps deployment state, and the two apps keep it
 differently (kp-front has a `deployment_config` singleton, this one has a key/value `settings`
 table). Everything either app actually *sends* — scrub, envelope, outbox, forwarder — is
-identical and checked by ``tests/test_telemetry_vendored.py``. The glue is allowed to differ;
+identical, listed in ``shared/MANIFEST.json`` and checked by ``scripts/check_shared.py``. The glue is allowed to differ;
 the payload is not.
 
 Consent lives on the deployment, not on the device. The Feuerwehr is the data controller, not

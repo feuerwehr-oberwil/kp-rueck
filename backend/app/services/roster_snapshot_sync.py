@@ -10,8 +10,8 @@ address or a path. The Divera roster sync is untouched by this module and stays 
 
 **The rules live in the shared half.** Matching, the deactivation cap, the never-empty and
 time-travel guards and the outcome report are :mod:`app.roster_snapshot_ingest`, byte-identical
-with KP Front's copy (pinned by tests/test_roster_snapshot_contract.py, diffed by CI's
-``roster-schema-drift``), so one published file lands the same way in both products. What is
+with KP Front's copy (listed in shared/MANIFEST.json, compared by CI's «Shared files match
+KP Front»), so one published file lands the same way in both products. What is
 KP Rück's own is here:
 
 * **«Active» is not ``status``.** ``personnel.status`` is availability on the board

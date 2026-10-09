@@ -11,7 +11,8 @@ untouched and stays the default.** A station that sets nothing sees no change at
 **KP Front reads the same file the same way.** The contract (`docs/roster-snapshot.schema.json`,
 `docs/roster-snapshot-outcome.schema.json`) and the code that reads it
 (`backend/app/roster_snapshot.py`, `backend/app/roster_snapshot_ingest.py`) are byte-identical
-in both repositories, pinned by checksum and diffed by CI's `roster-schema-drift` job. A station
+in both repositories, listed in `shared/MANIFEST.json` and compared by CI's «Shared files» job
+in both repositories. A station
 running both apps publishes **one** file and feeds both – neither app calls the other
 ([`RUNNING-BOTH.md`](RUNNING-BOTH.md)).
 

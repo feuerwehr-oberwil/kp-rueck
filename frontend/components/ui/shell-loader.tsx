@@ -11,8 +11,8 @@ import styles from './shell-loader.module.css'
  * mascot KP Front and KP Rück share (edited in kp-front, copied here byte-identical).
  * KP Front reads it out of the SVG at runtime; here it is inline so the loader needs no
  * bundler trick and renders on the server. Two checks keep the copies honest:
- * `shell-loader.test.tsx` compares it with our SVG, and the `snail-drift` CI job
- * (`scripts/check-snail-drift.mjs`) compares both with kp-front's.
+ * `shell-loader.test.tsx` compares it with our SVG, and CI's «Shared files match KP Front»
+ * (`shared/MANIFEST.json`) holds our SVG byte-identical with kp-front's.
  */
 export const SHELL_TRAIL_PATH =
   'M534 550 C477 519 454 441 487 360 C515 290 580 245 636 262 C691 271 724 311 721 362 C718 418 673 471 625 480 C579 490 539 471 527 431 C515 394 538 345 572 325 C608 302 639 318 650 341 C665 373 641 407 615 411 C591 415 570 390 595 371'
