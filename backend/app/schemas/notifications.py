@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -55,7 +56,11 @@ class NotificationResponse(BaseModel):
     id: UUID
     type: NotificationType
     severity: NotificationSeverity
+    #: German, for older clients and legacy rows. A client that knows the type renders
+    #: `params` in its own language instead (`services/notification_params.py`).
     message: str
+    #: The facts the message is made of, keyed per `type`; null on rows from before them.
+    params: dict[str, Any] | None = None
     incident_id: UUID | None = None
     event_id: UUID | None = None
     created_at: datetime

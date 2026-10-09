@@ -26,6 +26,10 @@ from ..services.audit import log_action
 _RESOURCE_MODELS = {"personnel": Personnel, "vehicle": Vehicle, "material": Material}
 
 
+class IncidentNotOnBoardError(Exception):
+    """The incident was deleted or merged into another card — nothing goes onto it any more."""
+
+
 async def assign_resource(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -55,8 +59,22 @@ async def assign_resource(
     # died on a foreign-key violation, i.e. a 500 for what is plainly a stale id; without the
     # resource check it SUCCEEDED and stored an assignment pointing at nothing, which is worse
     # — an orphan row that shows up on the board as a resource nobody can find.
-    if await db.get(Incident, incident_id) is None:
+    # Locked, and it must still be on the board: a merge (services/duplicates.py)
+    # soft-deletes the losing card under the same row lock after checking it has
+    # nobody on it — without the lock here, a crew assigned in that instant would
+    # land on a card nobody can see any more.
+    incident = (
+        await db.execute(
+            select(Incident)
+            .where(Incident.id == incident_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if incident is None:
         raise LookupError(f"incident {incident_id} does not exist")
+    if incident.deleted_at is not None or incident.merged_into_id is not None:
+        raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
 
     if await db.get(_RESOURCE_MODELS[resource_type], resource_id) is None:
         raise LookupError(f"{resource_type} {resource_id} does not exist")

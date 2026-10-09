@@ -9,6 +9,8 @@ import { useNotifications } from '@/lib/contexts/notification-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { NotificationCard } from '@/components/notifications/notification-card'
+import { FieldRequestInbox } from '@/components/notifications/field-request-inbox'
+import { useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
 import { requestIncidentHighlight } from '@/lib/notification-highlight'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { cn } from '@/lib/utils'
@@ -20,6 +22,7 @@ export function PersistentNotificationSidebar() {
   const isMobile = useIsMobile()
   const pathname = usePathname()
   const router = useRouter()
+  const openRequests = useOpenFieldRequests()
 
   // On mobile, don't render (Sheet handles it via NotificationBellTrigger).
   // Never render when logged out — isSidebarOpen is persisted in localStorage,
@@ -41,7 +44,10 @@ export function PersistentNotificationSidebar() {
 
   if (!visible) return null
 
-  const activeNotifications = notifications.filter((n) => !n.dismissed)
+  // A bell entry whose field request is still open is shown AS that request
+  // (R13), in the section above — one Meldung, one row.
+  const activeNotifications = notifications.filter((n) => !n.dismissed && !openRequests.representedIds.has(n.id))
+  const owedCount = activeNotifications.length + openRequests.items.length
   const historicalNotifications = notifications
     .filter((n) => n.dismissed)
     .slice(0, 20) // Show last 20 dismissed notifications
@@ -87,9 +93,9 @@ export function PersistentNotificationSidebar() {
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <h2 className="text-base font-semibold">{t('title')}</h2>
-          {activeNotifications.length > 0 && (
+          {owedCount > 0 && (
             <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
-              {activeNotifications.length}
+              {owedCount}
             </span>
           )}
         </div>
@@ -100,6 +106,12 @@ export function PersistentNotificationSidebar() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* The field's open requests — they stay until handled (R13). */}
+        <FieldRequestInbox
+          items={openRequests.items}
+          onOpenIncident={handleClickIncident ? (incidentId) => handleClickIncident(incidentId, 'rapport') : undefined}
+        />
+
         {/* Active notifications section */}
         {activeNotifications.length > 0 && (
           <div>
@@ -113,7 +125,7 @@ export function PersistentNotificationSidebar() {
               <Button
                 variant="ghost"
                 size="xs"
-                onClick={dismissAllNotifications}
+                onClick={() => void dismissAllNotifications(openRequests.representedIds)}
                 className="text-muted-foreground hover:text-foreground"
                 aria-label={t('dismissAll')}
               >
@@ -136,7 +148,7 @@ export function PersistentNotificationSidebar() {
         )}
 
         {/* Empty state */}
-        {activeNotifications.length === 0 && (
+        {owedCount === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted mb-4">
               <Bell className="h-8 w-8 opacity-40" />

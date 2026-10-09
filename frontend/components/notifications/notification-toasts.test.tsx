@@ -11,6 +11,7 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 
 import de from "@/messages/de.json"
+import { loadMessages, type SupportedLocale } from "@/lib/i18n-messages"
 import { DEFAULT_NOTIFICATION_SETTINGS } from "@/lib/types/notification"
 import type { Notification } from "@/lib/types/notification"
 
@@ -69,6 +70,7 @@ const fieldMessage = (overrides: Partial<Notification> = {}): Notification => ({
   type: "field_message",
   severity: "info",
   message: "Meldung vom Feld (Muster) – Hauptstrasse 1: Baum liegt quer",
+  params: { place: "Hauptstrasse 1", text: "Baum liegt quer", actor_kind: "field", actor_name: "Muster" },
   incident_id: "incident-1",
   created_at: new Date("2026-08-17T10:00:00Z"),
   dismissed: false,
@@ -76,10 +78,10 @@ const fieldMessage = (overrides: Partial<Notification> = {}): Notification => ({
 })
 
 /** Mount the component and hand back the single toast it fired. */
-function firedToast(notification: Notification) {
+function firedToast(notification: Notification, locale: SupportedLocale = "de") {
   mocks.notifications = [notification]
   render(
-    <NextIntlClientProvider locale="de" messages={de}>
+    <NextIntlClientProvider locale={locale} messages={loadMessages(locale)}>
       <NotificationToasts />
     </NextIntlClientProvider>,
   )
@@ -134,6 +136,21 @@ describe("NotificationToasts", () => {
     expect(fired.options.duration).toBeUndefined()
   })
 
+  it("says it in the operator's language: French frame, the crew's own words", () => {
+    const fired = firedToast(
+      fieldMessage({
+        type: "field_pickup",
+        severity: "warning",
+        incident_id: undefined,
+        params: { place: "Hauptstrasse 1", needed: true, note: null, actor_kind: "kp", actor_name: null },
+      }),
+      "fr",
+    )
+    render(<>{fired.title as ReactNode}</>)
+    expect(screen.getByText("Récupération nécessaire")).toBeInTheDocument()
+    expect(fired.options.description).toBe("Hauptstrasse 1 · saisi au PC")
+  })
+
   it("stays plain text when no page is listening for the navigation", () => {
     mocks.canNavigateToIncident = false
     const fired = firedToast(fieldMessage())
@@ -143,7 +160,8 @@ describe("NotificationToasts", () => {
 
   it("keeps the warning tone and leaves a system notification one line, glyph by severity", () => {
     const fired = firedToast(
-      fieldMessage({ type: "no_personnel", severity: "warning", incident_id: undefined, message: "Kein Personal mehr verfügbar" }),
+      // a row from before `params`: its German sentence, whole
+      fieldMessage({ type: "no_personnel", severity: "warning", incident_id: undefined, message: "Kein Personal mehr verfügbar", params: null }),
     )
     expect(fired.level).toBe("warning")
     render(<>{fired.title as ReactNode}</>)
@@ -159,6 +177,7 @@ describe("NotificationToasts", () => {
         severity: "critical",
         incident_id: undefined,
         message: "Lage verschärft: Wasser im Keller – Wasser steigt",
+        params: { variant: "escalation", title: "Wasser im Keller", text: "Wasser steigt" },
       }),
     )
     expect(fired.level).toBe("error")

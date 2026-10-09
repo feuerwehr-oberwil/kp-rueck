@@ -4517,6 +4517,240 @@
         }
       }
     },
+    "/api/incidents/duplicate-candidates": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Get Duplicate Candidates",
+        "description": "Open incidents of this Ereignis that are probably the same Schadenplatz.\n\nWithin 50 m of the pin or at a normalised-equal address (street + house\nnumber); closed, deleted and merged cards and other Ereignisse never match.\nAsked by «Neuer Einsatz» and the pool's attach before a card is made, so\nthe operator can answer «Zusammenführen» or «Trotzdem neu».",
+        "operationId": "get_duplicate_candidates_api_incidents_duplicate_candidates_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Ereignis the new report belongs to",
+              "title": "Event Id"
+            },
+            "description": "Ereignis the new report belongs to"
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90.0,
+                  "minimum": -90.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180.0,
+                  "minimum": -180.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Address"
+            }
+          },
+          {
+            "name": "exclude_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The card being checked, when it already exists",
+              "title": "Exclude Id"
+            },
+            "description": "The card being checked, when it already exists"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateCandidatesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/merge-report": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Merge New Report",
+        "description": "«Zusammenführen» from «Neuer Einsatz»: the report becomes a Nachtrag on `target_id`.\n\nNo new card. The report is still written as its own row (soft-deleted,\n`merged_into_id` set) because it carries the Melder and the provenance, and\nbecause that row is what «Trennen» brings back. Audited on both rows and in\nthe target's Verlauf.",
+        "operationId": "merge_new_report_api_incidents_merge_report_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}": {
       "get": {
         "tags": [
@@ -5223,6 +5457,266 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/KpFieldMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/field-requests": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "List Field Requests",
+        "description": "Everything the field asked of this Schadenplatz, any state, oldest first (R13).\n\nThe card carries only the open ones (``IncidentResponse.field_requests``);\nthe detail reads this to show what was handled, by whom and when.",
+        "operationId": "list_field_requests_api_incidents__incident_id__field_requests_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldRequestResponse"
+                  },
+                  "title": "Response List Field Requests Api Incidents  Incident Id  Field Requests Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Create Field Request",
+        "description": "The board twin of the crew's Meldung (decision 28, R13) — taken over the radio.\n\nSame payload and the same CRUD as ``POST /feld/incidents/{id}/message``, so a\nrequest dictated by a crew without signal lands as the identical work item,\nwith provenance «im KP erfasst». Abholung is not here: it has its own twin\n(``POST /incidents/{id}/field-report``).",
+        "operationId": "create_field_request_api_incidents__incident_id__field_requests_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeldMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldRequestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/field-requests/{request_id}": {
+      "patch": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Update Field Request",
+        "description": "Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).\n\nThe one writer behind the card, the detail and the sidebar, so handling it\nin one place is handling it everywhere. «erledigt» stamps who/when and takes\nthe bell entry with it; the crew reads it on `/feld` within one poll.\n\nThe Abholung is special only in its plumbing: «erledigt» on it runs the same\n``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the\nflag the map, Restliste and PDF read and its work item stay one fact. It\ncannot be re-opened here — a new Abholung is a new request.",
+        "operationId": "update_field_request_api_incidents__incident_id__field_requests__request_id__patch",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldRequestStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldRequestResponse"
                 }
               }
             }
@@ -6069,6 +6563,244 @@
         "summary": "Restore Incident",
         "description": "Restore a soft-deleted incident (editor only).\n\nPowers the \"Rückgängig\" undo affordance. Idempotency guard: restoring an\nincident that is not deleted returns 409, so a double-click on the undo\ntoast is harmless. Unknown ID returns 404. Broadcasts an incident update so\nother boards re-show the card without a manual refresh.",
         "operationId": "restore_incident_api_incidents__incident_id__restore_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/merge": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Merge Incident Into",
+        "description": "«Zusammenführen» on a card: fold this incident into `target_id`.\n\nThe one-click answer to «mögliches Duplikat von …». Refused with 409 while\npeople or vehicles are assigned to this card — moving them is a decision,\nnot a side effect. Undo: POST /{incident_id}/unmerge.",
+        "operationId": "merge_incident_into_api_incidents__incident_id__merge_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeIntoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/unmerge": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Unmerge Incident",
+        "description": "«Trennen» / «Rückgängig»: the merged report is its own card again.\n\nIts Nachtrag leaves the target's «Notizen» only if it still stands there\nverbatim; `note_removed` says which. 409 when it is not merged (a second\nclick on the undo, or somebody else was faster).",
+        "operationId": "unmerge_incident_api_incidents__incident_id__unmerge_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnmergeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/not-duplicate": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Dismiss Duplicate",
+        "description": "«Kein Duplikat»: the card keeps standing on its own and stops asking.\n\nLocked like a merge: «Kein Duplikat» on one board and «Zusammenführen» on\nanother must not both go through on the same card.",
+        "operationId": "dismiss_duplicate_api_incidents__incident_id__not_duplicate_post",
         "parameters": [
           {
             "name": "incident_id",
@@ -13586,6 +14318,118 @@
         }
       }
     },
+    "/api/feld/duplicates": {
+      "get": {
+        "tags": [
+          "feld"
+        ],
+        "summary": "Feld Duplicate Candidates",
+        "description": "«Möglicherweise dasselbe wie …» before a Meldung is sent.\n\nNarrower than the board's lookup, because this is a login-less door (an\nunlocked, bound device token, but still a phone anybody could be holding):\n\n- a pin is REQUIRED — only cards within 50 m of it are offered, plus a\n  same-address card no further than 150 m away. No address-only lookup,\n  so the endpoint cannot be asked \"what is at Hauptstrasse 6\".\n- the answer is the minimum to decide: short label, distance, age, id.\n  No coordinates, status, Einsatzart or full address.\n- at most three cards, rate-limited like the rest of `/feld`.\n\nA Meldung sent without a pin (or «Trotzdem neu») is flagged on the board\ninstead, so the KP still sees the possible duplicate.",
+        "operationId": "feld_duplicate_candidates_api_feld_duplicates_get",
+        "parameters": [
+          {
+            "name": "personnel_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Who is reporting",
+              "title": "Personnel Id"
+            },
+            "description": "Who is reporting"
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90.0,
+                  "minimum": -90.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180.0,
+                  "minimum": -180.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Address"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the generated /feld link",
+              "title": "Token"
+            },
+            "description": "Access token from the generated /feld link"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeldDuplicateCandidatesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feld/incidents": {
       "post": {
         "tags": [
@@ -14172,7 +15016,7 @@
           "feld"
         ],
         "summary": "Report Message",
-        "description": "Freitext-Meldung an den KP — a configurable chip or a typed sentence.\n\nBecomes a `field_message` notification (how the KP sees it now) **and** an\naudit-log entry (how it survives into the Journal once somebody dismisses\nthe bell). The chips themselves are station config, not translation — see\n`feld.message_chips` in `services/settings.py`.",
+        "description": "Meldung an den KP — a configurable chip, a typed sentence, or a structured\n«Material nötig» / «Verstärkung nötig» (``kind`` + ``item`` × ``quantity``).\n\nBecomes a workable ``FieldRequest`` (card, detail, sidebar — R13), a\n`field_message` notification (how the KP hears of it now) **and** an\naudit-log entry (how it survives into the Journal). The chips themselves are\nstation config, not translation — see `feld.message_chips` in\n`services/settings.py`; the two structured requests are fixed buttons.",
         "operationId": "report_message_api_feld_incidents__incident_id__message_post",
         "parameters": [
           {
@@ -15460,6 +16304,162 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/figures": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Event Figures",
+        "description": "Kennzahlen of an event: Lage counts, Reaktionszeiten per priority (median / P90)\nand the oldest «hoch» Meldung still waiting.\n\nThe same stage times as the PDF's Reaktionszeiten table (`services/reaction_times.py`).\nIts own route rather than part of ``/stats``: the board and the wall reload it every\n10 s, and this needs two queries (incidents, their transitions), nothing else.",
+        "operationId": "get_event_figures_api_events__event_id__figures_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventFigures"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/personnel-activity": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Personnel Activity",
+        "description": "Time on duty of everybody checked in for this Ereignis — the Dienstzeiten overview.\n\nThe same rows as ``personnel_activity`` in ``/stats``, without the incident statistics\naround them: the overview asks again whenever somebody's assignment changes.",
+        "operationId": "get_personnel_activity_api_events__event_id__personnel_activity_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonnelActivity"
+                  },
+                  "title": "Response Get Personnel Activity Api Events  Event Id  Personnel Activity Get"
                 }
               }
             }
@@ -19266,6 +20266,132 @@
         }
       }
     },
+    "/api/weather/": {
+      "get": {
+        "tags": [
+          "weather"
+        ],
+        "summary": "Get Weather",
+        "description": "Radar frames + warnings for the station, as last polled. `enabled: false` when the\ndeployment switched the layer off (WEATHER_ENABLED=false).",
+        "operationId": "get_weather_api_weather__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Viewer token (wall display)",
+              "title": "Token"
+            },
+            "description": "Viewer token (wall display)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeatherOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/weather/radar/{key}.png": {
+      "get": {
+        "tags": [
+          "weather"
+        ],
+        "summary": "Get Radar Frame",
+        "description": "One radar frame as a transparent PNG in Web Mercator. Immutable: a key is a 5-minute slot.",
+        "operationId": "get_radar_frame_api_weather_radar__key__png_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "Frame not (or no longer) cached"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/intake/generate-link": {
       "post": {
         "tags": [
@@ -20067,6 +21193,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Event Id"
+          },
+          "merge_into_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Into Incident Id"
           }
         },
         "type": "object",
@@ -20074,7 +21212,7 @@
           "event_id"
         ],
         "title": "AttachEmergencyRequest",
-        "description": "Request to attach a Divera emergency to an Event."
+        "description": "Request to attach a Divera emergency to an Event.\n\n``merge_into_incident_id``: the operator answered «Zusammenführen» to the\nduplicate hint — the alarm becomes a Nachtrag on that open card instead of\na card of its own (services/duplicates.py; undoable with «Trennen»)."
       },
       "AuditLogEntry": {
         "properties": {
@@ -21751,6 +22889,123 @@
         "title": "DiveraWebhookPayload",
         "description": "Divera 24/7 webhook payload structure (actual format from Divera PRO)."
       },
+      "DuplicateCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "distance",
+              "address",
+              "both"
+            ],
+            "title": "Match"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "type",
+          "status",
+          "match",
+          "created_at"
+        ],
+        "title": "DuplicateCandidate",
+        "description": "An open incident that is probably the same Schadenplatz (services/duplicates.py)."
+      },
+      "DuplicateCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "DuplicateCandidatesResponse"
+      },
       "EffortEstimation": {
         "properties": {
           "personnel_count": {
@@ -21893,6 +23148,57 @@
         ],
         "title": "EventCreate",
         "description": "Schema for creating a new event."
+      },
+      "EventFigures": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/PriorityFigures"
+          },
+          "by_priority": {
+            "items": {
+              "$ref": "#/components/schemas/PriorityFigures"
+            },
+            "type": "array",
+            "title": "By Priority"
+          },
+          "oldest_waiting_high": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OldestWaitingFigure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "waiting",
+          "in_progress",
+          "done",
+          "overall",
+          "by_priority"
+        ],
+        "title": "EventFigures",
+        "description": "The Kennzahlen of one Ereignis: Lage counts, Reaktionszeiten per priority,\nthe oldest «hoch» Meldung still waiting for a crew.\n\n``waiting`` = not yet dispatched (Eingegangen, Reko, Reko abgeschlossen),\n``in_progress`` = Disponiert, Im Einsatz, Rückfahrt, ``done`` = Abgeschlossen."
       },
       "EventListResponse": {
         "properties": {
@@ -22738,6 +24044,14 @@
             "title": "Kp Messages",
             "default": []
           },
+          "field_requests": {
+            "items": {
+              "$ref": "#/components/schemas/FieldRequestResponse"
+            },
+            "type": "array",
+            "title": "Field Requests",
+            "default": []
+          },
           "leader_personnel_id": {
             "anyOf": [
               {
@@ -22881,6 +24195,14 @@
             "title": "Driver Message Chips",
             "default": []
           },
+          "request_materials": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Request Materials",
+            "default": []
+          },
           "reports": {
             "items": {
               "$ref": "#/components/schemas/FeldOwnReport"
@@ -22959,6 +24281,80 @@
         ],
         "title": "FeldContextResponse",
         "description": "The door's proof of place — readable with the LINK token, before the code.\n\nSomeone who scanned a poster in the rain must be able to tell they reached\nthe right brigade and the right Ereignis; the code gates the roster and the\nwork, never the name of the drill. `station_name` is the Allgemein setting\nand may be empty on an unconfigured station."
+      },
+      "FeldDuplicateCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "distance",
+              "address",
+              "both"
+            ],
+            "title": "Match"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "match",
+          "created_at"
+        ],
+        "title": "FeldDuplicateCandidate",
+        "description": "«Möglicherweise dasselbe wie …» as `/feld` gets it — the minimum to answer it.\n\nNo coordinates, no status, no Einsatzart, no full address: a login-less door\ngets the short label of the card at the spot, how far, how old, and the id\nto merge into. Nothing that would let the lookup map the board."
+      },
+      "FeldDuplicateCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/FeldDuplicateCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "FeldDuplicateCandidatesResponse"
       },
       "FeldIncidentCreate": {
         "properties": {
@@ -23072,6 +24468,18 @@
               }
             ],
             "title": "Contact Phone"
+          },
+          "merge_into_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Into Incident Id"
           }
         },
         "type": "object",
@@ -23099,6 +24507,18 @@
               "solo"
             ],
             "title": "Takeover"
+          },
+          "merged_into": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into"
           }
         },
         "type": "object",
@@ -23389,19 +24809,63 @@
       },
       "FeldMessageRequest": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "message",
+              "material",
+              "personnel"
+            ],
+            "title": "Kind",
+            "default": "message"
+          },
           "message": {
             "type": "string",
             "maxLength": 500,
-            "minLength": 1,
-            "title": "Message"
+            "title": "Message",
+            "default": ""
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 99.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           }
         },
         "type": "object",
-        "required": [
-          "message"
-        ],
         "title": "FeldMessageRequest",
-        "description": "Freitext-Meldung an den KP — a chip or a typed sentence."
+        "description": "A Meldung an den KP — a chip, a typed sentence, or a structured request (R13).\n\n``kind`` defaults to ``message``, which is the payload every existing phone\nsends: one sentence. «Material nötig» / «Verstärkung nötig» arrive as\n``material`` / ``personnel`` with ``item`` × ``quantity`` so the KP reads\n«Tauchpumpe ×2» instead of prose; ``message`` is then the optional note.\nShared by both doors — the board's twin\n(``POST /api/incidents/{id}/field-requests``) takes the same shape."
       },
       "FeldOwnReport": {
         "properties": {
@@ -23532,6 +24996,29 @@
             "type": "array",
             "title": "Vehicles",
             "default": []
+          },
+          "merged_into_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Id"
+          },
+          "merged_into_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Label"
           }
         },
         "type": "object",
@@ -23995,6 +25482,213 @@
         "type": "object",
         "title": "FieldReportUpdate",
         "description": "The KP twin's payload: set **or clear** any of the three (decision 28).\n\nEvery field is optional and the handler acts only on the ones actually\npresent (``model_fields_set``), so ``null`` means \"clear this\" and absence\nmeans \"leave it alone\". Without that distinction an operator correcting the\npickup note would silently wipe the arrival time."
+      },
+      "FieldRequestResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "message",
+              "material",
+              "personnel",
+              "pickup"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "from_field": {
+            "type": "boolean",
+            "title": "From Field",
+            "default": true
+          },
+          "notification_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Id"
+          },
+          "seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen At"
+          },
+          "in_progress_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Progress At"
+          },
+          "in_progress_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Progress By Name"
+          },
+          "done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At"
+          },
+          "done_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done By Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "incident_id",
+          "kind",
+          "status",
+          "label",
+          "created_at"
+        ],
+        "title": "FieldRequestResponse",
+        "description": "One workable request from the field (R13) — what the board and `/feld` read.\n\n``label`` is the server's German one-liner («Material: Tauchpumpe Gr. ×2»),\nthe same sentence the bell, the audit log and the PDF carry; the clients\nrender their own localised label from ``kind`` / ``item`` / ``quantity`` and\nfall back to it."
+      },
+      "FieldRequestStatusUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "expected_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "FieldRequestStatusUpdate",
+        "description": "The KP working a request: offen → in Arbeit → erledigt, or back to offen.\n\n``expected_status`` is the state the operator's screen showed; when the row\nhas moved on meanwhile (a second operator), the change is refused with 409\ninstead of overwriting what the other one did."
       },
       "FireHubOperation": {
         "properties": {
@@ -25462,6 +27156,14 @@
             ],
             "title": "Pickup Requested By"
           },
+          "field_requests": {
+            "items": {
+              "$ref": "#/components/schemas/FieldRequestResponse"
+            },
+            "type": "array",
+            "title": "Field Requests",
+            "default": []
+          },
           "leader_name": {
             "anyOf": [
               {
@@ -25483,6 +27185,18 @@
               }
             ],
             "title": "Location Display"
+          },
+          "possible_duplicate_of_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Possible Duplicate Of Id"
           },
           "from_real_alarm": {
             "type": "boolean",
@@ -25628,6 +27342,29 @@
               }
             ],
             "title": "Source"
+          },
+          "merged_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Incident Id"
+          },
+          "merge_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Active"
           }
         },
         "type": "object",
@@ -26826,6 +28563,59 @@
         "title": "MaterialUpdate",
         "description": "Schema for updating material.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /materials/{id}/archive and /restore."
       },
+      "MergeIntoRequest": {
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_id"
+        ],
+        "title": "MergeIntoRequest",
+        "description": "«Zusammenführen» on a card that already exists (the flagged duplicate)."
+      },
+      "MergeReportRequest": {
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          },
+          "incident": {
+            "$ref": "#/components/schemas/IncidentCreate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_id",
+          "incident"
+        ],
+        "title": "MergeReportRequest",
+        "description": "«Zusammenführen» before a card exists: this report goes into `target_id` as a Nachtrag."
+      },
+      "MergeResponse": {
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/IncidentResponse"
+          },
+          "merged_incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Merged Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target",
+          "merged_incident_id"
+        ],
+        "title": "MergeResponse",
+        "description": "The card the report went into, and the (now hidden) report row — the undo's handle."
+      },
       "MicrosoftAuthConfig": {
         "properties": {
           "enabled": {
@@ -26909,6 +28699,18 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params"
           },
           "incident_id": {
             "anyOf": [
@@ -27407,6 +29209,31 @@
         "title": "NotificationType",
         "description": "Notification types.\n\nMust stay in sync with the ``valid_notification_type`` CHECK constraint on\n``models.Notification`` — this enum is the response model, so a type the DB\nhappily stores but this enum does not know is not a missing bell entry: it\nis a ``ResponseValidationError`` that fails the WHOLE ``GET /notifications``\nresponse and blanks the operator's bell. That is exactly how the five\n``/feld`` types (plan 25) went missing."
       },
+      "OldestWaitingFigure": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "title",
+          "created_at"
+        ],
+        "title": "OldestWaitingFigure"
+      },
       "Personnel": {
         "properties": {
           "name": {
@@ -27575,7 +29402,7 @@
           "assignment_count"
         ],
         "title": "PersonnelActivity",
-        "description": "Personnel activity tracking for fatigue monitoring."
+        "description": "One checked-in person's time on duty (``GET /events/{id}/stats``, `api/stats.py`)."
       },
       "PersonnelCheckInResponse": {
         "properties": {
@@ -28207,6 +30034,52 @@
         "title": "PrinterStatusResponse",
         "description": "Printer status response."
       },
+      "PriorityFigures": {
+        "properties": {
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "dispatched": {
+            "$ref": "#/components/schemas/StageFigures"
+          },
+          "on_scene": {
+            "$ref": "#/components/schemas/StageFigures"
+          },
+          "closed": {
+            "$ref": "#/components/schemas/StageFigures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "priority",
+          "total",
+          "waiting",
+          "in_progress",
+          "done",
+          "dispatched",
+          "on_scene",
+          "closed"
+        ],
+        "title": "PriorityFigures",
+        "description": "Counts and reaction times for one priority (or ``all``)."
+      },
       "ProviderCapability": {
         "properties": {
           "provider": {
@@ -28376,6 +30249,120 @@
         ],
         "title": "PublicIncidentCreate",
         "description": "Lean schema for alarms created via the public token-gated intake form.\n\nIntentionally narrow: a phone operator / walk-in only provides the essentials.\nThe event comes from the token, status is forced to ``incoming`` and the\noperator-only flags (nachbarhilfe, am_warten, zu_fuss, the Auftrag, …) are set\nlater by an editor on the board. Validators mirror ``IncidentBase``.\n\nThe two free-text columns are NOT interchangeable, and the form's two text\nfields land in them the way the board reads them: ``description`` is what the\nboard labels «Meldung» — what the caller said the thing IS — and\n``internal_notes`` is «Notizen», the extra hints that came with the call.\nBefore this, the form's Meldung went into ``title``, which the board only ever\nshows as a fallback for a missing address, so the one sentence the caller\nactually gave was invisible on a card that had an address."
+      },
+      "RadarFrameOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "time"
+        ],
+        "title": "RadarFrameOut"
+      },
+      "RadarLegendStep": {
+        "properties": {
+          "min_mm_h": {
+            "type": "number",
+            "title": "Min Mm H"
+          },
+          "color": {
+            "type": "string",
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min_mm_h",
+          "color"
+        ],
+        "title": "RadarLegendStep"
+      },
+      "RadarOut": {
+        "properties": {
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/RadarFrameOut"
+            },
+            "type": "array",
+            "title": "Frames"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coordinates"
+          },
+          "data_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Time"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "stale_after_seconds": {
+            "type": "integer",
+            "title": "Stale After Seconds"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WeatherSourceStatus"
+          },
+          "legend": {
+            "items": {
+              "$ref": "#/components/schemas/RadarLegendStep"
+            },
+            "type": "array",
+            "title": "Legend"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "frames",
+          "coordinates",
+          "data_time",
+          "stale",
+          "stale_after_seconds",
+          "status",
+          "legend",
+          "attribution",
+          "source_url"
+        ],
+        "title": "RadarOut"
       },
       "RapportExtraMaterialRow": {
         "properties": {
@@ -30492,6 +32479,42 @@
         "title": "SpecialFunctionTypeResponse",
         "description": "One role a station can give somebody for an Ereignis.\n\nThe labels are columns rather than i18n keys on purpose: a station that adds\n\"Verkehrsdienst\" is naming its own role, and a name a brigade chose has no\nbusiness going through a translation round to appear on its own board. The\nroles that SHIP still read naturally in both languages because the seed\nfills both columns."
       },
+      "StageFigures": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "median_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Seconds"
+          },
+          "p90_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P90 Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "StageFigures",
+        "description": "Median and nearest-rank P90 of one stage time, over ``count`` incidents."
+      },
       "StatusTransitionCreate": {
         "properties": {
           "from_status": {
@@ -30912,6 +32935,34 @@
         ],
         "title": "TransferAssignmentsResponse",
         "description": "Response from assignment transfer operation."
+      },
+      "UnmergeResponse": {
+        "properties": {
+          "restored": {
+            "$ref": "#/components/schemas/IncidentResponse"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note_removed": {
+            "type": "boolean",
+            "title": "Note Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "restored",
+          "note_removed"
+        ],
+        "title": "UnmergeResponse",
+        "description": "«Trennen»: the report is its own card again.\n\n``note_removed`` is False when the Nachtrag had been edited since the merge\nand therefore stays in the target's «Notizen» as the operator left it."
       },
       "User": {
         "properties": {
@@ -31585,6 +33636,295 @@
         "type": "object",
         "title": "VehicleUpdate",
         "description": "Schema for updating vehicle.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins. `archived_at` is not settable\nhere — archiving goes through POST /vehicles/{id}/archive and /restore."
+      },
+      "WarningText": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "title": "Event"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "instructions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Instructions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event",
+          "headline",
+          "description",
+          "instructions"
+        ],
+        "title": "WarningText",
+        "description": "Verbatim from the source – the board must not reword an official warning."
+      },
+      "WarningsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WeatherWarningOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WeatherSourceStatus"
+            },
+            "type": "object",
+            "title": "Sources"
+          },
+          "stale_after_seconds": {
+            "type": "integer",
+            "title": "Stale After Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "sources",
+          "stale_after_seconds"
+        ],
+        "title": "WarningsOut"
+      },
+      "WeatherOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "station_configured": {
+            "type": "boolean",
+            "title": "Station Configured",
+            "default": false
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "radar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadarOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WarningsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "WeatherOut"
+      },
+      "WeatherSourceStatus": {
+        "properties": {
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale"
+          }
+        },
+        "type": "object",
+        "title": "WeatherSourceStatus"
+      },
+      "WeatherWarningOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "sent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent"
+          },
+          "onset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onset"
+          },
+          "expires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "region": {
+            "type": "string",
+            "title": "Region"
+          },
+          "texts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WarningText"
+            },
+            "type": "object",
+            "title": "Texts"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "level",
+          "sender",
+          "region",
+          "texts"
+        ],
+        "title": "WeatherWarningOut"
       },
       "WsTokenResponse": {
         "properties": {

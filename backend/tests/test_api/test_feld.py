@@ -1314,8 +1314,10 @@ class TestMessageChips:
         assert response.status_code == 200
         chips = response.json()["message_chips"]
         # Station config, not i18n (decision 20).
-        assert "Verstärkung nötig" in chips
+        assert "fertig in ~30 Min" in chips
         assert "" not in chips
+        # «Verstärkung nötig» / «Material nötig» are structured buttons since R13.
+        assert "Verstärkung nötig" not in chips
 
 
 class TestRapport:

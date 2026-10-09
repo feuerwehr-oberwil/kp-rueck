@@ -34,6 +34,10 @@ import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
 import { LoadingStatus } from "@/components/ui/shell-loader"
+import { EventFiguresView } from "@/components/event-figures"
+import { useEvent } from "@/lib/contexts/event-context"
+import { useEventFigures } from "@/lib/hooks/use-event-figures"
+import type { ApiEventFigures } from "@/lib/api-client"
 
 const STATUS_ORDER = ["incoming", "reko", "reko_done", "enroute", "active", "returning"]
 
@@ -92,7 +96,10 @@ export default function DisplayStatusPage() {
 /** Authenticated display: view-model straight from the live contexts. */
 function AuthStatusView() {
   const data = useStatusData()
-  return <SituationBoard {...data} />
+  const { selectedEvent } = useEvent()
+  // Unattended wall: keep polling while hidden, like every other /display loop.
+  const { figures } = useEventFigures(selectedEvent?.id, { pauseWhenHidden: false })
+  return <SituationBoard {...data} figures={figures} />
 }
 
 /** Token/read-only display: view-model polled from the share token payload. */
@@ -139,7 +146,7 @@ function TokenStatusView({ token }: { token: string }) {
     <div className="flex h-full flex-col">
       <DisplayStaleBanner lastRefresh={lastRefresh} />
       <div className="min-h-0 flex-1">
-        <SituationBoard {...data} detailGroups={detailGroups} viewerToken={token} />
+        <SituationBoard {...data} detailGroups={detailGroups} viewerToken={token} figures={payload?.figures ?? null} />
       </div>
     </div>
   )
@@ -153,7 +160,10 @@ function SituationBoard({
   materials: allMaterials,
   detailGroups,
   viewerToken,
+  figures,
 }: SituationData & {
+  /** Kennzahlen of the Ereignis (counts + Reaktionszeiten); null while loading. */
+  figures?: ApiEventFigures | null
   /** Token mode only: payload-derived Aufträge for the detail dialog. */
   detailGroups?: IncidentGroup[]
   /** Token mode only: the share token, which the Reko photos need to load. */
@@ -161,6 +171,7 @@ function SituationBoard({
 }) {
   const t = useTranslations('display.status')
   const tk = useTranslations('kanban')
+  const tFigures = useTranslations('events.figures')
 
   // The top bar's search narrows all four panels at once: incidents through the
   // board's own predicate, and people, vehicles and material by the names one
@@ -408,6 +419,37 @@ function SituationBoard({
           {/* Aufträge first — the grouping the radio talks in. Each route names
               its stops in the order they are driven, so «Stopp 2 von 3» is
               readable from across the room without opening anything. */}
+          {/* Kennzahlen first: the Lage in four numbers and the Reaktionszeiten,
+              folded like every other section (search does not narrow them —
+              they describe the whole Ereignis). */}
+          {figures && figures.total > 0 && (
+            <CollapsibleSection
+              label={t('figures')}
+              count={figures.total}
+              badge={
+                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                  {tFigures('wallBadge', {
+                    waiting: figures.waiting,
+                    high: figures.by_priority.find((p) => p.priority === "high")?.waiting ?? 0,
+                  })}
+                </span>
+              }
+              alarm={!!figures.oldest_waiting_high && ageLevel(new Date(figures.oldest_waiting_high.created_at)) !== "normal"}
+              collapsed={sections.isCollapsed("figures")}
+              onToggle={() => sections.toggle("figures")}
+              headerClassName="bg-muted/40"
+            >
+              <EventFiguresView
+                figures={figures}
+                density="wall"
+                incidentLabel={(id) => {
+                  const op = allOperations.find((o) => o.id === id)
+                  return op ? incidentLocationLabel(op) : undefined
+                }}
+                onOpenIncident={(id) => setSelectedOperationId(id)}
+              />
+            </CollapsibleSection>
+          )}
           {auftraege.map(({ group, stops }) => (
             <CollapsibleSection
               key={group.id}

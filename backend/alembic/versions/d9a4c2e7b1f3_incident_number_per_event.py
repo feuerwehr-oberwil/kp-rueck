@@ -1,7 +1,7 @@
 """incidents: a number per Ereignis («14»), assigned by the database
 
 Revision ID: d9a4c2e7b1f3
-Revises: c4e8a2f61d97
+Revises: d2a9e6f41c83
 Create Date: 2026-10-08 00:00:00.000000
 
 An incident had no handle shorter than its address. ⌘K now takes «14 tlf meier»
@@ -26,7 +26,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d9a4c2e7b1f3"
-down_revision: str | Sequence[str] | None = "c4e8a2f61d97"
+down_revision: str | Sequence[str] | None = "d2a9e6f41c83"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

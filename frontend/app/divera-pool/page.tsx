@@ -8,7 +8,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useEvent } from '@/lib/contexts/event-context';
-import { apiClient, type ApiDiveraEmergency, type ApiEvent } from '@/lib/api-client';
+import { apiClient, ApiError, type ApiDiveraEmergency, type ApiDuplicateCandidate, type ApiEvent } from '@/lib/api-client';
+import { useDuplicateCandidates } from '@/lib/hooks/use-duplicate-candidates';
+import { DuplicateHint } from '@/components/duplicates/duplicate-hint';
 import { wsClient } from '@/lib/websocket-client';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
@@ -40,6 +42,7 @@ import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
 export default function DiveraPoolPage() {
   const t = useTranslations('divera.pool');
+  const tDuplicates = useTranslations('duplicates');
   const { isAuthenticated, isEditor } = useAuth();
   const { selectedEvent: currentEvent } = useEvent();
   const [emergencies, setEmergencies] = useState<ApiDiveraEmergency[]>([]);
@@ -161,6 +164,53 @@ export default function DiveraPoolPage() {
   ).length;
   const selectedAttachEvent = attachableEvents.find((e) => e.id === selectedEventId);
   const realAlarmIntoTraining = !!selectedAttachEvent?.training_flag && realAlarmCount > 0;
+
+  // «Möglicherweise dasselbe wie …» (R2) — asked for a SINGLE alarm going onto
+  // a chosen Ereignis. A bulk attach is not asked about each of up to 100
+  // alarms: the server flags those cards instead, and the board answers.
+  const singleEmergency =
+    selectedEmergencies.size === 1
+      ? emergencies.find((e) => selectedEmergencies.has(e.id)) ?? null
+      : null;
+  const singleLat = singleEmergency?.latitude ? Number(singleEmergency.latitude) : null;
+  const singleLng = singleEmergency?.longitude ? Number(singleEmergency.longitude) : null;
+  const duplicateLookup =
+    showAttachDialog && singleEmergency && selectedEventId && isEditor
+      ? { eventId: selectedEventId, lat: singleLat, lng: singleLng, address: singleEmergency.address }
+      : null;
+  const { candidates: duplicateCandidates, key: duplicateKey } = useDuplicateCandidates(duplicateLookup, (q) =>
+    apiClient.getDuplicateCandidates({ eventId: q.eventId!, lat: q.lat, lng: q.lng, address: q.address }),
+  );
+  const [dismissedDuplicateKey, setDismissedDuplicateKey] = useState<string | null>(null);
+  const [mergingId, setMergingId] = useState<string | null>(null);
+  const shownDuplicates =
+    duplicateKey !== null && duplicateKey !== dismissedDuplicateKey ? duplicateCandidates : [];
+
+  const handleMergeAttach = async (candidate: ApiDuplicateCandidate) => {
+    if (!singleEmergency || !selectedEventId) return;
+    setMergingId(candidate.id);
+    try {
+      await apiClient.attachEmergencyToEvent(singleEmergency.id, selectedEventId, candidate.id);
+      toast.success(t('attachedSuccess'), {
+        description: tDuplicates('mergedTitle', { label: candidate.location_display || candidate.title }),
+      });
+      setShowAttachDialog(false);
+      setSelectedEmergencies(new Set());
+      setSelectedEventId('');
+      await loadData();
+    } catch (error) {
+      console.error('Failed to merge emergency:', error);
+      // Other HTTP failures were already toasted by the transport; a refusal
+      // (409) carries the server's sentence.
+      if (!(error instanceof ApiError) || ApiError.isConflictError(error)) {
+        toast.error(tDuplicates('mergeFailed'), {
+          description: error instanceof ApiError ? error.message : undefined,
+        });
+      }
+    } finally {
+      setMergingId(null);
+    }
+  };
 
   const handleAttachClick = () => {
     if (selectedEmergencies.size === 0) return;
@@ -423,7 +473,8 @@ export default function DiveraPoolPage() {
 
       {/* Attach Dialog */}
       <Dialog open={showAttachDialog} onOpenChange={setShowAttachDialog}>
-        <DialogContent className="sm:max-w-md">
+        {/* Wider while the duplicate hint is up: its sketch needs the room. */}
+        <DialogContent className={shownDuplicates.length > 0 ? 'sm:max-w-xl' : 'sm:max-w-md'}>
           <DialogHeader>
             <DialogTitle>{t('attachDialogTitle')}</DialogTitle>
             <DialogDescription>
@@ -459,6 +510,14 @@ export default function DiveraPoolPage() {
                 {t('trainingOnlyHint')}
               </p>
             )}
+            <DuplicateHint
+              candidates={shownDuplicates}
+              origin={singleLat !== null && singleLng !== null ? { lat: singleLat, lng: singleLng } : null}
+              onMerge={handleMergeAttach}
+              onDismiss={() => setDismissedDuplicateKey(duplicateKey)}
+              mergingId={mergingId}
+              className="mt-3"
+            />
             {realAlarmIntoTraining && (
               <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-warning-foreground">

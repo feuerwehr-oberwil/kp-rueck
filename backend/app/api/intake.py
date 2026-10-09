@@ -36,7 +36,7 @@ from ..crud import incidents as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.incidents import IncidentBase, IncidentPriority, IncidentType
-from ..services import incident_display
+from ..services import duplicates, incident_display
 from ..services.audit import log_action
 from ..services.tokens import (
     generate_alarm_token,
@@ -159,6 +159,14 @@ async def create_intake_alarm(
         incident=incident,
         request=request,
     )
+
+    # The caller is nobody the board knows, so they are never shown the other
+    # cards (a public token must not become a way to probe the board) and
+    # nothing is merged on their word. The card is flagged instead, and the KP
+    # merges with one click if it is the same Schadenplatz.
+    if await duplicates.flag_possible_duplicate(db, new_incident):
+        await db.commit()
+        await db.refresh(new_incident)
 
     # Trigger immediate sync in background (event-based sync)
     background_tasks.add_task(trigger_sync_background)
