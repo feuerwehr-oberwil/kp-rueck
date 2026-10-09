@@ -64,9 +64,10 @@ That is personal data, so KP Rück keeps as little of it as the board needs:
 - **Deleted:** 48 hours after the alarm reached KP Rück, and as soon as its Ereignis is archived
   (an hourly job, every poll, and the archive action itself). After that the answers are never
   stored again, even though Divera keeps listing the alarm.
-- **Shown:** only on the Ereignis the alarm is attached to, and only for alarms of the last
-  6 hours, to anybody logged in who can see the roster. Answers from members not on the roster
-  are a number only.
+- **Shown:** only to editors and admins – the people who check others in – and the viewer role
+  gets a 403 from the endpoint and no block at all. Only on the Ereignis the alarm is attached
+  to, and only for alarms of the last 6 hours. Answers from members not on the roster are a
+  number only.
 - **Never:** a Divera answer never checks anybody in, and the Divera access key never appears in
   an API answer or a log line.
 

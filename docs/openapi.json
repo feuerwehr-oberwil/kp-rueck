@@ -2974,7 +2974,7 @@
           "divera"
         ],
         "summary": "Get Event Divera Responses",
-        "description": "Who answered «kommt» / «kommt nicht» on the Divera alarms of this Ereignis, merged.\n\nWhat the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that\nreads the roster. Read-only: an answer never checks anybody in. `available: false` when\nDivera is not configured or no alarm of this Ereignis came from Divera.",
+        "description": "Who answered «kommt» / «kommt nicht» on the Divera alarms of this Ereignis, merged.\n\nWhat the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that\nmay check people in (editor, admin) – same as KP Front; a viewer gets 403. Read-only: an\nanswer never checks anybody in. `available: false` when\nDivera is not configured or no alarm of this Ereignis came from Divera.",
         "operationId": "get_event_divera_responses_api_divera_events__event_id__responses_get",
         "parameters": [
           {
@@ -3050,7 +3050,7 @@
           "divera"
         ],
         "summary": "Get Incident Divera Responses",
-        "description": "Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).",
+        "description": "Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).\n\nEditors and admins only, like the Ereignis endpoint; a viewer gets 403.",
         "operationId": "get_incident_divera_responses_api_divera_incidents__incident_id__responses_get",
         "parameters": [
           {

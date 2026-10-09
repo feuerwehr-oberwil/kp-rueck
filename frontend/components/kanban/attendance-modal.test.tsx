@@ -250,10 +250,12 @@ describe('AttendanceModal · Divera «Anrückend»', () => {
     expect(screen.getByRole('button', { name: 'Keller Lea als anwesend melden' })).toBeEnabled()
   })
 
-  it('offers no check-in to a viewer', async () => {
+  it('is neither fetched nor rendered for a viewer (the endpoint is editor-only)', async () => {
+    getEventDiveraResponses.mockClear()
     renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
-    await screen.findByTestId('divera-incoming')
-    expect(screen.queryByRole('button', { name: /als anwesend melden/ })).not.toBeInTheDocument()
+    expect(await screen.findByText('1 anwesend · 1 gegangen · 3 Mannschaft')).toBeInTheDocument()
+    expect(screen.queryByTestId('divera-incoming')).not.toBeInTheDocument()
+    expect(getEventDiveraResponses).not.toHaveBeenCalled()
   })
 
   it('is simply absent when nothing recent here came from Divera', async () => {

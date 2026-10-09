@@ -3,7 +3,8 @@
 /**
  * «Anrückend» — who answered «kommt» / «kommt nicht» on the Divera alarm and has not arrived.
  *
- * Shown in the Appell and at the top of the Personen-Leiste. Self-contained: it reads
+ * Shown in the Appell and at the top of the Personen-Leiste, to editors and admins only (the
+ * endpoint answers a viewer 403; the block does not even ask). Self-contained: it reads
  * `GET /api/divera/events/{id}/responses` while it is on screen and renders NOTHING when
  * Divera is not configured or nothing recent on this Ereignis came from Divera.
  *
@@ -34,7 +35,8 @@ interface DiveraIncomingBlockProps {
   /** Personnel with an attendance record (in, or in and out again) as this surface knows it
    *  right now; they are not «anrückend» any more. The backend's `attended` covers the rest. */
   attendedIds: ReadonlySet<string>
-  /** Editors only; a viewer sees the list without the button. */
+  /** Editors and admins. The endpoint is editor-only (as in KP Front), so without this the
+   *  block is neither fetched nor rendered — a viewer never sees who is coming. */
   canCheckIn: boolean
   /** The surface's own check-in (it keeps its optimistic state and refreshes the roster). */
   onCheckIn: (personnelId: string) => Promise<void>
@@ -50,10 +52,10 @@ export function DiveraIncomingBlock({
   className,
 }: DiveraIncomingBlockProps) {
   const t = useTranslations('kanban.diveraIncoming')
-  const summary = useDiveraResponses(eventId, enabled)
+  const summary = useDiveraResponses(eventId, enabled && canCheckIn)
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
 
-  if (!showsIncoming(summary)) return null
+  if (!canCheckIn || !showsIncoming(summary)) return null
 
   const groups = groupIncoming(summary, attendedIds)
 

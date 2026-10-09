@@ -76,12 +76,12 @@ async def _alarm(db: AsyncSession, event: Event, incident: Incident | None, dive
 
 
 async def test_event_summary_merges_maps_and_counts(
-    viewer_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
 ):
     people = await _roster(db_session)
     await _alarm(db_session, test_event, test_incident, 4711, ALARMS["data"]["items"]["4711"])
 
-    response = await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")
+    response = await editor_client.get(f"/api/divera/events/{test_event.id}/responses")
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["available"] is True
@@ -132,46 +132,46 @@ async def test_storing_the_same_snapshot_again_is_no_change(
     assert incidents == {test_incident.id}
 
 
-async def test_not_configured_is_absent(viewer_client: AsyncClient, test_event: Event, monkeypatch):
+async def test_not_configured_is_absent(editor_client: AsyncClient, test_event: Event, monkeypatch):
     monkeypatch.setattr(settings, "divera_access_key", "")
-    body = (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     assert body["available"] is False
     assert body["reason"] == "not_configured"
     assert body["people"] == []
 
 
 async def test_not_divera_linked_is_absent(
-    viewer_client: AsyncClient, test_event: Event, test_incident: Incident, divera_configured
+    editor_client: AsyncClient, test_event: Event, test_incident: Incident, divera_configured
 ):
-    body = (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     assert (body["available"], body["reason"]) == (False, "not_linked")
-    body = (await viewer_client.get(f"/api/divera/incidents/{test_incident.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/incidents/{test_incident.id}/responses")).json()
     assert (body["available"], body["reason"]) == (False, "not_linked")
 
 
 async def test_a_linked_alarm_without_any_response_data_is_absent(
-    viewer_client: AsyncClient, db_session: AsyncSession, test_event: Event, divera_configured
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, divera_configured
 ):
     """A unit key whose /alarms carries no ucr_* fields must not leave an empty block forever."""
     db_session.add(DiveraEmergency(id=uuid4(), divera_id=5000, title="Alarm", attached_to_event_id=test_event.id))
     await db_session.commit()
-    body = (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     assert (body["available"], body["reason"]) == (False, "no_data")
 
 
 async def test_a_linked_alarm_nobody_answered_yet_is_available_and_empty(
-    viewer_client: AsyncClient, db_session: AsyncSession, test_event: Event, divera_configured
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, divera_configured
 ):
     item = {"id": 5001, "date": 1791478800, "ucr_addressed": [101, 102], "ucr_answered": [], "ucr_read": []}
     await _alarm(db_session, test_event, None, 5001, item)
-    body = (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     assert body["available"] is True
     assert body["counts"] == {"coming": 0, "not_coming": 0}
     assert body["people"] == []
 
 
 async def test_alarms_older_than_six_hours_age_out(
-    viewer_client: AsyncClient,
+    editor_client: AsyncClient,
     db_session: AsyncSession,
     test_event: Event,
     test_incident: Incident,
@@ -181,14 +181,14 @@ async def test_alarms_older_than_six_hours_age_out(
     await _roster(db_session)
     await _alarm(db_session, test_event, test_incident, 4711, ALARMS["data"]["items"]["4711"])
     clock[0] = ALARM_TIME + timedelta(hours=5, minutes=59)
-    assert (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()["available"] is True
+    assert (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()["available"] is True
     clock[0] = ALARM_TIME + timedelta(hours=6, minutes=1)
-    body = (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     assert (body["available"], body["reason"]) == (False, "no_data")
 
 
 async def test_checked_out_people_stay_flagged_as_attended(
-    viewer_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
 ):
     people = await _roster(db_session)
     await _alarm(db_session, test_event, test_incident, 4711, ALARMS["data"]["items"]["4711"])
@@ -204,7 +204,7 @@ async def test_checked_out_people_stay_flagged_as_attended(
         )
     )
     await db_session.commit()
-    body = (await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     attended = {p["personnel_id"]: p["attended"] for p in body["people"]}
     assert attended[str(people[101].id)] is True  # went home: not «anrückend» again
     assert attended[str(people[103].id)] is False
@@ -275,10 +275,25 @@ async def test_attaching_an_alarm_tells_the_board(
     assert incidents == {UUID(response.json()["id"])}
 
 
-async def test_unknown_event_and_incident_are_404(viewer_client: AsyncClient, divera_configured):
-    assert (await viewer_client.get(f"/api/divera/events/{uuid4()}/responses")).status_code == 404
-    assert (await viewer_client.get(f"/api/divera/incidents/{uuid4()}/responses")).status_code == 404
+async def test_unknown_event_and_incident_are_404(editor_client: AsyncClient, divera_configured):
+    assert (await editor_client.get(f"/api/divera/events/{uuid4()}/responses")).status_code == 404
+    assert (await editor_client.get(f"/api/divera/incidents/{uuid4()}/responses")).status_code == 404
 
 
 async def test_anonymous_is_refused(client: AsyncClient, test_event: Event, divera_configured):
     assert (await client.get(f"/api/divera/events/{test_event.id}/responses")).status_code == 401
+
+
+async def test_a_viewer_gets_403_on_both_endpoints(
+    viewer_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
+):
+    """Editors and admins only, as in KP Front: who is coming is for whoever checks people in."""
+    await _roster(db_session)
+    await _alarm(db_session, test_event, test_incident, 4711, ALARMS["data"]["items"]["4711"])
+    for path in (
+        f"/api/divera/events/{test_event.id}/responses",
+        f"/api/divera/incidents/{test_incident.id}/responses",
+    ):
+        response = await viewer_client.get(path)
+        assert response.status_code == 403, path
+        assert "Muster" not in response.text

@@ -43,8 +43,8 @@ will keep holding.
   read from their names; a station whose names are unusual sets `divera.response_classification`
   (see `docs/ALARM-INTEGRATIONS.md`). Only alarms of the last 6 hours count, the newer alarm
   wins per person, and anybody who already checked in on the Ereignis – or checked in and went
-  home – stays out of the list. Stored is only who said yes or no (no times, notes or Divera
-  ids), deleted 48 hours after the alarm and when the Ereignis is archived (`PRIVACY.md`). No new
+  home – stays out of the list. Editors and admins see it; the viewer role does not. Stored is
+  only who said yes or no (no times, notes or Divera ids), deleted 48 hours after the alarm and when the Ereignis is archived (`PRIVACY.md`). No new
   Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`, at most
   once every 6 h or when an answer uses a status not seen before. Migration: two nullable columns
   on `divera_emergencies`.

@@ -280,7 +280,8 @@ den Check-in-Link.
   wird er 48 h nach dem Eingang des Alarms und sobald das Ereignis archiviert ist (stündlich,
   bei jedem Poll und beim Archivieren) – und danach nie wieder gespeichert. Details in
   `PRIVACY.md`.
-- **Endpunkte** (angemeldet, jede Rolle, die die Mannschaft sieht):
+- **Endpunkte** (nur Bearbeiter und Administratoren – wie in KP Front; die Rolle «Betrachter»
+  bekommt 403, und die Oberfläche fragt für sie gar nicht erst):
   `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt)
   und `GET /api/divera/incidents/{id}/responses`: `counts` (`coming`, `not_coming`, Unverknüpfte
   eingerechnet), `people` (`personnel_id`, `name`, `role`, `tags`, `kind`, `attended`) und

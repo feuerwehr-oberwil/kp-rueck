@@ -1084,13 +1084,14 @@ async def _responses_summary(
 @router.get("/events/{event_id}/responses", response_model=schemas.DiveraResponsesSummary)
 async def get_event_divera_responses(
     event_id: UUID,
-    current_user: CurrentUser,
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.DiveraResponsesSummary:
     """Who answered «kommt» / «kommt nicht» on the Divera alarms of this Ereignis, merged.
 
     What the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that
-    reads the roster. Read-only: an answer never checks anybody in. `available: false` when
+    may check people in (editor, admin) – same as KP Front; a viewer gets 403. Read-only: an
+    answer never checks anybody in. `available: false` when
     Divera is not configured or no alarm of this Ereignis came from Divera.
     """
     if await events_crud.get_event_by_id(db, event_id) is None:
@@ -1104,10 +1105,13 @@ async def get_event_divera_responses(
 @router.get("/incidents/{incident_id}/responses", response_model=schemas.DiveraResponsesSummary)
 async def get_incident_divera_responses(
     incident_id: UUID,
-    current_user: CurrentUser,
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.DiveraResponsesSummary:
-    """Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one)."""
+    """Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).
+
+    Editors and admins only, like the Ereignis endpoint; a viewer gets 403.
+    """
     incident = await incidents_crud.get_incident(db, incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
