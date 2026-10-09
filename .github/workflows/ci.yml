@@ -52,10 +52,9 @@ name: CI
 #         restored one of these?" — the same reasoning as shared-files. It runs Postgres 17
 #         (production), not the 16 that docker-compose.yml pins.
 #
-# ON PROBATION, NOT REQUIRED YET (added 2026-10-09):
-#   visual – screenshot regression on nine frozen states (docs/VISUAL_TESTS.md). It blocks
-#         nothing until it has been green on every run for a couple of weeks; then it goes into
-#         branch protection like e2e-smoke did. A red one means the screen changed: read the
+# REQUIRED SINCE 2026-10-10 (added 2026-10-09, owner made it required early):
+#   visual – screenshot regression on nine frozen states (docs/VISUAL_TESTS.md). A red one
+#         blocks the merge and means the screen changed: read the
 #         diff, and accept a deliberate change by regenerating the baselines on CI
 #         (visual-baselines.yml) — never to turn the check green.
 #
@@ -756,8 +755,7 @@ jobs:
   # frontend/tests/visual/__screenshots__/. It exists because a merged visual pass can be lost
   # in a later rebuild without a single test noticing.
   #
-  # NOT in the required list yet: same probation e2e-smoke had — make it required once it has
-  # been green on every run for a couple of weeks. A red result here means «the screen changed»:
+  # Required check since 2026-10-10. A red result here means «the screen changed»:
   # look at the diff (artifact `visual-diff`, the table in the job summary). If the change is
   # deliberate, regenerate the baselines with visual-baselines.yml and commit them on their own
   # — never to turn this check green.

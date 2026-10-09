@@ -1,7 +1,7 @@
 # Visual regression tests
 
-**Status:** 🟢 running in CI on every pull request (job `visual`), on probation — not a
-required check yet
+**Status:** 🟢 running in CI on every pull request (job `visual`), a required check since
+2026-10-10 (owner decision)
 **Audience:** anyone who changes how KP Rück looks, and anyone who sees the `visual` check red
 
 A unit test cannot see that the board lost its column colours, that a merged design pass
