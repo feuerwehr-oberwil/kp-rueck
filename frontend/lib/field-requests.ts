@@ -20,7 +20,10 @@ export function isOpenRequest(request: Pick<ApiFieldRequest, 'status'>): boolean
 }
 
 /** «Material: Tauchpumpe Gr. ×2 – Notiz» in the reader's language. */
-export function fieldRequestLabel(request: ApiFieldRequest, t: RequestTranslator): string {
+export function fieldRequestLabel(
+  request: Pick<ApiFieldRequest, 'kind' | 'item' | 'quantity' | 'text' | 'label'>,
+  t: RequestTranslator,
+): string {
   const note = (request.text ?? '').trim()
   const item = (request.item ?? '').trim()
   const quantity = request.quantity ?? null

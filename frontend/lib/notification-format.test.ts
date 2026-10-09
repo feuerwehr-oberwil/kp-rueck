@@ -50,6 +50,34 @@ describe('notificationParts — /feld', () => {
     })
   })
 
+  it('field_message: a structured request (R13) reads as its one line, in the operator’s language', () => {
+    const row = {
+      type: 'field_message',
+      params: {
+        place: 'Hauptstrasse 1',
+        text: 'Material: Tauchpumpe Gr. ×2 – in den Keller',
+        request_kind: 'material',
+        item: 'Tauchpumpe Gr.',
+        quantity: 2,
+        note: 'in den Keller',
+        actor_kind: 'field',
+        actor_name: 'Muster Hans',
+      },
+    }
+    expect(parts(row)).toEqual({
+      what: 'Material: Tauchpumpe Gr. ×2 – in den Keller', where: 'Hauptstrasse 1', who: 'Muster Hans', source: 'feld',
+    })
+    // The item and the note are the crew's words; «Material» and the count are the operator's.
+    expect(parts(row, fr).what).toBe('Matériel : Tauchpumpe Gr. ×2 – in den Keller')
+    const people = { ...row, params: { ...row.params, text: 'Verstärkung: 3 Personen', request_kind: 'personnel', item: null, quantity: 3, note: null } }
+    expect(parts(people).what).toBe('Verstärkung: 3 Personen')
+    expect(parts(people, fr).what).toBe('Renfort : 3 personnes')
+    // A plain Meldung (request_kind «message», or a row from before the facts) is its text.
+    expect(parts({ ...row, params: { ...row.params, request_kind: 'message' } }).what).toBe(row.params.text)
+    const { request_kind: _kind, item: _item, quantity: _quantity, note: _note, ...older } = row.params
+    expect(parts({ ...row, params: older }, fr).what).toBe(row.params.text)
+  })
+
   it('field_report: a new Schadenplatz, plain and taken over', () => {
     const plain = { type: 'field_report', params: { place: 'Hauptstrasse 41', by: 'Fabio Wyss', direct: false } }
     expect(parts(plain)).toEqual({ what: 'Neuer Schadenplatz', where: 'Hauptstrasse 41', who: 'Fabio Wyss', source: 'feld' })

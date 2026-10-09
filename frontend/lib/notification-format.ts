@@ -20,6 +20,7 @@
  * never a sentence guessed back out of prose.
  */
 import { formatDuration } from '@/lib/duration'
+import { fieldRequestLabel } from '@/lib/field-requests'
 import type { Notification, NotificationType } from '@/lib/types/notification'
 
 /** Who or what the notification comes from — drawn as the leading glyph. */
@@ -121,14 +122,27 @@ function withMove(what: string, params: Params, t: NotificationTranslator): stri
   return t(`${M}.movedTo`, { what, column: label(t, `kanban.columns.${movedTo}`, movedTo) })
 }
 
+/** A `field_message`'s «what»: the text, or a structured request's label in the reader's language. */
+function fieldMessageWhat(params: Params, t: NotificationTranslator): string {
+  const text = str(params, 'text')
+  const kind = optStr(params, 'request_kind')
+  if (kind !== 'material' && kind !== 'personnel' && kind !== 'pickup') return text
+  const quantity = typeof params.quantity === 'number' ? params.quantity : null
+  return fieldRequestLabel(
+    { kind, item: optStr(params, 'item') ?? null, quantity, text: optStr(params, 'note') ?? null, label: text },
+    (key, values) => t(`feld.requests.${key}`, values),
+  )
+}
+
 type Built = Omit<NotificationParts, 'source'>
 
 /** One builder per type. `undefined` = this type/variant is not known here → the German sentence. */
 function build(type: string, p: Params, t: NotificationTranslator): Built | undefined {
   switch (type) {
     case 'field_message':
-      // The crew's own words are the point.
-      return { what: str(p, 'text'), where: optStr(p, 'place'), who: actorLabel(p, t) }
+      // The crew's own words are the point – or, for a structured request (R13), its
+      // one line («Material: Tauchpumpe Gr. ×2 – Notiz») worded the way the card words it.
+      return { what: fieldMessageWhat(p, t), where: optStr(p, 'place'), who: actorLabel(p, t) }
 
     case 'field_report':
       return {

@@ -244,11 +244,39 @@ def field_pickup(place: str, kind: str, name: str | None, *, needed: bool, note:
     )
 
 
-def field_message(place: str, kind: str, name: str | None, text: str) -> Built:
-    """The crew's own words are the point; the rest is where and who."""
+def field_message(
+    place: str,
+    kind: str,
+    name: str | None,
+    text: str,
+    *,
+    request_kind: str = "message",
+    item: str | None = None,
+    quantity: int | None = None,
+    note: str | None = None,
+) -> Built:
+    """The crew's own words are the point; the rest is where and who.
+
+    A structured request (R13: ``request_kind`` ``material`` / ``personnel`` / ``pickup``)
+    also carries its facts – ``item``, ``quantity`` and the crew's ``note`` – so the bell
+    words «Material: Tauchpumpe Gr. ×2» in the operator's language; ``text`` is then the
+    German one-line label (``models.field_request_label``), what an older client shows.
+    """
     who = name if kind == "field" else _ACTOR_DE[kind]
     message = f"Meldung vom Feld ({who}) – {place}: {text}" if who else f"Meldung vom Feld: {text}"
-    return (message, {"place": place, "text": text, **actor_params(kind, name)})
+    structured = request_kind != "message"
+    return (
+        message,
+        {
+            "place": place,
+            "text": text,
+            "request_kind": request_kind,
+            "item": (item or None) if structured else None,
+            "quantity": quantity if structured else None,
+            "note": (note or None) if structured else None,
+            **actor_params(kind, name),
+        },
+    )
 
 
 def rapport_submitted(place: str, kind: str, name: str | None) -> Built:

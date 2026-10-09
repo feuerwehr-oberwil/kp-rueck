@@ -593,7 +593,14 @@ async def create_field_request(
     notification: Notification | None = None
     if incident.event_id:
         message_text, params = texts.field_message(
-            await _location(db, incident), actor.kind, actor.personnel_name, text
+            await _location(db, incident),
+            actor.kind,
+            actor.personnel_name,
+            text,
+            request_kind=kind,
+            item=work_item.item,
+            quantity=work_item.quantity,
+            note=work_item.text,
         )
         notification = await create_field_notification(
             db,

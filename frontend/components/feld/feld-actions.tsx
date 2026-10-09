@@ -241,25 +241,7 @@ export function FeldActions({
       client_request_id: randomUuid(),
     }
     const label = fieldRequestLabel(
-      {
-        id: '',
-        incident_id: assignment.incident_id,
-        kind,
-        status: 'open',
-        text: payload.message || null,
-        item: payload.item ?? null,
-        quantity: askQuantity,
-        label: '',
-        created_at: new Date().toISOString(),
-        created_by_name: null,
-        from_field: true,
-        notification_id: null,
-        seen_at: null,
-        in_progress_at: null,
-        in_progress_by_name: null,
-        done_at: null,
-        done_by_name: null,
-      },
+      { kind, text: payload.message || null, item: payload.item ?? null, quantity: askQuantity, label: '' },
       tRequest,
     )
     // Built once per tap; «Nochmals senden» repeats exactly this request.
