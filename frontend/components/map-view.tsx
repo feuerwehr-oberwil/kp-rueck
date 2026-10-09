@@ -1523,7 +1523,8 @@ export default function MapView({
                     <>
                       <span style={{ fontSize: '11px', fontWeight: 600 }}>
                         {incidentNumber != null && <span style={MAP_INCIDENT_NUMBER}>{incidentNumber}</span>}
-                        {shortAddress}
+                        {/* Its own element: the address is what a label is found by. */}
+                        <span>{shortAddress}</span>
                       </span>
                       {(vehicleCount > 0 || personnelCount > 0) && (
                         <span
