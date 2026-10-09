@@ -41,8 +41,8 @@ def start_roster_snapshot_scheduler() -> None:
     global scheduler
     if scheduler is not None:
         return
-    if not settings.roster_snapshot_source.strip():
-        logger.info("Roster snapshot disabled (ROSTER_SNAPSHOT_SOURCE unset)")
+    if not (settings.station_index_source.strip() or settings.roster_snapshot_source.strip()):
+        logger.info("Roster snapshot disabled (STATION_INDEX_SOURCE and ROSTER_SNAPSHOT_SOURCE unset)")
         return
     minutes = settings.roster_snapshot_interval_minutes
     scheduler = AsyncIOScheduler()

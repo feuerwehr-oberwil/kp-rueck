@@ -59,6 +59,14 @@ describe('RosterSnapshotStatus', () => {
         },
         lastGood: { generatedAt: '2026-10-08T04:00:00+00:00', count: 40, provider: 'wehr' },
         postponed: [{ display_name: 'Keller Urs', reason: 'absent_from_snapshot' }],
+        via: 'index',
+        index: {
+          generatedAt: '2026-10-09T04:00:00+00:00',
+          files: [
+            { kind: 'roster', schema: 'roster-snapshot/1', read: true, known: true },
+            { kind: 'vehicles', schema: 'vehicles-snapshot/1', read: false, known: false },
+          ],
+        },
       },
     })
     renderWithIntl(<RosterSnapshotStatus />)
@@ -66,5 +74,7 @@ describe('RosterSnapshotStatus', () => {
     expect(screen.getByText(/1 nicht zugeordnet: Meier Peter/)).toBeTruthy() // a former member is not a problem
     expect(screen.getByText(/zgf/)).toBeTruthy()
     expect(screen.getByText(/nicht mehr im Einsatz sind: Keller Urs/)).toBeTruthy()
+    expect(screen.getByText(/Über den Stationsdaten-Index/)).toBeTruthy()
+    expect(screen.getByText(/noch nicht gelesen: vehicles/)).toBeTruthy()
   })
 })

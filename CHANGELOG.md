@@ -30,6 +30,16 @@ will keep holding.
 
 ### Added
 
+- **Station index: one address for all station data.** `STATION_INDEX_SOURCE` (+ optional
+  `STATION_INDEX_TOKEN`) points at a station's `index.json`, which lists its data files by kind
+  with checksums (`station-index/1`); the roster is read through it, and a file that does not
+  match the index's sha256 is refused. `scripts/station_index_build.py` writes the index for a
+  folder. `vehicles`, `groups` and `keywords` are reserved kinds – listed, reported as not read
+  yet. KP Front reads the same index with byte-identical code (docs/ROSTER-SNAPSHOT.md §1a).
+  **Upgrade:** *no action needed* – without the variable nothing changes, and
+  `ROSTER_SNAPSHOT_SOURCE` keeps working as the fallback. To move, publish `index.json` beside
+  `roster.json`, set `STATION_INDEX_SOURCE`, restart the backend.
+
 - **Einsatztagebuch on the board** (`J`, «Tagebuch» in the footer, the command palette, «Mehr»
   on the phone). One append-only log per Ereignis, like KP Front's Verlauf but simpler – no
   playback, no voice. The board writes its own rows as things happen (status changes,
@@ -180,6 +190,10 @@ will keep holding.
   (numpy + h5py, needed to read the radar files).
 
 ### Upgrade notes
+
+- **Station index** (new, optional): nothing to do. `ROSTER_SNAPSHOT_SOURCE` keeps working; a
+  station that wants the one-address setup publishes `index.json` (written by
+  `scripts/station_index_build.py`) beside its roster file and sets `STATION_INDEX_SOURCE`.
 
 - Migration `d5f1a7c3e9b2` creates `journal_entries`; the **first boot afterwards fills it**
   from what the database already holds (`services/journal_backfill.py`), so the PDF of an
