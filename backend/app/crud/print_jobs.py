@@ -41,8 +41,8 @@ DEDUP_WINDOW_SECONDS = 30
 # claim a batch of up to ten before printing any, so the tenth claim aged through nine prints
 # first — against an unreachable printer (5 s connect timeout per destination) that alone
 # approaches this. It now claims one job, prints it and reports it (with bounded retries,
-# ~35 s worst case) before claiming the next. The CUPS output's 30-minute patience does not
-# apply here: the agent refuses to pair KP Rück's protocol with anything but ESC/POS.
+# ~35 s worst case) before claiming the next. ESC/POS is the agent's only output, so no
+# spooler's patience (a CUPS queue would wait half an hour) can stretch that.
 STALE_PRINTING_TIMEOUT_SECONDS = 120
 FAILED_RETRY_DELAY_SECONDS = 30
 MAX_PRINT_ATTEMPTS = 3

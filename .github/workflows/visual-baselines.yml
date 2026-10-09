@@ -1,0 +1,133 @@
+name: Visual baselines
+
+# Renders the screenshot baselines (frontend/tests/visual/__screenshots__/) on CI's Linux
+# Chromium and uploads them as the artifact `visual-baselines`. docs/VISUAL_TESTS.md.
+#
+# The ONLY place baselines come from. A laptop renders fonts and anti-aliasing differently, so
+# a baseline taken locally fails CI on its first run — or worse, passes by luck and fails a
+# week later.
+#
+# It never commits. A human or an agent downloads the artifact and commits it:
+#     just visual-accept <run-id>
+# because a commit pushed with GITHUB_TOKEN does not trigger the pull request's CI (nothing
+# would check the new baselines), and the DCO check wants a real person's sign-off.
+#
+# Accept only a DELIBERATE visual change: its own commit, the reason in the message, said in
+# the PR. Never to turn the visual check green.
+#
+# Two ways to start it:
+#   - Actions → Visual baselines → Run workflow, with a branch (or `gh workflow run
+#     visual-baselines.yml -f ref=<branch>`); dispatch needs this file on the default branch;
+#   - the label `visual-update` on a pull request (renders that PR's head). Works before the
+#     file has reached main, which is how the first baselines were made. Remove the label and
+#     add it again to render once more.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or SHA to render the baselines for"
+        required: true
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "24"   # Match ci.yml and frontend/Dockerfile.
+  PNPM_VERSION: "9"
+
+jobs:
+  render:
+    name: Render the screenshot baselines
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'visual-update'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Same stack as the `visual` job in ci.yml — keep the two in step.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kprueck
+          POSTGRES_PASSWORD: kprueck
+          POSTGRES_DB: kprueck
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "latest"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Python
+        working-directory: backend
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      # `--update-snapshots=all` rewrites every PNG, changed or not, so the artifact is always
+      # the complete set: accepting it replaces the folder, and a removed state disappears too.
+      - name: Render
+        run: bash scripts/visual-test.sh --update-snapshots=all
+        env:
+          VISUAL_DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+          CI: true
+
+      - name: Upload the baselines
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines
+          path: frontend/tests/visual/__screenshots__/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: How to accept
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          {
+            echo "### Screenshot baselines rendered"
+            echo
+            echo "Accept them into the branch (from the repo root), look at the diff, then commit on their own:"
+            echo
+            echo '```'
+            echo "just visual-accept ${RUN_ID}"
+            echo '```'
+            echo
+            echo "Only for a deliberate visual change, with the reason in the commit message — never to turn the visual check green."
+          } >> "$GITHUB_STEP_SUMMARY"
