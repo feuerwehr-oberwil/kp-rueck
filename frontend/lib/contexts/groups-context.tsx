@@ -127,7 +127,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { materials } = useMaterials()
   // Readiness lives in the operations context (refreshed with every poll).
   // GroupsProvider sits inside OperationsProvider in the root layout.
-  const { outOfServiceVehicleIds, requestVehicleDriver } = useOperations()
+  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
@@ -687,6 +687,8 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       }
 
       mutationEpochRef.current++
+      // A vehicle is not settled until its driver check has answered (⌘K waits on it).
+      const settled = resourceType === "vehicle" ? beginAssignmentSettling() : () => {}
 
       const tempId = `temp-${randomId()}`
       const optimistic: GroupAssignment = { id: tempId, resourceType, resourceId, driverStay: false, isLeader: false }
@@ -698,9 +700,10 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         await apiClient.assignGroupResource(groupId, { resource_type: resourceType, resource_id: resourceId })
         // Reconcile with the server truth (canonical assignment id + progress).
         await refreshGroups()
-        if (resourceType === "vehicle") void promptIfDriverless(groupId, resourceId)
+        if (resourceType === "vehicle") void promptIfDriverless(groupId, resourceId).finally(settled)
         return true
       } catch (error) {
+        settled()
         console.error("Failed to assign route resource:", error)
         setGroups((gs) =>
           gs.map((g) =>
@@ -711,7 +714,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         return false
       }
     },
-    [groups, refreshGroups, outOfServiceVehicleIds, vehicles, promptIfDriverless],
+    [groups, refreshGroups, outOfServiceVehicleIds, vehicles, promptIfDriverless, beginAssignmentSettling],
   )
 
   const unassignResource = useCallback(

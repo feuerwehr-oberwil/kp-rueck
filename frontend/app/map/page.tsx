@@ -9,6 +9,7 @@
  * `components/protected-route.tsx` for why and for what actually enforces the role.
  */
 
+import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
@@ -1337,6 +1338,7 @@ export default function MapPage() {
                                     className="min-w-0 flex-1 truncate text-[13px] font-medium"
                                     title={incident.location_address ? formatLocation(incident.location_address) : incident.title}
                                   >
+                                    <IncidentNumber number={incident.number} className="mr-1.5 text-xs" />
                                     {incident.location_address ? formatLocation(incident.location_address) : incident.title}
                                   </span>
                                   <Tooltip>

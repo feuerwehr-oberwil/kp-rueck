@@ -35,12 +35,14 @@ import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
-import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
+import { applyResourceDrop, useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
+import { useCommandDispatch, type DispatchCommand } from "@/lib/hooks/use-command-dispatch"
+import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
@@ -123,6 +125,11 @@ export default function FireStationDashboard() {
     assignMaterialToOperation,
     assignVehicleToOperation,
     requestResourceConflict,
+    resourceConflict,
+    vehicleNeedingDriver,
+    isAssignmentSettling,
+    vehicles: fleet,
+    outOfServiceVehicleIds,
     deleteOperation,
     materialOnSite,
     isLoading,
@@ -144,6 +151,13 @@ export default function FireStationDashboard() {
   // The operator's own releases (card chips, detail panel, shortcut toggle) get
   // «… gelöst · Rückgängig»; internal releases keep the raw context functions.
   const release = useReleaseUndo()
+  // ⌘K type-to-dispatch, registered with the palette early and filled in below
+  // where the bindings and drop wrappers it needs exist (see «Type-to-dispatch»).
+  const dispatchRef = useRef<{
+    vocabulary: () => DispatchVocabulary
+    run: (command: DispatchCommand) => void
+    jump: (target: DispatchResource) => void
+  }>({ vocabulary: () => ({ incidents: [], persons: [], vehicles: [], materials: [] }), run: () => {}, jump: () => {} })
 
   /**
    * The roster the board draws, with «steht auf einem Auftrag» folded in.
@@ -228,6 +242,8 @@ export default function FireStationDashboard() {
   const tColumns = useTranslations('kanban.columns')
   // The board's one «Rückgängig» label — reused rather than copied.
   const tNotifications = useTranslations('notifications.operations')
+  // ⌘K type-to-dispatch receipts.
+  const tPalette = useTranslations('common.commandPalette')
   const trackPrint = usePrintJobToast()
 
   // Ref for highlight timeout cleanup
@@ -1087,9 +1103,26 @@ export default function FireStationDashboard() {
           }
         }
       },
+      // Type-to-dispatch: a fresh getter per registration, so the palette's
+      // vocabulary follows the board while it is open.
+      getDispatchVocabulary: () => dispatchRef.current.vocabulary(),
+      onDispatch: isEditor ? (command) => dispatchRef.current.run(command) : undefined,
+      onDispatchJump: (target) => dispatchRef.current.jump(target),
+      onOpenIncident: (incidentId) => {
+        scrollToCard(incidentId)
+        openIncidentDetail(incidentId)
+      },
     })
     return () => clearHandlers()
   }, [
+    isEditor,
+    scrollToCard,
+    // The palette's vocabulary is read through `getDispatchVocabulary`; a new
+    // registration whenever what it lists changes keeps an open palette current.
+    personnel,
+    fleet,
+    materials,
+    outOfServiceVehicleIds,
     registerHandlers,
     clearHandlers,
     refreshOperations,
@@ -1315,6 +1348,105 @@ export default function FireStationDashboard() {
     }
   }, [])
 
+  // The board's conflict-aware assigns — what a DROP onto a card or an Auftrag
+  // calls. ⌘K's type-to-dispatch goes through the very same functions
+  // (`applyResourceDrop` below), so a typed «14 meier» asks exactly what
+  // dragging Meier onto Einsatz 14 asks.
+  //
+  // Person/Material onto an INCIDENT: if a route already holds them, ask the
+  // same Doppelbelegung question vehicles have always asked instead of
+  // refusing the drop outright.
+  const boardAssignPerson = (personId: string, personName: string, operationId: string) => {
+    const holders = groupsHolding("personnel", personId)
+    if (holders.length === 0) {
+      assignPersonToOperation(personId, personName, operationId)
+      return
+    }
+    askRouteConflict({
+      resourceType: "personnel",
+      resourceId: personId,
+      resourceName: personName,
+      targetId: operationId,
+      conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+      releases: releaseFromGroups("personnel", personId, holders),
+      assign: () => assignPersonToOperation(personId, personName, operationId),
+    })
+  }
+
+  const boardAssignMaterial = (materialId: string, operationId: string) => {
+    const holders = groupsHolding("material", materialId)
+    if (holders.length === 0) {
+      assignMaterialToOperation(materialId, operationId)
+      return
+    }
+    const name = materials.find((m) => m.id === materialId)?.name ?? materialId
+    askRouteConflict({
+      resourceType: "material",
+      resourceId: materialId,
+      resourceName: name,
+      targetId: operationId,
+      conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+      releases: releaseFromGroups("material", materialId, holders),
+      assign: () => assignMaterialToOperation(materialId, operationId),
+    })
+  }
+
+  const boardAssignGroupResource = (groupId: string, resourceType: GroupResourceType, resourceId: string) => {
+    if (resourceType === "vehicle") {
+      assignVehicleToGroupWithConflict(groupId, resourceId)
+      return
+    }
+    // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
+    // holds them now. `exceptGroupId` keeps a drop onto the route a resource is
+    // already on from asking about itself.
+    const holders = groupsHolding(resourceType, resourceId, groupId)
+    const name =
+      resourceType === "personnel"
+        ? personnel.find((p) => p.id === resourceId)?.name ?? resourceId
+        : materials.find((m) => m.id === resourceId)?.name ?? resourceId
+    // ALSO the Einsätze that hold it. A route conflict is not the only kind:
+    // dropping somebody who is crew on «Bahnhofstrasse 12» onto an Auftrag used
+    // to put them on both without a word, while the same drag with a vehicle
+    // asked — `assignVehicleToGroupWithConflict` has always collected both.
+    const incidentHolders =
+      resourceType === "personnel"
+        ? operations.filter((op) => op.crew.includes(name))
+        : operations.filter((op) => op.materials.includes(resourceId))
+    if (holders.length === 0 && incidentHolders.length === 0) {
+      void assignGroupResource(groupId, resourceType, resourceId)
+      return
+    }
+    askRouteConflict({
+      resourceType,
+      resourceId,
+      resourceName: name,
+      targetId: groupId,
+      conflicts: [
+        ...holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
+        ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
+      ],
+      releases: [
+        ...releaseFromGroups(resourceType, resourceId, holders),
+        ...incidentHolders.map((op) => () =>
+          resourceType === "personnel" ? removeCrew(op.id, name) : removeMaterial(op.id, resourceId),
+        ),
+      ],
+      assign: () => assignGroupResource(groupId, resourceType, resourceId),
+    })
+  }
+
+  // What a card arriving in a column asks — after a drag across, and after a
+  // typed «14 einsatz» (⌘K), which is the same move.
+  const afterStatusMove = (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => {
+    if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
+    if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
+    if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
+    if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
+    // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
+    // (which keeps materials). Just prompt the material decision here.
+    if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
+  }
+
   // Use shared drag-and-drop hook
   useKanbanDragDrop({
     isMounted,
@@ -1323,58 +1455,16 @@ export default function FireStationDashboard() {
     setOperations,
     updateOperation,
     reorderColumn,
-    // Person/Material onto an INCIDENT: if a route already holds them, ask the
-    // same Doppelbelegung question vehicles have always asked instead of
-    // refusing the drop outright.
-    assignPersonToOperation: (personId, personName, operationId) => {
-      const holders = groupsHolding("personnel", personId)
-      if (holders.length === 0) {
-        assignPersonToOperation(personId, personName, operationId)
-        return
-      }
-      askRouteConflict({
-        resourceType: "personnel",
-        resourceId: personId,
-        resourceName: personName,
-        targetId: operationId,
-        conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        releases: releaseFromGroups("personnel", personId, holders),
-        assign: () => assignPersonToOperation(personId, personName, operationId),
-      })
-    },
+    assignPersonToOperation: boardAssignPerson,
     assignRekoPersonToOperation,
-    assignMaterialToOperation: (materialId, operationId) => {
-      const holders = groupsHolding("material", materialId)
-      if (holders.length === 0) {
-        assignMaterialToOperation(materialId, operationId)
-        return
-      }
-      const name = materials.find((m) => m.id === materialId)?.name ?? materialId
-      askRouteConflict({
-        resourceType: "material",
-        resourceId: materialId,
-        resourceName: name,
-        targetId: operationId,
-        conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        releases: releaseFromGroups("material", materialId, holders),
-        assign: () => assignMaterialToOperation(materialId, operationId),
-      })
-    },
+    assignMaterialToOperation: boardAssignMaterial,
     assignVehicleToOperation: assignVehicleToIncidentWithConflict,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
       setSelectedOperationId(operationId)
       setHoveredOperationId(operationId)
     },
-    onStatusChange: (operationId, newStatus, previousStatus) => {
-      if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-      if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-      if (newStatus === "reko_done") triggerRekoFormCheck(operationId, previousStatus)
-      if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
-      // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
-      // (which keeps materials). Just prompt the material decision here.
-      if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
-    },
+    onStatusChange: afterStatusMove,
     // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
     // drop-target data contract (`group-row` / `group-stop`).
     groups,
@@ -1383,49 +1473,7 @@ export default function FireStationDashboard() {
     addStopsToGroup: (groupId, incidentIds) => {
       closedStopGuard.guard(incidentIds, () => { void addStopsToGroup(groupId, incidentIds) })
     },
-    assignGroupResource: (groupId, resourceType, resourceId) => {
-      if (resourceType === "vehicle") {
-        assignVehicleToGroupWithConflict(groupId, resourceId)
-        return
-      }
-      // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
-      // holds them now. `exceptGroupId` keeps a drop onto the route a resource is
-      // already on from asking about itself.
-      const holders = groupsHolding(resourceType, resourceId, groupId)
-      const name =
-        resourceType === "personnel"
-          ? personnel.find((p) => p.id === resourceId)?.name ?? resourceId
-          : materials.find((m) => m.id === resourceId)?.name ?? resourceId
-      // ALSO the Einsätze that hold it. A route conflict is not the only kind:
-      // dropping somebody who is crew on «Bahnhofstrasse 12» onto an Auftrag used
-      // to put them on both without a word, while the same drag with a vehicle
-      // asked — `assignVehicleToGroupWithConflict` has always collected both.
-      const incidentHolders =
-        resourceType === "personnel"
-          ? operations.filter((op) => op.crew.includes(name))
-          : operations.filter((op) => op.materials.includes(resourceId))
-      if (holders.length === 0 && incidentHolders.length === 0) {
-        void assignGroupResource(groupId, resourceType, resourceId)
-        return
-      }
-      askRouteConflict({
-        resourceType,
-        resourceId,
-        resourceName: name,
-        targetId: groupId,
-        conflicts: [
-          ...holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-          ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
-        ],
-        releases: [
-          ...releaseFromGroups(resourceType, resourceId, holders),
-          ...incidentHolders.map((op) => () =>
-            resourceType === "personnel" ? removeCrew(op.id, name) : removeMaterial(op.id, resourceId),
-          ),
-        ],
-        assign: () => assignGroupResource(groupId, resourceType, resourceId),
-      })
-    },
+    assignGroupResource: boardAssignGroupResource,
   })
 
   // Board Auftrag chips signal the page via a window event (no prop threading
@@ -1748,6 +1796,181 @@ export default function FireStationDashboard() {
       subtitle: `${units[0].category} · ${tCommon('aggregateCountTitle', { free, total: units.length })}`,
       bindings,
     })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Type-to-dispatch (⌘K «14 tlf meier», `lib/command-dispatch.ts`). The parser
+  // reads the vocabulary below; ↵ runs through the drop path
+  // (`applyResourceDrop` with the board's own wrappers) so nothing a drag would
+  // ask is skipped; «meier» alone answers «wo ist Meier?» like a sidebar click.
+  const dispatchVocabulary = (): DispatchVocabulary => ({
+    incidents: operations
+      .filter((op) => typeof op.number === "number")
+      .map((op) => ({
+        id: op.id,
+        number: op.number as number,
+        label: getIncidentLocationLabel(op),
+        type: getIncidentTypeLabel(op.incidentType),
+        status: op.status,
+        priority: op.priority,
+      })),
+    persons: personnel.map((person) => ({
+      id: person.id,
+      name: person.name,
+      detail: person.role || undefined,
+      incidentIds: operations
+        .filter((op) => op.crew.includes(person.name) || op.assignedReko?.id === person.id)
+        .map((op) => op.id),
+    })),
+    vehicles: fleet
+      .filter((vehicle) => !vehicle.archived_at)
+      .map((vehicle) => ({
+        id: vehicle.id,
+        name: vehicle.name,
+        type: vehicle.type,
+        callSign: vehicle.radio_call_sign || undefined,
+        detail: vehicle.radio_call_sign || undefined,
+        outOfService: outOfServiceVehicleIds.has(vehicle.id),
+        incidentIds: operations.filter((op) => op.vehicles.includes(vehicle.name)).map((op) => op.id),
+      })),
+    materials: materials.map((material) => ({
+      id: material.id,
+      name: material.name,
+      detail: material.category || undefined,
+      outOfService: material.outOfService,
+      available: materialResourceState(material) === "available",
+      incidentIds: operations.filter((op) => op.materials.includes(material.id)).map((op) => op.id),
+    })),
+  })
+
+  const assignFromPalette = (resource: DispatchResource, operationId: string) => {
+    const destination = { type: "operation-drop", operationId }
+    const deps = {
+      operations,
+      assignPersonToOperation: boardAssignPerson,
+      assignRekoPersonToOperation,
+      assignMaterialToOperation: boardAssignMaterial,
+      assignVehicleToOperation: assignVehicleToIncidentWithConflict,
+      assignGroupResource: boardAssignGroupResource,
+    }
+    if (resource.kind === "person") {
+      const person = personnel.find((candidate) => candidate.id === resource.id)
+      if (person) applyResourceDrop({ type: "person", person }, destination, deps)
+    } else if (resource.kind === "vehicle") {
+      applyResourceDrop({ type: "driver-vehicle", vehicleId: resource.id, vehicleName: resource.name }, destination, deps)
+    } else {
+      const material = materials.find((candidate) => candidate.id === resource.id)
+      if (material) applyResourceDrop({ type: "material", material }, destination, deps)
+    }
+  }
+
+  const runDispatch = useCommandDispatch({
+    getOperation: (operationId) => operationsRef.current.find((op) => op.id === operationId),
+    getGroupResources,
+    // The Doppelbelegung prompt and the driver prompt a vehicle raises when it
+    // lands without a driver — each waits for the one before it — and the
+    // context's own signal that an assignment may still ask (driver check,
+    // a resolved move still re-assigning).
+    isQuestionOpen: () => resourceConflict !== null || vehicleNeedingDriver !== null || isAssignmentSettling(),
+    getOperations: () => operationsRef.current,
+    getGroupsHolding: (resource) =>
+      groups.filter((group) =>
+        group.assignments.some(
+          (assignment) =>
+            assignment.resourceId === resource.id &&
+            assignment.resourceType === (resource.kind === "person" ? "personnel" : resource.kind),
+        ),
+      ),
+    labelOf: (operation) => getIncidentLocationLabel(operation),
+    restore: release.restore,
+    assign: assignFromPalette,
+    setPriority: (operationId, priority) => updateOperation(operationId, { priority }),
+    moveStatus: (operationId, status, previous) => {
+      updateOperation(operationId, { status })
+      afterStatusMove(operationId, status, previous)
+    },
+    revertPriority: (operationId, priority) => updateOperation(operationId, { priority }),
+    revertStatus: (operationId, status) => updateOperation(operationId, { status }),
+    removeCrew,
+    removeReko,
+    removeVehicle,
+    removeMaterial,
+    unassignGroupResource,
+    report: (outcome, undo) => {
+      const parts: string[] = []
+      if (outcome.assigned.length > 0) {
+        parts.push(tPalette('dispatch.toastAssigned', { names: outcome.assigned.map((resource) => resource.name).join(", ") }))
+      }
+      // Said, not hidden: a «Hierher verschieben» took them off somewhere, and
+      // «Rückgängig» puts them back there.
+      for (const item of outcome.moved) {
+        parts.push(tPalette('dispatch.toastMoved', { name: item.name, from: item.targetLabel }))
+      }
+      if (outcome.status) parts.push(tPalette('dispatch.toastStatus', { status: tColumns(outcome.status.to) }))
+      if (outcome.priority) {
+        parts.push(tPalette('dispatch.toastPriority', { priority: tCommon(PRIORITY_LABEL_KEYS[outcome.priority.to]) }))
+      }
+      toast.success(
+        tPalette('dispatch.toastTitle', {
+          number: outcome.operation.number ?? "",
+          name: getIncidentLocationLabel(outcome.operation),
+        }),
+        {
+          description: parts.join(" · "),
+          action: {
+            label: tNotifications('undoLabel'),
+            onClick: () => {
+              void undo().then(() => toast.success(tPalette('dispatch.toastUndone')))
+            },
+          },
+        },
+      )
+    },
+  })
+
+  const jumpFromPalette = (target: DispatchResource) => {
+    if (target.kind === "person") {
+      const person = personnel.find((candidate) => candidate.id === target.id)
+      if (!person) return
+      const only = soleDestination(collectPersonBindings(person))
+      if (only) followBinding(only)
+      else {
+        // Free, or in several places: the sidebar row says which.
+        setShowLeftSidebar(true)
+        setPersonnelSearchQuery(person.name)
+      }
+    } else if (target.kind === "material") {
+      const material = materials.find((candidate) => candidate.id === target.id)
+      if (!material) return
+      const only = soleDestination(collectMaterialBindings(material))
+      if (only) followBinding(only)
+      else {
+        setShowRightSidebar(true)
+        setMaterialSearchQuery(material.name)
+      }
+    } else {
+      const onIncident = operations.find((op) => op.vehicles.includes(target.name))
+      const onRoute = groups.find((group) =>
+        group.assignments.some((assignment) => assignment.resourceType === "vehicle" && assignment.resourceId === target.id),
+      )
+      if (onIncident) {
+        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "" })
+      } else if (onRoute) {
+        setAuftraegeFocusGroupId(onRoute.id)
+        setActiveFooterSheet('auftraege')
+      } else {
+        // Nowhere: the Fahrzeuge sheet is where a free vehicle is seen.
+        setActiveFooterSheet('vehicles')
+      }
+    }
+  }
+
+  dispatchRef.current = {
+    vocabulary: dispatchVocabulary,
+    run: (command) => {
+      void runDispatch(command)
+    },
+    jump: jumpFromPalette,
   }
 
   // Use shared operation handlers hook

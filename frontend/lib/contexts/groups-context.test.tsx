@@ -58,10 +58,22 @@ vi.mock("@/lib/contexts/personnel-context", () => ({ usePersonnel: () => ({ pers
 vi.mock("@/lib/contexts/materials-context", () => ({ useMaterials: () => ({ materials: [] }) }))
 // Readiness («Nicht einsatzbereit») comes from the operations context — the
 // assign guard reads this set. Mutable so a test can flag a vehicle.
-const operationsState = vi.hoisted(() => ({
-  outOfServiceVehicleIds: new Set<string>(),
-  requestVehicleDriver: vi.fn(),
-}))
+const operationsState = vi.hoisted(() => {
+  const settling = { count: 0 }
+  return {
+    outOfServiceVehicleIds: new Set<string>(),
+    requestVehicleDriver: vi.fn(),
+    settling,
+    beginAssignmentSettling: () => {
+      settling.count++
+      let ended = false
+      return () => {
+        if (!ended) settling.count--
+        ended = true
+      }
+    },
+  }
+})
 vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => operationsState }))
 
 // Controllable WebSocket stub mirroring the shape operations-context uses:
@@ -149,6 +161,7 @@ beforeEach(() => {
   eventState.selectedEvent = { id: EVENT_ID }
   operationsState.outOfServiceVehicleIds = new Set()
   operationsState.requestVehicleDriver.mockReset()
+  operationsState.settling.count = 0
   getEventSpecialFunctions.mockReset().mockResolvedValue([])
   ws.reset()
   getIncidentGroups.mockReset().mockResolvedValue([])
@@ -379,6 +392,26 @@ describe("GroupsProvider — assign / unassign route resources", () => {
       expect(operationsState.requestVehicleDriver).toHaveBeenCalledWith({ vehicleId: "v1", vehicleName: "TLF", groupId: GROUP_ID }),
     )
     expect(getEventSpecialFunctions).toHaveBeenCalledWith(EVENT_ID)
+  })
+
+  it("a route vehicle stays «settling» until its driver check has answered (⌘K waits on it)", async () => {
+    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
+    getVehicles.mockResolvedValue([{ id: "v1", name: "TLF" }])
+    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
+    let answer: (functions: unknown[]) => void = () => {}
+    getEventSpecialFunctions.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
+    })
+    // Assigned, but the driver question may still come.
+    await waitFor(() => expect(getEventSpecialFunctions).toHaveBeenCalled())
+    expect(operationsState.settling.count).toBe(1)
+
+    await act(async () => answer([]))
+    await waitFor(() => expect(operationsState.settling.count).toBe(0))
   })
 
   it("does not prompt when the vehicle already has a driver", async () => {

@@ -525,6 +525,40 @@ class TestFeld:
         }
 
 
+class TestEinsatzNumbersAcrossMergeAndTrennen:
+    """The Einsatz number (#168, «14 tlf meier») and R2's merge: a number is never
+    handed out twice, «Trennen» brings a card back under its own number, and a merged
+    card is not on the board, so ⌘K cannot reach it by its number."""
+
+    async def test_trennen_keeps_the_number_and_nothing_is_reused(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ) -> None:
+        target = await _card(db_session, test_event)
+        dup = await _card(db_session, test_event, address="Hauptstr. 6", possible_duplicate_of_id=target.id)
+        assert target.number is not None and dup.number == target.number + 1
+        dup_id, dup_number = dup.id, dup.number
+
+        assert (
+            await editor_client.post(f"/api/incidents/{dup_id}/merge", json={"target_id": str(target.id)})
+        ).status_code == 200
+        board = (await editor_client.get("/api/incidents/", params={"event_id": str(test_event.id)})).json()
+        assert dup_number not in [i["number"] for i in board]
+
+        # A report merged before it had a card takes a number too – and keeps it to itself.
+        assert (await _merge_new(editor_client, test_event, target)).status_code == 200
+        fresh = await _card(db_session, test_event, address="Bachweg 3")
+        assert fresh.number == dup_number + 2
+
+        assert (await editor_client.post(f"/api/incidents/{dup_id}/unmerge")).status_code == 200
+        restored = await db_session.get(Incident, dup_id, populate_existing=True)
+        assert restored.number == dup_number
+        numbers = [
+            i["number"]
+            for i in (await editor_client.get("/api/incidents/", params={"event_id": str(test_event.id)})).json()
+        ]
+        assert sorted(numbers) == sorted(set(numbers))
+
+
 class TestWhatAMergeMustNotDo:
     """Review round 1: a merge never hides work, never lands on a closed card,
     and never lets anything be put onto a card that is gone."""

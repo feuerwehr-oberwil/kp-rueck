@@ -128,7 +128,37 @@
       "rapporte": "Rapporte öffnen",
       "mapColorBy": "Färben nach: {mode}",
       "figures": "Kennzahlen öffnen",
-      "crewDuty": "Dienstzeiten"
+      "crewDuty": "Dienstzeiten",
+      "dispatch": {
+        "placeholder": "Befehl oder «14 tlf meier»",
+        "group": "Ausführen",
+        "incidentTitle": "Einsatz {number}",
+        "arrowAssign": "bekommt",
+        "alreadyHere": "schon da",
+        "elsewhere": "auf {numbers}",
+        "outOfService": "nicht einsatzbereit",
+        "ignored": "Zählt nicht – doppelt oder ersetzt",
+        "unknown": "Unbekannt – wird ignoriert",
+        "ambiguousCount": "{count} Treffer",
+        "actionRun": "ausführen",
+        "actionOpen": "öffnen",
+        "actionJump": "zeigen",
+        "readOnly": "Nur mit Bearbeitungsrecht",
+        "nothingToDo": "schon so",
+        "pickBelow": "unten wählen",
+        "unknownIncident": "Kein Einsatz {number}",
+        "needsIncident": "Einsatz voranstellen – Nummer oder Adresse, z. B. «14 tlf meier» oder «bachweg 3 tlf»",
+        "choiceFor": "für «{text}»",
+        "toastTitle": "Einsatz {number} · {name}",
+        "toastAssigned": "{names} zugewiesen",
+        "toastStatus": "→ {status}",
+        "toastPriority": "Priorität {priority}",
+        "toastUndone": "Rückgängig gemacht",
+        "confirmTypo": "meintest du?",
+        "confirmSplit": "zwei Personen?",
+        "choiceConfirm": "bestätigen für «{text}»",
+        "toastMoved": "{name} von {from} abgezogen"
+      }
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -635,7 +665,8 @@
       "moreMaterialTitle": "{count, plural, one {# weiteres Gerät} other {# weitere Geräte}} – Einsatz öffnen",
       "deleteIncident": "Einsatz löschen",
       "realAlarmBadge": "Echt-Alarm",
-      "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger."
+      "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger.",
+      "numberTitle": "Einsatz {number}"
     },
     "column": {
       "ariaLabelWithCount": "Spalte {title} ({count, plural, one {# Einsatz} other {# Einsätze}})",
