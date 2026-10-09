@@ -63,6 +63,17 @@ will keep holding.
   drift apart. Opened from the home screen the app runs without the address bar and, on iOS, with
   its own storage: log in once more after adding it.
 
+### Removed
+
+- **The print agent no longer serves KP Front.** KP Front removed its station print relay (A4
+  PDFs through CUPS; prod never sent it a job), so the agent's KP Front half went too: the
+  `kp-front` protocol, the CUPS output, the old `KP_BASE_URL` / `KP_PRINT_AGENT_SECRET` /
+  `KP_PRINTER` variables, and `cups-client` in the `kp-print-agent` image. KP Rück's thermal
+  slips print exactly as before. Nothing to do on update: a config file that still lists a
+  `kp-front` backend, or a box with the old `KP_*` variables, keeps printing KP Rück's slips and
+  says in the log which entry can go. A bare-Pi install of the agent now asks for Python 3.10,
+  which the thermal printer's packages already needed.
+
 ### Fixed
 
 - **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
@@ -77,6 +88,10 @@ will keep holding.
   returns `/display?token=…`, the overview the board's «Links & QR» sheet already hands out, which
   forwards the token to the board, map and status wall pages. The sheet now uses that `link`
   instead of building its own.
+- **↵ in ⌘K runs the best match.** Typing «neu» and pressing ↵ opened «Einstellungen»: the
+  palette ranked commands only within their section, and «Navigation» comes first, so any
+  loose match there (n…e…u in «Einstellungen») beat «Neuer Einsatz» further down. The whole
+  list is now ranked by how well each entry matches, and the highlighted top row is what ↵ runs.
 
 - **A busy board no longer asks the server once per card for every change.** Looking for new
   Reko reports, the board fetched every Einsatz's reports one by one, and did it again after
