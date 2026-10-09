@@ -17,6 +17,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandRankGroups,
   CommandSeparator,
 } from "@/components/ui/command"
 import {
@@ -521,6 +522,8 @@ export function CommandPalette() {
             </div>
           )}
           </div>
+          {/* ↵ runs the best match of the whole list, not of the first group. */}
+          <CommandRankGroups />
         </Command>
       </DialogContent>
     </Dialog>

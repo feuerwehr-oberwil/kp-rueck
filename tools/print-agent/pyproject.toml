@@ -1,27 +1,24 @@
 [project]
 name = "kp-print-agent"
 version = "0.7.0"
-description = "One print agent for KP Front (PDF/CUPS) and KP Rück (ESC/POS thermal)"
-requires-python = ">=3.9"
+description = "KP Rück's print agent: ESC/POS thermal slips over the LAN"
+requires-python = ">=3.10"
 
-# NO required dependencies, deliberately. The core — HTTP, both protocol drivers and the
-# CUPS output — is stdlib only, so the agent installs on a bare Raspberry Pi with no venv
-# and no Docker. That is the install path stations actually use for the A4 relay.
+# NO required dependencies, deliberately. The core — HTTP and the protocol driver — is stdlib
+# only, so the agent starts on a bare Python and a dry run needs nothing installed.
 dependencies = []
 
 [project.optional-dependencies]
-# Only needed for `output: escpos` (the 80 mm thermal printer). Imported lazily, so an agent
-# without these installed still runs fine for CUPS backends and reports a clear error if a
-# thermal job ever reaches it.
+# Needed for `output: escpos` (the 80 mm thermal printer) to put paper out. Imported lazily, so
+# an agent without these installed still starts and reports a clear error when a job reaches it.
 #
-# The 3.10 marker is what keeps `requires-python = ">=3.9"` above honest. Pillow 12 dropped
-# 3.9, and 12.2.0 is a security floor (e8c971b) that must not be relaxed — so without the
-# marker the two lines contradict each other and every resolve fails, `uv run` included.
-# Nothing is lost: 3.9 is the bare-Bullseye CUPS path, which needs no extra at all, while the
-# thermal path runs on 3.12 (this Dockerfile, or uv on the Pi).
+# pillow 12.2.0 is a security floor (e8c971b) that must not be relaxed. It also needs Python
+# 3.10, which is why `requires-python` above says 3.10: the 3.9 allowance (and the markers that
+# kept it resolvable) existed for the bare-Bullseye CUPS path of KP Front's A4 relay, which is
+# gone.
 escpos = [
-    "python-escpos>=3.1; python_version >= '3.10'",
-    "pillow>=12.2.0; python_version >= '3.10'",
+    "python-escpos>=3.1",
+    "pillow>=12.2.0",
 ]
 
 [project.scripts]
