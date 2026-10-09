@@ -24,8 +24,8 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0
       '@atlaskit/pragmatic-drag-and-drop-hitbox':
-        specifier: ^2.2.0
-        version: 2.2.0
+        specifier: ^3.0.0
+        version: 3.0.0
       '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator':
         specifier: ^4.2.4
         version: 4.2.4(react@19.3.0)
@@ -253,9 +253,6 @@ packages:
   '@atlaskit/platform-feature-flags@2.2.1':
     resolution: {integrity: sha512-+qR+UIdZ8T+5dqfv4R57YeAqvkj98D6imT+cCIC/PbUBYyMzkjL5MqlGEIX0c3FT9rr/B/b1nupw643xa2Ua2g==}
 
-  '@atlaskit/pragmatic-drag-and-drop-hitbox@2.2.0':
-    resolution: {integrity: sha512-L0Wq4EKc9Yx+iywci3NLhwjsaru+hyZ9C/H7mz5pvrSh7vpp9q2YabRr85OnCLaY6equ5pxGVyI4PF3HP69ZMw==}
-
   '@atlaskit/pragmatic-drag-and-drop-hitbox@3.0.0':
     resolution: {integrity: sha512-AGLp1ewjm07eRN2NL62awllSM19FrWVZMQYfZA/jugQlpaeoTr5ah2DE7zfiEt7yrg34htoKQVM+y6SGIQYs2A==}
 
@@ -263,9 +260,6 @@ packages:
     resolution: {integrity: sha512-jCo1gHLIXaS/GWIlU4qQHAgLQnyEVlnbAuJ+ziRy25aqGurvqrz22Y1tGz7/i5ecDdQpDMDElxOC5kFOhOR6kQ==}
     peerDependencies:
       react: ^18.2.0 || ^19.0.0
-
-  '@atlaskit/pragmatic-drag-and-drop@3.1.0':
-    resolution: {integrity: sha512-VU+2Oh6OgvC6D1xiX3lfm1gZJsaSPD+ZKjAHodOQ9IO6RfOvAyReLlK5ut9gIUpPmbD8d09wlCs7y4A6/I8c5Q==}
 
   '@atlaskit/pragmatic-drag-and-drop@4.0.0':
     resolution: {integrity: sha512-pyDo2B5NiaExoKGmgeXKGNUL4aR4UzzSZm8QWWjYTEyBLVqSqKyKUwtVxMw2YEkakagOGFONUdHM32LAH2nPug==}
@@ -4359,15 +4353,10 @@ snapshots:
     transitivePeerDependencies:
       - react
 
-  '@atlaskit/pragmatic-drag-and-drop-hitbox@2.2.0':
-    dependencies:
-      '@atlaskit/pragmatic-drag-and-drop': 3.1.0
-      '@babel/runtime': 7.29.7
-
   '@atlaskit/pragmatic-drag-and-drop-hitbox@3.0.0':
     dependencies:
       '@atlaskit/pragmatic-drag-and-drop': 4.0.0
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
 
   '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator@4.2.4(react@19.3.0)':
     dependencies:
@@ -4381,12 +4370,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@atlaskit/pragmatic-drag-and-drop@3.1.0':
-    dependencies:
-      '@babel/runtime': 7.29.7
-      bind-event-listener: 3.0.0
-      raf-schd: 4.0.3
-
   '@atlaskit/pragmatic-drag-and-drop@4.0.0':
     dependencies:
       '@babel/runtime': 7.29.10
@@ -4396,7 +4379,7 @@ snapshots:
   '@atlaskit/react-compiler-gating@0.2.4(react@19.3.0)':
     dependencies:
       '@atlaskit/feature-gate-js-client': 7.0.0(react@19.3.0)
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
     transitivePeerDependencies:
       - react
 
@@ -4405,7 +4388,7 @@ snapshots:
       '@atlaskit/ds-lib': 8.0.0(react@19.3.0)
       '@atlaskit/platform-feature-flags': 2.2.1(react@19.3.0)
       '@atlaskit/react-compiler-gating': 0.2.4(react@19.3.0)
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       '@babel/traverse': 7.29.8
       '@babel/types': 7.29.8
       bind-event-listener: 3.0.0
