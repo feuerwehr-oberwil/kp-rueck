@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 # The alarm sink the poller hands each parsed alarm to; returns True when the alarm
 # was new (False = already seen via webhook).
 _AlarmCallback = Callable[[schemas.DiveraWebhookPayload], Awaitable[bool]]
-# Where the normalised Rückmeldungen go: {divera alarm id: snapshot}.
+# Where the parsed Rückmeldungen go: {divera alarm id: parse_alarm(...)}; classified and
+# reduced to yes/no by services/divera_responses.store_snapshots.
 _ResponsesSink = Callable[[dict[int, dict[str, Any]]], Awaitable[None]]
 
 
@@ -181,14 +182,14 @@ class DiveraPoller:
             needed |= divera_responses.answered_status_ids(item)
         # At most once per 6 h, and only when some alarm carries answers.
         catalogue = await divera_responses.status_catalogue.ensure(self._http_client, needed)
-        snapshots: dict[int, dict[str, Any]] = {}
+        parsed: dict[int, dict[str, Any]] = {}
         for item in items:
             alarm_id = divera_responses.as_int(item.get("id"))
-            snapshot = divera_responses.snapshot_from_alarm(item, catalogue)
-            if alarm_id and snapshot is not None:
-                snapshots[alarm_id] = snapshot
-        if snapshots:
-            await self.responses_sink(snapshots)
+            answers = divera_responses.parse_alarm(item, catalogue)
+            if alarm_id and answers is not None:
+                parsed[alarm_id] = answers
+        if parsed:
+            await self.responses_sink(parsed)
 
     def _parse_alarms_response(self, data: dict[str, Any]) -> list[schemas.DiveraWebhookPayload]:
         """

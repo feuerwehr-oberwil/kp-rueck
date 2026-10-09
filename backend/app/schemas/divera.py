@@ -266,72 +266,48 @@ class DiveraMessageResponse(BaseModel):
 # Rückmeldungen (services/divera_responses.py)
 # ---------------------------------------------------------------------------
 
-DiveraResponseKind = Literal["coming", "not_coming", "other"]
+DiveraResponseKind = Literal["coming", "not_coming"]
 
 
 class DiveraResponseKindCounts(BaseModel):
-    """Answers per kind. One person counts once (their latest answer)."""
+    """Answers per kind, unmapped members included. One person counts once (newest alarm)."""
 
     coming: int = 0
     not_coming: int = 0
-    other: int = 0
-
-
-class DiveraResponseStatusCount(BaseModel):
-    """Answers per Divera status, in the order Divera offers the buttons."""
-
-    status_id: int
-    # The Einheit's own name for it; «Status <id>» while the catalogue is unknown.
-    name: str
-    kind: DiveraResponseKind
-    # Divera's `time` for the status in minutes («Komme in 10 min» → 10); 0 = none.
-    time: int = 0
-    count: int
 
 
 class DiveraResponsePerson(BaseModel):
-    """One person's latest answer. Never a check-in: presence stays an explicit tap."""
+    """A roster person's yes/no. Never a check-in: presence stays an explicit tap.
 
-    ucr_id: int
-    # Via personnel_external_identities (provider `divera`). Answers nobody on the roster is
-    # linked to are never listed – only counted in `unmapped`.
+    Deliberately nothing else (owner decision): no answer time, no estimate, no status name,
+    no note, no Divera id.
+    """
+
     personnel_id: UUID
     name: str
     role: str | None = None
     tags: list[str] = []
+    kind: DiveraResponseKind
     # Has ANY attendance record on this Ereignis (checked in, or in and out again): never
     # «anrückend» any more, whatever Divera says.
     attended: bool = False
-    status_id: int
-    status_name: str
-    kind: DiveraResponseKind
-    answered_at: datetime | None = None
-    # answered_at + the status's `time` – an ESTIMATE («ca.»), only for «coming» with a time.
-    eta: datetime | None = None
-    # Divera's free text, trimmed to 80 characters. Editors and admins only (may be health data).
-    note: str | None = None
 
 
 class DiveraResponsesSummary(BaseModel):
-    """Who answered the Divera alarm(s) of one incident or one Ereignis.
+    """Who answered «kommt» / «kommt nicht» on the Divera alarm(s) of one incident or Ereignis.
 
     `available: false` with a `reason` means the block is simply absent: Divera is not
     configured here (`not_configured`), nothing on this incident/Ereignis came from Divera
     (`not_linked`), or no alarm of the last 6 h carries stored answers (`no_data` – also what
-    a unit key whose `/alarms` has no `ucr_*` fields gives). The access key is never part of
-    this answer, nor is any Divera id or note of somebody not on the roster.
+    a unit key whose `/alarms` has no answer field gives). The access key is never part of
+    this answer, nor is any Divera id.
     """
 
     available: bool
     reason: Literal["not_configured", "not_linked", "no_data"] | None = None
     alarm_count: int = 0
     counts: DiveraResponseKindCounts = DiveraResponseKindCounts()
-    statuses: list[DiveraResponseStatusCount] = []
     people: list[DiveraResponsePerson] = []
-    addressed: int = 0
-    read: int = 0
-    answered: int = 0
-    unanswered: int = 0
-    # Answers from UCR ids no local person carries as their `divera` identity (count only).
+    # Answers from Divera members no roster person is linked to (count only, in `counts` too).
     unmapped: int = 0
     updated_at: datetime | None = None

@@ -1,24 +1,26 @@
-"""Divera Rückmeldungen: who answered «Komme» / «Komme nicht» on an alarm.
+"""Divera Rückmeldungen, reduced to yes/no: who answered «kommt» or «kommt nicht».
 
 Read-only towards Divera and **no new Divera endpoint**: every alarm in the `/alarms` answer
-the poller already fetches (`services/divera_poller.py`) carries
-
-- ``ucr_addressed`` (Divera's own spec also spells it ``ucr_adressed``): the alarmed UCR ids,
-- ``ucr_answered``: ``{"<status_id>": {"<ucr_id>": {"ts": <unix s>, "note": "…"}}}`` – the
-  Swagger schema says ``int[]``, every real client agrees on the dict, and an empty answer set
-  arrives as ``[]``,
-- ``ucr_read``: who opened it.
+the poller already fetches (`services/divera_poller.py`) carries ``ucr_answered``:
+``{"<status_id>": {"<ucr_id>": {"ts": <unix s>, "note": "…"}}}`` (the Swagger schema says
+``int[]``, every real client agrees on the dict, and an empty answer set arrives as ``[]``).
 
 An answer is filed under the status id the member pressed, and every Einheit names its own
 statuses, so «kommt nicht» is not a flag: the id is resolved through the status catalogue
-(``/pull/all`` → ``cluster.status``), which is fetched RARELY – reused from the Mannschaft sync
-when that runs, otherwise at most once per 6 h and only when an alarm with answers needs it.
+(``/pull/all`` → ``cluster.status``), fetched RARELY – reused from the Mannschaft sync when that
+runs, otherwise at most once per 6 h (or when an answer uses an unknown id, at most every
+15 min), and only when an alarm carries answers.
 
-The rules are shared with KP Front (same semantics, implemented twice, no shared package):
-classification precedence = station override by status id, then by status name, then the name
-heuristic (not-coming first – «Komme nicht» contains «komme»), then ``time > 0``, else other.
-ETA = answer time + status time, an ESTIMATE. Several alarms on one incident/Ereignis merge,
-the latest answer per person wins.
+**Only yes/no is kept** (owner decision): the classification happens at poll time – station
+override by status id, then by status name, then the name heuristic (not-coming first, «Komme
+nicht» contains «komme»), then ``time > 0`` – and everything that is neither («Rückruf
+erbeten») is dropped, not stored and not counted. Within one alarm the latest answer (``ts``)
+decides, then the ``ts`` is dropped too. What is stored per alarm is the alarm time, the
+roster person ids with their class, and how many answers per class came from members nobody
+on the roster is linked to. No status ids, no answer times, no notes, no read receipts.
+
+Several alarms on one Ereignis merge, the newer ALARM wins per person. Shared with KP Front
+(same rules, implemented twice, no shared package).
 
 A Divera answer NEVER marks anybody present. Presence stays one explicit tap on the board.
 """
@@ -49,19 +51,20 @@ logger = logging.getLogger(__name__)
 
 Kind = Literal["coming", "not_coming", "other"]
 KINDS: tuple[Kind, ...] = ("coming", "not_coming", "other")
+# What is stored and shown: «other» is classified only to be dropped.
+YES_NO: tuple[Kind, ...] = ("coming", "not_coming")
 
 # Station override, a JSON object in the settings table: {"<status id>" | "<status name>": kind}.
 # Empty = the built-in heuristic. Documented in docs/ALARM-INTEGRATIONS.md.
 RESPONSE_CLASSIFICATION_KEY = "divera.response_classification"
 
-SNAPSHOT_VERSION = 2
-NOTE_MAX_CHARS = 80
+SNAPSHOT_VERSION = 3
 
 # Only alarms this young feed «Anrückend» – an Unwetter night's 18:00 answers are not who is
 # coming at 02:00. Measured from the alarm time, as KP Front does.
 DISPLAY_WINDOW = timedelta(hours=6)
-# Answers carry personal data (a note may say «krank»). They are deleted 48 h after the alarm
-# reached us, or as soon as its Ereignis is archived – and never stored again after that.
+# Who is coming is personal data. It is deleted 48 h after the alarm reached us, or as soon as
+# its Ereignis is archived – and never stored again after that.
 RETENTION = timedelta(hours=48)
 # `/pull/all` gets its own short timeout: it runs inside the poll loop.
 CATALOGUE_TIMEOUT_SECONDS = 5.0
@@ -171,12 +174,6 @@ def as_int(value: Any) -> int | None:
         return None
 
 
-def _int_list(value: Any) -> list[int]:
-    if not isinstance(value, list):
-        return []
-    return sorted({i for i in (as_int(v) for v in value) if i is not None})
-
-
 def alarm_items(data: Any) -> list[dict[str, Any]]:
     """The alarm dicts of an `/alarms` answer. `data.items` is a dict (id → alarm) or a list."""
     if not isinstance(data, dict) or not data.get("success"):
@@ -207,12 +204,7 @@ def answered_status_ids(item: Mapping[str, Any]) -> set[int]:
 
 
 def parse_status_catalogue(cluster: Any) -> dict[str, dict[str, Any]]:
-    """`/pull/all` `data.cluster` → {"<id>": {"name", "time", "sorting"}}.
-
-    `sorting` is the position in `statussorting_alarm` (the statuses offered as
-    Einsatz-Rückmeldung, in Divera's order), then `statussorting`, then the status's own
-    `sorting`, so the per-status counts read in the order the member saw the buttons.
-    """
+    """`/pull/all` `data.cluster` → {"<id>": {"name", "time", "sorting"}} (used at poll time only)."""
     if not isinstance(cluster, dict):
         return {}
     statuses = cluster.get("status")
@@ -249,23 +241,23 @@ def _int_list_ordered(value: Any) -> list[int]:
     return [i for i in (as_int(v) for v in value) if i is not None]
 
 
-def snapshot_from_alarm(
+# ---------------------------------------------------------------------------
+# One alarm: parse (transient), then classify + map to the roster (stored)
+# ---------------------------------------------------------------------------
+
+
+def parse_alarm(
     item: Mapping[str, Any], catalogue: Mapping[str, Mapping[str, Any]] | None = None
 ) -> dict[str, Any] | None:
-    """The stored, normalised form of one alarm's Rückmeldungen. None = the alarm says nothing.
+    """One alarm's answers as the poller hands them on. Never stored as such.
 
-    Within one alarm a person who changed their mind sits under two statuses; the latest
-    answer (max `ts`) wins. The statuses the answers refer to are copied in from the
-    catalogue, so the stored row reads on its own after a restart.
+    ``{"alarm_ts", "answers": {ucr_id: status_id}, "statuses": {"<id>": {"name", "time"}}}``.
+    Within the alarm the latest answer (max ``ts``) decides; the ``ts`` and the note are
+    dropped here. None = the alarm carries no answer field at all.
     """
-    keys = ("ucr_addressed", "ucr_adressed", "ucr_answered", "ucr_read")
-    if not any(key in item for key in keys):
+    if "ucr_answered" not in item:
         return None
-    addressed = item.get("ucr_addressed")
-    if addressed is None:
-        addressed = item.get("ucr_adressed")
-
-    answers: dict[str, dict[str, Any]] = {}
+    latest: dict[int, tuple[int, int]] = {}  # ucr → (ts, status)
     for status_key, bucket in _answer_buckets(item).items():
         status_id = as_int(status_key)
         if status_id is None or not isinstance(bucket, dict):
@@ -274,29 +266,55 @@ def snapshot_from_alarm(
             ucr_id = as_int(ucr_key)
             if ucr_id is None:
                 continue
-            answer = answer if isinstance(answer, dict) else {}
-            ts = as_int(answer.get("ts")) or 0
-            note = str(answer.get("note") or "").strip()[:NOTE_MAX_CHARS]
-            current = answers.get(str(ucr_id))
-            if current is None or ts > current["ts"]:
-                answers[str(ucr_id)] = {"status_id": status_id, "ts": ts, "note": note}
-
-    referenced = sorted({a["status_id"] for a in answers.values()})
+            ts = as_int(answer.get("ts")) if isinstance(answer, dict) else None
+            ts = ts or 0
+            if ucr_id not in latest or ts > latest[ucr_id][0]:
+                latest[ucr_id] = (ts, status_id)
+    answers = {ucr: status for ucr, (_ts, status) in latest.items()}
     statuses = {
-        str(sid): dict(catalogue[str(sid)]) for sid in referenced if catalogue is not None and str(sid) in catalogue
+        str(sid): {"name": catalogue[str(sid)].get("name") or "", "time": catalogue[str(sid)].get("time") or 0}
+        for sid in sorted(set(answers.values()))
+        if catalogue is not None and str(sid) in catalogue
     }
-    read_ids = item.get("ucr_read")
-    read_count = len(_int_list(read_ids)) if isinstance(read_ids, list) else max(0, as_int(item.get("count_read")) or 0)
     return {
-        "v": SNAPSHOT_VERSION,
-        # Divera's alarm time (`date`, else `ts_create`); the display window counts from it.
         "alarm_ts": as_int(item.get("date")) or as_int(item.get("ts_create")) or 0,
-        "addressed": _int_list(addressed),
-        # Who opened the alarm is a read receipt per person: only the number is kept.
-        "read_count": read_count,
-        "answers": dict(sorted(answers.items(), key=lambda kv: int(kv[0]))),
+        "answers": answers,
         "statuses": statuses,
     }
+
+
+def classify_alarm(
+    parsed: Mapping[str, Any], overrides: Overrides, personnel_by_ucr: Mapping[int, UUID]
+) -> dict[str, Any]:
+    """The STORED form: ``{"v", "alarm_ts", "people": {"<personnel id>": kind}, "unmapped": {kind: n}}``.
+
+    Only «coming» / «not_coming»; «other» is neither stored nor counted.
+    """
+    people: dict[str, Kind] = {}
+    unmapped: dict[str, int] = dict.fromkeys(YES_NO, 0)
+    statuses = parsed.get("statuses") or {}
+    for ucr_id, status_id in (parsed.get("answers") or {}).items():
+        info = statuses.get(str(status_id)) or {}
+        kind = classify(int(status_id), info.get("name") or None, int(info.get("time") or 0), overrides)
+        if kind not in YES_NO:
+            continue
+        personnel_id = personnel_by_ucr.get(int(ucr_id))
+        if personnel_id is None:
+            unmapped[kind] += 1
+        else:
+            people[str(personnel_id)] = kind
+    return {
+        "v": SNAPSHOT_VERSION,
+        "alarm_ts": as_int(parsed.get("alarm_ts")) or 0,
+        "people": dict(sorted(people.items())),
+        "unmapped": unmapped,
+    }
+
+
+async def _personnel_by_ucr(db: AsyncSession) -> dict[int, UUID]:
+    """UCR id → local person, through the `divera` external identity (the only place it lives)."""
+    identity_map = await identities_crud.get_identity_map(db, "divera")
+    return {ucr: pid for pid, ext in identity_map.items() if (ucr := as_int(ext)) is not None}
 
 
 # ---------------------------------------------------------------------------
@@ -373,35 +391,47 @@ status_catalogue = StatusCatalogueCache()
 
 
 # ---------------------------------------------------------------------------
-# Storage
+# Storage and retention
 # ---------------------------------------------------------------------------
 
 
-async def store_snapshots(db: AsyncSession, snapshots: Mapping[int, dict[str, Any]]) -> tuple[set[UUID], set[UUID]]:
-    """Write the snapshots onto the pool alarms they belong to; only rows that changed.
+async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str, Any]]) -> tuple[set[UUID], set[UUID]]:
+    """Classify the polled alarms and write them onto their pool alarms; only rows that changed.
 
     Returns the (event ids, incident ids) whose Rückmeldungen changed, for the broadcast.
     An alarm we never took into the pool is ignored – there is nothing to show it on. Nor is
     one past the retention window or on an archived Ereignis: Divera keeps listing old
     alarms, and storing them again would undo the deletion.
     """
-    if not snapshots:
+    if not parsed_alarms:
         return set(), set()
     cutoff = _now() - RETENTION
     result = await db.execute(
         select(models.DiveraEmergency, models.Event.archived_at)
         .outerjoin(models.Event, models.Event.id == models.DiveraEmergency.attached_to_event_id)
-        .where(models.DiveraEmergency.divera_id.in_(list(snapshots.keys())))
+        .where(models.DiveraEmergency.divera_id.in_(list(parsed_alarms.keys())))
     )
+    rows = [
+        emergency
+        for emergency, event_archived_at in result.all()
+        if emergency.divera_id is not None and event_archived_at is None and emergency.received_at >= cutoff
+    ]
+    if not rows:
+        return set(), set()
+    from .settings import get_setting  # local: services.settings imports nothing from here
+
+    overrides = parse_overrides(await get_setting(db, RESPONSE_CLASSIFICATION_KEY))
+    personnel_by_ucr = await _personnel_by_ucr(db)
     events: set[UUID] = set()
     incidents: set[UUID] = set()
     changed = False
     now = _now()
-    for emergency, event_archived_at in result.all():
-        if emergency.divera_id is None or event_archived_at is not None or emergency.received_at < cutoff:
+    for emergency in rows:
+        parsed = parsed_alarms.get(emergency.divera_id or 0)
+        if parsed is None:
             continue
-        snapshot = snapshots.get(emergency.divera_id)
-        if snapshot is None or emergency.responses_json == snapshot:
+        snapshot = classify_alarm(parsed, overrides, personnel_by_ucr)
+        if emergency.responses_json == snapshot:
             continue
         emergency.responses_json = snapshot
         emergency.responses_updated_at = now
@@ -510,156 +540,79 @@ def alarm_time(snapshot: Mapping[str, Any] | None, received_at: datetime | None)
 
 
 def summarize(
-    snapshots: Iterable[tuple[Mapping[str, Any] | None, datetime | None]],
-    overrides: Overrides,
-    roster: Mapping[int, RosterPerson],
+    snapshots: Iterable[tuple[Mapping[str, Any] | None, datetime | None, datetime | None]],
+    roster: Mapping[UUID, RosterPerson],
     *,
     attended: AbstractSet[UUID] = frozenset(),
-    include_notes: bool = True,
 ) -> dict[str, Any]:
-    """Merge the snapshots of all alarms of one incident/Ereignis into what the board shows.
+    """Merge the stored yes/no of all alarms of one incident/Ereignis into what the board shows.
 
-    Pure: the endpoint feeds it the stored rows, the station override and the `divera`
-    identities; tests feed it the fixtures. Somebody no roster person is linked to is only
-    counted – no Divera id, no note. `attended` = personnel with any attendance record on the
-    Ereignis (checked in, or in and out again); they are flagged, never listed as coming.
+    ``snapshots`` = (stored snapshot, when the alarm went out, when the row last changed). Per
+    person the NEWER ALARM wins. Unmapped answers have no identity to merge on: per class the
+    larger alarm's number counts (one member answering two alarms is not two people).
+    `attended` = personnel with any attendance record on the Ereignis; flagged, never «coming».
     """
-    addressed: set[int] = set()
-    read_count = 0
-    statuses: dict[str, dict[str, Any]] = {}
-    answers: dict[int, dict[str, Any]] = {}
+    rows = [(s, at, changed) for s, at, changed in snapshots if s]
+    rows.sort(key=lambda r: r[1] or datetime.min.replace(tzinfo=UTC))
+    kinds: dict[UUID, str] = {}
+    unmapped: dict[str, int] = dict.fromkeys(YES_NO, 0)
     updated_at: datetime | None = None
-    alarm_count = 0
-
-    for snapshot, changed_at in snapshots:
-        alarm_count += 1
-        if not snapshot:
-            continue
+    for snapshot, _at, changed_at in rows:
         if changed_at is not None and (updated_at is None or changed_at > updated_at):
             updated_at = changed_at
-        addressed.update(_int_list(snapshot.get("addressed")))
-        # Counts only (no per-person read receipts); across alarms the larger one.
-        read_count = max(read_count, as_int(snapshot.get("read_count")) or 0)
-        for sid, info in (snapshot.get("statuses") or {}).items():
-            if isinstance(info, dict):
-                statuses[str(sid)] = info
-        for ucr_key, answer in (snapshot.get("answers") or {}).items():
-            ucr_id = as_int(ucr_key)
-            if ucr_id is None or not isinstance(answer, dict):
+        for pid, kind in (snapshot.get("people") or {}).items():
+            if kind not in YES_NO:
                 continue
-            current = answers.get(ucr_id)
-            if current is None or (as_int(answer.get("ts")) or 0) > current["ts"]:
-                answers[ucr_id] = {
-                    "status_id": as_int(answer.get("status_id")) or 0,
-                    "ts": as_int(answer.get("ts")) or 0,
-                    "note": str(answer.get("note") or "")[:NOTE_MAX_CHARS],
-                }
+            try:
+                kinds[UUID(str(pid))] = kind
+            except ValueError:
+                continue
+        for kind in YES_NO:
+            unmapped[kind] = max(unmapped[kind], as_int((snapshot.get("unmapped") or {}).get(kind)) or 0)
 
-    kind_counts: dict[str, int] = dict.fromkeys(KINDS, 0)
-    status_counts: dict[int, dict[str, Any]] = {}
+    counts = dict(unmapped)
     people: list[dict[str, Any]] = []
-    unmapped = 0
-
-    for ucr_id, answer in answers.items():
-        status_id = answer["status_id"]
-        info = statuses.get(str(status_id))
-        name = (info or {}).get("name") or None
-        minutes = int((info or {}).get("time") or 0)
-        kind = classify(status_id, name, minutes, overrides)
-        label = name or f"Status {status_id}"
-        kind_counts[kind] += 1
-        entry = status_counts.setdefault(
-            status_id,
-            {
-                "status_id": status_id,
-                "name": label,
-                "kind": kind,
-                "time": minutes,
-                "count": 0,
-                "_sorting": (info or {}).get("sorting", 10_000 + status_id),
-            },
-        )
-        entry["count"] += 1
-        eta_ts = answer["ts"] + minutes * 60 if kind == "coming" and minutes > 0 and answer["ts"] > 0 else 0
-        person = roster.get(ucr_id)
-        if person is None:
-            unmapped += 1
+    for pid, kind in kinds.items():
+        person = roster.get(pid)
+        if person is None:  # removed from the roster since: counted, not named
+            counts[kind] += 1
             continue
+        counts[kind] += 1
         people.append(
             {
-                "ucr_id": ucr_id,
                 "personnel_id": person.personnel_id,
                 "name": person.name,
                 "role": person.role,
                 "tags": list(person.tags),
-                "attended": person.personnel_id in attended,
-                "status_id": status_id,
-                "status_name": label,
                 "kind": kind,
-                "answered_at": _epoch(answer["ts"]),
-                "eta": _epoch(eta_ts),
-                "note": (answer["note"] or None) if include_notes else None,
+                "attended": person.personnel_id in attended,
             }
         )
-
-    kind_order = {"coming": 0, "other": 1, "not_coming": 2}
-    people.sort(
-        key=lambda p: (
-            kind_order[p["kind"]],
-            (p["eta"] or p["answered_at"] or datetime.max.replace(tzinfo=UTC)),
-            p["ucr_id"],
-        )
-    )
-    ordered_statuses = sorted(status_counts.values(), key=lambda s: (s["_sorting"], s["status_id"]))
-    for status in ordered_statuses:
-        status.pop("_sorting")
-
-    answered = len(answers)
+    people.sort(key=lambda p: (YES_NO.index(p["kind"]), p["name"].casefold(), str(p["personnel_id"])))
     return {
         "available": True,
         "reason": None,
-        "alarm_count": alarm_count,
-        "counts": kind_counts,
-        "statuses": ordered_statuses,
+        "alarm_count": len(rows),
+        "counts": counts,
         "people": people,
-        "addressed": len(addressed),
-        "read": read_count,
-        "answered": answered,
-        # Count arithmetic, as KP Front computes it: somebody who answered without being
-        # in `ucr_addressed` (Nachalarm, self-alarm) does not make another person «unanswered».
-        "unanswered": max(0, len(addressed) - answered),
-        "unmapped": unmapped,
+        "unmapped": sum(unmapped.values()),
         "updated_at": updated_at,
     }
 
 
 def not_available(reason: Reason) -> dict[str, Any]:
-    return {"available": False, "reason": reason, "counts": dict.fromkeys(KINDS, 0)}
+    return {"available": False, "reason": reason, "counts": dict.fromkeys(YES_NO, 0)}
 
 
-async def _roster_for(db: AsyncSession, ucr_ids: Iterable[int]) -> dict[int, RosterPerson]:
-    """UCR id → local person, through the `divera` external identity (the only place it lives)."""
-    wanted = {str(u) for u in ucr_ids}
+async def _roster_for(db: AsyncSession, personnel_ids: Iterable[UUID]) -> dict[UUID, RosterPerson]:
+    wanted = list(set(personnel_ids))
     if not wanted:
         return {}
-    identity_map = await identities_crud.get_identity_map(db, "divera")
-    by_ucr = {ext: pid for pid, ext in identity_map.items() if ext in wanted}
-    if not by_ucr:
-        return {}
-    result = await db.execute(select(models.Personnel).where(models.Personnel.id.in_(list(by_ucr.values()))))
-    people = {p.id: p for p in result.scalars().all()}
-    roster: dict[int, RosterPerson] = {}
-    for ext, pid in by_ucr.items():
-        person = people.get(pid)
-        if person is None:
-            continue
-        roster[int(ext)] = RosterPerson(
-            personnel_id=person.id,
-            name=person.name,
-            role=person.role,
-            tags=[str(t) for t in (person.tags or [])],
-        )
-    return roster
+    result = await db.execute(select(models.Personnel).where(models.Personnel.id.in_(wanted)))
+    return {
+        p.id: RosterPerson(personnel_id=p.id, name=p.name, role=p.role, tags=[str(t) for t in (p.tags or [])])
+        for p in result.scalars().all()
+    }
 
 
 async def _attended_on(db: AsyncSession, event_id: UUID | None) -> set[UUID]:
@@ -677,42 +630,35 @@ async def summary_for(
     emergencies: list[models.DiveraEmergency],
     *,
     event_id: UUID | None = None,
-    include_notes: bool = True,
 ) -> dict[str, Any]:
     """The endpoint's answer for a set of pool alarms (one incident or one Ereignis).
 
     Absent (`available: false`) when Divera is not configured, nothing here came from Divera
     (`not_linked`), or no alarm younger than the display window carries stored answers
-    (`no_data` – including a unit key whose `/alarms` has no `ucr_*` fields at all).
+    (`no_data` – including a unit key whose `/alarms` has no answer field at all).
     """
     if not settings.divera_access_key:
         return not_available("not_configured")
     if not emergencies:
         return not_available("not_linked")
     window_start = _now() - DISPLAY_WINDOW
-    emergencies = [
-        e
-        for e in emergencies
-        if e.responses_json is not None
-        and (alarm_time(e.responses_json, e.received_at) or window_start) >= window_start
-    ]
-    if not emergencies:
+    current = []
+    for e in emergencies:
+        snapshot = e.responses_json
+        if not isinstance(snapshot, dict) or snapshot.get("v") != SNAPSHOT_VERSION:
+            continue
+        went_out = alarm_time(snapshot, e.received_at)
+        if (went_out or window_start) >= window_start:
+            current.append((snapshot, went_out, e.responses_updated_at))
+    if not current:
         return not_available("no_data")
-    from .settings import get_setting  # local: services.settings imports nothing from here
-
-    overrides = parse_overrides(await get_setting(db, RESPONSE_CLASSIFICATION_KEY))
-    ucr_ids: set[int] = set()
-    for emergency in emergencies:
-        for key in (emergency.responses_json or {}).get("answers", {}):
-            if (ucr := as_int(key)) is not None:
-                ucr_ids.add(ucr)
-    roster = await _roster_for(db, ucr_ids)
+    ids: set[UUID] = set()
+    for snapshot, _at, _changed in current:
+        for pid in snapshot.get("people") or {}:
+            try:
+                ids.add(UUID(str(pid)))
+            except ValueError:
+                continue
     if event_id is None:
         event_id = emergencies[0].attached_to_event_id
-    return summarize(
-        ((e.responses_json, e.responses_updated_at) for e in emergencies),
-        overrides,
-        roster,
-        attended=await _attended_on(db, event_id),
-        include_notes=include_notes,
-    )
+    return summarize(current, await _roster_for(db, ids), attended=await _attended_on(db, event_id))

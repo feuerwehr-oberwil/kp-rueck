@@ -2974,7 +2974,7 @@
           "divera"
         ],
         "summary": "Get Event Divera Responses",
-        "description": "Divera Rückmeldungen for every Divera alarm attached to this Ereignis, merged.\n\nWhat the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that\nreads the roster. Read-only: an answer never checks anybody in. `available: false` when\nDivera is not configured or no alarm of this Ereignis came from Divera.",
+        "description": "Who answered «kommt» / «kommt nicht» on the Divera alarms of this Ereignis, merged.\n\nWhat the Appell and the Personen-Leiste show as «Anrückend». Readable by every role that\nreads the roster. Read-only: an answer never checks anybody in. `available: false` when\nDivera is not configured or no alarm of this Ereignis came from Divera.",
         "operationId": "get_event_divera_responses_api_divera_events__event_id__responses_get",
         "parameters": [
           {
@@ -21642,23 +21642,14 @@
             "type": "integer",
             "title": "Not Coming",
             "default": 0
-          },
-          "other": {
-            "type": "integer",
-            "title": "Other",
-            "default": 0
           }
         },
         "type": "object",
         "title": "DiveraResponseKindCounts",
-        "description": "Answers per kind. One person counts once (their latest answer)."
+        "description": "Answers per kind, unmapped members included. One person counts once (newest alarm)."
       },
       "DiveraResponsePerson": {
         "properties": {
-          "ucr_id": {
-            "type": "integer",
-            "title": "Ucr Id"
-          },
           "personnel_id": {
             "type": "string",
             "format": "uuid",
@@ -21687,114 +21678,28 @@
             "title": "Tags",
             "default": []
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "coming",
+              "not_coming"
+            ],
+            "title": "Kind"
+          },
           "attended": {
             "type": "boolean",
             "title": "Attended",
             "default": false
-          },
-          "status_id": {
-            "type": "integer",
-            "title": "Status Id"
-          },
-          "status_name": {
-            "type": "string",
-            "title": "Status Name"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "coming",
-              "not_coming",
-              "other"
-            ],
-            "title": "Kind"
-          },
-          "answered_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Answered At"
-          },
-          "eta": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Eta"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
           }
         },
         "type": "object",
         "required": [
-          "ucr_id",
           "personnel_id",
           "name",
-          "status_id",
-          "status_name",
           "kind"
         ],
         "title": "DiveraResponsePerson",
-        "description": "One person's latest answer. Never a check-in: presence stays an explicit tap."
-      },
-      "DiveraResponseStatusCount": {
-        "properties": {
-          "status_id": {
-            "type": "integer",
-            "title": "Status Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "coming",
-              "not_coming",
-              "other"
-            ],
-            "title": "Kind"
-          },
-          "time": {
-            "type": "integer",
-            "title": "Time",
-            "default": 0
-          },
-          "count": {
-            "type": "integer",
-            "title": "Count"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status_id",
-          "name",
-          "kind",
-          "count"
-        ],
-        "title": "DiveraResponseStatusCount",
-        "description": "Answers per Divera status, in the order Divera offers the buttons."
+        "description": "A roster person's yes/no. Never a check-in: presence stays an explicit tap.\n\nDeliberately nothing else (owner decision): no answer time, no estimate, no status name,\nno note, no Divera id."
       },
       "DiveraResponsesSummary": {
         "properties": {
@@ -21827,17 +21732,8 @@
             "$ref": "#/components/schemas/DiveraResponseKindCounts",
             "default": {
               "coming": 0,
-              "not_coming": 0,
-              "other": 0
+              "not_coming": 0
             }
-          },
-          "statuses": {
-            "items": {
-              "$ref": "#/components/schemas/DiveraResponseStatusCount"
-            },
-            "type": "array",
-            "title": "Statuses",
-            "default": []
           },
           "people": {
             "items": {
@@ -21846,26 +21742,6 @@
             "type": "array",
             "title": "People",
             "default": []
-          },
-          "addressed": {
-            "type": "integer",
-            "title": "Addressed",
-            "default": 0
-          },
-          "read": {
-            "type": "integer",
-            "title": "Read",
-            "default": 0
-          },
-          "answered": {
-            "type": "integer",
-            "title": "Answered",
-            "default": 0
-          },
-          "unanswered": {
-            "type": "integer",
-            "title": "Unanswered",
-            "default": 0
           },
           "unmapped": {
             "type": "integer",
@@ -21890,7 +21766,7 @@
           "available"
         ],
         "title": "DiveraResponsesSummary",
-        "description": "Who answered the Divera alarm(s) of one incident or one Ereignis.\n\n`available: false` with a `reason` means the block is simply absent: Divera is not\nconfigured here (`not_configured`), nothing on this incident/Ereignis came from Divera\n(`not_linked`), or no alarm of the last 6 h carries stored answers (`no_data` – also what\na unit key whose `/alarms` has no `ucr_*` fields gives). The access key is never part of\nthis answer, nor is any Divera id or note of somebody not on the roster."
+        "description": "Who answered «kommt» / «kommt nicht» on the Divera alarm(s) of one incident or Ereignis.\n\n`available: false` with a `reason` means the block is simply absent: Divera is not\nconfigured here (`not_configured`), nothing on this incident/Ereignis came from Divera\n(`not_linked`), or no alarm of the last 6 h carries stored answers (`no_data` – also what\na unit key whose `/alarms` has no answer field gives). The access key is never part of\nthis answer, nor is any Divera id."
       },
       "DiveraSyncExecute": {
         "properties": {
