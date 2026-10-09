@@ -48,6 +48,7 @@ import { SheetBody, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { apiClient, type ApiFeldIncidentCreated, type ApiFeldOwnReport } from '@/lib/api-client'
+import { ApiError } from '@/lib/api/types'
 import { reverseGeocode } from '@/lib/geocoding'
 import { PRIORITY_LABELS } from '@/lib/priority'
 import { asIncidentType, INCIDENT_TYPE_LABELS } from '@/lib/types/incidents'
@@ -339,11 +340,11 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
       console.error('Field report failed:', error)
       // A correction refused because the KP got there first is not a failure of
       // the phone — it is the answer, and the crew has to hear which one it was.
-      toast.error(
-        props.editing && error instanceof Error && error.message.includes('409')
-          ? t('editTooLate')
-          : t('failed'),
-      )
+      // Read the status/code, never the message: the message is localized (and
+      // never contained «409» to begin with, so this branch used to be dead).
+      const tooLate =
+        error instanceof ApiError && (error.code === 'feld_report_taken_over' || error.isConflict)
+      toast.error(props.editing && tooLate ? t('editTooLate') : t('failed'))
     } finally {
       setSending(false)
     }

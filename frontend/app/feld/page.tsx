@@ -1175,14 +1175,18 @@ function FeldSurface() {
     // An expired link is its own screen: no field, no button. The four digits
     // cannot fix a token that ran out, so asking for them again is the one
     // thing this page must stop doing.
-    if (codeError?.kind === 'expired') {
+    // Same for an address that is not the poster's link (`reopen`): scan again.
+    if (codeError?.kind === 'expired' || codeError?.kind === 'reopen') {
+      const reopen = codeError.kind === 'reopen'
       return (
         <div className="min-h-screen bg-background flex flex-col justify-center p-6">
           <div className="mx-auto w-full max-w-xs">
-            <h1 className="mb-6 text-center text-2xl font-semibold">{t('code.expiredTitle')}</h1>
+            <h1 className="mb-6 text-center text-2xl font-semibold">
+              {t(reopen ? 'code.reopenTitle' : 'code.expiredTitle')}
+            </h1>
             <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-              <p className="font-medium">{t('code.expiredHeading')}</p>
-              <p className="mt-0.5">{t('code.expiredBody')}</p>
+              <p className="font-medium">{t(reopen ? 'code.reopenHeading' : 'code.expiredHeading')}</p>
+              <p className="mt-0.5">{t(reopen ? 'code.reopenBody' : 'code.expiredBody')}</p>
             </div>
             <p className="mt-3 rounded-lg border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground">
               {t('code.expiredFoot')}

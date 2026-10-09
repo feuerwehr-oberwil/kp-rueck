@@ -55,6 +55,26 @@ will keep holding.
 
 ### Changed
 
+- **The bell speaks French too.** A notification used to be one German sentence composed on the
+  server, which the board then took apart again with regular expressions to lay it out – so a
+  French-speaking KP read German in the bell, the toasts and the Warnungen panel. Every
+  notification now also carries the facts it is made of (place, person, minutes, column, …), and
+  the board says them in the device's language: «Récupération nécessaire» / «Hauptstrasse 1 ·
+  saisi au PC». What the crew typed and what a training inject says stay as written. German
+  reads as before, with the board's own column names («Disponiert / Anfahrt») where the sentence
+  used the printout's. The `/feld` phone's and the Reko form's error messages («Bitte den Code neu
+  eingeben.», «Diese Einsatzstelle ist dir nicht zugeteilt.», an invalid Reko link, photo size and
+  type) are in the crew's language as well, and the
+  installed app announces the device's language (`fr-CH`) instead of always `de-CH`. Italian
+  stays German until its translation is complete.
+  *After the update:* notifications raised BEFORE it carry no facts, so they keep showing their
+  German sentence, in every language, until they age out – an open one until it is dismissed or
+  resolves itself, a dismissed one when it drops out of the bell's 24-hour history. Nothing is
+  rewritten; new notifications are in the device's language from the first one on.
+  *Deployment:* one migration (a nullable `params` column on `notifications`, nothing
+  backfilled), runs on boot. API: `GET /api/notifications/` rows gain `params` (null on old
+  rows); `/feld` error bodies gain a stable `code` beside the unchanged German `detail`.
+
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
   iPhone showed a screenshot of the page: the icon was an SVG, which iOS does not accept there,
   and there was no web manifest, so Android offered no app at all. There is now a PNG set (180 for
@@ -81,6 +101,13 @@ will keep holding.
 
 ### Fixed
 
+- **«Zu spät, bitte per Funk» on /feld shows again.** Correcting a Meldung the KP had already
+  taken over said «Meldung konnte nicht abgesetzt werden» instead of telling the crew to use the
+  radio: the phone looked for «409» in the error text, which never contained it. It now reads the
+  answer's status and code.
+- **A /feld address that is not the poster's link asks for the QR code, not the digits.** Opening
+  a bookmarked or forwarded /feld address after unlocking answered every code with «Falscher
+  Code»; no code could ever work there. It now says to scan the QR code on the poster again.
 - **The board search finds «hoch» and «Im Einsatz».** Priority and status were matched on the
   internal codes (`high`, `active`) rather than the words on the card, so «hoch» or «einsatz»
   found nothing while a fragment like «in» or «com» found every card in a column. The search now

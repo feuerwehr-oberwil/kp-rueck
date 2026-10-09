@@ -27105,6 +27105,18 @@
             "type": "string",
             "title": "Message"
           },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params"
+          },
           "incident_id": {
             "anyOf": [
               {

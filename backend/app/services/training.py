@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DiveraEmergency, EmergencyTemplate, Incident, Notification, Setting, TrainingLocation
+from app.services import notification_params
 from app.services.training_simulation_data import generate_intake_caller, vary_dispatch_numbers
 
 logger = logging.getLogger(__name__)
@@ -162,11 +163,13 @@ class TrainingGenerator:
         full_address = incident.location_address
 
         # Create notification for new training incident
+        message, params = notification_params.training_new(incident.title, full_address)
         notification = Notification(
             id=uuid4(),
             type="training_emergency",
             severity="critical" if category == "critical" else "warning",
-            message=f"Neuer Übungs-Einsatz: {incident.title} ({full_address})",
+            message=message,
+            params=params,
             incident_id=incident.id,
             event_id=event_id,
             dismissed=False,
@@ -211,11 +214,13 @@ class TrainingGenerator:
             longitude=longitude,
         )
 
+        message, params = notification_params.training_new(incident.title, incident.location_address)
         notification = Notification(
             id=uuid4(),
             type="training_emergency",
             severity="critical" if template.category == "critical" else "warning",
-            message=f"Neuer Übungs-Einsatz: {incident.title} ({incident.location_address})",
+            message=message,
+            params=params,
             incident_id=incident.id,
             event_id=event_id,
             dismissed=False,

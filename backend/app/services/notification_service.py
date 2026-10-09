@@ -4,6 +4,7 @@ import json
 import logging
 import math
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 # Helper subquery for assigned material IDs
@@ -22,6 +23,7 @@ from ..schemas import NotificationSettings
 # wears (street + number, home town stripped), and a notification must name a
 # Schadenplatz the way the card does — never «…strasse 8, 4104 Oberwil» about a
 # card that reads «…strasse 8».
+from . import notification_params as texts
 from .incident_display import get_home_city, location_display
 from .pdf_report_service import STATUS_LABELS
 
@@ -205,18 +207,18 @@ async def _check_time_based_alerts(
         threshold_minutes = settings.get_threshold_minutes(incident.status, is_training)
 
         if duration_minutes > threshold_minutes:
-            hours = int(duration_minutes // 60)
-            minutes = int(duration_minutes % 60)
-            duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
-
+            message, params = texts.time_in_status(
+                location_display(incident.location_address, home_city) or incident.title,
+                int(duration_minutes),
+                incident.status,
+                STATUS_LABELS.get(incident.status, incident.status),
+            )
             notifications.append(
                 Notification(
                     type="time_overdue",
                     severity="warning",
-                    message=(
-                        f"{location_display(incident.location_address, home_city) or incident.title}: {duration_str} "
-                        f"im Status «{STATUS_LABELS.get(incident.status, incident.status)}»"
-                    ),
+                    message=message,
+                    params=params,
                     incident_id=incident.id,
                     event_id=event_id,
                 )
@@ -237,15 +239,16 @@ async def _check_time_based_alerts(
         if incident.completed_at:
             time_since_completion = (now - incident.completed_at).total_seconds() / 60
             if time_since_completion > archive_threshold_minutes:
-                hours = int(time_since_completion // 60)
-                minutes = int(time_since_completion % 60)
-                duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
-
+                message, params = texts.time_not_archived(
+                    location_display(incident.location_address, home_city) or incident.title,
+                    int(time_since_completion),
+                )
                 notifications.append(
                     Notification(
                         type="time_overdue",
                         severity="warning",
-                        message=f"{location_display(incident.location_address, home_city) or incident.title}: seit {duration_str} abgeschlossen, nicht archiviert",
+                        message=message,
+                        params=params,
                         incident_id=incident.id,
                         event_id=event_id,
                     )
@@ -284,11 +287,13 @@ async def _check_resource_alerts(
         available_count = len(checked_in_personnel_ids) - len(assigned_personnel_ids)
 
         if available_count == 0:
+            message, params = texts.no_personnel()
             notifications.append(
                 Notification(
                     type="no_personnel",
                     severity="critical",
-                    message="Kein Personal mehr verfügbar - alle eingecheckten Personen sind zugewiesen",
+                    message=message,
+                    params=params,
                     event_id=event_id,
                 )
             )
@@ -331,21 +336,14 @@ async def _check_resource_alerts(
         count_result = await db.execute(query)
         available_count = count_result.scalar_one()
 
-        if available_count == 0:
+        if available_count <= threshold:  # threshold >= 0 here, so 0 always lands here (critical)
+            message, params = texts.materials(material_location, available_count)
             notifications.append(
                 Notification(
                     type="no_materials",
-                    severity="critical",
-                    message=f"Keine Einheiten von '{material_location}' mehr verfügbar",
-                    event_id=event_id,
-                )
-            )
-        elif available_count <= threshold:
-            notifications.append(
-                Notification(
-                    type="no_materials",
-                    severity="warning",
-                    message=f"Nur noch {available_count} Einheiten von '{material_location}' verfügbar",
+                    severity="critical" if available_count == 0 else "warning",
+                    message=message,
+                    params=params,
                     event_id=event_id,
                 )
             )
@@ -353,31 +351,9 @@ async def _check_resource_alerts(
     return notifications
 
 
-#: How many names the grouped time-on-duty notification spells out before «und N weitere».
-FATIGUE_NAMES_SHOWN = 5
-
-
 def fatigue_message(over: list[tuple[str, int]], fatigue_hours: int) -> str:
-    """The one sentence for everybody past the time-on-duty threshold.
-
-    ``over`` is ``(name, minutes on duty)``, longest first. Whole hours only: the sentence
-    is rewritten in place whenever it changes, and a minute in it would rewrite the row
-    every poll for a number the board already shows live on the person chip.
-
-    «Seit über 4 h im Einsatz: Müller Hans (6 h)» /
-    «3 Personen seit über 4 h im Einsatz: Müller Hans (6 h), Meier Anna (5 h), Huber Max (4 h)»
-    (frontend/lib/notification-format.ts takes it apart again — keep the two in step).
-    """
-    shown = ", ".join(f"{name} ({minutes // 60} h)" for name, minutes in over[:FATIGUE_NAMES_SHOWN])
-    rest = len(over) - FATIGUE_NAMES_SHOWN
-    if rest > 0:
-        shown += f" und {rest} weitere"
-    head = (
-        f"Seit über {fatigue_hours} h im Einsatz"
-        if len(over) == 1
-        else f"{len(over)} Personen seit über {fatigue_hours} h im Einsatz"
-    )
-    return f"{head}: {shown}"
+    """The German sentence of the grouped time-on-duty notification (`notification_params.fatigue`)."""
+    return texts.fatigue(over, fatigue_hours)[0]
 
 
 def fatigue_subject_key(personnel_id: UUID, checked_in_at: datetime) -> str:
@@ -473,7 +449,7 @@ async def _sync_fatigue_locked(
             stale.dismissed_at = now
         return None
 
-    message = fatigue_message(over, settings.fatigue_hours)
+    message, params = texts.fatigue(over, settings.fatigue_hours)
 
     if active:
         current, *extra = active
@@ -481,9 +457,11 @@ async def _sync_fatigue_locked(
         for stale in extra:
             stale.dismissed = True
             stale.dismissed_at = now
-        # Text and keys together: a dismissal acknowledges what the row said.
-        if current.message != message or current.subject_keys != keys:
+        # Text, params and keys together: a dismissal acknowledges what the row said, and a
+        # row written before `params` existed gets them on its next rewrite.
+        if current.message != message or current.params != params or current.subject_keys != keys:
             current.message = message
+            current.params = params
             current.subject_keys = keys
         return current
 
@@ -514,6 +492,7 @@ async def _sync_fatigue_locked(
         type="personnel_fatigue",
         severity="warning",
         message=message,
+        params=params,
         subject_keys=keys,
         event_id=event_id,
     )
@@ -538,23 +517,19 @@ async def _check_data_quality_alerts(db: AsyncSession, event_id: UUID) -> list[N
     incidents_no_location = result.scalars().all()
 
     for incident in incidents_no_location:
+        message, params = texts.missing_location(incident.title)
         notifications.append(
             Notification(
                 type="missing_location",
                 severity="info",
-                message=f"Einsatz '{incident.title}' hat keine geokodierte Position",
+                message=message,
+                params=params,
                 incident_id=incident.id,
                 event_id=event_id,
             )
         )
 
     return notifications
-
-
-#: Message prefixes for the two storage limits. They double as the deduplication key
-#: (see `_deduplicate_and_save`), so they must stay stable and distinct.
-STORAGE_LABEL_DATABASE = "Datenbank"
-STORAGE_LABEL_PHOTOS = "Foto-Speicher"
 
 
 async def _check_event_size_alerts(
@@ -579,34 +554,32 @@ async def _check_event_size_alerts(
     if db_limit_gb <= 0 and photo_limit_gb <= 0:
         return notifications
 
-    from .storage_usage import BYTES_PER_GB, format_gb, get_storage_usage
+    from .storage_usage import BYTES_PER_GB, get_storage_usage
 
     usage = await get_storage_usage(db)
 
     # An unmeasurable value stays silent. Reporting «0 GB» would be a false all-clear, and
     # inventing an alarm out of a failed stat would be worse.
     if db_limit_gb > 0 and usage.database_bytes is not None and usage.database_bytes > db_limit_gb * BYTES_PER_GB:
+        message, params = texts.storage_limit("database", usage.database_bytes, db_limit_gb)
         notifications.append(
             Notification(
                 type="event_size_limit",
                 severity="warning",
-                message=(
-                    f"{STORAGE_LABEL_DATABASE}: {format_gb(usage.database_bytes)} GB belegt – "
-                    f"Limit von {db_limit_gb} GB überschritten"
-                ),
+                message=message,
+                params=params,
                 event_id=event_id,
             )
         )
 
     if photo_limit_gb > 0 and usage.photo_bytes is not None and usage.photo_bytes > photo_limit_gb * BYTES_PER_GB:
+        message, params = texts.storage_limit("photos", usage.photo_bytes, photo_limit_gb)
         notifications.append(
             Notification(
                 type="event_size_limit",
                 severity="warning",
-                message=(
-                    f"{STORAGE_LABEL_PHOTOS}: {format_gb(usage.photo_bytes)} GB belegt – "
-                    f"Limit von {photo_limit_gb} GB überschritten"
-                ),
+                message=message,
+                params=params,
                 event_id=event_id,
             )
         )
@@ -690,14 +663,15 @@ async def _check_geofence_alerts(
             )
 
             if distance <= settings.geofence_radius_meters:
+                message, params = texts.vehicle_on_site(
+                    vehicle.name, location_display(incident.location_address, home_city) or incident.title or "Einsatz"
+                )
                 notifications.append(
                     Notification(
                         type="vehicle_arrived",
                         severity="info",
-                        message=(
-                            f"{vehicle.name} vor Ort: "
-                            f"{location_display(incident.location_address, home_city) or incident.title or 'Einsatz'}"
-                        ),
+                        message=message,
+                        params=params,
                         incident_id=incident.id,
                         event_id=event_id,
                     )
@@ -899,7 +873,8 @@ async def create_reko_notification(
         is_relevant: Whether the reko found the incident relevant
         submitted_by_name: Optional name of personnel who submitted
         incident_address: Location address for identification
-        danger_types: List of danger types found
+        danger_types: The danger flags found — ``RekoReport.dangers_json`` KEYS
+            (``fire``, ``chemical``, …), not labels: the client names them per locale.
         personnel_count: Estimated personnel needed
         estimated_duration: Estimated duration in hours
 
@@ -908,33 +883,15 @@ async def create_reko_notification(
     """
     # Use the short address as primary identifier — same label as the card.
     location = location_display(incident_address, await get_home_city(db)) or incident_title
-
-    # Build structured message
-    parts = [f"Reko abgeschlossen: {location}"]
-
-    if submitted_by_name:
-        parts.append(f"von {submitted_by_name}")
-
-    relevance_text = "Einsatz relevant" if is_relevant else "Kein Einsatz nötig"
-    parts.append(f"– {relevance_text}")
-
-    # Add details on new line
-    details = []
-    if personnel_count:
-        details.append(f"{personnel_count} Pers.")
-    if estimated_duration:
-        details.append(f"~{estimated_duration}h")
-    if danger_types:
-        details.append(f"Gefahren: {', '.join(danger_types)}")
-
-    message = " ".join(parts)
-    if details:
-        message += f" ({', '.join(details)})"
+    message, params = texts.reko_submitted(
+        location, submitted_by_name, is_relevant, personnel_count, estimated_duration, danger_types or []
+    )
 
     notification = Notification(
         type="reko_submitted",
         severity="info",
         message=message,
+        params=params,
         incident_id=incident_id,
         event_id=event_id,
     )
@@ -968,7 +925,7 @@ async def create_vehicle_returned_notification(
     purpose: a shuttle run (drop people off, return) can legitimately bring the
     same vehicle home again within minutes and must notify each time.
     """
-    message = f"{vehicle_name} zurück im Magazin"
+    message, params = texts.vehicle_returned(vehicle_name)
 
     recent = await db.execute(
         select(Notification.id)
@@ -985,6 +942,7 @@ async def create_vehicle_returned_notification(
         type="vehicle_arrived",
         severity="info",
         message=message,
+        params=params,
         incident_id=incident_id,
         event_id=event_id,
     )
@@ -1008,13 +966,14 @@ async def create_field_notification(
     incident_id: UUID,
     event_id: UUID,
     message: str,
+    params: dict[str, Any] | None = None,
     severity: str = "info",
 ) -> Notification:
     """Bell entry for a `/feld` field report (plan 25).
 
     One helper for all five field types rather than five near-identical
-    functions: the only thing that differs between them is the message the
-    caller has already built and the severity. ``field_pickup`` is the one that
+    functions: the only thing that differs between them is the message and
+    params the caller has already built (`notification_params`) and the severity. ``field_pickup`` is the one that
     is a `warning` — a crew waiting to be collected is the single field event
     that is time-critical for the KP; the rest are `info`.
 
@@ -1026,6 +985,7 @@ async def create_field_notification(
         type=notification_type,
         severity=severity,
         message=message,
+        params=params,
         incident_id=incident_id,
         event_id=event_id,
     )
@@ -1052,14 +1012,14 @@ async def create_feld_code_rotated_notification(db: AsyncSession, event: Event) 
     not in the message — the bell is readable by viewers too, and the code is
     one click away in «Links & QR».
 
-    Event-level (no incident). The frontend renders its own per-locale text for
-    this type (``lib/contexts/notification-context.tsx``); the German message
-    here is the fallback and what the API returns.
+    Event-level (no incident).
     """
+    message, params = texts.feld_code_rotated(event.name)
     notification = Notification(
         type="feld_code_rotated",
         severity="warning",
-        message=f"Feld-Code für {event.name} nach zu vielen Fehlversuchen neu erzeugt",
+        message=message,
+        params=params,
         incident_id=None,
         event_id=event.id,
     )
@@ -1100,12 +1060,13 @@ async def create_reko_arrived_notification(
     """
     # Use the short address as primary identifier, fall back to title
     location = location_display(incident_address, await get_home_city(db)) or incident_title
-    message = f"Reko vor Ort: {arrived_by_name} bei {location}" if arrived_by_name else f"Reko vor Ort: {location}"
+    message, params = texts.reko_arrived(location, arrived_by_name)
 
     notification = Notification(
         type="reko_arrived",
         severity="info",
         message=message,
+        params=params,
         incident_id=incident_id,
         event_id=event_id,
     )
