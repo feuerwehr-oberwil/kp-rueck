@@ -27,7 +27,6 @@ from app.models import (
     AuditLog,
     DiveraEmergency,
     Event,
-    FieldRequest,
     Incident,
     IncidentAssignment,
     Personnel,
@@ -584,7 +583,8 @@ class TestWhatAMergeMustNotDo:
         ("fields", "reason"),
         [
             ({"status": "reko"}, "Eingegangen"),
-            ({"pickup_needed": True}, "Feld"),
+            # «Einsatz beendet» is the crew closing THIS card — not a request that can move.
+            ({"field_complete_reported_at": datetime(2026, 10, 9, 12, tzinfo=UTC)}, "beendet"),
         ],
     )
     async def test_a_card_somebody_worked_on_is_not_hidden(
@@ -600,35 +600,6 @@ class TestWhatAMergeMustNotDo:
         response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
         assert response.status_code == 409
         assert reason in response.json()["detail"]
-
-    async def test_a_card_with_field_messages_is_not_hidden(
-        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
-    ) -> None:
-        target = await _card(db_session, test_event)
-        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
-        db_session.add(
-            AuditLog(
-                action_type="field_message", resource_type="incident", resource_id=dup.id, changes_json={"message": "x"}
-            )
-        )
-        await db_session.commit()
-        response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
-        assert response.status_code == 409
-        assert "Meldungen vom Feld" in response.json()["detail"]
-
-    @pytest.mark.parametrize("status", ["open", "done"])
-    async def test_a_card_with_a_field_request_is_not_hidden(
-        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, status: str
-    ) -> None:
-        """A request from the field (R13) – open or already handled – stays on its own card:
-        an open one would vanish with it, a handled one is work done there."""
-        target = await _card(db_session, test_event)
-        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
-        db_session.add(FieldRequest(incident_id=dup.id, kind="material", status=status, item="Tauchpumpe", quantity=1))
-        await db_session.commit()
-        response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
-        assert response.status_code == 409
-        assert "Anfragen vom Feld" in response.json()["detail"]
 
     async def test_nothing_can_be_assigned_to_a_merged_card(
         self,

@@ -4449,7 +4449,9 @@
         "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
         "field_request_in_progress": "Anfrage in Arbeit",
         "field_request_done": "Anfrage erledigt",
-        "field_request_open": "Anfrage wieder offen"
+        "field_request_open": "Anfrage wieder offen",
+        "field_request_moved": "Anfrage übernommen von {other}",
+        "field_request_returned": "Anfrage zurück von {other}"
       }
     },
     "refDeleted": "{ref} (gelöscht)",
