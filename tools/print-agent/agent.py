@@ -1,34 +1,30 @@
 #!/usr/bin/env python3
-"""kp-print-agent — one print agent, both KP protocols.
+"""kp-print-agent — KP Rück's thermal print agent.
 
-A station running KP Front and KP Rück used to need two print agents on the same box: two
-services, two secrets, two install methods, two log streams. This is one agent that speaks
-both wire protocols and drives both kinds of printer. Neither backend changed; neither
-protocol changed.
-
-    protocol: kp-front  → long-poll claim, opaque PDF     → output: cups   (A4 laser)
     protocol: kp-rueck  → long-poll pending, structured JSON → output: escpos (80 mm thermal)
 
-Pull-based, like both agents before it: only outbound HTTPS, no inbound ports, no exposure of
-CUPS or the printer to anything but this machine. Each backend gets its own worker thread, so
-one unreachable backend never stalls the other, and the poll doubles as the heartbeat that
-shows the relay online in each app.
+Pull-based: only outbound HTTPS, no inbound ports, no exposure of the printer to anything but
+this machine. Each backend gets its own worker thread, so one unreachable backend never
+stalls another, and the poll doubles as the heartbeat that shows the agent online in KP Rück.
 
-The core is stdlib-only so it installs on a bare Pi with no venv (`--help` explains the
-systemd path); only `output: escpos` needs python-escpos and pillow, imported lazily.
+(It also used to serve KP Front's A4 relay through CUPS. KP Front removed that relay, so the
+agent speaks KP Rück's protocol only; a leftover `kp-front` entry is skipped with a warning
+rather than stopping the thermal printer, see `load_backends`.)
+
+The core is stdlib-only (`--help` explains the systemd path); only `output: escpos` needs
+python-escpos and pillow, imported lazily, so a dry run or a broken install still starts and
+says what is missing.
 
 CONFIGURATION — either a JSON file with a `backends` list:
 
     {"backends": [
-      {"name": "front", "protocol": "kp-front", "url": "https://front.example.org",
-       "secret": "…", "output": "cups", "printer": "HP_LaserJet"},
       {"name": "rueck", "protocol": "kp-rueck", "url": "https://rueck.example.org",
        "secret": "…", "output": "escpos"}
     ]}
 
-passed as `--config /etc/kp-print-agent.json` or `KP_PRINT_AGENT_CONFIG`; or, for a station
-running just one of the two, the environment variables the previous agents already used —
-those keep working unchanged, see `_backend_from_env`.
+passed as `--config /etc/kp-print-agent.json` or `KP_PRINT_AGENT_CONFIG`; or, for a single
+backend, the environment variables the previous agent already used — those keep working
+unchanged, see `_backend_from_env`.
 
 A backend may list ordered `destinations` instead of one `output`; they are tried in turn
 until one takes the job, so a dead primary means paper one room over rather than no paper:
@@ -54,13 +50,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core import FatalError, PrintResult, log  # noqa: E402
-from outputs.cups import DEFAULT_CUPS_TIMEOUT_SEC, CupsOutput  # noqa: E402
 from outputs.escpos import EscposOutput  # noqa: E402
-from protocols.front import (  # noqa: E402
-    DEFAULT_CLAIM_TIMEOUT_SEC,
-    DEFAULT_POLL_SEC,
-    FrontProtocol,
-)
 from protocols.rueck import (  # noqa: E402
     DEFAULT_ACTIVE_DURATION_SEC,
     DEFAULT_LONG_POLL_SEC,
@@ -71,6 +61,11 @@ from protocols.rueck import (  # noqa: E402
 
 BACKOFF_MAX_SEC = 60.0
 BACKOFF_START_SEC = 5.0
+
+# KP Front removed its print relay; its endpoints answer 404 now. Entries and variables for it
+# are recognised only to be skipped with a clear line in the log, so an agent updated on a box
+# that served both systems keeps printing KP Rück's slips instead of refusing to start.
+FRONT_GONE = "KP Front no longer prints through this agent (its print relay was removed)"
 
 
 def _env(name: str, default: str = "") -> str:
@@ -121,7 +116,7 @@ class Backend:
             if result.ok:
                 return result, index, skipped
             skipped.append(f"{output.describe()}: {result.error}")
-            # A job the printer REFUSED (unrenderable, wrong type, missing document) fails
+            # A job the printer REFUSED (unrenderable, wrong type) fails
             # identically everywhere. Walking the chain with it would only spread the same
             # error across every printer in the station and delay the honest failure.
             if not result.unreachable:
@@ -207,13 +202,7 @@ def _build(entry: dict) -> Backend:
         except (TypeError, ValueError):
             raise SystemExit(f"config: backend '{name}' has a non-numeric {key}: {raw!r}")
 
-    if proto_name == "kp-front":
-        protocol = FrontProtocol(
-            url, secret,
-            poll_sec=tuning("poll_sec", DEFAULT_POLL_SEC),
-            claim_timeout_sec=tuning("claim_timeout_sec", DEFAULT_CLAIM_TIMEOUT_SEC),
-        )
-    elif proto_name == "kp-rueck":
+    if proto_name == "kp-rueck":
         protocol = RueckProtocol(
             url, secret,
             poll_idle_sec=tuning("poll_idle_sec", DEFAULT_POLL_IDLE_SEC),
@@ -222,20 +211,11 @@ def _build(entry: dict) -> Backend:
             long_poll_sec=tuning("long_poll_sec", DEFAULT_LONG_POLL_SEC),
         )
     else:
-        raise SystemExit(f"config: backend '{name}' has unknown protocol '{proto_name}' (kp-front | kp-rueck)")
+        raise SystemExit(f"config: backend '{name}' has unknown protocol '{proto_name}' (kp-rueck)")
 
     def build_output(spec: dict, where: str):
         """One destination. `spec` is either the backend entry itself or a `destinations` item."""
         out_name = (spec.get("output") or "").strip()
-        if out_name == "cups":
-            printer = (spec.get("printer") or "").strip()
-            if not printer:
-                raise SystemExit(f"config: {where} uses the cups output but names no printer")
-            return CupsOutput(
-                printer,
-                lp_options=spec.get("lp_options") or [],
-                cups_timeout_sec=tuning("cups_timeout_sec", DEFAULT_CUPS_TIMEOUT_SEC),
-            )
         if out_name == "escpos":
             port = spec.get("port")
             return EscposOutput(
@@ -243,7 +223,10 @@ def _build(entry: dict) -> Backend:
                 int(port) if port else 9100,
                 dry_run=bool(spec.get("dry_run")),
             )
-        raise SystemExit(f"config: {where} has unknown output '{out_name}' (cups | escpos)")
+        # KP Rück sends structured JSON that only the ESC/POS renderer understands, so there
+        # is no A4 laser output to fall back to (the CUPS one served KP Front's PDFs and went
+        # with its relay). Refused here rather than at 3am on the first real job.
+        raise SystemExit(f"config: {where} has unknown output '{out_name}' (escpos)")
 
     # `destinations` is the ordered chain; a bare `output` is the one-destination form every
     # existing config and every env-var install uses, and stays exactly as valid.
@@ -254,46 +237,21 @@ def _build(entry: dict) -> Backend:
         outputs = [build_output(s, f"backend '{name}' destination #{i + 1}") for i, s in enumerate(specs)]
     else:
         outputs = [build_output(entry, f"backend '{name}'")]
-
-    # Catch the pairing mistake here rather than at 3am on the first real job. Every
-    # destination has to consume what this protocol delivers: KP Rück sends structured JSON
-    # that only the ESC/POS renderer understands, so a laser cannot stand in for the thermal
-    # printer until somebody writes a payload→PDF renderer. Refusing here is the honest
-    # answer; accepting it would mean a backup that fails on the night it is needed.
-    for i, output in enumerate(outputs):
-        if protocol.wants != output.consumes:
-            position = f"destination #{i + 1} " if len(outputs) > 1 else ""
-            raise SystemExit(
-                f"config: backend '{name}' pairs protocol '{proto_name}' (delivers "
-                f"{protocol.wants}) with {position}output '{output.name}' (needs "
-                f"{output.consumes}) — kp-front goes with cups, kp-rueck with escpos"
-            )
     return Backend(name, protocol, outputs)
 
 
 def _backend_from_env() -> list[dict]:
-    """Reconstruct a single-backend config from the variables the old agents used.
+    """Reconstruct a single-backend config from the variables the previous agent used.
 
-    Both previous agents are still deployed this way, so their environments must keep working
-    untouched — a station that only runs one of the two systems should never have to learn
-    about a config file to keep printing.
+    The compose `printing` profile and existing Pi installs are deployed this way, so their
+    environment must keep working untouched — a station should never have to learn about a
+    config file to keep printing.
     """
     entries: list[dict] = []
 
-    # kp-front's agent: KP_BASE_URL + KP_PRINT_AGENT_SECRET + KP_PRINTER
+    # The old KP Front agent's variables (KP_BASE_URL + KP_PRINT_AGENT_SECRET + KP_PRINTER).
     if _env("KP_BASE_URL"):
-        entries.append({
-            "name": "kp-front",
-            "protocol": "kp-front",
-            "url": _env("KP_BASE_URL"),
-            "secret": _env("KP_PRINT_AGENT_SECRET"),
-            "output": "cups",
-            "printer": _env("KP_PRINTER"),
-            "lp_options": _env("KP_LP_OPTS").split(),
-            "poll_sec": _env("KP_POLL_SEC"),
-            "claim_timeout_sec": _env("KP_CLAIM_TIMEOUT_SEC"),
-            "cups_timeout_sec": _env("KP_CUPS_TIMEOUT_SEC"),
-        })
+        log(f"KP_BASE_URL is ignored: {FRONT_GONE} — unset it and the other KP_* variables")
 
     # kp-rueck's agent: BACKEND_URL + AGENT_TOKEN (+ DRY_RUN)
     if _env("BACKEND_URL"):
@@ -324,13 +282,21 @@ def load_backends(path: str | None) -> list[Backend]:
             raise SystemExit(f"config: {path} is not valid JSON: {e}")
         if not entries:
             raise SystemExit(f"config: {path} has an empty 'backends' list")
+        kept = []
+        for entry in entries:
+            if (entry.get("protocol") or "").strip() == "kp-front":
+                log(f"config: backend '{entry.get('name') or 'kp-front'}' skipped: {FRONT_GONE} — remove the entry")
+            else:
+                kept.append(entry)
+        if not kept:
+            raise SystemExit(f"config: {path} has no KP Rück backend: {FRONT_GONE}")
+        entries = kept
     else:
         entries = _backend_from_env()
         if not entries:
             raise SystemExit(
-                "no configuration: pass --config <file>, set KP_PRINT_AGENT_CONFIG, or set the "
-                "single-backend variables (KP_BASE_URL… for KP Front, BACKEND_URL… for KP Rück). "
-                "Run `agent.py install` for the full setup."
+                "no configuration: pass --config <file>, set KP_PRINT_AGENT_CONFIG, or set "
+                "BACKEND_URL + AGENT_TOKEN. Run `agent.py install` for the full setup."
             )
     return [_build(e) for e in entries]
 
@@ -338,36 +304,26 @@ def load_backends(path: str | None) -> list[Backend]:
 INSTALL = """\
 # --- kp-print-agent install (Raspberry Pi / any Debian-ish box) -----------------------
 #
-# One agent serves BOTH KP Front and KP Rück. Configure only the backends you run.
+# KP Rück's 80 mm thermal printer (ESC/POS over the LAN).
 #
 # 0) Prerequisites
-#    For KP Front (A4 laser via CUPS) — a working CUPS queue:
-#      lpstat -p                    # list destinations
-#      lp -d <PRINTER> test.pdf     # must produce paper
-#    For KP Rück (80 mm thermal) — the printer reachable on the LAN; its address is
-#    configured in KP Rück's settings UI, not here.
+#    The printer reachable on the LAN; its address is configured in KP Rück's settings UI,
+#    not here. The backend needs the shared secret PRINT_AGENT_TOKEN — fail-closed: unset
+#    means the agent endpoints answer 403 for everyone.
 #
-#    Each backend needs its shared secret set on the backend side:
-#      KP Front: PRINT_AGENT_SECRET      KP Rück: PRINT_AGENT_TOKEN
-#    Both are fail-closed — unset means the agent endpoints answer 403 for everyone.
-#
-# 1) Install the agent (a directory now, not a single file):
+# 1) Install the agent (a directory, not a single file):
 #      sudo mkdir -p /opt/kp-print-agent
 #      sudo cp -r tools/print-agent/* /opt/kp-print-agent/
-#    ESC/POS only: sudo pip3 install python-escpos pillow
-#    CUPS only needs no packages at all — the core is stdlib.
+#      sudo pip3 install python-escpos pillow
 #
-# 2) Dedicated system user with printing rights:
-#      sudo useradd -r -s /usr/sbin/nologin -G lp kpprint
+# 2) Dedicated system user:
+#      sudo useradd -r -s /usr/sbin/nologin kpprint
 #
 # 3) Config (secrets are in here — root-only):
 #      sudo install -m 0600 /dev/null /etc/kp-print-agent.json
 #      sudo tee /etc/kp-print-agent.json >/dev/null <<'EOF'
 {
   "backends": [
-    {"name": "front", "protocol": "kp-front", "url": "https://front.example.org",
-     "secret": "<PRINT_AGENT_SECRET>", "output": "cups", "printer": "<lpstat -p>",
-     "lp_options": []},
     {"name": "rueck", "protocol": "kp-rueck", "url": "https://rueck.example.org",
      "secret": "<PRINT_AGENT_TOKEN>", "output": "escpos"}
   ]
@@ -377,8 +333,8 @@ EOF
 # 4) systemd unit:
 #      sudo tee /etc/systemd/system/kp-print-agent.service >/dev/null <<'EOF'
 [Unit]
-Description=KP print agent (KP Front + KP Rück)
-After=network-online.target cups.service
+Description=KP print agent (KP Rück thermal printer)
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -387,7 +343,6 @@ ExecStart=/usr/bin/python3 /opt/kp-print-agent/agent.py --config /etc/kp-print-a
 Restart=always
 RestartSec=10
 User=kpprint
-Group=lp
 
 [Install]
 WantedBy=multi-user.target
@@ -396,14 +351,13 @@ EOF
 # 5) Enable + verify:
 #      sudo systemctl daemon-reload
 #      sudo systemctl enable --now kp-print-agent
-#      journalctl -u kp-print-agent -f    # heartbeat; both apps now show the relay online
+#      journalctl -u kp-print-agent -f    # heartbeat; KP Rück now shows the agent online
 #
 # Smoke test without systemd:
 #      python3 agent.py --config /etc/kp-print-agent.json once
 #
-# Replacing the old agents: stop and disable kp-front-print-agent.service and/or the
-# `--profile printing` container first — two agents claiming the same queue means jobs
-# print once each, at random.
+# Replacing an old agent: stop the `--profile printing` container (or the old service)
+# first — two agents claiming the same queue means jobs print once each, at random.
 """
 
 

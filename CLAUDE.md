@@ -103,6 +103,15 @@ cd frontend && pnpm exec playwright test --headed  # Visible browser
 **Test Infrastructure:**
 - Unit tests: Vitest + React Testing Library + jsdom (config: `vitest.config.ts`, setup: `vitest.setup.ts`). Files: `**/*.{test,spec}.{ts,tsx}` outside `tests/`.
 - E2E: Playwright with TypeScript, Page Object Model + Custom Fixtures, Factory pattern + API helpers, located in `frontend/tests/`.
+- Visual regression: `just visual` – nine frozen screens (`frontend/tests/visual/*.visual.ts`,
+  own config `playwright.visual.config.ts`) from a production build against `app.seed_visual`
+  (the demo storm evening at one fixed instant; the browser clock frozen at the same instant,
+  basemap tiles stubbed flat), compared with the PNGs in `tests/visual/__screenshots__/`. CI
+  job `visual` (on probation, not required yet). Baselines come from CI only
+  (`visual-baselines.yml` → `just visual-accept <run-id>`); a local run is a look, not a
+  verdict. **Never accept a baseline to turn the check green** – only a deliberate visual
+  change, in its own commit with the reason. A new time- or server-clock-dependent thing on
+  one of those screens needs pinning in the seed/fixture, not a mask. `docs/VISUAL_TESTS.md`.
 
 ## Architecture Overview
 

@@ -222,14 +222,15 @@ Worth stating, so you don't go looking for problems that aren't there:
   nothing to point at the other stack. If your dispatch words are not these, override them per
   deployment (KP Front: `alarmKeywords` in the deployment config) rather than editing the file –
   editing it puts your build at odds with the copy in the other repository.
-- **Printing.** There is **one** agent for both systems, so this is not duplicated work either.
-  Give it a `backends` list with one entry per system and run a single service; it speaks each
-  system's protocol and drives each kind of printer. See
+- **Printing.** Only KP Rück prints through an agent (the thermal slips), see
   [kp-rueck `tools/print-agent/`](https://github.com/feuerwehr-oberwil/kp-rueck/tree/main/tools/print-agent).
+  KP Front removed its station print relay; its PDFs print from the browser's own dialog. An
+  agent config that still has a `kp-front` entry keeps printing KP Rück's slips and logs that
+  the entry can go.
 
-  > ⚠️ If you are migrating from the two separate agents, **stop the old ones first**. Two
-  > agents polling one queue both claim jobs, and each job then prints once, from whichever
-  > asked first – prints that "sometimes don't arrive" while both logs look healthy.
+  > ⚠️ **Run one agent per queue.** Two agents polling one queue both claim jobs, and each job
+  > then prints once, from whichever asked first – prints that "sometimes don't arrive" while
+  > both logs look healthy.
 
 ---
 
@@ -249,7 +250,7 @@ meaning the same thing (the cookie row below, and §1).
 | Host HTTPS port | fixed `443`, only with `--profile tls` | `HTTPS_PORT` |
 | Allowed CORS origin | *not configurable – same origin* | `CORS_ORIGINS` |
 | Base for outbound webhook links | `PUBLIC_URL` | *not applicable* |
-| Print-agent shared secret | `PRINT_AGENT_SECRET` | `PRINT_AGENT_TOKEN` |
+| Print-agent shared secret | *none – no print relay* | `PRINT_AGENT_TOKEN` |
 | First login | `SEED_DATABASE` seeds a PIN user | `ADMIN_SEED_PASSWORD` + `VIEWER_PASSWORD` |
 | Image tag pin | `KP_FRONT_TAG` | `KP_RUECK_TAG` |
 
