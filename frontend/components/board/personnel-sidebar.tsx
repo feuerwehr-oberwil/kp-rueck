@@ -94,7 +94,7 @@ export function PersonnelSidebar({
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
-  // Everybody in this list is checked in — exactly who is no longer «anrückend».
+  // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
   const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
   return (
       <aside className="relative z-10 w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
@@ -134,7 +134,7 @@ export function PersonnelSidebar({
           {isLoaded && !boardNeverLoaded && (
             <DiveraIncomingBlock
               eventId={eventId}
-              checkedInIds={checkedInIds}
+              attendedIds={checkedInIds}
               canCheckIn={canCheckIn}
               onCheckIn={onDiveraCheckIn}
               className="-ml-2 mb-3"

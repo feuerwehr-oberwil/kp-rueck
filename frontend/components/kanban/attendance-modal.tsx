@@ -154,7 +154,11 @@ export function AttendanceModal({
   }, [open, load])
 
   const sorted = useMemo(() => sortAttendance(people), [people])
-  const checkedInIds = useMemo(() => new Set(people.filter((p) => p.checked_in).map((p) => p.id)), [people])
+  // Anybody with an attendance record — in now, or in and out again — is not «anrückend».
+  const attendedIds = useMemo(
+    () => new Set(people.filter((p) => attendanceState(p) !== 'absent' || p.checked_in_at).map((p) => p.id)),
+    [people]
+  )
   const stats = useMemo(() => summarizeAttendance(people), [people])
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -322,7 +326,7 @@ export function AttendanceModal({
               <DiveraIncomingBlock
                 eventId={eventId}
                 enabled={open}
-                checkedInIds={checkedInIds}
+                attendedIds={attendedIds}
                 canCheckIn={canCheckIn}
                 onCheckIn={checkInFromDivera}
                 className="mb-3"

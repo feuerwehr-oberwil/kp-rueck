@@ -177,10 +177,11 @@ describe('AttendanceModal', () => {
 describe('AttendanceModal · Divera «Anrückend»', () => {
   const answer = (ucr: number, extra: Record<string, unknown>) => ({
     ucr_id: ucr,
-    personnel_id: null,
-    name: null,
+    personnel_id: `p-${ucr}`,
+    name: `Person ${ucr}`,
     role: null,
     tags: [],
+    attended: false,
     status_id: 11,
     status_name: 'Komme',
     kind: 'coming',
@@ -204,8 +205,11 @@ describe('AttendanceModal · Divera «Anrückend»', () => {
         status_name: 'Komme in 10 min',
         eta: '2026-10-08T19:51:00Z',
       }),
-      answer(104, { personnel_id: 'Hofer Silvia', name: 'Hofer Silvia', kind: 'not_coming', note: 'Ferien' }),
-      answer(999, {}),
+      answer(104, { personnel_id: 'Keller Lea', name: 'Keller Lea', kind: 'not_coming', note: 'Ferien' }),
+      // Came and went home again (state «gegangen» in the roll-call): not «anrückend».
+      answer(106, { personnel_id: 'Hofer Silvia', name: 'Hofer Silvia' }),
+      // Flagged by the backend (an attendance record this surface has not loaded).
+      answer(105, { personnel_id: 'Gasser Rita', name: 'Gasser Rita', attended: true }),
     ],
     addressed: 10,
     read: 8,
@@ -235,6 +239,8 @@ describe('AttendanceModal · Divera «Anrückend»', () => {
     expect(block).toHaveTextContent('Anrückend (1)')
     expect(block).toHaveTextContent('3 kommen · 1 kommt nicht · 6 ohne Antwort')
     expect(block).not.toHaveTextContent('Bürgin Anton')
+    expect(block).not.toHaveTextContent('Hofer Silvia')
+    expect(block).not.toHaveTextContent('Gasser Rita')
     expect(block).toHaveTextContent('Frey Marc')
     expect(block).toHaveTextContent('Kpl')
     expect(block).toHaveTextContent('1 Rückmeldung ohne Person im Bestand')
@@ -253,11 +259,11 @@ describe('AttendanceModal · Divera «Anrückend»', () => {
     const block = await screen.findByTestId('divera-incoming')
     expect(block).toHaveTextContent('Kommt nicht (1)')
     const row = block.querySelector('li[data-kind="not_coming"]') as HTMLElement
-    expect(row).toHaveTextContent('Hofer Silvia')
+    expect(row).toHaveTextContent('Keller Lea')
     expect(row).toHaveTextContent('kommt nicht')
     expect(row).toHaveTextContent('«Ferien»')
     expect(row.className).not.toMatch(/red|destructive/)
-    expect(screen.getByRole('button', { name: 'Hofer Silvia als anwesend melden' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Keller Lea als anwesend melden' })).toBeEnabled()
   })
 
   it('offers no check-in to a viewer', async () => {

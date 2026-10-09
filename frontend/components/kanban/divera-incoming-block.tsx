@@ -32,8 +32,9 @@ interface DiveraIncomingBlockProps {
   eventId: string | null
   /** False while the surface is hidden — no reads then. */
   enabled?: boolean
-  /** Personnel ids present right now; they are not «anrückend» any more. */
-  checkedInIds: ReadonlySet<string>
+  /** Personnel with an attendance record (in, or in and out again) as this surface knows it
+   *  right now; they are not «anrückend» any more. The backend's `attended` covers the rest. */
+  attendedIds: ReadonlySet<string>
   /** Editors only; a viewer sees the list without the button. */
   canCheckIn: boolean
   /** The surface's own check-in (it keeps its optimistic state and refreshes the roster). */
@@ -44,7 +45,7 @@ interface DiveraIncomingBlockProps {
 export function DiveraIncomingBlock({
   eventId,
   enabled = true,
-  checkedInIds,
+  attendedIds,
   canCheckIn,
   onCheckIn,
   className,
@@ -55,7 +56,7 @@ export function DiveraIncomingBlock({
 
   if (!showsIncoming(summary)) return null
 
-  const groups = groupIncoming(summary, checkedInIds)
+  const groups = groupIncoming(summary, attendedIds)
   const locale = getActiveLocale()
 
   const checkIn = async (personnelId: string) => {
@@ -169,7 +170,7 @@ function DiveraIncomingRow({
   const t = useTranslations('kanban.diveraIncoming')
   const answered = formatClock(person.answered_at, locale)
   const eta = formatClock(person.eta, locale)
-  const name = person.name?.trim() || `#${person.ucr_id}`
+  const name = person.name.trim() || `#${person.ucr_id}`
   const notComing = tone === 'notComing'
 
   const facts: ReactNode[] = []

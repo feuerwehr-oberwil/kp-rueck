@@ -8,6 +8,7 @@ function answer(overrides: Partial<ApiDiveraResponsePerson> & { ucr_id: number }
     name: `Person ${overrides.ucr_id}`,
     role: null,
     tags: [],
+    attended: false,
     status_id: 11,
     status_name: 'Komme',
     kind: 'coming',
@@ -18,7 +19,8 @@ function answer(overrides: Partial<ApiDiveraResponsePerson> & { ucr_id: number }
   }
 }
 
-// The shared X1 fixture as the backend summarises it (counts 4 · 2 · 1, 999 unmapped).
+// The shared X1 fixture as the backend summarises it (counts 4 · 2 · 1; 999 is not on the
+// roster, so the backend only counts it in `unmapped` and never lists it).
 const summary: ApiDiveraResponsesSummary = {
   available: true,
   reason: null,
@@ -29,7 +31,6 @@ const summary: ApiDiveraResponsesSummary = {
     answer({ ucr_id: 101, answered_at: '2026-10-08T19:41:00Z' }),
     answer({ ucr_id: 102, answered_at: '2026-10-08T19:41:15Z', note: 'bin im Magazin' }),
     answer({ ucr_id: 103, status_id: 12, answered_at: '2026-10-08T19:41:30Z', eta: '2026-10-08T19:51:30Z' }),
-    answer({ ucr_id: 999, personnel_id: null, name: null, eta: '2026-10-08T19:51:35Z' }),
     answer({ ucr_id: 104, kind: 'not_coming', status_id: 13, name: 'Huber Lea', note: 'Ferien' }),
     answer({ ucr_id: 105, kind: 'not_coming', status_id: 13, name: 'Abt Marco' }),
     answer({ ucr_id: 106, kind: 'other', status_id: 17, status_name: 'Rückruf erbeten' }),
@@ -55,6 +56,14 @@ describe('groupIncoming', () => {
     const groups = groupIncoming(summary, new Set(['p-101', 'p-104']))
     expect(groups.coming.map((p) => p.ucr_id)).toEqual([102, 103])
     expect(groups.notComing.map((p) => p.ucr_id)).toEqual([105])
+  })
+
+  it('drops whoever the backend flags as attended — somebody who checked in and went home again', () => {
+    const wentHome = {
+      ...summary,
+      people: summary.people.map((p) => (p.ucr_id === 102 ? { ...p, attended: true } : p)),
+    }
+    expect(groupIncoming(wentHome, new Set()).coming.map((p) => p.ucr_id)).toEqual([101, 103])
   })
 
   it('orders the coming by expected arrival: the estimate if there is one, else the answer', () => {

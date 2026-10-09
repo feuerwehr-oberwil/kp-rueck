@@ -253,7 +253,9 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
 Wer auf einen DIVERA-Alarm «Komme», «Komme in 10 min» oder «Komme nicht» gedrückt hat, steht
 im Appell und oben in der Personen-Leiste unter **Anrückend** – mit Antwortzeit, einer
 geschätzten Ankunft («ca. 21:52» = Antwortzeit + die Minuten des DIVERA-Status, keine
-Live-Position) und einem Klick zum Anmelden. Wer schon angemeldet ist, fällt dort heraus.
+Live-Position) und einem Klick zum Anmelden. Wer an diesem Ereignis schon angemeldet war –
+auch wer wieder gegangen ist –, fällt dort heraus. Es zählen nur Alarme der letzten 6 Stunden
+(nach DIVERA-Alarmzeit).
 «Kommt nicht» ist eine eigene, gedämpfte Gruppe mit ✕ und dem Wort (Anmelden bleibt
 angeboten – es kann ein Fehlklick sein). **Eine DIVERA-Antwort meldet nie jemanden an**;
 anwesend ist man erst durch den Klick an der Tafel oder den Check-in-Link.
@@ -261,22 +263,29 @@ anwesend ist man erst durch den Klick an der Tafel oder den Check-in-Link.
 - **Quelle:** dieselbe `GET /alarms`-Antwort, die der Fallback-Poll ohnehin holt (nur
   solange jemand verbunden ist, Intervall `DIVERA_POLL_INTERVAL_SECONDS`). Pro Alarm
   `ucr_addressed` (auch `ucr_adressed`), `ucr_answered` (`{status: {ucr: {ts, note}}}`; leer
-  kommt `[]`) und `ucr_read`. Kein zusätzlicher DIVERA-Endpunkt, nur lesend.
+  kommt `[]`) und `ucr_read` (nur als Anzahl gespeichert). Kein zusätzlicher DIVERA-Endpunkt,
+  nur lesend.
 - **Status-Namen:** `GET /pull/all` → `cluster.status` + `statussorting_alarm`. Übernommen
   aus dem Mannschafts-Abgleich, wenn der lief; sonst höchstens alle 6 h und nur, wenn ein
-  Alarm Antworten trägt (nach einem Fehler frühestens nach 15 min wieder).
+  Alarm Antworten trägt – oder eine Antwort unter einer unbekannten Status-Id liegt. Nie öfter
+  als alle 15 min, mit eigenem 5-s-Timeout.
 - **Person:** die DIVERA-UCR-Id ist die `divera`-Identität in
   `personnel_external_identities` (die der Mannschafts-Abgleich setzt). Antworten ohne
-  verknüpfte Person erscheinen nur als Zahl.
+  verknüpfte Person erscheinen nur als Zahl – ohne Id, ohne Notiz.
 - **Gespeichert** wird der jeweils letzte Stand pro Pool-Alarm
-  (`divera_emergencies.responses_json`); ändert er sich, geht `divera_responses_update`
-  per WebSocket an die Tafeln.
+  (`divera_emergencies.responses_json`); ändert er sich oder wird ein Alarm einem Ereignis
+  angehängt, geht `divera_responses_update` per WebSocket an die Tafeln. **Gelöscht** wird er
+  48 h nach dem Eingang des Alarms und sobald das Ereignis archiviert ist (stündlich, bei jedem
+  Poll und beim Archivieren) – und danach nie wieder gespeichert. Details in `PRIVACY.md`.
 - **Endpunkte** (angemeldet, jede Rolle, die die Mannschaft sieht):
   `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt
   – bei mehreren gilt pro Person die neueste Antwort) und
-  `GET /api/divera/incidents/{id}/responses`. Ist DIVERA nicht eingerichtet oder kam nichts
-  davon aus DIVERA, antworten sie `available: false` mit `reason` `not_configured` /
-  `not_linked`, und die Oberfläche zeigt nichts. Der Zugangsschlüssel steht nie in der Antwort.
+  `GET /api/divera/incidents/{id}/responses`. Die Notiz (kann Gesundheitsdaten enthalten)
+  sehen nur Bearbeiter und Administratoren. Ist DIVERA nicht eingerichtet, kam nichts davon aus
+  DIVERA oder trägt kein Alarm der letzten 6 h gespeicherte Antworten (auch: der
+  Einheits-Schlüssel liefert gar keine `ucr_*`-Felder), antworten sie `available: false` mit
+  `reason` `not_configured` / `not_linked` / `no_data`, und die Oberfläche zeigt nichts. Der
+  Zugangsschlüssel steht nie in der Antwort.
 
 **Einordnung kommt / kommt nicht / anderes** – jede Einheit benennt ihre Status selbst. Reihenfolge:
 

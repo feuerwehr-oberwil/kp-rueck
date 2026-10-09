@@ -21660,26 +21660,12 @@
             "title": "Ucr Id"
           },
           "personnel_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "format": "uuid",
             "title": "Personnel Id"
           },
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Name"
           },
           "role": {
@@ -21700,6 +21686,11 @@
             "type": "array",
             "title": "Tags",
             "default": []
+          },
+          "attended": {
+            "type": "boolean",
+            "title": "Attended",
+            "default": false
           },
           "status_id": {
             "type": "integer",
@@ -21757,6 +21748,8 @@
         "type": "object",
         "required": [
           "ucr_id",
+          "personnel_id",
+          "name",
           "status_id",
           "status_name",
           "kind"
@@ -21815,7 +21808,8 @@
                 "type": "string",
                 "enum": [
                   "not_configured",
-                  "not_linked"
+                  "not_linked",
+                  "no_data"
                 ]
               },
               {
@@ -21896,7 +21890,7 @@
           "available"
         ],
         "title": "DiveraResponsesSummary",
-        "description": "Who answered the Divera alarm(s) of one incident or one Ereignis.\n\n`available: false` with a `reason` means the block is simply absent: Divera is not\nconfigured here (`not_configured`), or nothing on this incident/Ereignis came from Divera\n(`not_linked`). The access key is never part of this answer."
+        "description": "Who answered the Divera alarm(s) of one incident or one Ereignis.\n\n`available: false` with a `reason` means the block is simply absent: Divera is not\nconfigured here (`not_configured`), nothing on this incident/Ereignis came from Divera\n(`not_linked`), or no alarm of the last 6 h carries stored answers (`no_data` – also what\na unit key whose `/alarms` has no `ucr_*` fields gives). The access key is never part of\nthis answer, nor is any Divera id or note of somebody not on the roster."
       },
       "DiveraSyncExecute": {
         "properties": {

@@ -157,24 +157,29 @@ export interface ApiDiveraResponseStatusCount {
 
 export interface ApiDiveraResponsePerson {
   ucr_id: number
-  /** Via the person's `divera` identity; null = not on this roster. */
-  personnel_id: string | null
-  name: string | null
+  /** Via the person's `divera` identity. Answers nobody on the roster is linked to are never
+   *  listed — only counted in `unmapped`. */
+  personnel_id: string
+  name: string
   role: string | null
   tags: string[]
+  /** Any attendance record on this Ereignis (in now, or in and out again): never «anrückend». */
+  attended: boolean
   status_id: number
   status_name: string
   kind: ApiDiveraResponseKind
   answered_at: string | null
   /** answered_at + status time — an ESTIMATE («ca.»), only for «coming» with a time. */
   eta: string | null
+  /** Divera free text; editors and admins only (it can be health data). */
   note: string | null
 }
 
 export interface ApiDiveraResponsesSummary {
-  /** false = the block is absent: Divera not configured, or nothing here came from Divera. */
+  /** false = the block is absent: Divera not configured, nothing here came from Divera, or no
+   *  alarm of the last 6 h carries answers (`no_data`). */
   available: boolean
-  reason: 'not_configured' | 'not_linked' | null
+  reason: 'not_configured' | 'not_linked' | 'no_data' | null
   alarm_count: number
   counts: Record<ApiDiveraResponseKind, number>
   statuses: ApiDiveraResponseStatusCount[]

@@ -42,8 +42,13 @@ will keep holding.
   Without Divera, or on an Ereignis with no Divera alarm, nothing changes on screen. Which of the
   Einheit's own statuses mean «kommt» / «kommt nicht» is read from their names; a station whose
   names are unusual sets `divera.response_classification` (see `docs/ALARM-INTEGRATIONS.md`).
-  No new Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`
-  or at most once every 6 h. Migration: two nullable columns on `divera_emergencies`.
+  Only alarms of the last 6 hours count, and anybody who already checked in on the Ereignis –
+  or checked in and went home – stays out of the list. The answers are personal data: they are
+  deleted 48 hours after the alarm and when the Ereignis is archived, members not on the roster
+  are only counted, notes are for editors and admins, and who opened the alarm is kept as a
+  number only (`PRIVACY.md`). No new Divera request per poll; the status names come from the
+  Mannschaft sync's `/pull/all`, at most once every 6 h or when an answer uses a status not seen
+  before. Migration: two nullable columns on `divera_emergencies`.
 
 ### Changed
 
