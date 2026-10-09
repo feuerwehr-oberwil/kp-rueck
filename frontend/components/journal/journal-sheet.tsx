@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useTranslations } from "next-intl"
-import { Filter, Hash, Pencil, X } from "lucide-react"
+import { Filter, Hash, Link2, Pencil, X } from "lucide-react"
 
 import { apiClient, type ApiJournalCategory, type ApiJournalEntry } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
@@ -39,6 +39,8 @@ import { FooterSheet } from "@/components/ui/footer-sheet"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { EmptyState } from "@/components/ui/empty-state"
 import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
@@ -143,7 +145,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
             <DropdownMenuContent align="end" className="w-60">
               {filtering && (
                 <>
-                  <DropdownMenuItem onSelect={showAll} className="min-h-11">
+                  <DropdownMenuItem onSelect={showAll} className="min-h-[44px]">
                     <span className="flex-1">{t("showAll")}</span>
                     <span className="tabular-nums text-muted-foreground">{lines.length}</span>
                   </DropdownMenuItem>
@@ -156,7 +158,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
                   checked={ticked.has(c)}
                   onCheckedChange={() => toggle(c)}
                   onSelect={(event) => event.preventDefault()}
-                  className="min-h-11 data-[state=checked]:sel-choice"
+                  className="min-h-[44px] data-[state=checked]:sel-choice"
                 >
                   <span className="flex-1">{t(`filters.${c}`)}</span>
                   <span className="tabular-nums text-muted-foreground">{counts[c]}</span>
@@ -464,6 +466,9 @@ function JournalComposer({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [highlight, setHighlight] = useState(0)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerQuery, setPickerQuery] = useState("")
+  const focusInputOnClose = useRef(false)
   // One id per line until the server took it: a retry after a lost answer is the SAME line.
   const clientId = useRef(newClientId())
   const inputRef = useRef<HTMLInputElement>(null)
@@ -483,14 +488,19 @@ function JournalComposer({
       })),
     [operations],
   )
-  const query = correcting ? null : incidentQuery(text)
+  const query = correcting || pickerOpen ? null : incidentQuery(text)
   const suggestions = query === null ? [] : suggestIncidents(query, choices)
+  const pickerSuggestions = suggestIncidents(pickerQuery, choices)
   const listOpen = query !== null
 
-  const pick = (choice: IncidentChoice) => {
+  const pick = (choice: IncidentChoice, shortcut = true) => {
     clientId.current = newClientId() // another link is another write
     setLinked(choice)
-    setText((v) => stripIncidentQuery(v) + (stripIncidentQuery(v) ? " " : ""))
+    if (shortcut) setText((v) => stripIncidentQuery(v) + (stripIncidentQuery(v) ? " " : ""))
+    else {
+      focusInputOnClose.current = true
+      setPickerOpen(false)
+    }
     setHighlight(0)
     inputRef.current?.focus()
   }
@@ -571,7 +581,7 @@ function JournalComposer({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(s)}
                 className={cn(
-                  "flex w-full min-h-9 cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm",
+                  "flex w-full min-h-[44px] cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm",
                   i === highlight ? "bg-muted" : "hover:bg-muted/60",
                 )}
               >
@@ -611,6 +621,68 @@ function JournalComposer({
           >
             <X className="size-3.5" aria-hidden="true" />
           </button>
+        </div>
+      )}
+
+      {!correcting && !linked && choices.length > 0 && (
+        <div className="mb-1.5">
+          <Popover open={pickerOpen} onOpenChange={(open) => {
+            setPickerOpen(open)
+            if (open) { setPickerQuery(""); setHighlight(0) }
+          }}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="min-h-[44px]" disabled={sending}>
+                <Link2 className="size-3.5" aria-hidden="true" />
+                {t("linkTitle")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent data-sheet-layer side="top" align="start" className="w-80 max-w-[calc(100vw-2rem)] p-2" onCloseAutoFocus={(event) => {
+              if (!focusInputOnClose.current) return
+              event.preventDefault()
+              focusInputOnClose.current = false
+              inputRef.current?.focus()
+            }}>
+              <SearchInput
+                value={pickerQuery}
+                onValueChange={(value) => { setPickerQuery(value); setHighlight(0) }}
+                aria-label={t("linkSearch")}
+                placeholder={t("linkSearchPlaceholder")}
+                onKeyDown={(event) => {
+                  if (pickerSuggestions.length === 0) return
+                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    event.preventDefault()
+                    const delta = event.key === "ArrowDown" ? 1 : -1
+                    setHighlight((h) => (h + delta + pickerSuggestions.length) % pickerSuggestions.length)
+                  } else if (event.key === "Enter") {
+                    event.preventDefault()
+                    pick(pickerSuggestions[Math.min(highlight, pickerSuggestions.length - 1)], false)
+                  }
+                }}
+              />
+              <div role="listbox" aria-label={t("linkTitle")} className="mt-1">
+                {pickerSuggestions.length === 0 ? (
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("linkNone")}</p>
+                ) : pickerSuggestions.map((s, i) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="option"
+                    aria-selected={i === highlight}
+                    onClick={() => pick(s, false)}
+                    className={cn(
+                      "flex min-h-[44px] w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm",
+                      i === highlight ? "bg-muted" : "hover:bg-muted/60",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 break-words">{s.label}</span>
+                    <span className={cn("shrink-0 text-xs text-muted-foreground", s.closed && "italic")}>
+                      {s.closed ? t("linkClosed") : s.detail}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       )}
 

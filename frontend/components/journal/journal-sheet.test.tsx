@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 
 import type { ApiJournalEntry } from "@/lib/api/types"
 import type { Operation } from "@/lib/contexts/operations-context"
+import type { IncidentChoice } from "@/lib/journal"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { JournalSheet } from "./journal-sheet"
 
@@ -19,6 +20,7 @@ vi.mock("@/lib/api-client", () => ({ apiClient: api }))
 vi.mock("@/lib/websocket-client", () => ({ wsClient: { on: () => () => {} } }))
 
 let seq = 0
+const onOpenChange = vi.fn()
 function row(over: Partial<ApiJournalEntry>): ApiJournalEntry {
   seq += 1
   const at = new Date(2026, 9, 8, 10, seq).toISOString()
@@ -56,14 +58,15 @@ const ROWS = [
   row({ kind: "manual", category: "manual", text: "Gemeindepräsident informiert", author_name: "Dispo" }),
 ]
 
-function renderSheet(isEditor = true, operations: Operation[] = [op]) {
+function renderSheet(isEditor = true, operations: Array<Operation & Pick<IncidentChoice, "number">> = [op]) {
   return renderWithIntl(
-    <JournalSheet open onOpenChange={() => {}} eventId="e1" operations={operations} isEditor={isEditor} onOpenIncident={() => {}} />,
+    <JournalSheet open onOpenChange={onOpenChange} eventId="e1" operations={operations} isEditor={isEditor} onOpenIncident={() => {}} />,
   )
 }
 
 beforeEach(() => {
   mobile.value = false
+  onOpenChange.mockClear()
   api.getJournal.mockReset().mockResolvedValue({ entries: ROWS, latest_seq: ROWS[ROWS.length - 1].seq })
   api.appendJournal.mockReset()
   api.correctJournal.mockReset()
@@ -131,6 +134,59 @@ describe("JournalSheet", () => {
     await user.click(screen.getByRole("button", { name: "Eintragen" }))
     await waitFor(() => expect(api.appendJournal).toHaveBeenCalledTimes(1))
     expect(api.appendJournal.mock.calls[0][1]).toMatchObject({ text: "Anwohner evakuiert", incident_id: "i1" })
+  })
+
+  it.each(["14", "Gartenweg 4"])("links by plain %s without changing the draft or submitting it", async (query) => {
+    const user = userEvent.setup()
+    api.appendJournal.mockImplementation(async (_e: string, body: { text: string; incident_id: string | null }) =>
+      row({ text: body.text, incident_id: body.incident_id }),
+    )
+    renderSheet(true, [{ ...op, number: 14 }, { ...op, id: "i2", number: 140, location: "Hauptstrasse 14", locationDisplay: "Hauptstrasse 14" }])
+    await screen.findAllByTestId("journal-row")
+    const input = screen.getByRole("textbox", { name: "Neuer Eintrag im Einsatztagebuch" })
+    await user.type(input, "14 Anwohner evakuiert")
+    await user.click(screen.getByRole("button", { name: "Einsatz verknüpfen" }))
+    const search = screen.getByRole("textbox", { name: "Einsatz nach Nummer oder Ort suchen" })
+    await user.type(search, query)
+    expect(screen.getAllByRole("option")).toHaveLength(1)
+    await user.keyboard("{Enter}")
+    expect(screen.queryByRole("listbox")).toBeNull()
+    expect(input).toHaveValue("14 Anwohner evakuiert")
+    expect(input).toHaveFocus()
+    expect(api.appendJournal).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: "Eintragen" }))
+    await waitFor(() => expect(api.appendJournal).toHaveBeenCalledTimes(1))
+    expect(api.appendJournal.mock.calls[0][1]).toMatchObject({ text: "14 Anwohner evakuiert", incident_id: "i1" })
+  })
+
+  it("cancels an unmatched search without changing the draft or closing the journal", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+    await screen.findAllByTestId("journal-row")
+    const input = screen.getByRole("textbox", { name: "Neuer Eintrag im Einsatztagebuch" })
+    await user.type(input, "Polizei informiert")
+    await user.click(screen.getByRole("button", { name: "Einsatz verknüpfen" }))
+    await user.type(screen.getByRole("textbox", { name: "Einsatz nach Nummer oder Ort suchen" }), "unbekannt{Enter}")
+    expect(screen.queryByRole("option")).toBeNull()
+    expect(api.appendJournal).not.toHaveBeenCalled()
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("listbox")).toBeNull()
+    expect(input).toHaveValue("Polizei informiert")
+    expect(screen.getByRole("button", { name: "Einsatz verknüpfen" })).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('keeps the journal open while selecting a portalled result (phone: %s)', async (phone) => {
+    mobile.value = phone
+    const user = userEvent.setup()
+    renderSheet()
+    await screen.findAllByTestId("journal-row")
+    await user.click(screen.getByRole("button", { name: "Einsatz verknüpfen" }))
+    await user.click(screen.getByRole("option", { name: /Gartenweg 4/ }))
+    expect(screen.queryByRole("listbox")).toBeNull()
+    expect(screen.getByRole("button", { name: "Verknüpfung entfernen" })).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(api.appendJournal).not.toHaveBeenCalled()
   })
 
   it("keeps the line and its id when saving fails, so a resend lands once", async () => {

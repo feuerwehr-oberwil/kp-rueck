@@ -39,7 +39,8 @@ will keep holding.
   transaction, whichever path made the change. The bell is not a source: a notification is
   rebuilt and de-duplicated as the board sees fit, so a GPS «vehicle on scene» does not appear
   in the log. A one-line input takes what belongs to no card («Gemeindepräsident informiert»);
-  `#14` links it by exact Einsatz number, `#garten` by address/type; the picker shows number
+  «Einsatz verknüpfen» opens a picker by number or address, without special syntax; `#14`
+  and `#garten` remain shortcuts for number and address/type. The picker shows number
   and address together. Nothing is edited or deleted: a wrong line is corrected by a new
   one, and the line says «korrigiert hh:mm» with the old wording a click away. Filters Alle /
   Manuell / Feld / Status / Mittel (one funnel on the phone). Viewers read, editors write.
