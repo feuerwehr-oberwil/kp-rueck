@@ -171,8 +171,10 @@ async function proxyRequest(request: NextRequest) {
       }
     })
 
-    // Prevent caching
-    responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    // Prevent caching – except what the backend itself declared public and immutable (the
+    // weather radar frames, one PNG per 5-minute slot). Overwriting that made the browser
+    // re-download every frame on every step of the radar loop.
+    responseHeaders.set('Cache-Control', proxiedCacheControl(response, responseCookies.length > 0))
 
     // Keep cancellation/deadline active while downloads stream to the caller.
     const reader = response.body?.getReader()
@@ -219,6 +221,20 @@ async function proxyRequest(request: NextRequest) {
     releaseBody()
     if (!streaming) cleanup()
   }
+}
+
+/**
+ * The Cache-Control the browser gets for a proxied response. `no-store` unless the backend
+ * marked a successful, cookie-free response `public` AND `immutable` – content addressed by
+ * its URL that can never change, so caching it is always correct.
+ */
+function proxiedCacheControl(response: Response, setsCookies: boolean): string {
+  const upstream = response.headers.get('cache-control') ?? ''
+  const directives = upstream.toLowerCase().split(',').map((d) => d.trim())
+  if (response.status === 200 && !setsCookies && directives.includes('public') && directives.includes('immutable')) {
+    return upstream
+  }
+  return 'no-store, no-cache, must-revalidate'
 }
 
 export async function GET(request: NextRequest) {

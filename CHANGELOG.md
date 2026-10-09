@@ -37,6 +37,21 @@ will keep holding.
   and a half times that), the number of Einsätze worked in this Ereignis (an Auftrag counts once,
   a drag that was undone within two minutes not at all) and where they are now. The person rows
   themselves stay as they were. A view, not a planner – nobody is scheduled or alerted from it.
+- **Weather on the map: rain radar and official warnings.** A «Wetter» switch in «Ansicht» (on
+  `/map` and the wall display `/display/map`) lays MeteoSwiss's precipitation radar over the map,
+  under every marker and route, with a small panel bottom-left: ▶ plays the last hour in 5-minute
+  steps, the scrubber picks a frame and says how old it is («vor 40 min»), plus opacity, the
+  colour key and «Quelle: MeteoSchweiz». Official warnings for the station's location appear as a
+  chip in the map's top-right corner whether the radar is on or not – MeteoSwiss warnings (via
+  MeteoAlarm) and Alertswiss notices such as a cantonal fire ban. The chip names the warning in the
+  source's own word and how long it holds; a tap shows the full text exactly as published, with
+  region, validity and the source. Nothing ever waits on the weather: the backend fetches it on
+  its own schedule, each source fails on its own, and data that has stopped updating is greyed
+  out with its time («Veraltet – Stand 17:05») instead of passing for current. Uses the station
+  coordinates from Settings → Allgemein. Needs outbound internet to `data.geo.admin.ch`,
+  `feeds.meteoalarm.org` and `www.alert.swiss`; `WEATHER_ENABLED=false` turns it off (stations
+  outside Switzerland, or without outbound access). The backend image grows by about 74 MB
+  (numpy + h5py, needed to read the radar files).
 
 ### Changed
 

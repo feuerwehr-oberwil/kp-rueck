@@ -59,6 +59,7 @@ from .api.training import router as training_router
 from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
+from .api.weather import router as weather_router
 from .auth.config import auth_settings
 from .auth.login_throttle import login_throttle
 from .auth.token_blocklist import token_blocklist
@@ -68,11 +69,13 @@ from .background import (
     start_heartbeat_scheduler,
     start_sync_scheduler,
     start_telemetry_scheduler,
+    start_weather_scheduler,
     stop_audit_cleanup_scheduler,
     stop_demo_reset_scheduler,
     stop_heartbeat_scheduler,
     stop_sync_scheduler,
     stop_telemetry_scheduler,
+    stop_weather_scheduler,
 )
 from .config import settings
 from .database import engine, get_db
@@ -244,6 +247,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Heartbeat scheduler failed to start: {e}")
 
+    # Weather layer (radar + official warnings for the map). A no-op with WEATHER_ENABLED=false;
+    # like the heartbeat, a failure here must never keep the board from starting.
+    try:
+        start_weather_scheduler()
+    except Exception as e:
+        logger.warning(f"Weather scheduler failed to start: {e}")
+
     # Start WebSocket stale session cleanup
     logger.info("Starting WebSocket stale session cleanup...")
     try:
@@ -413,6 +423,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Heartbeat scheduler shutdown failed: {e}")
 
+    try:
+        stop_weather_scheduler()
+    except Exception as e:
+        logger.warning(f"Weather scheduler shutdown failed: {e}")
+
     # Shutdown: Dispose engine
     logger.info("Shutting down...")
     await engine.dispose()
@@ -576,6 +591,7 @@ app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)
 app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(viewer_router, prefix=settings.api_v1_prefix)
+app.include_router(weather_router, prefix=settings.api_v1_prefix)
 app.include_router(intake_router, prefix=settings.api_v1_prefix)
 
 

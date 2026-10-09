@@ -30,6 +30,12 @@ dependencies = [
     "markdown>=3.9",
     "python-socketio>=5.14.3",
     "slowapi>=0.1.9",
+    # Weather layer (app/services/weather/radar.py): MeteoSwiss publishes its precipitation
+    # radar only as ODIM HDF5, with no tile service, so the backend reads the grid itself and
+    # renders the map overlay. h5py needs numpy; together they add ~74 MB to the image
+    # (numpy 57 MB incl. its OpenBLAS, h5py 17 MB incl. libhdf5). Owner-approved 08.10.2026.
+    "h5py>=3.11",
+    "numpy>=2.0",
 ]
 
 [project.optional-dependencies]
