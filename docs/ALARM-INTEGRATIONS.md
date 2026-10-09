@@ -250,42 +250,45 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
 
 ## DIVERA-Rückmeldungen («Anrückend»)
 
-Wer auf einen DIVERA-Alarm «Komme», «Komme in 10 min» oder «Komme nicht» gedrückt hat, steht
-im Appell und oben in der Personen-Leiste unter **Anrückend** – mit Antwortzeit, einer
-geschätzten Ankunft («ca. 21:52» = Antwortzeit + die Minuten des DIVERA-Status, keine
-Live-Position) und einem Klick zum Anmelden. Wer an diesem Ereignis schon angemeldet war –
-auch wer wieder gegangen ist –, fällt dort heraus. Es zählen nur Alarme der letzten 6 Stunden
-(nach DIVERA-Alarmzeit).
-«Kommt nicht» ist eine eigene, gedämpfte Gruppe mit ✕ und dem Wort (Anmelden bleibt
-angeboten – es kann ein Fehlklick sein). **Eine DIVERA-Antwort meldet nie jemanden an**;
-anwesend ist man erst durch den Klick an der Tafel oder den Check-in-Link.
+Wer auf einen DIVERA-Alarm «Komme» oder «Komme nicht» (bzw. einen gleichbedeutenden Status)
+gedrückt hat, steht im Appell und oben in der Personen-Leiste unter **Anrückend** – nur ja/nein:
+die Zahlen («4 kommen · 2 kommen nicht») und die Namen, gruppiert nach «kommt» und «kommt
+nicht», mit Grad und einem Klick zum Anmelden. Keine Antwortzeit, keine geschätzte Ankunft,
+keine Status-Namen, keine Notizen. Wer an diesem Ereignis schon angemeldet war – auch wer wieder
+gegangen ist –, fällt heraus. Es zählen nur Alarme der letzten 6 Stunden (nach DIVERA-Alarmzeit);
+bei mehreren Alarmen gilt pro Person der neuere Alarm. «Kommt nicht» ist eine eigene, gedämpfte
+Gruppe mit ✕ und dem Wort (Anmelden bleibt angeboten – es kann ein Fehlklick sein). **Eine
+DIVERA-Antwort meldet nie jemanden an**; anwesend ist man erst durch den Klick an der Tafel oder
+den Check-in-Link.
 
-- **Quelle:** dieselbe `GET /alarms`-Antwort, die der Fallback-Poll ohnehin holt (nur
-  solange jemand verbunden ist, Intervall `DIVERA_POLL_INTERVAL_SECONDS`). Pro Alarm
-  `ucr_addressed` (auch `ucr_adressed`), `ucr_answered` (`{status: {ucr: {ts, note}}}`; leer
-  kommt `[]`) und `ucr_read` (nur als Anzahl gespeichert). Kein zusätzlicher DIVERA-Endpunkt,
-  nur lesend.
-- **Status-Namen:** `GET /pull/all` → `cluster.status` + `statussorting_alarm`. Übernommen
-  aus dem Mannschafts-Abgleich, wenn der lief; sonst höchstens alle 6 h und nur, wenn ein
-  Alarm Antworten trägt – oder eine Antwort unter einer unbekannten Status-Id liegt. Nie öfter
-  als alle 15 min, mit eigenem 5-s-Timeout.
-- **Person:** die DIVERA-UCR-Id ist die `divera`-Identität in
-  `personnel_external_identities` (die der Mannschafts-Abgleich setzt). Antworten ohne
-  verknüpfte Person erscheinen nur als Zahl – ohne Id, ohne Notiz.
-- **Gespeichert** wird der jeweils letzte Stand pro Pool-Alarm
-  (`divera_emergencies.responses_json`); ändert er sich oder wird ein Alarm einem Ereignis
-  angehängt, geht `divera_responses_update` per WebSocket an die Tafeln. **Gelöscht** wird er
-  48 h nach dem Eingang des Alarms und sobald das Ereignis archiviert ist (stündlich, bei jedem
-  Poll und beim Archivieren) – und danach nie wieder gespeichert. Details in `PRIVACY.md`.
+- **Quelle:** dieselbe `GET /alarms`-Antwort, die der Fallback-Poll ohnehin holt (nur solange
+  jemand verbunden ist, Intervall `DIVERA_POLL_INTERVAL_SECONDS`). Pro Alarm `ucr_answered`
+  (`{status: {ucr: {ts, note}}}`; leer kommt `[]`). Kein zusätzlicher DIVERA-Endpunkt, nur lesend.
+- **Beim Poll eingeordnet und reduziert:** pro Person zählt innerhalb eines Alarms die letzte
+  Antwort (`ts`); dann wird sie als «kommt» / «kommt nicht» eingeordnet (siehe unten) und alles
+  andere verworfen – Zeit, Notiz, Status-Id und alles, was weder ja noch nein ist.
+- **Status-Namen:** `GET /pull/all` → `cluster.status`. Übernommen aus dem Mannschafts-Abgleich,
+  wenn der lief; sonst höchstens alle 6 h und nur, wenn ein Alarm Antworten trägt – oder eine
+  Antwort unter einer unbekannten Status-Id liegt. Nie öfter als alle 15 min, mit eigenem
+  5-s-Timeout. Nur zum Einordnen, nicht gespeichert.
+- **Person:** die DIVERA-UCR-Id ist die `divera`-Identität in `personnel_external_identities`
+  (die der Mannschafts-Abgleich setzt). Antworten ohne verknüpfte Person werden nur gezählt.
+- **Gespeichert** wird pro Pool-Alarm (`divera_emergencies.responses_json`) nur:
+  `{"v": 3, "alarm_ts": …, "people": {"<Personen-Id>": "coming" | "not_coming"},
+  "unmapped": {"coming": n, "not_coming": m}}`. Ändert er sich oder wird ein Alarm einem
+  Ereignis angehängt, geht `divera_responses_update` per WebSocket an die Tafeln. **Gelöscht**
+  wird er 48 h nach dem Eingang des Alarms und sobald das Ereignis archiviert ist (stündlich,
+  bei jedem Poll und beim Archivieren) – und danach nie wieder gespeichert. Details in
+  `PRIVACY.md`.
 - **Endpunkte** (angemeldet, jede Rolle, die die Mannschaft sieht):
-  `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt
-  – bei mehreren gilt pro Person die neueste Antwort) und
-  `GET /api/divera/incidents/{id}/responses`. Die Notiz (kann Gesundheitsdaten enthalten)
-  sehen nur Bearbeiter und Administratoren. Ist DIVERA nicht eingerichtet, kam nichts davon aus
-  DIVERA oder trägt kein Alarm der letzten 6 h gespeicherte Antworten (auch: der
-  Einheits-Schlüssel liefert gar keine `ucr_*`-Felder), antworten sie `available: false` mit
-  `reason` `not_configured` / `not_linked` / `no_data`, und die Oberfläche zeigt nichts. Der
-  Zugangsschlüssel steht nie in der Antwort.
+  `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt)
+  und `GET /api/divera/incidents/{id}/responses`: `counts` (`coming`, `not_coming`, Unverknüpfte
+  eingerechnet), `people` (`personnel_id`, `name`, `role`, `tags`, `kind`, `attended`) und
+  `unmapped`. Ist DIVERA nicht eingerichtet, kam nichts davon aus DIVERA oder trägt kein Alarm
+  der letzten 6 h gespeicherte Antworten (auch: der Einheits-Schlüssel liefert kein
+  `ucr_answered`), antworten sie `available: false` mit `reason` `not_configured` /
+  `not_linked` / `no_data`, und die Oberfläche zeigt nichts. Der Zugangsschlüssel steht nie in
+  der Antwort.
 
 **Einordnung kommt / kommt nicht / anderes** – jede Einheit benennt ihre Status selbst. Reihenfolge:
 
@@ -301,9 +304,11 @@ anwesend ist man erst durch den Klick an der Tafel oder den Check-in-Link.
 2. Sonst der Name: zuerst «kommt nicht» (`nicht`, `nein`, `kein…`, `abwesend`, `verhindert`,
    `Ferien`, `krank`, `pas`, `indisponible`, …), dann «kommt» (`komm…`, `unterwegs`,
    `einsatzbereit`, `verfügbar`, `ja`, `viens`, `j'arrive`, `disponible`, `N min`, …).
-3. Sonst «kommt», wenn der Status eine Zeit hat (`time > 0`), sonst «anderes».
+3. Sonst «kommt», wenn der Status eine Zeit hat (`time > 0`), sonst «anderes» – und «anderes»
+   wird weder gespeichert noch gezählt.
 
-Leer (Standard) reicht für die üblichen Namen «Komme», «Komme in 10 min», «Komme nicht».
+Leer (Standard) reicht für die üblichen Namen «Komme», «Komme in 10 min», «Komme nicht». Weil
+beim Poll eingeordnet wird, gilt eine geänderte Einstellung für Antworten ab dem nächsten Poll.
 Dieselben Regeln setzt KP Front um.
 
 **Nicht verifiziert:** ob `GET /alarms` mit dem Einheits-Schlüssel `ucr_answered` für alle

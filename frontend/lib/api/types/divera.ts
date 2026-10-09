@@ -140,39 +140,21 @@ export interface SendDiveraAlarmOptions {
 }
 
 // Rückmeldungen — GET /api/divera/{events,incidents}/{id}/responses
-// (backend/app/services/divera_responses.py; the same rules as KP Front's half).
+// (backend/app/services/divera_responses.py; the same rules as KP Front's half). Yes/no only.
 
-/** How a Divera status reads: kommt / kommt nicht / anderes (e.g. «Rückruf erbeten»). */
-export type ApiDiveraResponseKind = 'coming' | 'not_coming' | 'other'
-
-export interface ApiDiveraResponseStatusCount {
-  status_id: number
-  /** The Einheit's own name; «Status <id>» while the catalogue is unknown. */
-  name: string
-  kind: ApiDiveraResponseKind
-  /** Divera's `time` for the status in minutes; 0 = none. */
-  time: number
-  count: number
-}
+/** kommt / kommt nicht. Other Divera statuses («Rückruf erbeten») are not kept at all. */
+export type ApiDiveraResponseKind = 'coming' | 'not_coming'
 
 export interface ApiDiveraResponsePerson {
-  ucr_id: number
   /** Via the person's `divera` identity. Answers nobody on the roster is linked to are never
    *  listed — only counted in `unmapped`. */
   personnel_id: string
   name: string
   role: string | null
   tags: string[]
+  kind: ApiDiveraResponseKind
   /** Any attendance record on this Ereignis (in now, or in and out again): never «anrückend». */
   attended: boolean
-  status_id: number
-  status_name: string
-  kind: ApiDiveraResponseKind
-  answered_at: string | null
-  /** answered_at + status time — an ESTIMATE («ca.»), only for «coming» with a time. */
-  eta: string | null
-  /** Divera free text; editors and admins only (it can be health data). */
-  note: string | null
 }
 
 export interface ApiDiveraResponsesSummary {
@@ -181,13 +163,9 @@ export interface ApiDiveraResponsesSummary {
   available: boolean
   reason: 'not_configured' | 'not_linked' | 'no_data' | null
   alarm_count: number
+  /** Per kind, unmapped members included. */
   counts: Record<ApiDiveraResponseKind, number>
-  statuses: ApiDiveraResponseStatusCount[]
   people: ApiDiveraResponsePerson[]
-  addressed: number
-  read: number
-  answered: number
-  unanswered: number
   /** Answers from Divera members no roster person is linked to. */
   unmapped: number
   updated_at: string | null

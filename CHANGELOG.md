@@ -32,23 +32,22 @@ will keep holding.
 
 - **«Anrückend»: who answered the Divera alarm, in the Appell and the Personen-Leiste.** The
   Divera poll already fetched every alarm's Rückmeldungen and threw them away. They are now kept
-  per alarm and shown above the roll-call and at the top of the personnel sidebar: one line of
-  counts («7 kommen · 2 kommen nicht · 3 ohne Antwort»), then everybody coming who is not checked
-  in yet, with the time of their answer, an estimated arrival («ca. 21:52» – answer time plus the
-  minutes of a status like «Komme in 10 min», not a live position), their Grad, and one click to
-  check them in. «Kommt nicht» is its own muted group marked with ✕ and the words – not red, and
-  check-in is still offered in case somebody misclicked. A Divera answer never checks anybody in
-  by itself. Answers from Divera members nobody on the roster is linked to are only counted.
-  Without Divera, or on an Ereignis with no Divera alarm, nothing changes on screen. Which of the
-  Einheit's own statuses mean «kommt» / «kommt nicht» is read from their names; a station whose
-  names are unusual sets `divera.response_classification` (see `docs/ALARM-INTEGRATIONS.md`).
-  Only alarms of the last 6 hours count, and anybody who already checked in on the Ereignis –
-  or checked in and went home – stays out of the list. The answers are personal data: they are
-  deleted 48 hours after the alarm and when the Ereignis is archived, members not on the roster
-  are only counted, notes are for editors and admins, and who opened the alarm is kept as a
-  number only (`PRIVACY.md`). No new Divera request per poll; the status names come from the
-  Mannschaft sync's `/pull/all`, at most once every 6 h or when an answer uses a status not seen
-  before. Migration: two nullable columns on `divera_emergencies`.
+  as a plain yes/no and shown above the roll-call and at the top of the personnel sidebar: one
+  line of counts («4 kommen · 2 kommen nicht»), then the names of everybody coming who has not
+  checked in yet, with their Grad and one click to check them in. «Kommt nicht» is its own muted
+  group marked with ✕ and the words – not red, and check-in is still offered in case somebody
+  misclicked. A Divera answer never checks anybody in by itself. Answers from Divera members
+  nobody on the roster is linked to are only counted; answers that are neither yes nor no
+  («Rückruf erbeten») are ignored. Without Divera, or on an Ereignis with no recent Divera alarm,
+  nothing changes on screen. Which of the Einheit's own statuses mean «kommt» / «kommt nicht» is
+  read from their names; a station whose names are unusual sets `divera.response_classification`
+  (see `docs/ALARM-INTEGRATIONS.md`). Only alarms of the last 6 hours count, the newer alarm
+  wins per person, and anybody who already checked in on the Ereignis – or checked in and went
+  home – stays out of the list. Stored is only who said yes or no (no times, notes or Divera
+  ids), deleted 48 hours after the alarm and when the Ereignis is archived (`PRIVACY.md`). No new
+  Divera request per poll; the status names come from the Mannschaft sync's `/pull/all`, at most
+  once every 6 h or when an answer uses a status not seen before. Migration: two nullable columns
+  on `divera_emergencies`.
 
 ### Changed
 
