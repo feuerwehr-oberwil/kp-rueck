@@ -103,8 +103,13 @@ name the domains whatever you like, custom domains included.
 
 1. **New → GitHub Repo →** `kp-rueck`, then in Settings:
    - **Root Directory**: `/backend`
-   - Build and start command come from [`backend/railway.json`](../backend/railway.json)
-     (Dockerfile build, `./start.sh`, healthcheck on `/health`). You do not need to type them.
+   - **Builder**: Dockerfile · **Start command**: `./start.sh`
+   - **Healthcheck path**: `/health` · **Healthcheck timeout**: `300`
+   - **Restart policy**: `ALWAYS` · **Replicas**: `1` · **App sleeping**: off
+
+   Type these in. The repository carries no `railway.json` – Railway stops reading
+   config-as-code files on 2026-12-01 – so the service settings are the only place they live,
+   and each environment has its own copy (§8.2). Why `ALWAYS` and why one replica: §7.
 
 2. **Attach a volume** – Settings → Volumes → New Volume, mount path **`/mnt/data`**, 5 GB or
    more. Reko photos live here; without a volume they land in ephemeral container storage and
@@ -133,15 +138,21 @@ name the domains whatever you like, custom domains included.
 
    > **The first deploy is the slow one.** It applies every migration to an empty database and
    > then seeds, and uvicorn only binds a port afterwards – so Railway sees nothing to health-
-   > check for a while. `healthcheckTimeout` is set to 300 s in
-   > [`backend/railway.json`](../backend/railway.json) for exactly this reason. Later deploys
-   > are fast, because the migrations are no-ops. If a first deploy does time out, redeploying
-   > usually succeeds: the schema is already migrated by then.
+   > check for a while. The healthcheck timeout is set to 300 s in the service settings
+   > (step 1) for exactly this reason. Later deploys are fast, because the migrations are
+   > no-ops. If a first deploy does time out, redeploying usually succeeds: the schema is
+   > already migrated by then.
 
 ### 3.3 Frontend service
 
-1. **New → GitHub Repo →** `kp-rueck`, Settings → **Root Directory**: `/frontend`.
-   [`frontend/railway.json`](../frontend/railway.json) supplies the rest (`node server.js`).
+1. **New → GitHub Repo →** `kp-rueck`, then in Settings:
+   - **Root Directory**: `/frontend`
+   - **Builder**: Dockerfile · **Start command**: `node server.js`
+   - **Healthcheck path**: `/` · **Healthcheck timeout**: `300`
+   - **Restart policy**: `ALWAYS` · **Replicas**: `1` · **App sleeping**: off
+
+   As for the backend, these live in the service settings only – there is no
+   `frontend/railway.json`.
 
 2. **Variables:**
 
@@ -341,8 +352,10 @@ without any inbound firewall rule. Point `BACKEND_URL` at your backend's public 
 
 ## 7. Do not run more than one replica
 
-`numReplicas: 1` in both `railway.json` files is deliberate. Two backend replicas break the
-application in two ways that are hard to diagnose:
+Replicas = `1` on both services is deliberate. It is a service setting (until 2026-10 it was
+`numReplicas: 1` in both `railway.json` files) and nothing in the repository holds or checks it
+any more, so read it back after anyone has been in the service settings. Two backend replicas
+break the application in two ways that are hard to diagnose:
 
 - **WebSocket rooms are in-process.** `socketio.AsyncServer` is configured without a message
   queue, so a broadcast from replica A never reaches a browser connected to replica B. Half
@@ -369,14 +382,15 @@ production is `ALWAYS`, and `restartPolicyMaxRetries` is gone, because it only m
 alongside `ON_FAILURE` and next to `ALWAYS` it invites the reading that recovery gives up after
 ten attempts.
 
-**Staging deliberately keeps `ON_FAILURE`**, because staging also keeps `sleepApplication: true`
+**Staging deliberately keeps `ON_FAILURE`**, because staging also keeps app sleeping on
 (§8.2) and the two settings make opposite statements about a stopped container. Staging is
 allowed to stay down; production is not.
 
-⚠️ **Neither file does anything until the service redeploys**, and an untested restart policy is
-a belief, not a recovery: stop a container on staging or the demo and confirm it comes back by
-itself. The lesson that makes this worth writing down is fwo-shlink's – a service sat `SLEEPING`
-for a day with the flag already committed as `false`, because nothing had redeployed it.
+⚠️ **No restart or sleep setting does anything until the service redeploys**, and an untested
+restart policy is a belief, not a recovery: stop a container on staging or the demo and confirm
+it comes back by itself. The lesson that makes this worth writing down is fwo-shlink's – a
+service sat `SLEEPING` for a day with the flag already committed as `false` (in its
+`railway.json`, back when Railway read one), because nothing had redeployed it.
 
 ---
 
@@ -422,20 +436,28 @@ The symptom looks like a broken rollback. It is a database that is ahead of its 
 **Prevention:** never let a deployment target a branch that carries migrations the running
 version does not have. That includes "just to see if it builds".
 
-### 8.2 Two Railway settings that do not behave the way they read
+### 8.2 Where the Railway settings live, and the one the CLI cannot set
 
-- **`railway.json` beats the dashboard.** A value committed in `deploy` cannot be changed in the
-  UI – the file is reapplied on every deploy. To differ per environment, use the schema's
-  top-level `environments` key instead of editing the dashboard:
+- **The dashboard is the only copy – nothing in the repository wins over it any more.** Until
+  2026-10, `backend/railway.json` and `frontend/railway.json` carried these settings, and a
+  value committed there *beat* the dashboard: it was reapplied on every deploy and could not be
+  changed in the UI, and staging's differences were written into the files under the schema's
+  top-level `environments` key. Railway stops reading config-as-code files on 2026-12-01, so
+  the files are gone and so is that protection. The values now live in each service's settings,
+  **per environment**, and a change in the dashboard sticks – including a mistaken one. What
+  they are:
 
-  ```json
-  {
-    "deploy": { "sleepApplication": false },
-    "environments": {
-      "staging": { "deploy": { "sleepApplication": true } }
-    }
-  }
-  ```
+  | | Production (and the demo) | Staging |
+  | --- | --- | --- |
+  | Builder | Dockerfile | Dockerfile |
+  | Start command | backend `./start.sh` · frontend `node server.js` | same |
+  | Healthcheck path · timeout | backend `/health` · frontend `/` · both `300` | same |
+  | Restart policy | `ALWAYS` | `ON_FAILURE` |
+  | App sleeping | off | **on** |
+  | Replicas | `1` | `1` |
+
+  Set staging's two differences in the staging environment's service settings, and read them
+  back in production afterwards – the same rule as the branch below.
 
 - **The deploy branch is per environment – but only the dashboard can set it.** Two
   environments of the same project can genuinely watch different branches (verified: staging on

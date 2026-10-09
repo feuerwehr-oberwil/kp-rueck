@@ -30,6 +30,12 @@ will keep holding.
 
 ### Changed
 
+- **Railway: no more `railway.json`.** Railway stops reading config-as-code files on
+  2026-12-01, so the builder, start command, healthcheck, restart policy, replica count and app
+  sleeping now live only in each service's settings. `backend/railway.json` and
+  `frontend/railway.json` are gone. *If you run KP Rück on Railway, set the values in
+  docs/RAILWAY.md §3.2/§3.3 (and staging's two differences, §8.2) on your services before your
+  next deploy.* Compose is not affected.
 - **KP Rück has a real home-screen icon and can be installed.** «Zum Home-Bildschirm» on an
   iPhone showed a screenshot of the page: the icon was an SVG, which iOS does not accept there,
   and there was no web manifest, so Android offered no app at all. There is now a PNG set (180 for
