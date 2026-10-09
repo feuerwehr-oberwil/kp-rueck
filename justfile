@@ -812,7 +812,7 @@ printer cmd="start":
             echo -e "\033[1;34m→ Starting thermal print agent...\033[0m"
             echo -e "\033[1;34m→ Backend: $BACKEND_URL (printer config comes from its settings)\033[0m"
             echo -e "\033[1;34m→ Use 'just printer dry' for testing without a printer\033[0m"
-            # --extra escpos: python-escpos/pillow are optional (the CUPS path needs neither),
+            # --extra escpos: python-escpos/pillow are optional (a dry run needs neither),
             # so a plain `uv run` reaches the printer and fails on the lazy import instead.
             cd tools/print-agent && uv run --extra escpos python agent.py
             ;;

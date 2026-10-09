@@ -169,8 +169,8 @@ erDiagram
 |-----------|---------------|
 | **agent.py** | Polling loop with adaptive intervals (idle: 60s, active: 5s) |
 | **core.py** | Job model, HTTP client, claim/report state machine (stdlib only) |
-| **protocols/** | One module per backend wire contract (`front.py`, `rueck.py`) |
-| **outputs/** | One module per device (`escpos.py` thermal, `cups.py` A4 laser) |
+| **protocols/** | The backend wire contract (`rueck.py`) |
+| **outputs/** | The device driver (`escpos.py`, 80 mm thermal) |
 | **formatters.py** | Print layout: assignment slips, board snapshots |
 
 ---
