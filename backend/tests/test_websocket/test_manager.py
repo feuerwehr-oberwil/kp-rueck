@@ -354,7 +354,8 @@ class TestCORSConfiguration:
         """Test that Railway domain is added when available."""
         origins = get_websocket_cors_origins()
 
-        assert "https://test.railway.app" in origins
+        # An element comparison, not a substring test (`in` on a list reads like one to CodeQL).
+        assert origins.count("https://test.railway.app") == 1
 
 
 # ============================================

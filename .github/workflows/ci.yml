@@ -59,15 +59,15 @@ name: CI
 #         restored one of these?" — the same reasoning as telemetry-drift. It runs Postgres 17
 #         (production), not the 16 that docker-compose.yml pins.
 #
-# REQUIRED SINCE 2026-08-21 (plan 15's last open item):
+# REQUIRED SINCE 2026-08-21:
 #   e2e-smoke – the @smoke-tagged Playwright specs on the core path. It used to be `if: false`
 #         and covered nothing; it was then held out of the required list until it had proved
-#         stable across real runs, and since 2026-08-21 it IS required on main (plan 15's last
-#         open item). The full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`,
+#         stable across real runs, and since 2026-08-21 it IS required on main. The full ~300-spec suite is a human step (`cd frontend && pnpm test:e2e`,
 #         with `AUTH_BYPASS_AUTH_DEV=false` or the role assertions mean nothing) plus the
 #         nightly schedule in e2e-nightly.yml.
 #
-# Coverage: min 35% (target: 50% → 70%).
+# Coverage: backend floor 87% (`--cov-fail-under` in backend-test), set just under the real
+# figure (88% on 2026-10-08, 3457 tests). Raise it when the real number moves; never lower it.
 
 on:
   push:
@@ -719,10 +719,18 @@ jobs:
       # `-v` is gone: with three workers interleaving output it printed 1881 lines in a
       # meaningless order. The failure summary is what anyone reads anyway.
       #
+      # By 2026-10-06 the suite had grown to 3457 tests and this step took ~350s again. About
+      # half of that was bcrypt: every editor/admin fixture hashed its password at the
+      # production cost (12, ~250 ms) and every fixture login checked it again. The suite now
+      # hashes at cost 4 (tests/conftest.py); what the app asks for is pinned by
+      # tests/test_auth/test_security.py::test_hash_password_asks_for_cost_12.
+      #
       # pytest-cov combines the per-worker coverage data itself, so --cov-fail-under still
-      # measures the whole suite.
+      # measures the whole suite. The floor sits just under the real figure (88% on
+      # 2026-10-08): it used to be 35, which allowed the suite to lose more than half its
+      # coverage without anything turning red.
       - name: Run tests with coverage
-        run: uv run pytest -n 3 --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35
+        run: uv run pytest -n 3 --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=87
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck_test
           # Explicit rather than relying on the conftest default. Every database the suite
@@ -770,21 +778,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `pnpm lint` is `eslint . --max-warnings 17`, and the repo sits at exactly 17. That is a
-      # RATCHET, not slack: it is set to today's count on purpose so the number can only go
-      # down. All 17 are react-hooks/exhaustive-deps, each behaviour-relevant and each its own
-      # small decision (plan 18 §3) — which is why they are capped rather than silenced.
+      # `pnpm lint` is ESLint plus a PER-RULE warning ratchet (frontend/scripts/lint-ratchet.mjs).
+      # The allowed numbers live in ONE place, frontend/eslint-ratchet.json — not here, not in
+      # package.json. Until 2026-10-08 a single `--max-warnings 17` sat in package.json while
+      # this step's message said «currently 26» and the tree had 13: three numbers, none
+      # binding, and four warnings of slack anyone could spend.
       #
-      # So if this step fails with "18 problems", the answer is almost never to raise the cap.
-      # Either fix the dependency array you just added, or — if you deliberately removed one —
-      # lower the number in frontend/package.json to the new count in the same commit.
+      # A rule may not go above its number, a rule not in the file may have none, and a rule
+      # that dropped below its number fails too until `pnpm lint --tighten` writes the lower
+      # count — so a fixed warning cannot quietly come back. The script prints the per-rule
+      # counts and says which of those cases it is; raising a number is never the fix.
       - name: Run ESLint
-        run: |
-          pnpm lint || {
-            echo "::error::ESLint exceeded the warning ratchet (currently 26, all exhaustive-deps)."
-            echo "::error::Fix the new warning, or lower the cap in frontend/package.json if you removed one."
-            exit 1
-          }
+        run: pnpm lint
 
   frontend-typecheck:
     name: Frontend Type Check
@@ -891,8 +896,8 @@ jobs:
   #
   # REQUIRED ON MAIN since 2026-08-21. It was deliberately held out until it had been green
   # across runs it did not deserve to be, and it has: repeated PR and push runs plus the 0.7.0
-  # merge, all green, alongside a nightly that has been green for a week. That was the last
-  # open item of plan 15 — and the 0.7.0 cycle is the argument for it, since the merge to main
+  # merge, all green, alongside a nightly that has been green for a week. The 0.7.0 cycle is
+  # the argument for it, since the merge to main
   # was the first time any gate had seen 83 commits and three of these specs were describing
   # flows the app no longer had.
   #
@@ -908,7 +913,11 @@ jobs:
     runs-on: ubuntu-latest
     # The whole point is a fast signal; if it is not fast it is not doing its job.
     timeout-minutes: 15
-    needs: [backend-test, frontend-build]
+    # No `needs:`. It used to wait for backend-test and frontend-build, but it consumes
+    # nothing they produce (it runs its own backend and `pnpm dev`), so the wait only made the
+    # gate serial: ~6.5 min of backend tests, THEN ~3 min of this, on every run. In parallel
+    # the gate's wall clock is its slowest job, not the sum of two. A red backend test now
+    # costs one extra E2E run of runner time — cheap next to everyone waiting three minutes.
 
     services:
       postgres:
@@ -993,9 +1002,16 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
 
+      # A quarantined spec (`@quarantine-until-YYYY-MM-DD`, see e2e-nightly.yml) is out of the
+      # gate. Only the tag's FORMAT is checked here; its expiry fails the nightly instead, so a
+      # date passing can never turn an unrelated pull request red.
+      - name: Quarantine tags are well-formed
+        working-directory: frontend
+        run: node scripts/e2e-quarantine.mjs --format-only
+
       - name: Run E2E tests (@smoke)
         working-directory: frontend
-        run: pnpm exec playwright test --grep @smoke
+        run: pnpm exec playwright test --grep @smoke --grep-invert @quarantine
         env:
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
@@ -1083,7 +1099,11 @@ jobs:
           load: true
           tags: ghcr.io/feuerwehr-oberwil/kp-rueck-frontend:ci
           cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
+          # Exported from main only. A pull request's cache entry is scoped to its own ref, so
+          # nothing but later pushes to that PR could ever read it — and its builder layer
+          # changes with every commit anyway. Exporting took ~22s of this job on every PR run;
+          # PRs still READ main's cache, which is where the reusable pnpm-install layer is.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=frontend' || '' }}
 
       - name: Build tileserver image
         uses: docker/build-push-action@v7

@@ -1,0 +1,6 @@
+{
+  "$comment": "Allowed ESLint WARNINGS per rule – checked by scripts/lint-ratchet.mjs (`pnpm lint`). Numbers only go down: `pnpm lint --tighten` lowers them after a fix; never raise one to make a new warning pass. The exhaustive-deps ones are each a behaviour decision (adding the dependency re-runs the effect), so they are capped, not silenced.",
+  "warnings": {
+    "react-hooks/exhaustive-deps": 13
+  }
+}
