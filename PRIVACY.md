@@ -37,6 +37,13 @@ That is a website, not the app — see [The project website](#the-project-websit
 - **Online maps:** the selected tile provider receives tile coordinates and request metadata.
   Tile coordinates identify the area being viewed. Locally hosted offline tiles avoid these
   external map requests when used without an online layer.
+- **Weather layer:** unless `WEATHER_ENABLED=false`, the backend downloads MeteoSwiss's public
+  radar files from `data.geo.admin.ch` every 5 minutes and the national warning feeds from
+  `feeds.meteoalarm.org` and `www.alert.swiss` every 10 minutes. These are plain downloads of
+  public files: they carry no station data, incident or coordinate – only the backend's public IP
+  address and normal HTTP metadata. The station coordinates are used on the backend only, to pick
+  the warnings that apply. Browsers load the radar images from your own backend, not from
+  MeteoSwiss.
 - **Configured integrations:** Microsoft sign-in, dispatch, tracking, synchronization and
   printing exchange the information needed for their functions with the configured systems.
   Their recipients and retention depend on the station's configuration.

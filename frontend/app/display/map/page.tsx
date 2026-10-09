@@ -22,6 +22,7 @@ import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { translateOutsideReact } from "@/lib/i18n-messages"
+import { readWeatherLayerPref, writeWeatherLayerPref } from "@/lib/weather"
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -39,6 +40,8 @@ interface MapViewOptions {
   showAssignmentLines: boolean
   showDistances: boolean
   showGroupRoutes: boolean
+  /** «Wetter»: the radar layer (warnings show as a chip regardless). Per device, see lib/weather. */
+  showWeather: boolean
   colorBy: ColorByDimension
 }
 
@@ -50,6 +53,7 @@ const DEFAULT_VIEW_OPTIONS: MapViewOptions = {
   // Auftrag context should be visible without anyone touching the screen.
   showGroupRoutes: true,
   showDistances: false,
+  showWeather: false,
   colorBy: 'priority',
 }
 
@@ -76,6 +80,11 @@ export default function DisplayMapPage() {
   const [options, setOptions] = useState<MapViewOptions>(DEFAULT_VIEW_OPTIONS)
   // Reported by the map: no GPS, no Linien/Distanz options (see DisplayMapControls).
   const [gpsAvailable, setGpsAvailable] = useState(false)
+  // Reported by the map: no weather served (WEATHER_ENABLED=false), no «Wetter» option.
+  const [weatherAvailable, setWeatherAvailable] = useState(false)
+  useEffect(() => {
+    setOptions((prev) => ({ ...prev, showWeather: readWeatherLayerPref() }))
+  }, [])
   useEffect(() => {
     const read = (value: string | null) => {
       if (value === 'reko' || value === 'vehicle' || value === 'type' || value === 'priority' || value === 'auftrag') {
@@ -94,7 +103,8 @@ export default function DisplayMapPage() {
     setOptions((prev) => ({ ...prev, colorBy: value }))
     if (typeof window !== 'undefined') localStorage.setItem(COLOR_BY_STORAGE_KEY, value)
   }
-  const toggleOption = (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => {
+  const toggleOption = (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes' | 'showWeather') => {
+    if (key === 'showWeather') writeWeatherLayerPref(!options.showWeather)
     setOptions((prev) => ({ ...prev, [key]: !prev[key] }))
   }
   const toggleStatusFilter = (group: StatusGroup) => {
@@ -138,6 +148,8 @@ export default function DisplayMapPage() {
     onCloseDetail: () => setDetailIncidentId(null),
     gpsAvailable,
     onGpsAvailabilityChange: setGpsAvailable,
+    weatherAvailable,
+    onWeatherAvailabilityChange: setWeatherAvailable,
   }
 
   // If authenticated (editor mode), use contexts directly
@@ -164,12 +176,14 @@ interface DisplayMapVariantProps {
   panTrigger: number
   options: MapViewOptions
   onToggleStatusFilter: (group: StatusGroup) => void
-  onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => void
+  onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes' | 'showWeather') => void
   onSetColorBy: (value: ColorByDimension) => void
   detailIncidentId: string | null
   onCloseDetail: () => void
   gpsAvailable: boolean
   onGpsAvailabilityChange: (available: boolean) => void
+  weatherAvailable: boolean
+  onWeatherAvailabilityChange: (available: boolean) => void
 }
 
 /** Compact overlay with the same view filters as the normal map: status pills
@@ -182,20 +196,23 @@ function DisplayMapControls({
   onSetColorBy,
   colorLegend,
   gpsAvailable,
+  weatherAvailable,
 }: {
   options: MapViewOptions
   statusCounts: Record<StatusGroup, number>
   onToggleStatusFilter: (group: StatusGroup) => void
-  onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes') => void
+  onToggleOption: (key: 'showLabels' | 'showAssignmentLines' | 'showDistances' | 'showGroupRoutes' | 'showWeather') => void
   onSetColorBy: (value: ColorByDimension) => void
   colorLegend: ColorGroup[]
   /** Linien/Distanz need vehicle GPS; without it they are dead switches. */
   gpsAvailable: boolean
+  /** «Wetter» only where the backend serves weather. */
+  weatherAvailable: boolean
 }) {
   const t = useTranslations('map')
   const optionsChanged =
     !options.showLabels || (gpsAvailable && (!options.showAssignmentLines || options.showDistances))
-    || !options.showGroupRoutes || options.colorBy !== 'priority'
+    || !options.showGroupRoutes || options.colorBy !== 'priority' || (weatherAvailable && options.showWeather)
 
   return (
     // No box of its own: the pills and «Ansicht» are items of MapView's top-right control row
@@ -267,6 +284,14 @@ function DisplayMapControls({
           >
             {t('page.groupRoutes')}
           </DropdownMenuCheckboxItem>
+          {weatherAvailable && (
+            <DropdownMenuCheckboxItem
+              checked={options.showWeather}
+              onSelect={(e) => { e.preventDefault(); onToggleOption('showWeather') }}
+            >
+              {t('weather.layer')}
+            </DropdownMenuCheckboxItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t('common.colorByMenuLabel')}</DropdownMenuLabel>
           {(['priority', 'reko', 'vehicle', 'type', 'auftrag'] as ColorByDimension[]).map((dim) => (
@@ -354,6 +379,8 @@ function AuthenticatedDisplayMap({
   onCloseDetail,
   gpsAvailable,
   onGpsAvailabilityChange,
+  weatherAvailable,
+  onWeatherAvailabilityChange,
 }: DisplayMapVariantProps) {
   const { incidents, refreshIncidents } = useIncidents()
   const { operations } = useOperations()
@@ -401,6 +428,8 @@ function AuthenticatedDisplayMap({
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
         onGpsAvailabilityChange={onGpsAvailabilityChange}
+        showWeather={options.showWeather}
+        onWeatherAvailabilityChange={onWeatherAvailabilityChange}
         topRightControls={
           <DisplayMapControls
             options={options}
@@ -410,6 +439,7 @@ function AuthenticatedDisplayMap({
             onSetColorBy={onSetColorBy}
             colorLegend={colorLegend}
             gpsAvailable={gpsAvailable}
+            weatherAvailable={weatherAvailable}
           />
         }
       />
@@ -473,6 +503,8 @@ function TokenDisplayMap({
   onCloseDetail,
   gpsAvailable,
   onGpsAvailabilityChange,
+  weatherAvailable,
+  onWeatherAvailabilityChange,
 }: DisplayMapVariantProps & { token: string }) {
   const tLoading = useTranslations('common')
   const [data, setData] = useState<ApiViewerData | null>(null)
@@ -553,11 +585,14 @@ function TokenDisplayMap({
         incidentsOverride={incidents}
         vehiclesOverride={data.vehicles}
         positionsOverride={data.vehicle_positions}
+        viewerToken={token}
         showGroupRoutes={options.showGroupRoutes && groups.length > 0}
         groups={groups}
         operationsById={operationsById}
         onGroupStopMarkerClick={onMarkerClick}
         onGpsAvailabilityChange={onGpsAvailabilityChange}
+        showWeather={options.showWeather}
+        onWeatherAvailabilityChange={onWeatherAvailabilityChange}
         topRightControls={
           <DisplayMapControls
             options={options}
@@ -567,6 +602,7 @@ function TokenDisplayMap({
             onSetColorBy={onSetColorBy}
             colorLegend={colorLegend}
             gpsAvailable={gpsAvailable}
+            weatherAvailable={weatherAvailable}
           />
         }
       />
