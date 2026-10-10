@@ -1,6 +1,6 @@
 [project]
 name = "kp-print-agent"
-version = "0.7.0"
+version = "0.8.0"
 description = "KP Rück's print agent: ESC/POS thermal slips over the LAN"
 requires-python = ">=3.10"
 

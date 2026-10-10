@@ -28,62 +28,9 @@ will keep holding.
 
 ## [Unreleased]
 
+## [0.8.0] – 2026-10-10
+
 ### Added
-
-- **⇥ completes in the ⌘K line.** `14 kell` + ⇥ becomes `14 Keller Marco`, `grenz` becomes
-  `Grenzweg 1`; ⇥ again takes the next candidate (named at the right of the preview), ⇧⇥ the
-  previous one. The Einsatz is offered while the line has none, people, vehicles and Geräte
-  after it. The empty field now says what it is for instead of «14 tlf meier».
-- **⇧J writes in the Einsatztagebuch.** The journal opens with the caret in its line, already
-  linked to the selected card; also in the palette («Tagebuch-Eintrag schreiben»).
-- **Dienstzeiten: every column sorts, the list filters, and a «Pause» column.** A click on a
-  column head sorts by it (again for the other way round), so «who has done the most / the
-  least» is one click; «Alle · Frei · Im Einsatz» and a name filter narrow it (on the phone: the
-  search field and one funnel, which also holds the sort). New columns «Eingesetzt» (time on an
-  incident or Auftrag since check-in, overlaps once) and «Pause» (present but on nothing);
-  «Im Einsatz» is now called «Anwesend». `GET /events/{id}/personnel-activity` carries
-  `assigned_minutes`.
-- **Any open Einsatz can be merged – its work moves along.** «Zusammenführen» used to accept only a
-  fresh report («Eingegangen», nobody on it). Now any OPEN card can be merged into another open
-  one: crew, vehicles, material (active and released), Reko reports with their photos, the
-  Schadenplatz-Rapport, the KP's messages to the crew, requests from the field and the Nachbarhilfe
-  / Am Warten / Zu Fuss flags move to the card that stays; «Trennen» moves them back, leaving
-  anything changed by hand since as it is. The hard cases: a person or vehicle on both cards keeps
-  ONE assignment (the surviving card's; the other one is released by the merge and comes back
-  with «Trennen»); two Einsatzleiter – the surviving card's stays; two Rapporte – both are kept and
-  the event report prints the second under «Schadenplatz-Rapport von #7 (zusammengeführt)»; the
-  surviving card keeps its status unless the merged one was further along (crew already «Im
-  Einsatz»), then it takes that status (a status transition, undone by «Trennen»); the merged
-  card keeps its number while hidden and gets it back. Photos are copied, never moved. The card
-  asks before merging when it has work on it and names what moves; the Einsatztagebuch writes
-  «Übernommen von …», crews on `/feld` find the surviving card, and every board updates at once.
-  Closed Einsätze are never merged, on either side, and «Trennen» is refused while the card it
-  went into is closed or was merged on itself. A Reko link sent for the merged card keeps
-  working and files into the card that stays (form, «vor Ort», photos, submit with its status
-  change). Reaktionszeiten, Kennzahlen and «Tätigkeit ab/bis» count the place from its first
-  report – the merge itself is not a dispatch. A photo that cannot be copied stops the merge
-  instead of leaving it half done.
-
-- **Station index: one address for all station data.** `STATION_INDEX_SOURCE` (+ optional
-  `STATION_INDEX_TOKEN`) points at a station's `index.json`, which lists its data files by kind
-  with checksums (`station-index/1`); the roster is read through it, and a file that does not
-  match the index's sha256 is refused. `scripts/station_index_build.py` writes the index for a
-  folder. `vehicles`, `groups` and `keywords` are reserved kinds – listed, reported as not read
-  yet. KP Front reads the same index with byte-identical code (docs/ROSTER-SNAPSHOT.md §1a).
-  *No action needed – see Upgrade notes.*
-- **A duplicate card with requests from the field can be merged – the requests move.** Until
-  now «Zusammenführen» refused a card the field had asked anything on («Material nötig»,
-  «Verstärkung», a message, an Abholung), because the merge would have hidden it. Now every
-  request of the merged card moves to the card that stays, open or already handled, with its
-  history (who asked, «gesehen», «in Arbeit», «erledigt»); its bell entries follow, the
-  Einsatztagebuch says «Anfrage übernommen von …», the Verlauf of the card that stays shows the
-  messages that came with them, and a crew that was on the merged card finds the card that
-  stays on `/feld`. One Abholung per Einsatz: if both cards wait for a car, the one that stays
-  keeps its Abholung open with both notes («2 Personen + 3 Personen beim Bach») and the other is
-  answered by the merge; if only the merged card waited, the card that stays now does.
-  «Trennen» moves everything back – a joint Abholung handled in the meantime stays handled for
-  both. Other work on the merged card (crew assigned, Reko, Rapport, «Einsatz beendet» from the
-  field, not «Eingegangen» any more) still stops the merge.
 
 - **Einsatztagebuch on the board** (`J`, «Tagebuch» in the footer, the command palette, «Mehr»
   on the phone). One append-only log per Ereignis, like KP Front's Verlauf but simpler – no
@@ -95,11 +42,14 @@ will keep holding.
   transaction, whichever path made the change. The bell is not a source: a notification is
   rebuilt and de-duplicated as the board sees fit, so a GPS «vehicle on scene» does not appear
   in the log. A one-line input takes what belongs to no card («Gemeindepräsident informiert»);
-  «Einsatz verknüpfen» opens a picker by number or address, without special syntax; `#14`
-  and `#garten` remain shortcuts for number and address/type. The picker shows number
-  and address together. Nothing is edited or deleted: a wrong line is corrected by a new
-  one, and the line says «korrigiert hh:mm» with the old wording a click away. Filters Alle /
-  Manuell / Feld / Status / Mittel (one funnel on the phone). Viewers read, editors write.
+  `⇧J` (also «Tagebuch-Eintrag schreiben» in the palette) opens the log with the caret in that
+  line, already linked to the selected card. A chain button at the front of the line links an
+  Einsatz by number or address, without special syntax; `#14` and `#garten` remain shortcuts for
+  number and address/type, the linked Einsatz sits in the line as a chip (⌫ in the empty line
+  takes it off). Every row carries date and time. Nothing is edited or deleted: a wrong line is
+  corrected by a new one, and the line says «korrigiert hh:mm» with the old wording a click
+  away. Filters Alle / Manuell / Feld / Status / Mittel (one funnel on the phone). Viewers read,
+  editors write.
 - **The PDF's Einsatztagebuch reads the same log** – single source. It now also prints the
   Meldungen, the field facts and the manual lines; a corrected line prints its newest wording
   at its original time with «korrigiert hh:mm; ursprünglich: «…»». Lines of an Einsatz that was
@@ -140,7 +90,9 @@ will keep holding.
   through a typo, or a first name and a surname of two different people, asks before anybody is
   assigned. Status words are German or French. A line under the input shows exactly what ↵ will
   do; words it does not know are greyed, and a word that fits two things (two Meier, «Hoch» the
-  person and the priority) lists both instead of guessing. Without a leading number ↵ stays with
+  person and the priority) lists both instead of guessing. `⇥` completes the word being typed
+  (`14 kell` → `14 Keller Marco`, `grenz` → `Grenzweg 1`; ⇥ again the next candidate, ⇧⇥ the
+  previous one). Without a leading number ↵ stays with
   the ordinary commands («neu» is still «Neuer Einsatz»). ↵ goes through the same path as dragging
   – Doppelbelegung and driver questions, one at a time – and the receipt has «Rückgängig», which
   also puts back what a «Hierher verschieben» took off another Einsatz. The numbers are assigned
@@ -159,11 +111,32 @@ will keep holding.
   Duplikat von …» with «Zusammenführen» and «Kein Duplikat» right on the card. Every merge is
   undoable – «Rückgängig» on the toast, «Trennen» in the card's Verlauf – and audited on both
   cards; the merged report keeps its own (hidden) row, so its source and source reference stay
-  answerable. Only a fresh report is merged – one still «Eingegangen», with no crew, Reko, Rapport
-  or messages from the field – and never into a closed Einsatz; the merged card takes the higher of
-  the two priorities. A Meldung from `/feld` that was merged stays in the reporter's «Von mir
-  gemeldet» as «Zusammengeführt in …».
+  answerable. Any OPEN card can be merged into another open one, and its work moves along: crew,
+  vehicles, material (active and released), Reko reports with their photos (copied, never moved),
+  the Schadenplatz-Rapport, the KP's messages to the crew and the Nachbarhilfe / Am Warten /
+  Zu Fuss flags; «Trennen» moves them back, leaving anything changed by hand since as it is. A
+  person or vehicle on both cards keeps ONE assignment (the surviving card's; the other comes
+  back with «Trennen»); two Einsatzleiter – the surviving card's stays; two Rapporte are both
+  kept, the event report prints the second under «Schadenplatz-Rapport von #7
+  (zusammengeführt)». The surviving card takes the higher of the two priorities, and the merged
+  card's status if that was further along (a status transition «Trennen» undoes); the merged card
+  keeps its number while hidden. A card with work on it asks first and names what moves; the
+  Einsatztagebuch writes «Übernommen von …», a Reko link sent for the merged card files into the
+  one that stays, and Reaktionszeiten, Kennzahlen and «Tätigkeit ab/bis» count the place from its
+  first report – the merge is not a dispatch. Closed Einsätze are never merged, on either side.
+  A Meldung from `/feld` that was merged stays in the reporter's «Von mir gemeldet» as
+  «Zusammengeführt in …».
   Migration `d2a9e6f41c83` adds two nullable columns to `incidents`; it runs on boot.
+- **Requests from the field move with a merge.** Every
+  request of the merged card («Material nötig», «Verstärkung», a message, an Abholung) moves to the card that stays, open or already handled, with its
+  history (who asked, «gesehen», «in Arbeit», «erledigt»); its bell entries follow, the
+  Einsatztagebuch says «Anfrage übernommen von …», the Verlauf of the card that stays shows the
+  messages that came with them, and a crew that was on the merged card finds the card that
+  stays on `/feld`. One Abholung per Einsatz: if both cards wait for a car, the one that stays
+  keeps its Abholung open with both notes («2 Personen + 3 Personen beim Bach») and the other is
+  answered by the merge; if only the merged card waited, the card that stays now does.
+  «Trennen» moves everything back – a joint Abholung handled in the meantime stays handled for
+  both.
 - **«Anrückend»: who answered the Divera alarm, in the Appell and the Personen-Leiste.** The
   Divera poll already fetched every alarm's Rückmeldungen and threw them away. They are now kept
   as a plain yes/no and shown above the roll-call and at the top of the personnel sidebar: one
@@ -184,10 +157,12 @@ will keep holding.
   the Mannschaft sync's `/pull/all`, at most once every 6 h or when an answer uses a status not
   seen before. Migration: two nullable columns on `divera_emergencies`.
 - **Kennzahlen: the Lage and the Reaktionszeiten on screen, not only in the PDF.** «Kennzahlen» in
-  the board's footer (key `Z`, also in the command palette) shows Meldungen, offen (per priority),
+  the user menu (key `Z`, also in the command palette and the phone's «Mehr») opens a window over
+  the page – any page – with Meldungen, offen (per priority),
   in Arbeit and erledigt; the time from Eingang to **Disponiert**, **Vor Ort** and **Abschluss**
   as median and P90 per priority; the oldest «hoch» Meldung still waiting, with its age (a click
-  opens it); and one bar per priority for Eingang → Disponiert. On a training Ereignis the same
+  opens it); and one bar per priority for Eingang → Disponiert. How the times are counted is
+  behind an ⓘ beside «Reaktionszeiten». On a training Ereignis the same
   view is the **Übungsauswertung**; any past Ereignis has it under Ereignisse → ⋯ → Kennzahlen;
   and the status wall (`/display/status`, share link included) carries it as a foldable section
   above the Einsätze. The numbers come from the same computation as the PDF's Reaktionszeiten
@@ -199,8 +174,13 @@ will keep holding.
   overview of everybody checked in, longest on duty first: since when, time on duty (counted from
   the check-in; amber from the station's «Personalermüdung» setting, 4 h by default, red from one
   and a half times that), the number of Einsätze worked in this Ereignis (an Auftrag counts once,
-  a drag that was undone within two minutes not at all) and where they are now. The person rows
-  themselves stay as they were. A view, not a planner – nobody is scheduled or alerted from it.
+  a drag that was undone within two minutes not at all), «Eingesetzt» (time on an incident or
+  Auftrag since check-in, overlaps once) and «Pause» (present but on nothing), and where they are
+  now. Every column sorts by a click on its head (again for the other way round), and «Alle ·
+  Frei · Im Einsatz» plus a name filter narrow it (on the phone: the search field and one funnel,
+  which also holds the sort). `GET /events/{id}/personnel-activity` carries `assigned_minutes`.
+  The person rows themselves stay as they were. A view, not a planner – nobody is scheduled or
+  alerted from it.
 - **Weather on the map: rain radar and official warnings.** A «Wetter» switch in «Ansicht» (on
   `/map` and the wall display `/display/map`) lays MeteoSwiss's precipitation radar over the map,
   under every marker and route, with a small panel bottom-left: ▶ plays the last hour in 5-minute
@@ -228,6 +208,13 @@ will keep holding.
   is not part of the contract. The reading rules are byte-identical with KP Front's
   (docs/ROSTER-SNAPSHOT.md). *No action needed – without a source nothing is fetched and the
   Divera sync is unchanged.*
+- **Station index: one address for all station data.** `STATION_INDEX_SOURCE` (+ optional
+  `STATION_INDEX_TOKEN`) points at a station's `index.json`, which lists its data files by kind
+  with checksums (`station-index/1`); the roster is read through it, and a file that does not
+  match the index's sha256 is refused. `scripts/station_index_build.py` writes the index for a
+  folder. `vehicles`, `groups` and `keywords` are reserved kinds – listed, reported as not read
+  yet. KP Front reads the same index with byte-identical code (docs/ROSTER-SNAPSHOT.md §1a).
+  *No action needed – see Upgrade notes.*
 - **Archiving an Ereignis says what is still open – and can check everybody out.** The archive
   dialog lists what closing the Ereignis would cut off: Einsätze not yet at «Abschluss» (with
   «Auf dem Board zeigen»), open Abholungen, material still at a Schadenplatz and people still
@@ -250,10 +237,6 @@ will keep holding.
   stays on the page until a Romansh-speaking firefighter has proofread it.
 
 ### Upgrade notes
-
-- **Station index** (new, optional): nothing to do. `ROSTER_SNAPSHOT_SOURCE` keeps working; a
-  station that wants the one-address setup publishes `index.json` (written by
-  `scripts/station_index_build.py`) beside its roster file and sets `STATION_INDEX_SOURCE`.
 
 **Nothing is mandatory.** Every new setting is optional with a working default, and the nine
 migrations run on boot like any other; each has a downgrade.
@@ -285,6 +268,15 @@ migrations run on boot like any other; each has a downgrade.
   automatic) and `SETUP_TOKEN` – only for a board nobody has claimed yet; on the print agent,
   `PRINT_TZ` (Europe/Zurich) and `PRINT_TZ_LABEL` («Ortszeit») – **a print agent outside
   Switzerland's time zone sets `PRINT_TZ`**, because the slip no longer follows the host clock.
+- **Station index** (new, optional): nothing to do. `ROSTER_SNAPSHOT_SOURCE` keeps working; a
+  station that wants the one-address setup publishes `index.json` (written by
+  `scripts/station_index_build.py`) beside its roster file and sets `STATION_INDEX_SOURCE`.
+- **`docker-compose.yml` pulls `postgres` and `caddy` from AWS ECR Public**
+  (`public.ecr.aws/docker/library/postgres:16-alpine`, `…/caddy:2-alpine`) instead of Docker Hub
+  – the same official images, without Docker Hub's anonymous pull limit. Nothing to migrate:
+  `docker compose up -d` recreates the two containers once and the database stays on its
+  volume. A box whose outbound traffic goes through an allowlist needs `public.ecr.aws` on it.
+  The optional backup service still pulls `postgres:16-alpine` from Docker Hub.
 - **`KP_TELEMETRY_DSN` now defaults to empty = off.** An install that had opted in to crash
   reports sent them to the maintainer's server, which is retired; to keep receiving reports,
   set it to a GlitchTip/Sentry you run.
@@ -298,29 +290,10 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Changed
 
-- **Footer sheets share one header.** Tagebuch, Dienstzeiten and Rapporte used a smaller title
-  with an inline subtitle; they now have the same frame, title size and line underneath as
-  Fahrzeuge, Aufträge, Links & QR and Drucken, and Drucken lost the only icon in a sheet title.
-  The Tagebuch has no visible subtitle any more, and its link button is exactly the height of
-  the entry line (it stood taller, at the 44px minimum of an icon button).
-- **Kennzahlen moved from the footer into the user menu, as a modal.** Looked at now and then,
-  not worked in – so no toolbar pill any more; `Z`, the palette and the phone's «Mehr» open the
-  same dialog on every page. The paragraph on how the times are counted sits behind an ⓘ next to
-  «Reaktionszeiten» instead of under every view.
-- **Einsatztagebuch: the Einsatz sits in the line.** The «Einsatz verknüpfen» button on a row of
-  its own above the field is now a square link button at the front of the line, and the linked
-  Einsatz a chip in its place (⌫ in the empty line removes it). Every row shows date and time,
-  today's too, so the text column starts at one edge.
-- **Files shared with KP Front are checked from both sides.** Five CI jobs compared five sets of
-  files with KP Front's `main`, and only from this side: telemetry, alarm keywords, roster
-  contract, alarm intake and snail. One job, «Shared files match KP Front», now does all of it.
-  It reads `shared/MANIFEST.json`, which lists every shared file with its owner and sha256 and
-  replaces the hash literals in the tests. It runs the stdlib `scripts/check_shared.py`. KP Front
-  runs the same job against this repository. Each side compares against the other's branch
-  of the same name, else its `main`, so a paired change is green in both PRs at once.
-  `scripts/check-snail-drift.mjs` is gone, and `shared/README.md` says how to change a shared
-  file. *No action needed.*
-
+- **Footer sheets share one header.** Rapporte (and the new Tagebuch and Dienstzeiten) used a
+  smaller title with an inline subtitle; every footer sheet now has the frame, title size and
+  line underneath of Fahrzeuge, Aufträge, Links & QR and Drucken, and Drucken lost the only icon
+  in a sheet title.
 - **The bell speaks French too.** A notification used to be one German sentence composed on the
   server, which the board then took apart again with regular expressions to lay it out – so a
   French-speaking KP read German in the bell, the toasts and the Warnungen panel. Every
@@ -446,6 +419,29 @@ migrations run on boot like any other; each has a downgrade.
   the status bar in the app's own colour scheme, and no longer the soft blur iOS 26 lays over the
   top of a home-screen web app. A phone that added the app before keeps the old icon until it is
   removed and added again (iOS caches it).
+- **Files shared with KP Front are checked from both sides.** Five CI jobs compared five sets of
+  files with KP Front's `main`, and only from this side: telemetry, alarm keywords, roster
+  contract, alarm intake and snail. One job, «Shared files match KP Front», now does all of it.
+  It reads `shared/MANIFEST.json`, which lists every shared file with its owner and sha256 and
+  replaces the hash literals in the tests. It runs the stdlib `scripts/check_shared.py`. KP Front
+  runs the same job against this repository. Each side compares against the other's branch
+  of the same name, else its `main`, so a paired change is green in both PRs at once.
+  `scripts/check-snail-drift.mjs` is gone, and `shared/README.md` says how to change a shared
+  file. *No action needed.*
+- **Under the hood: the three biggest frontend files are split up, and CI no longer trips over
+  Docker Hub.** `lib/api-client.ts` (2,875 lines), the board's operations context (2,632) and the
+  board page (2,807) were taken apart test-first and without changing behaviour – method bodies
+  moved verbatim – into one client class per resource, a sync hook with action factories, and
+  one hook per cluster of board actions; every import and the API contract test stay as they
+  were. The «Visual» check – screenshot regression tests on nine frozen states – is required on
+  `main` since 2026-10-10. The gate got faster (cheap bcrypt in tests, the E2E smoke in parallel,
+  coverage floor 87), `just fat-perf` plays a large, long Ereignis in from real user actions, and
+  the nightly E2E suite matches the app again. CI pulls Postgres and its service images from AWS
+  ECR Public and the image builds resolve Docker Hub through `mirror.gcr.io`, because Docker
+  Hub's anonymous pull limit failed jobs at random; the production compose file follows (see
+  Upgrade notes). Three tests that failed at random are fixed – two found a phone-number
+  fragment inside a UUID or timestamp, one a bottom-bar timer that fired after the test had
+  ended. *No action needed.*
 - Dependency updates across the frontend, backend and CI, and newer base images: TileServer GL
   5.6 (was 4.10) for the tileserver image, Python 3.14 for the print-agent image.
 
@@ -575,6 +571,9 @@ migrations run on boot like any other; each has a downgrade.
   fehlgeschlagen» toast with the reason, and a typed name survives the failure.
 - **Status changes written in one go keep their order in the history.** They all carried the
   same timestamp (the transaction's start), so the Verlauf could list them in any order.
+- **Two leftovers from the 08.09. field test.** A focused row in the attendance list no longer
+  sticks out 2 px past its neighbours, and kp-rueck.ch in French no longer says the demo runs in
+  German.
 
 ### Security
 
@@ -2855,7 +2854,8 @@ something another station can pin.
 
 _For the full running history before the first release, see the git log._
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/feuerwehr-oberwil/kp-rueck/compare/v0.4.0...v0.5.0
