@@ -246,7 +246,9 @@ pied. La carte demande d’abord et nomme ce qui suit.
 Les interventions terminées ne sont jamais fusionnées, ni comme cible ni comme seconde carte. Le
 journal note ce qui a été repris (« Repris de … »). Pour annuler : « Annuler » dans le message en bas
 à droite, ou **Séparer** dans l’historique de l’intervention – tout revient, sauf ce qui a été modifié
-à la main entre-temps.
+à la main entre-temps. Séparer n’est plus possible si l’intervention qui reste est terminée ou a
+elle-même été fusionnée. Un lien de reconnaissance de la carte fusionnée continue de fonctionner et
+aboutit sur la carte qui reste ; les temps de réaction comptent dès le premier message.
 
 ### Faire une reconnaissance
 

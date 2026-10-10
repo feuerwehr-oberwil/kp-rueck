@@ -73,6 +73,10 @@ class ExportPhoto(NamedTuple):
     taken_at: datetime | None  # file mtime = upload time; None when unknown
 
 
+class PhotoCopyError(Exception):
+    """A photo could not be copied to another incident's folder (a merge, R2)."""
+
+
 class PhotoStorageService:
     """Service for managing Reko form photo uploads."""
 
@@ -351,7 +355,9 @@ class PhotoStorageService:
         photo that exists twice costs a few hundred KB while one that exists
         nowhere costs the record. Files already there are left alone; a missing
         source is skipped (and logged) — the row keeps its filename either way.
-        Returns how many files were copied.
+        Returns how many files were copied. A file that could not be written
+        raises ``PhotoCopyError`` — the merge then rolls back rather than leaving
+        a report whose photos exist only on the hidden card (R2 review).
         """
         copied = 0
         for name in filenames:
@@ -368,8 +374,9 @@ class PhotoStorageService:
                     continue
                 shutil.copy2(source, target_dir / target.name)
                 copied += 1
-            except (OSError, HTTPException):
+            except (OSError, HTTPException) as exc:
                 logger.exception("Could not copy photo %s from %s to %s", name, from_incident_id, to_incident_id)
+                raise PhotoCopyError(name) from exc
         return copied
 
     def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Path | None:

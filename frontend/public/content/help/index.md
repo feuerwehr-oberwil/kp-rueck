@@ -250,7 +250,10 @@ Vorher fragt die Karte nach und nennt, was mitkommt.
 Abgeschlossene Einsätze werden nie zusammengeführt, weder als Ziel noch als zweite Karte. Das
 Einsatztagebuch hält fest, was übernommen wurde («Übernommen von …»). Rückgängig machen:
 «Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf des Einsatzes – alles geht dabei
-zurück, ausser was seither von Hand geändert wurde.
+zurück, ausser was seither von Hand geändert wurde. Trennen geht nicht mehr, wenn der verbleibende
+Einsatz abgeschlossen oder selbst zusammengeführt ist. Ein Reko-Link der zusammengeführten Karte
+funktioniert weiter und landet auf der verbleibenden Karte; die Reaktionszeiten zählen ab der
+ersten Meldung.
 
 ### Reko durchführen
 

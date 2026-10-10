@@ -1,6 +1,6 @@
 """A merge takes the losing card's WORK along (owner decision 10.10.2026).
 
-Until now only a fresh report («Eingegangen», nobody on it) could be merged. The
+A merge used to be for a fresh report only («Eingegangen», nobody on it). The
 owner's call: ANY OPEN card can be merged; what was done on it moves to the card
 that stays, and «Trennen» moves it back. Closed cards stay out of it, on both
 sides.
@@ -42,6 +42,7 @@ phone numbers; «Trennen» reads the rest off the two cards.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -52,7 +53,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
 from .audit import log_action
-from .photo_storage import photo_storage
+from .photo_storage import PhotoCopyError, photo_storage
 
 #: The order an Einsatz goes through. A merge never lowers the surviving card's
 #: place in it; «complete» is not here because closed cards cannot be merged.
@@ -69,8 +70,33 @@ FLAG_NOTES: tuple[tuple[str, str | None], ...] = (
 NOTE_JOIN = " + "
 
 
+class MergeWorkError(Exception):
+    """The work cannot be moved as asked; ``reason`` is the German sentence (409)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+async def _copy_photos(from_id: uuid.UUID, to_id: uuid.UUID, filenames: list[str]) -> None:
+    """Copy photo files off the event loop; a failed copy aborts the merge (it rolls back)."""
+    try:
+        await asyncio.to_thread(photo_storage.copy_photos, from_id, to_id, filenames)
+    except PhotoCopyError as exc:
+        raise MergeWorkError(
+            "Fotos konnten nicht übernommen werden – es wurde nichts zusammengeführt. Bitte nochmals versuchen."
+        ) from exc
+
+
 def _rank(status: str) -> int:
     return STATUS_ORDER.index(status) if status in STATUS_ORDER else -1
+
+
+async def _sync_leader(db: AsyncSession, incident_id: uuid.UUID) -> None:
+    """The board's own rule for an automatic Einsatzleiter (crud.assignments)."""
+    from ..crud.assignments import sync_auto_leader  # lazy: crud imports services
+
+    await sync_auto_leader(db, incident_id)
 
 
 async def _names(db: AsyncSession, rows: list[models.IncidentAssignment]) -> list[str]:
@@ -158,12 +184,32 @@ async def move_work_in(
     items.extend(await _names(db, moved_active))
     await db.flush()
 
+    # ── Einsatzleiter on the surviving card ─────────────────────────────────
+    # An automatic leader is re-derived on every crew change — this is one, so
+    # the surviving card picks again over its whole new crew. A manual leader is
+    # a human decision and stays; if the manual card had NONE and the merged
+    # card's leader was already on it, that row takes the role over.
+    leader_promoted: str | None = None
+    if not target.leader_manual:
+        await _sync_leader(db, target.id)
+    elif not target_has_leader:
+        for entry in deduped:
+            if not entry["was_leader"]:
+                continue
+            loser_row = next(r for r in loser_rows if str(r.id) == entry["id"])
+            kept = target_active.get((loser_row.resource_type, loser_row.resource_id))
+            if kept is not None:
+                kept.is_leader = True
+                leader_promoted = str(kept.id)
+                break
+        await db.flush()
+
     # ── Reko reports (+ photos) ─────────────────────────────────────────────
     rekos = list(
         (await db.execute(select(models.RekoReport).where(models.RekoReport.incident_id == report.id))).scalars().all()
     )
     for reko in rekos:
-        photo_storage.copy_photos(report.id, target.id, list(reko.photos_json or []))
+        await _copy_photos(report.id, target.id, list(reko.photos_json or []))
         reko.incident_id = target.id
     if rekos:
         items.append("Reko-Bericht" if len(rekos) == 1 else f"{len(rekos)} Reko-Berichte")
@@ -181,7 +227,7 @@ async def move_work_in(
             )
         ).scalar_one_or_none()
         if target_rapport is None:
-            photo_storage.copy_photos(report.id, target.id, list(loser_rapport.photos_json or []))
+            await _copy_photos(report.id, target.id, list(loser_rapport.photos_json or []))
             loser_rapport.incident_id = target.id
             rapport_moved = str(loser_rapport.id)
             items.append("Rapport")
@@ -261,6 +307,7 @@ async def move_work_in(
         "moved_assignment_ids": moved_assignments,
         "deduped_assignments": deduped,
         "leader_dropped_ids": leader_dropped,
+        "leader_promoted_id": leader_promoted,
         "moved_reko_ids": [str(r.id) for r in rekos],
         "moved_rapport_id": rapport_moved,
         "rapport_kept": rapport_kept,
@@ -327,6 +374,11 @@ async def move_work_back(
             dropped.is_leader = True
             loser_has_leader = True
 
+    if merge_changes.get("leader_promoted_id"):
+        promoted = await db.get(models.IncidentAssignment, uuid.UUID(merge_changes["leader_promoted_id"]))
+        if promoted is not None and promoted.incident_id == target.id and promoted.is_leader:
+            promoted.is_leader = False
+
     # A resource that was on BOTH cards goes back onto the losing card too — if it
     # is still on the surviving one (it was on both before the merge).
     for entry in merge_changes.get("deduped_assignments") or []:
@@ -349,6 +401,12 @@ async def move_work_back(
                 doubled.is_leader = True
                 loser_has_leader = True
 
+    # Both crews changed: automatic leaders are picked again on both cards.
+    await db.flush()
+    for card in (report, target):
+        if not card.leader_manual:
+            await _sync_leader(db, card.id)
+
     # ── Reko reports ────────────────────────────────────────────────────────
     reko_ids = ids("moved_reko_ids")
     if reko_ids:
@@ -365,7 +423,7 @@ async def move_work_back(
         )
         for reko in rekos:
             # Photos added while merged were stored under the surviving card.
-            photo_storage.copy_photos(target.id, report.id, list(reko.photos_json or []))
+            await _copy_photos(target.id, report.id, list(reko.photos_json or []))
             reko.incident_id = report.id
         if rekos:
             items.append("Reko-Bericht" if len(rekos) == 1 else f"{len(rekos)} Reko-Berichte")
@@ -374,7 +432,7 @@ async def move_work_back(
     if merge_changes.get("moved_rapport_id"):
         rapport = await db.get(models.SchadenplatzReport, uuid.UUID(merge_changes["moved_rapport_id"]))
         if rapport is not None and rapport.incident_id == target.id:
-            photo_storage.copy_photos(target.id, report.id, list(rapport.photos_json or []))
+            await _copy_photos(target.id, report.id, list(rapport.photos_json or []))
             rapport.incident_id = report.id
             items.append("Rapport")
 

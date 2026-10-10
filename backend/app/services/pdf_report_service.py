@@ -47,7 +47,7 @@ from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
 from .journal import merged_into as journal_merged_into
 from .photo_storage import ExportPhoto
-from .reaction_times import Stage, stage_times
+from .reaction_times import Stage, fold_merged, is_merge_transition, stage_times
 
 # ---------------------------------------------------------------------------
 # Strings (German, Swiss spelling). i18n seam for plan 06.
@@ -880,17 +880,26 @@ def rapport_work_windows(data: EventReportData) -> dict[uuid.UUID, WorkWindow]:
     """
     first_active: dict[uuid.UUID, datetime] = {}
     first_end: dict[uuid.UUID, datetime] = {}
+
+    def note(key: uuid.UUID, t: Any) -> None:
+        if t.timestamp is None or is_merge_transition(t):
+            # The transition a merge writes happened at merge time, not on site.
+            return
+        target = (
+            first_active if t.to_status == "active" else first_end if t.to_status in ("returning", "complete") else None
+        )
+        if target is not None and (key not in target or t.timestamp < target[key]):
+            target[key] = t.timestamp
+
+    live_of = {card.id: live for card, live in data.merged_cards}
     for t in data.transitions:
-        if t.timestamp is None:
-            continue
-        if t.to_status == "active":
-            current = first_active.get(t.incident_id)
-            if current is None or t.timestamp < current:
-                first_active[t.incident_id] = t.timestamp
-        elif t.to_status in ("returning", "complete"):
-            current = first_end.get(t.incident_id)
-            if current is None or t.timestamp < current:
-                first_end[t.incident_id] = t.timestamp
+        note(t.incident_id, t)
+    for t in data.merged_transitions:
+        # Counts for the card it went into (its crew worked there) AND for itself
+        # (a Rapport kept on it is printed with ITS window).
+        note(t.incident_id, t)
+        if t.incident_id in live_of:
+            note(live_of[t.incident_id], t)
 
     earliest_assigned: dict[uuid.UUID, datetime] = {}
     for a in data.assignments:
@@ -901,8 +910,11 @@ def rapport_work_windows(data: EventReportData) -> dict[uuid.UUID, WorkWindow]:
             earliest_assigned[a.incident_id] = a.assigned_at
 
     reports = rapport_by_incident(data)
+    for merged in data.merged_rapports.values():
+        for card, kept in merged:
+            reports.setdefault(card.id, kept)
     windows: dict[uuid.UUID, WorkWindow] = {}
-    for inc in data.incidents:
+    for inc in [*data.incidents, *(card for card, _ in data.merged_cards)]:
         report = reports.get(inc.id)
         started = (report.arrived_at if report else None) or first_active.get(inc.id) or earliest_assigned.get(inc.id)
         ended = inc.field_complete_reported_at or first_end.get(inc.id)
@@ -1651,7 +1663,9 @@ def _reaction_times_table(data: EventReportData, styles: dict[str, ParagraphStyl
     The stage times come from `services/reaction_times.py`, the same computation the
     board's Kennzahlen view aggregates into median / P90 – one definition of
     «Disponiert», «Vor Ort» and «Abschluss» for the wall and the paper."""
-    times = stage_times(data.incidents, data.transitions)
+    # A merged card's history counts from the first report of the place (R2 review).
+    folded, steps = fold_merged(data.incidents, data.transitions, data.merged_cards, data.merged_transitions)
+    times = stage_times(folded, steps)
 
     def delta(inc: Incident, stage: Stage) -> str:
         seconds = times[inc.id].get(stage)
@@ -2256,9 +2270,10 @@ def _incident_detail(
     report = rapport_by_incident(data).get(inc.id)
     if report is not None:
         block.extend(_rapport_block(data, inc, report, styles))
-    # A card merged into this one whose crew had filed its own Rapport too (one per
-    # Einsatz, so it stays on the merged card's row): printed here, under its own
-    # heading, so neither record is lost (owner decision 10.10.2026).
+    # A card merged into this one (directly or along a chain) whose crew had filed
+    # its own Rapport too (one per Einsatz, so it stays on the merged card's row):
+    # printed here, under its own heading and with its own work window, so neither
+    # record is lost (owner decision 10.10.2026).
     for merged_inc, merged_report in data.merged_rapports.get(inc.id, []):
         block.extend(
             _rapport_block(
@@ -2267,6 +2282,8 @@ def _incident_detail(
                 merged_report,
                 styles,
                 heading=LABELS["rapport_merged"].format(number=merged_inc.number or "?"),
+                # Its crew moved with the merge: the board's count is the surviving card's.
+                board_incident=inc,
             )
         )
 
@@ -2306,6 +2323,7 @@ def _rapport_block(
     report: SchadenplatzReport,
     styles: dict[str, ParagraphStyle],
     heading: str | None = None,
+    board_incident: Incident | None = None,
 ) -> list[Any]:
     """The "Schadenplatz-Rapport" lines of one incident's detail block.
 
@@ -2331,7 +2349,9 @@ def _rapport_block(
         _maybe_field(
             LABELS["rapport_personnel_count"],
             format_corrected_count(
-                report.personnel_count, report.personnel_count_corrected, board_personnel_count(data, inc.id)
+                report.personnel_count,
+                report.personnel_count_corrected,
+                board_personnel_count(data, (board_incident or inc).id),
             ),
             styles,
         )
@@ -2385,7 +2405,9 @@ def _rapport_block(
             )
         )
 
-    if inc.pickup_needed:
+    # The Abholung belongs to the card the crew is on now; a kept Rapport of a merged
+    # card does not repeat it (its pickup moved with the merge).
+    if board_incident is None and inc.pickup_needed:
         note = f" ({inc.pickup_note})" if inc.pickup_note else ""
         flow.append(_field(LABELS["rapport_pickup"], f"{_fmt_dt(inc.pickup_requested_at)}{note}", styles))
 

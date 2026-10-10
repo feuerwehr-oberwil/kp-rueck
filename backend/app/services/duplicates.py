@@ -40,7 +40,7 @@ from .. import models
 from ..crud import events as events_crud
 from .audit import log_action
 from .merge_requests import move_requests_back, move_requests_in
-from .merge_work import move_work_back, move_work_in
+from .merge_work import MergeWorkError, move_work_back, move_work_in
 from .notification_service import _haversine_distance_meters
 
 #: Two reports this close are one Schadenplatz until a human says otherwise. A
@@ -446,7 +446,10 @@ async def merge_report(
     # The field's requests and their bell entries go where the work now is — and
     # so does everything else that was done on the card (owner decision 10.10.2026).
     moved = await move_requests_in(db, report=report, target=target, user=user, request=request)
-    moved_work = await move_work_in(db, report=report, target=target, user=user, request=request)
+    try:
+        moved_work = await move_work_in(db, report=report, target=target, user=user, request=request)
+    except MergeWorkError as e:
+        raise MergeRefusedError(e.reason) from e
 
     # Neither the note nor the Melder values go into the audit row: they are
     # PII (a phone number), the report row keeps them, and `merge_note` is a
@@ -526,6 +529,18 @@ async def unmerge_report(
     if report.merged_into_id is None or report.deleted_at is None:
         raise MergeRefusedError("Diese Meldung ist nicht zusammengeführt.")
     target = await db.get(models.Incident, report.merged_into_id)
+    if target is not None and target.merged_into_id is not None:
+        # The card it went into was merged on itself: separate that one first, or
+        # this card's crew and reports would be pulled out of a card that is gone.
+        raise MergeRefusedError(
+            "Der Einsatz, in den diese Meldung zusammengeführt wurde, ist selbst zusammengeführt. Zuerst jenen trennen."
+        )
+    if target is not None and target.status == "complete":
+        # A closed card is history: taking its crew, Reko and Rapport back out
+        # would rewrite a finished record.
+        raise MergeRefusedError(
+            "Der Einsatz, in den diese Meldung zusammengeführt wurde, ist abgeschlossen und wird nicht getrennt."
+        )
 
     note_removed = False
     if target is not None:
@@ -546,7 +561,10 @@ async def unmerge_report(
             target.priority = changes["priority_from"]
         # …and the field's requests go back to the card they were asked on.
         await move_requests_back(db, report=report, target=target, merge_changes=changes, user=user, request=request)
-        await move_work_back(db, report=report, target=target, merge_changes=changes, user=user, request=request)
+        try:
+            await move_work_back(db, report=report, target=target, merge_changes=changes, user=user, request=request)
+        except MergeWorkError as e:
+            raise MergeRefusedError(e.reason) from e
 
     # The restore half of crud.restore_incident: a side-effect completion goes,
     # a route stop goes to the end of its route (its old slot may be taken).

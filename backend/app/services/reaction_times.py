@@ -211,6 +211,93 @@ def _first_reach(stage: Stage, start: datetime, steps: Sequence[tuple[datetime, 
     return None
 
 
+#: What a merge writes into the surviving card's history (services/merge_work.py):
+#: a status raised because crew from the merged card moved in. It happened at merge
+#: time, not when anybody was dispatched — timing ignores it.
+MERGE_TRANSITION_PREFIX = "Zusammenführung"
+
+
+@dataclass(frozen=True)
+class _FoldedCard:
+    id: uuid.UUID
+    status: str
+    priority: str
+    title: str
+    created_at: datetime | None
+
+
+@dataclass(frozen=True)
+class _FoldedStep:
+    incident_id: uuid.UUID
+    from_status: str | None
+    to_status: str
+    timestamp: datetime | None
+
+
+def is_merge_transition(t: object) -> bool:
+    notes = getattr(t, "notes", None)
+    return isinstance(notes, str) and notes.startswith(MERGE_TRANSITION_PREFIX)
+
+
+def fold_merged(
+    incidents: Sequence[_IncidentLike],
+    transitions: Iterable[_TransitionLike],
+    merged: Sequence[tuple[_IncidentLike, uuid.UUID]] = (),
+    merged_transitions: Iterable[_TransitionLike] = (),
+) -> tuple[list[_IncidentLike], list[_TransitionLike]]:
+    """One Schadenplatz, one clock — a merged card's history counts for the card it went into.
+
+    A card merged into another (R2) was often the FIRST report of the place, or
+    the one that was already dispatched. Measured from the surviving card alone,
+    its reaction times would start at the later Eingang and its «Disponiert»
+    would be the merge itself. So: Eingang is the earliest creation of the
+    surviving card and every card merged into it, every merged card's real
+    transitions count as the surviving card's, and the synthetic transition a
+    merge writes (``MERGE_TRANSITION_PREFIX``) counts for nothing.
+    """
+    by_live: dict[uuid.UUID, list[_IncidentLike]] = {}
+    for card, live_id in merged:
+        by_live.setdefault(live_id, []).append(card)
+    merged_ids = {card.id: live_id for card, live_id in merged}
+
+    steps: list[_TransitionLike] = [t for t in transitions if not is_merge_transition(t)]
+    own_by_merged: dict[uuid.UUID, list[_TransitionLike]] = {}
+    for t in merged_transitions:
+        if is_merge_transition(t) or t.incident_id not in merged_ids:
+            continue
+        own_by_merged.setdefault(t.incident_id, []).append(t)
+        steps.append(_FoldedStep(merged_ids[t.incident_id], t.from_status, t.to_status, t.timestamp))
+    # The status a merged card was CREATED in counts from its own Eingang (a /feld
+    # «Wir übernehmen» card starts as «enroute» without a transition).
+    for card, live_id in merged:
+        if card.created_at is None:
+            continue
+        own = sorted(
+            ((_utc(t.timestamp), t.to_status, t.from_status) for t in own_by_merged.get(card.id, []) if t.timestamp),
+            key=lambda row: row[0],
+        )
+        initial = _initial_status(card, own)
+        steps.append(_FoldedStep(live_id, initial, initial, card.created_at))
+
+    folded: list[_IncidentLike] = []
+    for inc in incidents:
+        extra = by_live.get(inc.id)
+        if not extra:
+            folded.append(inc)
+            continue
+        starts = [c.created_at for c in [inc, *extra] if c.created_at is not None]
+        folded.append(
+            _FoldedCard(
+                id=inc.id,
+                status=inc.status,
+                priority=inc.priority,
+                title=inc.title,
+                created_at=min(starts, key=_utc) if starts else None,
+            )
+        )
+    return folded, steps
+
+
 def stage_times(
     incidents: Iterable[_IncidentLike],
     transitions: Iterable[_TransitionLike],
@@ -311,10 +398,29 @@ def event_figures(
 
 
 async def load_event_figures(db: AsyncSession, incidents: Sequence[Incident]) -> EventFigures:
-    """`event_figures` for already-loaded incidents: one query for their transitions."""
+    """`event_figures` for already-loaded incidents: one query for their transitions.
+
+    Cards merged into one of them lend it their history (``fold_merged``).
+    """
+    from .merge_links import merged_cards_of_event  # lazy: merge_links imports models only
+
     ids = [i.id for i in incidents]
     transitions: Sequence[StatusTransition] = []
+    merged: list[tuple[Incident, uuid.UUID]] = []
+    merged_transitions: Sequence[StatusTransition] = []
     if ids:
         result = await db.execute(select(StatusTransition).where(StatusTransition.incident_id.in_(ids)))
         transitions = result.scalars().all()
-    return event_figures(incidents, transitions)
+        live = set(ids)
+        merged = [
+            (card, live_id)
+            for card, live_id in await merged_cards_of_event(db, incidents[0].event_id)
+            if live_id in live
+        ]
+        if merged:
+            merged_result = await db.execute(
+                select(StatusTransition).where(StatusTransition.incident_id.in_([c.id for c, _ in merged]))
+            )
+            merged_transitions = merged_result.scalars().all()
+    folded, steps = fold_merged(incidents, transitions, merged, merged_transitions)
+    return event_figures(folded, steps)

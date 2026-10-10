@@ -44,7 +44,12 @@ will keep holding.
   card keeps its number while hidden and gets it back. Photos are copied, never moved. The card
   asks before merging when it has work on it and names what moves; the Einsatztagebuch writes
   «Übernommen von …», crews on `/feld` find the surviving card, and every board updates at once.
-  Closed Einsätze are never merged, on either side.
+  Closed Einsätze are never merged, on either side, and «Trennen» is refused while the card it
+  went into is closed or was merged on itself. A Reko link sent for the merged card keeps
+  working and files into the card that stays (form, «vor Ort», photos, submit with its status
+  change). Reaktionszeiten, Kennzahlen and «Tätigkeit ab/bis» count the place from its first
+  report – the merge itself is not a dispatch. A photo that cannot be copied stops the merge
+  instead of leaving it half done.
 
 - **Station index: one address for all station data.** `STATION_INDEX_SOURCE` (+ optional
   `STATION_INDEX_TOKEN`) points at a station's `index.json`, which lists its data files by kind

@@ -7055,7 +7055,7 @@
           "incidents"
         ],
         "summary": "Merge Incident Into",
-        "description": "«Zusammenführen» on a card: fold this incident into `target_id`.\n\nThe one-click answer to «mögliches Duplikat von …». Refused with 409 while\npeople or vehicles are assigned to this card — moving them is a decision,\nnot a side effect. Undo: POST /{incident_id}/unmerge.",
+        "description": "«Zusammenführen» on a card: fold this incident into `target_id`.\n\nThe answer to «mögliches Duplikat von …». Any OPEN card (owner decision\n10.10.2026): its crew, vehicles, material, Reko, Rapport, messages, requests\nand flags move to `target_id` (services/merge_work.py); the board asks first\nwhen the card has work on it. Closed cards on either side: 409.\nUndo: POST /{incident_id}/unmerge.",
         "operationId": "merge_incident_into_api_incidents__incident_id__merge_post",
         "parameters": [
           {
