@@ -11,10 +11,13 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« 3 engins sur place » en tête de la barre du matériel.** Le matériel qu’une équipe a laissé quelque part est autrement invisible sur le tableau – il n’est ni libre ni visiblement en service. La liste dépliante indique l’engin, l’adresse et depuis quand, le plus ancien en haut ; un clic ouvre l’intervention correspondante. Elle n’apparaît que s’il y a réellement quelque chose dehors.
 
-**« Rapports » dans la barre du bas.** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
+**« Temps de service » au pied de la barre latérale du personnel.** Qui est là, depuis quand et combien il a déjà fait – toutes les personnes annoncées, celle qui est là depuis le plus longtemps en haut. Colonnes : **Nom · Depuis · Présent · Engagé · Pause · Interventions · Actuellement**. *Présent* compte depuis l’arrivée (jaune à partir du réglage « Fatigue du personnel », 4 h par défaut, rouge à partir d’une fois et demie cette durée), *Engagé* le temps passé sur une intervention ou une mission, *Pause* le temps de présence sans intervention ni mission ; *Interventions* compte les interventions de cet événement (une mission une fois, un glisser annulé dans les deux minutes pas du tout). Un clic sur un en-tête de colonne trie selon celle-ci, un second clic inverse – « qui en a fait le plus, qui le moins » tient en un clic. **Tous · Libres · Engagés** et une recherche par nom ou lieu restreignent la liste. Aussi via `Cmd/Ctrl+K` et, sur le téléphone, dans la feuille Personnel (champ de recherche et un menu entonnoir qui contient aussi le tri). Une vue, pas un plan de service – personne n’est convoqué ni alarmé depuis ici.
 
-**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse, ou le symbole de chaîne devant la ligne, lie une intervention ; elle s’affiche alors en tête de ligne, `⌫` dans la ligne vide la retire. **`⇧J`** ouvre le journal avec le curseur déjà dans la ligne, et si une carte est sélectionnée, elle est déjà liée. Chaque ligne porte la date et l’heure. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Moyens. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
-**« Indicateurs » dans le menu utilisateur (`Z`).** Une fenêtre au-dessus de la page avec la situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF) ; le mode de calcul se trouve derrière le ⓘ. Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
+**« Rapports » dans la barre du bas (`O`).** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
+
+**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse, ou le symbole de chaîne devant la ligne, lie une intervention ; elle s’affiche alors en tête de ligne, `⌫` dans la ligne vide la retire. **`⇧J`** ouvre le journal avec le curseur déjà dans la ligne, et si une carte est sélectionnée, elle est déjà liée (dans la palette de commandes : « Écrire dans le journal »). Chaque ligne porte la date et l’heure. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Moyens. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
+
+**« Indicateurs » dans le menu utilisateur (`Z`).** En haut à droite, dans le menu de la personne, aussi via `Cmd/Ctrl+K` et, sur le téléphone, sous « Plus » – plus dans la barre du bas. Une fenêtre au-dessus de la page avec la situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF) ; le mode de calcul se trouve derrière le ⓘ. Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
 
 ### Vue carte (`G M`)
 Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs colorés indiquent la priorité (vert/jaune/rouge).
@@ -30,6 +33,8 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 
 **Clavier :** `L` étiquettes, `I` lignes, `1-5` afficher un véhicule – voir [Raccourcis clavier](#raccourcis-clavier).
 
+**Météo.** Le commutateur « Météo » du menu « Vue » (sur `/map` et sur la carte murale `/display/map`) place le radar des précipitations de MétéoSuisse sous tous les marqueurs et itinéraires. Le panneau en bas à gauche rejoue avec ▶ la dernière heure par pas de 5 minutes ; le curseur choisit une image et indique son âge (« il y a 40 min »), avec l’opacité et l’échelle de couleurs. Les alertes officielles pour l’emplacement du corps – de MétéoSuisse et d’Alertswiss, p. ex. une interdiction cantonale de faire du feu – apparaissent comme pastille en haut à droite de la carte, même si le radar est éteint ; un toucher affiche le texte original avec la région, la validité et la source. Les données qui ne se mettent plus à jour apparaissent grisées avec leur heure (« Obsolète – état 17:05 ») au lieu de passer pour actuelles. La base est constituée des coordonnées sous Réglages → Général ; le serveur a besoin d’Internet pour cela.
+
 ### Panneau latéral (kanban)
 Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec les **détails** de l’intervention sélectionnée (édition de l’intervention). Se replie et se déplie avec `I` ou `\`. Il n’y a plus de mini-carte dans le panneau – la carte est une page à part (`G M`), et `K` y ouvre l’intervention sélectionnée.
 
@@ -39,6 +44,8 @@ Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec 
 
 ### Événements (`G E`)
 Gérer, changer, archiver et exporter les événements.
+
+**L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore annoncées. La case « désannoncer automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
 
 ### Réglages (`G S`)
 Configuration du système : utilisateurs, synchronisation, imprimante, style de carte et plus encore.
@@ -74,7 +81,7 @@ C’est **la même carte d’intervention qu’au poste de commandement**, seule
 Le mur ne suit **pas** la « Vue » de l’opérateur : *Compact* existe pour caser plus de cartes sur un tableau auquel on travaille – un mur, lui, doit être lisible à cinq mètres. La page d’affichage n’a pas de commutateur pour cela et montre donc toujours la carte complète.
 
 ### État (`/display/status`)
-Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans.
+Vue à quatre colonnes : véhicules, interventions (groupées par statut), personnel (groupé par rôle) et matériel (groupé par emplacement). Pour les ressources attribuées, le lieu d’intervention est indiqué. S’agrandit automatiquement sur les grands écrans. Au-dessus des interventions figurent, repliables, les [indicateurs](#tableau-board-g-b).
 
 ### Replier des sections
 
@@ -101,7 +108,9 @@ Sous **Réglages → Mode carte**, trois réglages sont possibles :
 
 Les tuiles hors ligne doivent être téléchargées une fois, et pour **votre** région – le réglage par défaut couvre Bâle-Campagne. C’est la personne qui s’occupe du serveur qui le fait, avec `just tiles-download` sur l’hôte Docker ; la marche à suivre est dans `docs/OFFLINE_MAPS.md`. Le téléchargement est volumineux et long : il se fait un après-midi calme, pas la veille d’un exercice.
 
-Pour vérifier que cela a fonctionné, `just tiles-status` distingue « uniquement les tuiles minimales de départ » de « vraies données hors ligne pour la région ».
+**Tant qu’aucune tuile n’est installée, « Hors ligne » n’est pas sélectionnable.** Au premier démarrage, un fichier de tuiles de départ vide est créé, uniquement pour que le serveur de tuiles démarre – il ne contient rien. La page des réglages le vérifie et indique directement à côté du choix ce qui est réellement installé ; sans tuiles, « Auto » reste aussi en ligne et ne se replie sur rien en cas de panne.
+
+En ligne de commande, `just tiles-status` distingue « uniquement les tuiles minimales de départ » de « vraies données hors ligne pour la région ».
 
 ---
 
@@ -135,7 +144,7 @@ Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-d
 
 ## Cartes d’intervention
 
-Chaque carte montre : adresse, genre, ressources attribuées, priorité et ancienneté.
+Chaque carte montre : numéro (en petit devant l’adresse), adresse, genre, ressources attribuées, priorité et ancienneté. Le numéro est compté par événement, n’est jamais réattribué et figure partout où une intervention est nommée – au mur, sur la carte de situation et sur l’impression d’état A4.
 
 ### Priorités
 
@@ -227,6 +236,7 @@ fenêtre l’indique sous le lieu : « Peut-être identique à … ». **Fusionn
 l’annonceur comme complément à cette intervention – sans deuxième carte. **Créer quand même** masque
 l’indication. Les alarmes reçues automatiquement (Divera, lien d’alarme) ne sont jamais fusionnées
 d’elles-mêmes : leur carte affiche « Doublon possible de … » avec **Fusionner** et **Pas un doublon**.
+
 Toute intervention **ouverte** peut être fusionnée, même une qui est déjà en cours. Ce qui est sur la
 carte suit : équipe, véhicules, matériel, rapports de reconnaissance (avec photos), le rapport, les
 messages vers l’équipe, les demandes du terrain et les indications aide de voisinage, en attente, à
@@ -248,7 +258,8 @@ journal note ce qui a été repris (« Repris de … »). Pour annuler : « Annu
 à droite, ou **Séparer** dans l’historique de l’intervention – tout revient, sauf ce qui a été modifié
 à la main entre-temps. Séparer n’est plus possible si l’intervention qui reste est terminée ou a
 elle-même été fusionnée. Un lien de reconnaissance de la carte fusionnée continue de fonctionner et
-aboutit sur la carte qui reste ; les temps de réaction comptent dès le premier message.
+aboutit sur la carte qui reste, une équipe sur `/feld` trouve la carte qui reste, et les photos sont
+copiées, jamais déplacées ; les temps de réaction comptent dès le premier message.
 
 ### Faire une reconnaissance
 
@@ -286,7 +297,7 @@ En plus de WhatsApp et de l’imprimante, les personnes attribuées peuvent êtr
 - **Où :** bouton **« Alarme Divera »** dans la fenêtre de détail de l’intervention et dans la fenêtre d’engagement.
 - **Destinataires :** l’effectif attribué à l’intervention (présélectionné) ainsi que les **conducteurs** des véhicules attribués (listés, mais non présélectionnés). À confirmer avant l’envoi.
 - **Liaison :** seules les personnes **liées** à Divera peuvent être alarmées – les autres sont grisées. La liaison se fait par la synchronisation des personnes Divera (Réglages → Personnel).
-- **Activer :** Réglages → Alarmement → activer « Alarmement Divera » (nécessite une clé d’accès Divera). On y trouve aussi une **alarme de test** vers une seule personne.
+- **Activer :** Réglages → Alarmement → activer « Alarmement ». On y trouve aussi une **alarme de test** vers une seule personne. Si aucun fournisseur d’alarmement n’est configuré sur le serveur, le commutateur est **grisé** et la ligne le dit – ainsi, aucun bouton d’alarme qui ne ferait rien n’apparaît sur le tableau. Les domaines configurés figurent sous **Réglages → Intégrations**.
 - N’est **pas** déclenché en mode exercice ni en mode démo ; le pager n’est délibérément pas sollicité (push / pas de double alarmement).
 
 ### Message Divera (information, pas une alarme)
@@ -314,6 +325,18 @@ comme une convocation et ne sollicite aucun pager.
 Scanner le code QR → marquer la personne comme présente. Celui qui n’a pas de téléphone
 ou ne peut pas scanner est annoncé depuis le PC dans l’**appel** – voir ci-dessous.
 
+**En route (Divera).** Si Divera est raccordé, l’appel et l’en-tête de la barre latérale
+du personnel montrent qui a répondu à l’alarme Divera : une ligne de chiffres
+(« 4 viennent · 2 ne viennent pas »), puis toutes les personnes qui viennent et ne sont
+pas encore annoncées, avec leur grade et un clic (« présent ») pour les annoncer.
+« Ne vient pas » figure en retrait dans un groupe à part, marqué ✕ – l’annonce reste
+possible, au cas où quelqu’un se serait trompé de bouton. Seulement oui ou non : ni
+heure de réponse, ni estimation d’arrivée. **Une réponse Divera n’annonce personne
+d’elle-même.** Seules les alarmes des 6 dernières heures comptent ; qui est déjà annoncé
+(ou déjà reparti) n’apparaît pas dans la liste, et les réponses de membres Divera sans
+personne liée sont seulement comptées. Visible pour les éditeurs et les admins, pas pour
+les observateurs. Sans Divera ou sans alarme Divera récente, rien ne change.
+
 ### Tout saisir depuis le PC (quand les téléphones lâchent)
 
 Chaque lien sans connexion – arrivée, reconnaissance, terrain, alarme – est un **canal
@@ -323,7 +346,7 @@ cas normal : pas de réseau à la cave, batterie vide, gants, ou un effectif qui
 n’ouvre aucune application – alors le groupe dicte par radio, et le PC est le seul
 appareil de saisie qu’il reste au système.
 
-**Appel (présence).** Barre du bas → *Arrivée* → ligne **Présence** →
+**Appel (présence).** Barre du bas → *Liens & QR* → ligne **Présence** →
 « Ouvrir l’appel » (également accessible depuis la liste de contrôle de l’événement).
 
 - Une ligne par personne, par ordre alphabétique et **stable** – la liste ne se
@@ -388,6 +411,34 @@ s’annonce lui-même – rien n’est écrit, délibérément.
   « Je suis parti », personne ne le tape – c’est pourquoi cela se note au PC.
 - Le bloc reconnaissance ne dit plus si la reconnaissance est sur place ; cette
   information figure maintenant à un seul endroit, dans les *annonces radio*.
+
+### Demandes du terrain
+
+Ce qu’une équipe envoie sur `/feld` – une puce, une phrase tapée, un ramassage – est une
+tâche, pas seulement une notification : **ouvert → en cours** (facultatif) **→ réglé**,
+avec qui et quand. « Matériel nécessaire » et « Renfort nécessaire » arrivent structurés
+(engin tiré de l’inventaire, nombre, note), donc « Matériel : Tauchpumpe Gr. ×2 » au lieu
+d’une phrase.
+
+- **Où :** comme ligne courte sur la carte d’intervention, dans le détail de
+  l’intervention sous l’onglet **Terrain** et tout en haut des notifications (`B`) sous
+  **« Du terrain – ouvert »**.
+- **En cours · Réglé · Rouvrir.** L’équipe voit l’état sur son téléphone (« PC : en
+  cours », « réglé · 14:32 · nom »). Seul **Réglé** retire la demande de la carte et de
+  la barre latérale, et ferme aussi sa notification.
+- **Fermer une notification ne règle rien :** la demande est alors « vue » (l’équipe lit
+  « Vu par le PC ») et reste ouverte. **Vu**, directement sur la demande, fait la même
+  chose. « Tout fermer » laisse les demandes en place ; la cloche compte celles qui sont
+  ouvertes.
+- **Attribuer du matériel / Attribuer du personnel** ouvre la fenêtre d’attribution
+  habituelle pour cette intervention, déjà filtrée sur l’engin, et passe la demande à
+  « en cours ».
+- **Ramassage :** *Réglé* ici et « Récupération organisée » sur le bandeau du ramassage
+  sont la même action.
+- Si deux opérateurs touchent la même demande en même temps, le second reçoit « modifiée
+  entre-temps » au lieu d’écraser le premier. Quand l’intervention est clôturée, ses
+  messages ouverts se ferment ; matériel, renfort et ramassage restent ouverts jusqu’à ce
+  que quelqu’un les règle.
 
 ### Plusieurs interventions à la fois
 
@@ -505,6 +556,10 @@ Une mission est **attribuée une fois, pas à nouveau à chaque étape**. L’ap
 
 Seules les ressources disponibles (point vert) peuvent être attribuées.
 
+**Annuler après un retrait.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est retiré, « … retiré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
+
+**Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Retirer de l’intervention » rouge. À la souris, rien ne change.
+
 ### Rôles spéciaux (clic droit sur une personne)
 
 | Rôle | Signification |
@@ -523,7 +578,7 @@ Pour qu’aucune étape ne soit oubliée dans les moments agités, le système a
 
 | Situation | Question |
 |-----------|---------|
-| **Attribuer un véhicule sans conducteur** | Le choix du conducteur apparaît directement à l’attribution. « Fermer » laisse sciemment le véhicule sans conducteur. |
+| **Attribuer un véhicule sans conducteur** | Le choix du conducteur apparaît directement à l’attribution – aussi pour une mission. « Fermer » laisse sciemment le véhicule sans conducteur ; la mission affiche alors « Pas de conducteur · Choisir un conducteur », et le texte d’engagement, le texte WhatsApp et l’impression A4 indiquent « sans conducteur ». |
 | **Véhicule déjà en intervention** (double affectation) | Un véhicule n’existe physiquement qu’une fois – lors d’une nouvelle attribution : **Déplacer ici** (le retirer des autres interventions) ou **Attribuer plusieurs fois** (conserver sciemment la double affectation). |
 | **Vers la colonne Reconnaissance sans personne de reconnaissance** | Si une intervention est déplacée vers « Reconnaissance » sans qu’une personne de reconnaissance soit attribuée, « Aucune personne de reconnaissance attribuée » apparaît : **Attribuer une personne de reconnaissance** (elle reçoit alors le formulaire) ou « Continuer quand même ». |
 | **Engager sans ressources** | S’il manque du **personnel, des véhicules ou des moyens** lors du passage à « Engagé » (les véhicules ne comptent pas en mode « à pied »), « Il manque des ressources » apparaît. Le choix recommandé est **Attribuer** – cela ouvre l’attribution puis mène directement à la fenêtre radio/alarme ; « Engager quand même » part sciemment sous-doté. |
@@ -593,6 +648,8 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `A` | Ouvrir/fermer les missions (itinéraires) |
 | `S` / `/` | Mettre le focus sur la recherche |
 | `D` | Ouvrir/fermer Impression et export |
+| `T` | Ouvrir/fermer Liens & QR |
+| `O` | Ouvrir/fermer les rapports |
 | `R` / `F5` | Actualiser |
 | `F` | État des véhicules |
 | `J` | Ouvrir/fermer le journal d’intervention |
@@ -643,7 +700,7 @@ Les événements peuvent être marqués **exercice** (badge « Exercice »). Les
 
 ### Commande d’exercice
 
-Pour les événements d’exercice, la **commande d’exercice** apparaît dans les réglages, pour générer des interventions d’exercice :
+Si l’événement sélectionné est un exercice, le bouton **« Commande d’exercice »** apparaît **dans la barre du bas du tableau** (à côté de « Imprimer »). Il ouvre la page `/training` pour générer des interventions d’exercice – pas dans les réglages :
 
 | Bouton | Effet |
 |-------|---------|
@@ -670,7 +727,7 @@ En mode démo public, chaque connexion éditeur (`demo-editor`) reçoit une **si
 
 ### Lien observateur (lecture seule)
 
-Pour les personnes sans compte : barre du bas → « Observateur » génère un lien valable 24 h. Il montre le tableau kanban et la carte sans possibilité d’édition – la même carte d’intervention qu’au poste de commandement. Actualisation automatique toutes les 5 secondes.
+Pour les personnes sans compte : barre du bas → « Liens & QR » → **Écran mural** – un lien valable 24 h. Il ouvre la vue d’ensemble `/display`, de là le tableau, la carte et l’état, sans possibilité d’édition – la même carte d’intervention qu’au poste de commandement. Actualisation automatique toutes les 5 secondes.
 
 **Le lien montre désormais aussi le résultat de la reconnaissance** : pertinent oui/non, dangers, estimation de l’engagement, rapport bref **et les photos de la place sinistrée**. Auparavant il n’y figurait que le fait *qu’*une reconnaissance avait eu lieu – ce qui rendait le lien peu utile pour la commune ou un corps voisin.
 
@@ -680,7 +737,7 @@ Pour les personnes sans compte : barre du bas → « Observateur » génère un 
 
 Pour les personnes qui doivent **saisir** une alarme, sans connexion et sans connaître le reste du système – p. ex. quelqu’un au téléphone ou au guichet.
 
-**Créer :** barre d’outils → « Alarme » (symbole de sirène) génère un lien ou un code QR valable **30 jours** par événement. À générer une fois, puis à afficher au poste téléphonique ou à enregistrer en favori.
+**Créer :** barre du bas → « Liens & QR » → **Saisir une alarme** – un lien ou un code QR valable **30 jours** par événement. À générer une fois, puis à afficher au poste téléphonique ou à enregistrer en favori.
 
 **Utiliser :** qui ouvre le lien voit un formulaire épuré, optimisé pour le mobile, et peut saisir autant d’alarmes qu’il veut – aucune connexion nécessaire. Ordre des champs : d’abord le **lieu** (avec recherche d’adresse), puis l’**annonce** (ce qui a été annoncé – l’adresse figure déjà en haut, donc pas de double saisie), la **priorité** sous forme de trois touches de sélection rapide (basse / moyenne / haute), le genre d’intervention, d’autres indications et l’annonceur/appelant.
 
@@ -718,6 +775,40 @@ Dans le menu utilisateur (en haut à droite), la section « Liaison » montre l�
 
 Un clic sur une entrée ouvre les réglages correspondants.
 
+**Nouvelle version disponible.** Si le serveur fait tourner une version plus récente que la page ouverte, « Nouvelle version disponible · Recharger » apparaît discrètement – recharger quand cela convient. Les écrans muraux se rechargent d’eux-mêmes, une fois par nouvelle version. L’indication de version (« v‹version› · ‹commit› · ‹date› ») figure dans le menu utilisateur sous « Se déconnecter ».
+
+---
+
+## Résilience (repli papier)
+
+Réglages → **Résilience**. Deux commutateurs qui tiennent l’état actuel du tableau prêt
+en dehors du système, avant qu’on en ait besoin :
+
+| Commutateur | Ce qu’il fait | Portée |
+|----------|------------|------------|
+| **Imprimer le tableau automatiquement (thermique)** | Envoie à intervalle fixe un instantané du tableau sur l’imprimante thermique – seulement si quelque chose a changé depuis la dernière impression | Toute la station |
+| **Téléchargement automatique de la feuille de situation** | Dépose à intervalle fixe une feuille de situation A4 (PDF) dans le dossier de téléchargement ; reste lisible et imprimable sans réseau | Cet appareil uniquement |
+
+**Les deux fonctionnent aussi pendant un exercice.** Un repli papier que personne ne
+peut exercer n’en est pas un – c’est pourquoi l’instantané automatique s’imprime tout
+autant pour les événements d’exercice. Une fiche d’exercice porte l’en-tête **ÜBUNG** et
+ne peut donc pas être confondue avec une vraie.
+
+### Quand le système tombe
+
+1. **Ne pas recommencer à zéro.** Le dernier instantané imprimé du tableau est l’état –
+   à partir de là, on continue sur papier : reporter à la main les nouvelles
+   interventions, attributions et changements de statut.
+2. **Prendre la dernière feuille de situation.** Elle se trouve dans le dossier de
+   téléchargement de cet appareil et n’a besoin d’aucun réseau.
+3. **Une seule personne tient le papier**, comme une seule personne tient d’ordinaire
+   le tableau. Deux états papier parallèles sont pires qu’aucun.
+4. **Quand le système revient**, l’état papier est reporté – ce n’est qu’ensuite que
+   l’écran fait de nouveau foi.
+
+C’est pourquoi les deux commutateurs font partie du démarrage du PC (la liste de
+contrôle les demande) et non du moment où l’écran est noir.
+
 ---
 
 ## Installation locale
@@ -725,23 +816,29 @@ Un clic sur une entrée ouvre les réglages correspondants.
 Pour un engagement sans connexion Internet, KP Rück peut tourner localement sur un ordinateur du poste de commandement.
 
 ### Prérequis
-- Docker Desktop installé
-- Dépôt Git cloné
+- Docker installé
+- L’installation configurée (`.env` présent)
 
-### Démarrer
+### Première mise en place
 ```bash
-just dev        # Démarre tous les services
+just init       # Crée le .env et guide la configuration
+```
+
+### Démarrer et arrêter
+```bash
+just up         # Démarre l’installation
+just down       # Arrête l’installation (les données restent)
+just doctor     # Vérifie que tout tourne – base de données, imprimante, tuiles, sauvegarde
 ```
 
 Les données sont synchronisées automatiquement depuis Railway (voir les réglages de synchronisation).
 
-### Arrêter
-```bash
-just dev-stop    # Arrêter les services
-just dev-clean   # Tout réinitialiser (supprime les données) – demande confirmation
-```
-
 L’instance locale tourne sur `http://localhost:3000`.
+
+> **Les recettes `dev-` ne sont pas faites pour l’exploitation.** `just dev`, `just dev-stop`
+> et `just dev-clean` servent au développement ; `just dev-clean` **efface la base de données
+> et toutes les photos**. Au poste de commandement, ce sont les quatre verbes ci-dessus qui
+> s’appliquent.
 
 ---
 
@@ -764,13 +861,13 @@ Un **agent d’impression** tourne sur un Raspberry Pi dans le réseau du poste 
 
 | Travail | Déclencheur | Contenu |
 |---------|----------|--------|
-| **Fiche d’intervention** | Automatiquement au statut « Engagé »/« Intervention », ou clic droit → « Imprimer la fiche d’intervention » | Adresse, genre, priorité, description, véhicules, personnel, matériel |
+| **Fiche d’intervention** | Automatiquement au passage à **« Engagé / en route »** – une fois par intervention –, ou à tout moment à la main par clic droit → « Imprimer la fiche d’intervention » | Adresse, genre, priorité, description, véhicules, personnel, matériel |
 | **Instantané du tableau** | Barre du bas → « Imprimer » (ou touche `D`) → colonne **Impression thermique** → choisir les options → « Imprimer » | Vue d’ensemble de l’événement, interventions avec détails, état des véhicules, liste du personnel |
-| **Fiche code QR** | Dans les panneaux Arrivée / Reconnaissance / Observateur / Alarme → symbole d’imprimante | Titre, brève description et code QR scannable du lien – à distribuer sur papier |
+| **Fiche code QR** | Barre du bas → « Liens & QR » (arrivée, terrain, alarme, écran mural) → symbole d’imprimante | Titre, brève description et code QR scannable du lien – à distribuer sur papier |
 
 ### Fiche code QR
 
-Chaque panneau de lien (arrivée du personnel, tableau de reconnaissance, lien observateur, lien d’alarme) comporte, à côté de « Copier » et « Ouvrir », un symbole d’imprimante (visible uniquement si l’imprimante est activée). Il imprime une fiche compacte avec le code QR et une brève description – pratique pour mettre le bon lien dans la main de quelqu’un sans devoir partager un appareil.
+Chaque ligne du panneau « Liens & QR » (arrivée, terrain, saisir une alarme, écran mural) comporte, à côté de « Copier » et « Ouvrir », un symbole d’imprimante (visible uniquement si l’imprimante est activée). La fiche terrain porte en plus le code terrain et la date d’expiration du lien. Il imprime une fiche compacte avec le code QR et une brève description – pratique pour mettre le bon lien dans la main de quelqu’un sans devoir partager un appareil.
 
 ### Options de l’instantané du tableau
 

@@ -17,7 +17,7 @@ graph TB
 
     subgraph frontend["Frontend – Next.js 15"]
         app["App Router<br/><small>React 19 + TypeScript</small>"]
-        contexts["Context Providers<br/><small>Operations, Personnel,<br/>Materials, Auth, Events</small>"]
+        contexts["Context Providers<br/><small>Operations, Personnel, Materials,<br/>Groups, Notifications, Auth, Events</small>"]
         ws_client["Socket.IO Client<br/><small>Real-time sync</small>"]
         api_client["API Client<br/><small>HTTP + polling fallback</small>"]
     end
@@ -25,7 +25,7 @@ graph TB
     subgraph backend["Backend – FastAPI"]
         routes["API Routes<br/><small>/api/*</small>"]
         ws_server["Socket.IO Server<br/><small>WebSocket broadcast</small>"]
-        services["Services<br/><small>Divera, Sync, Training,<br/>Photos, Export</small>"]
+        services["Services<br/><small>Divera, Sync, Training, Journal,<br/>Weather, Roster, Photos, Export</small>"]
         crud["CRUD Layer<br/><small>Async SQLAlchemy 2.0</small>"]
         middleware["Middleware<br/><small>CORS, Audit, Security,<br/>Rate Limiting</small>"]
     end
@@ -46,6 +46,8 @@ graph TB
         divera["Divera 24/7<br/><small>alarm in/out · roster sync</small>"]
         traccar["Traccar<br/><small>GPS vehicle tracking</small>"]
         osm["OpenStreetMap<br/><small>Online map tiles</small>"]
+        weather["MeteoSwiss · Alertswiss<br/><small>rain radar · warnings</small>"]
+        stationdata["Station data<br/><small>index.json · roster file</small>"]
     end
 
     clients --> app
@@ -70,6 +72,8 @@ graph TB
     divera -.->|webhook| routes
     services -.->|poll| divera
     services -.->|poll| traccar
+    services -.->|fetch| weather
+    services -.->|fetch hourly| stationdata
 
     print_agent -->|poll /api/print| routes
     print_agent --> printer
@@ -89,6 +93,9 @@ graph TB
 | **Materials Context** | Material inventory, location-based grouping |
 | **Auth Context** | JWT tokens, role checks (editor/viewer/admin) |
 | **Event Context** | Event selection (training vs live), event metadata |
+| **Groups Context** | Aufträge (routed groups of incidents) and their stops |
+| **Notification Context** | The bell, toasts and open requests from the field, rendered in the device's language from the notification's `params` |
+| **Command Palette Context** | ⌘K: commands, search, and type-to-dispatch (`14 tlf meier`) |
 | **Socket.IO Client** | WebSocket connection with auto-reconnect, polling fallback |
 | **API Client** | Centralized HTTP client, error handling, conflict detection (409) |
 
@@ -96,11 +103,11 @@ graph TB
 
 | Component | Responsibility |
 |-----------|---------------|
-| **API Routes** | 33 route modules covering incidents, resources, feld, print, integrations, setup, admin |
+| **API Routes** | 37 route modules covering incidents, resources, feld, journal, print, weather, integrations, setup, admin |
 | **Middleware Stack** | CORS, audit logging, security headers, rate limiting |
 | **CRUD Layer** | Async database operations with eager loading (prevents N+1 queries) |
 | **WebSocket Manager** | Socket.IO server, room-based broadcasting per event |
-| **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling, sync, training auto-generation, photo storage, exports |
+| **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling and Divera Rückmeldungen (`divera_responses`), the Einsatztagebuch (`journal`), duplicate detection and merge (`duplicates`, `merge_work`), Reaktionszeiten/Kennzahlen (`reaction_times`), the weather layer (`weather/`), roster snapshot + station index sync, training auto-generation, photo storage, PDF/Excel exports |
 | **Auth / Tokens** | JWT generation, validation, blocklist, role-based access |
 
 ### Database (PostgreSQL 16)
@@ -109,6 +116,9 @@ graph TB
 erDiagram
     events ||--o{ incidents : contains
     events ||--o{ event_special_functions : has
+    events ||--o{ event_attendance : "check-in"
+    events ||--o{ journal_entries : logs
+    incidents ||--o{ field_requests : has
     incidents ||--o{ incident_assignments : has
     incidents ||--o{ status_transitions : tracks
     incidents ||--o{ reko_reports : has
@@ -116,6 +126,7 @@ erDiagram
     incident_assignments }o--|| vehicles : assigns
     incident_assignments }o--|| materials : assigns
     event_special_functions }o--|| personnel : assigns
+    event_attendance }o--|| personnel : records
 
     events {
         uuid id PK
@@ -127,19 +138,23 @@ erDiagram
     incidents {
         uuid id PK
         uuid event_id FK
+        int number
         string status
+        string priority
         string type
         string title
-        string location
+        string location_address
         text description
+        uuid possible_duplicate_of_id FK
+        uuid merged_into_id FK
         timestamp created_at
     }
     personnel {
         uuid id PK
         string name
-        string rank
+        string role
+        string status
         string tags
-        boolean checked_in
     }
     vehicles {
         uuid id PK
@@ -159,25 +174,44 @@ erDiagram
         string resource_type
         uuid resource_id
     }
+    journal_entries {
+        uuid id PK
+        uuid event_id FK
+        uuid incident_id FK
+        string kind
+        text text
+        uuid corrects_id FK
+        timestamp occurred_at
+    }
+    field_requests {
+        uuid id PK
+        uuid incident_id FK
+        string kind
+        string status
+        string item
+        int quantity
+    }
 ```
 
-**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies`, `revoked_tokens` (the persisted JWT blocklist), `event_special_functions`, `reko_reports`, `status_transitions`, `personnel_external_identities`, `print_jobs`, `telemetry_outbox`, `notifications`
+Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person.
+
+**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports`, `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `sync_log`, `telemetry_outbox`
 
 ### Print Agent (Standalone Python)
 
 | Component | Responsibility |
 |-----------|---------------|
-| **agent.py** | Polling loop with adaptive intervals (idle: 60s, active: 5s) |
+| **agent.py** | Main loop: long-polls the backend for jobs (held open up to 25 s), falling back to adaptive polling (idle: 10 s, active: 5 s) against a backend that does not long-poll |
 | **core.py** | Job model, HTTP client, claim/report state machine (stdlib only) |
 | **protocols/** | The backend wire contract (`rueck.py`) |
 | **outputs/** | The device driver (`escpos.py`, 80 mm thermal) |
-| **formatters.py** | Print layout: assignment slips, board snapshots |
+| **formatters.py** | Print layout: assignment slips (Einsatzzettel), board snapshots, Abholliste, QR slips, test print |
 
 ---
 
 ## Deployment Architectures
 
-The **self-hosted production stack** below is the reference deployment – it is what published releases are built and tested for, and what [`DEPLOYMENT.md`](DEPLOYMENT.md) documents. The others are the development stack, the same production stack tuned for a command post with no internet, and a legacy managed-PaaS layout.
+The **self-hosted production stack** below is the reference deployment – it is what published releases are built and tested for, and what [`DEPLOYMENT.md`](DEPLOYMENT.md) documents. The others are the development stack, the same production stack tuned for a command post with no internet, and the managed-PaaS (Railway) layout, an equally supported alternative.
 
 ### Local Development (Docker Compose)
 
@@ -249,13 +283,14 @@ graph LR
 
 All four published images share one tag; a station runs a matched set, never a mix.
 
-### Cloud (managed PaaS) – legacy
+### Cloud (managed PaaS – Railway)
 
-Feuerwehr Oberwil's own deployment grew up on Railway, and [`RAILWAY.md`](RAILWAY.md) still
-describes that layout: three services, managed Postgres, a `/mnt/data` volume for Reko photos,
-online-only OSM tiles (no tile server). The runtime no longer assumes Railway and this path is
-not maintained in step with the compose stack – it is documented for deployments already on it,
-not recommended for new ones.
+[`RAILWAY.md`](RAILWAY.md) describes the managed layout: three services, managed Postgres, a
+`/mnt/data` volume for Reko photos, online-only map tiles (no tile server – offline tiles need
+the compose stack's `/tiles` route). It is a **supported** path alongside the compose stack –
+same code, same releases; choose by who runs the server. The one difference that matters for
+updates: Railway builds from a branch of your fork instead of pulling the tagged GHCR images, so
+you pin a version by what you merge into that branch.
 
 
 ### Command Post (Offline-capable)
@@ -266,10 +301,11 @@ The same production stack as above, on a machine at the command post with offlin
 graph TB
     subgraph cp["Command Post (Local Network)"]
         subgraph mac["Server (Mac / PC)"]
-            fe_local["Frontend<br/><small>:3000</small>"]
-            be_local["Backend<br/><small>:8000</small>"]
-            db_local[("PostgreSQL<br/><small>:5433</small>")]
-            tiles_local["TileServer GL<br/><small>:8080</small>"]
+            caddy_local["Caddy<br/><small>:8080 · plain HTTP</small>"]
+            fe_local["Frontend"]
+            be_local["Backend"]
+            db_local[("PostgreSQL")]
+            tiles_local["TileServer GL"]
         end
         subgraph pi["Raspberry Pi"]
             agent["Print Agent<br/><small>systemd service</small>"]
@@ -277,12 +313,13 @@ graph TB
         printer_hw["Thermal Printer<br/><small>ESC/POS :9100</small>"]
     end
 
-    tablets["Tablets / Laptops<br/><small>on same LAN</small>"] --> fe_local
-    fe_local --> be_local
+    tablets["Tablets / Laptops<br/><small>on same LAN</small>"] -->|one origin| caddy_local
+    caddy_local --> fe_local
+    caddy_local -->|"/api, /socket.io"| be_local
+    caddy_local -.->|"/tiles"| tiles_local
     be_local --> db_local
-    tablets -.->|map tiles| tiles_local
 
-    agent -->|poll /api/print| be_local
+    agent -->|long-poll /api/print| caddy_local
     agent -->|ESC/POS| printer_hw
 
     style cp fill:#f0fdf4,stroke:#16a34a
@@ -297,7 +334,9 @@ graph TB
 | Thermal Printer | Network printer | ESC/POS protocol, 80mm paper (Epson TM-T20III or compatible) |
 | Clients | Any device on LAN | Tablets, laptops, phones -- browser only |
 
-Works **fully offline** once tiles are downloaded and no external integrations are needed.
+Works **fully offline** once tiles are downloaded and no external integrations are needed. The
+weather layer simply shows its data as stale without internet; `WEATHER_ENABLED=false` stops the
+backend from trying.
 
 ---
 
@@ -343,12 +382,12 @@ sequenceDiagram
     participant A as Print Agent (Pi)
     participant P as Thermal Printer
 
-    U->>B: Click "Print" → POST /api/print/jobs
+    U->>B: Click "Print" → POST /api/print/assignment/{incident_id}/ (or /board/, /qr-code/, …)
     B->>B: Queue job in database
 
-    loop Every 5s (active) / 60s (idle)
-        A->>B: GET /api/print/jobs/pending
-        B-->>A: Job list
+    loop Long-poll (held up to 25 s; fallback 5 s active / 10 s idle)
+        A->>B: GET /api/print/jobs/pending/?wait=25
+        B-->>A: Job list (as soon as one is queued)
     end
 
     A->>B: PATCH /api/print/jobs/{id}/claim
@@ -434,9 +473,27 @@ stateDiagram-v2
 
 At each transition:
 - A `status_transition` record is created (audit trail)
+- The Einsatztagebuch gets its row (`journal_entries`), in the same transaction, whichever path
+  made the change
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
   (`crud/incidents.auto_release_incident_resources`); moving back out restores them
+
+### Duplicates and merge
+
+A card can also leave the board without being closed: by being **merged** into another open
+Einsatz of the same Ereignis. Before «Neuer Einsatz», the Alarmeingang's «Anhängen» or `/feld`'s
+«Neue Meldung» creates a card, the backend looks for an open Einsatz within 50 m or at the same
+street and house number (`services/duplicates.py`) and the UI offers «Zusammenführen» or «Trotzdem
+neu». Automatic intake (webhook, poller, `/alarm`, bulk attach) never merges on its own – the new
+card is marked `possible_duplicate_of_id` and the operator decides.
+
+A merge (`POST /api/incidents/{id}/merge`) sets `merged_into_id` on the merged card, which keeps
+its row and number but is hidden; its work moves to the card that stays – crew, vehicles,
+material, Reko reports (photos copied, never moved), the Schadenplatz-Rapport, messages and
+field requests (`services/merge_work.py`, `services/merge_requests.py`). «Trennen»
+(`POST /api/incidents/{id}/unmerge`) moves it back. Closed Einsätze are never merged, and
+Reaktionszeiten count the place from its first report – the merge is not a dispatch.
 
 ---
 

@@ -125,8 +125,8 @@ const shots = [
       // markiertem Pflichtfeld sieht nach Fehler aus, nicht nach Werkzeug. Die
       // Adresse gehört seit dem Einsatzort-Zwang dazu; Enter übernimmt den
       // Freitext (ein Blur mit offenem Geocoder-Dropdown tut es nicht).
-      await page.getByPlaceholder(/Adresse eingeben/i).fill('Mühlemattstrasse 15, Oberwil')
-      await page.getByPlaceholder(/Adresse eingeben/i).press('Enter')
+      await page.getByPlaceholder(/Adresse (suchen|eingeben)/i).fill('Mühlemattstrasse 15, Oberwil')
+      await page.getByPlaceholder(/Adresse (suchen|eingeben)/i).press('Enter')
       await page.getByPlaceholder(/Brennt im Keller/i).fill('Wasser läuft über die Lichtschächte in den Heizungsraum')
       await page.getByPlaceholder(/Name der meldenden Person/i).fill('Marina Kaufmann')
       await page.getByPlaceholder(/079/).fill('079 123 45 67')
@@ -146,7 +146,7 @@ const shots = [
       // Formular ist die Feld-Tür, als die Reko-Person, die die Sandbox säät
       // (Brunner Sarah auf «Wasser in Tiefgarage»).
       await enterFeldDoor(page, base)
-      await page.getByPlaceholder('Name suchen...').fill('Brunner')
+      await page.getByPlaceholder(/^Name suchen( …|\.\.\.)$/).fill('Brunner')
       await page.locator('button').filter({ hasText: /Brunner Sarah/ }).first().click()
       await page.waitForTimeout(2500)
       await page.locator('button').filter({ hasText: /Reko erfassen/ }).first().click()
@@ -173,7 +173,7 @@ const shots = [
       // «Meine Schadenplätze» leer. Die Sandbox gibt Schneider Peter den
       // laufenden Einsatz mit Trawa und Pumpen — die vollste Kachel.
       // Die Liste ist ein Stationsbestand — erst suchen, dann klicken.
-      await page.getByPlaceholder('Name suchen...').fill('Schneider')
+      await page.getByPlaceholder(/^Name suchen( …|\.\.\.)$/).fill('Schneider')
       await page.locator('button').filter({ hasText: /Schneider Peter/ }).first().click()
       await page.waitForTimeout(2500)
       // Dann in den Schadenplatz hinein. Die Liste allein füllt das Bild nicht
@@ -218,6 +218,9 @@ const mintLink = async (page, path, method = 'POST') => {
 const enterFeldDoor = async (page, base) => {
   const { link } = await mintLink(page, '/api/feld/generate-link')
   const { code } = await mintLink(page, '/api/feld/access', 'GET')
+  // /feld remembers who you are in a cookie on its own path – the second Feld shot of
+  // a run would skip the person picker and find no «Name suchen» field.
+  await page.context().clearCookies({ path: '/feld' })
   await page.goto(base + link, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(2500)
   await page.keyboard.type(String(code), { delay: 120 })
@@ -234,7 +237,8 @@ const HIDE_CSS = `
 `
 
 const login = async (page) => {
-  const demoEditor = page.getByRole('button', { name: /Als Editor einloggen/i })
+  // «Anmelden als Bearbeiter» since the login copy round; the old wording for older instances.
+  const demoEditor = page.getByRole('button', { name: /Anmelden als Bearbeiter|Als Editor einloggen/i })
   const isDemo = await demoEditor.waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false)
   if (isDemo) {
     await demoEditor.click()

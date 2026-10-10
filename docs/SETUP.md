@@ -533,6 +533,14 @@ are live, and the UI adapts rather than hard-coding vendors.
   **separate** secret for each – see [`RUNNING-BOTH.md`](RUNNING-BOTH.md). Full detail:
   [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md).
 - **Traccar** – vehicle GPS with status automation and distance labels on the map.
+- **Weather** – on by default: the map's «Wetter» layer (MeteoSwiss radar, official warnings)
+  is fetched by the backend from public Swiss sources, no account needed. Outside Switzerland, or
+  where the backend must make no outbound requests, set `WEATHER_ENABLED=false`. See
+  [`DEPLOYMENT.md` › Weather layer](DEPLOYMENT.md#weather-layer).
+- **Roster file / station index** – a published CSV roster instead of (or beside) the Divera
+  sync: point `STATION_INDEX_SOURCE` at your station's `index.json` (recommended – one address
+  for all station data, checksummed) or `ROSTER_SNAPSHOT_SOURCE` straight at the roster file.
+  Without either nothing is fetched. See [`ROSTER-SNAPSHOT.md`](ROSTER-SNAPSHOT.md).
 - **Microsoft Entra ID** – set the four `MICROSOFT_*` values for SSO. This is the only external
   identity provider today; without it, local accounts are the path.
 

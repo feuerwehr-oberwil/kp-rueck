@@ -45,17 +45,38 @@ event, one operator at the board**, not scaled down from a dispatch center.
 - **Prepared for network failure.** Offline map tiles, a paper Lageblatt fallback, automatic
   thermal snapshots, and a documented outage SOP – not offline editing: when the connection
   goes, you go to paper.
-- **Defensible records.** An append-only audit log and an after-action PDF (Einsatztagebuch,
-  Reaktionszeiten) back every operation.
+- **Defensible records.** An append-only audit log, an Einsatztagebuch the board keeps as things
+  happen, and an after-action PDF (Einsatztagebuch, Reaktionszeiten) back every operation.
 - **Open and self-hostable.** One AGPL-licensed deployment per station, no per-seat licence.
 
 ## Highlights
 
 - **Board:** drag-and-drop Kanban with persisted card order and real-time sync (WebSocket, with
-  a polling fallback).
+  a polling fallback). Every Einsatz has a small number per Ereignis, and the ⌘K line dispatches
+  by typing: `14 tlf meier` puts the TLF and Meier on Einsatz 14, `14 hoch` raises its priority,
+  ⇥ completes names and addresses – through the same Doppelbelegung checks as dragging, with
+  «Rückgängig».
+- **Duplicates and merge:** before a second report about the same Schadenplatz (within 50 m or
+  the same address) becomes a second card, the board offers to merge it; alarms from automatic
+  intake are marked «Mögliches Duplikat» instead of merging on their own. Any open Einsatz can be
+  merged into another – crew, Reko, Rapport, messages and requests from the field move along –
+  and «Trennen» undoes it.
 - **Map:** MapLibre GL incident markers, optional [Traccar](https://www.traccar.org/) vehicle GPS
-  with GPS-driven status automation, distance labels, and offline tiles.
-- **Resources:** personnel, vehicles, and materials with assignment conflict warnings.
+  with GPS-driven status automation, distance labels, and offline tiles. A «Wetter» layer adds
+  MeteoSwiss rain radar and the official warnings for the station (Switzerland only;
+  `WEATHER_ENABLED=false` turns it off).
+- **Resources:** personnel, vehicles, and materials with assignment conflict warnings. A
+  **Dienstzeiten** overview shows everybody checked in – time on duty, time on an Einsatz vs.
+  «Pause», Einsätze worked – sortable by every column. With Divera, **«Anrückend»** lists who
+  answered the alarm with «kommt», one click from check-in.
+- **Einsatztagebuch:** one append-only journal per Ereignis (`J`, «Tagebuch» in the footer; `⇧J`
+  writes a line). The board writes its own rows as things happen – status changes, resources,
+  Meldungen, Reko, alarms, merges, field facts – and operators add what belongs to no card. A
+  wrong line is corrected by a new one, never edited; the PDF prints the same log.
+- **Kennzahlen:** the Lage and the Reaktionszeiten (Eingang → Disponiert, Vor Ort, Abschluss;
+  median and P90 per priority) on screen, from the user menu or `Z` – the Übungsauswertung on a
+  training Ereignis, and a section of the status wall (`/display/status`). Same computation as
+  the PDF, so the wall and the debrief agree.
 - **Aufträge:** group several incidents into one ordered route for a squad – the storm case,
   where a crew works a list rather than a single address. The board keeps the sequence, the
   crew, and the radio announcement for the whole route. Recurring ones («Sturmholz»,
@@ -67,18 +88,22 @@ event, one operator at the board**, not scaled down from a dispatch center.
   Reko, Magazin, Telefondienst. You see what is yours, report «Angekommen» and «Einsatz
   beendet», file the Schadenplatz-Rapport with photos, ask for an Abholung, and send a Meldung
   the KP can answer. Reached by a QR on the poster or on the Einsatzzettel, gated by a
-  four-digit **Feld-Code** that binds the phone to one person. Everything it writes has a
+  four-digit **Feld-Code** that binds the phone to one person. «Material nötig» and «Verstärkung
+  nötig» are structured requests, and every request from the field is a work item on the board
+  (*offen* → *in Arbeit* → *erledigt*) that stays until somebody handles it, not a notification
+  that can be dismissed. Everything it writes has a
   writer at the command post too, because the failure mode to design for is the phones failing,
   not the server.
 - **Reconnaissance:** Reko forms with photo upload from mobile devices.
 - **Training:** isolated scenarios, auto-generated incidents, adjustable sim tempo, and
   simulated GPS drives.
 - **Printing:** a standalone thermal print agent (ESC/POS over the network) for dispatch slips
-  and QR walk-in slips.
+  (Einsatzzettel), board snapshots, the Abholliste and QR walk-in slips.
 - **Resilience:** paper Lageblatt PDF, automatic thermal board snapshots, and an outage SOP.
 - **Reporting:** after-action PDF report and Excel import/export.
 - **Access:** Editor (full CRUD) and Viewer (read-only) roles, a German and French (next-intl)
-  UI, dark mode, a ⌘K command palette with keyboard shortcuts, and a built-in help page.
+  UI – the bell and toasts included –, dark mode, a ⌘K command palette with keyboard shortcuts,
+  and a built-in help page.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the feature history.
 
@@ -162,8 +187,8 @@ commit that has been carrying live operations. Releases exist for *other* statio
 Setting up a station for the first time? Follow **[docs/SETUP.md](docs/SETUP.md)**, which walks
 the whole path in order. **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** is the full self-hosting
 reference behind it. Prefer not to look after a machine at all?
-**[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed route – same images, same releases,
-equally supported. The trade is the one you would expect: a box in the Gerätehaus keeps the
+**[docs/RAILWAY.md](docs/RAILWAY.md)** covers the managed route – same code, same releases
+(built from your fork rather than pulled as images), equally supported. The trade is the one you would expect: a box in the Gerätehaus keeps the
 board alive through an internet outage, a managed platform keeps it alive without you.
 
 ## Architecture & key decisions
@@ -188,6 +213,8 @@ flowchart TB
     DIV["Divera 24/7<br/>alarm in/out · roster"]
     TRC["Traccar<br/>vehicle GPS"]
     HOOK["Any dispatch system<br/>POST /api/alarms"]
+    ROSTER["Station data<br/>index.json · roster file"]
+    WX["MeteoSwiss · Alertswiss<br/>radar · warnings"]
   end
   AGENT["Print agent<br/>ESC/POS thermal"]
   TILES["Map tiles<br/>OSM · offline TileServer GL"]
@@ -195,6 +222,8 @@ flowchart TB
   API <--> DIV
   TRC --> API
   HOOK --> API
+  ROSTER --> API
+  WX --> API
   AGENT -->|"pulls jobs"| API
   UI -. "tiles direct to browser" .-> TILES
 ```
@@ -228,17 +257,20 @@ integration credentials and need the same protection.
 
 Address lookup is configured separately: the backend uses **swisstopo** for Swiss locations by
 default, with `disabled` and a self-hosted or permitted `nominatim` service as alternatives.
-Online map tiles still load from the browser. See [address lookup configuration](docs/DEPLOYMENT.md#address-lookup)
+Online map tiles still load from the browser. The map's weather layer is **on by default**: the
+backend fetches MeteoSwiss radar and warnings and Alertswiss notices itself; set
+`WEATHER_ENABLED=false` outside Switzerland or where the backend must not reach the internet
+([weather layer](docs/DEPLOYMENT.md#weather-layer)). See [address lookup configuration](docs/DEPLOYMENT.md#address-lookup)
 and [privacy](PRIVACY.md#online-services-and-integrations) before choosing external providers.
 
 | Connector | Direction | Works with today | Adding another |
 |-----------|-----------|------------------|----------------|
 | **Alarm intake** | in | **Any** dispatch system via the open `POST /api/alarms` webhook; a native [Divera 24/7](https://www.divera247.com/) adapter; a token-gated phone/walk-in form | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
 | **Outbound alerting** (Ausalarmierung) | out | Divera 24/7 | Implement one `AlarmProvider` adapter in `backend/app/services/alerting/` |
-| **Personnel roster sync** | in | Divera 24/7 | A Divera-specific convenience; synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
+| **Personnel roster sync** | in | Divera 24/7; **any** tool that publishes a `roster-snapshot/1` file, read hourly from an https address or a path – directly (`ROSTER_SNAPSHOT_SOURCE`) or through the station's `index.json` (`STATION_INDEX_SOURCE`) | Already open – write the documented file (a spreadsheet works: `scripts/roster_snapshot_from_csv.py`). See [docs/ROSTER-SNAPSHOT.md](docs/ROSTER-SNAPSHOT.md). Synced identities are stored provider-neutrally (`personnel_external_identities`) |
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors if a station uses a different tracker |
 | **Sign-in** | in | Local accounts; optional Microsoft Entra ID (OAuth) | Entra-specific today. A generic OIDC adapter would cover Google Workspace, Keycloak, Authentik and Zitadel from the same code path |
-| **Printing** | out | Any network/CUPS printer via a pull-based agent (reference agent: ESC/POS thermal) | Point a custom agent at the four print endpoints. See [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) |
+| **Printing** | out | A network ESC/POS thermal printer via the pull-based reference agent | Point a custom agent at the four print endpoints – any printer, A4 included. See [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) |
 
 New connectors are welcome contributions – the alarm and alerting seams are the model to copy.
 
@@ -266,16 +298,17 @@ See [GitHub issues](https://github.com/feuerwehr-oberwil/kp-rueck/issues) for cu
 ```text
 kp-rueck/
 ├── frontend/                 # Next.js 15 (App Router)
-│   ├── app/                  # Pages: dashboard, map, settings, help
+│   ├── app/                  # Pages: board, map, events, resources, settings, help,
+│   │                         #   wall displays (display/), field pages (feld, reko, check-in, alarm)
 │   ├── components/           # React components + shadcn/ui
-│   ├── messages/             # next-intl catalogues (de.json canonical, fr.json complete)
+│   ├── messages/             # next-intl catalogues (de.json canonical, fr.json complete, it.json stub)
 │   └── lib/                  # API client, contexts, utilities
 ├── backend/                  # FastAPI
 │   ├── app/api/              # Route handlers
-│   ├── app/services/         # Business logic (Divera, Traccar, alerting, GPS, PDF)
+│   ├── app/services/         # Business logic (Divera, Traccar, alerting, GPS, journal, weather, PDF)
 │   ├── app/models.py         # SQLAlchemy models
 │   └── alembic/              # Database migrations
-├── tools/print-agent/        # Standalone print agent (serves KP Rück *and* KP Front)
+├── tools/print-agent/        # Standalone thermal print agent
 ├── tileserver/               # Offline map tile server
 ├── docker-compose.dev.yml    # Development setup
 └── justfile                  # Task runner (run `just` for all commands)
@@ -291,6 +324,7 @@ Start with the [documentation index](docs/README.md). Highlights:
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | The self-hosting reference behind it: the compose stack, version pinning, updates and rollback, backups |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and deployment diagrams |
 | [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) | Provider-neutral alarm webhook and integration registry |
+| [docs/ROSTER-SNAPSHOT.md](docs/ROSTER-SNAPSHOT.md) | Reading the personnel roster from a file the station publishes, via the station index |
 | [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deployment guide – the managed path, equally supported |
 | [docs/PRINT_AGENT.md](docs/PRINT_AGENT.md) | Thermal printer and print agent |
 | [docs/OFFLINE_MAPS.md](docs/OFFLINE_MAPS.md) | Offline map tiles setup – any region, Basel-Landschaft is only the default |

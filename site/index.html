@@ -234,7 +234,9 @@
           <h3>Die Meldungen kommen rein.</h3>
           <p>Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem
             Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick –
-            aus der Meldung wird ein Einsatz auf dem Board.</p>
+            aus der Meldung wird ein Einsatz auf dem Board.
+            Meldet jemand denselben Schadenplatz ein zweites Mal, fragt das Board nach, statt eine
+            zweite Karte anzulegen.</p>
         </div>
       </article>
       <article class="entry">
@@ -242,7 +244,8 @@
         <div class="body">
           <p class="tag">Disposition</p>
           <h3>Mannschaft und Fahrzeuge sind zugeteilt.</h3>
-          <p>Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz. KP Rück erkennt
+          <p>Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz – oder getippt:
+            «14 tlf meier» in der Befehlspalette. KP Rück erkennt
             Doppelbelegungen und fehlende Ressourcen. Die Einsatzleitung entscheidet: umteilen,
             ergänzen oder bewusst trotzdem disponieren. Wer eintrifft, meldet sich per QR-Code
             selbst an.</p>
@@ -405,9 +408,10 @@
           <li>Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert</li>
           <li>Wiederkehrende Aufträge wie Absperren oder Sturmholz können vorbereitet und bei einem Ereignis direkt bereitgestellt werden</li>
           <li>QR-Check-in – wer eintrifft, meldet sich selbst an</li>
+          <li>Dienstzeiten: wer seit wann da ist, wie lange davon im Einsatz und wer gerade Pause hat – wer zu lange dabei ist, fällt auf</li>
           <li>Einsatzzettel mit QR-Code für Trupps und Fahrer, direkt am KP ausgegeben</li>
           <li>Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente</li>
-          <li>Befehlspalette und Tastaturkürzel für die schnelle Hand</li>
+          <li>Zuteilen per Tastatur: «14 tlf meier» in der Befehlspalette setzt TLF und Meier auf Einsatz 14 – dazu Tastaturkürzel für die schnelle Hand</li>
         </ul>
       </div>
       <div class="fgroup">
@@ -417,9 +421,12 @@
           <li>Kann Alarme aus Divera oder FireHub übernehmen <span class="opt">optional</span></li>
           <li>Meldeformular per Link oder QR für Telefon und Laufkundschaft</li>
           <li>Eingang im Pool, Übernahme mit einem Klick</li>
+          <li>Doppelte Meldungen zum selben Schadenplatz werden erkannt; zwei Einsätze lassen sich zusammenführen – samt Mannschaft, Reko und Rapport – und wieder trennen</li>
           <li>Ausalarmierung der Mannschaft aus dem Board heraus <span class="opt">optional</span></li>
+          <li>Anrückend: wer auf den Divera-Alarm zugesagt hat, steht im Appell – Einchecken mit einem Klick <span class="opt">optional</span></li>
           <li>Reko-Meldungen mit Fotos, direkt vom Handy der Reko</li>
           <li>Feldansicht für Trupps: eigene Schadenplätze sehen, Ankunft und Einsatzende melden, Abholung anfordern sowie Rückmeldungen und Rapporte mit Fotos an den KP übermitteln</li>
+          <li>Anfragen aus dem Feld – Material, Verstärkung, Abholung – bleiben am Einsatz offen, bis der KP sie erledigt hat; der Trupp sieht den Stand auf dem Handy</li>
         </ul>
       </div>
       <div class="fgroup">
@@ -429,6 +436,7 @@
           <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
           <li>Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft</li>
           <li>Zuweisungen als Linie – welches Fahrzeug gehört zu welchem Einsatz</li>
+          <li>Niederschlagsradar der letzten Stunde und amtliche Warnungen (MeteoSchweiz, Alertswiss) auf der Karte <span class="opt">optional</span></li>
           <li>Kartenkacheln auch aus dem eigenen Server im Magazin</li>
         </ul>
       </div>
@@ -436,7 +444,8 @@
         <h3>Nachher &amp; Betrieb</h3>
         <ul class="flist">
           <li><strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten – entsteht während des Einsatzes und ist beim Einrücken bereits weitgehend vorbereitet</li>
-          <li>Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird</li>
+          <li>Einsatztagebuch am Board: schreibt Statuswechsel, Zuteilungen und Meldungen selbst mit, eigene Einträge per ⇧J – ergänzt, nie überschrieben</li>
+          <li>Kennzahlen schon während des Ereignisses: offene Meldungen je Priorität und die Reaktionszeiten – bei Übungen als Übungsauswertung</li>
           <li>Restliste: Offene Rapporte, ausstehende Abholungen und Material, das noch am Schadenplatz liegt, bleiben bis zum Abschluss sichtbar</li>
           <li><strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten</li>
           <li>Import und Export als Excel</li>
