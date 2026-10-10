@@ -130,6 +130,18 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   const labels = useMemo(() => new Map(operations.map((op) => [op.id, operationLabel(op)])), [operations])
   const merged = useMemo(() => mergedInto(entries), [entries])
   const [correcting, setCorrecting] = useState<JournalLine | null>(null)
+  // ⇧J asks for a NEW line: a correction in progress gives way to it. The request is
+  // handed to the composer once and then consumed, so a later remount of the composer
+  // (after the next correction, say) does not replay it.
+  const [pendingCompose, setPendingCompose] = useState<JournalComposeRequest | null>(null)
+  const composeAt = composeRequest?.at
+  useEffect(() => {
+    if (!composeRequest) return
+    setCorrecting(null)
+    setPendingCompose(composeRequest)
+    // Once per request (`at`), not per new object identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composeAt])
 
   return (
     <FooterSheet
@@ -266,7 +278,8 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
           eventId={eventId}
           operations={operations}
           correcting={correcting}
-          composeRequest={composeRequest ?? null}
+          composeRequest={pendingCompose}
+          onComposeHandled={() => setPendingCompose(null)}
           onCancelCorrection={() => setCorrecting(null)}
           onWritten={(entry) => {
             accept(entry)
@@ -480,6 +493,7 @@ function JournalComposer({
   operations,
   correcting,
   composeRequest,
+  onComposeHandled,
   onCancelCorrection,
   onWritten,
 }: {
@@ -487,6 +501,7 @@ function JournalComposer({
   operations: readonly Operation[]
   correcting: JournalLine | null
   composeRequest: JournalComposeRequest | null
+  onComposeHandled: () => void
   onCancelCorrection: () => void
   onWritten: (entry: ApiJournalEntry) => void
 }) {
@@ -518,18 +533,20 @@ function JournalComposer({
       })),
     [operations],
   )
-  // ⇧J: into the line, linked to the selected card. After the sheet's own open
-  // focus, which would otherwise take the caret straight back.
+  // ⇧J: into the line, linked to the selected card — or to nothing when none is
+  // selected, so an earlier link never rides along onto the new line. Focus after the
+  // sheet's own open focus, which would otherwise take the caret straight back; not
+  // tied to this effect's cleanup, since consuming the request re-runs it at once.
   const composeAt = composeRequest?.at
   useEffect(() => {
     if (!composeRequest || correcting) return
-    const choice = composeRequest.incidentId ? choices.find((c) => c.id === composeRequest.incidentId) : undefined
-    if (choice) {
-      clientId.current = newClientId()
+    const choice = composeRequest.incidentId ? (choices.find((c) => c.id === composeRequest.incidentId) ?? null) : null
+    if (choice?.id !== linked?.id) {
+      clientId.current = newClientId() // another link is another write
       setLinked(choice)
     }
-    const timer = setTimeout(() => inputRef.current?.focus(), 60)
-    return () => clearTimeout(timer)
+    onComposeHandled()
+    setTimeout(() => inputRef.current?.focus(), 60)
     // Once per request — `choices` changes with every board update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeAt])

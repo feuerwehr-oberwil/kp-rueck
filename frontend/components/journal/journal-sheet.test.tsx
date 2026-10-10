@@ -211,6 +211,29 @@ describe("JournalSheet", () => {
     expect(screen.getByRole("button", { name: "Einsatz verknüpfen" })).toBeInTheDocument()
   })
 
+  it("⇧J without a selected card clears an earlier link, and ends a correction in progress", async () => {
+    const user = userEvent.setup()
+    api.appendJournal.mockImplementation(async (_e: string, body: { text: string; incident_id: string | null }) =>
+      row({ text: body.text, incident_id: body.incident_id }),
+    )
+    const props = { open: true, onOpenChange, eventId: "e1", operations: [{ ...op, number: 14 }], isEditor: true }
+    const view = renderWithIntl(<JournalSheet {...props} composeRequest={{ incidentId: "i1", at: 1 }} />)
+    await waitFor(() => expect(screen.getByTestId("journal-linked")).toBeInTheDocument())
+
+    // Start correcting the manual line, then ⇧J again – with no card selected.
+    await user.click((await screen.findAllByRole("button", { name: "Eintrag korrigieren" }))[0])
+    expect(screen.getByRole("textbox", { name: "Neuer Wortlaut" })).toBeInTheDocument()
+    view.rerender(<JournalSheet {...props} composeRequest={{ incidentId: null, at: 2 }} />)
+
+    const input = await screen.findByRole("textbox", { name: "Neuer Eintrag im Einsatztagebuch" })
+    await waitFor(() => expect(input).toHaveFocus())
+    expect(screen.queryByTestId("journal-linked")).toBeNull()
+    await user.type(input, "Ohne Einsatz{Enter}")
+    await waitFor(() => expect(api.appendJournal).toHaveBeenCalledTimes(1))
+    expect(api.appendJournal.mock.calls[0][1]).toMatchObject({ text: "Ohne Einsatz", incident_id: null })
+    expect(api.correctJournal).not.toHaveBeenCalled()
+  })
+
   it("dates every row, today's included, so the times line up", async () => {
     renderSheet()
     const rows = await screen.findAllByTestId("journal-row")
