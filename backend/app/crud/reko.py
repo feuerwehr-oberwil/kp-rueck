@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..models import Incident, RekoReport, StatusTransition, User
+from ..services.merge_links import live_incident_id
 from ..services.tokens import generate_form_token, validate_form_token
 
 
@@ -46,9 +47,13 @@ async def get_or_create_reko_report(
     Raises:
         ValueError: If token is invalid or incident not found
     """
-    # Validate token
+    # Validate token — against the id it was minted for …
     if not validate_form_token(token, str(incident_id)):
         raise ValueError("Invalid token")
+    # … and then work on the card that id lives on now: a merged card's Reko link
+    # files into the card it went into, never into the hidden one (R2 review).
+    link_incident_id = incident_id
+    incident_id = await live_incident_id(db, incident_id)
 
     # Serialize prefill with photo unlinking for this incident. Otherwise a
     # draft can commit a copied filename after its last existing reference is deleted.
@@ -56,9 +61,12 @@ async def get_or_create_reko_report(
     if not incident_result.scalar_one_or_none():
         raise ValueError("Incident not found")
 
-    # Try to find existing report with this token
+    # Try to find existing report with this token (it moved with the merge, but a
+    # report is looked up on both cards so nothing written before is missed)
     result = await db.execute(
-        select(RekoReport).where(RekoReport.incident_id == incident_id, RekoReport.token == token)
+        select(RekoReport)
+        .where(RekoReport.incident_id.in_({incident_id, link_incident_id}), RekoReport.token == token)
+        .limit(1)
     )
     report = result.scalar_one_or_none()
 
@@ -144,6 +152,7 @@ async def get_or_create_kp_reko_report(
     Raises:
         ValueError: If the incident does not exist
     """
+    incident_id = await live_incident_id(db, incident_id)
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
     if not incident_result.scalar_one_or_none():
         raise ValueError("Incident not found")
@@ -271,9 +280,12 @@ async def mark_reko_arrived(
     Raises:
         ValueError: If token is invalid or incident not found
     """
-    # Validate token
+    # Validate token against the id it was minted for, then follow a merge to
+    # the live card (R2 review) — the arrival and its bell belong there.
     if not validate_form_token(token, str(incident_id)):
         raise ValueError("Invalid token")
+    link_incident_id = incident_id
+    incident_id = await live_incident_id(db, incident_id)
 
     # Check if incident exists
     incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
@@ -283,12 +295,14 @@ async def mark_reko_arrived(
 
     # Try to find existing report with this token
     result = await db.execute(
-        select(RekoReport).where(
+        select(RekoReport)
+        .where(
             and_(
-                RekoReport.incident_id == incident_id,
+                RekoReport.incident_id.in_({incident_id, link_incident_id}),
                 RekoReport.token == token,
             )
         )
+        .limit(1)
     )
     report = result.scalar_one_or_none()
 
@@ -548,6 +562,9 @@ async def process_reko_submission(
         db.add(transition)
         await db.commit()
         await db.refresh(incident)
+        # The report may have been expired along with the card it moved onto (a
+        # merge loads the card with its reports); reload it before reading on.
+        await db.refresh(report)
 
     # Auto-bump priority from low → medium if any danger flags are set
     if report.dangers_json:
@@ -566,6 +583,7 @@ async def process_reko_submission(
             incident.priority = "medium"
             await db.commit()
             await db.refresh(incident)
+            await db.refresh(report)
 
     # Create notification
     if incident.event_id:

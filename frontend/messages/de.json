@@ -4370,7 +4370,15 @@
       "flagUnknown": "Mögliches Duplikat",
       "flagTooltip": "Automatisch eingegangen, nahe bei einem offenen Einsatz. «Zusammenführen» hängt diese Meldung dort als Nachtrag an.",
       "merge": "Zusammenführen",
-      "dismiss": "Kein Duplikat"
+      "dismiss": "Kein Duplikat",
+      "workCrew": "Mannschaft",
+      "workVehicles": "Fahrzeuge",
+      "workMaterial": "Material",
+      "workReko": "Reko-Bericht",
+      "workRapport": "Rapport",
+      "workRequests": "Anfragen vom Feld",
+      "confirmTitle": "Mit {label} zusammenführen?",
+      "confirmBody": "Mit diesem Einsatz ziehen um: {items}. «Trennen» im Verlauf macht es rückgängig."
     },
     "timeline": {
       "merged": "Meldung zusammengeführt",
@@ -4452,7 +4460,9 @@
         "field_request_open": "Anfrage wieder offen",
         "field_request_moved": "Anfrage übernommen von {other}",
         "field_request_returned": "Anfrage zurück von {other}"
-      }
+      },
+      "itemsMoved": "Übernommen von {other}",
+      "itemsReturned": "Zurück von {other}"
     },
     "refDeleted": "{ref} (gelöscht)",
     "refMerged": "{ref} → {target}"

@@ -397,6 +397,16 @@ export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: str
       const action = str("action")
       if (action === "deleted") return <span>{t("deleted")}</span>
       if (action === "restored") return <span>{t("restored")}</span>
+      // The merged card's work moving over (owner decision 10.10.2026): what, from where.
+      if (action === "items_moved" || action === "items_returned") {
+        const other = str("other_title") || t("unknown")
+        return (
+          <span>
+            {t(action === "items_moved" ? "itemsMoved" : "itemsReturned", { other })}
+            {text ? `: ${text}` : ""}
+          </span>
+        )
+      }
       if (action === "merge" || action === "merged_into" || action === "unmerge") {
         return <span>{t(action === "merged_into" ? "mergedInto" : action, { other: str("other_title") || t("unknown") })}</span>
       }

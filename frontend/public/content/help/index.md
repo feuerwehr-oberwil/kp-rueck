@@ -229,10 +229,31 @@ sagt der Dialog unter dem Einsatzort «Möglicherweise dasselbe wie …». **Zus
 Meldung samt Melder als Nachtrag an jenen Einsatz – es entsteht keine zweite Karte. **Trotzdem neu**
 blendet den Hinweis aus. Alarme, die automatisch hereinkommen (Divera, Alarm-Link), werden nie von
 selbst zusammengeführt: Ihre Karte zeigt «Mögliches Duplikat von …» mit **Zusammenführen** und
-**Kein Duplikat**. Anfragen vom Feld (Material, Verstärkung, Meldungen, Abholung) ziehen beim
-Zusammenführen mit um; warten beide Karten auf eine Abholung, bleibt eine offen, mit beiden Notizen.
-Rückgängig machen: «Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf des Einsatzes –
-die Anfragen gehen dabei zurück.
+**Kein Duplikat**.
+
+Jeder **offene** Einsatz lässt sich zusammenführen, auch einer, an dem schon gearbeitet wird. Was
+auf der Karte ist, zieht mit um: Mannschaft, Fahrzeuge, Material, Reko-Berichte (mit Fotos), der
+Rapport, Meldungen an den Trupp, Anfragen vom Feld und die Hinweise Nachbarhilfe, Am Warten, Zu Fuss.
+Vorher fragt die Karte nach und nennt, was mitkommt.
+
+- **Auf beiden Karten dieselbe Person oder dasselbe Fahrzeug:** es bleibt bei einer Zuteilung (der
+  der verbleibenden Karte).
+- **Zwei Einsatzleiter:** der der verbleibenden Karte bleibt es.
+- **Zwei Rapporte:** beide bleiben erhalten; der Einsatzbericht (PDF) druckt den zweiten unter
+  «Schadenplatz-Rapport von #7 (zusammengeführt)».
+- **Status:** die verbleibende Karte behält ihren Status – ausser die andere war schon weiter
+  (z. B. «Im Einsatz»), dann übernimmt sie diesen.
+- **Abholung:** warten beide Karten, bleibt eine offen, mit beiden Notizen.
+- **Nummer:** die zusammengeführte Karte behält ihre Nummer (sie wird nicht neu vergeben) und kommt
+  mit **Trennen** mit ihr zurück.
+
+Abgeschlossene Einsätze werden nie zusammengeführt, weder als Ziel noch als zweite Karte. Das
+Einsatztagebuch hält fest, was übernommen wurde («Übernommen von …»). Rückgängig machen:
+«Rückgängig» im Hinweis unten rechts oder **Trennen** im Verlauf des Einsatzes – alles geht dabei
+zurück, ausser was seither von Hand geändert wurde. Trennen geht nicht mehr, wenn der verbleibende
+Einsatz abgeschlossen oder selbst zusammengeführt ist. Ein Reko-Link der zusammengeführten Karte
+funktioniert weiter und landet auf der verbleibenden Karte; die Reaktionszeiten zählen ab der
+ersten Meldung.
 
 ### Reko durchführen
 

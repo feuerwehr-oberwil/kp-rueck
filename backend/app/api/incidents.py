@@ -38,6 +38,7 @@ from ..services.audit import log_action
 from ..services.incident_leader import effective_leader_ids
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
+    broadcast_assignment_update,
     broadcast_group_update,
     broadcast_incident_update,
     broadcast_kp_message_update,
@@ -346,6 +347,15 @@ async def merge_and_broadcast(
     background_tasks.add_task(trigger_sync_background)
     background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
     background_tasks.add_task(broadcast_incident_update, {"id": str(report_id)}, "delete")
+    # Crew, vehicles and material may have moved with the card (owner decision
+    # 10.10.2026): the resource panels and /feld lists re-read their assignments.
+    background_tasks.add_task(
+        broadcast_assignment_update,
+        {"incident_id": str(result.target.id), "merged_incident_id": str(report_id)},
+        "merge",
+    )
+    background_tasks.add_task(broadcast_reko_update, {"incident_id": str(result.target.id)}, "update")
+    background_tasks.add_task(broadcast_kp_message_update, {"incident_id": str(result.target.id)}, "merged")
     await broadcast_repointed(db, background_tasks, result.repointed_ids)
     return schemas.MergeResponse(target=target_response, merged_incident_id=report_id)
 
@@ -1517,9 +1527,11 @@ async def merge_incident_into(
 ) -> schemas.MergeResponse:
     """«Zusammenführen» on a card: fold this incident into `target_id`.
 
-    The one-click answer to «mögliches Duplikat von …». Refused with 409 while
-    people or vehicles are assigned to this card — moving them is a decision,
-    not a side effect. Undo: POST /{incident_id}/unmerge.
+    The answer to «mögliches Duplikat von …». Any OPEN card (owner decision
+    10.10.2026): its crew, vehicles, material, Reko, Rapport, messages, requests
+    and flags move to `target_id` (services/merge_work.py); the board asks first
+    when the card has work on it. Closed cards on either side: 409.
+    Undo: POST /{incident_id}/unmerge.
     """
     report, target = await lock_pair(db, incident_id, payload.target_id)
     if report is None or report.deleted_at is not None or target is None or target.deleted_at is not None:
@@ -1574,6 +1586,11 @@ async def unmerge_incident(
             target_response = await incident_display.incident_with_display(db, target_row)
     background_tasks.add_task(trigger_sync_background)
     background_tasks.add_task(broadcast_incident_update, restored.model_dump(mode="json"), "create")
+    background_tasks.add_task(
+        broadcast_assignment_update, {"incident_id": str(incident_id), "unmerged_from": str(target_id)}, "unmerge"
+    )
+    background_tasks.add_task(broadcast_reko_update, {"incident_id": str(incident_id)}, "update")
+    background_tasks.add_task(broadcast_kp_message_update, {"incident_id": str(incident_id)}, "unmerged")
     if target_response is not None:
         background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
     return schemas.UnmergeResponse(restored=restored, target=target_response, note_removed=note_removed)

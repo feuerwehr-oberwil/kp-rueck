@@ -31,6 +31,7 @@ from ..models import (
 )
 from ..schemas.journal import JournalEntryOut
 from .journal import journal_rows
+from .merge_links import merged_cards_of_event
 
 
 @dataclass
@@ -55,6 +56,15 @@ class EventReportData:
     # Schadenplatz-Rapporte (plan 25), at most one per incident. Drafts included:
     # a half-filled rapport is still what the crew said, and the outputs mark it.
     schadenplatz_reports: list[SchadenplatzReport] = field(default_factory=list)
+    # Rapporte of cards merged into one of `incidents` that stayed on their own row
+    # because the surviving card had filed one too (one per Einsatz): keyed by the
+    # SURVIVING card, so the outputs print both under it (owner decision 10.10.2026).
+    merged_rapports: dict[uuid.UUID, list[tuple[Incident, SchadenplatzReport]]] = field(default_factory=dict)
+    # Every card merged into one of `incidents` — along a chain, too — with the live
+    # card it ended on, and those cards' own status history: the reaction times and
+    # work windows count the Schadenplatz from its FIRST report (reaction_times.fold_merged).
+    merged_cards: list[tuple[Incident, uuid.UUID]] = field(default_factory=list)
+    merged_transitions: list[StatusTransition] = field(default_factory=list)
     # Anwesenheit: one row per person who actually arrived, in arrival order.
     # Rows whose `checked_in_at` is NULL are dropped by the collector – a bulk
     # check-out can create an attendance row for somebody who never came, and a
@@ -210,6 +220,31 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
             personnel_ids.update(pid for pid in (report.created_by_personnel_id, report.updated_by_personnel_id) if pid)
             user_ids.update(uid for uid in (report.created_by_user_id, report.updated_by_user_id) if uid)
 
+    # Merged cards — followed along a chain (A → B → C) to the live card, so a
+    # Rapport kept on A is printed under C even after B was merged on later.
+    live_ids = set(incident_ids)
+    merged_cards = [(card, live) for card, live in await merged_cards_of_event(db, event_id) if live in live_ids]
+    live_of = {card.id: live for card, live in merged_cards}
+    merged_rapports: dict[uuid.UUID, list[tuple[Incident, SchadenplatzReport]]] = {}
+    merged_transitions: list[StatusTransition] = []
+    if live_of:
+        merged_result = await db.execute(
+            select(SchadenplatzReport)
+            .where(SchadenplatzReport.incident_id.in_(list(live_of)))
+            .order_by(SchadenplatzReport.created_at.asc())
+        )
+        cards = {card.id: card for card, _ in merged_cards}
+        for report in merged_result.scalars().all():
+            merged_rapports.setdefault(live_of[report.incident_id], []).append((cards[report.incident_id], report))
+            personnel_ids.update(pid for pid in (report.created_by_personnel_id, report.updated_by_personnel_id) if pid)
+            user_ids.update(uid for uid in (report.created_by_user_id, report.updated_by_user_id) if uid)
+        merged_transition_result = await db.execute(
+            select(StatusTransition)
+            .where(StatusTransition.incident_id.in_(list(live_of)))
+            .order_by(StatusTransition.timestamp.asc())
+        )
+        merged_transitions = list(merged_transition_result.scalars().all())
+
     # Load the Anwesenheit (event-scoped, independent of any incident): everybody who
     # actually arrived. `checked_in_at IS NOT NULL` is the filter, not `checked_in` —
     # somebody who has already gone home is exactly who this section is about, while a
@@ -259,6 +294,9 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         reko_reports=reko_reports,
         journal=journal,
         schadenplatz_reports=schadenplatz_reports,
+        merged_rapports=merged_rapports,
+        merged_cards=merged_cards,
+        merged_transitions=merged_transitions,
         attendance=attendance,
         incident_groups=incident_groups,
         group_assignments=group_assignments,

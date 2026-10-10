@@ -47,6 +47,7 @@ from ..websocket_manager import (
 
 logger = get_logger(__name__)
 from ..services.audit import log_action
+from ..services.merge_links import live_incident_id, merged_into_ids
 from ..services.photo_storage import photo_storage
 from ..services.tokens import (
     decode_form_token,
@@ -117,6 +118,23 @@ async def _require_user_or_form_token(
     return user
 
 
+async def _token_door_id(db: AsyncSession, token: str | None, incident_id: uuid.UUID) -> uuid.UUID:
+    """The id a form token was minted for: this card, or a card merged into it (R2).
+
+    A report filed through a Reko link moves with a merge, so by the time the
+    link edits it again the report sits on the surviving card while the token
+    still names the card it was minted for. The token stays valid ONLY for that
+    original card — this finds it among the cards merged into this one, never
+    any other.
+    """
+    if not token or validate_form_token(token, str(incident_id)):
+        return incident_id
+    for merged_id in await merged_into_ids(db, incident_id):
+        if validate_form_token(token, str(merged_id)):
+            return merged_id
+    return incident_id
+
+
 @router.get("/form", response_model=schemas.RekoReportResponse)
 async def get_reko_form(
     incident_id: uuid.UUID = Query(...),
@@ -140,8 +158,9 @@ async def get_reko_form(
     try:
         report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
 
-        # Fetch incident title
-        incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+        # Fetch incident title — of the card the report is on (a merged link's
+        # report lives on the card it went into)
+        incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
         incident = incident_result.scalar_one_or_none()
 
         # Convert to response schema with incident details
@@ -226,8 +245,9 @@ async def submit_reko_report(
     update_data = schemas.RekoReportUpdate(**report_data.model_dump(exclude={"incident_id", "token"}))
     updated = await crud.update_reko_report(db, report.id, update_data, submit=submit, user=user)
 
-    # Fetch incident details
-    incident_result = await db.execute(select(Incident).where(Incident.id == report_data.incident_id))
+    # Fetch incident details — the LIVE card the report is on: status, bell and
+    # release below must happen there, not on a card merged away (R2 review).
+    incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))
     incident = incident_result.scalar_one_or_none()
 
     # Convert to response schema with incident details
@@ -245,13 +265,13 @@ async def submit_reko_report(
         # Broadcast incident update so other clients see reko completion and status change
         background_tasks.add_task(
             broadcast_incident_update,
-            {"id": str(report_data.incident_id), "has_completed_reko": True},
+            {"id": str(incident.id), "has_completed_reko": True},
             "update",
         )
         # Broadcast reko update for reko-specific listeners
         background_tasks.add_task(
             broadcast_reko_update,
-            {"incident_id": str(report_data.incident_id)},
+            {"incident_id": str(incident.id)},
             "submit",
         )
 
@@ -287,9 +307,10 @@ async def update_report(
     if not existing:
         raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
 
+    door_id = await _token_door_id(db, x_reko_token, existing.incident_id)
     user = await _require_user_or_form_token(
         request,
-        existing.incident_id,
+        door_id,
         x_reko_token,
         access_token,
         authorization,
@@ -300,7 +321,7 @@ async def update_report(
     if user is None:
         # Form links resume their own report; only operators can amend another
         # crew's row. Incident scope alone does not establish report ownership.
-        claims = decode_form_token(x_reko_token, str(existing.incident_id)) if x_reko_token else None
+        claims = decode_form_token(x_reko_token, str(door_id)) if x_reko_token else None
         if (
             claims is None
             or existing.token != x_reko_token
@@ -360,7 +381,8 @@ async def get_report(
     if not report:
         raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, "Report not found")
 
-    await _require_user_or_form_token(request, report.incident_id, token, access_token, authorization, db)
+    door_id = await _token_door_id(db, token, report.incident_id)
+    await _require_user_or_form_token(request, door_id, token, access_token, authorization, db)
 
     # Fetch incident title
     incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
@@ -440,7 +462,7 @@ async def mark_reko_arrived(
         # calls the CRUD function directly — rings the same bell as this route.
 
         # Fetch incident for the response details
-        incident_result = await db.execute(select(Incident).where(Incident.id == incident_id))
+        incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
         incident = incident_result.scalar_one_or_none()
 
         # Convert to response schema with incident details
@@ -455,13 +477,16 @@ async def mark_reko_arrived(
         # Broadcast incident update so other clients see "vor Ort" status
         background_tasks.add_task(
             broadcast_incident_update,
-            {"id": str(incident_id), "reko_arrived_at": report.arrived_at.isoformat() if report.arrived_at else None},
+            {
+                "id": str(report.incident_id),
+                "reko_arrived_at": report.arrived_at.isoformat() if report.arrived_at else None,
+            },
             "update",
         )
         # Broadcast reko update for reko-specific listeners
         background_tasks.add_task(
             broadcast_reko_update,
-            {"incident_id": str(incident_id)},
+            {"incident_id": str(report.incident_id)},
             "arrived",
         )
 
@@ -602,7 +627,7 @@ async def _photo_report(
             report = result.scalar_one_or_none()
             # A report id from another incident must not become a way to write
             # into that incident's report.
-            if not report or report.incident_id != incident_id:
+            if not report or report.incident_id != await live_incident_id(db, incident_id):
                 raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
             return report
         return await crud.get_or_create_kp_reko_report(db, incident_id, user)
@@ -697,7 +722,8 @@ async def upload_photo(
 
     # Save photo
     filename = await photo_storage.save_photo(
-        incident_id=incident_id,
+        # The card the report is on — after a merge, the surviving one.
+        incident_id=report.incident_id,
         file=file,
         current_photos=report.photos_json,
     )
@@ -766,14 +792,14 @@ async def delete_photo(
     referenced = await db.scalar(
         select(RekoReport.id)
         .where(
-            RekoReport.incident_id == incident_id,
+            RekoReport.incident_id == report.incident_id,
             RekoReport.photos_json.contains([filename]),
         )
         .limit(1)
     )
     await db.commit()
     if referenced is None:
-        photo_storage.delete_photo(incident_id, filename)
+        photo_storage.delete_photo(report.incident_id, filename)
 
     return {"success": True}
 
@@ -873,10 +899,13 @@ async def serve_photo(
     # session fallback so a stale share link does not lock out an operator.
     viewer_event_id = None
     current_user = None
+    # A merged card's photos are served from the card it went into (and the link
+    # that names the merged card keeps working — R2 review).
+    live_id = await live_incident_id(db, incident_id)
     if reko_token is not None:
         personnel_id = await _require_form_token(db, reko_token, incident_id)
         report_query = select(RekoReport.id).where(
-            RekoReport.incident_id == incident_id,
+            RekoReport.incident_id.in_({incident_id, live_id}),
             RekoReport.token == reko_token,
             RekoReport.photos_json.contains([filename]),
         )
@@ -900,7 +929,9 @@ async def serve_photo(
         raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
 
     # Get photo path and verify it exists (this is also the path-traversal guard)
-    file_path = photo_storage.get_photo_path(incident_id, filename)
+    file_path = photo_storage.get_photo_path(incident_id, filename) or (
+        photo_storage.get_photo_path(live_id, filename) if live_id != incident_id else None
+    )
     if not file_path:
         raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
 

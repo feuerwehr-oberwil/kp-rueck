@@ -40,6 +40,7 @@ from .. import models
 from ..crud import events as events_crud
 from .audit import log_action
 from .merge_requests import move_requests_back, move_requests_in
+from .merge_work import MergeWorkError, move_work_back, move_work_in
 from .notification_service import _haversine_distance_meters
 
 #: Two reports this close are one Schadenplatz until a human says otherwise. A
@@ -264,10 +265,17 @@ def _source_label(report: models.Incident, reporter_name: str | None) -> str:
     return label
 
 
-def merge_note(report: models.Incident, *, reporter_name: str | None = None, at: datetime | None = None) -> str:
+def merge_note(
+    report: models.Incident,
+    *,
+    reporter_name: str | None = None,
+    at: datetime | None = None,
+    with_number: bool = True,
+) -> str:
     """The Nachtrag the target card's «Notizen» gets — the whole second report, one entry.
 
-    «Weitere Meldung 14:32 (Telefon): Wasser im Keller · Hauptstr. 6 · Melder: Meier, 079 …»
+    «Weitere Meldung #7 14:32 (Telefon): Wasser im Keller · Hauptstr. 6 · Melder: Meier, 079 …»
+    — #7 is the merged card's own number, retired while it is merged.
 
     German only, like every other backend-written text (CLAUDE.md, i18n). The
     time is the report's own, in local time: an operator reads «14:32» against
@@ -296,7 +304,8 @@ def merge_note(report: models.Incident, *, reporter_name: str | None = None, at:
     # back exactly one whole line. A Meldung typed over two lines stays readable
     # with « / » where its line break was.
     body = " · ".join(re.sub(r"\s*\n\s*", " / ", part) for part in parts) or title
-    return f"Weitere Meldung {stamp} ({_source_label(report, reporter_name)}): {body}"
+    number = f"#{report.number} " if with_number and report.number else ""
+    return f"Weitere Meldung {number}{stamp} ({_source_label(report, reporter_name)}): {body}"
 
 
 def _repeats_address(title: str, address: str) -> bool:
@@ -332,18 +341,6 @@ def _remove_entry(existing: str | None, entry: str) -> tuple[str | None, bool]:
     return existing, False
 
 
-async def _has_active_assignments(db: AsyncSession, incident_id: uuid.UUID) -> bool:
-    count = await db.scalar(
-        select(func.count())
-        .select_from(models.IncidentAssignment)
-        .where(
-            models.IncidentAssignment.incident_id == incident_id,
-            models.IncidentAssignment.unassigned_at.is_(None),
-        )
-    )
-    return bool(count)
-
-
 @dataclass
 class MergeResult:
     target: models.Incident
@@ -354,38 +351,6 @@ class MergeResult:
 
 
 _PRIORITY_RANK = {"low": 0, "medium": 1, "high": 2}
-
-
-async def _work_on_card(db: AsyncSession, card: models.Incident) -> str | None:
-    """What has already happened on this card that a merge would hide, if anything.
-
-    The losing card disappears (soft-deleted), and with it everything hanging
-    off it that cannot move: a Reko-Bericht, a Rapport and its photos, the KP's
-    messages to a crew. (Requests from the field — including an Abholung — move
-    with the merge instead.) A merge is for a fresh second REPORT — something
-    nobody has worked on yet. Anything else is two cards that need a human to decide,
-    not a Nachtrag. Returns the reason in words, or None when it is fresh.
-    """
-    if card.status != "incoming":
-        return "nicht mehr «Eingegangen»"
-    # Requests from the field (messages, Material, Verstärkung, Abholung) do NOT
-    # block any more: they move to the surviving card (services/merge_requests.py,
-    # owner decision 09.10.2026). «Einsatz beendet» is not a request — it is the
-    # crew closing THIS card, and it would vanish with it.
-    if card.field_complete_reported_at is not None:
-        return "vom Feld als beendet gemeldet"
-    checks: list[tuple[str, Any]] = [
-        ("Reko", select(models.RekoReport.id).where(models.RekoReport.incident_id == card.id)),
-        ("Rapport", select(models.SchadenplatzReport.id).where(models.SchadenplatzReport.incident_id == card.id)),
-        (
-            "Meldungen an den Trupp",
-            select(models.IncidentFieldMessage.id).where(models.IncidentFieldMessage.incident_id == card.id),
-        ),
-    ]
-    for reason, query in checks:
-        if (await db.execute(query.limit(1))).first() is not None:
-            return reason
-    return None
 
 
 async def merge_report(
@@ -404,10 +369,11 @@ async def merge_report(
     flagged duplicate). Either way it ends soft-deleted with `merged_into_id`
     set — never hard-deleted, so «Trennen» can bring it back.
 
-    Refused (MergeRefusedError) when it would lose something without saying so:
-    another Ereignis, a deleted or merged target, the card itself, or a report
-    card that already has people or vehicles on it — those have to be moved or
-    released by a human first, the merge does not do it silently.
+    Any OPEN card can be merged (owner decision 10.10.2026): its crew, vehicles,
+    material, Reko reports, Rapport, messages, requests and flags move to the
+    surviving card (``merge_requests``, ``merge_work``), and «Trennen» moves them
+    back. Refused (MergeRefusedError): another Ereignis, the card itself, a
+    deleted/merged target, and a CLOSED card on either side.
     """
     if report.id == target.id:
         raise MergeRefusedError("Ein Einsatz kann nicht mit sich selbst zusammengeführt werden.", status_code=400)
@@ -421,16 +387,9 @@ async def merge_report(
         raise MergeRefusedError("Der Ziel-Einsatz ist bereits abgeschlossen. Bitte als neuen Einsatz erfassen.")
     if report.deleted_at is not None or report.merged_into_id is not None:
         raise MergeRefusedError("Diese Meldung ist bereits zusammengeführt oder gelöscht.")
-    if await _has_active_assignments(db, report.id):
-        raise MergeRefusedError(
-            "Diesem Einsatz sind schon Mittel zugewiesen. Zuerst verschieben oder entlassen, dann zusammenführen."
-        )
-    worked_on = await _work_on_card(db, report)
-    if worked_on:
-        raise MergeRefusedError(
-            f"Dieser Einsatz ist schon in Arbeit ({worked_on}) und wird nicht zusammengeführt – "
-            "sonst verschwände das mit ihm."
-        )
+    if report.status == "complete":
+        # Closed cards stay out of merging on both sides (owner decision 10.10.2026).
+        raise MergeRefusedError("Dieser Einsatz ist bereits abgeschlossen und wird nicht zusammengeführt.")
 
     # `created_at` is a server default: after the flush that created a fresh
     # report it is expired, and reading it lazily from async code fails.
@@ -484,8 +443,13 @@ async def merge_report(
     if target.possible_duplicate_of_id == report.id:
         target.possible_duplicate_of_id = None
 
-    # The field's requests and their bell entries go where the work now is.
+    # The field's requests and their bell entries go where the work now is — and
+    # so does everything else that was done on the card (owner decision 10.10.2026).
     moved = await move_requests_in(db, report=report, target=target, user=user, request=request)
+    try:
+        moved_work = await move_work_in(db, report=report, target=target, user=user, request=request)
+    except MergeWorkError as e:
+        raise MergeRefusedError(e.reason) from e
 
     # Neither the note nor the Melder values go into the audit row: they are
     # PII (a phone number), the report row keeps them, and `merge_note` is a
@@ -498,6 +462,7 @@ async def merge_report(
         "source": report.source,
         "source_ref": report.source_ref,
         **moved,
+        **moved_work,
     }
     if reporter_name:
         changes["personnel_name"] = reporter_name
@@ -564,13 +529,30 @@ async def unmerge_report(
     if report.merged_into_id is None or report.deleted_at is None:
         raise MergeRefusedError("Diese Meldung ist nicht zusammengeführt.")
     target = await db.get(models.Incident, report.merged_into_id)
+    if target is not None and target.merged_into_id is not None:
+        # The card it went into was merged on itself: separate that one first, or
+        # this card's crew and reports would be pulled out of a card that is gone.
+        raise MergeRefusedError(
+            "Der Einsatz, in den diese Meldung zusammengeführt wurde, ist selbst zusammengeführt. Zuerst jenen trennen."
+        )
+    if target is not None and target.status == "complete":
+        # A closed card is history: taking its crew, Reko and Rapport back out
+        # would rewrite a finished record.
+        raise MergeRefusedError(
+            "Der Einsatz, in den diese Meldung zusammengeführt wurde, ist abgeschlossen und wird nicht getrennt."
+        )
 
     note_removed = False
     if target is not None:
         entry = await _last_merge_entry(db, target.id, report.id)
         changes = (entry.changes_json or {}) if entry else {}
-        note = merge_note(report, reporter_name=changes.get("personnel_name"))
-        target.internal_notes, note_removed = _remove_entry(target.internal_notes, note)
+        # The card's number has been part of the Nachtrag since 10.10.2026; a merge
+        # written before that is taken back by its older wording.
+        for with_number in (True, False):
+            note = merge_note(report, reporter_name=changes.get("personnel_name"), with_number=with_number)
+            target.internal_notes, note_removed = _remove_entry(target.internal_notes, note)
+            if note_removed:
+                break
         for name in changes.get("filled_fields") or []:
             if name in ("contact", "contact_phone") and getattr(target, name) == (getattr(report, name) or "").strip():
                 setattr(target, name, None)
@@ -579,6 +561,10 @@ async def unmerge_report(
             target.priority = changes["priority_from"]
         # …and the field's requests go back to the card they were asked on.
         await move_requests_back(db, report=report, target=target, merge_changes=changes, user=user, request=request)
+        try:
+            await move_work_back(db, report=report, target=target, merge_changes=changes, user=user, request=request)
+        except MergeWorkError as e:
+            raise MergeRefusedError(e.reason) from e
 
     # The restore half of crud.restore_incident: a side-effect completion goes,
     # a route stop goes to the end of its route (its old slot may be taken).

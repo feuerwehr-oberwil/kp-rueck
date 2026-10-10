@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
@@ -39,6 +39,35 @@ describe('DuplicateFlag', () => {
     expect(api.dismissDuplicate).toHaveBeenCalledWith('dup')
     expect(ops.refreshOperations).toHaveBeenCalled()
     expect(ops.mergeExistingOperation).not.toHaveBeenCalled()
+  })
+
+  it('asks first when the card has work on it, and names what moves', async () => {
+    const user = userEvent.setup()
+    ops.operations.push({
+      id: 'busy',
+      location: 'Hauptstr. 6',
+      incidentType: 'elementarereignis',
+      status: 'active',
+      crew: ['Meier Hans'],
+      vehicles: ['TLF 1'],
+      vehicle: null,
+      materials: [],
+      hasCompletedReko: true,
+      fieldRequests: [],
+    } as never)
+    renderWithIntl(<DuplicateFlag operationId="busy" targetId="target" />)
+    await user.click(screen.getByRole('button', { name: /Zusammenführen/ }))
+    expect(ops.mergeExistingOperation).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Mannschaft, Fahrzeuge, Reko-Bericht')
+    await user.click(within(dialog).getByRole('button', { name: /Zusammenführen/ }))
+    expect(ops.mergeExistingOperation).toHaveBeenCalledWith('busy', 'target')
+  })
+
+  it('offers no merge away from a closed card', () => {
+    ops.operations.push({ id: 'done', location: 'X', incidentType: 'elementarereignis', status: 'complete', crew: [], vehicles: [], materials: [] } as never)
+    renderWithIntl(<DuplicateFlag operationId="done" targetId="target" />)
+    expect(screen.queryByRole('button', { name: /Zusammenführen/ })).toBeNull()
   })
 
   it('offers no merge into a closed card', () => {
