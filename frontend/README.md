@@ -7,15 +7,17 @@ Next.js frontend for the KP Rück firefighting operations dashboard.
 - **Next.js 15** - React framework with App Router
 - **React 19** - UI library
 - **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **@dnd-kit** - Drag and drop functionality
+- **Tailwind CSS 4** + **shadcn/ui** - Styling and UI components
+- **Pragmatic drag and drop** (`@atlaskit/pragmatic-drag-and-drop`) - Drag and drop on the board
 - **MapLibre GL** - Map visualization (vector tiles offline, raster XYZ online)
+- **next-intl** - German (canonical) and French UI, catalogues in `messages/`
+- **Socket.IO client** - Real-time updates, with polling as the fallback
 
 ## Setup
 
 ### Prerequisites
 
-- Node.js 20.15 or newer
+- Node.js 22 or newer
 - pnpm 9.x
 
 ### Installation
@@ -52,17 +54,24 @@ The application will be available at `http://localhost:3000`
 
 ## Environment Variables
 
-- `NEXT_PUBLIC_API_URL` - Backend API URL (default: `http://localhost:8000`)
+- `NEXT_PUBLIC_API_URL` - Backend API URL for local development (default: `http://localhost:8000`)
+- `API_URL` - Runtime backend URL the server-side `/backend-api` proxy forwards to; the published
+  image is built without `NEXT_PUBLIC_API_URL`, so production sets only this
 - `CARTO_API_KEY` - Runtime browser key for CARTO Voyager and Dark Matter raster tiles
 
 ## Features
 
 - **Operations Management** - Kanban-style board for managing fire operations
-- **Drag & Drop** - Assign personnel and materials to operations via drag and drop
-- **Real-time Map** - View operation locations on an interactive map
-- **Search & Filter** - Filter operations by vehicle, priority, and incident type
-- **Keyboard Shortcuts** - Quick navigation and vehicle assignment
-- **Responsive Design** - Works on desktop and tablet
+- **Drag & Drop** - Assign personnel, vehicles and materials to incidents via drag and drop
+- **Real-time Map** - Incident locations, vehicle GPS and the weather layer on an interactive map
+- **Search & Filter** - Filter incidents by vehicle, priority, and incident type
+- **Command palette** - ⌘K for commands, search and type-to-dispatch (`14 tlf meier`)
+- **Keyboard Shortcuts** - Quick navigation and assignment
+- **Footer sheets** - Links & QR, Fahrzeuge, Aufträge, Rapporte, Tagebuch, Drucken, Ansicht;
+  Kennzahlen (`Z`) open from the user menu
+- **Field and display pages** - `/feld`, `/reko`, `/check-in`, `/alarm`, and the wall displays
+  under `/display`
+- **Responsive Design** - Desktop, tablet and phone
 
 ## Project Structure
 
@@ -78,12 +87,15 @@ The application will be available at `http://localhost:3000`
     - `operations-context.tsx` - State management with API sync
   - `api-client.ts` - Backend API client
   - `utils.ts` - Utility functions
-- `hooks/` - Custom React hooks
+  - `hooks/` - Custom React hooks
+- `messages/` - next-intl catalogues (`de.json` canonical, `fr.json`, `it.json` stub)
 - `public/` - Static assets
 
 ## Data Synchronization
 
 The frontend automatically synchronizes state with the backend:
-- On load: Fetches all operations, personnel, and materials from the API
-- On change: Updates are sent to the backend via REST API
+- On load: Fetches the selected Ereignis's incidents, personnel, vehicles and materials from the API
+- On change: Updates are sent to the backend via REST API, with optimistic UI updates
+- From other devices: Socket.IO pushes changes (`lib/websocket-client.ts`); polling every few
+  seconds is the fallback when the socket is down
 - Debouncing: Updates are debounced to avoid excessive API calls

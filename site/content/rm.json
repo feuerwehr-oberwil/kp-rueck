@@ -87,13 +87,13 @@
         "time": "21:14",
         "tag": "Entrada d’alarm",
         "h3": "Las annunzias arrivan.",
-        "p": "Sur il formular d’annunzia, per telefon u sur l’interfatscha averta dal sistem d’alarm\n            (p.&nbsp;ex. Divera u FireHub). Il sustegn da direcziun surpiglia l’annunzia cun in clic –\n            e quella daventa in’acziun sin la tavla."
+        "p": "Sur il formular d’annunzia, per telefon u sur l’interfatscha averta dal sistem d’alarm\n            (p.&nbsp;ex. Divera u FireHub). Il sustegn da direcziun surpiglia l’annunzia cun in clic –\n            e quella daventa in’acziun sin la tavla.\n            Sch’insatgi annunzia il medem lieu ina segunda giada, dumonda la tavla empè da far ina\n            segunda carta."
       },
       {
         "time": "21:19",
         "tag": "Disposiziun",
         "h3": "Persunal e vehichels èn attribuids.",
-        "p": "Attribuir persunal, vehichels e material cun drag-and-drop. Il sistem gida a far visiblas\n            attribuziuns dublas, resursas mancantas e cuntradicziuns. Tgi che arriva sa registrescha\n            cun in code QR."
+        "p": "Attribuir persunal, vehichels e material cun drag-and-drop – u scriver «14 tlf meier»\n            en la paletta da cumonds. Il sistem gida a far visiblas\n            attribuziuns dublas, resursas mancantas e cuntradicziuns. Tgi che arriva sa registrescha\n            cun in code QR."
       },
       {
         "time": "21:26",
@@ -222,9 +222,10 @@
           "Reunir pliras acziuns ad ina ruta per ina gruppa ed optimar tenor distanza",
           "Preparar incumbensas recurrentas",
           "Registraziun cun code QR",
+          "Temps da servetsch: tgi è qua dapi cura, quant da quel temp en acziun e tgi ha pausa",
           "Fegl d’acziun cun code QR per gruppas e manischunzs",
           "Vista da projectur senza elements da cumond per la paraid dal post da commando",
-          "Paletta da cumonds e scursanidas da tastatura"
+          "Attribuir cun la tastatura: «14 tlf meier» en la paletta da cumonds attribuescha il TLF e Meier a l’acziun 14 – e scursanidas da tastatura"
         ]
       },
       {
@@ -234,9 +235,12 @@
           "Surpigliar alarms da Divera u FireHub <span class=\"opt\">opziunal</span>",
           "Formular d’annunzia accessibel cun link u code QR, per annunzias per telefon u al spurtegl",
           "Entrada en in pool ed utilisaziun sco acziun cun in clic",
+          "Annunzias dublas per il medem lieu vegnan renconuschidas; duas acziuns sa laschan unir – cun persunal, reko e rapport – e puspè separar",
           "Alarmar il persunal directamain da la tavla <span class=\"opt\">opziunal</span>",
+          "Sin via: tgi che ha confermà l’alarm da Divera cumpara en la glista da preschientscha – registraziun cun in clic <span class=\"opt\">opziunal</span>",
           "Rapports da reko cun fotografias, colliads cun l’acziun correcta",
-          "Vista dal lieu per gruppas: annunziar arriv, fin, transport e rapports al post da commando – mintga gruppa vesa mo ses agens lieus"
+          "Vista dal lieu per gruppas: annunziar arriv, fin, transport e rapports al post da commando – mintga gruppa vesa mo ses agens lieus",
+          "Dumondas dal lieu – material, rinforz, transport – restan avertas tar l’acziun fin ch’il post da commando las ha liquidadas; la gruppa vesa il stadi sin ses telefonin"
         ]
       },
       {
@@ -246,6 +250,7 @@
           "Posiziuns GPS dals vehichels <span class=\"opt\">opziunal</span>",
           "Proposta da midada da status cur ch’in vehichel arriva al lieu",
           "Attribuziuns mussadas sco lingias",
+          "Radar da precipitaziuns da l’ultima ura ed avertiments uffizials (MeteoSvizra, Alertswiss) sin la charta <span class=\"opt\">opziunal</span>",
           "Chartas era dal server local en il magazin"
         ]
       },
@@ -253,7 +258,8 @@
         "h3": "Suenter &amp; manaschi",
         "items": [
           "<strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun",
-          "Protocol cuntinuà che vegn mo cumplettà e mai surscrit; correcturas vegnan fatgas cun novas endataziuns",
+          "Diari d’acziun sin la tavla: registrescha sez midadas da status, attribuziuns ed annunzias; atgnas endataziuns cun ⇧J – mo cumplettà, mai surscrit",
+          "Cifras actualas gia durant l’eveniment: annunzias avertas tenor prioritad e temps da reacziun – en l’exercizi sco evaluaziun",
           "Glista da chaussas avertas fin a la conclusiun",
           "<strong>Atgna administraziun</strong> per persunal, parc da vehichels, material, tips d’acziun e prioritads",
           "Import ed export cun Excel",

@@ -87,13 +87,13 @@
         "time": "21:14",
         "tag": "Réception",
         "h3": "Les annonces arrivent.",
-        "p": "Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le\n            système d’alarme (p.&nbsp;ex. Divera ou FireHub). L’aide à la conduite reprend l’annonce d’un\n            clic – elle devient une intervention sur le tableau."
+        "p": "Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le\n            système d’alarme (p.&nbsp;ex. Divera ou FireHub). L’aide à la conduite reprend l’annonce d’un\n            clic – elle devient une intervention sur le tableau.\n            Si quelqu’un signale une deuxième fois la même place sinistrée, le tableau le demande au\n            lieu de créer une deuxième carte."
       },
       {
         "time": "21:19",
         "tag": "Engagement",
         "h3": "Effectif et véhicules sont attribués.",
-        "p": "Personnel, véhicules et matériel se glissent sur l’intervention. KP Rück détecte les\n            doubles affectations et les ressources manquantes. La direction d’intervention décide :\n            réaffecter, compléter ou engager sciemment malgré tout. Qui arrive s’annonce lui-même par code QR."
+        "p": "Personnel, véhicules et matériel se glissent sur l’intervention – ou se tapent :\n            «&nbsp;14 tlf meier&nbsp;» dans la palette de commandes. KP Rück détecte les\n            doubles affectations et les ressources manquantes. La direction d’intervention décide :\n            réaffecter, compléter ou engager sciemment malgré tout. Qui arrive s’annonce lui-même par code QR."
       },
       {
         "time": "21:26",
@@ -222,9 +222,10 @@
           "Missions : plusieurs interventions comme une tournée pour une équipe, ordre optimisé selon la distance d’une pression",
           "Les missions récurrentes, comme le barrage d’une zone ou l’enlèvement de bois après une tempête, peuvent être préparées et mises à disposition directement lors d’un événement",
           "Enregistrement par code QR – qui arrive s’annonce lui-même",
+          "Temps de service : qui est là depuis quand, combien de ce temps en intervention et qui est en pause – les présences trop longues ressortent",
           "Fiche d’engagement avec code QR pour les équipes et les conducteurs, remise directement au PC",
           "Vue projecteur pour le mur du PC – les mêmes cartes d’intervention que sur le tableau, sans les éléments de commande",
-          "Palette de commandes et raccourcis clavier pour aller vite"
+          "Attribuer au clavier : «&nbsp;14 tlf meier&nbsp;» dans la palette de commandes place le TLF et Meier sur l’intervention 14 – plus des raccourcis clavier pour aller vite"
         ]
       },
       {
@@ -234,9 +235,12 @@
           "Peut reprendre les alarmes de Divera ou FireHub <span class=\"opt\">facultatif</span>",
           "Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent",
           "Réception dans un pool, reprise d’un clic",
+          "Les annonces en double pour la même place sinistrée sont détectées ; deux interventions peuvent être fusionnées – avec équipe, reconnaissance et rapport – puis séparées à nouveau",
           "Alarmer l’effectif depuis le tableau <span class=\"opt\">facultatif</span>",
+          "En route : qui a répondu oui à l’alarme Divera apparaît à l’appel – enregistrement d’un clic <span class=\"opt\">facultatif</span>",
           "Annonces de reconnaissance avec photos, directement depuis le téléphone de la reconnaissance",
-          "Vue terrain pour les équipes : voir leurs propres places sinistrées, annoncer leur arrivée et la fin de l’intervention, demander une récupération et transmettre au PC des annonces et des rapports avec photos"
+          "Vue terrain pour les équipes : voir leurs propres places sinistrées, annoncer leur arrivée et la fin de l’intervention, demander une récupération et transmettre au PC des annonces et des rapports avec photos",
+          "Les demandes du terrain – matériel, renfort, récupération – restent ouvertes sur l’intervention jusqu’à ce que le PC les ait réglées ; l’équipe en voit l’état sur son téléphone"
         ]
       },
       {
@@ -246,6 +250,7 @@
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
           "Proposition de statut dès qu’un véhicule arrive sur les lieux",
           "Les affectations comme une ligne – quel véhicule appartient à quelle intervention",
+          "Radar des précipitations de la dernière heure et alertes officielles (MétéoSuisse, Alertswiss) sur la carte <span class=\"opt\">facultatif</span>",
           "Tuiles cartographiques aussi depuis votre propre serveur à la caserne"
         ]
       },
@@ -253,7 +258,8 @@
         "h3": "Après &amp; exploitation",
         "items": [
           "<strong>Rapport d’intervention en PDF</strong> avec journal d’intervention et temps de réaction – il se construit pendant l’intervention et est déjà largement préparé au retour à la caserne",
-          "Un procès-verbal continu qui ne fait que s’allonger et n’est jamais écrasé",
+          "Journal d’intervention sur le tableau : il consigne lui-même changements de statut, affectations et annonces, vos propres entrées avec ⇧J – complété, jamais écrasé",
+          "Indicateurs dès le cours de l’événement : annonces ouvertes par priorité et temps de réaction – en exercice, comme évaluation de l’exercice",
           "Liste des éléments en suspens : les rapports ouverts, les récupérations en attente et le matériel encore présent sur une place sinistrée restent visibles jusqu’à la clôture",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, parc de véhicules, listes de matériel, types d’intervention et priorités",
           "Import et export en Excel",

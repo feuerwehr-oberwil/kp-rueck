@@ -90,13 +90,13 @@
         "time": "21:14",
         "tag": "Alarmeingang",
         "h3": "Die Meldungen kommen rein.",
-        "p": "Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem\n            Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick –\n            aus der Meldung wird ein Einsatz auf dem Board."
+        "p": "Über das Meldeformular, per Telefon oder über die offene Schnittstelle aus dem\n            Alarmierungssystem (z.&nbsp;B. Divera oder FireHub). Der AdFU übernimmt mit einem Klick –\n            aus der Meldung wird ein Einsatz auf dem Board.\n            Meldet jemand denselben Schadenplatz ein zweites Mal, fragt das Board nach, statt eine\n            zweite Karte anzulegen."
       },
       {
         "time": "21:19",
         "tag": "Disposition",
         "h3": "Mannschaft und Fahrzeuge sind zugeteilt.",
-        "p": "Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz. KP Rück erkennt\n            Doppelbelegungen und fehlende Ressourcen. Die Einsatzleitung entscheidet: umteilen,\n            ergänzen oder bewusst trotzdem disponieren. Wer eintrifft, meldet sich per QR-Code\n            selbst an."
+        "p": "Personal, Fahrzeuge und Material per Drag-and-Drop auf den Einsatz – oder getippt:\n            «14 tlf meier» in der Befehlspalette. KP Rück erkennt\n            Doppelbelegungen und fehlende Ressourcen. Die Einsatzleitung entscheidet: umteilen,\n            ergänzen oder bewusst trotzdem disponieren. Wer eintrifft, meldet sich per QR-Code\n            selbst an."
       },
       {
         "time": "21:26",
@@ -251,9 +251,10 @@
           "Aufträge: mehrere Einsätze als eine Route an einen Trupp, Reihenfolge auf Knopfdruck nach Distanz optimiert",
           "Wiederkehrende Aufträge wie Absperren oder Sturmholz können vorbereitet und bei einem Ereignis direkt bereitgestellt werden",
           "QR-Check-in – wer eintrifft, meldet sich selbst an",
+          "Dienstzeiten: wer seit wann da ist, wie lange davon im Einsatz und wer gerade Pause hat – wer zu lange dabei ist, fällt auf",
           "Einsatzzettel mit QR-Code für Trupps und Fahrer, direkt am KP ausgegeben",
           "Beamer-Ansicht für die Wand im KP – dieselben Einsatzkarten wie am Board, nur ohne Bedienelemente",
-          "Befehlspalette und Tastaturkürzel für die schnelle Hand"
+          "Zuteilen per Tastatur: «14 tlf meier» in der Befehlspalette setzt TLF und Meier auf Einsatz 14 – dazu Tastaturkürzel für die schnelle Hand"
         ]
       },
       {
@@ -263,9 +264,12 @@
           "Kann Alarme aus Divera oder FireHub übernehmen <span class=\"opt\">optional</span>",
           "Meldeformular per Link oder QR für Telefon und Laufkundschaft",
           "Eingang im Pool, Übernahme mit einem Klick",
+          "Doppelte Meldungen zum selben Schadenplatz werden erkannt; zwei Einsätze lassen sich zusammenführen – samt Mannschaft, Reko und Rapport – und wieder trennen",
           "Ausalarmierung der Mannschaft aus dem Board heraus <span class=\"opt\">optional</span>",
+          "Anrückend: wer auf den Divera-Alarm zugesagt hat, steht im Appell – Einchecken mit einem Klick <span class=\"opt\">optional</span>",
           "Reko-Meldungen mit Fotos, direkt vom Handy der Reko",
-          "Feldansicht für Trupps: eigene Schadenplätze sehen, Ankunft und Einsatzende melden, Abholung anfordern sowie Rückmeldungen und Rapporte mit Fotos an den KP übermitteln"
+          "Feldansicht für Trupps: eigene Schadenplätze sehen, Ankunft und Einsatzende melden, Abholung anfordern sowie Rückmeldungen und Rapporte mit Fotos an den KP übermitteln",
+          "Anfragen aus dem Feld – Material, Verstärkung, Abholung – bleiben am Einsatz offen, bis der KP sie erledigt hat; der Trupp sieht den Stand auf dem Handy"
         ]
       },
       {
@@ -275,6 +279,7 @@
           "Fahrzeugpositionen per GPS <span class=\"opt\">optional</span>",
           "Statusvorschlag, sobald ein Fahrzeug am Einsatzort eintrifft",
           "Zuweisungen als Linie – welches Fahrzeug gehört zu welchem Einsatz",
+          "Niederschlagsradar der letzten Stunde und amtliche Warnungen (MeteoSchweiz, Alertswiss) auf der Karte <span class=\"opt\">optional</span>",
           "Kartenkacheln auch aus dem eigenen Server im Magazin"
         ]
       },
@@ -282,7 +287,8 @@
         "h3": "Nachher &amp; Betrieb",
         "items": [
           "<strong>Einsatzrapport als PDF</strong> mit Einsatztagebuch und Reaktionszeiten – entsteht während des Einsatzes und ist beim Einrücken bereits weitgehend vorbereitet",
-          "Fortgeschriebenes Protokoll, das nur ergänzt und nie überschrieben wird",
+          "Einsatztagebuch am Board: schreibt Statuswechsel, Zuteilungen und Meldungen selbst mit, eigene Einträge per ⇧J – ergänzt, nie überschrieben",
+          "Kennzahlen schon während des Ereignisses: offene Meldungen je Priorität und die Reaktionszeiten – bei Übungen als Übungsauswertung",
           "Restliste: Offene Rapporte, ausstehende Abholungen und Material, das noch am Schadenplatz liegt, bleiben bis zum Abschluss sichtbar",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fuhrpark, Materiallisten, Einsatzarten und Prioritäten",
           "Import und Export als Excel",

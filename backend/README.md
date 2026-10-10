@@ -53,15 +53,17 @@ app/
 ├── environment.py       # is_production_environment() — what turns on the hard rules
 ├── database.py          # async engine, session factory, Base
 ├── models.py            # SQLAlchemy models (single module)
-├── api/                 # 33 routers, one per resource — mounted in main.py
+├── api/                 # 37 routers, one per resource — mounted in main.py
 ├── crud/                # query layer, one module per resource
 ├── schemas/             # Pydantic request/response models, one module per resource
-├── services/            # domain logic (alerting, notifications, PDF, Divera intake, …)
+├── services/            # domain logic (alerting, notifications, journal, merge, weather, PDF, Divera intake, …)
 ├── auth/                # JWT, cookies, dependencies, token blocklist, throttling
 ├── middleware/          # audit, rate limit, request id
 ├── background/          # scheduled jobs
 ├── telemetry/           # opt-in crash reporting (vendored, shared with kp-front)
-└── seed*.py             # seed.py (reference data), seed_training.py, seed_demo.py
+├── station_index.py     # station index reader (byte-identical with kp-front)
+├── roster_snapshot*.py  # roster-snapshot/1 reader + ingest (byte-identical with kp-front)
+└── seed*.py             # seed.py (reference data), seed_training.py, seed_demo.py, seed_visual.py
 ```
 
 Note that `crud` and `schemas` are **packages**, not single modules, and routes live under
@@ -76,7 +78,9 @@ Interactive docs are at `/docs` and `/redoc` **in development only** — both ar
 `ENVIRONMENT=production`.
 
 The main resources are `/api/incidents`, `/api/events`, `/api/personnel`, `/api/vehicles`,
-`/api/materials`, `/api/assignments`, `/api/reko`, `/api/print`, `/api/alarms`. Paths are
+`/api/materials`, `/api/assignments`, `/api/reko`, `/api/feld`, `/api/print`, `/api/alarms`; per Ereignis
+also `/api/events/{id}/journal` (Einsatztagebuch), `/api/events/{id}/figures` (Kennzahlen) and
+`/api/events/{id}/personnel-activity` (Dienstzeiten). Paths are
 plural and sit under `API_V1_PREFIX` (default `/api`). There is no `/api/operations` — an
 Einsatz is an `incident`, and an `event` is the Lage that contains several of them.
 

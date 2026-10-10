@@ -86,13 +86,13 @@
         "time": "21:14",
         "tag": "Alarm received",
         "h3": "The reports come in.",
-        "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board."
+        "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board. If someone reports the same incident site a second time, the board asks instead of making a second card."
       },
       {
         "time": "21:19",
         "tag": "Deployment",
         "h3": "Crew and vehicles are assigned.",
-        "p": "Personnel, vehicles and equipment onto the incident by drag and drop. KP Rück detects double bookings and missing resources. The incident command decides: reassign, add, or knowingly dispatch anyway. Whoever arrives checks themselves in with a QR code."
+        "p": "Personnel, vehicles and equipment onto the incident by drag and drop – or typed: «14 tlf meier» in the command palette. KP Rück detects double bookings and missing resources. The incident command decides: reassign, add, or knowingly dispatch anyway. Whoever arrives checks themselves in with a QR code."
       },
       {
         "time": "21:26",
@@ -221,9 +221,10 @@
           "Assignments: several incidents as one route for a crew, order optimised by distance at the push of a button",
           "Recurring assignments, such as cordoning off an area or clearing storm-damaged trees, can be prepared and made available directly when an event is opened",
           "QR check-in – whoever arrives checks themselves in",
+          "Duty times: who has been here since when, how much of it on an incident and who is on a break – long shifts stand out",
           "Assignment slip with QR code for teams and drivers, issued directly at the command post",
           "Projector view for the wall in the command post – the same incident cards as on the board, only without controls",
-          "Command palette and keyboard shortcuts for the fast hand"
+          "Assign by typing: «14 tlf meier» in the command palette puts the TLF and Meier on incident 14 – plus keyboard shortcuts for the fast hand"
         ]
       },
       {
@@ -233,9 +234,12 @@
           "Can take alarms from Divera or FireHub <span class=\"opt\">optional</span>",
           "Reporting form by link or QR for telephone callers and walk-ins",
           "Arrivals land in the pool, taken over with one click",
+          "Duplicate reports for the same incident site are detected; two incidents can be merged – crew, recon and report included – and split again",
           "Alerting the crew from the board itself <span class=\"opt\">optional</span>",
+          "Responding: who said yes to the Divera alarm shows in the roll call – checked in with one click <span class=\"opt\">optional</span>",
           "Recon reports with photos, straight from the recon team's phone",
-          "Field view for teams: see their own incident sites, report arrival and completion, request pickup, and send updates and reports with photos to the command post"
+          "Field view for teams: see their own incident sites, report arrival and completion, request pickup, and send updates and reports with photos to the command post",
+          "Requests from the field – equipment, reinforcements, pickup – stay open on the incident until the command post has handled them; the crew sees where they stand on their phone"
         ]
       },
       {
@@ -245,6 +249,7 @@
           "Vehicle positions by GPS <span class=\"opt\">optional</span>",
           "A status proposal as soon as a vehicle reaches the scene",
           "Assignments as a line – which vehicle belongs to which incident",
+          "Precipitation radar for the last hour and official warnings (MeteoSwiss, Alertswiss) on the map <span class=\"opt\">optional</span>",
           "Map tiles from your own server at the station as well"
         ]
       },
@@ -252,7 +257,8 @@
         "h3": "Afterwards &amp; operations",
         "items": [
           "<strong>Incident report as a PDF</strong> with the incident log and the response times – it builds up during the incident and is already largely prepared when the crews return",
-          "A running log that is only ever added to, never overwritten",
+          "Incident log on the board: records status changes, assignments and messages by itself, your own entries with ⇧J – added to, never overwritten",
+          "Key figures while the event is still running: open reports per priority and the response times – in an exercise, as the exercise debrief",
           "Outstanding-items list: open reports, pending pickups and equipment still left at an incident site remain visible until completion",
           "<strong>Your own administration area</strong> per brigade: crew, fleet, equipment lists, incident types and priorities",
           "Import and export as Excel",
