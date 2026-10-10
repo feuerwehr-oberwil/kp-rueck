@@ -6,7 +6,11 @@
  * and has done how much»). Deliberately NOT a relief planner and not a
  * re-alarming tool: it reads, it does not schedule.
  *
- * - Longest on duty first: the question is «wer ist am längsten dran».
+ * - Longest on duty first by default; every column sorts (a click on its head,
+ *   again for the other way round), so «who has done the most / the least» is one
+ *   click (owner, 10.10.2026). Free / im Einsatz and a name filter narrow it.
+ * - «Pause» = on duty and on nothing: time since check-in minus the time on an
+ *   incident or Auftrag (`assigned_minutes`, overlaps counted once).
  * - Time on duty runs from check-in (lib/crew-duty.ts), amber/red from the
  *   station's fatigue threshold — the same clock the bell's grouped warning uses.
  * - «Einsätze» = distinct incidents + Aufträge worked this Ereignis, finished and
@@ -21,36 +25,79 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Clock } from "lucide-react"
+import { ArrowDown, ArrowUp, Clock, Filter } from "lucide-react"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
+import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/ui/search-input"
+import { EmptyState } from "@/components/ui/empty-state"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useMinuteTick } from "@/components/ui/incident-time"
 import { personFunctionLabel } from "@/components/kanban/draggable-person"
 import { OnDutyTime, useOnDutyLabel } from "@/components/kanban/on-duty-time"
 import { apiClient } from "@/lib/api-client"
-import { countPastThreshold, sortByTimeOnDuty } from "@/lib/crew-duty"
+import {
+  CREW_DUTY_FIRST_DIRECTION,
+  countPastThreshold,
+  dutyMinutes,
+  filterCrewDuty,
+  sortCrewDuty,
+  type CrewDutyEntry,
+  type CrewDutyFilter,
+  type CrewDutySortKey,
+  type SortDirection,
+} from "@/lib/crew-duty"
+import { formatDuration } from "@/lib/duration"
 import type { Person } from "@/lib/contexts/operations-context"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { abbreviateRank } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
 
-/** Einsätze per person id; `null` = not loaded yet, `'failed'` = could not ask. */
-type Counts = Map<string, number> | null | "failed"
+/** What the server says per person: Einsätze and minutes on something, as of `at`. */
+interface Activity {
+  count: number
+  assigned: number
+}
+/** Per person id; `null` = not loaded yet, `'failed'` = could not ask. */
+type Counts = { byId: Map<string, Activity>; at: number } | null | "failed"
 
-/** Columns on a desktop: name · seit · im Einsatz · Einsätze · jetzt. The phone stacks. */
+/** Desktop columns: name · seit · anwesend · eingesetzt · Pause · Einsätze · jetzt. The phone stacks. */
 const ROW_GRID =
-  "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:grid-cols-[minmax(0,1.3fr)_3.5rem_4.5rem_4rem_minmax(0,1.5fr)]"
+  "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:grid-cols-[minmax(0,1.3fr)_3.5rem_5.5rem_5.5rem_4.5rem_4.75rem_minmax(0,1.2fr)]"
+
+const COLUMNS: { key: CrewDutySortKey; label: string; numeric?: boolean }[] = [
+  { key: "name", label: "colName" },
+  { key: "since", label: "colSince" },
+  { key: "onDuty", label: "colOnDuty" },
+  { key: "assigned", label: "colAssigned" },
+  { key: "pause", label: "colPause" },
+  { key: "count", label: "colCount", numeric: true },
+  { key: "now", label: "colNow" },
+]
 
 /**
- * Asks the backend how many Einsätze each person has worked, while `active`.
+ * Asks the backend how many Einsätze each person has worked, and how long they have been
+ * on something, while `active`.
  *
  * Asked again when `signature` changes — who is on which incident or Auftrag, as the
  * board itself sees it. That is exactly when a count can move (a new assignment is a
  * new engagement), it is scoped to this Ereignis by construction, and it costs nothing
  * while assignments elsewhere change. A change while a request is out is not dropped:
  * one trailing request follows. A failed request keeps the last answer on screen.
+ * Between answers the minutes run on locally (see `CrewDutySheet`).
  */
-function useEinsatzCounts(eventId: string | null, active: boolean, signature: string): Counts {
+function useActivity(eventId: string | null, active: boolean, signature: string): Counts {
   const [counts, setCounts] = useState<Counts>(null)
   const inFlight = useRef(false)
   const again = useRef(false)
@@ -67,9 +114,12 @@ function useEinsatzCounts(eventId: string | null, active: boolean, signature: st
         again.current = false
         try {
           const rows = await apiClient.getEventPersonnelActivity(eventId)
-          setCounts(new Map(rows.map((row) => [row.personnel_id, row.assignment_count])))
+          setCounts({
+            byId: new Map(rows.map((row) => [row.personnel_id, { count: row.assignment_count, assigned: row.assigned_minutes ?? 0 }])),
+            at: Date.now(),
+          })
         } catch {
-          setCounts((previous) => (previous instanceof Map ? previous : "failed"))
+          setCounts((previous) => (previous && previous !== "failed" ? previous : "failed"))
         }
       } while (again.current)
     } finally {
@@ -103,6 +153,8 @@ interface CrewDutySheetProps {
 
 export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEngagements, fatigueHours }: CrewDutySheetProps) {
   const t = useTranslations("kanban.crewDuty")
+  const tKanban = useTranslations("kanban")
+  const isMobile = useIsMobile()
   useMinuteTick()
   // Who is where, as one string: changes exactly when an assignment does.
   const signature = useMemo(
@@ -113,19 +165,57 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
         .join("|"),
     [personnel, personEngagements],
   )
-  const counts = useEinsatzCounts(eventId, open, signature)
-  const rows = useMemo(() => sortByTimeOnDuty(personnel), [personnel])
+  const counts = useActivity(eventId, open, signature)
   const over = countPastThreshold(personnel, fatigueHours)
+
+  const [sortKey, setSortKey] = useState<CrewDutySortKey>("onDuty")
+  const [direction, setDirection] = useState<SortDirection>("desc")
+  const [filter, setFilter] = useState<CrewDutyFilter>("all")
+  const [query, setQuery] = useState("")
+  const sortBy = (key: CrewDutySortKey) => {
+    if (key === sortKey) setDirection((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setSortKey(key)
+      setDirection(CREW_DUTY_FIRST_DIRECTION[key])
+    }
+  }
+
+  const now = Date.now()
+  const entries: CrewDutyEntry[] = personnel.map((person) => {
+    const engagement = personEngagements.get(person.name)
+    const onDuty = dutyMinutes(person.checkedInAt, now)
+    const activity = counts && counts !== "failed" ? counts.byId.get(person.id) ?? { count: 0, assigned: 0 } : null
+    // The server's minutes are as of its answer; whoever is out now has been out since.
+    const assigned =
+      activity === null || onDuty === null
+        ? null
+        : Math.min(onDuty, activity.assigned + (engagement ? Math.max(0, Math.floor((now - (counts as { at: number }).at) / 60_000)) : 0))
+    return {
+      id: person.id,
+      name: person.name,
+      checkedInAt: person.checkedInAt ?? null,
+      onDuty,
+      assigned,
+      pause: assigned === null || onDuty === null ? null : Math.max(0, onDuty - assigned),
+      count: activity?.count ?? null,
+      now: engagement?.short || personFunctionLabel(person, tKanban) || null,
+    }
+  })
+  const freeCount = entries.filter((e) => e.now === null).length
+  const rows = sortCrewDuty(filterCrewDuty(entries, filter, query), sortKey, direction)
+  const byId = new Map(personnel.map((person) => [person.id, person]))
+  const filterLabel = filter === "free" ? t("filterFree") : filter === "busy" ? t("filterBusy") : null
+  const sortLabel = (key: CrewDutySortKey) => t(COLUMNS.find((c) => c.key === key)!.label)
 
   return (
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className="flex flex-col gap-0 max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-sheet-safe sm:pb-4 modal-h-tall"
+      className="flex flex-col gap-0 max-w-4xl mx-auto px-4 sm:px-6 pt-3 pb-sheet-safe sm:pb-4 modal-h-tall"
     >
       <SheetHeader
         // Phone: the sheet's ✕ (44px, absolute) sits in this header, not on the first row.
-        className="min-h-11 flex-row items-baseline justify-between gap-4 p-0 pr-10 shrink-0 sm:min-h-0 sm:pr-0"
+        className="min-h-11 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 p-0 pr-10 shrink-0 sm:min-h-0 sm:pr-0"
       >
         <div className="flex min-w-0 items-baseline gap-2">
           <SheetTitle className="text-base">{t("title")}</SheetTitle>
@@ -135,36 +225,156 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
               : t("summary", { present: personnel.length })}
           </SheetDescription>
         </div>
-        <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{t("sortHint")}</span>
+        {!isMobile && personnel.length > 0 && (
+          <div className="flex shrink-0 items-center gap-2">
+            <div role="group" aria-label={t("filter")} className="flex items-center gap-1">
+              {(["all", "free", "busy"] as const).map((key) => (
+                <Button
+                  key={key}
+                  size="xs"
+                  variant={filter === key ? "selected" : "outline"}
+                  aria-pressed={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {t(key === "all" ? "filterAll" : key === "free" ? "filterFree" : "filterBusy")}
+                  <span className="tabular-nums text-muted-foreground">
+                    {key === "all" ? entries.length : key === "free" ? freeCount : entries.length - freeCount}
+                  </span>
+                </Button>
+              ))}
+            </div>
+            <SearchInput
+              size="sm"
+              value={query}
+              onValueChange={setQuery}
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchPlaceholder")}
+              containerClassName="w-48"
+              className="h-7 text-xs"
+            />
+          </div>
+        )}
       </SheetHeader>
 
-      <div className="mt-2.5 flex-1 overflow-y-auto pb-2">
-        {rows.length === 0 ? (
+      {isMobile && personnel.length > 0 && (
+        <div className="mt-2 flex items-center gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+            containerClassName="min-w-0 flex-1"
+          />
+          {/* Phone: ONE square funnel — the filter and the sort (CLAUDE.md → phone filters). */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={filter !== "all" ? "selected" : "outline"}
+                size="icon"
+                className="size-11 shrink-0"
+                aria-label={filterLabel ? t("filterOn", { filter: filterLabel }) : t("filter")}
+                title={filterLabel ? t("filterOn", { filter: filterLabel }) : t("filter")}
+              >
+                <Filter aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              {filter !== "all" && (
+                <>
+                  <DropdownMenuItem onSelect={() => setFilter("all")} className="min-h-[44px]">
+                    <span className="flex-1">{t("showAll")}</span>
+                    <span className="tabular-nums text-muted-foreground">{entries.length}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {(["free", "busy"] as const).map((key) => (
+                <DropdownMenuCheckboxItem
+                  key={key}
+                  checked={filter === key}
+                  onCheckedChange={(checked) => setFilter(checked ? key : "all")}
+                  className="min-h-[44px] data-[state=checked]:sel-choice"
+                >
+                  <span className="flex-1">{t(key === "free" ? "filterFree" : "filterBusy")}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {key === "free" ? freeCount : entries.length - freeCount}
+                  </span>
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">{t("sortBy")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={sortKey} onValueChange={(key) => sortBy(key as CrewDutySortKey)}>
+                {COLUMNS.filter((c) => c.key !== "since").map((column) => (
+                  <DropdownMenuRadioItem
+                    key={column.key}
+                    value={column.key}
+                    onSelect={(event) => event.preventDefault()}
+                    className="min-h-[44px]"
+                  >
+                    <span className="flex-1">{t(column.label)}</span>
+                    {sortKey === column.key &&
+                      (direction === "asc" ? <ArrowUp className="size-3.5" aria-label={t("sortAsc")} /> : <ArrowDown className="size-3.5" aria-label={t("sortDesc")} />)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      <div className="relative mt-2.5 flex-1 overflow-y-auto pb-2">
+        {personnel.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">{t("empty")}</p>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            compact
+            title={t("emptyFilteredTitle")}
+            action={{
+              label: t("resetFilter"),
+              onClick: () => {
+                setFilter("all")
+                setQuery("")
+              },
+            }}
+          />
         ) : (
           <>
-            {/* Column heads only where there are columns. */}
-            <div
-              aria-hidden="true"
-              className={cn(ROW_GRID, "hidden px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:grid")}
-            >
-              <span>{t("colName")}</span>
-              <span>{t("colSince")}</span>
-              <span>{t("colOnDuty")}</span>
-              <span className="text-right" title={t("countTitle")}>{t("colCount")}</span>
-              <span>{t("colNow")}</span>
+            {/* Column heads only where there are columns; each one sorts. */}
+            <div className={cn(ROW_GRID, "hidden px-3 pb-1 sm:grid")} role="group" aria-label={t("sortBy")}>
+              {COLUMNS.map((column) => {
+                const active = sortKey === column.key
+                const Arrow = direction === "asc" ? ArrowUp : ArrowDown
+                return (
+                  <button
+                    key={column.key}
+                    type="button"
+                    onClick={() => sortBy(column.key)}
+                    aria-pressed={active}
+                    title={column.key === "count" ? t("countTitle") : column.key === "pause" ? t("pauseTitle") : t("sortByColumn", { column: t(column.label) })}
+                    className={cn(
+                      "-mx-1 inline-flex min-w-0 cursor-pointer items-center gap-0.5 rounded-sm px-1 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+                      column.numeric && "justify-end",
+                      active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <span className="truncate">{t(column.label)}</span>
+                    {active && <Arrow className="size-3 shrink-0" aria-label={t(direction === "asc" ? "sortAsc" : "sortDesc")} />}
+                  </button>
+                )
+              })}
             </div>
             <ul className="space-y-1" aria-label={t("title")}>
-              {rows.map((person) => (
+              {rows.map((entry) => (
                 <CrewDutyRow
-                  key={person.id}
-                  person={person}
-                  engagement={personEngagements.get(person.name)}
-                  count={counts instanceof Map ? (counts.get(person.id) ?? 0) : counts}
+                  key={entry.id}
+                  person={byId.get(entry.id)!}
+                  entry={entry}
+                  failed={counts === "failed"}
                   fatigueHours={fatigueHours}
                 />
               ))}
             </ul>
+            {isMobile && <p className="mt-2 text-xs text-muted-foreground">{t("sortedBy", { column: sortLabel(sortKey) })}</p>}
           </>
         )}
       </div>
@@ -172,24 +382,29 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
   )
 }
 
+/** «3h 40'», «–» while unknown. */
+function minutes(value: number | null): string {
+  return value === null ? "–" : formatDuration(value * 60_000)
+}
+
 function CrewDutyRow({
   person,
-  engagement,
-  count,
+  entry,
+  failed,
   fatigueHours,
 }: {
   person: Person
-  engagement?: PersonEngagement
-  count: number | null | "failed"
+  entry: CrewDutyEntry
+  /** The server could not be asked: Einsätze and minutes on something are unknown. */
+  failed: boolean
   fatigueHours: number
 }) {
   const t = useTranslations("kanban.crewDuty")
-  const tKanban = useTranslations("kanban")
   const duty = useOnDutyLabel(person.checkedInAt, fatigueHours)
-  const now = engagement?.short || personFunctionLabel(person, tKanban) || null
-  const countText =
-    count === null ? "…" : count === "failed" ? "–" : String(count)
-  const countTitle = count === "failed" ? t("countUnavailable") : t("countTitle")
+  const loading = entry.count === null && !failed
+  const unknown = (value: number | null, text: string) => (value === null ? (loading ? "…" : "–") : text)
+  const countText = unknown(entry.count, String(entry.count))
+  const countTitle = failed ? t("countUnavailable") : t("countTitle")
 
   return (
     <li
@@ -198,8 +413,9 @@ function CrewDutyRow({
       aria-label={[
         person.name,
         duty?.label,
-        typeof count === "number" ? t("count", { count }) : null,
-        now ?? t("free"),
+        entry.pause !== null ? t("pauseLong", { duration: minutes(entry.pause) }) : null,
+        typeof entry.count === "number" ? t("count", { count: entry.count }) : null,
+        entry.now ?? t("free"),
       ]
         .filter(Boolean)
         .join(", ")}
@@ -214,19 +430,26 @@ function CrewDutyRow({
       </span>
       <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline">{duty?.since ?? "–"}</span>
       <OnDutyTime checkedInAt={person.checkedInAt} fatigueHours={fatigueHours} className="text-right text-sm sm:text-left" />
+      <span className="hidden font-mono text-xs tabular-nums sm:inline">
+        {unknown(entry.assigned, minutes(entry.assigned))}
+      </span>
+      <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline" title={t("pauseTitle")}>
+        {unknown(entry.pause, minutes(entry.pause))}
+      </span>
       <span className="hidden text-right font-mono text-xs tabular-nums sm:inline" title={countTitle}>
         {countText}
       </span>
-      <span className={cn("hidden min-w-0 truncate text-xs sm:inline", now ? "" : "text-muted-foreground")} title={now ?? undefined}>
-        {now ?? t("free")}
+      <span className={cn("hidden min-w-0 truncate text-xs sm:inline", entry.now ? "" : "text-muted-foreground")} title={entry.now ?? undefined}>
+        {entry.now ?? t("free")}
       </span>
 
-      {/* Phone: one quiet line under the name — seit · Einsätze · jetzt. */}
+      {/* Phone: one quiet line under the name — seit · Pause · Einsätze · jetzt. */}
       <span className="col-span-2 mt-0.5 min-w-0 truncate text-xs text-muted-foreground sm:hidden">
         {[
           duty ? t("since", { time: duty.since }) : null,
-          typeof count === "number" ? t("count", { count }) : null,
-          now ?? t("free"),
+          entry.pause !== null ? t("pauseShort", { duration: minutes(entry.pause) }) : null,
+          typeof entry.count === "number" ? t("count", { count: entry.count }) : null,
+          entry.now ?? t("free"),
         ]
           .filter(Boolean)
           .join(" · ")}

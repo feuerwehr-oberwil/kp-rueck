@@ -133,10 +133,10 @@ describe("the # link", () => {
 })
 
 describe("formatJournalTime", () => {
-  it("HH:MM today, with the date on another day", () => {
-    const now = new Date(2026, 9, 8, 15, 0)
-    expect(formatJournalTime(new Date(2026, 9, 8, 9, 5).toISOString(), now)).toBe("09:05")
-    expect(formatJournalTime(new Date(2026, 9, 7, 23, 59).toISOString(), now)).toBe("07.10. 23:59")
+  it("always «dd.mm. HH:MM», today included, so every row is the same width", () => {
+    expect(formatJournalTime(new Date().toISOString())).toMatch(/^\d{2}\.\d{2}\. \d{2}:\d{2}$/)
+    expect(formatJournalTime(new Date(2026, 9, 8, 9, 5).toISOString())).toBe("08.10. 09:05")
+    expect(formatJournalTime(new Date(2026, 9, 7, 23, 59).toISOString())).toBe("07.10. 23:59")
   })
 })
 

@@ -7,7 +7,7 @@
  * Enhanced with delightful micro-interactions
  */
 
-import { BookOpenText, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
+import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Radio, QrCode, Sparkles, LogOut, Users, Truck, Printer, Plus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -31,6 +31,8 @@ interface MobileBottomNavigationProps {
   /** Opens the Einsatztagebuch. Everyone reads it — viewers too — so it is not gated on
    *  `isEditor` like the other quick actions. */
   onJournal?: () => void
+  /** Kennzahlen (the user menu's modal on the desktop). */
+  onFigures?: () => void
   onPersonnel?: () => void
   onVehicleStatus?: () => void
   onPrint?: () => void
@@ -43,6 +45,7 @@ export function MobileBottomNavigation({
   hasSelectedEvent = true,
   onLinks,
   onJournal,
+  onFigures,
   onPersonnel,
   onVehicleStatus,
   onPrint,
@@ -101,6 +104,7 @@ export function MobileBottomNavigation({
   const hasQuickActions =
     (isEditor && !!(onLinks || onPersonnel || onVehicleStatus || onPrint || (onThermo && printerEnabled)))
     || !!onJournal
+    || !!onFigures
     || !!selectedEvent?.training_flag
 
   // Handle tap animation. The timer is kept and cleared on unmount: a tab tap usually
@@ -288,6 +292,20 @@ export function MobileBottomNavigation({
                     >
                       <BookOpenText className="size-4" />
                       <span>{t('journal')}</span>
+                    </Button>
+                  )}
+
+                  {onFigures && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-1"
+                      onClick={() => {
+                        setSheetOpen(false)
+                        setTimeout(() => onFigures(), 350)
+                      }}
+                    >
+                      <ChartColumn className="size-4" />
+                      <span>{t('figures')}</span>
                     </Button>
                   )}
 

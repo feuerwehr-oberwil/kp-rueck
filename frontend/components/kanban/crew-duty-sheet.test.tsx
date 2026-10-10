@@ -120,6 +120,30 @@ describe('CrewDutySheet', () => {
     await waitFor(() => expect(getEventPersonnelActivity).toHaveBeenCalledTimes(2))
   })
 
+  it('sorts by any column head, again for the other way round, and shows the Pause', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    getEventPersonnelActivity.mockResolvedValue([
+      { personnel_id: hans.id, assignment_count: 4, assigned_minutes: 300 },
+      { personnel_id: anna.id, assignment_count: 1, assigned_minutes: 10 },
+      { personnel_id: eva.id, assignment_count: 0, assigned_minutes: 0 },
+    ])
+    renderSheet()
+    const names = () => screen.getAllByRole('listitem').map((row) => within(row).getAllByText(/./)[0].textContent)
+    // Hans: 400' here, 300' out (and out now, so it runs on) → 1h 40' Pause.
+    await waitFor(() => expect(within(screen.getAllByRole('listitem')[0]).getByText("1h 40'")).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Einsätze/ }))
+    expect(names()).toEqual(['Müller Hans', 'Meier Anna', 'Frisch Eva'])
+    await user.click(screen.getByRole('button', { name: /Einsätze/ }))
+    expect(names()).toEqual(['Frisch Eva', 'Meier Anna', 'Müller Hans'])
+    await user.click(screen.getByRole('button', { name: /Pause/ }))
+    expect(names()).toEqual(['Meier Anna', 'Müller Hans', 'Frisch Eva'])
+
+    // Frei / Im Einsatz: Anna's Telefondienst counts as something.
+    await user.click(screen.getByRole('button', { name: /^Frei/ }))
+    expect(names()).toEqual(['Frisch Eva'])
+  })
+
   it('says it cannot count rather than claiming zero Einsätze', async () => {
     getEventPersonnelActivity.mockRejectedValue(new Error('offline'))
     renderSheet()

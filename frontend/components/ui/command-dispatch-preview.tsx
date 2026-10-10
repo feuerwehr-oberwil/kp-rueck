@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { statusBadgeClass } from "@/lib/kanban-utils"
 import { PRIORITY_ICONS, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
 import type {
+  DispatchCompletion,
   DispatchIncident,
   DispatchResource,
   DispatchTarget,
@@ -124,7 +125,16 @@ function Action({ children, muted }: { children: ReactNode; muted?: boolean }) {
   )
 }
 
-export function DispatchPreview({ parsed, canDispatch }: { parsed: ParsedDispatch; canDispatch: boolean }) {
+export function DispatchPreview({
+  parsed,
+  canDispatch,
+  completion,
+}: {
+  parsed: ParsedDispatch
+  canDispatch: boolean
+  /** What ⇥ would complete the word being typed to — shown so the key gets found. */
+  completion?: DispatchCompletion | null
+}) {
   const t = useTranslations("common.commandPalette.dispatch")
   const { plan, tokens } = parsed
   const greyed = tokens.filter((token) => token.state === "unknown" || token.state === "ignored")
@@ -207,6 +217,16 @@ export function DispatchPreview({ parsed, canDispatch }: { parsed: ParsedDispatc
         {body}
         {grey}
       </span>
+      {completion && (
+        <span
+          className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:inline-flex"
+          title={t("tabComplete", { label: completion.label })}
+          data-testid="dispatch-completion"
+        >
+          <kbd className="rounded-sm border border-border px-1 font-sans text-[10px] leading-4">⇥</kbd>
+          <span className="max-w-[10rem] truncate">{completion.label}</span>
+        </span>
+      )}
       {action}
     </span>
   )

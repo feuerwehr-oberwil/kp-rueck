@@ -551,9 +551,13 @@ async def test_personnel_activity_time_on_duty_and_einsaetze(
     assert hans["status"] == "assigned"
     assert hans["current_incident_title"] == "Mühlemattstrasse 18"
     assert hans["checked_in_at"] is not None
+    # 60 + 24 + 54 (incidents) + 54 (Auftrag) + 3 (current) min, the mis-drag's 40 s;
+    # the rest of the 5 h is Pause.
+    assert 194 <= hans["assigned_minutes"] <= 196
 
     eva = rows[2]
     assert eva["assignment_count"] == 0
+    assert eva["assigned_minutes"] == 0
     assert eva["current_incident_title"] is None
     assert eva["status"] == "available"
     assert 19 <= eva["active_duration_minutes"] <= 21
@@ -699,3 +703,20 @@ async def test_get_figures_requires_auth_and_an_event(client: AsyncClient, authe
     assert (await authenticated_client.get(f"/api/events/{uuid4()}/figures")).status_code == 404
     client.cookies.clear()
     assert (await client.get(f"/api/events/{uuid4()}/figures")).status_code == 401
+
+
+def test_assigned_minutes_merges_overlaps_and_clips_to_check_in():
+    """An incident and its Auftrag at once is one stretch; time before check-in is not counted."""
+    from app.api.stats import _assigned_minutes
+
+    now = datetime.now(UTC)
+    since = now - timedelta(hours=3)
+    spans = [
+        (now - timedelta(hours=4), now - timedelta(hours=2.5)),  # 30 min after check-in
+        (now - timedelta(hours=2), now - timedelta(hours=1)),  # 60 min …
+        (now - timedelta(hours=1.5), now - timedelta(hours=0.5)),  # … overlapping: +30 min
+        (now - timedelta(minutes=10), now),  # running: 10 min
+    ]
+    assert _assigned_minutes(spans, since, now) == 130
+    assert _assigned_minutes(spans, None, now) == 0
+    assert _assigned_minutes([], since, now) == 0

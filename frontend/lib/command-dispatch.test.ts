@@ -4,6 +4,7 @@ import de from "@/messages/de.json"
 import fr from "@/messages/fr.json"
 
 import {
+  completeDispatch,
   fold,
   parseDispatch,
   targetKey,
@@ -436,4 +437,53 @@ describe("status vocabulary covers both catalogues", () => {
       })
     }
   }
+})
+
+describe("completeDispatch — ⇥", () => {
+  const complete = (input: string, vocab: DispatchVocabulary = vocabulary) =>
+    completeDispatch(input, vocab).map((completion) => completion.text)
+
+  it("completes a person after the Einsatz number, and the line parses to them", () => {
+    expect(complete("14 must")).toEqual(["14 Muster Peter "])
+    const plan = dispatchOf(parse("14 Muster Peter ").plan)
+    expect(plan.assign.map((entry) => entry.target.id)).toEqual(["p-muster"])
+  })
+
+  it("offers every candidate for an ambiguous beginning, for ⇥ to step through", () => {
+    expect(complete("14 meier")).toEqual(["14 Meier Anna ", "14 Meier Hans "])
+    // A name already begun: the last word may be a single letter.
+    expect(complete("14 meier h")).toEqual(["14 Meier Hans "])
+  })
+
+  it("completes the Einsatz by its address while the line has none", () => {
+    const vocab: DispatchVocabulary = {
+      ...vocabulary,
+      incidents: [
+        ...vocabulary.incidents,
+        { id: "inc-20", number: 20, label: "Grenzweg 1, BLT Tramdepot", status: "incoming", priority: "low" },
+      ],
+    }
+    expect(complete("grenz", vocab)).toEqual(["Grenzweg 1 "])
+    const parsed = parseDispatch("Grenzweg 1 must", vocab)
+    expect(dispatchOf(parsed.plan).incident.id).toBe("inc-20")
+    // With an Einsatz already named, no second one is offered.
+    expect(complete("14 grenz", vocab)).toEqual([])
+  })
+
+  it("completes vehicles and Geräte, interchangeable units once", () => {
+    expect(complete("14 omeg")).toEqual(["14 Omega 1 "])
+    expect(complete("14 tauch")).toEqual(["14 Tauchpumpe "])
+  })
+
+  it("puts the board's own words last", () => {
+    expect(complete("14 dispo")).toEqual(["14 disponiert "])
+    expect(complete("14 m").length).toBe(0) // one letter alone is too little
+  })
+
+  it("does nothing after a space, on a number, or on a word typed in full", () => {
+    expect(complete("14 must ")).toEqual([])
+    expect(complete("14")).toEqual([])
+    expect(complete("14 Muster Peter")).toEqual([])
+    expect(complete("14 xyzq")).toEqual([])
+  })
 })

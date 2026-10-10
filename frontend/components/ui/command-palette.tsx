@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
@@ -23,8 +23,10 @@ import {
 import { defaultFilter } from "cmdk"
 import { DispatchChoice, DispatchPreview } from "@/components/ui/command-dispatch-preview"
 import {
+  completeDispatch,
   parseDispatch,
   targetKey,
+  type DispatchCompletion,
   type DispatchPicks,
   type DispatchTarget,
   type DispatchToken,
@@ -59,6 +61,7 @@ import {
   QrCode,
   FileText,
   BookOpenText,
+  NotebookPen,
   ChartColumn,
   Clock,
 } from "lucide-react"
@@ -143,6 +146,7 @@ export function CommandPalette() {
     onToggleLinks,
     onToggleRapporte,
     onToggleJournal,
+    onWriteJournal,
     onToggleFigures,
     onToggleCrewDuty,
     onOpenAuftrag,
@@ -192,6 +196,46 @@ export function CommandPalette() {
     [vocabulary, search, picks],
   )
   const dispatchPlan = parsed?.plan.kind === "none" ? null : parsed?.plan ?? null
+
+  // ⇥ completes the word being typed («kell» → «Keller Marco»); ⇥ again steps to the
+  // next candidate, ⇧⇥ back. The cycle lives only while the text is what ⇥ put there.
+  const completions = useMemo(
+    () => (vocabulary ? completeDispatch(search, vocabulary) : []),
+    [vocabulary, search],
+  )
+  const cycle = useRef<{ options: DispatchCompletion[]; index: number; applied: string } | null>(null)
+  const cycling = cycle.current !== null && cycle.current.applied === search
+  const lastToken = parsed?.tokens[parsed.tokens.length - 1]
+  const nextCompletion: DispatchCompletion | null = cycling
+    ? cycle.current!.options.length > 1
+      ? cycle.current!.options[(cycle.current!.index + 1) % cycle.current!.options.length]
+      : null
+    : // No hint where the preview already says it — the word shown as that very chip, or
+      // its candidates listed as rows right below. ⇥ completes either way.
+      lastToken?.state === "ambiguous" ||
+        (completions.length === 1 &&
+          lastToken?.state === "match" &&
+          lastToken.target &&
+          targetKey(lastToken.target) === targetKey(completions[0].target))
+      ? null
+      : completions[0] ?? null
+  const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Tab" || event.altKey || event.metaKey || event.ctrlKey || !vocabulary) return
+    const current = cycle.current
+    const options = current && current.applied === search ? current.options : completions
+    if (options.length === 0) {
+      // Nothing to complete: still no focus jump out of the field while a line is typed.
+      if (search.trim()) event.preventDefault()
+      return
+    }
+    event.preventDefault()
+    const step = event.shiftKey ? -1 : 1
+    const index =
+      current && current.applied === search ? (current.index + step + options.length) % options.length : event.shiftKey ? options.length - 1 : 0
+    const text = options[index].text
+    cycle.current = { options, index, applied: text }
+    setSearch(text)
+  }
   const ambiguousTokens = (parsed?.tokens ?? []).filter(
     (token): token is DispatchToken & { choices: DispatchTarget[] } => token.state === "ambiguous" && !!token.choices,
   )
@@ -289,7 +333,7 @@ export function CommandPalette() {
   const dispatchGroup = parsed && dispatchPlan ? (
     <CommandGroup heading={t('dispatch.group')}>
       <CommandItem value={previewValue(parsed)} onSelect={runPreview}>
-        <DispatchPreview parsed={parsed} canDispatch={!!onDispatch} />
+        <DispatchPreview parsed={parsed} canDispatch={!!onDispatch} completion={nextCompletion} />
       </CommandItem>
       {ambiguousTokens.flatMap((token) =>
         token.choices.map((choice, index) => (
@@ -324,6 +368,7 @@ export function CommandPalette() {
             placeholder={getDispatchVocabulary ? t('dispatch.placeholder') : t('searchPlaceholder')}
             value={search}
             onValueChange={setSearch}
+            onKeyDown={onSearchKeyDown}
             showClose
           />
           <div ref={listWrapperRef} className="relative">
@@ -420,6 +465,13 @@ export function CommandPalette() {
                   <BookOpenText className="mr-2 h-4 w-4" />
                   <span>{t('journal')}</span>
                   <span className="ml-auto text-xs text-muted-foreground">J</span>
+                </CommandItem>
+              )}
+              {onWriteJournal && (
+                <CommandItem onSelect={() => runCommand(onWriteJournal)}>
+                  <NotebookPen className="mr-2 h-4 w-4" />
+                  <span>{t('journalEntry')}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">⇧J</span>
                 </CommandItem>
               )}
               {onToggleFigures && (

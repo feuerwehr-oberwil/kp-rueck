@@ -115,6 +115,8 @@ export interface ApiPersonnelActivity {
   active_duration_minutes: number
   /** Einsätze worked this Ereignis: distinct incidents + Aufträge, finished and current. */
   assignment_count: number
+  /** On an incident or Auftrag since check-in (overlaps once); on duty minus this is the Pause. */
+  assigned_minutes: number
   /** Where they are now (short address / Auftrag name), « · »-joined. */
   current_incident_title: string | null
   checked_in_at: string | null

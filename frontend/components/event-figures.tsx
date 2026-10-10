@@ -14,6 +14,7 @@
  */
 
 import { useTranslations } from "next-intl"
+import { Info } from "lucide-react"
 import type { ApiEventFigures, ApiPriorityFigures, ApiStageFigures } from "@/lib/api-client"
 import { formatDuration } from "@/lib/duration"
 import { ageLevel } from "@/lib/kanban-utils"
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { useEventFigures } from "@/lib/hooks/use-event-figures"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { EmptyState } from "@/components/ui/empty-state"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export type EventFiguresDensity = "panel" | "wall"
 
@@ -32,7 +34,7 @@ export interface EventFiguresViewProps {
   /** How the oldest waiting Meldung is named — the board's location label when
    *  the caller has the incident, else its title. */
   incidentLabel?: (incidentId: string) => string | undefined
-  /** `wall` = the status display's column: tighter, no definitions footnote. */
+  /** `wall` = the status display's column: tighter, no definitions button. */
   density?: EventFiguresDensity
   className?: string
 }
@@ -114,7 +116,28 @@ export function EventFiguresView({
           <h3 id="figures-reaction-title" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("reactionTitle")}
           </h3>
-          <span className="text-xs text-muted-foreground">{t("reactionHint")}</span>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            {t("reactionHint")}
+            {/* How it is counted, one tap away instead of a paragraph under every view
+                (owner, 10.10.2026: «I don't want to see this much stuff»). */}
+            {!wall && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted hover:text-foreground"
+                    aria-label={t("definitionsButton")}
+                    title={t("definitionsButton")}
+                  >
+                    <Info className="size-3.5" aria-hidden />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] text-xs leading-relaxed text-muted-foreground">
+                  {t("definitions")}
+                </PopoverContent>
+              </Popover>
+            )}
+          </span>
         </div>
         <table className="w-full table-fixed border-collapse text-sm tabular-nums">
           <thead>
@@ -172,7 +195,6 @@ export function EventFiguresView({
         noneLabel={t("noneYet")}
       />
 
-      {!wall && <p className="text-xs text-muted-foreground">{t("definitions")}</p>}
     </div>
   )
 }

@@ -85,6 +85,14 @@ export interface JournalSheetProps {
   isEditor: boolean
   /** Opens the Einsatz behind an incident chip. */
   onOpenIncident?: (incidentId: string) => void
+  /** «Neuer Eintrag» (⇧J): focus the line, linked to this Einsatz when one was
+   *  selected. A new `at` is a new request. */
+  composeRequest?: JournalComposeRequest | null
+}
+
+export interface JournalComposeRequest {
+  incidentId: string | null
+  at: number
 }
 
 // The number is optional until R4's operation mapping has landed, and on optimistic cards.
@@ -98,7 +106,7 @@ function operationLabel(op: NumberedOperation): string {
   return op.number != null ? `${op.number} · ${label}` : label
 }
 
-export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, onOpenIncident }: JournalSheetProps) {
+export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor, onOpenIncident, composeRequest }: JournalSheetProps) {
   const t = useTranslations("journal")
   const isMobile = useIsMobile()
   const { entries, isLoading, failed, reload, accept } = useJournal(eventId, open)
@@ -258,6 +266,7 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
           eventId={eventId}
           operations={operations}
           correcting={correcting}
+          composeRequest={composeRequest ?? null}
           onCancelCorrection={() => setCorrecting(null)}
           onWritten={(entry) => {
             accept(entry)
@@ -312,7 +321,8 @@ function JournalRow({
     >
       <time
         dateTime={entry.occurred_at}
-        className="min-w-[2.75rem] shrink-0 whitespace-nowrap pt-px font-mono text-xs tabular-nums text-muted-foreground"
+        // «dd.mm. HH:MM» on every row, in a fixed 12ch column: the text starts at one edge.
+        className="w-[12ch] shrink-0 whitespace-nowrap pt-px font-mono text-xs tabular-nums text-muted-foreground"
       >
         {formatJournalTime(entry.occurred_at)}
       </time>
@@ -469,12 +479,14 @@ function JournalComposer({
   eventId,
   operations,
   correcting,
+  composeRequest,
   onCancelCorrection,
   onWritten,
 }: {
   eventId: string
   operations: readonly Operation[]
   correcting: JournalLine | null
+  composeRequest: JournalComposeRequest | null
   onCancelCorrection: () => void
   onWritten: (entry: ApiJournalEntry) => void
 }) {
@@ -506,6 +518,22 @@ function JournalComposer({
       })),
     [operations],
   )
+  // ⇧J: into the line, linked to the selected card. After the sheet's own open
+  // focus, which would otherwise take the caret straight back.
+  const composeAt = composeRequest?.at
+  useEffect(() => {
+    if (!composeRequest || correcting) return
+    const choice = composeRequest.incidentId ? choices.find((c) => c.id === composeRequest.incidentId) : undefined
+    if (choice) {
+      clientId.current = newClientId()
+      setLinked(choice)
+    }
+    const timer = setTimeout(() => inputRef.current?.focus(), 60)
+    return () => clearTimeout(timer)
+    // Once per request — `choices` changes with every board update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composeAt])
+
   const query = correcting || pickerOpen ? null : incidentQuery(text)
   const suggestions = query === null ? [] : suggestIncidents(query, choices)
   const pickerSuggestions = suggestIncidents(pickerQuery, choices)
@@ -567,6 +595,13 @@ function JournalComposer({
         return
       }
     }
+    // Backspace at the start of an empty line takes the Einsatz off, like a token field.
+    if (e.key === "Backspace" && !text && linked && !correcting) {
+      e.preventDefault()
+      clientId.current = newClientId()
+      setLinked(null)
+      return
+    }
     if (e.key === "Escape" && correcting) {
       e.preventDefault()
       e.stopPropagation()
@@ -614,44 +649,69 @@ function JournalComposer({
         </div>
       )}
 
-      {(correcting || linked) && (
+      {correcting && (
         <div className="mb-1.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-          {correcting ? (
-            <span className="min-w-0 truncate">{t("correcting", { text: correcting.text ?? "" })}</span>
-          ) : (
-            linked && (
-              <span className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-sel-edge bg-sel-wash px-1.5 py-0.5 text-sel-foreground">
-                <Hash className="size-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">{linked.label}</span>
-              </span>
-            )
-          )}
+          <span className="min-w-0 truncate">{t("correcting", { text: correcting.text ?? "" })}</span>
           <button
             type="button"
-            onClick={() => {
-              if (correcting) return onCancelCorrection()
-              clientId.current = newClientId()
-              setLinked(null)
-            }}
+            onClick={onCancelCorrection}
             className="inline-flex min-h-8 min-w-8 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-muted hover:text-foreground"
-            aria-label={correcting ? t("cancelCorrection") : t("unlink")}
-            title={correcting ? t("cancelCorrection") : t("unlink")}
+            aria-label={t("cancelCorrection")}
+            title={t("cancelCorrection")}
           >
             <X className="size-3.5" aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {!correcting && !linked && choices.length > 0 && (
-        <div className="mb-1.5">
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void submit()
+        }}
+      >
+        {/* The Einsatz sits IN the line, in front of the text it belongs to: a square
+            link button while there is none, the chip once there is. Was a labelled
+            button on a row of its own above the field (owner, 10.10.2026: «sticks
+            out like a sore thumb»). `#` in the field does the same from the keyboard. */}
+        {!correcting && linked ? (
+          <span
+            className="inline-flex h-[var(--field-h,36px)] min-w-0 max-w-[40%] shrink-0 items-center gap-1 rounded-md border border-sel-edge bg-sel-wash pl-2 text-xs text-sel-foreground"
+            data-testid="journal-linked"
+          >
+            <Hash className="size-3 shrink-0" aria-hidden="true" />
+            <span className="truncate" title={linked.label}>{linked.label}</span>
+            <button
+              type="button"
+              onClick={() => {
+                clientId.current = newClientId()
+                setLinked(null)
+                inputRef.current?.focus()
+              }}
+              className="inline-flex h-full min-w-8 shrink-0 cursor-pointer items-center justify-center rounded-r-md hover:bg-sel-edge/30"
+              aria-label={t("unlink")}
+              title={t("unlink")}
+            >
+              <X className="size-3.5" aria-hidden="true" />
+            </button>
+          </span>
+        ) : !correcting && choices.length > 0 ? (
           <Popover open={pickerOpen} onOpenChange={(open) => {
             setPickerOpen(open)
             if (open) { setPickerQuery(""); setHighlight(0) }
           }}>
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline" size="sm" className="min-h-[44px]" disabled={sending}>
-                <Link2 className="size-3.5" aria-hidden="true" />
-                {t("linkTitle")}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-[var(--field-h,36px)] shrink-0 text-muted-foreground"
+                disabled={sending}
+                aria-label={t("linkTitle")}
+                title={t("linkHint")}
+              >
+                <Link2 className="size-4" aria-hidden="true" />
               </Button>
             </PopoverTrigger>
             <PopoverContent data-sheet-layer side="top" align="start" className="w-80 max-w-[calc(100vw-2rem)] p-2" onCloseAutoFocus={(event) => {
@@ -701,16 +761,7 @@ function JournalComposer({
               </div>
             </PopoverContent>
           </Popover>
-        </div>
-      )}
-
-      <form
-        className="flex items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          void submit()
-        }}
-      >
+        ) : null}
         <Input
           ref={inputRef}
           id={INPUT_ID}

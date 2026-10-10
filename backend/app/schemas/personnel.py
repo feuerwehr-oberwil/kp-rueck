@@ -140,5 +140,6 @@ class PersonnelActivity(BaseModel):
     status: str  # "assigned" while on an incident or Auftrag, else the roster status
     active_duration_minutes: int  # Time on duty: since checked_in_at (arrival), not since the current assignment
     assignment_count: int  # Einsätze worked this Ereignis: distinct incidents + Aufträge, finished and current
+    assigned_minutes: int = 0  # Time on an incident or Auftrag since check-in (overlaps once); the rest is Pause
     current_incident_title: str | None = None  # Where they are now (short address / Auftrag name), « · »-joined
     checked_in_at: datetime | None = None

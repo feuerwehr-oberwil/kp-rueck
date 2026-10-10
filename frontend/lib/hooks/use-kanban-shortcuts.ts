@@ -86,7 +86,10 @@ export interface KanbanShortcutsActions {
   onToggleRapporte: () => void
   /** Opens/closes the Einsatztagebuch (idea R8). */
   onToggleJournal: () => void
-  /** Opens/closes the Kennzahlen sheet. */
+  /** ⇧J — a new journal line: the journal opens with the caret in it, linked to
+   *  the selected card when there is one. Editors only; absent for a viewer. */
+  onWriteJournal?: () => void
+  /** Opens/closes the Kennzahlen dialog. */
   onToggleFigures: () => void
   /** Switch side panel to Map view (no-op if collapsed). */
   onSidePanelMap: () => void
@@ -341,6 +344,14 @@ export function useKanbanShortcuts(
         return
       }
 
+      // ⇧J — write in the Einsatztagebuch: open it with the caret in the line.
+      // Before the plain `j` below, which Caps Lock also turns into «J» — so
+      // the Shift key, not the letter's case, is what tells the two apart.
+      if ((e.key === "j" || e.key === "J") && e.shiftKey && !e.metaKey && !e.ctrlKey && actions.onWriteJournal) {
+        e.preventDefault()
+        actions.onWriteJournal()
+        return
+      }
       // «Journal» — the Einsatztagebuch. `j` was free; letter-matched like `o`.
       if ((e.key === "j" || e.key === "J") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()

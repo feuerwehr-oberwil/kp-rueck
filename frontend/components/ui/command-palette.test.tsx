@@ -262,3 +262,33 @@ describe("CommandPalette — the existing list keeps working", () => {
     expect(input()).toHaveAttribute("placeholder", "Befehl suchen …")
   })
 })
+
+describe("CommandPalette — ⇥ completes", () => {
+  beforeEach(() => {
+    handlers = {}
+  })
+
+  it("completes the word being typed, ⇥ again steps to the next candidate", async () => {
+    const { user } = setup()
+    await typeIn(user, "14 mus")
+    await user.keyboard("{Tab}")
+    expect(input()).toHaveValue("14 Muster Peter ")
+    expect(input()).toHaveFocus()
+
+    await user.clear(input())
+    await user.paste("14 meier")
+    await user.keyboard("{Tab}")
+    expect(input()).toHaveValue("14 Meier Anna ")
+    // The next candidate is named in the preview, so the key can be found.
+    expect(within(preview()).getByTestId("dispatch-completion")).toHaveTextContent("Meier Hans")
+    await user.keyboard("{Tab}")
+    expect(input()).toHaveValue("14 Meier Hans ")
+    await user.keyboard("{Shift>}{Tab}{/Shift}")
+    expect(input()).toHaveValue("14 Meier Anna ")
+  })
+
+  it("says what it is for in the empty field", () => {
+    setup()
+    expect(input()).toHaveAttribute("placeholder", expect.stringContaining("⇥ ergänzt"))
+  })
+})
