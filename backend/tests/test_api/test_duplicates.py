@@ -28,7 +28,6 @@ from app.models import (
     DiveraEmergency,
     Event,
     Incident,
-    IncidentAssignment,
     Personnel,
     Setting,
     User,
@@ -308,27 +307,6 @@ class TestMergeAFlaggedCardAndUndo:
         assert undone["note_removed"] is False
         assert undone["target"]["internal_notes"].endswith(" – erledigt")
 
-    async def test_a_card_with_crew_on_it_is_not_merged_silently(
-        self,
-        editor_client: AsyncClient,
-        db_session: AsyncSession,
-        test_event: Event,
-        test_personnel: Personnel,
-    ) -> None:
-        target = await _card(db_session, test_event)
-        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
-        db_session.add(
-            IncidentAssignment(
-                incident_id=dup.id, resource_type="personnel", resource_id=test_personnel.id, purpose="crew"
-            )
-        )
-        await db_session.commit()
-        response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
-        assert response.status_code == 409
-        assert "zugewiesen" in response.json()["detail"]
-        await db_session.refresh(dup)
-        assert dup.deleted_at is None
-
     async def test_kein_duplikat_clears_the_flag_and_is_audited(
         self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
     ) -> None:
@@ -579,27 +557,15 @@ class TestWhatAMergeMustNotDo:
         assert "abgeschlossen" in response.json()["detail"]
         assert (await db_session.get(Incident, dup_id, populate_existing=True)).deleted_at is None
 
-    @pytest.mark.parametrize(
-        ("fields", "reason"),
-        [
-            ({"status": "reko"}, "Eingegangen"),
-            # «Einsatz beendet» is the crew closing THIS card — not a request that can move.
-            ({"field_complete_reported_at": datetime(2026, 10, 9, 12, tzinfo=UTC)}, "beendet"),
-        ],
-    )
-    async def test_a_card_somebody_worked_on_is_not_hidden(
-        self,
-        editor_client: AsyncClient,
-        db_session: AsyncSession,
-        test_event: Event,
-        fields: dict,
-        reason: str,
+    async def test_a_closed_card_is_never_merged_away(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event
     ) -> None:
+        """Any OPEN card may be merged (owner decision 10.10.2026) — a closed one may not."""
         target = await _card(db_session, test_event)
-        dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id, **fields)
+        dup = await _card(db_session, test_event, status="complete", possible_duplicate_of_id=target.id)
         response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
         assert response.status_code == 409
-        assert reason in response.json()["detail"]
+        assert "abgeschlossen" in response.json()["detail"]
 
     async def test_nothing_can_be_assigned_to_a_merged_card(
         self,

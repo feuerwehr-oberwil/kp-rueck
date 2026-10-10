@@ -30,6 +30,22 @@ will keep holding.
 
 ### Added
 
+- **Any open Einsatz can be merged – its work moves along.** «Zusammenführen» used to accept only a
+  fresh report («Eingegangen», nobody on it). Now any OPEN card can be merged into another open
+  one: crew, vehicles, material (active and released), Reko reports with their photos, the
+  Schadenplatz-Rapport, the KP's messages to the crew, requests from the field and the Nachbarhilfe
+  / Am Warten / Zu Fuss flags move to the card that stays; «Trennen» moves them back, leaving
+  anything changed by hand since as it is. The hard cases: a person or vehicle on both cards keeps
+  ONE assignment (the surviving card's; the other one is released by the merge and comes back
+  with «Trennen»); two Einsatzleiter – the surviving card's stays; two Rapporte – both are kept and
+  the event report prints the second under «Schadenplatz-Rapport von #7 (zusammengeführt)»; the
+  surviving card keeps its status unless the merged one was further along (crew already «Im
+  Einsatz»), then it takes that status (a status transition, undone by «Trennen»); the merged
+  card keeps its number while hidden and gets it back. Photos are copied, never moved. The card
+  asks before merging when it has work on it and names what moves; the Einsatztagebuch writes
+  «Übernommen von …», crews on `/feld` find the surviving card, and every board updates at once.
+  Closed Einsätze are never merged, on either side.
+
 - **Station index: one address for all station data.** `STATION_INDEX_SOURCE` (+ optional
   `STATION_INDEX_TOKEN`) points at a station's `index.json`, which lists its data files by kind
   with checksums (`station-index/1`); the roster is read through it, and a file that does not

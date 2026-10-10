@@ -55,6 +55,10 @@ class EventReportData:
     # Schadenplatz-Rapporte (plan 25), at most one per incident. Drafts included:
     # a half-filled rapport is still what the crew said, and the outputs mark it.
     schadenplatz_reports: list[SchadenplatzReport] = field(default_factory=list)
+    # Rapporte of cards merged into one of `incidents` that stayed on their own row
+    # because the surviving card had filed one too (one per Einsatz): keyed by the
+    # SURVIVING card, so the outputs print both under it (owner decision 10.10.2026).
+    merged_rapports: dict[uuid.UUID, list[tuple[Incident, SchadenplatzReport]]] = field(default_factory=dict)
     # Anwesenheit: one row per person who actually arrived, in arrival order.
     # Rows whose `checked_in_at` is NULL are dropped by the collector – a bulk
     # check-out can create an attendance row for somebody who never came, and a
@@ -210,6 +214,21 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
             personnel_ids.update(pid for pid in (report.created_by_personnel_id, report.updated_by_personnel_id) if pid)
             user_ids.update(uid for uid in (report.created_by_user_id, report.updated_by_user_id) if uid)
 
+    merged_rapports: dict[uuid.UUID, list[tuple[Incident, SchadenplatzReport]]] = {}
+    if incident_ids:
+        merged_result = await db.execute(
+            select(Incident, SchadenplatzReport)
+            .join(SchadenplatzReport, SchadenplatzReport.incident_id == Incident.id)
+            .where(Incident.merged_into_id.in_(incident_ids))
+            .order_by(SchadenplatzReport.created_at.asc())
+        )
+        for merged_inc, report in merged_result.all():
+            if merged_inc.merged_into_id is None:
+                continue
+            merged_rapports.setdefault(merged_inc.merged_into_id, []).append((merged_inc, report))
+            personnel_ids.update(pid for pid in (report.created_by_personnel_id, report.updated_by_personnel_id) if pid)
+            user_ids.update(uid for uid in (report.created_by_user_id, report.updated_by_user_id) if uid)
+
     # Load the Anwesenheit (event-scoped, independent of any incident): everybody who
     # actually arrived. `checked_in_at IS NOT NULL` is the filter, not `checked_in` —
     # somebody who has already gone home is exactly who this section is about, while a
@@ -259,6 +278,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
         reko_reports=reko_reports,
         journal=journal,
         schadenplatz_reports=schadenplatz_reports,
+        merged_rapports=merged_rapports,
         attendance=attendance,
         incident_groups=incident_groups,
         group_assignments=group_assignments,

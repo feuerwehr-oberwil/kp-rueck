@@ -4,6 +4,7 @@ import asyncio
 import io
 import logging
 import os
+import shutil
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -342,6 +343,34 @@ class PhotoStorageService:
             f.write(compressed_data)
 
         return filename
+
+    def copy_photos(self, from_incident_id: uuid.UUID, to_incident_id: uuid.UUID, filenames: list[str]) -> int:
+        """Copy photo files from one incident's directory to another's (a merge, R2).
+
+        COPY, never move: the database half of a merge can still roll back, and a
+        photo that exists twice costs a few hundred KB while one that exists
+        nowhere costs the record. Files already there are left alone; a missing
+        source is skipped (and logged) — the row keeps its filename either way.
+        Returns how many files were copied.
+        """
+        copied = 0
+        for name in filenames:
+            if not isinstance(name, str) or not name:
+                continue
+            try:
+                source = self._inside_photos_dir(str(from_incident_id), name)
+                if not source.is_file():
+                    logger.warning("Photo %s of incident %s missing; not copied", name, from_incident_id)
+                    continue
+                target_dir = self._get_incident_dir(to_incident_id)
+                target = self._inside_photos_dir(str(to_incident_id), name)
+                if target.exists():
+                    continue
+                shutil.copy2(source, target_dir / target.name)
+                copied += 1
+            except (OSError, HTTPException):
+                logger.exception("Could not copy photo %s from %s to %s", name, from_incident_id, to_incident_id)
+        return copied
 
     def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Path | None:
         """

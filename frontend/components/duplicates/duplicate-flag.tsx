@@ -24,6 +24,7 @@ import { Combine, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
@@ -45,9 +46,27 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
   const { operations, mergeExistingOperation, refreshOperations } = useOperations()
   const [busy, setBusy] = useState<'merge' | 'dismiss' | null>(null)
 
+  const [confirming, setConfirming] = useState(false)
+
   const target = operations.find((op) => op.id === targetId)
+  const self = operations.find((op) => op.id === operationId)
   const label = target ? getIncidentLocationLabel(target) : null
   const text = label ? t('card.flag', { label }) : t('card.flagUnknown')
+
+  // What moves with this card (owner decision 10.10.2026: any OPEN card can be
+  // merged and takes its work along). A fresh report merges in one click; a card
+  // somebody has worked on asks first and names what will move.
+  const work = self
+    ? [
+        self.crew.length > 0 && t('card.workCrew'),
+        (self.vehicles.length > 0 || self.vehicle) && t('card.workVehicles'),
+        self.materials.length > 0 && t('card.workMaterial'),
+        self.hasCompletedReko && t('card.workReko'),
+        (self.hasSchadenplatzRapport || self.hasSchadenplatzRapportDraft) && t('card.workRapport'),
+        (self.fieldRequests?.length ?? 0) > 0 && t('card.workRequests'),
+      ].filter((item): item is string => Boolean(item))
+    : []
+  const mergeable = Boolean(target) && target?.status !== 'complete' && self?.status !== 'complete'
 
   const merge = async () => {
     setBusy('merge')
@@ -90,11 +109,17 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
       </p>
       {canEdit && (
         <div className="flex flex-wrap gap-1.5">
-          {/* Only into a card that is still open — a closed card is history (the
+          {/* Only between OPEN cards — a closed card is history on either side (the
               server refuses it too); a flag pointing at a card that was closed or
               deleted since is answered with «Kein Duplikat». */}
-          {target && target.status !== 'complete' && (
-            <Button type="button" size="xs" variant="outline" disabled={busy !== null} onClick={merge}>
+          {mergeable && (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => (work.length > 0 ? setConfirming(true) : void merge())}
+            >
               {busy === 'merge' ? <ShellLoader className="size-3.5" /> : <Combine className="size-3.5" />}
               {t('card.merge')}
             </Button>
@@ -105,6 +130,17 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
           </Button>
         </div>
       )}
+      {/* Portalled, but a React child: stop its clicks before they reach the card. */}
+      <span className="contents" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={t('card.confirmTitle', { label: label ?? '' })}
+          description={t('card.confirmBody', { items: work.join(', ') })}
+          confirmText={t('card.merge')}
+          onConfirm={merge}
+        />
+      </span>
     </div>
   )
 }

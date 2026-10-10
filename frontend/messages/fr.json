@@ -4370,7 +4370,15 @@
       "flagUnknown": "Doublon possible",
       "flagTooltip": "Reçu automatiquement, près d’une intervention ouverte. « Fusionner » y ajoute ce message comme complément.",
       "merge": "Fusionner",
-      "dismiss": "Pas un doublon"
+      "dismiss": "Pas un doublon",
+      "workCrew": "Équipe",
+      "workVehicles": "Véhicules",
+      "workMaterial": "Matériel",
+      "workReko": "Rapport de reconnaissance",
+      "workRapport": "Rapport",
+      "workRequests": "Demandes du terrain",
+      "confirmTitle": "Fusionner avec {label} ?",
+      "confirmBody": "Avec cette intervention sont transférés : {items}. « Séparer » dans l’historique l’annule."
     },
     "timeline": {
       "merged": "Message fusionné",
@@ -4452,7 +4460,9 @@
         "field_request_open": "Demande rouverte",
         "field_request_moved": "Demande reprise de {other}",
         "field_request_returned": "Demande revenue de {other}"
-      }
+      },
+      "itemsMoved": "Repris de {other}",
+      "itemsReturned": "Revenu de {other}"
     },
     "refDeleted": "{ref} (supprimée)",
     "refMerged": "{ref} → {target}"

@@ -227,10 +227,26 @@ fenêtre l’indique sous le lieu : « Peut-être identique à … ». **Fusionn
 l’annonceur comme complément à cette intervention – sans deuxième carte. **Créer quand même** masque
 l’indication. Les alarmes reçues automatiquement (Divera, lien d’alarme) ne sont jamais fusionnées
 d’elles-mêmes : leur carte affiche « Doublon possible de … » avec **Fusionner** et **Pas un doublon**.
-Les demandes du terrain (matériel, renfort, messages, récupération) suivent la fusion ; si les deux
-cartes attendent une récupération, une seule reste ouverte, avec les deux notes. Pour annuler :
-« Annuler » dans le message en bas à droite, ou **Séparer** dans l’historique de l’intervention – les
-demandes reviennent alors.
+Toute intervention **ouverte** peut être fusionnée, même une qui est déjà en cours. Ce qui est sur la
+carte suit : équipe, véhicules, matériel, rapports de reconnaissance (avec photos), le rapport, les
+messages vers l’équipe, les demandes du terrain et les indications aide de voisinage, en attente, à
+pied. La carte demande d’abord et nomme ce qui suit.
+
+- **Même personne ou même véhicule sur les deux cartes :** une seule attribution reste (celle de la
+  carte qui reste).
+- **Deux chefs d’intervention :** celui de la carte qui reste le reste.
+- **Deux rapports :** les deux sont conservés ; le rapport d’intervention (PDF) imprime le second sous
+  « Schadenplatz-Rapport von #7 (zusammengeführt) ».
+- **Statut :** la carte qui reste garde son statut – sauf si l’autre était déjà plus avancée (p. ex.
+  « En intervention »), elle reprend alors celui-ci.
+- **Récupération :** si les deux cartes attendent, une seule reste ouverte, avec les deux notes.
+- **Numéro :** la carte fusionnée garde son numéro (il n’est pas réattribué) et revient avec lui
+  après **Séparer**.
+
+Les interventions terminées ne sont jamais fusionnées, ni comme cible ni comme seconde carte. Le
+journal note ce qui a été repris (« Repris de … »). Pour annuler : « Annuler » dans le message en bas
+à droite, ou **Séparer** dans l’historique de l’intervention – tout revient, sauf ce qui a été modifié
+à la main entre-temps.
 
 ### Faire une reconnaissance
 

@@ -218,6 +218,7 @@ LABELS: dict[str, str] = {
     "photos": "Fotos",
     # Schadenplatz-Rapport (plan 25, §7)
     "rapport": "Schadenplatz-Rapport",
+    "rapport_merged": "Schadenplatz-Rapport von #{number} (zusammengeführt)",
     "rapport_draft": "Entwurf, noch nicht abgeschlossen",
     "rapport_work": "Tätigkeit",
     "rapport_work_from": "ab {at}",
@@ -2255,6 +2256,19 @@ def _incident_detail(
     report = rapport_by_incident(data).get(inc.id)
     if report is not None:
         block.extend(_rapport_block(data, inc, report, styles))
+    # A card merged into this one whose crew had filed its own Rapport too (one per
+    # Einsatz, so it stays on the merged card's row): printed here, under its own
+    # heading, so neither record is lost (owner decision 10.10.2026).
+    for merged_inc, merged_report in data.merged_rapports.get(inc.id, []):
+        block.extend(
+            _rapport_block(
+                data,
+                merged_inc,
+                merged_report,
+                styles,
+                heading=LABELS["rapport_merged"].format(number=merged_inc.number or "?"),
+            )
+        )
 
     # Fotos vom Feld — Reko and Rapport photos in one grid, each caption naming its
     # source. Last in the block: they illustrate the record above, they are not it.
@@ -2291,6 +2305,7 @@ def _rapport_block(
     inc: Incident,
     report: SchadenplatzReport,
     styles: dict[str, ParagraphStyle],
+    heading: str | None = None,
 ) -> list[Any]:
     """The "Schadenplatz-Rapport" lines of one incident's detail block.
 
@@ -2299,7 +2314,7 @@ def _rapport_block(
     rule above it, though – nothing separates one incident from the next, so a line here
     would make the rapport read as the bigger break of the two, which it is not.
     """
-    head: list[Any] = [Spacer(1, 3), _p(LABELS["rapport"], styles["subsection"])]
+    head: list[Any] = [Spacer(1, 3), _p(heading or LABELS["rapport"], styles["subsection"])]
     if report.is_draft:
         head.append(_p(LABELS["rapport_draft"], styles["meta"]))
 

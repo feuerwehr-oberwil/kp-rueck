@@ -232,6 +232,7 @@ describe("JournalSheet", () => {
         row({ kind: "status", category: "status", incident_id: "gone", incident_title: "Fehlalarm Schulhaus", incident_deleted: true, data: { from_status: "incoming", to_status: "reko" } }),
         row({ kind: "incident", category: "status", incident_id: "dup", incident_title: "Meldung Gartenweg", incident_deleted: true, data: { action: "merged_into", other_title: "Gartenweg 4" } }),
         row({ kind: "field", category: "field", incident_id: "i1", incident_title: "Gartenweg 4", data: { type: "field_request_done", source: null }, text: "Material: Tauchpumpe Gr. ×2", author_name: "Dispo" }),
+        row({ kind: "incident", category: "status", incident_id: "i1", incident_title: "Gartenweg 4", data: { action: "items_moved", other_title: "Meldung Gartenweg" }, text: "TLF 1, Meier Hans, Reko-Bericht" }),
         row({ kind: "field", category: "field", incident_id: "i1", incident_title: "Gartenweg 4", data: { type: "field_request_moved", source: null, other_title: "Meldung Gartenweg" }, text: "Verstärkung: 4 Personen" }),
       ],
       latest_seq: 999,
@@ -244,6 +245,8 @@ describe("JournalSheet", () => {
     expect(text.some((t) => t?.includes("Meldung Gartenweg → Gartenweg 4") && t.includes("Zusammengeführt in «Gartenweg 4»"))).toBe(true)
     // A request from the field changing state (R13): what, and that it is done – no «im KP erfasst».
     expect(text.some((t) => t?.includes("Anfrage erledigt: Material: Tauchpumpe Gr. ×2") && !t.includes("im KP erfasst"))).toBe(true)
+    // The merged card's work, moved over (owner decision 10.10.2026).
+    expect(text.some((t) => t?.includes("Übernommen von Meldung Gartenweg: TLF 1, Meier Hans, Reko-Bericht"))).toBe(true)
     // A request that moved with a merge says where it came from.
     expect(text.some((t) => t?.includes("Anfrage übernommen von Meldung Gartenweg: Verstärkung: 4 Personen"))).toBe(true)
   })

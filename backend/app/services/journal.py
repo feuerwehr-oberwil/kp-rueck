@@ -84,6 +84,11 @@ REQUEST_AUDIT_ACTIONS: frozenset[str] = frozenset({"field_request_status"})
 #: A request moved with a merge (R2 × R13): «Anfrage übernommen von …» on the card that
 #: got it, «Anfrage zurück von …» when «Trennen» hands it back (services/merge_requests).
 REQUEST_MOVED_ACTIONS: frozenset[str] = frozenset({"field_request_moved"})
+
+#: The work of a merged card moving over (crew, vehicles, Reko, Rapport …, owner decision
+#: 10.10.2026): ONE line per merge on the card that got it, «Übernommen von #7 …: TLF 1,
+#: Meier Hans, Reko-Bericht», and one on the card it goes back to after «Trennen».
+ITEMS_MOVED_ACTIONS: frozenset[str] = frozenset({"merge_items_moved"})
 REQUEST_STATES: frozenset[str] = frozenset({"open", "in_progress", "done"})
 
 #: Lifecycle actions on an Einsatz → the `data.action` the row carries. `merge` sits on
@@ -106,6 +111,7 @@ JOURNAL_AUDIT_ACTIONS: frozenset[str] = frozenset(
         *FIELD_AUDIT_ACTIONS,
         *REQUEST_AUDIT_ACTIONS,
         *REQUEST_MOVED_ACTIONS,
+        *ITEMS_MOVED_ACTIONS,
         *INCIDENT_AUDIT_ACTIONS,
     }
 )
@@ -361,6 +367,25 @@ class _Collector:
                 text=str(changes.get("label") or "").strip() or None,
                 data={"type": f"field_request_{to}", "source": None},
                 # always somebody in the KP: the board's buttons, or the completion that closed it
+                author_name=who,
+                created_by=obj.user_id,
+            )
+        elif action in ITEMS_MOVED_ACTIONS:
+            items_data: dict[str, Any] = {
+                "action": "items_returned" if changes.get("reason") == "unmerge" else "items_moved",
+                "title": incident.title,
+            }
+            source_card = changes.get("from_incident_id")
+            if source_card:
+                items_data["other_incident_id"], items_data["other_title"] = self.title(source_card)
+            listed = changes.get("items")
+            self.add(
+                key=key,
+                kind="incident",
+                incident=incident,
+                occurred_at=obj.timestamp,
+                text=", ".join(str(i) for i in listed) if isinstance(listed, list) and listed else None,
+                data=items_data,
                 author_name=who,
                 created_by=obj.user_id,
             )

@@ -72,17 +72,26 @@ def _collect_report_photos(data: EventReportData) -> dict[uuid.UUID, list[Export
     photos: dict[uuid.UUID, list[ExportPhoto]] = {}
     seen: set[tuple[uuid.UUID, str]] = set()
 
-    def add(incident_id: uuid.UUID, filenames: list[str] | None, source: str) -> None:
+    def add(
+        incident_id: uuid.UUID, filenames: list[str] | None, source: str, *, shown_under: uuid.UUID | None = None
+    ) -> None:
         for name in filenames or []:
             if (incident_id, name) in seen:
                 continue
             seen.add((incident_id, name))
-            photos.setdefault(incident_id, []).append(photo_storage.load_export_photo(incident_id, name, source))
+            photos.setdefault(shown_under or incident_id, []).append(
+                photo_storage.load_export_photo(incident_id, name, source)
+            )
 
     for reko in data.reko_reports:
         add(reko.incident_id, reko.photos_json, "Reko")
     for rapport in data.schadenplatz_reports:
         add(rapport.incident_id, rapport.photos_json, "Rapport")
+    # A merged card's own Rapport: its files are in ITS folder, shown under the card it went into.
+    for survivor_id, merged in data.merged_rapports.items():
+        for merged_inc, rapport in merged:
+            label = f"Rapport #{merged_inc.number}" if merged_inc.number else "Rapport"
+            add(merged_inc.id, rapport.photos_json, label, shown_under=survivor_id)
     return photos
 
 
