@@ -234,16 +234,16 @@ export function RapportBacklogSheet({ open, onOpenChange, rapports, filed, onOpe
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className="flex flex-col gap-0 max-w-3xl mx-auto px-6 pt-3 pb-4 modal-h-tall"
+      className="flex flex-col gap-0 max-w-3xl mx-auto px-6 py-4 modal-h-tall"
     >
-      {/* Title and tabs share one line: the tab labels («Offen (3)» /
-          «Erfasst (4)») already say which list is on screen, so the only thing
-          left worth writing is the sort order — small, muted, next to the
-          title, costing no vertical space at all. */}
+      {/* The header every footer sheet shares (Fahrzeuge, Aufträge, Drucken …):
+          title with its line underneath on the left, the controls – here the
+          tabs – on the right. The line says the sort order; the tab labels
+          («Offen (3)» / «Erfasst (4)») already say which list is on screen. */}
       <SheetHeader className="flex-row items-center justify-between gap-4 p-0 shrink-0">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <SheetTitle className="text-base">{t("title")}</SheetTitle>
-          <SheetDescription className="hidden truncate text-xs sm:block">
+        <div className="min-w-0">
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription className="truncate">
             {t(tab === "open" ? "description" : "descriptionFiled")}
           </SheetDescription>
         </div>
@@ -256,7 +256,7 @@ export function RapportBacklogSheet({ open, onOpenChange, rapports, filed, onOpe
         </Tabs>
       </SheetHeader>
 
-      <div className="flex-1 overflow-y-auto mt-2.5 pb-2">
+      <div className="flex-1 overflow-y-auto mt-3 pb-2">
         {entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-28 text-center">
             <CheckCircle2 className="size-8 text-muted-foreground/50 mb-2" />

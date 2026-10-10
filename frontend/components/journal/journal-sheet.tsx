@@ -147,13 +147,14 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className="flex flex-col gap-0 max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-sheet-safe sm:pb-4 modal-h-tall"
+      // The same frame and header as every other footer sheet (Fahrzeuge, Aufträge,
+      // Links & QR, Drucken): px-6 py-4, the plain title, controls on its right.
+      className="flex flex-col gap-0 max-w-3xl mx-auto px-6 py-4 pb-sheet-safe sm:pb-4 modal-h-tall"
     >
-      <SheetHeader className="flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 p-0 pr-14 sm:pr-0 shrink-0">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <SheetTitle className="text-base">{t("title")}</SheetTitle>
-          <SheetDescription className="hidden truncate text-xs sm:block">{t("description")}</SheetDescription>
-        </div>
+      <SheetHeader className="flex-row flex-wrap items-start justify-between gap-x-4 gap-y-2 p-0 pr-14 sm:pr-0 shrink-0">
+        {/* No visible subtitle (owner, 10.10.2026) – the list says what it is. */}
+        <SheetTitle>{t("title")}</SheetTitle>
+        <SheetDescription className="sr-only">{t("description")}</SheetDescription>
 
         {isMobile ? (
           /* Phone: ONE square funnel, never a chip row (CLAUDE.md → phone filters). */
@@ -723,7 +724,10 @@ function JournalComposer({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="size-[var(--field-h,36px)] shrink-0 text-muted-foreground"
+                // Exactly the field's height: `size="icon"` alone carries a 44px minimum,
+                // which stood the button taller than the 36px line beside it. On touch
+                // screens `--field-h` is 44px itself, so the touch target is kept there.
+                className="size-(--field-h) min-h-0 min-w-0 shrink-0 text-muted-foreground"
                 disabled={sending}
                 aria-label={t("linkTitle")}
                 title={t("linkHint")}

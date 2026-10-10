@@ -211,15 +211,17 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
     <FooterSheet
       open={open}
       onOpenChange={onOpenChange}
-      className="flex flex-col gap-0 max-w-4xl mx-auto px-4 sm:px-6 pt-3 pb-sheet-safe sm:pb-4 modal-h-tall"
+      // The frame and header every footer sheet shares: px-6 py-4, the plain title with
+      // its line underneath, the controls on the right.
+      className="flex flex-col gap-0 max-w-4xl mx-auto px-6 py-4 pb-sheet-safe sm:pb-4 modal-h-tall"
     >
       <SheetHeader
         // Phone: the sheet's ✕ (44px, absolute) sits in this header, not on the first row.
         className="min-h-11 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 p-0 pr-10 shrink-0 sm:min-h-0 sm:pr-0"
       >
-        <div className="flex min-w-0 items-baseline gap-2">
-          <SheetTitle className="text-base">{t("title")}</SheetTitle>
-          <SheetDescription className="truncate text-xs">
+        <div className="min-w-0">
+          <SheetTitle>{t("title")}</SheetTitle>
+          <SheetDescription className="truncate">
             {fatigueHours > 0 && over > 0
               ? t("summaryOver", { present: personnel.length, over, hours: fatigueHours })
               : t("summary", { present: personnel.length })}

@@ -288,10 +288,8 @@ export function PrintHubSheet({
       >
         <div className="pr-8">
           <SheetHeader className="p-0 mb-4">
-            <SheetTitle className="flex items-center gap-2">
-              <Printer className="h-4 w-4" />
-              {t("hub.title")}
-            </SheetTitle>
+            {/* No icon in the title – no other footer sheet has one (owner, 10.10.2026). */}
+            <SheetTitle>{t("hub.title")}</SheetTitle>
             <SheetDescription>{t("hub.description")}</SheetDescription>
           </SheetHeader>
 

@@ -298,6 +298,11 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Changed
 
+- **Footer sheets share one header.** Tagebuch, Dienstzeiten and Rapporte used a smaller title
+  with an inline subtitle; they now have the same frame, title size and line underneath as
+  Fahrzeuge, Aufträge, Links & QR and Drucken, and Drucken lost the only icon in a sheet title.
+  The Tagebuch has no visible subtitle any more, and its link button is exactly the height of
+  the entry line (it stood taller, at the 44px minimum of an icon button).
 - **Kennzahlen moved from the footer into the user menu, as a modal.** Looked at now and then,
   not worked in – so no toolbar pill any more; `Z`, the palette and the phone's «Mehr» open the
   same dialog on every page. The paragraph on how the times are counted sits behind an ⓘ next to
