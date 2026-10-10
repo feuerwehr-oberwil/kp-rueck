@@ -377,36 +377,20 @@
     }
   }
 
-  /* The board's two scroll containers reserve their scrollbar's width whether
-     or not the bar is drawn.
+  /* The board's column bodies reserve their scrollbar's width whether or not
+     the bar is drawn, so a column that grows past the screen (a card added, a
+     section unfolded) never jumps sideways by the bar's 10px.
 
-     Opening any footer sheet on desktop runs a hand-rolled scroll lock
-     (`app/page.tsx`) that sets `overflow: hidden` on `#kanban-main` and on
-     every column body, so the board cannot scroll away under a panel that is
-     deliberately non-modal. The bars are custom `::-webkit-scrollbar` bars,
-     which on every platform that draws classic scrollbars take real layout
-     width — so hiding them handed 10px back to the content and the whole board
-     jumped sideways the moment a sheet opened, and jumped back when it closed.
-     Two shifts per panel, on the surface whose entire job is to sit still.
-
-     `stable` is the fix rather than compensating padding in the lock, because
-     the lock would then have to know which elements currently *have* a bar: a
-     column with three cards has none, and giving it a gutter only while a sheet
-     is open would shift it the other way. Reserved always = never shifts.
-     Verified in Chrome to survive `overflow: hidden`, which is what the lock
-     sets and what the whole fix depends on.
-
-     **`#kanban-main` is deliberately NOT in this list.** It only ever scrolls
+     `#kanban-main` is deliberately NOT in this list. It only ever scrolls
      HORIZONTALLY (`overflow-x-auto`), and `scrollbar-gutter` reserves the
      inline-axis gutter — i.e. space for a *vertical* bar that this element can
      never show. Measured in Chrome: with it, `offsetWidth − clientWidth = 10`
-     and `offsetHeight − clientHeight = 0`. So it bought no stability at all for
-     the bar it actually has, and spent 10px of dead space hard against the
-     right sidebar's divider — which is what made that divider read as a rule
-     floating in an empty gutter rather than as the panel's edge. Removing it
-     was re-checked against the case this whole block exists for: opening a
-     footer sheet still leaves the board's width unchanged, because the sideways
-     jump came from the COLUMN bodies below, and those keep their gutter. */
+     and `offsetHeight − clientHeight = 0` — 10px of dead space hard against the
+     right sidebar's divider.
+
+     (Opening a footer sheet once also hid these bars, through an
+     `overflow: hidden` scroll lock in app/page.tsx. The lock is gone — the
+     sheet's backdrop absorbs the pointer — so the bars now simply stay.) */
   [data-board-scroll] {
     scrollbar-gutter: stable;
   }

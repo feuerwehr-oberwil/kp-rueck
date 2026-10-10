@@ -30,6 +30,19 @@ will keep holding.
 
 ### Added
 
+- **⇥ completes in the ⌘K line.** `14 kell` + ⇥ becomes `14 Keller Marco`, `grenz` becomes
+  `Grenzweg 1`; ⇥ again takes the next candidate (named at the right of the preview), ⇧⇥ the
+  previous one. The Einsatz is offered while the line has none, people, vehicles and Geräte
+  after it. The empty field now says what it is for instead of «14 tlf meier».
+- **⇧J writes in the Einsatztagebuch.** The journal opens with the caret in its line, already
+  linked to the selected card; also in the palette («Tagebuch-Eintrag schreiben»).
+- **Dienstzeiten: every column sorts, the list filters, and a «Pause» column.** A click on a
+  column head sorts by it (again for the other way round), so «who has done the most / the
+  least» is one click; «Alle · Frei · Im Einsatz» and a name filter narrow it (on the phone: the
+  search field and one funnel, which also holds the sort). New columns «Eingesetzt» (time on an
+  incident or Auftrag since check-in, overlaps once) and «Pause» (present but on nothing);
+  «Im Einsatz» is now called «Anwesend». `GET /events/{id}/personnel-activity` carries
+  `assigned_minutes`.
 - **Any open Einsatz can be merged – its work moves along.** «Zusammenführen» used to accept only a
   fresh report («Eingegangen», nobody on it). Now any OPEN card can be merged into another open
   one: crew, vehicles, material (active and released), Reko reports with their photos, the
@@ -285,6 +298,14 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Changed
 
+- **Kennzahlen moved from the footer into the user menu, as a modal.** Looked at now and then,
+  not worked in – so no toolbar pill any more; `Z`, the palette and the phone's «Mehr» open the
+  same dialog on every page. The paragraph on how the times are counted sits behind an ⓘ next to
+  «Reaktionszeiten» instead of under every view.
+- **Einsatztagebuch: the Einsatz sits in the line.** The «Einsatz verknüpfen» button on a row of
+  its own above the field is now a square link button at the front of the line, and the linked
+  Einsatz a chip in its place (⌫ in the empty line removes it). Every row shows date and time,
+  today's too, so the text column starts at one edge.
 - **Files shared with KP Front are checked from both sides.** Five CI jobs compared five sets of
   files with KP Front's `main`, and only from this side: telemetry, alarm keywords, roster
   contract, alarm intake and snail. One job, «Shared files match KP Front», now does all of it.
@@ -448,6 +469,14 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Fixed
 
+- **Opening a footer sheet no longer hides the board's scrollbar.** A scroll lock set
+  `overflow: hidden` on the board under every open sheet, which removed its horizontal
+  scrollbar and left a bare strip at the bottom right. The sheet's backdrop already keeps the
+  board still; the lock is gone.
+- **A footer sheet closed by clicking its own button opens again with one click.** The
+  closing press landed on the backdrop, which vanished under the pointer, so no click followed –
+  and the «swallow the next click» guard stayed armed and ate the next real one («Dienstzeiten»
+  needed two clicks to reopen).
 - **A failed load no longer looks like an empty board.** A board whose first load failed showed
   empty columns, and a failed reload could empty a board that had been full. Now the last good
   state stays on screen with a red «Stand hh:mm – Aktualisierung fehlgeschlagen», a board that

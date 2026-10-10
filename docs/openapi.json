@@ -30284,6 +30284,11 @@
             "type": "integer",
             "title": "Assignment Count"
           },
+          "assigned_minutes": {
+            "type": "integer",
+            "title": "Assigned Minutes",
+            "default": 0
+          },
           "current_incident_title": {
             "anyOf": [
               {

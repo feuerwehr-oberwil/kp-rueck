@@ -131,10 +131,20 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
       return true
     }
 
+    // The swallow belongs to ONE gesture. The closing pointerdown usually lands on
+    // the backdrop, which unmounts under the pointer — so the press and the release
+    // hit different elements and the browser sends no click at all. A flag left
+    // armed then ate the NEXT click: «Dienstzeiten» clicked to close, clicked again
+    // to reopen, and nothing happened until a third click.
     const onPointerDown = (event: PointerEvent) => {
+      swallowNextClick.current = false
       if (!isOutside(event.target as HTMLElement | null)) return
       swallowNextClick.current = true
       guard.current.onOpenChange(false)
+    }
+    const onPointerUp = () => {
+      // A click, if one comes, is dispatched right after this release, in the same task.
+      if (swallowNextClick.current) setTimeout(() => (swallowNextClick.current = false), 0)
     }
     const onClick = (event: MouseEvent) => {
       if (!swallowNextClick.current) return
@@ -144,9 +154,11 @@ export function FooterSheet({ open, onOpenChange, children, className, style, sh
     }
 
     document.addEventListener("pointerdown", onPointerDown, true)
+    document.addEventListener("pointerup", onPointerUp, true)
     document.addEventListener("click", onClick, true)
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true)
+      document.removeEventListener("pointerup", onPointerUp, true)
       document.removeEventListener("click", onClick, true)
     }
   }, [])

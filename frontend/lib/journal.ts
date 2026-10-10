@@ -136,15 +136,12 @@ export function suggestIncidents(query: string, choices: readonly IncidentChoice
     .slice(0, limit)
 }
 
-/** The board's clock format: HH:MM today, «dd.mm. HH:MM» on another day. */
-export function formatJournalTime(iso: string, now: Date = new Date()): string {
+/** «dd.mm. HH:MM», always — the date too on today's lines, so every row's time is
+ *  the same width and the text column starts at one edge (owner, 10.10.2026). */
+export function formatJournalTime(iso: string): string {
   const d = new Date(iso)
-  const hh = String(d.getHours()).padStart(2, "0")
-  const mm = String(d.getMinutes()).padStart(2, "0")
-  const sameDay =
-    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-  if (sameDay) return `${hh}:${mm}`
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}. ${hh}:${mm}`
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /** A fresh id for one line being written — kept until the server confirmed it, so a retry

@@ -79,6 +79,8 @@ import { isNavigableBinding, soleDestination, type BindingsPopoverState, type Re
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
 import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
+import { toggleFigures } from "@/components/figures-dialog"
+import type { JournalComposeRequest } from "@/components/journal/journal-sheet"
 import { BoardDialogs } from "@/components/board/board-dialogs"
 import { useBoardDialogActions } from "@/components/board/use-board-dialog-actions"
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
@@ -439,6 +441,13 @@ export default function FireStationDashboard() {
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
   const [activeFooterSheet, setActiveFooterSheet] = useState<FooterSheet | null>(null)
+  // «Neuer Tagebuch-Eintrag» (⇧J): the journal opens with the caret in its line,
+  // linked to the selected card. A fresh `at` per request.
+  const [journalCompose, setJournalCompose] = useState<JournalComposeRequest | null>(null)
+  const writeJournal = useCallback((incidentId: string | null) => {
+    setActiveFooterSheet('journal')
+    setJournalCompose({ incidentId, at: Date.now() })
+  }, [])
   // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
   const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
   // Which sidebar row is currently showing its bindings, or null. One at a time
@@ -779,6 +788,7 @@ export default function FireStationDashboard() {
   })
 
   useBoardCommandHandlers({
+    writeJournal,
     fleet,
     operations,
     materials,
@@ -875,8 +885,8 @@ export default function FireStationDashboard() {
         detailModalOpen ||
         newEmergencyModalOpen ||
         assignmentDialogOpen ||
-        // Vehicle, Aufträge, Drucken, Links, Rapporte, Tagebuch and Kennzahlen footers are non-modal
-        // on desktop: keep their toggle keys (F / A / D / T / O / J / Z) able to close
+        // Vehicle, Aufträge, Drucken, Links, Rapporte and Tagebuch footers are non-modal
+        // on desktop: keep their toggle keys (F / A / D / T / O / J) able to close
         // them again. Every other shortcut still stops at an open sheet — it is
         // only the key that opened this one that stays live.
         (!!activeFooterSheet &&
@@ -885,8 +895,7 @@ export default function FireStationDashboard() {
           activeFooterSheet !== 'print' &&
           activeFooterSheet !== 'links' &&
           activeFooterSheet !== 'rapporte' &&
-          activeFooterSheet !== 'journal' &&
-          activeFooterSheet !== 'figures') ||
+          activeFooterSheet !== 'journal') ||
         deleteDialogOpen,
       hoveredOperationId,
       selectedOperationId,
@@ -944,7 +953,8 @@ export default function FireStationDashboard() {
       onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
       onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
       onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
-      onToggleFigures: () => setActiveFooterSheet((prev) => (prev === 'figures' ? null : 'figures')),
+      onWriteJournal: isEditor && selectedEvent ? () => writeJournal(selectedOperationId ?? null) : undefined,
+      onToggleFigures: toggleFigures,
       onToggleNotifications: toggleNotificationSidebar,
     },
   )
@@ -1114,32 +1124,13 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('kp:open-routen-editor', handler)
   }, [])
 
-  // Lock the board scroll while a non-modal footer slide-up sheet is open. These
-  // desktop sheets don't dim/trap the screen, so the board would otherwise scroll
-  // behind them (odd UI churn). The board has TWO scroll axes on separate
-  // elements: `#kanban-main` scrolls horizontally, and each Kanban column body
-  // (`[data-board-scroll]`) scrolls its cards vertically — locking only the outer
-  // container left the columns scrollable. So we lock the outer container plus
-  // every column scroller, and restore each element's prior overflow on close.
-  // We never touch document.body, so Radix's own scroll-lock on modal sheets is
-  // untouched. Mobile sheets are modal + full-screen, so this is desktop-only.
-  useEffect(() => {
-    if (isMobile || !activeFooterSheet) return
-    const main = document.getElementById('kanban-main')
-    if (!main) return
-    const locked: Array<{ el: HTMLElement; prev: string }> = []
-    const lock = (el: HTMLElement) => {
-      locked.push({ el, prev: el.style.overflow })
-      el.style.overflow = 'hidden'
-    }
-    lock(main)
-    main.querySelectorAll<HTMLElement>('[data-board-scroll]').forEach(lock)
-    return () => {
-      locked.forEach(({ el, prev }) => {
-        el.style.overflow = prev
-      })
-    }
-  }, [activeFooterSheet, isMobile])
+  // No scroll lock while a footer sheet is open. There used to be one here
+  // (`overflow: hidden` on `#kanban-main` and every column body), from when the
+  // sheet's backdrop let the pointer through. The backdrop absorbs the pointer
+  // now — wheel and drag over the board land on it, not on the board — so the
+  // lock had nothing left to stop, and what it still did was hide the board's
+  // horizontal scrollbar: the board grew by the bar's 10px under every open
+  // sheet and left a bare strip at the bottom-right (owner, 10.10.2026).
 
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
@@ -1333,7 +1324,6 @@ export default function FireStationDashboard() {
   const auftraegeSheetOpen = activeFooterSheet === 'auftraege'
   const rapportBacklogSheetOpen = activeFooterSheet === 'rapporte'
   const linksSheetOpen = activeFooterSheet === 'links'
-  const figuresSheetOpen = activeFooterSheet === 'figures'
   const crewDutySheetOpen = activeFooterSheet === 'crew'
 
   // The rolling Schadenplatz-Rapport backlog — closed incidents whose rapport is
@@ -1804,7 +1794,6 @@ export default function FireStationDashboard() {
           checklistPopoverOpen={checklistPopoverOpen}
           checklistProgress={checklistProgress}
           cmdHint={cmdHint}
-          figuresSheetOpen={figuresSheetOpen}
           filedRapports={filedRapports}
           handleChecklistOpenChange={handleChecklistOpenChange}
           journalSheetOpen={activeFooterSheet === 'journal'}
@@ -1867,6 +1856,7 @@ export default function FireStationDashboard() {
         handleDistributeToAuftrag={handleDistributeToAuftrag}
         handleOpenAssignmentDialog={handleOpenAssignmentDialog}
         handleOpenIncidentFromNotification={handleOpenIncidentFromNotification}
+        journalCompose={journalCompose}
         handleOpenRapport={handleOpenRapport}
         handleOperationDelete={handleOperationDelete}
         handleOperationUpdate={handleOperationUpdate}

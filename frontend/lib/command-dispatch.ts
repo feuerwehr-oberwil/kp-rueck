@@ -20,6 +20,9 @@
  *   so «tauchpumpe» takes a free one.
  * - A token nothing matches is shown greyed and ignored.
  *
+ * ⇥ completes the word being typed (`completeDispatch`): «kell» → «Keller Marco»,
+ * «grenz» → «Grenzweg 1»; ⇥ again offers the next candidate.
+ *
  * Nothing here touches the board. `parseDispatch` turns text into a plan; the
  * palette renders the plan; the board runs it on ↵ through the same assignment
  * paths a drag uses (`lib/hooks/use-command-dispatch.ts`).
@@ -313,6 +316,8 @@ function better(a: AliasMatch, b: AliasMatch): number {
 interface Candidate {
   target: DispatchTarget
   aliases: Word[][]
+  /** Each alias as it is written («Keller Marco», «TLF 1») — what ⇥ completes to. */
+  spellings: string[]
   /** Gerät only: interchangeable units share this; a free one is preferred. */
   bundle?: string
   available?: boolean
@@ -337,15 +342,26 @@ function buildCandidates(vocabulary: DispatchVocabulary): Candidate[] {
     candidates.push({
       target: { kind: "person", id: person.id, name: person.name, detail: person.detail, incidentIds: person.incidentIds ?? [] },
       aliases: [toWords(person.name)],
+      spellings: [person.name],
     })
   }
   for (const vehicle of vocabulary.vehicles) {
     const aliases = [toWords(vehicle.name)]
+    const spellings = [vehicle.name]
     // «tlf1» for «TLF 1», the type («TLF») and the radio call sign («Omega 1»).
     const compact = vehicle.name.replace(/[\s\-./]+/g, "")
-    if (compact !== vehicle.name) aliases.push(toWords(compact))
-    if (vehicle.type && fold(vehicle.type) !== fold(vehicle.name)) aliases.push(toWords(vehicle.type))
-    if (vehicle.callSign) aliases.push(toWords(vehicle.callSign))
+    if (compact !== vehicle.name) {
+      aliases.push(toWords(compact))
+      spellings.push(vehicle.name)
+    }
+    if (vehicle.type && fold(vehicle.type) !== fold(vehicle.name)) {
+      aliases.push(toWords(vehicle.type))
+      spellings.push(vehicle.type)
+    }
+    if (vehicle.callSign) {
+      aliases.push(toWords(vehicle.callSign))
+      spellings.push(vehicle.callSign)
+    }
     candidates.push({
       target: {
         kind: "vehicle",
@@ -356,6 +372,7 @@ function buildCandidates(vocabulary: DispatchVocabulary): Candidate[] {
         outOfService: !!vehicle.outOfService,
       },
       aliases,
+      spellings,
     })
   }
   for (const material of vocabulary.materials) {
@@ -369,6 +386,7 @@ function buildCandidates(vocabulary: DispatchVocabulary): Candidate[] {
         outOfService: !!material.outOfService,
       },
       aliases: [toWords(material.name)],
+      spellings: [material.name],
       bundle: fold(material.name),
       available: material.available !== false && !material.outOfService,
     })
@@ -377,13 +395,15 @@ function buildCandidates(vocabulary: DispatchVocabulary): Candidate[] {
   for (const incident of vocabulary.incidents) {
     const aliases = [toWords(incident.label)]
     if (incident.type) aliases.push(toWords(incident.type))
-    candidates.push({ target: { kind: "incident", incident }, aliases })
+    // Completed to the address, whichever name was typed: the Einsatzart is shared.
+    const address = incidentSpelling(incident)
+    candidates.push({ target: { kind: "incident", incident }, aliases, spellings: aliases.map(() => address) })
   }
   for (const [status, phrases] of Object.entries(STATUS_PHRASES) as [DispatchStatus, string[]][]) {
-    candidates.push({ target: { kind: "status", status }, aliases: phrases.map(toWords) })
+    candidates.push({ target: { kind: "status", status }, aliases: phrases.map(toWords), spellings: phrases })
   }
   for (const [priority, phrases] of Object.entries(PRIORITY_PHRASES) as [DispatchPriority, string[]][]) {
-    candidates.push({ target: { kind: "priority", priority }, aliases: phrases.map(toWords) })
+    candidates.push({ target: { kind: "priority", priority }, aliases: phrases.map(toWords), spellings: phrases })
   }
   return candidates
 }
@@ -696,3 +716,116 @@ function plan(
 /** Exposed for the vocabulary coverage test. */
 export const DISPATCH_STATUS_PHRASES = STATUS_PHRASES
 export const DISPATCH_PRIORITY_PHRASES = PRIORITY_PHRASES
+
+// ---------------------------------------------------------------------------
+// ⇥ completion
+
+/**
+ * How an Einsatz is completed: its address up to the first comma («Grenzweg 1» of
+ * «Grenzweg 1, BLT Tramdepot») — short, and it names the Einsatz again when parsed.
+ * A longer one would not parse back as one span, so it is completed to its number.
+ */
+function incidentSpelling(incident: DispatchIncident): string {
+  const head = incident.label.split(",")[0].trim()
+  const words = splitWords(head)
+  return words.length > 0 && words.length <= MAX_SPAN ? head : String(incident.number)
+}
+
+export interface DispatchCompletion {
+  /** The whole line with the word(s) being typed completed, and a space to go on. */
+  text: string
+  /** What the word becomes («Keller Marco»). */
+  label: string
+  target: DispatchTarget
+}
+
+/**
+ * ⇥ in the palette: complete the word being typed to a name the line can use.
+ *
+ * The last word is a beginning («kell»), the ones before it in the same name may
+ * already be whole («keller m» → «Keller Marco»). Candidates, best first: a plain
+ * beginning before a typo; the Einsatz first while the line has none yet, people,
+ * vehicles and Geräte after one (a second Einsatz would be ignored, so none is
+ * offered); status and priority words last. A line that ends in a space, or a word
+ * already typed in full, completes to nothing.
+ */
+export function completeDispatch(input: string, vocabulary: DispatchVocabulary): DispatchCompletion[] {
+  if (!input.trim() || /[\s+>!,;]$/.test(input)) return []
+  const raw = tokenize(input)
+  if (raw.length === 0 || incidentNumber(raw[raw.length - 1]) !== null) return []
+  const candidates = buildCandidates(vocabulary)
+
+  for (let span = Math.min(MAX_SPAN, raw.length); span >= 1; span--) {
+    const slice = raw.slice(raw.length - span)
+    const head = slice.slice(0, -1).map((token) => token.folded)
+    const last = slice[slice.length - 1].folded
+    // «14 kell»: the Einsatz number is never the start of a name.
+    if (head.some((word) => /^#?\d+$/.test(word))) continue
+    // One letter is too little to guess from — unless it ends a name already begun.
+    if (last.length < (span > 1 ? 1 : 2)) continue
+    const start = slice[0].start
+    const before = input.slice(0, start)
+    const hasIncident = before.trim() !== "" && parseDispatch(before, vocabulary).tokens.some((t) => t.state === "incident")
+
+    const found: { completion: DispatchCompletion; level: Level; order: number }[] = []
+    const seen = new Set<string>()
+    for (const candidate of candidates) {
+      const kind = candidate.target.kind
+      if (hasIncident && kind === "incident") continue
+      let best: { level: Level; alias: number } | null = null
+      candidate.aliases.forEach((alias, a) => {
+        const level = completes(head, last, alias)
+        if (level && (!best || level > best.level)) best = { level, alias: a }
+      })
+      if (!best) continue
+      const { level, alias } = best as { level: Level; alias: number }
+      const label = candidate.spellings[alias]
+      // Typed in full already: nothing to complete — and no shorter span either
+      // («muster peter» must not offer «peter» → «Schneider Peter»).
+      if (fold(slice.map((token) => token.text).join(" ")) === fold(label)) return []
+      const text = `${before}${label} `
+      if (seen.has(text)) continue
+      seen.add(text)
+      const order = kind === "incident" ? (hasIncident ? 3 : 0) : kind === "status" || kind === "priority" ? 2 : 1
+      found.push({ completion: { text, label, target: candidate.target }, level, order })
+    }
+    if (found.length > 0) {
+      return found
+        .sort((a, b) => b.level - a.level || a.order - b.order || a.completion.label.localeCompare(b.completion.label, "de"))
+        .map((entry) => entry.completion)
+    }
+  }
+  return []
+}
+
+/**
+ * Can `head` + `last` be the beginning of this alias? Every head word whole or a
+ * clean beginning of a different word of the alias, the last word a beginning of
+ * one more. 2 = a plain beginning, 1 = only with a typo in the last word, 0 = no.
+ */
+function completes(head: string[], last: string, alias: Word[]): Level {
+  if (head.length + 1 > alias.length) return 0
+  if (head.length > 0) {
+    const match = matchAlias(head, alias)
+    if (!match || match.min < 2) return 0
+    const used = new Set(match.words)
+    let level: Level = 0
+    alias.forEach((word, w) => {
+      if (used.has(w)) return
+      const l = beginning(last, word)
+      if (l > level) level = l
+    })
+    return level
+  }
+  let level: Level = 0
+  for (const word of alias) {
+    const l = beginning(last, word)
+    if (l > level) level = l
+  }
+  return level
+}
+
+function beginning(token: string, word: Word): Level {
+  for (const spelling of word) if (spelling.startsWith(token)) return 2
+  return token.length >= 4 && wordLevel(token, word) === 1 ? 1 : 0
+}

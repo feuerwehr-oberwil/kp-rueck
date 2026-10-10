@@ -239,7 +239,7 @@
       "figures": "Ouvrir les indicateurs",
       "crewDuty": "Temps de service",
       "dispatch": {
-        "placeholder": "Commande ou « 14 tlf meier »",
+        "placeholder": "Chercher une commande ou attribuer : intervention, puis véhicule / personne · ⇥ complète",
         "group": "Exécuter",
         "incidentTitle": "Intervention {number}",
         "arrowAssign": "reçoit",
@@ -266,9 +266,11 @@
         "confirmTypo": "tu voulais dire ?",
         "confirmSplit": "deux personnes ?",
         "choiceConfirm": "confirmer pour « {text} »",
-        "toastMoved": "{name} retiré de {from}"
+        "toastMoved": "{name} retiré de {from}",
+        "tabComplete": "⇥ complète en « {label} »"
       },
-      "journal": "Ouvrir le journal d'intervention"
+      "journal": "Ouvrir le journal d'intervention",
+      "journalEntry": "Écrire dans le journal"
     },
     "meta": {
       "title": "Tableau de bord KP Rück",
@@ -664,8 +666,6 @@
     "figures": {
       "title": "Indicateurs",
       "titleTraining": "Évaluation de l’exercice",
-      "description": "Situation et temps de réaction de cet événement – mis à jour en continu.",
-      "descriptionTraining": "Situation et temps de réaction de cet exercice – les valeurs du rapport d’exercice.",
       "total": "Annonces",
       "waiting": "En attente",
       "waitingByPriority": "{high} haute · {medium} moyenne · {low} basse",
@@ -699,7 +699,8 @@
       "stale": "La dernière mise à jour a échoué – les valeurs peuvent être dépassées.",
       "noEvent": "Aucun événement sélectionné.",
       "menuItem": "Indicateurs",
-      "wallBadge": "{waiting} en attente · {high} haute"
+      "wallBadge": "{waiting} en attente · {high} haute",
+      "definitionsButton": "Mode de calcul"
     }
   },
   "feld": {
@@ -1791,7 +1792,6 @@
       "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
       "distributeConfirmAction": "Oui, ajouter",
-      "figures": "Indicateurs",
       "journal": "Journal",
       "journalTitle": "Journal (J)"
     },
@@ -2337,10 +2337,9 @@
       "title": "Temps de service",
       "summary": "{present} présents",
       "summaryOver": "{present} présents · {over} depuis plus de {hours} h",
-      "sortHint": "Le plus long en premier",
       "colName": "Nom",
       "colSince": "Depuis",
-      "colOnDuty": "En service",
+      "colOnDuty": "Présent",
       "colCount": "Interventions",
       "colNow": "Actuellement",
       "free": "libre",
@@ -2352,7 +2351,26 @@
       "openButton": "Temps de service",
       "openTitle": "Temps de service – qui est là depuis combien de temps",
       "onDutyTooltip": "En service depuis {time} – {duration}",
-      "onDutyTooltipOver": "En service depuis {time} – {duration}, plus de {hours} h"
+      "onDutyTooltipOver": "En service depuis {time} – {duration}, plus de {hours} h",
+      "colAssigned": "Engagé",
+      "colPause": "Pause",
+      "pauseTitle": "Pause : présent, mais sur aucune intervention ni mission",
+      "pauseShort": "pause {duration}",
+      "pauseLong": "{duration} de pause",
+      "filter": "Filtrer",
+      "filterOn": "Filtré : {filter}",
+      "filterAll": "Tous",
+      "filterFree": "Libres",
+      "filterBusy": "Engagés",
+      "showAll": "Tout afficher",
+      "searchPlaceholder": "Nom ou lieu",
+      "sortBy": "Trier par",
+      "sortByColumn": "Trier par « {column} »",
+      "sortedBy": "Trié par {column}",
+      "sortAsc": "croissant",
+      "sortDesc": "décroissant",
+      "emptyFilteredTitle": "Personne ne correspond à ce filtre.",
+      "resetFilter": "Réinitialiser le filtre"
     }
   },
   "login": {
@@ -2640,7 +2658,8 @@
       "commands": "Commandes et raccourcis clavier",
       "help": "Aide",
       "openMenu": "Ouvrir le menu utilisateur",
-      "statusNotConfigured": "Non configuré"
+      "statusNotConfigured": "Non configuré",
+      "figures": "Indicateurs"
     },
     "mobileBottomNav": {
       "incidents": "Interventions",
@@ -2666,7 +2685,8 @@
       "support": "Support",
       "account": "Compte",
       "linksAndQr": "Liens & QR",
-      "journal": "Journal d'intervention"
+      "journal": "Journal d'intervention",
+      "figures": "Indicateurs"
     },
     "pageNav": {
       "main": "Navigation principale",
@@ -4415,7 +4435,7 @@
     "correct": "Corriger l'entrée",
     "correcting": "Correction de «{text}» – l'original reste visible.",
     "cancelCorrection": "Annuler la correction",
-    "placeholder": "Entrée …",
+    "placeholder": "Entrée … (# lie une intervention)",
     "placeholderCorrect": "Nouveau libellé",
     "inputLabel": "Nouvelle entrée du journal",
     "submit": "Inscrire",
@@ -4465,6 +4485,7 @@
       "itemsReturned": "Revenu de {other}"
     },
     "refDeleted": "{ref} (supprimée)",
-    "refMerged": "{ref} → {target}"
+    "refMerged": "{ref} → {target}",
+    "linkHint": "Lier une intervention – ou # dans le texte"
   }
 }

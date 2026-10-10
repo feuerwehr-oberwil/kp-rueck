@@ -130,7 +130,7 @@
       "figures": "Kennzahlen öffnen",
       "crewDuty": "Dienstzeiten",
       "dispatch": {
-        "placeholder": "Befehl oder «14 tlf meier»",
+        "placeholder": "Befehl suchen oder zuweisen: Einsatz, dann Fahrzeug / Person · ⇥ ergänzt",
         "group": "Ausführen",
         "incidentTitle": "Einsatz {number}",
         "arrowAssign": "bekommt",
@@ -157,9 +157,11 @@
         "confirmTypo": "meintest du?",
         "confirmSplit": "zwei Personen?",
         "choiceConfirm": "bestätigen für «{text}»",
-        "toastMoved": "{name} von {from} abgezogen"
+        "toastMoved": "{name} von {from} abgezogen",
+        "tabComplete": "⇥ ergänzt zu «{label}»"
       },
-      "journal": "Einsatztagebuch öffnen"
+      "journal": "Einsatztagebuch öffnen",
+      "journalEntry": "Tagebuch-Eintrag schreiben"
     },
     "meta": {
       "title": "KP Rück Dashboard",
@@ -227,7 +229,8 @@
       "commands": "Befehle & Tastaturkürzel",
       "help": "Hilfe",
       "openMenu": "Benutzermenü öffnen",
-      "statusNotConfigured": "Nicht eingerichtet"
+      "statusNotConfigured": "Nicht eingerichtet",
+      "figures": "Kennzahlen"
     },
     "mobileBottomNav": {
       "incidents": "Einsätze",
@@ -253,7 +256,8 @@
       "support": "Support",
       "account": "Konto",
       "linksAndQr": "Links & QR",
-      "journal": "Einsatztagebuch"
+      "journal": "Einsatztagebuch",
+      "figures": "Kennzahlen"
     },
     "pageNav": {
       "main": "Hauptnavigation",
@@ -554,7 +558,6 @@
       "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
       "distributeConfirmAction": "Ja, aufnehmen",
-      "figures": "Kennzahlen",
       "journal": "Tagebuch",
       "journalTitle": "Tagebuch (J)"
     },
@@ -1100,10 +1103,9 @@
       "title": "Dienstzeiten",
       "summary": "{present} anwesend",
       "summaryOver": "{present} anwesend · {over} über {hours} h",
-      "sortHint": "Längste Dienstzeit zuerst",
       "colName": "Name",
       "colSince": "Seit",
-      "colOnDuty": "Im Einsatz",
+      "colOnDuty": "Anwesend",
       "colCount": "Einsätze",
       "colNow": "Jetzt",
       "free": "frei",
@@ -1115,7 +1117,26 @@
       "openButton": "Dienstzeiten",
       "openTitle": "Dienstzeiten – wer ist wie lange da",
       "onDutyTooltip": "Seit {time} im Einsatz – {duration}",
-      "onDutyTooltipOver": "Seit {time} im Einsatz – {duration}, über {hours} h"
+      "onDutyTooltipOver": "Seit {time} im Einsatz – {duration}, über {hours} h",
+      "colAssigned": "Eingesetzt",
+      "colPause": "Pause",
+      "pauseTitle": "Pause: anwesend, aber auf keinem Einsatz und keinem Auftrag",
+      "pauseShort": "Pause {duration}",
+      "pauseLong": "{duration} Pause",
+      "filter": "Filtern",
+      "filterOn": "Gefiltert: {filter}",
+      "filterAll": "Alle",
+      "filterFree": "Frei",
+      "filterBusy": "Im Einsatz",
+      "showAll": "Alle zeigen",
+      "searchPlaceholder": "Name oder Ort",
+      "sortBy": "Sortieren nach",
+      "sortByColumn": "Nach «{column}» sortieren",
+      "sortedBy": "Sortiert nach {column}",
+      "sortAsc": "aufsteigend",
+      "sortDesc": "absteigend",
+      "emptyFilteredTitle": "Niemand passt zu diesem Filter.",
+      "resetFilter": "Filter zurücksetzen"
     }
   },
   "incidents": {
@@ -2514,8 +2535,6 @@
     "figures": {
       "title": "Kennzahlen",
       "titleTraining": "Übungsauswertung",
-      "description": "Lage und Reaktionszeiten dieses Ereignisses – laufend aktualisiert.",
-      "descriptionTraining": "Lage und Reaktionszeiten dieser Übung – die Werte des Übungsberichts.",
       "total": "Meldungen",
       "waiting": "Offen",
       "waitingByPriority": "{high} hoch · {medium} mittel · {low} niedrig",
@@ -2549,7 +2568,8 @@
       "stale": "Letzte Aktualisierung fehlgeschlagen – die Werte können veraltet sein.",
       "noEvent": "Kein Ereignis ausgewählt.",
       "menuItem": "Kennzahlen",
-      "wallBadge": "{waiting} offen · {high} hoch"
+      "wallBadge": "{waiting} offen · {high} hoch",
+      "definitionsButton": "Wie wird gerechnet?"
     }
   },
   "reko": {
@@ -4415,7 +4435,7 @@
     "correct": "Eintrag korrigieren",
     "correcting": "Korrektur von «{text}» – das Original bleibt sichtbar.",
     "cancelCorrection": "Korrektur abbrechen",
-    "placeholder": "Eintrag …",
+    "placeholder": "Eintrag … (# verknüpft einen Einsatz)",
     "placeholderCorrect": "Neuer Wortlaut",
     "inputLabel": "Neuer Eintrag im Einsatztagebuch",
     "submit": "Eintragen",
@@ -4465,6 +4485,7 @@
       "itemsReturned": "Zurück von {other}"
     },
     "refDeleted": "{ref} (gelöscht)",
-    "refMerged": "{ref} → {target}"
+    "refMerged": "{ref} → {target}",
+    "linkHint": "Einsatz verknüpfen – oder # im Text"
   }
 }

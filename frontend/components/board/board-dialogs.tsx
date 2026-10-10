@@ -22,7 +22,7 @@ import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
 import { RekoPickerDialog } from "@/components/event-setup-checklist"
 import { AttendanceModal } from "@/components/kanban/attendance-modal"
 import { AuftraegeSheet } from "@/components/kanban/auftraege-sheet"
-import { FiguresSheet } from "@/components/kanban/figures-sheet"
+import { toggleFigures } from "@/components/figures-dialog"
 import { CrewDutySheet } from "@/components/kanban/crew-duty-sheet"
 import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
 import { ClosedStopDialog } from "@/components/kanban/closed-stop-dialog"
@@ -30,7 +30,7 @@ import { IncidentStatusWorkflowDialogs, type useIncidentStatusWorkflow } from "@
 import { LinksQrSheet } from "@/components/kanban/links-qr-sheet"
 import { NewEmergencyModal } from "@/components/kanban/new-emergency-modal"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
-import { JournalSheet } from "@/components/journal/journal-sheet"
+import { JournalSheet, type JournalComposeRequest } from "@/components/journal/journal-sheet"
 import { RapportBacklogSheet, type selectFiledRapports, type selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
 import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
@@ -137,6 +137,7 @@ export interface BoardDialogsProps {
   handleDistributeToAuftrag: (operationId: string) => void
   handleOpenAssignmentDialog: (resourceType: ResourceKind, operationId: string, search?: string) => void
   handleOpenIncidentFromNotification: (incidentId: string) => void
+  journalCompose: JournalComposeRequest | null
   handleOpenRapport: (operationId: string) => void
   handleOperationDelete: OperationHandlers["handleOperationDelete"]
   handleOperationUpdate: OperationHandlers["handleOperationUpdate"]
@@ -261,6 +262,7 @@ export function BoardDialogs({
   handleDistributeToAuftrag,
   handleOpenAssignmentDialog,
   handleOpenIncidentFromNotification,
+  journalCompose,
   handleOpenRapport,
   handleOperationDelete,
   handleOperationUpdate,
@@ -535,20 +537,11 @@ export function BoardDialogs({
         eventId={selectedEvent?.id ?? null}
         operations={operations}
         isEditor={isEditor}
+        composeRequest={journalCompose}
         onOpenIncident={(id) => {
           setActiveFooterSheet(null)
           openIncidentDetail(id)
         }}
-      />
-
-      {/* Kennzahlen — Lage numbers + Reaktionszeiten (Übungsauswertung on a training Ereignis) */}
-      <FiguresSheet
-        open={activeFooterSheet === 'figures'}
-        onOpenChange={(open) => !open && activeFooterSheet === 'figures' && setActiveFooterSheet(null)}
-        eventId={selectedEvent?.id ?? null}
-        training={!!selectedEvent?.training_flag}
-        operations={operations}
-        onOpenIncident={handleOpenIncidentFromNotification}
       />
 
       {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
@@ -732,6 +725,7 @@ export function BoardDialogs({
         hasSelectedEvent={!!selectedEvent}
         onLinks={() => setActiveFooterSheet(linksSheetOpen ? null : 'links')}
         onJournal={selectedEvent ? () => setActiveFooterSheet('journal') : undefined}
+        onFigures={selectedEvent ? toggleFigures : undefined}
         onPersonnel={() => setMobilePersonnelSheetOpen(true)}
         onVehicleStatus={() => setActiveFooterSheet('vehicles')}
         onPrint={() => setActiveFooterSheet(printSheetOpen ? null : 'print')}

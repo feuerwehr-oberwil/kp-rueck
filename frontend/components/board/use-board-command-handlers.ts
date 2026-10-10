@@ -6,6 +6,7 @@ import type { DispatchCommand } from "@/lib/hooks/use-command-dispatch"
 import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { type FooterSheet } from "@/components/board/board-footer"
+import { toggleFigures } from "@/components/figures-dialog"
 import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { ApiVehicle } from "@/lib/api-client"
 import type { CommandPaletteHandlers } from "@/lib/contexts/command-palette-context"
@@ -41,6 +42,8 @@ export interface UseBoardCommandHandlersInput {
   setOperationPriority: (operationId: string, priority: Operation["priority"]) => void
   toggleZuFuss: (operationId: string) => void
   handleRequestDelete: (operationId: string) => void
+  /** Journal open, caret in its line, linked to this card (⇧J). */
+  writeJournal: (incidentId: string | null) => void
 }
 
 /**
@@ -78,6 +81,7 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
     setOperationPriority,
     toggleZuFuss,
     handleRequestDelete,
+    writeJournal,
   } = input
 
   // Register command palette handlers
@@ -94,7 +98,8 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
       onToggleLinks: () => setActiveFooterSheet(prev => prev === 'links' ? null : 'links'),
       onToggleRapporte: () => setActiveFooterSheet(prev => prev === 'rapporte' ? null : 'rapporte'),
       onToggleJournal: () => setActiveFooterSheet(prev => prev === 'journal' ? null : 'journal'),
-      onToggleFigures: () => setActiveFooterSheet(prev => prev === 'figures' ? null : 'figures'),
+      onWriteJournal: isEditor ? () => writeJournal(selectedOperationId) : undefined,
+      onToggleFigures: toggleFigures,
       onToggleCrewDuty: () => setActiveFooterSheet(prev => prev === 'crew' ? null : 'crew'),
       onToggleAuftraege: () => setActiveFooterSheet(prev => {
         if (prev === 'auftraege') return null
@@ -196,6 +201,7 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
     setActiveFooterSheet,
     setAuftraegeFocusGroupId,
     setNewEmergencyModalOpen,
+    writeJournal,
   ])
 
   return {

@@ -87,11 +87,13 @@ describe("EventFiguresView", () => {
     expect(within(items[2]).getByText("noch keine")).toBeTruthy()
   })
 
-  it("leaves the definitions footnote off the wall", () => {
+  it("keeps the definitions behind an (i) button, and off the wall", async () => {
     const { unmount } = renderWithIntl(<EventFiguresView figures={figures()} />)
-    expect(screen.getByText(/Dieselben Werte wie im Einsatzbericht/)).toBeTruthy()
+    expect(screen.queryByText(/Dieselben Werte wie im Einsatzbericht/)).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Wie wird gerechnet?" }))
+    expect(await screen.findByText(/Dieselben Werte wie im Einsatzbericht/)).toBeTruthy()
     unmount()
     renderWithIntl(<EventFiguresView figures={figures()} density="wall" />)
-    expect(screen.queryByText(/Dieselben Werte wie im Einsatzbericht/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Wie wird gerechnet?" })).toBeNull()
   })
 })

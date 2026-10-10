@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList } from 'lucide-react';
+import { Settings, User, LogOut, Radio, Plus, QrCode, Search, Truck, Printer, Calendar, Monitor, Map, LayoutGrid, BarChart3, Keyboard, Download, FileText, FileSpreadsheet, CircleHelp, ClipboardList, ChartColumn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEvent } from '@/lib/contexts/event-context';
 import { getApiUrl } from '@/lib/env';
@@ -25,6 +25,7 @@ import { AccountBlock } from '@/components/auth/account-block';
 import { VersionLabel } from '@/components/version-label';
 import { useLogout } from '@/lib/hooks/use-logout';
 import { openCommandPalette } from '@/components/ui/command-palette';
+import { FiguresDialog, toggleFigures } from '@/components/figures-dialog';
 import { useCommandPaletteHint } from '@/lib/hooks/use-is-mac';
 import {
   DropdownMenu,
@@ -465,6 +466,12 @@ export function UserMenu({
           <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1.5">
             {t('display')}
           </DropdownMenuLabel>
+          {/* Kennzahlen: a modal over this page, not a display of its own (was a footer pill). */}
+          <DropdownMenuItem onClick={toggleFigures} className="cursor-pointer">
+            <ChartColumn className="mr-2 h-4 w-4" />
+            <span>{t('figures')}</span>
+            <span className="ml-auto text-xs text-muted-foreground">Z</span>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/display" target="_blank" className="cursor-pointer">
               <Monitor className="mr-2 h-4 w-4" />
@@ -581,6 +588,7 @@ export function UserMenu({
         </DropdownMenuContent>
     </DropdownMenu>
     {logoutDialog}
+    <FiguresDialog />
     </>
   );
 }

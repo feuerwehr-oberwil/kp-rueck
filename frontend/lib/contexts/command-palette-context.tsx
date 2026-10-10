@@ -19,6 +19,8 @@ export interface CommandPaletteHandlers {
   onToggleRapporte?: () => void
   /** Opens the Einsatztagebuch — key «J». */
   onToggleJournal?: () => void
+  /** A new journal line: the journal opens with the caret in it (⇧J). */
+  onWriteJournal?: () => void
   /** Opens the Kennzahlen sheet (Lage, Reaktionszeiten) — key «Z». */
   onToggleFigures?: () => void
   /** Opens the Dienstzeiten overview (who is here for how long). No single key. */

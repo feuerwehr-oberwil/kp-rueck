@@ -194,6 +194,8 @@ async def _personnel_activity(
     One row per checked-in person, longest on duty first:
     - ``active_duration_minutes``: time since ``checked_in_at`` (arrival), the same clock
       the time-on-duty notification uses — never the current assignment's age.
+    - ``assigned_minutes``: time on an incident or Auftrag since check-in, finished and
+      current, overlaps counted once — on duty minus this is the Pause the overview shows.
     - ``assignment_count``: Einsätze worked in this Ereignis — distinct incidents plus
       distinct Aufträge (a route counts once, whatever its stops), finished and current,
       ignoring assignments that were released again within ``MIN_WORKED``.
@@ -209,6 +211,11 @@ async def _personnel_activity(
 
     worked: dict[UUID, set[tuple[str, UUID]]] = defaultdict(set)
     current: dict[UUID, list[str]] = defaultdict(list)
+    spans: dict[UUID, list[tuple[datetime, datetime]]] = defaultdict(list)
+
+    def add_span(person_id: UUID, assigned_at: datetime | None, unassigned_at: datetime | None) -> None:
+        if assigned_at is not None:
+            spans[person_id].append((assigned_at, unassigned_at or now))
 
     def counts(assigned_at: datetime | None, unassigned_at: datetime | None) -> bool:
         if unassigned_at is None:
@@ -236,6 +243,7 @@ async def _personnel_activity(
     for person_id, assigned_at, unassigned_at, incident_id, title, address in incident_rows.all():
         if counts(assigned_at, unassigned_at):
             worked[person_id].add(("incident", incident_id))
+        add_span(person_id, assigned_at, unassigned_at)
         if unassigned_at is None:
             current[person_id].append(location_display(address, home_city) or title)
 
@@ -259,6 +267,7 @@ async def _personnel_activity(
     for person_id, assigned_at, unassigned_at, group_id, name in group_rows.all():
         if counts(assigned_at, unassigned_at):
             worked[person_id].add(("group", group_id))
+        add_span(person_id, assigned_at, unassigned_at)
         if unassigned_at is None:
             current[person_id].append(name)
 
@@ -274,9 +283,37 @@ async def _personnel_activity(
                 status="assigned" if current.get(person.id) else person.status,
                 active_duration_minutes=minutes,
                 assignment_count=len(worked.get(person.id, ())),
+                assigned_minutes=_assigned_minutes(spans.get(person.id, []), checked_in_at, now),
                 current_incident_title=" · ".join(current[person.id]) if current.get(person.id) else None,
                 checked_in_at=checked_in_at,
             )
         )
     rows.sort(key=lambda r: (-r.active_duration_minutes, r.name))
     return rows
+
+
+def _assigned_minutes(spans: list[tuple[datetime, datetime]], since: datetime | None, now: datetime) -> int:
+    """Minutes covered by ``spans`` between ``since`` (check-in) and ``now``; overlaps once.
+
+    Two cards at once (a person on an incident and its Auftrag) is one stretch of work,
+    not two — so the spans are merged before they are summed. Nothing before check-in
+    counts: an assignment left over from an earlier stint is not this stint's work.
+    """
+    if since is None:
+        return 0
+    clipped = sorted((max(start, since), min(end, now)) for start, end in spans)
+    total = timedelta()
+    run_start: datetime | None = None
+    run_end: datetime | None = None
+    for start, end in clipped:
+        if end <= start:
+            continue
+        if run_end is None or start > run_end:
+            if run_start is not None and run_end is not None:
+                total += run_end - run_start
+            run_start, run_end = start, end
+        else:
+            run_end = max(run_end, end)
+    if run_start is not None and run_end is not None:
+        total += run_end - run_start
+    return int(total.total_seconds() // 60)
