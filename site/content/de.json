@@ -302,7 +302,7 @@
   "sibling": {
     "eyebrow": "Verwandtes Projekt",
     "h2": "KP Rück hält hinten den Überblick. KP Front führt vorne.",
-    "p": "<strong>KP Front</strong> bildet am Einsatzort die Lagekarte und den Führungstisch\n          digital ab: taktische Zeichen, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Eigene App,\n          gleiche Handschrift – die beiden können sich Alarme übergeben, brauchen einander aber\n          nicht.",
+    "p": "<strong>KP Front</strong> bildet am Einsatzort die Lagekarte und den Führungstisch\n          digital ab: taktische Zeichen, Objektpläne und Atemschutzüberwachung, auch ohne Netz. Eigene App,\n          gleiche Handschrift – beide erhalten denselben Alarm vom Dispositionssystem\n          und brauchen einander nicht.",
     "cta": "KP Front ansehen",
     "setup": {
       "h3": "Beide betreiben – ohne alles doppelt einzurichten",
@@ -314,10 +314,6 @@
         {
           "dt": "Divera-Zugang",
           "dd": "Ein Schlüssel für beide – dieselben Alarme, dieselbe Mannschaft. <span class=\"opt\">optional</span>"
-        },
-        {
-          "dt": "Druck-Agent",
-          "dd": "Ein Dienst im Magazin bedient beide Apps und beide Druckerarten."
         },
         {
           "dt": "Mannschaftsliste",
