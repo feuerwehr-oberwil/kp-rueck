@@ -565,6 +565,27 @@ dev-clean:
 dev-sync SOURCE *FLAGS:
     ./scripts/dev-sync.sh {{SOURCE}} {{FLAGS}}
 
+# Railway staging is stopped between test sessions: its schedulers and polling loops keep it
+# busy around the clock, so App Sleeping never kicks in and it bills like a second prod. The
+# project is pinned rather than taken from `railway link`, which may point at the demo.
+staging_project := "ed8b3aca-e7a6-4a6a-aaa4-8fb504a9f5f8"
+
+# Database first, so the backend does not boot against nothing. Backend and frontend come
+# from the latest commit on `develop`, the branch staging deploys.
+# Start the stopped Railway staging environment
+staging-up:
+    railway redeploy --from-source -p {{staging_project}} -e staging -s Postgres -y
+    railway redeploy --from-source -p {{staging_project}} -e staging -s backend -y
+    railway redeploy --from-source -p {{staging_project}} -e staging -s frontend -y
+
+# Removes the running deployments only – database volume, photos and variables stay. A service
+# that is already stopped is skipped (`railway down` fails on it, hence the `-`).
+# Stop the Railway staging environment so it stops billing (`just staging-up` brings it back)
+staging-down:
+    -railway down -p {{staging_project}} -e staging -s frontend -y
+    -railway down -p {{staging_project}} -e staging -s backend -y
+    -railway down -p {{staging_project}} -e staging -s Postgres -y
+
 # ============================================
 # Database
 # ============================================
