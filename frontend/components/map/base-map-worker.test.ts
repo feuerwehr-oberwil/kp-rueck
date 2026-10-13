@@ -24,13 +24,14 @@ describe("MapLibre worker", () => {
     expect(MAPLIBRE_WORKER_URL).toBe("/maplibre/maplibre-gl-worker.mjs")
   })
 
-  it("still needs exactly the two files the copy script ships", () => {
-    // A MapLibre upgrade that renames or splits the worker would leave the copy incomplete.
+  it("is still the one self-contained file the copy script ships", () => {
+    // A MapLibre upgrade that splits the worker again (6.0–6.12 imported ./maplibre-gl-shared.mjs)
+    // would leave the copy incomplete.
     const dist = join(dirname(createRequire(import.meta.url).resolve("maplibre-gl/package.json")), "dist")
     const worker = readFileSync(join(dist, "maplibre-gl-worker.mjs"), "utf8")
-    const imports = [...worker.matchAll(/from\s*"(\.[^"]+)"/g)].map((match) => match[1])
-    expect(new Set(imports)).toEqual(new Set(["./maplibre-gl-shared.mjs"]))
+    const imports = [...worker.matchAll(/from\s*["'`](\.[^"'`]+)["'`]/g)].map((match) => match[1])
+    expect(imports).toEqual([])
     const script = readFileSync(join(__dirname, "..", "..", "scripts", "copy-maplibre-worker.mjs"), "utf8")
-    expect(script).toContain("'maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'")
+    expect(script).toContain("'maplibre-gl-worker.mjs'")
   })
 })

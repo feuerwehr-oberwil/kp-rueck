@@ -11,8 +11,8 @@
  * pan to the selected one, «Alle Einsätze einpassen», the phone's street-level labels) stays
  * dead. `components/map/base-map.tsx` points `setWorkerUrl` at the copy.
  *
- * The worker is an ES module that imports `./maplibre-gl-shared.mjs`, so both files go together,
- * in the same directory.
+ * Since MapLibre 6.13 the worker is self-contained again – `maplibre-gl-shared.mjs` ships as an
+ * empty, deprecated file – so the worker is the only file to copy.
  */
 import { copyFileSync, mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -25,6 +25,4 @@ const dist = dirname(require.resolve('maplibre-gl/package.json')) + '/dist'
 const out = join(here, '..', 'public', 'maplibre')
 
 mkdirSync(out, { recursive: true })
-for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
-  copyFileSync(join(dist, file), join(out, file))
-}
+copyFileSync(join(dist, 'maplibre-gl-worker.mjs'), join(out, 'maplibre-gl-worker.mjs'))
