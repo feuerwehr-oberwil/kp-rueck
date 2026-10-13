@@ -273,7 +273,7 @@
   "sibling": {
     "eyebrow": "Project parent",
     "h2": "KP Rück mantegna la survista davos. KP Front maina davant.",
-    "p": "<strong>KP Front</strong> digitalisescha al lieu d’acziun la charta da situaziun e la maisa\n          da direcziun: segns tactics, plans d’object e surveglianza da la protecziun respiratorica,\n          era senza rait. Las duas applicaziuns pon transmetter alarms, ma funcziunan independentamain.",
+    "p": "<strong>KP Front</strong> digitalisescha al lieu d’acziun la charta da situaziun e la maisa\n          da direcziun: segns tactics, plans d’object e surveglianza da la protecziun respiratorica,\n          era senza rait. Las duas applicaziuns survegnan il medem alarm dal sistem d’alarmaziun e funcziunan independentamain.",
     "cta": "Vesair KP Front",
     "setup": {
       "h3": "Manar omaduas applicaziuns – senza configurar tut duas giadas",
@@ -285,10 +285,6 @@
         {
           "dt": "Access a Divera",
           "dd": "Ina clav per omaduas applicaziuns – ils medems alarms, la medema glista dal persunal. <span class=\"opt\">opziunal</span>"
-        },
-        {
-          "dt": "Agent da stampa",
-          "dd": "In servetsch en il magazin serva omaduas applicaziuns e las duas sorts da stampa: PDF e stampa directa."
         },
         {
           "dt": "Glista dal persunal",

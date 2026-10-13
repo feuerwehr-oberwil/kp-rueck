@@ -272,7 +272,7 @@
   "sibling": {
     "eyebrow": "Related project",
     "h2": "KP Rück keeps the overview at the rear. KP Front commands at the front.",
-    "p": "<strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – the two can hand alarms to each other, but neither needs the other.",
+    "p": "<strong>KP Front</strong> turns the situation map and the command table at the scene into digital ones: tactical symbols, site plans and SCBA monitoring, even without a network. Its own app, the same handwriting – both take the same alarm from the dispatch system, and neither needs the other.",
     "cta": "Take a look at KP Front",
     "setup": {
       "h3": "Running both – without setting everything up twice",
@@ -284,10 +284,6 @@
         {
           "dt": "Divera access",
           "dd": "One key for both – the same alarms, the same roster. <span class=\"opt\">optional</span>"
-        },
-        {
-          "dt": "Print agent",
-          "dd": "One service in the station serves both apps and both kinds of printer."
         },
         {
           "dt": "Roster",

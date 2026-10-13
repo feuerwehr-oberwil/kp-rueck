@@ -273,7 +273,7 @@
   "sibling": {
     "eyebrow": "Progetto affine",
     "h2": "KP Rück tiene la visione d’insieme dietro. KP Front conduce davanti.",
-    "p": "<strong>KP Front</strong> porta in digitale la carta della situazione e il tavolo di condotta sul posto: simboli tattici, piani d’oggetto e sorveglianza della protezione respiratoria, anche senza rete. App propria, stessa impronta – i due possono passarsi gli allarmi, ma nessuno dei due ha bisogno dell’altro.",
+    "p": "<strong>KP Front</strong> porta in digitale la carta della situazione e il tavolo di condotta sul posto: simboli tattici, piani d’oggetto e sorveglianza della protezione respiratoria, anche senza rete. App propria, stessa impronta – i due ricevono lo stesso allarme dal sistema di allertamento, e nessuno dei due ha bisogno dell’altro.",
     "cta": "Guarda KP Front",
     "setup": {
       "h3": "Gestirli entrambi – senza configurare tutto due volte",
@@ -285,10 +285,6 @@
         {
           "dt": "Accesso Divera",
           "dd": "Una sola chiave per entrambi – stessi allarmi, stesso personale. <span class=\"opt\">facoltativo</span>"
-        },
-        {
-          "dt": "Agente di stampa",
-          "dd": "Un solo servizio in rimessa serve entrambe le app e entrambi i tipi di stampante."
         },
         {
           "dt": "Elenco personale",
