@@ -41,7 +41,7 @@ jobs:
       # Postgres 17, matching the production server — NOT the 16 that docker-compose.yml pins
       # for self-hosters. If the two ever have to diverge further, this is the job that notices.
       source:
-        image: public.ecr.aws/docker/library/postgres:17
+        image: mirror.gcr.io/library/postgres:17
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -50,7 +50,7 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
       target:
-        image: public.ecr.aws/docker/library/postgres:17
+        image: mirror.gcr.io/library/postgres:17
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -154,9 +154,9 @@ jobs:
           PGDATABASE: kprueck
         run: |
           mkdir -p /tmp/vcheck
-          # Pulled first, retried: ECR Public throttles anonymous pulls, and a failed pull here
-          # would read as the wrong exit code below.
-          img=public.ecr.aws/docker/library/postgres:15-alpine
+          # Pulled first, retried (from mirror.gcr.io, like every image CI pulls – ci.yml
+          # «Backend Tests»): a failed pull here would read as the wrong exit code below.
+          img=mirror.gcr.io/library/postgres:15-alpine
           for i in 1 2 3 4 5; do docker pull -q "$img" && break; [ "$i" = 5 ] && exit 1; sleep $((i * 5)); done
           out=$(docker run --rm --network host -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE \
                   -e PGPASSWORD -v "$PWD/scripts:/scripts:ro" -v /tmp/vcheck:/backups \
