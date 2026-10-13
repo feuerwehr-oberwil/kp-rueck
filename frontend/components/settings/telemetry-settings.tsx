@@ -23,7 +23,7 @@
 
 import { buildLabel } from '@/lib/build-info'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { ArrowRight, Github, Info, Mail, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CircleDot, Info, Mail, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
@@ -315,9 +315,10 @@ export function TelemetrySettings({ isAdmin }: { isAdmin: boolean }) {
               demand structure — required fields, a version, a status the reporter can follow —
               and mail second because it is the one that always works. */}
           <div className="grid gap-2 sm:grid-cols-2">
+            {/* lucide 1.0 dropped brand icons; CircleDot is GitHub's own «issue» glyph. */}
             {feedbackConfig.github && (
               <RouteOption
-                icon={<Github className="size-4" />}
+                icon={<CircleDot className="size-4" />}
                 title={t('routeGithub')}
                 badge={t('routeGithubBadge')}
                 note={t('routeGithubNote')}
