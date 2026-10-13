@@ -364,9 +364,12 @@ jobs:
 
     services:
       postgres:
-        # ECR Public mirror of the Docker Official Image (same image, same digest): Docker Hub's
-        # anonymous pull limit failed CI jobs at random (09.10.2026). Same for every image CI pulls.
-        image: public.ecr.aws/docker/library/postgres:16
+        # The Docker Official Image from mirror.gcr.io, Google's cache of Docker Hub (same image,
+        # same digest). Not Hub: its anonymous pull limit failed CI jobs at random (09.10.2026).
+        # Not ECR Public: GitHub's shared runner IPs use up its anonymous data allowance, and then
+        # every pull is «toomanyrequests: Data limit exceeded» (13.10.2026). Same for every
+        # image CI pulls.
+        image: mirror.gcr.io/library/postgres:16
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -635,7 +638,7 @@ jobs:
 
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        image: mirror.gcr.io/library/postgres:16
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -772,7 +775,7 @@ jobs:
       postgres:
         # -alpine, as production runs it: the image's collation decides the order of names the
         # backend sorts, which is on screen (scripts/visual-test.sh).
-        image: public.ecr.aws/docker/library/postgres:16-alpine
+        image: mirror.gcr.io/library/postgres:16-alpine
         env:
           POSTGRES_USER: kprueck
           POSTGRES_PASSWORD: kprueck
@@ -962,11 +965,22 @@ jobs:
           cache-from: type=gha,scope=print-agent
           cache-to: type=gha,mode=max,scope=print-agent
 
-      # ECR Public serves an anonymous client about one pull per second and answered compose's
-      # parallel pulls (db + caddy) with «toomanyrequests: Rate exceeded». One at a time, retried.
-      - name: Pull the stack's registry images (one at a time, retried)
+      # docker-compose.yml names its Docker Official Images (db, caddy) on ECR Public, for the
+      # stations that run it. CI does not pull them there: ECR Public meters anonymous clients by
+      # source IP, GitHub's runners share theirs, and once the shared allowance is gone every pull
+      # is «toomanyrequests: Data limit exceeded» (13.10.2026; «Rate exceeded» past ~1 pull/s
+      # before that). An overlay swaps each one for the same image (same tag) on mirror.gcr.io,
+      # Google's cache of Docker Hub; COMPOSE_FILE carries it into every later compose call.
+      - name: Pull the stack's registry images from mirror.gcr.io (one at a time, retried)
         run: |
+          overlay="$RUNNER_TEMP/compose.mirror.json"
+          docker compose config --format json | jq '{services: (.services
+            | with_entries(select(.value.image // "" | startswith("public.ecr.aws/docker/library/"))
+              | .value = {image: (.value.image | sub("^public\\.ecr\\.aws/docker/library/"; "mirror.gcr.io/library/"))}))}' > "$overlay"
+          export COMPOSE_FILE="docker-compose.yml:$overlay"
+          echo "COMPOSE_FILE=$COMPOSE_FILE" >> "$GITHUB_ENV"
           for img in $(docker compose config --images | grep -v '^ghcr.io/feuerwehr-oberwil/'); do
+            echo "pulling $img"
             for i in 1 2 3 4 5; do
               docker pull -q "$img" && break
               [ "$i" = 5 ] && exit 1
