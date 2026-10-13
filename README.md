@@ -36,7 +36,8 @@ event, one operator at the board**, not scaled down from a dispatch center.
 - **Replaces the magnet board.** The same spatial mental model – columns for status, cards for
   incidents, magnets for crew and vehicles – but live, shared, and self-documenting.
 - **Made for the command post.** Dense, calm, dark-mode-first and keyboard-fast on a desktop –
-  the board is run with mouse and keyboard, not thumbs. Status and priority read at a glance.
+  the board is run with mouse and keyboard, not thumbs – though since 0.8.0 a phone is a real
+  editing surface too. Status and priority read at a glance.
 - **Provider-neutral intake.** Any dispatch or alarm system can open incidents through one
   generic webhook; Divera, a phone form, and a QR walk-in slip are adapters on top of it.
 - **Training that mirrors reality.** A full training mode with auto-generated incidents and
@@ -55,7 +56,8 @@ event, one operator at the board**, not scaled down from a dispatch center.
   a polling fallback). Every Einsatz has a small number per Ereignis, and the ⌘K line dispatches
   by typing: `14 tlf meier` puts the TLF and Meier on Einsatz 14, `14 hoch` raises its priority,
   ⇥ completes names and addresses – through the same Doppelbelegung checks as dragging, with
-  «Rückgängig».
+  «Rückgängig». Taking a resource off – person, vehicle, material, Auftrag stop – offers
+  «Rückgängig» too, which assigns it again through the same checks.
 - **Duplicates and merge:** before a second report about the same Schadenplatz (within 50 m or
   the same address) becomes a second card, the board offers to merge it; alarms from automatic
   intake are marked «Mögliches Duplikat» instead of merging on their own. Any open Einsatz can be
@@ -65,6 +67,8 @@ event, one operator at the board**, not scaled down from a dispatch center.
   with GPS-driven status automation, distance labels, and offline tiles. A «Wetter» layer adds
   MeteoSwiss rain radar and the official warnings for the station (Switzerland only;
   `WEATHER_ENABLED=false` turns it off).
+- **Phone:** KP Rück installs as a home-screen app (iOS and Android), with phone layouts for
+  the board, the Einsatz list and the forms – bottom sheets that stand on the keyboard.
 - **Resources:** personnel, vehicles, and materials with assignment conflict warnings. A
   **Dienstzeiten** overview shows everybody checked in – time on duty, time on an Einsatz vs.
   «Pause», Einsätze worked – sortable by every column. With Divera, **«Anrückend»** lists who
@@ -77,6 +81,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
   median and P90 per priority) on screen, from the user menu or `Z` – the Übungsauswertung on a
   training Ereignis, and a section of the status wall (`/display/status`). Same computation as
   the PDF, so the wall and the debrief agree.
+- **Archiving:** closing an Ereignis lists what is still open – Einsätze not at «Abschluss»,
+  open Abholungen, material still at a Schadenplatz, people still checked in – and checks
+  everybody out at the moment of archiving («automatisch abmelden», ticked by default).
 - **Aufträge:** group several incidents into one ordered route for a squad – the storm case,
   where a crew works a list rather than a single address. The board keeps the sequence, the
   crew, and the radio announcement for the whole route. Recurring ones («Sturmholz»,
@@ -101,9 +108,9 @@ event, one operator at the board**, not scaled down from a dispatch center.
   (Einsatzzettel), board snapshots, the Abholliste and QR walk-in slips.
 - **Resilience:** paper Lageblatt PDF, automatic thermal board snapshots, and an outage SOP.
 - **Reporting:** after-action PDF report and Excel import/export.
-- **Access:** Editor (full CRUD) and Viewer (read-only) roles, a German and French (next-intl)
-  UI – the bell and toasts included –, dark mode, a ⌘K command palette with keyboard shortcuts,
-  and a built-in help page.
+- **Access:** Admin (an Editor who also manages the user accounts), Editor (full CRUD) and
+  Viewer (read-only) roles, a German and French (next-intl) UI – the bell and toasts included –,
+  dark mode, a ⌘K command palette with keyboard shortcuts, and a built-in help page.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the feature history.
 
@@ -342,16 +349,22 @@ plans – see its companion **[KP Front](https://github.com/feuerwehr-oberwil/kp
 ([live demo](https://demo.kp-front.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
-independent** codebases and deployments – neither requires the other. Both expose a generic `POST /api/alarms` webhook, but they are not plug-compatible: the
-payloads and auth differ, so KP Front can feed KP Rück through a short adapter you write,
-and KP Rück has no outbound webhook to push the other way. Nothing else connects them –
-separate databases, separate auth, separate deployments. See
-[`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
+independent** codebases and deployments – neither requires the other. Both accept the same
+`POST /api/alarms` payload with the same auth (`?secret=` or `X-Webhook-Secret`); since
+2026-08-19 the portable subset is pinned by
+[`docs/alarm-intake-conformance.json`](docs/alarm-intake-conformance.json), byte-identical in
+both repositories. So a dispatch integration is built once and delivered twice – one webhook per
+app, each with its own URL and its own secret
+([`docs/RUNNING-BOTH.md` §3](docs/RUNNING-BOTH.md#3-alarm-intake-two-secrets-one-payload)). KP Front's outbound incident
+relay is a different envelope and still needs an adapter to feed KP Rück, and KP Rück has no
+outbound webhook to push the other way. Nothing else connects them – separate databases,
+separate auth, separate deployments. See [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
 
 Their sign-in models differ on purpose. KP Rück runs at a desk with a network, so it uses named
 accounts and can defer to an identity provider. KP Front runs on a tablet at the Einsatzort,
 where an identity-provider round-trip would be a network dependency on the one path that has to
-work at 3am in a cellar with no signal – so it keeps a local PIN.
+work at 3am in a cellar with no signal – so it keeps a local PIN, with an optional Microsoft
+sign-in on top that is hidden offline.
 
 ## Contributing
 
