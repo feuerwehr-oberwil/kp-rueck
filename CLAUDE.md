@@ -189,6 +189,10 @@ kp-rueck/
   meaningful server-rendered page here. Do not "restore" server components on a page as a
   cleanup; it will fail on the first context hook. Server components remain fine for genuinely
   static leaf components that touch no context.
+- **A layout's `children` never sits directly in a host element**: `<main><RouteSlot>{children}</RouteSlot></main>`,
+  not `<main>{children}</main>` (`components/route-slot.tsx`). The route slot can still be
+  pending when hydration reaches `<main>`, and the React in Next 15.5 then throws error #418
+  and re-renders the whole root (18.10.2026; `route-slot.test.ts` goes red on that React).
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
