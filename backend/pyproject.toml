@@ -115,6 +115,8 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# Live checks of outside APIs (tests_live): plain pytest asserts.
+"tests_live/**" = ["S101"]
 # Tests bind throwaway values, patch in mock classes named like classes, and annotate fixtures
 # with string forward-refs whose real import happens inside the function body. All deliberate
 # in test code; none of it would pass in `app/`.
