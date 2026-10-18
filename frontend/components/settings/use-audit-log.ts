@@ -17,21 +17,19 @@ const AUDIT_LOG_LIMIT = 100;
  * The audit section's state: the per-Ereignis Excel export, and the log with
  * its server-side resource/action filters and local search.
  *
- * Moved out of `app/settings/page.tsx` verbatim (2026-09-23). ⚠️ The export
- * still reports a failure through `setImportError` — the IMPORT section's
- * banner, which is not on screen here. Preserved in the move; it needs a fix
- * of its own (the audit section has nowhere to show it yet).
+ * Moved out of `app/settings/page.tsx` verbatim (2026-09-23). A failed export
+ * is a toast, German first and the technical detail under it, like the same
+ * export on the Ereignisse page; until 18.10.2026 it went to the IMPORT
+ * section's banner, which is not on this screen, so a failure said nothing.
  */
 export function useAuditLog({
   activeSection,
   isEditor,
   events,
-  setImportError,
 }: {
   activeSection: string;
   isEditor: boolean;
   events: ReturnType<typeof useEvent>['events'];
-  setImportError: (message: string | null) => void;
 }) {
   const t = useTranslations('settings');
   const intlLocale = useIntlLocale();
@@ -78,7 +76,6 @@ export function useAuditLog({
       return;
     }
     setAuditExportLoading(true);
-    setImportError(null);
     try {
       const blob = await apiClient.exportEventAudit(auditExportEventId);
       const url = window.URL.createObjectURL(blob);
@@ -95,7 +92,12 @@ export function useAuditLog({
       document.body.removeChild(a);
       toast.success(t('page.toasts.auditExportSuccess'));
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : t('page.errors.auditExportFailed'));
+      // the console keeps it for whoever debugs this tab; a server-side failure is also in the
+      // backend log (api/exports · export_event_audit logs it with the traceback)
+      console.error('Audit export failed:', err);
+      toast.error(t('page.errors.auditExportFailed'), {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setAuditExportLoading(false);
     }

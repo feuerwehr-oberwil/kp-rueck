@@ -14,6 +14,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+import { toast } from 'sonner'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
 const params = vi.hoisted(() => ({ current: new URLSearchParams() }))
@@ -300,6 +301,29 @@ describe('Einstellungen › Audit — Filter gehen an den Server, die Suche nich
     await user.type(screen.getByPlaceholderText('Einträge suchen …'), 'nothing-matches')
     expect(await screen.findByText('Keine Einträge gefunden.')).toBeInTheDocument()
     expect(api.getAuditLogs).toHaveBeenCalledTimes(calls)
+  })
+})
+
+// The export reported a failure through the IMPORT section's banner, which is not on this
+// screen: the button went back to «Audit exportieren» and nothing said the file never came.
+describe('Einstellungen › Audit — ein fehlgeschlagener Export sagt es', () => {
+  it('shows the German error as a toast, the technical detail under it, and logs the failure', async () => {
+    const user = userEvent.setup()
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    api.exportEventAudit.mockRejectedValue(new Error('Audit export failed: Internal Server Error'))
+    openSection('audit')
+    const [eventSelect] = screen.getAllByRole('combobox').filter((el) => el.textContent?.includes('Ereignis'))
+    await user.click(eventSelect)
+    await user.click(await screen.findByRole('option', { name: 'Sturm Ost' }))
+    await user.click(screen.getByRole('button', { name: 'Audit exportieren' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Audit-Export fehlgeschlagen', {
+      description: 'Audit export failed: Internal Server Error',
+    }))
+    expect(api.exportEventAudit).toHaveBeenCalledWith('evt-1')
+    expect(logged).toHaveBeenCalledWith('Audit export failed:', expect.any(Error))
+    expect(screen.getByRole('button', { name: 'Audit exportieren' })).toBeEnabled()
+    logged.mockRestore()
   })
 })
 

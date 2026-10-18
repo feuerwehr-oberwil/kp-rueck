@@ -320,7 +320,7 @@ export default function SettingsPage() {
   // Import/Export state and handlers — see use-excel-import. The «Ersetzen»
   // confirmation stays on the page (it renders outside the section).
   const excelImport = useExcelImport(activeSection, isEditor);
-  const { preview, replaceConfirmOpen, setReplaceConfirmOpen, selectImportMode, handleImport, setImportError } = excelImport;
+  const { preview, replaceConfirmOpen, setReplaceConfirmOpen, selectImportMode, handleImport } = excelImport;
 
   // Demo mode detection
   const [demoMode, setDemoMode] = useState(false);
@@ -330,7 +330,7 @@ export default function SettingsPage() {
 
   // The audit section: export, log, filters — see use-audit-log. Called here so
   // its fetch effect keeps its place after the demo-status one.
-  const auditLog = useAuditLog({ activeSection, isEditor, events, setImportError });
+  const auditLog = useAuditLog({ activeSection, isEditor, events });
 
   const handleSyncComplete = () => {
     setHistoryRefreshTrigger((prev) => prev + 1);
