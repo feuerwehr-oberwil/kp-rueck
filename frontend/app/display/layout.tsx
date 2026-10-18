@@ -16,6 +16,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { DisplaySearchProvider, useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { useDisplayErrorRecovery } from "@/components/display-error"
+import { RouteSlot } from "@/components/route-slot"
 
 const displayPages = [
   { href: "/display/map", labelKey: "pageMap", icon: Map },
@@ -335,7 +336,8 @@ function DisplayChrome({
       <main className="flex-1 overflow-hidden">
         {/* Nothing is rendered while the redirect above is in flight — a flash of the display
             chrome would be the same wrong promise, just briefer. */}
-        {mayView || authLoading ? children : null}
+        {/* In a RouteSlot, never straight in <main>: React error #418 on a cold load (route-slot.tsx). */}
+        <RouteSlot>{mayView || authLoading ? children : null}</RouteSlot>
       </main>
     </div>
   )

@@ -10,6 +10,7 @@ import { DeploymentBanner } from '@/components/deployment-banner'
 import { StaleDataBanner } from '@/components/stale-data-banner'
 import { IncidentTruncationBanner } from '@/components/incident-truncation-banner'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
+import { RouteSlot } from '@/components/route-slot'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -78,7 +79,8 @@ export function AppShell({ children }: AppShellProps) {
       <IncidentTruncationBanner />
       <div className="flex flex-1 min-h-0">
         <main className="flex-1 min-h-0 overflow-auto">
-          {children}
+          {/* Never `{children}` straight in <main>: React error #418 on a cold load (route-slot.tsx). */}
+          <RouteSlot>{children}</RouteSlot>
         </main>
         <PersistentNotificationSidebar />
       </div>
