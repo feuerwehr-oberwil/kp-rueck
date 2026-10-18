@@ -24,8 +24,10 @@ import type { WeatherRadar } from "@/lib/weather"
 export const WEATHER_RADAR_SOURCE_ID = "weather-radar"
 export const WEATHER_RADAR_LAYER_ID = "weather-radar-layer"
 
-const TRANSPARENT_PIXEL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+// A same-origin file, not a `data:` URL: MapLibre fetches image sources, so a `data:` URL is
+// governed by `connect-src`, which (rightly) does not allow `data:` – every map load logged a
+// CSP violation and an AJAXError for it. (The inline pixel was also truncated and never decoded.)
+const TRANSPARENT_PIXEL = "/map/transparent.png"
 // Switzerland, roughly – only where the placeholder pixel sits until the first frame arrives.
 const PLACEHOLDER_COORDINATES: [number, number][] = [
   [5.9, 47.9],
