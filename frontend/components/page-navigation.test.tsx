@@ -78,4 +78,26 @@ describe("PageNavigation", () => {
     // Picking an event has to stay reachable, or there is no way out.
     expect(within(nav()).getByRole("link", { name: "Ereignisse" })).toHaveAttribute("href", "/events")
   })
+
+  // The regression this component was changed for: «you are here» and «pick an
+  // event first» are both inert buttons, and they used to render identically —
+  // `opacity-40` + `disabled` for each. Only a screen reader could tell them
+  // apart. They must now differ to the eye as well.
+  it("does not draw the current page the same way as an unavailable one", () => {
+    renderNav({ currentPage: "kanban", hasSelectedEvent: false })
+
+    const current = within(nav()).getByRole("button", { name: "Board" })
+    const unavailable = within(nav()).getByRole("button", { name: "Lagekarte" })
+
+    // Both inert …
+    expect(current).toBeDisabled()
+    expect(unavailable).toBeDisabled()
+
+    // … but only one is where you are, and it is not the dimmed one.
+    expect(current).toHaveAttribute("aria-current", "page")
+    expect(unavailable).not.toHaveAttribute("aria-current")
+    expect(current.className).not.toEqual(unavailable.className)
+    expect(unavailable.className).toContain("opacity-40")
+    expect(current.className).not.toContain("opacity-40")
+  })
 })
