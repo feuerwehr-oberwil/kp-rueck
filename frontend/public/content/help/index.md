@@ -231,6 +231,10 @@ scharfstellen.
 4. Priorität setzen (`Shift+1/2/3`)
 5. Entscheiden: Direkt disponieren oder erst Reko?
 
+Kommen die Meldungen Schlag auf Schlag: der Pfeil neben **Einsatz erstellen** (oder `Ctrl ↵`) erstellt den
+Einsatz und lässt den Dialog leer offen, der Cursor steht wieder im Einsatzort. Einsatzart und
+«Telefonisch» bleiben für die nächste Meldung stehen.
+
 Steht schon ein offener Einsatz desselben Ereignisses innerhalb von 50 m oder an derselben Adresse,
 sagt der Dialog unter dem Einsatzort «Möglicherweise dasselbe wie …». **Zusammenführen** hängt die
 Meldung samt Melder als Nachtrag an jenen Einsatz – es entsteht keine zweite Karte. **Trotzdem neu**
@@ -640,6 +644,7 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | Shortcut | Aktion |
 |----------|--------|
 | `N` | Neuer Einsatz |
+| `Ctrl ↵` | Im Dialog «Neuer Einsatz»: erstellen und gleich den nächsten erfassen |
 | `A` | Aufträge (Routen) öffnen/schliessen |
 | `S` / `/` | Suche fokussieren |
 | `D` | Drucken & Export öffnen/schliessen |

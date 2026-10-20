@@ -41,9 +41,18 @@
  * dasselbe wie …» with «Zusammenführen» (the report becomes a Nachtrag on that
  * card, no new card, undo on the toast and in the card's Verlauf) and «Trotzdem
  * neu» (puts the hint away). It never blocks «Einsatz erstellen».
+ *
+ * TWO WAYS OUT (2026-10-20): «Einsatz erstellen» (↵) creates and closes, as
+ * always. For the storm evening — twenty calls in a row — the arrow beside it
+ * opens «Erstellen und nächsten erfassen» (Ctrl/⌘ ↵): the card is created, the
+ * dialog stays open and empty, the cursor is back in the Einsatzort. A split
+ * button rather than a second button, because one ink action per surface is
+ * the rule and two buttons side by side were the thing to be confused; the
+ * second path is for whoever looks for it. Einsatzart, Telefonisch/Vom Feld
+ * and the Auftrag carry over into the next card — in a chain they are the same.
  */
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, type KeyboardEvent } from "react"
 import { useTranslations } from "next-intl"
 import { sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -53,8 +62,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DETAIL_MESSAGE_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
-import { Axe, Phone, Plus } from 'lucide-react'
+import { Axe, ChevronDown, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { LocationInput } from "@/components/location/location-input"
@@ -88,17 +104,8 @@ interface NewEmergencyModalProps {
   onMergeInto?: (operation: Omit<Operation, "id" | "dispatchTime">, targetId: string) => Promise<boolean>
 }
 
-export function NewEmergencyModal({
-  open,
-  onOpenChange,
-  onCreateOperation,
-  defaultGroupId = null,
-  eventId = null,
-  onMergeInto,
-}: NewEmergencyModalProps) {
-  const t = useTranslations('kanban')
-  const isMobile = useIsMobile()
-  const [formData, setFormData] = useState({
+/** A blank card. A function, not a constant: the Maps must be fresh per form. */
+const emptyForm = () => ({
     location: "",
     incidentType: "elementarereignis",
     priority: "low" as "high" | "medium" | "low",
@@ -136,6 +143,20 @@ export function NewEmergencyModal({
     groupPosition: 0,
   })
 
+type FormData = ReturnType<typeof emptyForm>
+
+export function NewEmergencyModal({
+  open,
+  onOpenChange,
+  onCreateOperation,
+  defaultGroupId = null,
+  eventId = null,
+  onMergeInto,
+}: NewEmergencyModalProps) {
+  const t = useTranslations('kanban')
+  const isMobile = useIsMobile()
+  const [formData, setFormData] = useState(emptyForm)
+
   // Form validation state
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [showValidationErrors, setShowValidationErrors] = useState(false)
@@ -156,59 +177,53 @@ export function NewEmergencyModal({
   const phone = phoneAdvice(formData.contactPhone)
   const showPhoneAdvice = !!phone && (touched.contactPhone || showValidationErrors)
 
-  const handleSubmit = () => {
-    // Show every message there is, then refuse only on the blocking ones —
-    // the phone advice is said, never waited on.
+  // Every message is shown, then only the blocking one refuses — the phone
+  // advice is said, never waited on. Both ways out start here.
+  const validateForSubmit = () => {
     setShowValidationErrors(true)
-
     if (!isLocationValid) {
       focusFirstBlockingField([LOCATION_FIELD_ID])
-      return
+      return false
     }
-
-    onCreateOperation(formData)
-    resetAndClose()
+    return true
   }
 
-  const resetAndClose = () => {
-    setFormData({
-      location: "",
-      incidentType: "elementarereignis",
-      priority: "low",
-      vehicle: null,
-      coordinates: null,
-      status: "incoming",
-      crew: [],
-      materials: [],
-      notes: "",
-      source: "operator",
-      contact: "",
-      contactPhone: "",
-      internalNotes: "",
-      nachbarhilfe: false,
-      nachbarhilfeNote: "",
-      amWarten: false,
-      amWartenNote: "",
-      zuFuss: false,
-      statusChangedAt: null,
-      hasCompletedReko: false,
-      rekoArrivedAt: null,
-      rekoSummary: null,
-      assignedReko: null,
-      leaderName: null,
-      crewAssignments: new Map(),
-      materialAssignments: new Map(),
-      vehicles: [],
-      vehicleAssignments: new Map(),
-      vehicleCallsigns: new Map(),
-      vehicleDriverStay: new Map(),
-      groupId: null,
-      groupPosition: 0,
-    })
+  const handleSubmit = () => {
+    if (!validateForSubmit()) return
+    onCreateOperation(formData)
+    resetForm()
+    onOpenChange(false)
+  }
+
+  // «Erstellen und nächsten erfassen» — see TWO WAYS OUT in the header. The
+  // dialog stays open; what a chain of calls shares carries over.
+  // Chosen from the menu, the cursor can only move once the menu has let go
+  // of focus — so the item sets this and `onCloseAutoFocus` does the moving.
+  const focusOrtAfterMenu = useRef(false)
+  const handleCreateAndNext = () => {
+    focusOrtAfterMenu.current = true
+    if (!validateForSubmit()) return
+    onCreateOperation(formData)
+    resetForm({ incidentType: formData.incidentType, source: formData.source, groupId: formData.groupId })
+    focusFirstBlockingField([LOCATION_FIELD_ID])
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault()
+      handleCreateAndNext()
+    }
+  }
+
+  const resetForm = (keep: Partial<Pick<FormData, "incidentType" | "source" | "groupId">> = {}) => {
+    setFormData({ ...emptyForm(), ...keep })
     setTouched({})
     setShowValidationErrors(false)
     setDismissedKey(null)
+  }
 
+  const resetAndClose = () => {
+    resetForm()
     onOpenChange(false)
   }
 
@@ -427,15 +442,41 @@ export function NewEmergencyModal({
     </Button>
   )
   // Never disabled for a missing Ort: the press is how the operator finds out
-  // what is missing (see the header).
+  // what is missing (see the header). A split button: the ink action, and the
+  // arrow that holds the second way out (TWO WAYS OUT in the header).
   const createButton = (
-    <Button
-      onClick={handleSubmit}
-      className="hover-delight"
-    >
-      <Plus className="h-4 w-4" />
-      {t('newEmergency.create')}
-    </Button>
+    <div className="flex" data-slot="create-split">
+      <Button onClick={handleSubmit} className="hover-delight flex-1 rounded-r-none">
+        <Plus className="h-4 w-4" />
+        {t('newEmergency.create')}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={t('newEmergency.moreActions')}
+            className="rounded-l-none border-l border-action-foreground/25 px-2.5 has-[>svg]:px-2.5"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        {/* After «nächsten erfassen» the cursor belongs in the Einsatzort, not
+            back on the arrow; a menu merely dismissed keeps Radix's default. */}
+        <DropdownMenuContent
+          align="end"
+          onCloseAutoFocus={(event) => {
+            if (!focusOrtAfterMenu.current) return
+            focusOrtAfterMenu.current = false
+            event.preventDefault()
+            focusFirstBlockingField([LOCATION_FIELD_ID])
+          }}
+        >
+          <DropdownMenuItem onSelect={handleCreateAndNext}>
+            {t('newEmergency.createAndNext')}
+            <DropdownMenuShortcut>Ctrl ↵</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 
   // PHONE: a bottom sheet standing on the keyboard's edge (ui/sheet.tsx → `--kb-inset`), the
@@ -447,7 +488,7 @@ export function NewEmergencyModal({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl">
+        <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl" onKeyDown={onKeyDown}>
           {/* While typing, the head is as short as it can be: the band above the keys is
               ~350px on an iPhone, and the sentence under the title is the one thing in it
               nobody needs at that moment. */}
@@ -473,7 +514,7 @@ export function NewEmergencyModal({
       {/* `sm:`-scoped on purpose: the primitive's own `sm:max-w-lg` is variant-scoped,
           so a bare `max-w-*` loses to it at desktop widths and the form gets
           crushed into ~440px — clipped selects, icon-only Einsatzort. */}
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Plus className="h-6 w-6 text-primary" />
