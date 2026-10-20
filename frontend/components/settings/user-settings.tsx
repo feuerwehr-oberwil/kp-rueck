@@ -371,6 +371,7 @@ export function UserSettings() {
                     size="icon"
                     onClick={() => openEditDialog(user)}
                     title={t('users.editTooltip')}
+                    aria-label={t('users.editAria', { name: user.display_name || user.username })}
                   >
                     <Pencil className="size-4" />
                   </Button>
@@ -379,6 +380,7 @@ export function UserSettings() {
                     size="icon"
                     onClick={() => openPasswordDialog(user)}
                     title={t('users.resetPasswordTitle')}
+                    aria-label={t('users.resetPasswordAria', { name: user.display_name || user.username })}
                   >
                     <Key className="size-4" />
                   </Button>
@@ -388,6 +390,7 @@ export function UserSettings() {
                       size="icon"
                       onClick={() => openDeleteDialog(user)}
                       title={t('users.deactivateAction')}
+                      aria-label={t('users.deactivateAria', { name: user.display_name || user.username })}
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
                       <UserX className="size-4" />
@@ -400,6 +403,7 @@ export function UserSettings() {
                         size="icon"
                         onClick={() => handleReactivate(user)}
                         title={t('users.reactivateTooltip')}
+                        aria-label={t('users.reactivateAria', { name: user.display_name || user.username })}
                         className="text-success hover:text-success"
                         disabled={submitting}
                       >
@@ -410,6 +414,7 @@ export function UserSettings() {
                         size="icon"
                         onClick={() => openPermanentDeleteDialog(user)}
                         title={t('users.permanentDeleteAction')}
+                        aria-label={t('users.permanentDeleteAria', { name: user.display_name || user.username })}
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       >
                         <Trash2 className="size-4" />
