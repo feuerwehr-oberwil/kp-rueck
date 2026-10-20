@@ -466,7 +466,7 @@ export const DroppableColumn = memo(function DroppableColumn({
                 onHover={onCardHover}
                 isHighlighted={highlightedOperationId === operation.id}
                 isSelected={selectedOperationId === operation.id}
-                isKeyboardFocused={hoveredOperationId === operation.id}
+                isHovered={hoveredOperationId === operation.id}
                 isDraggingRef={isDraggingRef}
                 materials={materials}
                 index={index}

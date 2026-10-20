@@ -95,6 +95,7 @@ beforeEach(() => {
     onUpdateOperation: vi.fn(),
     onMoveRight: vi.fn(),
     onMoveLeft: vi.fn(),
+    onMoveSelection: vi.fn(),
     onToggleZuFuss: vi.fn(),
     onRefresh: vi.fn().mockResolvedValue(undefined),
     onOpenDetail: vi.fn(),
@@ -132,6 +133,62 @@ const baseState = (
 });
 
 describe("useKanbanShortcuts", () => {
+  // The board had no keyboard route to a card: `selectedOperationId` — which
+  // every mutating shortcut acts on — could only be set by a click or a drop.
+  describe("arrow keys move the selection", () => {
+    it.each(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] as const)(
+      "%s asks for a move and swallows the key",
+      (key) => {
+        renderHook(() => useKanbanShortcuts(baseState(), actions));
+        const evt = press(key);
+        expect(actions.onMoveSelection).toHaveBeenCalledTimes(1);
+        expect(evt.defaultPrevented).toBe(true);
+      },
+    );
+
+    it("maps each arrow to its direction", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("ArrowDown");
+      expect(actions.onMoveSelection).toHaveBeenLastCalledWith("down");
+      press("ArrowLeft");
+      expect(actions.onMoveSelection).toHaveBeenLastCalledWith("left");
+    });
+
+    it("stays out of the way while a modal is open", () => {
+      renderHook(() => useKanbanShortcuts(baseState({ modalOpen: true }), actions));
+      press("ArrowDown");
+      expect(actions.onMoveSelection).not.toHaveBeenCalled();
+    });
+  });
+
+  // `E` used to follow the pointer only, so a keyboard-only operator could
+  // select a card and still have no way to open it.
+  describe("opening the detail without a pointer", () => {
+    it("falls back from hover to the selection", () => {
+      const operations = [{ id: "op-1" }] as KanbanShortcutsState["operations"];
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ selectedOperationId: "op-1", hoveredOperationId: null, operations }),
+          actions,
+        ),
+      );
+      press("e");
+      expect(actions.onOpenDetail).toHaveBeenCalledWith(operations[0]);
+    });
+
+    it("still prefers the hovered card when there is one", () => {
+      const operations = [{ id: "op-1" }, { id: "op-2" }] as KanbanShortcutsState["operations"];
+      renderHook(() =>
+        useKanbanShortcuts(
+          baseState({ selectedOperationId: "op-1", hoveredOperationId: "op-2", operations }),
+          actions,
+        ),
+      );
+      press("e");
+      expect(actions.onOpenDetail).toHaveBeenCalledWith(operations[1]);
+    });
+  });
+
   describe("guards", () => {
     it("skips all shortcuts when modalOpen=true", () => {
       renderHook(() => useKanbanShortcuts(baseState({ modalOpen: true }), actions));
