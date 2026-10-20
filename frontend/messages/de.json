@@ -703,7 +703,9 @@
       "phoneShort": "Nummer hat nur {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
       "phoneLong": "Nummer hat {digits} Ziffern – bitte prüfen. Erstellen geht trotzdem.",
       "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
-      "create": "Einsatz erstellen"
+      "create": "Einsatz erstellen",
+      "createAndNext": "Erstellen und nächsten erfassen",
+      "moreActions": "Weitere Aktionen"
     },
     "detail": {
       "rekoAuftrag": "Reko-Auftrag",

@@ -231,6 +231,10 @@ l’imprimante, armer le repli papier.
 4. Définir la priorité (`Shift+1/2/3`)
 5. Décider : engager directement ou d’abord reconnaître ?
 
+Quand les annonces s’enchaînent : la flèche à côté de **Créer l’intervention** (ou `Ctrl ↵`) crée
+l’intervention et laisse la fenêtre ouverte et vide, le curseur de retour dans le lieu. Le type
+d’intervention et « Annoncé par téléphone » restent pour l’annonce suivante.
+
 Si une intervention ouverte du même événement se trouve à moins de 50 m ou à la même adresse, la
 fenêtre l’indique sous le lieu : « Peut-être identique à … ». **Fusionner** ajoute le message et
 l’annonceur comme complément à cette intervention – sans deuxième carte. **Créer quand même** masque
@@ -645,6 +649,7 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | Raccourci | Action |
 |----------|--------|
 | `N` | Nouvelle intervention |
+| `Ctrl ↵` | Dans la fenêtre « Nouvelle intervention » : créer et saisir tout de suite la suivante |
 | `A` | Ouvrir/fermer les missions (itinéraires) |
 | `S` / `/` | Mettre le focus sur la recherche |
 | `D` | Ouvrir/fermer Impression et export |

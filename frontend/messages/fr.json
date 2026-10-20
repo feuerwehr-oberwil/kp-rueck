@@ -1937,7 +1937,9 @@
       "phoneShort": "Le numéro n’a que {digits} chiffres – à vérifier. La création reste possible.",
       "phoneLong": "Le numéro a {digits} chiffres – à vérifier. La création reste possible.",
       "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-déposer une fois l’intervention créée.",
-      "create": "Créer l’intervention"
+      "create": "Créer l’intervention",
+      "createAndNext": "Créer et saisir la suivante",
+      "moreActions": "Autres actions"
     },
     "detail": {
       "rekoAuftrag": "Mission de reconnaissance",

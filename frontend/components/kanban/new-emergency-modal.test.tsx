@@ -120,8 +120,77 @@ describe('NewEmergencyModal — Aktionsreihenfolge', () => {
     const footer = document.querySelector('[data-slot="dialog-footer"]')
     expect(footer).not.toBeNull()
 
-    const labels = Array.from(footer!.querySelectorAll('button')).map((b) => b.textContent?.trim())
-    expect(labels).toEqual(['Abbrechen', 'Einsatz erstellen'])
+    const buttons = Array.from(footer!.querySelectorAll('button'))
+    expect(buttons.slice(0, 2).map((b) => b.textContent?.trim())).toEqual(['Abbrechen', 'Einsatz erstellen'])
+    // the arrow of the split button sits last, glued to the primary
+    expect(buttons[2]).toHaveAccessibleName('Weitere Aktionen')
+  })
+})
+
+/**
+ * TWO WAYS OUT: the arrow beside «Einsatz erstellen» and Ctrl ↵ create the card
+ * and keep the dialog open, emptied, for the next call. The pick of 2026-10-20:
+ * a split button, for the few who look for it, never a second button to confuse.
+ */
+describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
+  function renderOpenTracking() {
+    const onCreateOperation = vi.fn()
+    const onOpenChange = vi.fn()
+    renderWithIntl(
+      <NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={onCreateOperation} />,
+    )
+    return { onCreateOperation, onOpenChange }
+  }
+
+  it('the menu item creates, keeps the dialog open and empties the form', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation, onOpenChange } = renderOpenTracking()
+
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.type(screen.getByLabelText('Meldung'), 'Wasser im Keller')
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }))
+    await user.click(await screen.findByRole('menuitem', { name: /nächsten erfassen/ }))
+
+    expect(onCreateOperation).toHaveBeenCalledWith(
+      expect.objectContaining({ location: 'Hauptstrasse 12', notes: 'Wasser im Keller' }),
+    )
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    expect(screen.getByLabelText('Ort')).toHaveValue('')
+    expect(screen.getByLabelText('Meldung')).toHaveValue('')
+    expect(screen.getByLabelText('Ort')).toHaveFocus()
+  })
+
+  it('Ctrl+Enter is the same way out, and Telefonisch carries over into the next card', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation, onOpenChange } = renderOpenTracking()
+
+    await user.click(screen.getByRole('switch', { name: 'Telefonisch' }))
+    await user.type(screen.getByLabelText('Ort'), 'Bahnhofstrasse 4{Control>}{Enter}{/Control}')
+
+    expect(onCreateOperation).toHaveBeenCalledTimes(1)
+    expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'intake' }))
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    expect(screen.getByLabelText('Ort')).toHaveValue('')
+    expect(screen.getByRole('switch', { name: 'Telefonisch' })).toBeChecked()
+  })
+
+  it('without an Einsatzort it refuses like the primary does', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation } = renderOpenTracking()
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }))
+    await user.click(await screen.findByRole('menuitem', { name: /nächsten erfassen/ }))
+
+    expect(onCreateOperation).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ort')).toHaveFocus()
+  })
+
+  it('a plain Enter in the form does not create', async () => {
+    const user = userEvent.setup()
+    const { onCreateOperation } = renderOpenTracking()
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12{Enter}')
+    expect(onCreateOperation).not.toHaveBeenCalled()
   })
 })
 
