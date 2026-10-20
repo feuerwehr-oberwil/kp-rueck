@@ -59,11 +59,25 @@ export function ConfirmDialog({
   const t = useTranslations('common.deleteConfirmDialog')
   const [isConfirming, setIsConfirming] = useState(false)
 
+  /**
+   * Closes only once the handler actually succeeded. A rejecting `onConfirm`
+   * has already said what went wrong where the operator is looking (toast or
+   * field message), so the dialog stays open and the primary button is live
+   * again — the question survives for a second try. A confirmation that
+   * disappears on a failed write is a decision silently dropped, which on a
+   * board run under load is the one outcome worth engineering against.
+   *
+   * Swallowing the rejection here is deliberate, not sloppy: the call site
+   * reports it, whereas a throw out of this async event handler would surface
+   * only as an unhandled rejection in the console.
+   */
   const handleConfirm = async () => {
     setIsConfirming(true)
     try {
       await onConfirm()
       onOpenChange(false)
+    } catch {
+      // Reported by onConfirm; stay open for the retry.
     } finally {
       setIsConfirming(false)
     }

@@ -6,15 +6,7 @@ import { CarTaxiFront } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 
-import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
@@ -71,7 +63,6 @@ export function PickupDonePrompt() {
   const { operations, refreshOperations } = useOperations()
 
   const [prompt, setPrompt] = useState<PickupPrompt | null>(null)
-  const [saving, setSaving] = useState(false)
   const [isDemo, setIsDemo] = useState<boolean | null>(null)
 
   const askedRef = useRef<Set<string>>(new Set())
@@ -157,46 +148,46 @@ export function PickupDonePrompt() {
   if (!active || !prompt) return null
 
   const handleConfirm = async () => {
-    setSaving(true)
     try {
       await apiClient.setIncidentFieldReport(prompt.incidentId, { pickup_needed: false })
       toast.success(tPickup("clearedToast"))
       await refreshOperations()
-      setPrompt(null)
     } catch (error) {
       console.error("Failed to clear pickup:", error)
       toast.error(tPickup("clearFailed"))
-    } finally {
-      setSaving(false)
+      // Re-thrown so ConfirmDialog keeps the prompt open — the Abholung is
+      // still flagged, so the question has not been answered yet.
+      throw error
     }
   }
 
+  // Two answers, nothing else — so it is the shared ConfirmDialog, the same one
+  // the amber chip itself opens (`PickupBadge`): «noch offen» sits next to
+  // «Abholung disponiert» and not at the opposite edge of the window, and the
+  // in-flight disabled state comes from there too.
   return (
-    <AlertDialog open onOpenChange={open => { if (!open) setPrompt(null) }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <CarTaxiFront className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            {t("title")}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t(prompt.trigger === "assigned" ? "assigned" : "returned", {
-              vehicle: prompt.vehicleName,
-              label: prompt.label,
-            })}
-            {prompt.waiting ? ` ${t("waiting", { duration: prompt.waiting })}` : ""}
-            <span className="mt-2 block text-xs">{t("neverAutomatic")}</span>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="sm:justify-between">
-          <Button variant="outline" onClick={() => setPrompt(null)} disabled={saving}>
-            {t("stillOpen")}
-          </Button>
-          <Button onClick={handleConfirm} disabled={saving}>
-            {tPickup("clear")}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open
+      onOpenChange={open => { if (!open) setPrompt(null) }}
+      title={
+        <span className="flex items-center gap-2">
+          <CarTaxiFront className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          {t("title")}
+        </span>
+      }
+      description={
+        <>
+          {t(prompt.trigger === "assigned" ? "assigned" : "returned", {
+            vehicle: prompt.vehicleName,
+            label: prompt.label,
+          })}
+          {prompt.waiting ? ` ${t("waiting", { duration: prompt.waiting })}` : ""}
+          <span className="mt-2 block text-xs">{t("neverAutomatic")}</span>
+        </>
+      }
+      cancelText={t("stillOpen")}
+      confirmText={tPickup("clear")}
+      onConfirm={handleConfirm}
+    />
   )
 }
