@@ -124,9 +124,13 @@ export function MobileBottomNavigation({
   }
 
   return (
+    // The nav shares the overlay rung rather than sitting under it (which is where a plain
+    // page element belongs): a sheet or dialog still covers it, because every one of those is
+    // portalled to the end of <body> and so comes later in the DOM at the same z-index. See
+    // the z-order block in app/globals.css.
     <nav
       ref={navRef}
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-sm md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-overlay border-t border-border bg-card/95 backdrop-blur-sm md:hidden"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom, 0px)'
       }}

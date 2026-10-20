@@ -161,15 +161,16 @@ export function BoardFooter({
     <>
     {/* Desktop Footer.
 
-        `z-[60]` keeps it above the footer-sheet layer (z-50), so a sheet
-        slides up from behind it instead of sweeping across it. Going UNDER
-        a modal dialog is no longer this element's business: it used to be a
-        hand-kept list of three modals here, which left the other ~20
+        `z-footer` keeps it above the footer-sheet layer (`z-overlay`), so a
+        sheet slides up from behind it instead of sweeping across it. Going
+        UNDER a modal dialog is no longer this element's business: it used to be
+        a hand-kept list of three modals here, which left the other ~20
         dialogs with a bright, inert toolbar over a dimmed board. The rule
-        now keys off the dialog overlay itself — see the
+        now keys off the dialog overlay itself and sends the toolbar back down
+        to `z-page-chrome` — see the
         `body:has([data-slot='dialog-overlay'])` block at the end of
-        app/globals.css. */}
-    <footer className="relative z-[60] bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border">
+        app/globals.css, and the z-order block near its top for the rungs. */}
+    <footer className="relative z-footer bg-background/95 backdrop-blur-sm px-4 md:px-6 py-2 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] border-t border-border">
       {/* `min-w-0` on the row and on the middle group is what actually keeps
           the page from scrolling sideways. A flex item defaults to
           `min-width: auto`, i.e. it refuses to shrink below its content —

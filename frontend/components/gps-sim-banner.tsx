@@ -56,7 +56,7 @@ export function GpsSimBanner() {
   return (
     <Link
       href="/training"
-      className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-purple-400/60 bg-purple-100/90 px-3 py-1 text-xs font-semibold text-purple-900 shadow-md backdrop-blur-sm dark:bg-purple-950/90 dark:text-purple-200"
+      className="absolute bottom-4 left-1/2 z-map-chrome -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-purple-400/60 bg-purple-100/90 px-3 py-1 text-xs font-semibold text-purple-900 shadow-md backdrop-blur-sm dark:bg-purple-950/90 dark:text-purple-200"
       title={t("linkTitle")}
     >
       <Satellite className="h-3.5 w-3.5" />

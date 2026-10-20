@@ -46,14 +46,14 @@ const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] 
   description: 'leading-snug text-muted-foreground',
   icon: 'relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-5',
   actionButton: cn(
-    // `relative z-10` (and the ✕'s `z-10`): a toast that opens its Einsatz is a
+    // `relative z-raised` (and the ✕'s `z-raised`): a toast that opens its Einsatz is a
     // tap target edge to edge (NotificationToasts), and its buttons sit above that
-    'relative z-10 ml-auto inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11',
+    'relative z-raised ml-auto inline-flex shrink-0 items-center rounded-md bg-muted px-3 h-9 max-md:h-11',
     'max-w-[min(240px,60vw)] whitespace-normal text-left text-sm font-semibold text-foreground',
     'cursor-pointer hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   cancelButton: cn(
-    'relative z-10 ml-auto inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11',
+    'relative z-raised ml-auto inline-flex shrink-0 items-center rounded-md px-3 h-9 max-md:h-11',
     'text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted hover:text-foreground',
     'outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
@@ -62,7 +62,7 @@ const TOAST_CLASSNAMES: NonNullable<ToasterProps['toastOptions']>['classNames'] 
   // rather than a flex item: as a flex item it was the thing that wrapped, and
   // ended up alone at the left of a second row.
   closeButton: cn(
-    'absolute top-1.5 right-1.5 z-10 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground',
+    'absolute top-1.5 right-1.5 z-raised grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground',
     'cursor-pointer hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
   ),
   // tone = the glyph's colour; the card stays neutral … (the fill is set per
@@ -237,7 +237,7 @@ const DismissAllToasts = () => {
       onClick={() => toast.dismiss()}
       style={PILL_STYLE[lane]}
       className={cn(
-        'fixed right-4 bottom-4 z-[9999] inline-flex h-9 max-md:h-11 items-center gap-1.5 rounded-full',
+        'fixed right-4 bottom-4 z-toast-pill inline-flex h-9 max-md:h-11 items-center gap-1.5 rounded-full',
         'border border-border bg-popover px-3.5 text-sm font-medium text-muted-foreground shadow-lg',
         'cursor-pointer transition-colors hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}

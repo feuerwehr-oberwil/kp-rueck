@@ -70,7 +70,7 @@ function SheetOverlay({
         className={cn(
           'fixed inset-0',
           OVERLAY_CLASS,
-          elevated ? 'z-[70]' : 'z-50',
+          elevated ? 'z-elevated' : 'z-overlay',
           className,
         )}
         style={
@@ -94,7 +94,7 @@ function SheetOverlay({
         // computed `pointer-events: auto`, still mounted 300ms after dismissal.
         'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0',
         OVERLAY_CLASS,
-        elevated ? 'z-[70]' : 'z-50',
+        elevated ? 'z-elevated' : 'z-overlay',
         className,
       )}
       style={
@@ -342,7 +342,7 @@ function SheetContent({
           // the panel has to leave with its backdrop, or the board shows through
           // under a still-sliding sheet. Entering still slides.
           'bg-background data-[state=open]:animate-in fixed flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=open]:duration-500',
-          elevated ? 'z-[70]' : 'z-50',
+          elevated ? 'z-elevated' : 'z-overlay',
           side === 'right' &&
             'data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
           side === 'left' &&
@@ -371,7 +371,7 @@ function SheetContent({
           <div
             data-slot="sheet-grip"
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 z-10 flex h-5 touch-none items-start justify-center pt-2"
+            className="absolute inset-x-0 top-0 z-raised flex h-5 touch-none items-start justify-center pt-2"
           >
             <span className="bg-muted-foreground/30 h-1 w-10 rounded-full" />
           </div>

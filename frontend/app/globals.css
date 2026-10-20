@@ -247,6 +247,130 @@
   --color-action-foreground: var(--action-foreground);
 }
 
+/* ── THE z-ORDER ──────────────────────────────────────────────────────────────
+   One named rung per layer the app actually has. Every `z-*` utility in `app/`
+   and `components/` comes from here; a raw number — bare or bracketed — anywhere
+   else is a bug, because a number says nothing about what it has to beat.
+
+   The numbers are the ones the app shipped with — this block named them, it did
+   not renumber them. Two rungs may therefore share a number: that is not an
+   oversight, it means the two live in DIFFERENT stacking contexts and never meet.
+   Changing a number here moves every element on that rung, so read the
+   above/below note first.
+
+   NOT a plain `@theme inline`: the values have to exist as custom properties at
+   runtime, because the footer rule at the end of this file reads one of them.
+
+   Tier 1 — inside a component's own box. These order an element against its
+   SIBLINGS, never against the page's overlay layer.
+     --z-index-raised       10   One notch over its siblings: a sidebar over the
+                                 board beside it, a timeline dot over its
+                                 connector line, a map's «no GL» veil over the
+                                 canvas, a sheet's drag grip, a toast's buttons
+                                 over the toast's own edge-to-edge tap target,
+                                 the sticky header of a phone list.
+     --z-index-pinned       20   A control pinned over its container's CONTENT
+                                 and over the raised box it belongs to: the
+                                 sidebar collapse handles, the board's three
+                                 reopen tabs. Above `raised`, below everything
+                                 the page puts over the board.
+     --z-index-sticky       30   A sticky page header inside a scrolling page
+                                 (the «Links & QR» pages). Above the rows that
+                                 scroll under it, below all page chrome.
+
+   Tier 2 — the page's overlay layer. Order here is what an operator sees when
+   something opens over the board.
+     --z-index-page-chrome  40   Fixed page furniture that must stay UNDER the
+                                 overlay layer: the /feld action button — and the
+                                 rung the footer toolbar is demoted to while a
+                                 modal is open (see the end of this file).
+     --z-index-overlay      50   The whole Radix portal layer: dialog and sheet
+                                 overlays AND their content, dropdown menus,
+                                 context menus, popovers, selects, tooltips,
+                                 hover cards. They share ONE rung on purpose —
+                                 all of them portal to the end of <body>, so DOM
+                                 order already puts the thing opened last on top.
+                                 Do not split this rung to fix an ordering
+                                 problem; fix the mount order instead. The phone
+                                 bottom nav also sits here (it is not portalled,
+                                 so it loses to anything that is).
+     --z-index-footer       60   The board's footer toolbar. ABOVE `overlay`, so
+                                 a footer sheet slides up from BEHIND it and the
+                                 strip reads as a drawer opening from underneath.
+                                 It is sent back to `page-chrome` whenever a
+                                 modal overlay exists.
+     --z-index-elevated     70   A sheet or menu opened from INSIDE something
+                                 already at `overlay` — the `elevated` Sheet
+                                 variant, the Routen menus inside it. Above the
+                                 footer too, since such a sheet is the top
+                                 surface while it is open.
+
+   Tier 3 — app-wide singletons. One element each, every one fixed to the
+   viewport, listed bottom to top. They are above the overlay layer because each
+   one has to stay visible while anything at all is open.
+     --z-index-training-band  90    The 3px «Übungsmodus» stripe: over every
+                                    panel and dialog, so the operator can never
+                                    lose track of being in training.
+     --z-index-loading-bar   100    The 2px route-change bar — the only thing
+                                    allowed over the training stripe, which would
+                                    otherwise hide it completely.
+     --z-index-demo-ribbon   150    The rotated «DEMO» corner ribbon.
+     --z-index-demo-dialog   160    The DEMO welcome dialog and its overlay: the
+                                    one dialog that must cover its own ribbon.
+     --z-index-demo-gate     200    The full-screen «wird zurückgesetzt» gate,
+                                    which blocks the whole app.
+     --z-index-boot-cover    300    The boot cover. Above everything the app
+                                    renders, because it exists to hide all of it.
+     --z-index-toast-pill   9999    The «Alle ausblenden» pill. It lives inside
+                                    sonner's own stack (sonner sets ~1e9 on its
+                                    toaster), so this number is read against
+                                    SONNER's scale, not the ladder above.
+
+   Tier 4 — inside a map's `isolate` (MAP_STACKING in components/map/base-map.tsx).
+   MapLibre owns this scale: markers carry inline z-indices from lib/map-view.ts
+   (10…1000) and `.maplibregl-ctrl-*` ships at 2. Nothing here can rise above the
+   page's overlay layer, whatever the number — the isolate is what guarantees it.
+     --z-index-map-chrome     30    Legend, radar controls, the top-right control
+                                    row, the GPS-sim banner. NOTE: below the
+                                    marker range, so a hovered pin's label paints
+                                    over them. Pre-existing, left alone.
+     --z-index-map-control  1000    Our own map chrome that must clear the marker
+                                    range: the fit-all button, the Routen-Editor
+                                    hint pill. Same number as the topmost marker
+                                    tier, and later in the DOM.
+     --z-index-maplibre-ctrl 2000   MapLibre's four control corners, lifted from
+                                    their stock `2` so a marker cannot paint over
+                                    the zoom buttons and swallow their clicks.
+
+   Outside the scale on purpose: the print view's `z-index: 99999` in the
+   `@media print` block below (there everything else is hidden, so the number
+   orders nothing); `map-tooltip.tsx`'s `zIndex: 1` (a bubble over its own
+   arrow); and the marker scales themselves — `Z` in lib/map-view.ts and the two
+   small local ones in the Routen-Editor and Einsatz-Picker dialogs, which go on
+   a MapLibre `<Marker>` as an inline style and are read only inside the map. */
+@theme {
+  --z-index-raised: 10;
+  --z-index-pinned: 20;
+  --z-index-sticky: 30;
+
+  --z-index-page-chrome: 40;
+  --z-index-overlay: 50;
+  --z-index-footer: 60;
+  --z-index-elevated: 70;
+
+  --z-index-training-band: 90;
+  --z-index-loading-bar: 100;
+  --z-index-demo-ribbon: 150;
+  --z-index-demo-dialog: 160;
+  --z-index-demo-gate: 200;
+  --z-index-boot-cover: 300;
+  --z-index-toast-pill: 9999;
+
+  --z-index-map-chrome: 30;
+  --z-index-map-control: 1000;
+  --z-index-maplibre-ctrl: 2000;
+}
+
 /* The chosen option of a choice that has no border of its own (segmented
    toggles, chips): slate wash + slate text + a 1px slate edge drawn INSIDE
    (inset shadow), so choosing never shifts the layout. Bordered controls use
@@ -1031,7 +1155,7 @@ html[data-snail='standing'] .firefighter-snail * {
    as a modal is mounted. Sonner portals its stack into <body> and never sets a
    pointer-events value of its own, so the whole toast layer inherited the lock:
    the toast was painted ON TOP of the modal (z-index 999999999 against the
-   dialog's 50) and yet could not be clicked — neither its ✕ nor its «Öffnen».
+   dialog's `z-overlay`) and yet could not be clicked — neither its ✕ nor its «Öffnen».
    A notification you can read, cannot act on and cannot dismiss is worse than
    no notification at all.
 
@@ -1090,13 +1214,14 @@ html[data-snail='standing'] .firefighter-snail * {
 
 /* The footer toolbar goes UNDER a modal dialog — and only under a modal dialog.
 
-   Its `z-[60]` is deliberate: a footer sheet slides UP into place
+   Its `z-footer` is deliberate: a footer sheet slides UP into place
    (`slide-in-from-bottom`), so on the way in the panel passes across the
-   toolbar's strip. At the sheet layer's own z-50 the toolbar keeps it behind
-   itself, which is what makes that read as a drawer opening from underneath.
+   toolbar's strip. At the sheet layer's own `z-overlay` the toolbar keeps it
+   behind itself, which is what makes that read as a drawer opening from
+   underneath.
 
-   A modal dialog's overlay is at that same z-50, and there the toolbar has to
-   lose. Left on top it stayed bright over a dimmed board — so it read as still
+   A modal dialog's overlay is at that same `z-overlay`, and there the toolbar
+   has to lose. Left on top it stayed bright over a dimmed board — so it read as still
    usable while Radix had just put `pointer-events: none` on <body> and was
    swallowing every click on it — and it painted over the bottom edge of every
    88dvh (`modal-h-tall`) dialog on an 800px-high screen.
@@ -1109,9 +1234,11 @@ html[data-snail='standing'] .firefighter-snail * {
    have looked like the simpler signal and is wrong: menus and selects lock the
    body too, so the toolbar would have dimmed on every right-click.
 
-   Deliberately outside @layer, so it beats the `z-*` utility on the element. */
+   Deliberately outside @layer, so it beats the `z-*` utility on the element.
+   The rung it drops to is `page-chrome` — the same one every other piece of
+   fixed page furniture sits on, i.e. «as if the toolbar were ordinary page». */
 body:has([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) footer {
-  z-index: 40;
+  z-index: var(--z-index-page-chrome);
 }
 
 /* ── Phone geometry: keyboard, bottom nav, bottom sheets ──

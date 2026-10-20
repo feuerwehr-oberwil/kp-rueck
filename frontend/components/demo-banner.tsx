@@ -128,7 +128,7 @@ export function DemoBanner() {
   // Reset overlay
   if (showResetOverlay) {
     return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/90 backdrop-blur-sm">
+      <div className="fixed inset-0 z-demo-gate flex items-center justify-center bg-background/90 backdrop-blur-sm">
         <div role="status" className="flex flex-col items-center gap-4 text-center">
           <ShellLoader size="surface" className="text-foreground" />
           <div className="space-y-2">
@@ -144,7 +144,7 @@ export function DemoBanner() {
     <>
       <div
         data-demo-ribbon
-        className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-[150] w-[132px] -rotate-45 bg-amber-500 py-[3px] text-center text-2xs font-extrabold tracking-[2px] text-amber-950 shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
+        className="pointer-events-none fixed top-[calc(15px+env(safe-area-inset-top))] -left-9 z-demo-ribbon w-[132px] -rotate-45 bg-amber-500 py-[3px] text-center text-2xs font-extrabold tracking-[2px] text-amber-950 shadow-[0_1px_5px_rgba(20,28,40,0.35)]"
         role="note"
         aria-label={t('ariaLabel')}
       >
@@ -152,9 +152,11 @@ export function DemoBanner() {
       </div>
 
       <Dialog open={showWelcome} onOpenChange={(open) => { if (!open) closeWelcome() }}>
+        {/* The one dialog that leaves the overlay rung: it explains the ribbon above, so it
+            has to cover it. Content AND overlay, or the ribbon shows through the scrim. */}
         <DialogContent
-          className="z-[160] modal-h-tall overflow-y-auto sm:max-w-md"
-          overlayClassName="z-[160]"
+          className="z-demo-dialog modal-h-tall overflow-y-auto sm:max-w-md"
+          overlayClassName="z-demo-dialog"
         >
           <DialogHeader className="pr-8">
             <div className="flex items-center gap-3">

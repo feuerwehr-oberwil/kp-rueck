@@ -101,11 +101,11 @@ export function PersonnelSidebar({
   // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
   const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
   return (
-      <aside className="relative z-10 w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
+      <aside className="relative z-raised w-64 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col">
         {/* Collapse handle — small chevron centered on the sidebar's inner edge */}
         <button
           onClick={() => setShowLeftSidebar(false)}
-          className="absolute right-0 top-1/2 translate-x-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+          className="absolute right-0 top-1/2 translate-x-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
           title={`${tDash('toggleLeftSidebar')} ([)`}
           aria-label={tDash('toggleLeftSidebar')}
         >

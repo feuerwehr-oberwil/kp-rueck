@@ -112,7 +112,7 @@ export function RouteOptimizeMenu({
           <Wand2 className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="z-[70] max-w-[min(20rem,calc(100vw-2rem))]">
+      <DropdownMenuContent align="end" className="z-elevated max-w-[min(20rem,calc(100vw-2rem))]">
         {basisLabel && (
           <DropdownMenuLabel className="text-xs font-medium text-foreground">{basisLabel}</DropdownMenuLabel>
         )}
@@ -244,7 +244,7 @@ export function StopStatusControl({
             <ChevronDown className="h-3 w-3" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="z-[70]">
+        <DropdownMenuContent align="end" className="z-elevated">
           {(current === "complete" ? (["complete"] as MirrorStatus[]) : MIRROR_ORDER).map((s) => {
             const c = MIRROR_CONFIG[s]
             const SIcon = c.Icon

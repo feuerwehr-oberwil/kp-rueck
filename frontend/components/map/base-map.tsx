@@ -100,25 +100,27 @@ const VECTOR_CANVAS_FILTER =
  *
  * MapLibre puts DOM markers in the canvas container, which carries no z-index of its own, while
  * the `.maplibregl-ctrl-*` corners sit at `z-index: 2`. A marker with an inline z-index – the
- * surfaces go up to 1000 for labels and hovered pins – therefore paints over the zoom buttons
- * near a corner and swallows their clicks. Leaflet guaranteed the opposite; this restores it.
+ * surfaces go up to 1000 for labels and hovered pins (`Z` in lib/map-view.ts) – therefore paints
+ * over the zoom buttons near a corner and swallows their clicks. Leaflet guaranteed the opposite;
+ * this restores it. `z-maplibre-ctrl` is the rung for exactly this, one notch above the marker
+ * range – see the z-order block in app/globals.css.
  *
  * `!` is not decorative: Tailwind's utilities live in `@layer utilities`, `maplibre-gl.css` is
  * imported unlayered, and unlayered CSS wins over ANY layered rule whatever its specificity.
  * Without the important flag these four classes are emitted, matched – and ignored.
  */
 const CONTROL_Z_ORDER =
-  '[&_.maplibregl-ctrl-top-left]:z-[2000]! [&_.maplibregl-ctrl-top-right]:z-[2000]! ' +
-  '[&_.maplibregl-ctrl-bottom-left]:z-[2000]! [&_.maplibregl-ctrl-bottom-right]:z-[2000]!'
+  '[&_.maplibregl-ctrl-top-left]:z-maplibre-ctrl! [&_.maplibregl-ctrl-top-right]:z-maplibre-ctrl! ' +
+  '[&_.maplibregl-ctrl-bottom-left]:z-maplibre-ctrl! [&_.maplibregl-ctrl-bottom-right]:z-maplibre-ctrl!'
 
 /**
  * …and all of that stays INSIDE the map.
  *
- * Those z-indices (markers up to 1000, controls 2000) only mean something against each other.
- * Without a stacking context of its own the wrapper let them compete with the page: on the
- * phone the zoom buttons, the address labels and the ⓘ drew over the «Mehr» sheet, the
- * «Ansicht» menu and every other overlay (z-50) that opened above the Lagekarte (owner, iPhone,
- * 02.10.2026). `isolation: isolate` makes the whole map ONE layer in the page's order – nothing
+ * Those z-indices (markers up to 1000, controls `z-maplibre-ctrl`) only mean something against
+ * each other. Without a stacking context of its own the wrapper let them compete with the page:
+ * on the phone the zoom buttons, the address labels and the ⓘ drew over the «Mehr» sheet, the
+ * «Ansicht» menu and every other overlay (`z-overlay`) that opened above the Lagekarte (owner,
+ * iPhone, 02.10.2026). `isolation: isolate` makes the whole map ONE layer in the page's order – nothing
  * inside it can rise above an overlay, whatever its z-index – while popups, hover cards and
  * controls keep their order relative to the tiles. Every map surface goes through this wrapper.
  */
@@ -489,7 +491,7 @@ export function BaseMap({
           way out; the retry rebuilds the map, which is the cure for the first and the test for
           the second. */}
       {(gl.lost || initFailed) && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90 p-4 text-center">
+        <div className="absolute inset-0 z-raised flex flex-col items-center justify-center gap-3 bg-background/90 p-4 text-center">
           <p className="text-sm text-muted-foreground">{t('view.glLost')}</p>
           <Button size="sm" onClick={handleRetry}>
             {t('view.retry')}
