@@ -159,6 +159,32 @@ describe("useKanbanShortcuts", () => {
       press("ArrowDown");
       expect(actions.onMoveSelection).not.toHaveBeenCalled();
     });
+
+    // Alt+← / Alt+→ are the browser's history. Taking those would be a worse
+    // bug than the one the arrow branch exists to fix.
+    it.each(["altKey", "ctrlKey", "metaKey", "shiftKey"] as const)(
+      "leaves a %s-modified arrow alone",
+      (modifier) => {
+        renderHook(() => useKanbanShortcuts(baseState(), actions));
+        const evt = press("ArrowLeft", { [modifier]: true });
+        expect(actions.onMoveSelection).not.toHaveBeenCalled();
+        expect(evt.defaultPrevented).toBe(false);
+      },
+    );
+
+    // The side panel's tabs are nonmodal, so `modalOpen` does not cover them:
+    // an arrow they already used must not also walk the board behind them.
+    it("leaves an arrow a widget below already handled alone", () => {
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      const evt = new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      });
+      evt.preventDefault();
+      window.dispatchEvent(evt);
+      expect(actions.onMoveSelection).not.toHaveBeenCalled();
+    });
   });
 
   // `E` used to follow the pointer only, so a keyboard-only operator could

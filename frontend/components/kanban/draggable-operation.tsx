@@ -565,7 +565,10 @@ function DraggableOperationBase({
               isHovered && !isHighlighted && !showSelectionFrame && 'border-t-muted-foreground/40 border-r-muted-foreground/40 border-b-muted-foreground/40',
               // Keyboard focus is always visible, even where the selection frame is
               // suppressed (phones), because there it is the only cue there is.
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sel-line focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+              // OUTLINE for the same reason as the frame above (1): a ring is a
+              // box-shadow utility, and `priority-high-pulse` animates box-shadow,
+              // so a focus ring would vanish on exactly the cards that matter most.
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sel-line'
             )}
             onMouseEnter={() => onHover(operation.id)}
             onMouseLeave={() => onHover(null)}
@@ -581,6 +584,14 @@ function DraggableOperationBase({
             // the pointer: stopping propagation keeps the window-level
             // hover-Enter from opening a different card than the focused one.
             onKeyDown={(e) => {
+              // Only when the CARD itself has focus. React's onKeyDown also sees
+              // what bubbles up from the Reko and Rapport buttons, the «+N»
+              // buttons and the map link inside the card — and preventDefault on
+              // a bubbled Enter cancels the native activation of the control the
+              // operator actually meant, then opens the detail instead of it.
+              // Letting those through also sends them to the window listener,
+              // where `isActivationTarget` already skips them.
+              if (e.target !== e.currentTarget) return
               if (e.key !== 'Enter' && e.key !== ' ') return
               e.preventDefault()
               e.stopPropagation()

@@ -129,8 +129,14 @@ export function PageNavigation({
   // Board and Karte hand the open incident to each other: both read
   // `?highlight=`, so switching surface keeps you on the same Einsatz instead of
   // making you find it again. Without a selection the links stay plain.
+  //
+  // Encoded because the id makes a round trip through the URL — the other
+  // surface reads it back out of `?highlight=` — and an id carrying `&` or `#`
+  // would otherwise end the parameter and silently drop the rest of the link.
   const withSelection = (href: string) =>
-    selectedIncidentId ? `${href}${href.includes('?') ? '&' : '?'}highlight=${selectedIncidentId}` : href;
+    selectedIncidentId
+      ? `${href}${href.includes('?') ? '&' : '?'}highlight=${encodeURIComponent(selectedIncidentId)}`
+      : href;
   return (
     // Desktop only — on mobile navigation lives in the bottom navbar.
     <nav aria-label={t('main')} className="hidden md:flex items-center gap-1 md:gap-2">

@@ -249,8 +249,14 @@ export function useKanbanShortcuts(
       // behind one mouse action. Order and skipping come from the rendered DOM
       // (lib/board-keyboard-nav.ts), so a folded column or an active filter
       // behaves the way it looks.
+      //
+      // A BARE arrow only. `defaultPrevented` leaves an arrow that a widget
+      // below already used (the side panel's tabs are nonmodal, so they are not
+      // covered by `modalOpen`) with that widget. The modifier keys are not ours
+      // either — Alt+← and Alt+→ are the browser's history, and swallowing those
+      // would be a worse bug than the one this branch fixes.
       const direction: BoardDirection | null = directionFromKey(e.key)
-      if (direction) {
+      if (direction && !e.defaultPrevented && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         e.preventDefault()
         actions.onMoveSelection(direction)
         return
