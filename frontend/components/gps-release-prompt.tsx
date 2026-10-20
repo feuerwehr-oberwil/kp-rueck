@@ -140,18 +140,25 @@ export function GpsReleasePrompt() {
             })}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="gap-2 sm:justify-between">
+        {/* The ConfirmDialog geometry: «nur freigeben» is the "…but do this
+            instead" answer, so it takes the far-left slot alone, and Abbrechen
+            stays next to the primary button where it is in every other
+            confirmation. */}
+        <AlertDialogFooter>
+          <Button
+            variant="outline"
+            onClick={handleRelease}
+            disabled={releasing}
+            className="sm:mr-auto"
+          >
+            {t('releaseOnly', { vehicle: prompt.vehicleName })}
+          </Button>
           <Button variant="outline" onClick={() => setPrompt(null)} disabled={releasing}>
             {t('decline')}
           </Button>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button variant="outline" onClick={handleRelease} disabled={releasing}>
-              {t('releaseOnly', { vehicle: prompt.vehicleName })}
-            </Button>
-            <Button onClick={handleReleaseAndComplete} disabled={releasing}>
-              {t('completeIncident')}
-            </Button>
-          </div>
+          <Button onClick={handleReleaseAndComplete} disabled={releasing}>
+            {t('completeIncident')}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

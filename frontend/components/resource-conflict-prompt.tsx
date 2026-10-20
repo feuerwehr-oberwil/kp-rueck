@@ -82,15 +82,18 @@ export function ResourceConflictPrompt() {
           )}
         </div>
 
-        {/* One row, one height. «Abbrechen» quiet on the left, the two answers on
-            the right with the primary one outermost — where the pointer is
-            already heading. Moving is what the operator almost always means. */}
+        {/* One row, one height, and the ConfirmDialog geometry: the
+            «…aber mach stattdessen das» answer — keep the double booking —
+            takes the far-left slot, while «Abbrechen» stays grouped with the
+            primary button on the right, the one place every dialog in the app
+            puts it. The primary is outermost, where the pointer is already
+            heading: moving is what the operator almost always means. */}
         <AlertDialogFooter>
-          <Button variant="ghost" onClick={cancelResourceConflict} className="sm:mr-auto">
-            {tCommon('cancel')}
-          </Button>
-          <Button variant="outline" onClick={() => resolveResourceConflict("keep")}>
+          <Button variant="outline" onClick={() => resolveResourceConflict("keep")} className="sm:mr-auto">
             {t('keepBoth')}
+          </Button>
+          <Button variant="ghost" onClick={cancelResourceConflict}>
+            {tCommon('cancel')}
           </Button>
           <Button onClick={() => resolveResourceConflict("move")}>
             {t('moveHere')}

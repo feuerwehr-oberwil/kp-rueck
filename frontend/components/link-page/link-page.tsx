@@ -39,7 +39,7 @@ export function LinkPageNoZoom() {
 }
 
 /** The height and padding every link-page header shares — `FeldIdentityBar` included. */
-export const LINK_PAGE_HEADER_CLASS = 'sticky top-0 z-30 border-b border-border bg-background'
+export const LINK_PAGE_HEADER_CLASS = 'sticky top-0 z-sticky border-b border-border bg-background'
 export const LINK_PAGE_HEADER_ROW_CLASS = 'mx-auto flex min-h-14 max-w-md items-center gap-2 px-3 py-2'
 
 export function LinkPageHeader({

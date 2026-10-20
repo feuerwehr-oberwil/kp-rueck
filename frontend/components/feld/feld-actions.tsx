@@ -392,7 +392,7 @@ export function FeldActions({
                     as the main button it points at), hollow grey = later. */}
                 <span
                   aria-hidden
-                  className={`relative z-10 mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                  className={`relative z-raised mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
                     step.done
                       ? 'border-emerald-500 bg-emerald-500 text-white'
                       : isCurrent

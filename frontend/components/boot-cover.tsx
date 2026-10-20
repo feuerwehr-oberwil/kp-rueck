@@ -111,7 +111,7 @@ export function BootCover() {
       data-boot-cover={phase}
       aria-busy={phase === 'on'}
       className={cn(
-        'fixed inset-0 z-[300] bg-background transition-opacity ease-out motion-reduce:transition-none',
+        'fixed inset-0 z-boot-cover bg-background transition-opacity ease-out motion-reduce:transition-none',
         phase === 'leaving' && 'pointer-events-none opacity-0',
       )}
       style={{ transitionDuration: `${BOOT_COVER_FADE_MS}ms` }}

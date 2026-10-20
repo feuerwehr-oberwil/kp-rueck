@@ -62,8 +62,15 @@ interface DraggableOperationProps {
   onSelect?: (tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onHover: (opId: string | null) => void
   isHighlighted?: boolean
+  /** Clicked — the card the keys that CHANGE something act on. Also the card's
+   *  one tab stop: the board is a composite widget, so exactly one card is
+   *  tabbable at a time and the arrow keys move between them. */
   isSelected?: boolean
-  isKeyboardFocused?: boolean
+  /** The pointer is over this card. Was called `isKeyboardFocused`, which it
+   *  never was — the board had no keyboard focus at all until the roving
+   *  tabindex below, and a prop claiming otherwise made the two impossible to
+   *  tell apart while adding it. */
+  isHovered?: boolean
   isDraggingRef: React.MutableRefObject<boolean>
   materials: Material[]
   index: number
@@ -197,7 +204,7 @@ function DraggableOperationBase({
   onHover,
   isHighlighted,
   isSelected,
-  isKeyboardFocused,
+  isHovered,
   isDraggingRef,
   materials,
   index,
@@ -555,10 +562,41 @@ function DraggableOperationBase({
               // stays deliberately fainter than the frame. Not on the left edge,
               // which belongs to priority: brightening the other three sides
               // says "this one" without overwriting anything.
-              isKeyboardFocused && !isHighlighted && !showSelectionFrame && 'border-t-muted-foreground/40 border-r-muted-foreground/40 border-b-muted-foreground/40'
+              isHovered && !isHighlighted && !showSelectionFrame && 'border-t-muted-foreground/40 border-r-muted-foreground/40 border-b-muted-foreground/40',
+              // Keyboard focus is always visible, even where the selection frame is
+              // suppressed (phones), because there it is the only cue there is.
+              // OUTLINE for the same reason as the frame above (1): a ring is a
+              // box-shadow utility, and `priority-high-pulse` animates box-shadow,
+              // so a focus ring would vanish on exactly the cards that matter most.
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sel-line'
             )}
             onMouseEnter={() => onHover(operation.id)}
             onMouseLeave={() => onHover(null)}
+            // Roving tabindex: the board is one composite widget, not 40 tab
+            // stops. Tab enters at the selected card and leaves again; the
+            // arrow keys move between cards (use-kanban-shortcuts.ts). Before
+            // this the card root was a plain div, so `selectedOperationId` —
+            // which every key that CHANGES something acts on — could only ever
+            // be set by a pointer.
+            tabIndex={isSelected ? 0 : -1}
+            // Enter/Space on the focused card does what a click does. Handled
+            // here rather than by the global listener so it follows FOCUS, not
+            // the pointer: stopping propagation keeps the window-level
+            // hover-Enter from opening a different card than the focused one.
+            onKeyDown={(e) => {
+              // Only when the CARD itself has focus. React's onKeyDown also sees
+              // what bubbles up from the Reko and Rapport buttons, the «+N»
+              // buttons and the map link inside the card — and preventDefault on
+              // a bubbled Enter cancels the native activation of the control the
+              // operator actually meant, then opens the detail instead of it.
+              // Letting those through also sends them to the window listener,
+              // where `isActivationTarget` already skips them.
+              if (e.target !== e.currentTarget) return
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              e.stopPropagation()
+              openDetail()
+            }}
             // No target: the address, the Meldung, the Melder and the card's
             // own background all say «this incident» and nothing more precise.
             // The blocks that DO say something more precise stop the event
@@ -1478,7 +1516,7 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.vehicleDrivers === nextProps.vehicleDrivers &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.isKeyboardFocused === nextProps.isKeyboardFocused &&
+    prevProps.isHovered === nextProps.isHovered &&
     prevProps.index === nextProps.index &&
     // Every view switch, field by field. `cardViewEquals` iterates
     // CARD_VIEW_KEYS and CardViewSettings is derived from that same list, so a

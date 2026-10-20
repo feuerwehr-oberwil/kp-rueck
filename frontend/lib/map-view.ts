@@ -31,6 +31,12 @@ export const DEFAULT_CENTER_LATLNG: readonly [number, number] = [
 ]
 
 /**
+ * Where MapLibre's worker is served from: `public/maplibre/`, filled from node_modules by
+ * `scripts/copy-maplibre-worker.mjs` before every `dev` and `build`. See `base-map.tsx`.
+ */
+export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
+
+/**
  * The one z-order for DOM markers on the main map and its overlays.
  *
  * MapLibre appends every marker to the canvas container, so a plain `zIndex` on the marker
@@ -38,17 +44,15 @@ export const DEFAULT_CENTER_LATLNG: readonly [number, number] = [
  * pin covers a plain incident dot but yields to a highlighted or hovered one, an assignment's
  * distance pill sits above both, and the three label tiers mirror Leaflet's tooltip pane sitting
  * above the marker pane – a label is text to be read and always wins. The map controls
- * (`.maplibregl-ctrl-*`) are pinned above the whole range at 2000 by `base-map.tsx`.
+ * (`.maplibregl-ctrl-*`) are pinned above the whole range by `base-map.tsx`'s
+ * `z-maplibre-ctrl`, and our own map chrome that has to clear the range uses `z-map-control`
+ * (the z-order block in app/globals.css holds both). Numbers, not those rungs, because these go
+ * on a MapLibre `<Marker>` as an inline style — and because the page's ladder must stay out of a
+ * scale that is only ever read inside the map's `isolate`.
  *
  * The dialog maps (Routen-Editor, Einsatz-Picker) keep their own small local scales – separate
  * maps, no incident markers, no reason to couple them.
  */
-/**
- * Where MapLibre's worker is served from: `public/maplibre/`, filled from node_modules by
- * `scripts/copy-maplibre-worker.mjs` before every `dev` and `build`. See `base-map.tsx`.
- */
-export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
-
 export const Z = {
   station: 10,
   vehicle: 40,

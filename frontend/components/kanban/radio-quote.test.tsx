@@ -27,8 +27,8 @@ describe("RadioQuote", () => {
   it("shows each open stop's status on screen", () => {
     renderWithIntl(<RadioQuote segments={AUFTRAG} />)
 
-    expect(screen.getByText("Einsatz")).toBeDefined()
-    expect(screen.getByText("Offen")).toBeDefined()
+    expect(screen.getByText("Im Einsatz")).toBeDefined()
+    expect(screen.getByText("Eingegangen")).toBeDefined()
   })
 
   it("uses no quotation marks at all", () => {

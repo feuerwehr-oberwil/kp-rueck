@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils"
  * header beside it, because that panel is a flex sibling of <main> and never saw
  * the strip. Out of flow there is nothing to push out of alignment, at any
  * viewport width, and the strip lies over sidebars and overlays instead of
- * beside them. `z-[90]` is above every panel and dialog but below the 2px
- * top-loading bar (`z-[100]`), which would otherwise be invisible underneath it.
+ * beside them. `z-training-band` is above every panel and dialog but below the 2px
+ * top-loading bar (`z-loading-bar`), which would otherwise be invisible underneath it.
  *
  * `TrainingBadge` is the word beside the Ereignis name. Colour alone must not
  * carry the meaning, so the triangle and the word travel with it. The label comes
@@ -32,7 +32,7 @@ export function TrainingBand({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={cn("pointer-events-none fixed inset-x-0 top-0 z-[90] h-[3px] bg-warning", className)}
+      className={cn("pointer-events-none fixed inset-x-0 top-0 z-training-band h-[3px] bg-warning", className)}
     />
   )
 }

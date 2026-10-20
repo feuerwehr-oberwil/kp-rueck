@@ -51,7 +51,7 @@ function DialogOverlay({
         // class does NOT help: the inline style wins. Dropping the exit keyframes
         // makes `animationName` resolve to `none`, so Presence unmounts
         // synchronously and the dead layer never exists.
-        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50',
+        'data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-overlay',
         OVERLAY_CLASS,
         className,
       )}
@@ -84,7 +84,7 @@ function DialogContent({
           // the screen in the measurement above), and overlay and content have to
           // leave together — a backdrop that vanishes while the panel is still
           // fading would read as a bug. Enter animations stay on both.
-          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
+          'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-overlay grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-2xl ring-1 ring-white/10 duration-200 sm:max-w-lg',
           className,
         )}
         {...props}

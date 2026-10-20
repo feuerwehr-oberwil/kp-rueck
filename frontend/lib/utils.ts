@@ -1,5 +1,40 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+/**
+ * The named rungs of the z-order, defined in app/globals.css (`--z-index-*`).
+ *
+ * tailwind-merge only knows numeric and arbitrary-value z utilities, so
+ * without this list `cn('z-overlay', 'z-elevated')` keeps BOTH classes and
+ * leaves the winner to stylesheet order. Which matters: a caller overriding a
+ * primitive's rung (`<DialogContent className="z-demo-dialog">`) is exactly how
+ * this scale is meant to be used.
+ *
+ * Keep in step with the `@theme` block in globals.css — one entry per rung.
+ */
+const Z_RUNGS = [
+  'raised',
+  'pinned',
+  'sticky',
+  'page-chrome',
+  'overlay',
+  'footer',
+  'elevated',
+  'training-band',
+  'loading-bar',
+  'demo-ribbon',
+  'demo-dialog',
+  'demo-gate',
+  'boot-cover',
+  'toast-pill',
+  'map-chrome',
+  'map-control',
+  'maplibre-ctrl',
+] as const
+
+const twMerge = extendTailwindMerge({
+  extend: { classGroups: { z: Z_RUNGS.map(rung => `z-${rung}`) } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

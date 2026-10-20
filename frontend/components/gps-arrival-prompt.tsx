@@ -7,15 +7,7 @@ import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 
@@ -43,7 +35,6 @@ export function GpsArrivalPrompt() {
   const { isEditor } = useAuth()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ArrivalPrompt | null>(null)
-  const [advancing, setAdvancing] = useState(false)
 
   const onOperatorPage = pathname === "/" || pathname === "/map"
 
@@ -102,44 +93,40 @@ export function GpsArrivalPrompt() {
   if (!isEditor || !onOperatorPage || !prompt) return null
 
   const handleAdvance = async () => {
-    setAdvancing(true)
     try {
       // Rule A only fires from status exactly `disponiert`, so that is the from-status.
       await apiClient.updateIncidentStatus(prompt.incidentId, "enroute", "active")
       toast.success(t('movedToActive', { label: prompt.incidentLabel }))
-      setPrompt(null)
-    } catch {
+    } catch (error) {
       toast.error(t('statusChangeFailed'))
-    } finally {
-      setAdvancing(false)
+      // Re-thrown so ConfirmDialog keeps the prompt open: the vehicle is still
+      // reported at the incident and the operator still has to answer.
+      throw error
     }
   }
 
+  // A plain yes/no, so it is the shared ConfirmDialog rather than a hand-rolled
+  // AlertDialog: «Abbrechen» sits next to the primary button here exactly as it
+  // does in every other confirmation, and the spinner-plus-disabled state while
+  // the status change is in flight comes with it.
   return (
-    <AlertDialog open={true} onOpenChange={(open) => { if (!open) setPrompt(null) }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            {t('title')}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t.rich('description', {
-              vehicle: prompt.vehicleName,
-              label: prompt.incidentLabel,
-              strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-            })}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="sm:justify-between">
-          <Button variant="outline" onClick={() => setPrompt(null)} disabled={advancing}>
-            {t('decline')}
-          </Button>
-          <Button onClick={handleAdvance} disabled={advancing}>
-            {t('confirm')}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => { if (!open) setPrompt(null) }}
+      title={
+        <span className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          {t('title')}
+        </span>
+      }
+      description={t.rich('description', {
+        vehicle: prompt.vehicleName,
+        label: prompt.incidentLabel,
+        strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+      })}
+      cancelText={t('decline')}
+      confirmText={t('confirm')}
+      onConfirm={handleAdvance}
+    />
   )
 }

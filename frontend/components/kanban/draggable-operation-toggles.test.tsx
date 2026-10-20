@@ -342,6 +342,29 @@ describe('the card routes each block into the detail', () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 
+  // The card root is a tab stop (roving tabindex) and takes Enter/Space itself.
+  // React's onKeyDown also sees what bubbles up from the buttons and links
+  // inside it, so the handler has to tell the two apart — a card that swallowed
+  // a bubbled Enter would cancel the native activation of the control the
+  // operator was actually on and open its own detail instead.
+  describe('and takes Enter only for itself', () => {
+    it('opens the detail from the focused card', async () => {
+      const onClick = mount({ isSelected: true })
+      const card = screen.getByText('Anruferin meldet Wasser im Keller').closest('[data-incident-id]')
+      ;(card as HTMLElement).focus()
+      await userEvent.keyboard('{Enter}')
+      expect(onClick).toHaveBeenCalledWith(undefined, undefined)
+    })
+
+    it('leaves Enter on a button inside it to that button', async () => {
+      const onClick = mount({ isSelected: true })
+      screen.getByRole('button', { name: 'Reko-Bericht ausgefüllt' }).focus()
+      await userEvent.keyboard('{Enter}')
+      expect(onClick).toHaveBeenCalledWith('reko', undefined)
+      expect(onClick).not.toHaveBeenCalledWith(undefined, undefined)
+    })
+  })
+
   it('navigates nowhere when the click only ended a drag', async () => {
     const onClick = mount({ isDraggingRef: { current: true } })
     await userEvent.click(screen.getByText('Muster Hans'))

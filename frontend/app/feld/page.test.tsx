@@ -845,7 +845,7 @@ describe('/feld says where the crew is on each row', () => {
   })
 
   it('reads «Rückfahrt» on the job they have finished', async () => {
-    // The reported case: the KP moved the card to «Beendet / Rückfahrt» and the
+    // The reported case: the KP moved the card to «Rückfahrt» and the
     // row went on sitting at the top of the list saying nothing.
     withRow({ incident_status: 'returning', arrived_at: '2026-08-20T09:00:00Z' })
     renderWithIntl(<FeldPage />)

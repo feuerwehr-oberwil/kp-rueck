@@ -748,7 +748,7 @@ export function CommandPalette() {
             {!dispatchOnTop && dispatchGroup}
           </CommandList>
           {canScrollDown && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-9 items-end justify-center bg-gradient-to-t from-popover via-popover/80 to-transparent">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-raised flex h-9 items-end justify-center bg-gradient-to-t from-popover via-popover/80 to-transparent">
               <ChevronDown className="mb-1 h-4 w-4 animate-bounce text-muted-foreground" />
             </div>
           )}

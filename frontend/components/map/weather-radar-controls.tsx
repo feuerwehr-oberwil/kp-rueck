@@ -126,7 +126,7 @@ export function WeatherRadarControls({
 
   return (
     <div
-      className="absolute bottom-2.5 left-2.5 z-30 w-64 max-w-[calc(100%-5rem)] max-sm:w-56 rounded-lg border border-border bg-card/95 p-2.5 text-xs text-foreground shadow-md backdrop-blur-sm"
+      className="absolute bottom-2.5 left-2.5 z-map-chrome w-64 max-w-[calc(100%-5rem)] max-sm:w-56 rounded-lg border border-border bg-card/95 p-2.5 text-xs text-foreground shadow-md backdrop-blur-sm"
       role="group"
       aria-label={t("radarTitle")}
       // Map chrome: dragging the scrubber must never pan the map underneath.

@@ -501,11 +501,17 @@ export function IncidentPickerDialog({
         </div>
         )}
 
-        <DialogFooter className="flex-shrink-0 sm:justify-between">
-          {onCreateNew ? (
+        {/* The escape hatch goes left on its own (`sm:mr-auto`); Abbrechen stays
+            in the right-hand group beside the primary button. Same geometry as
+            `ConfirmDialog`'s `extraAction`, which is the app's one footer shape.
+            `justify-between` plus a `<span />` spacer did the same thing, but
+            only as long as something stood in the left slot. */}
+        <DialogFooter className="flex-shrink-0">
+          {onCreateNew && (
             <Button
               variant="ghost"
               size="sm"
+              className="sm:mr-auto"
               onClick={() => {
                 handleOpenChange(false)
                 onCreateNew()
@@ -514,17 +520,13 @@ export function IncidentPickerDialog({
               <Plus className="size-3.5" />
               {t("createNew")}
             </Button>
-          ) : (
-            <span />
           )}
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
-              {t("cancel")}
-            </Button>
-            <Button size="sm" onClick={confirm} disabled={changeCount === 0}>
-              {t("apply")}
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+            {t("cancel")}
+          </Button>
+          <Button size="sm" onClick={confirm} disabled={changeCount === 0}>
+            {t("apply")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

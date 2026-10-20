@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { toast } from "sonner"
+import { directionFromKey, type BoardDirection } from "@/lib/board-keyboard-nav"
 
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { openCommandPalette } from "@/components/ui/command-palette"
@@ -46,6 +47,8 @@ export interface KanbanShortcutsActions {
   onUpdateOperation: (operationId: string, updates: Partial<Operation>) => void
   /** Move the selected operation one column right (status forward). */
   onMoveRight: (operationId: string) => void
+  /** Move the selection one card in `direction`. */
+  onMoveSelection: (direction: BoardDirection) => void
   /** Move the selected operation one column left (status backward). */
   onMoveLeft: (operationId: string) => void
   /** Toggle zu_fuss flag on the selected operation. */
@@ -240,6 +243,25 @@ export function useKanbanShortcuts(
         return
       }
 
+      // Arrows move the SELECTION between cards — the keyboard's way into the
+      // board. Everything below acts on `selectedOperationId`, which until now
+      // only a click or a drop could set, so the whole shortcut set was gated
+      // behind one mouse action. Order and skipping come from the rendered DOM
+      // (lib/board-keyboard-nav.ts), so a folded column or an active filter
+      // behaves the way it looks.
+      //
+      // A BARE arrow only. `defaultPrevented` leaves an arrow that a widget
+      // below already used (the side panel's tabs are nonmodal, so they are not
+      // covered by `modalOpen`) with that widget. The modifier keys are not ours
+      // either — Alt+← and Alt+→ are the browser's history, and swallowing those
+      // would be a worse bug than the one this branch fixes.
+      const direction: BoardDirection | null = directionFromKey(e.key)
+      if (direction && !e.defaultPrevented && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault()
+        actions.onMoveSelection(direction)
+        return
+      }
+
       // Zu Fuss on the SELECTED op — mutating, so never on hover alone.
       if (e.key === "0" && selectedOperationId && !e.shiftKey) {
         e.preventDefault()
@@ -407,8 +429,13 @@ export function useKanbanShortcuts(
         ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey) ||
         (e.key === "Enter" && !isActivationTarget(e.target))
       ) {
-        if (hoveredOperationId) {
-          const operation = operations.find((op) => op.id === hoveredOperationId)
+        // Hover first — the pointer is the more specific intent when it is on a
+        // card — then the selection, which is where a keyboard-only operator
+        // is. (Enter on the focused card is handled by the card itself, which
+        // stops propagation; this is the `E` path and the no-hover fallback.)
+        const targetId = hoveredOperationId ?? selectedOperationId
+        if (targetId) {
+          const operation = operations.find((op) => op.id === targetId)
           if (operation) {
             e.preventDefault()
             actions.onOpenDetail(operation)

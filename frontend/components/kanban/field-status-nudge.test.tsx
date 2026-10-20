@@ -86,10 +86,10 @@ describe("FieldStatusNudge", () => {
       <FieldStatusNudge operation={operation({ status: "active", fieldCompleteReportedAt: new Date() })} />,
     )
 
-    expect(screen.getByText("Feld meldet beendet – nach Beendet / Rückfahrt verschieben?")).toBeDefined()
+    expect(screen.getByText("Feld meldet beendet – nach Rückfahrt verschieben?")).toBeDefined()
   })
 
-  it("does not re-ask about a card already in or past Beendet / Rückfahrt", () => {
+  it("does not re-ask about a card already in or past Rückfahrt", () => {
     // Rückfahrt IS the state the field reported, so the question is answered by
     // the card being there — including after a reload, which is why this is
     // derived from the status and not from the session-only confirmation.
@@ -118,7 +118,7 @@ describe("FieldStatusNudge", () => {
     }
   })
 
-  it("moves a finished card to Beendet / Rückfahrt and does nothing else", async () => {
+  it("moves a finished card to Rückfahrt and does nothing else", async () => {
     const user = userEvent.setup()
     renderWithIntl(
       <FieldStatusNudge operation={operation({ status: "active", fieldCompleteReportedAt: new Date() })} />,

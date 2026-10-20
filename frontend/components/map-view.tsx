@@ -844,7 +844,7 @@ function FitAllButton({ map, incidents }: { map: MlMap | null; incidents: Incide
       // Under the zoom buttons, which are 44px tall each on a touch screen (top-[106px]). It sat
       // at 88px over the «−» for as long as nobody saw it: the button never rendered until the
       // map fired `load`, and that never happened before the worker fix (base-map.tsx).
-      className="absolute left-3 top-[88px] pointer-coarse:top-[106px] pointer-coarse:size-11 z-[1000] flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card"
+      className="absolute left-3 top-[88px] pointer-coarse:top-[106px] pointer-coarse:size-11 z-map-control flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card"
       title={t('fitAll')}
       aria-label={t('fitAll')}
     >
@@ -1394,7 +1394,7 @@ export default function MapView({
   const warnings = useMemo(() => (weatherAvailable ? activeWarnings(weather, now) : []), [weatherAvailable, weather, now])
 
   return (
-    // `isolate`: the fit-all button (z-1000), the hint chip and the legend are map chrome and
+    // `isolate`: the fit-all button (`z-map-control`), the hint chip and the legend are map chrome and
     // stay inside the map's layer — see MAP_STACKING in base-map.tsx. No overlay is ever below.
     <div
       className="relative isolate w-full h-full rounded-lg overflow-hidden"
@@ -1599,7 +1599,7 @@ export default function MapView({
       {/* Top-right control row: the page's controls, then the warning for incidents without a
           location. One flex row that wraps (right-aligned) and keeps clear of the zoom buttons
           (`left-16`), so nothing in it can overlap at any width. Only its children take clicks. */}
-      <div className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-30 flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
+      <div className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-map-chrome flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
         {topRightControls}
         {weather && <WeatherWarningChip weather={weather} warnings={warnings} now={now} />}
         <MissingLocationsWarning

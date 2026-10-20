@@ -55,6 +55,7 @@ import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
+import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
@@ -236,12 +237,36 @@ export default function FireStationDashboard() {
   const operationsRef = useRef(operations)
   operationsRef.current = operations
   const expandColumnRef = useRef<(id: string) => void>(() => {})
+  // Same trick for `moveSelection`: it reads the current selection without
+  // taking a dependency on it, so the handler identity stays stable across the
+  // selection changes it is itself causing. Assigned next to the state below.
+  const selectedOperationIdRef = useRef<string | null>(null)
   // Spotlight: for the first moment of a highlight the REST of the board steps
   // back instead of the card shouting. It is a separate, shorter window than the
   // highlight itself — the dim lifts, the accent ring stays for the remainder.
   const [spotlightActive, setSpotlightActive] = useState(false)
 
   // Scroll to and highlight a card by operation ID
+  /**
+   * Arrow-key movement between cards. Sets the same `selectedOperationId` a
+   * click sets, so every shortcut that acts on the selection works from the
+   * keyboard unchanged — that was the whole gap. Also moves DOM focus, because
+   * the card is the tab stop (roving tabindex in draggable-operation.tsx) and
+   * focus is what draws the ring.
+   *
+   * `block: 'nearest'` rather than `scrollToCard`: this is a step, not a jump
+   * to somewhere the operator was sent, so it must not spotlight the card or
+   * recentre the board under them.
+   */
+  const moveSelection = useCallback((direction: BoardDirection) => {
+    const next = nextCardId(selectedOperationIdRef.current, direction)
+    if (!next) return
+    setSelectedOperationId(next)
+    const card = document.querySelector<HTMLElement>(`[data-incident-id="${next}"]`)
+    card?.focus({ preventScroll: true })
+    card?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [])
+
   const scrollToCard = useCallback((operationId: string) => {
     // Unfold the card's column FIRST: a spotlight inside a folded column is a
     // spotlight nobody sees — the card is not even in the DOM to scroll to.
@@ -353,6 +378,7 @@ export default function FireStationDashboard() {
   const [personnelAvailableOnly, setPersonnelAvailableOnly] = useState(false)
   const [materialsAvailableOnly, setMaterialsAvailableOnly] = useState(false)
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
+  selectedOperationIdRef.current = selectedOperationId
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   // Derive current operation from operations array to get real-time updates
   const selectedOperation = useMemo(() => {
@@ -919,6 +945,7 @@ export default function FireStationDashboard() {
       },
       onMoveRight: moveOperationRight,
       onMoveLeft: moveOperationLeft,
+      onMoveSelection: moveSelection,
       onToggleZuFuss: toggleZuFuss,
       onRefresh: refreshOperations,
       onOpenDetail: (op) => {
@@ -1533,9 +1560,9 @@ export default function FireStationDashboard() {
           /* Desktop View */
           <>
         <div className="relative flex flex-1 overflow-hidden">
-          {/* `z-10` on both sidebars: their collapse handles straddle the inner
+          {/* `z-raised` on both sidebars: their collapse handles straddle the inner
               edge, so half of each hangs over the board. `backdrop-blur-sm` makes
-              an aside a stacking context, so a handle's own z-20 cannot lift it
+              an aside a stacking context, so a handle's own `z-pinned` cannot lift it
               past a SIBLING — and the board block follows the LEFT sidebar in DOM
               order with an opaque background, which painted that half away. The
               right one only ever looked fine because it comes after the board. */}
@@ -1575,7 +1602,7 @@ export default function FireStationDashboard() {
               `left-1` / `right-1` mean the BOARD's edges — not the window's —
               whether or not the detail panel is open.
 
-              Every tab is PINNED (absolute, z-20), never a flex item. A flex
+              Every tab is PINNED (absolute, `z-pinned`), never a flex item. A flex
               item reserves its width down the entire height of the board, so a
               48px tab left a 28px column of nothing running the full height
               beside the Material-Leiste: an empty band between a sliced-off card
@@ -1667,7 +1694,7 @@ export default function FireStationDashboard() {
           {!showLeftSidebar && (
             <button
               onClick={() => setShowLeftSidebar(true)}
-              className="absolute left-1 top-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute left-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={`${tDash('toggleLeftSidebar')} ([)`}
               aria-label={tDash('toggleLeftSidebar')}
             >
@@ -1680,7 +1707,7 @@ export default function FireStationDashboard() {
           {sidePanelMode === 'collapsed' && (
             <button
               onClick={() => setSidePanelMode('detail')}
-              className="absolute right-1 top-3 z-20 hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
+              className="absolute right-1 top-3 z-pinned hidden h-12 w-5 min-w-0 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground 2xl:flex"
               title={`${tSidePanel('railLabel')} (\\)`}
               aria-label={tSidePanel('railLabel')}
             >
@@ -1692,7 +1719,7 @@ export default function FireStationDashboard() {
           {!showRightSidebar && (
             <button
               onClick={() => setShowRightSidebar(true)}
-              className="absolute right-1 top-1/2 z-20 flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="absolute right-1 top-1/2 z-pinned flex h-12 w-5 min-w-0 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary/60 hover:text-foreground"
               title={
                 materialOnSiteEntries.length > 0
                   ? `${tDash('toggleRightSidebar')} (]) · ${tDash('materialOnSite.toggle', { count: materialOnSiteEntries.length })}`
@@ -1752,7 +1779,7 @@ export default function FireStationDashboard() {
             onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
           />
 
-          {/* Same `z-10` as the left sidebar — see the note there. This side works
+          {/* Same `z-raised` as the left sidebar — see the note there. This side works
               on DOM order alone today; it carries the class so the handle does not
               depend on which side of the board its aside happens to sit. */}
           {showRightSidebar && (

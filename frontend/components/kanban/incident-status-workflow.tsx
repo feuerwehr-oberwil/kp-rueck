@@ -985,21 +985,26 @@ export function IncidentStatusWorkflowDialogs({
                 </div>
                 {/* «Trotzdem disponieren» is the override for a REAL gate, so it only appears
                     while one is closed. With just material outstanding the primary button is
-                    live and says «Fertig» — no override needed for the ordinary case. */}
-                <AlertDialogFooter className={blocking ? "sm:justify-between" : undefined}>
+                    live and says «Fertig» — no override needed for the ordinary case.
+                    It takes the far-left slot (`sm:mr-auto`, the ConfirmDialog
+                    `extraAction` geometry); Abbrechen stays grouped with the
+                    primary button on the right. */}
+                <AlertDialogFooter>
                   {blocking && (
-                    <Button variant="ghost" onClick={() => controller.openDisponiert(missingOperation.id)}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => controller.openDisponiert(missingOperation.id)}
+                      className="sm:mr-auto"
+                    >
                       {tMissing("dispatchAnyway")}
                     </Button>
                   )}
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <Button variant="outline" onClick={() => controller.cancelMissingResources()}>
-                      {tCommon("cancel")}
-                    </Button>
-                    <Button disabled={blocking} onClick={() => controller.openDisponiert(missingOperation.id)}>
-                      {tMissing("done")}
-                    </Button>
-                  </div>
+                  <Button variant="outline" onClick={() => controller.cancelMissingResources()}>
+                    {tCommon("cancel")}
+                  </Button>
+                  <Button disabled={blocking} onClick={() => controller.openDisponiert(missingOperation.id)}>
+                    {tMissing("done")}
+                  </Button>
                 </AlertDialogFooter>
               </>
             )
@@ -1021,19 +1026,19 @@ export function IncidentStatusWorkflowDialogs({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={controller.closeReturningVehicle}>{tReturning("endAnyway")}</Button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={controller.cancelReturningVehicle}>
-                {tCommon("cancel")}
-              </Button>
-              <Button onClick={() => {
-                const operation = controller.returningVehicleOperation
-                if (operation) openAssignment("vehicles", operation.id, "returning")
-              }}>
-                {tReturning("assignVehicle")}
-              </Button>
-            </div>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={controller.closeReturningVehicle} className="sm:mr-auto">
+              {tReturning("endAnyway")}
+            </Button>
+            <Button variant="outline" onClick={controller.cancelReturningVehicle}>
+              {tCommon("cancel")}
+            </Button>
+            <Button onClick={() => {
+              const operation = controller.returningVehicleOperation
+              if (operation) openAssignment("vehicles", operation.id, "returning")
+            }}>
+              {tReturning("assignVehicle")}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1087,19 +1092,19 @@ export function IncidentStatusWorkflowDialogs({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={controller.closeRekoMissing}>{tReko("proceedAnyway")}</Button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={controller.cancelRekoMissing}>
-                {tCommon("cancel")}
-              </Button>
-              <Button onClick={() => {
-                const operation = controller.rekoMissingOperation
-                if (operation) controller.openRekoAssignment(operation.id)
-              }}>
-                {tReko("assignReko")}
-              </Button>
-            </div>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={controller.closeRekoMissing} className="sm:mr-auto">
+              {tReko("proceedAnyway")}
+            </Button>
+            <Button variant="outline" onClick={controller.cancelRekoMissing}>
+              {tCommon("cancel")}
+            </Button>
+            <Button onClick={() => {
+              const operation = controller.rekoMissingOperation
+              if (operation) controller.openRekoAssignment(operation.id)
+            }}>
+              {tReko("assignReko")}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1118,27 +1123,27 @@ export function IncidentStatusWorkflowDialogs({
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-between">
-            <Button variant="ghost" onClick={controller.closeRekoFormMissing}>{tRekoForm("proceedAnyway")}</Button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={controller.cancelRekoFormMissing}>
-                {tCommon("cancel")}
-              </Button>
-              <Button onClick={() => {
-                const operation = controller.rekoFormMissingOperation
-                // closeRekoFormMissing also drops the revert status — opening
-                // the Reko details is a "proceed", not a cancel.
-                controller.closeRekoFormMissing()
-                // …on the REKO tab, with the entry form already open. The
-                // dialog's whole subject is that no Reko report was filled in,
-                // and it used to land the operator on Übersicht — the one tab
-                // that says nothing about it — with the «erstellen» button two
-                // clicks away.
-                if (operation) onOpenDetail(operation.id, 'reko', 'newReport')
-              }}>
-                {tRekoForm("openReko")}
-              </Button>
-            </div>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={controller.closeRekoFormMissing} className="sm:mr-auto">
+              {tRekoForm("proceedAnyway")}
+            </Button>
+            <Button variant="outline" onClick={controller.cancelRekoFormMissing}>
+              {tCommon("cancel")}
+            </Button>
+            <Button onClick={() => {
+              const operation = controller.rekoFormMissingOperation
+              // closeRekoFormMissing also drops the revert status — opening
+              // the Reko details is a "proceed", not a cancel.
+              controller.closeRekoFormMissing()
+              // …on the REKO tab, with the entry form already open. The
+              // dialog's whole subject is that no Reko report was filled in,
+              // and it used to land the operator on Übersicht — the one tab
+              // that says nothing about it — with the «erstellen» button two
+              // clicks away.
+              if (operation) onOpenDetail(operation.id, 'reko', 'newReport')
+            }}>
+              {tRekoForm("openReko")}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1307,24 +1312,26 @@ export function IncidentStatusWorkflowDialogs({
               single obvious click it was, because the squad may just as well be
               standing down and the next stop may be one the KP dispatches
               deliberately. */}
-          <AlertDialogFooter className={nextStopOffer ? "sm:justify-between" : undefined}>
+          <AlertDialogFooter>
             {nextStopOffer && (
-              <Button variant="ghost" onClick={() => confirmCompletion(nextStopOffer)}>
+              <Button
+                variant="ghost"
+                onClick={() => confirmCompletion(nextStopOffer)}
+                className="sm:mr-auto"
+              >
                 {tCompletion("stopConfirmAndNext")}
               </Button>
             )}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={controller.cancelMaterialDecision}>{tMat("cancel")}</Button>
-              <Button onClick={() => confirmCompletion(null)}>
-                {continuation
-                  ? tCompletion("stopConfirm")
-                  : release
-                    ? tCompletion("confirm")
-                    : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
-                      ? tMat("confirmRapport")
-                      : tMat("confirm")}
-              </Button>
-            </div>
+            <Button variant="outline" onClick={controller.cancelMaterialDecision}>{tMat("cancel")}</Button>
+            <Button onClick={() => confirmCompletion(null)}>
+              {continuation
+                ? tCompletion("stopConfirm")
+                : release
+                  ? tCompletion("confirm")
+                  : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
+                    ? tMat("confirmRapport")
+                    : tMat("confirm")}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1372,16 +1379,18 @@ export function IncidentStatusWorkflowDialogs({
                 <p className="border-t pt-2 text-sm text-muted-foreground">{tCorrection("noAnnouncement")}</p>
                 <p className="text-xs text-muted-foreground">{tCorrection("dispatchHint")}</p>
               </div>
-              <AlertDialogFooter className="sm:justify-between">
-                <Button variant="ghost" onClick={controller.dispatchAfterCorrection}>
+              <AlertDialogFooter>
+                <Button
+                  variant="ghost"
+                  onClick={controller.dispatchAfterCorrection}
+                  className="sm:mr-auto"
+                >
                   {tCorrection("dispatchAgain")}
                 </Button>
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <Button variant="outline" onClick={controller.cancelStatusCorrection}>
-                    {tCommon("cancel")}
-                  </Button>
-                  <Button onClick={controller.confirmStatusCorrection}>{tCorrection("confirm")}</Button>
-                </div>
+                <Button variant="outline" onClick={controller.cancelStatusCorrection}>
+                  {tCommon("cancel")}
+                </Button>
+                <Button onClick={controller.confirmStatusCorrection}>{tCorrection("confirm")}</Button>
               </AlertDialogFooter>
             </>
           )}

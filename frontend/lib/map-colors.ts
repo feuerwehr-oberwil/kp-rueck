@@ -6,18 +6,18 @@ import { PRIORITY_COLORS } from "./priority"
  * a MapLibre `line-color` is a style value, not a stylesheet, and the DOM
  * markers draw inline SVG outside the app's themed tree. Rather than
  * scatter raw hex values across half a dozen files, we keep them here and
- * reference by name. The values mirror the semantic tokens in app/globals.css
- * (`--destructive`, `--warning`, `--success`, `--info`); if those tokens
- * ever change, change these too.
+ * reference by name.
+ *
+ * These two are DEVICE state, not incident state — "is this vehicle
+ * reporting?" — which is why they are the only named colours left here.
+ * Status and priority marker fills come from `PRIORITY_MARKER_COLORS` below
+ * and `INCIDENT_TYPE_MARKER_COLORS` further down; the table used to also
+ * carry `destructive` / `warning` / `success` mirrors of the semantic tokens,
+ * which nothing ever consumed and which read as a palette clash against the
+ * incident-type hues they duplicated.
  */
 
 export const MAP_COLORS = {
-  /** Same hue as `--destructive`. */
-  destructive: "#ef4444",
-  /** Same hue as `--warning`. */
-  warning: "#eab308",
-  /** Same hue as `--success`. */
-  success: "#22c55e",
   /** Same hue as `--info`. Used for selected/highlighted markers + GPS-online dots. */
   info: "#3b82f6",
   /** Tailwind gray-500 — used as the "offline / no signal" marker fill. */
@@ -25,9 +25,12 @@ export const MAP_COLORS = {
 } as const
 
 /**
- * Map from incident priority → marker fill color. Mirrors the priority
- * styling we use across the kanban/display board (high=red, medium=yellow,
- * low=green).
+ * Map from incident priority → marker fill color. Re-exported from
+ * `lib/priority.ts` rather than restated, so the board, the display wall, the
+ * print view and the map cannot drift: high = red, medium = amber, low =
+ * emerald. Mutually exclusive with `INCIDENT_TYPE_MARKER_COLORS` — a marker
+ * is filled by priority or by Einsatzart, never by both, and the legend says
+ * which is active.
  */
 export const PRIORITY_MARKER_COLORS: Record<"high" | "medium" | "low", string> = PRIORITY_COLORS
 
