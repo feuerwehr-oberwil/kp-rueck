@@ -66,14 +66,20 @@ function matchesSearch(op: Operation, raw: string): boolean {
   )
 }
 
-// Status groups for filtering — labels render via t(`filters.${id}`). One row each in the
-// funnel menu; ticking several shows the union.
-const statusGroups = [
-  { id: "active", statuses: ["active", "enroute"] },
-  { id: "incoming", statuses: ["incoming", "reko", "reko_done"] },
-  { id: "returning", statuses: ["returning"] },
-  { id: "complete", statuses: ["complete"] },
-]
+// One row per STATUS in the funnel menu, in board order; ticking several shows
+// the union. They used to be four coarser groups with names of their own
+// («Aktiv», «Neu») — a third vocabulary beside the board's, and one that could
+// not say «show me only the Rückfahrten». The filter now speaks exactly the
+// words the columns do (incidents.status.*).
+const filterStatuses = [
+  "incoming",
+  "reko",
+  "reko_done",
+  "enroute",
+  "active",
+  "returning",
+  "complete",
+] as const
 
 export function MobileIncidentListView({
   operations,
@@ -87,6 +93,8 @@ export function MobileIncidentListView({
   openRequest = null,
 }: MobileIncidentListViewProps) {
   const t = useTranslations('incidents.mobileList')
+  // The board's own words for a status — the single vocabulary.
+  const tStatus = useTranslations('incidents.status')
   const tEmpty = useTranslations('common.emptyState')
   const { selectedEvent } = useEvent()
   // Fetched ONCE for the list and passed into every card — the rich card rows
@@ -99,7 +107,7 @@ export function MobileIncidentListView({
   // closed and re-opened.
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
-  // The ticked status groups (ids from `statusGroups`); empty = everything.
+  // The ticked statuses (keys from `filterStatuses`); empty = everything.
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set())
   const filtering = ticked.size > 0
   const searchRef = useRef<HTMLInputElement>(null)
@@ -128,8 +136,7 @@ export function MobileIncidentListView({
 
     // Apply the status filter: any ticked group
     if (ticked.size > 0) {
-      const statuses = new Set(statusGroups.filter(g => ticked.has(g.id)).flatMap(g => g.statuses))
-      filtered = filtered.filter(op => statuses.has(op.status))
+      filtered = filtered.filter(op => ticked.has(op.status))
     }
 
     // Apply search filter
@@ -162,12 +169,12 @@ export function MobileIncidentListView({
   )
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    statusGroups.forEach(group => {
-      counts[group.id] = searchHits.filter(op => group.statuses.includes(op.status)).length
+    filterStatuses.forEach(status => {
+      counts[status] = searchHits.filter(op => op.status === status).length
     })
     return counts
   }, [searchHits])
-  const tickedLabels = statusGroups.filter(g => ticked.has(g.id)).map(g => t(`filters.${g.id}`)).join(' · ')
+  const tickedLabels = filterStatuses.filter(status => ticked.has(status)).map(status => tStatus(status)).join(' · ')
   const toggleGroup = (id: string, on: boolean) =>
     setTicked(prev => {
       const next = new Set(prev)
@@ -198,7 +205,7 @@ export function MobileIncidentListView({
     // so the footer and the list's end sit on the nav's top edge, never behind it.
     <div ref={rootRef} className="flex flex-col h-full pb-[var(--nav-reserve,0px)]">
       {/* Fixed Header with Search */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background sticky top-0 z-10 border-b border-border/50">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background sticky top-0 z-raised border-b border-border/50">
         {/* Current event as context — the top navbar is hidden on mobile, so the
             event name lives here; switching happens via the bottom nav. */}
         {selectedEvent && (
@@ -262,16 +269,16 @@ export function MobileIncidentListView({
                 </>
               )}
               <DropdownMenuLabel className="text-xs text-muted-foreground">{t('filterGroupStatus')}</DropdownMenuLabel>
-              {statusGroups.map(group => (
+              {filterStatuses.map(status => (
                 <DropdownMenuCheckboxItem
-                  key={group.id}
-                  checked={ticked.has(group.id)}
-                  onCheckedChange={(on) => toggleGroup(group.id, on === true)}
+                  key={status}
+                  checked={ticked.has(status)}
+                  onCheckedChange={(on) => toggleGroup(status, on === true)}
                   onSelect={(event) => event.preventDefault()}
                   className="min-h-11 data-[state=checked]:sel-choice"
                 >
-                  <span className="flex-1">{t(`filters.${group.id}`)}</span>
-                  <span className="tabular-nums text-muted-foreground">{statusCounts[group.id]}</span>
+                  <span className="flex-1">{tStatus(status)}</span>
+                  <span className="tabular-nums text-muted-foreground">{statusCounts[status]}</span>
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>

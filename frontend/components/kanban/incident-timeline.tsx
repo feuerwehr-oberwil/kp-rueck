@@ -23,7 +23,7 @@ import { useTranslations } from "next-intl"
 import { ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
-import { STATUS_LABELS } from "@/lib/types/incidents"
+import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { Button } from "@/components/ui/button"
@@ -171,7 +171,7 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
   // Translate known statuses; unknown values fall back to the raw status string.
   const statusLabel = (status: string | null | undefined): string => {
     if (!status) return "–"
-    return status in STATUS_LABELS ? t(`statusLabels.${status}`) : status
+    return isIncidentStatus(status) ? t(`statusLabels.${status}`) : status
   }
   if (event.event_type === "status_change") {
     const from = statusLabel(event.from_status)

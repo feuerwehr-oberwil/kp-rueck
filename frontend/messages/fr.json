@@ -830,7 +830,7 @@
     "board": {
       "cardRapportTooltip": "Rapport de place sinistrée saisi",
       "cardNoRapportTooltip": "Aucun rapport saisi",
-      "nudgeCompleteText": "Le terrain annonce la fin – déplacer vers Terminé / retour ?",
+      "nudgeCompleteText": "Le terrain annonce la fin – déplacer vers Retour ?",
       "nudgeArrivedText": "Le terrain annonce l’arrivée – déplacer vers Intervention ?",
       "nudgeConfirm": "Déplacer",
       "nudgeDismiss": "Masquer l’indication"
@@ -1117,7 +1117,7 @@
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
       "active": "En intervention",
-      "returning": "Terminé / retour",
+      "returning": "Retour",
       "complete": "Clôturé"
     },
     "kpMessages": {
@@ -1226,7 +1226,7 @@
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
       "active": "En intervention",
-      "returning": "Terminé / retour",
+      "returning": "Retour",
       "complete": "Clôturé"
     },
     "assignReko": {
@@ -1412,12 +1412,6 @@
       "copyWhatsApp": "Copier le message WhatsApp"
     },
     "mobileList": {
-      "filters": {
-        "active": "En cours",
-        "incoming": "Nouvelles",
-        "returning": "Retour",
-        "complete": "Clôturées"
-      },
       "trainingBadge": "Exercice",
       "createTrainingIncident": "Créer une intervention d’exercice",
       "newIncident": "Nouvelle intervention",
@@ -1516,7 +1510,7 @@
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
       "active": "En intervention",
-      "returning": "Terminé / retour",
+      "returning": "Retour",
       "complete": "Clôturé"
     },
     "statusLabels": {
@@ -1525,7 +1519,7 @@
       "reko_done": "Reconnaissance terminée",
       "enroute": "Engagé / en route",
       "active": "En intervention",
-      "returning": "Terminé / retour",
+      "returning": "Retour",
       "complete": "Clôturé"
     },
     "resources": {
@@ -1916,7 +1910,7 @@
       "dropHere": "Déposer l’intervention ici",
       "empty": "Aucune intervention",
       "collapsedHint": "{title} – {count} – cliquer pour déplier",
-      "statusDistinctionHint": "Terminé / retour : travaux sur le lieu du sinistre achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
+      "statusDistinctionHint": "Retour : travaux sur le lieu du sinistre achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
       "overdueTitle": "{count} en retard : {titles}",
       "overdueMore": "… et {count} de plus"
     },
@@ -2158,10 +2152,10 @@
       "confirm": "Ajouter quand même"
     },
     "stopStatus": {
-      "offen": "Ouvert",
-      "disponiert": "Engagé",
-      "einsatz": "Intervention",
-      "beendet": "Terminé",
+      "offen": "Reçu",
+      "disponiert": "Engagé / en route",
+      "einsatz": "En intervention",
+      "beendet": "Retour",
       "abgeschlossen": "Clôturé",
       "advance": "Passer à {label}",
       "jumpTo": "Choisir le statut"
@@ -2479,9 +2473,9 @@
       "priority": "Priorité",
       "noIncidents": "Aucune intervention",
       "statusFrame": "Statut (cadre)",
-      "statusOpen": "Ouverte",
+      "statusOpen": "Ouvertes",
       "statusActive": "En cours",
-      "statusCompleted": "Terminée",
+      "statusCompleted": "Retour & clôturées",
       "vehiclesGps": "Véhicules (GPS)",
       "vehicleOnline": "Véhicule en ligne",
       "vehicleOffline": "Véhicule hors ligne",
@@ -2525,7 +2519,10 @@
     "statusGroups": {
       "open": "Ouvertes",
       "active": "En cours",
-      "completed": "Terminées"
+      "completed": "Retour & clôturées",
+      "openMembers": "Reçu · Reconnaissance · Reconnaissance terminée",
+      "activeMembers": "Engagé / en route · En intervention",
+      "completedMembers": "Retour · Clôturé"
     },
     "colorBy": {
       "priority": "Priorité",
@@ -2904,7 +2901,7 @@
       "timeMinutes": "il y a {minutes} min",
       "justNow": "à l’instant",
       "moveToActive": "Déplacer vers Intervention",
-      "moveToComplete": "Vers Terminé / Retour"
+      "moveToComplete": "Vers Retour"
     },
     "messages": {
       "feldCodeRotated": "Nouveau code terrain pour {event} après trop de tentatives erronées",
@@ -3029,7 +3026,7 @@
         "reko_done": "Reconnaissance terminée",
         "enroute": "Engagé / en route",
         "active": "En intervention",
-        "returning": "Terminé / retour",
+        "returning": "Retour",
         "complete": "Clôturé"
       },
       "priority": {
@@ -3988,7 +3985,12 @@
         "editor": "Tient le tableau : ouvrir des interventions, attribuer des ressources, modifier les réglages.",
         "viewer": "Ne voit que l’affichage mural. Après la connexion, y arrive directement et ne peut ni ouvrir ni utiliser le tableau.",
         "admin": "Comme l’éditeur, et gère en plus les comptes d’utilisateurs."
-      }
+      },
+      "editAria": "Modifier : {name}",
+      "resetPasswordAria": "Réinitialiser le mot de passe : {name}",
+      "deactivateAria": "Désactiver : {name}",
+      "reactivateAria": "Réactiver : {name}",
+      "permanentDeleteAria": "Supprimer définitivement : {name}"
     },
     "vehicles": {
       "loadError": "Les véhicules n’ont pas pu être chargés",

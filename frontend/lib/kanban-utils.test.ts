@@ -42,7 +42,7 @@ describe("remainingRouteStops", () => {
     expect(remainingRouteStops(route, operations, "i1").map((s) => s.id)).toEqual(["i2", "i3"])
   })
 
-  it("counts «Beendet / Rückfahrt» as done, like the board does", () => {
+  it("counts «Rückfahrt» as done, like the board does", () => {
     // The squad has left that scene, so nothing about it is still ahead of them.
     const operations = [stop("i1", "active"), stop("i2", "returning"), stop("i3", "complete")]
     expect(remainingRouteStops(route, operations, "i1")).toEqual([])

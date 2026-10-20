@@ -10,7 +10,7 @@ import { ShellLoader } from "@/components/ui/shell-loader"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Route } from "lucide-react"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
-import { STATUS_LABELS } from "@/lib/types/incidents"
+import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -410,7 +410,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                             )}
                             {vehicle.incident_id && vehicle.incident_status && (
                               <Badge variant="outline" className={cn("text-xs max-w-full", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                                {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
+                                {isIncidentStatus(vehicle.incident_status) ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                               </Badge>
                             )}
                             {showDurationWarning && (
@@ -552,7 +552,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                           )}
                           {vehicle.incident_id && vehicle.incident_status && (
                             <Badge variant="outline" className={cn("text-xs", RESOURCE_STATE_BADGE_CLASSES.assigned)}>
-                              {vehicle.incident_status in STATUS_LABELS ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
+                              {isIncidentStatus(vehicle.incident_status) ? t(`status.${vehicle.incident_status}`) : vehicle.incident_status}
                             </Badge>
                           )}
                           {showDurationWarning && (

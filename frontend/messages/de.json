@@ -282,7 +282,7 @@
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
       "active": "Im Einsatz",
-      "returning": "Beendet / Rückfahrt",
+      "returning": "Rückfahrt",
       "complete": "Abgeschlossen"
     },
     "statusLabels": {
@@ -291,7 +291,7 @@
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
       "active": "Im Einsatz",
-      "returning": "Beendet / Rückfahrt",
+      "returning": "Rückfahrt",
       "complete": "Abgeschlossen"
     },
     "resources": {
@@ -682,7 +682,7 @@
       "dropHere": "Einsatz hier ablegen",
       "empty": "Noch keine Einsätze.",
       "collapsedHint": "{title} – {count} – zum Aufklappen klicken",
-      "statusDistinctionHint": "Beendet / Rückfahrt: Arbeiten am Schadenplatz beendet, Ressourcen noch auf der Rückfahrt. Abgeschlossen: Einsatz vollständig erledigt, Ressourcen freigegeben, offene Rückmeldungen geprüft.",
+      "statusDistinctionHint": "Rückfahrt: Arbeiten am Schadenplatz beendet, Ressourcen noch auf der Rückfahrt. Abgeschlossen: Einsatz vollständig erledigt, Ressourcen freigegeben, offene Rückmeldungen geprüft.",
       "overdueTitle": "{count} überfällig: {titles}",
       "overdueMore": "… und {count} weitere"
     },
@@ -924,10 +924,10 @@
       "confirm": "Trotzdem hinzufügen"
     },
     "stopStatus": {
-      "offen": "Offen",
-      "disponiert": "Disponiert",
-      "einsatz": "Einsatz",
-      "beendet": "Beendet",
+      "offen": "Eingegangen",
+      "disponiert": "Disponiert / Anfahrt",
+      "einsatz": "Im Einsatz",
+      "beendet": "Rückfahrt",
       "abgeschlossen": "Abgeschlossen",
       "advance": "Weiter zu {label}",
       "jumpTo": "Status wählen"
@@ -1171,7 +1171,7 @@
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
       "active": "Im Einsatz",
-      "returning": "Beendet / Rückfahrt",
+      "returning": "Rückfahrt",
       "complete": "Abgeschlossen"
     },
     "assignReko": {
@@ -1357,12 +1357,6 @@
       "copyWhatsApp": "WhatsApp-Nachricht kopieren"
     },
     "mobileList": {
-      "filters": {
-        "active": "Aktiv",
-        "incoming": "Neu",
-        "returning": "Rückfahrt",
-        "complete": "Abgeschlossen"
-      },
       "trainingBadge": "Übung",
       "createTrainingIncident": "Übungs-Einsatz erstellen",
       "newIncident": "Neuer Einsatz",
@@ -1461,7 +1455,7 @@
       "statusFrame": "Status (Rahmen)",
       "statusOpen": "Offen",
       "statusActive": "Aktiv",
-      "statusCompleted": "Beendet",
+      "statusCompleted": "Rückfahrt & Abgeschlossen",
       "vehiclesGps": "Fahrzeuge (GPS)",
       "vehicleOnline": "Fahrzeug online",
       "vehicleOffline": "Fahrzeug offline",
@@ -1505,7 +1499,10 @@
     "statusGroups": {
       "open": "Offen",
       "active": "Aktiv",
-      "completed": "Beendet"
+      "completed": "Rückfahrt & Abgeschlossen",
+      "openMembers": "Eingegangen · Reko · Reko abgeschlossen",
+      "activeMembers": "Disponiert / Anfahrt · Im Einsatz",
+      "completedMembers": "Rückfahrt · Abgeschlossen"
     },
     "colorBy": {
       "priority": "Priorität",
@@ -2285,7 +2282,12 @@
         "editor": "Führt das Board: Einsätze eröffnen, Ressourcen zuweisen, Einstellungen ändern.",
         "viewer": "Sieht nur die Wandanzeige. Landet nach dem Anmelden direkt dort und kann das Board weder öffnen noch bedienen.",
         "admin": "Wie Bearbeiter, und verwaltet zusätzlich die Benutzerkonten."
-      }
+      },
+      "editAria": "Bearbeiten: {name}",
+      "resetPasswordAria": "Passwort zurücksetzen: {name}",
+      "deactivateAria": "Deaktivieren: {name}",
+      "reactivateAria": "Reaktivieren: {name}",
+      "permanentDeleteAria": "Endgültig löschen: {name}"
     },
     "vehicles": {
       "loadError": "Fahrzeuge konnten nicht geladen werden",
@@ -2830,7 +2832,7 @@
         "reko_done": "Reko abgeschlossen",
         "enroute": "Disponiert / Anfahrt",
         "active": "Im Einsatz",
-        "returning": "Beendet / Rückfahrt",
+        "returning": "Rückfahrt",
         "complete": "Abgeschlossen"
       },
       "priority": {
@@ -3215,7 +3217,7 @@
       "timeMinutes": "vor {minutes}m",
       "justNow": "gerade eben",
       "moveToActive": "Nach Einsatz verschieben",
-      "moveToComplete": "Nach Beendet / Rückfahrt"
+      "moveToComplete": "Nach Rückfahrt"
     },
     "messages": {
       "feldCodeRotated": "Feld-Code für {event} nach zu vielen Fehlversuchen neu erzeugt",
@@ -4014,7 +4016,7 @@
     "board": {
       "cardRapportTooltip": "Schadenplatz-Rapport erfasst",
       "cardNoRapportTooltip": "Kein Rapport erfasst",
-      "nudgeCompleteText": "Feld meldet beendet – nach Beendet / Rückfahrt verschieben?",
+      "nudgeCompleteText": "Feld meldet beendet – nach Rückfahrt verschieben?",
       "nudgeArrivedText": "Feld meldet angekommen – nach Einsatz verschieben?",
       "nudgeConfirm": "Verschieben",
       "nudgeDismiss": "Hinweis ausblenden"
@@ -4301,7 +4303,7 @@
       "reko_done": "Reko abgeschlossen",
       "enroute": "Disponiert / Anfahrt",
       "active": "Im Einsatz",
-      "returning": "Beendet / Rückfahrt",
+      "returning": "Rückfahrt",
       "complete": "Abgeschlossen"
     },
     "kpMessages": {

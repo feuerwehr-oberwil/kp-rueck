@@ -54,7 +54,7 @@ import {
   IncidentStatusWorkflowDialogs,
   useIncidentStatusWorkflow,
 } from "@/components/kanban/incident-status-workflow"
-import { STATUS_LABELS, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
+import { isIncidentStatus, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api-client"
@@ -735,7 +735,7 @@ export default function MapPage() {
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
         (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-        (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+        (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
       )
     },
     [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
@@ -759,7 +759,7 @@ export default function MapPage() {
             (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
             (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
             (inc.type in INCIDENT_TYPE_LABELS && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-            (inc.status in STATUS_LABELS && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
+            (isIncidentStatus(inc.status) && tKanban(`statusLabels.${inc.status}`).toLowerCase().includes(lowerQuery))
           )
         })
     const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }
@@ -1308,6 +1308,13 @@ export default function MapPage() {
                         />
                         {t(`statusGroups.${group}`)} · {statusGroupCounts[group]}
                       </button>
+                      {/* Which board columns feed this section. A group name is
+                          shorter than the statuses it stands for, and on its own
+                          it left the operator guessing whether «Rückfahrt»
+                          counted as finished — so the section says so. */}
+                      <p className="px-2 pb-1 text-[10px] leading-tight text-muted-foreground/70">
+                        {t(`statusGroups.${group}Members`)}
+                      </p>
                       <Reveal open={enabled && rows.length > 0}>
                         <div className="space-y-0.5">
                           {rows.map((incident) => {

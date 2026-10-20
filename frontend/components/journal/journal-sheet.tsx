@@ -33,7 +33,7 @@ import {
 } from "@/lib/journal"
 import { useJournal } from "@/lib/hooks/use-journal"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { STATUS_LABELS } from "@/lib/types/incidents"
+import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -414,7 +414,7 @@ export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: str
   const tStatus = useTranslations("kanban")
   const data = (entry.data ?? {}) as Record<string, unknown>
   const str = (k: string) => (typeof data[k] === "string" ? (data[k] as string) : "")
-  const status = (s: string) => (s in STATUS_LABELS ? tStatus(`statusLabels.${s}`) : s)
+  const status = (s: string) => (isIncidentStatus(s) ? tStatus(`statusLabels.${s}`) : s)
 
   switch (entry.kind) {
     case "incident": {
