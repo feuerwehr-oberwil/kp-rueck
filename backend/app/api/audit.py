@@ -1,4 +1,4 @@
-"""Audit log query endpoints."""
+"""Audit log query endpoints (admin only – the log carries IP addresses and user agents)."""
 
 import uuid
 from collections.abc import Sequence
@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentEditor
+from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
 from ..models import AuditLog
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 
 @router.get("", response_model=list[schemas.AuditLogEntry])
 async def query_audit_log(
-    current_user: CurrentEditor,  # Editor-only
+    current_user: CurrentAdmin,
     db: AsyncSession = Depends(get_db),
     resource_type: str | None = None,
     resource_id: uuid.UUID | None = None,
@@ -106,7 +106,7 @@ async def query_audit_log(
 async def get_resource_history(
     resource_type: str,
     resource_id: uuid.UUID,
-    current_user: CurrentEditor,
+    current_user: CurrentAdmin,
     db: AsyncSession = Depends(get_db),
 ) -> Sequence[AuditLog]:
     """

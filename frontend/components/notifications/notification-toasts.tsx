@@ -8,6 +8,8 @@ import { Toaster } from '@/components/ui/sonner'
 import { setToastDurationSetting } from '@/lib/toast-lifetime'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
+import { useAuth } from '@/lib/contexts/auth-context'
+import { isDisplayPath } from '@/lib/utils/display-retry'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { isStringArray, readJson, removeItem, writeJson } from '@/lib/utils/safe-storage'
 import {
@@ -99,9 +101,15 @@ export function NotificationToasts() {
   // notifications followed them in: a crew standing in the rain got «Einsatz
   // überfällig» about a Schadenplatz that is none of their business, on a page
   // whose whole design is four buttons and nothing else. The board's traffic is
-  // for the KP.
+  // for the KP. The wall displays (`/display/*`) are quiet too: nobody stands at
+  // them to read or close a toast, and the viewer role that lands there may not
+  // dismiss anything.
   const pathname = usePathname()
-  const isQuietSurface = isMobile || (pathname?.startsWith('/feld') ?? false)
+  const isDisplay = isDisplayPath(pathname)
+  const isQuietSurface = isMobile || isDisplay || (pathname?.startsWith('/feld') ?? false)
+  // Dismissing is an editor's act (POST /notifications/{id}/dismiss) – a viewer
+  // closing a toast only closes it on their own screen.
+  const { isEditor } = useAuth()
   // «Anzeigedauer» scales every toast's length-based lifetime (lib/toast-lifetime.ts).
   const toastDurationSetting = settings.toast_duration_seconds
   useEffect(() => {
@@ -123,20 +131,24 @@ export function NotificationToasts() {
   // the KP has plainly seen it. Dismissed server-side (the bell quiets on every
   // board, and the row lands in the history) and the on-screen toast goes with
   // it. The ref keeps one in-flight dismiss from being re-fired on every poll
-  // until the server echoes it back as dismissed.
+  // until the server echoes it back as dismissed. Only an editor's board does
+  // this, and never a wall display: it is a write on everybody's behalf.
   const { operations } = useOperations()
   const silencedIds = useRef<Set<string>>(new Set())
+  const autoDismiss = isEditor && !isDisplay
   useEffect(() => {
+    if (!autoDismiss) return
     for (const id of supersededNewIncidentNotifications(notifications, operations)) {
       if (silencedIds.current.has(id)) continue
       silencedIds.current.add(id)
       toast.dismiss(id)
       void dismissNotification(id)
     }
-  }, [notifications, operations, dismissNotification])
+  }, [notifications, operations, dismissNotification, autoDismiss])
 
-  // Mobile is a viewing-first surface (mainly used to spawn training incidents)
-  // and `/feld` belongs to a crew, so both stay quiet: suppress non-critical
+  // Mobile is a viewing-first surface (an editor also spawns training incidents
+  // there), `/feld` belongs to a crew and `/display/*` is a wall, so all three
+  // stay quiet: suppress non-critical
   // toasts app-wide there. Genuine action failures (`toast.error`) still
   // surface — a Meldung that did not go through has to say so — and the
   // notification→toast mapping below is skipped entirely.
@@ -156,7 +168,7 @@ export function NotificationToasts() {
 
   useEffect(() => {
     // Don't show toasts when sidebar is open - notifications are visible there.
-    // On mobile and on /feld, don't surface incident/notification toasts at all.
+    // On mobile, /feld and /display, don't surface incident/notification toasts at all.
     if (isSidebarOpen || isQuietSurface) {
       return
     }
@@ -250,8 +262,10 @@ export function NotificationToasts() {
           id: notification.id,
           description: notificationDetail(parts),
           icon: Icon ? <Icon aria-hidden="true" /> : undefined,
-          // Dismiss notification when toast is closed by any means
-          onDismiss: () => dismissNotification(notification.id),
+          // Dismiss notification when toast is closed by any means (editors only)
+          onDismiss: () => {
+            if (isEditor) void dismissNotification(notification.id)
+          },
         }
 
         // Critical ones stay red and stay up until somebody closes them (their
@@ -297,6 +311,7 @@ export function NotificationToasts() {
     dismissNotification,
     isSidebarOpen,
     isQuietSurface,
+    isEditor,
     openSidebar,
     navigateToIncident,
     canNavigateToIncident,

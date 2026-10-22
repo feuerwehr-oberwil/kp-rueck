@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { toast } from 'sonner'
 import { useEvent } from '@/lib/contexts/event-context'
+import { useAuth } from '@/lib/contexts/auth-context'
 import { apiClient } from '@/lib/api-client'
 import type { ApiEventRestliste } from '@/lib/api/types/feld'
 import type { Event } from '@/lib/types/incidents'
@@ -125,6 +126,8 @@ export default function EventsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
+  // Permanent delete is admin-only (DELETE /api/events/{id}); archiving stays with editors.
+  const { isAdmin } = useAuth()
   const isMobile = useIsMobile()
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -369,8 +372,9 @@ export default function EventsPage() {
   }
 
   // One quiet ⋯ per row: the three exports for every event, plus the row's
-  // one-way action — Archivieren, or Löschen once archived. The destructive
-  // item lives only in here, so the list shows no standing red at rest.
+  // one-way action — Archivieren, or Löschen once archived (admins only; an
+  // editor's archived row has no one-way action left). The destructive item
+  // lives only in here, so the list shows no standing red at rest.
   const renderRowMenu = (event: Event, archived: boolean) => {
     const busy =
       reportLoadingId === event.id || auditLoadingId === event.id || einsaetzeLoadingId === event.id
@@ -405,18 +409,20 @@ export default function EventsPage() {
             <ReceiptText className="mr-2 h-4 w-4" />
             {t('page.exportEinsaetze')}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          {(!archived || isAdmin) && <DropdownMenuSeparator />}
           {archived ? (
-            <DropdownMenuItem
-              className="cursor-pointer text-destructive focus:text-destructive"
-              onClick={() => {
-                setTargetEvent(event)
-                setShowDeleteDialog(true)
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t('page.delete')}
-            </DropdownMenuItem>
+            isAdmin && (
+              <DropdownMenuItem
+                className="cursor-pointer text-destructive focus:text-destructive"
+                onClick={() => {
+                  setTargetEvent(event)
+                  setShowDeleteDialog(true)
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('page.delete')}
+              </DropdownMenuItem>
+            )
           ) : (
             <DropdownMenuItem
               className="cursor-pointer"

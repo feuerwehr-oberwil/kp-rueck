@@ -34,12 +34,13 @@ async def get_current_notifications(
 async def dismiss_notification(
     notification_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
+    current_user: CurrentEditor,
 ) -> None:
     """
-    Mark notification as dismissed.
+    Mark notification as dismissed (Editor only).
 
-    Any authenticated user can dismiss notifications.
+    Dismissal is global – it hides the notification for everyone on the board and marks a
+    Feld request as seen – so it is a write, not a viewer's personal preference.
     """
     notification = await notification_service.dismiss_notification(db, notification_id, current_user.id)
 

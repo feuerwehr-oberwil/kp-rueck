@@ -257,7 +257,9 @@ export function MobileBottomNavigation({
 
               {/* Quick Actions Section — viewing-first: the QR/print/personnel
                   actions are editor-only, so viewers get a decluttered sheet.
-                  The training link stays visible (spawning is the main mobile task). */}
+                  The training link shows on any Übung: spawning training incidents
+                  is the main mobile task, done with an editor account – the viewer
+                  role is strictly read-only (/training refuses it). */}
               {hasQuickActions && (
               <>
               <div className="animate-category-fade">

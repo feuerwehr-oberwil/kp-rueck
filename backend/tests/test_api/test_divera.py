@@ -1017,3 +1017,41 @@ async def test_training_emergency_attaches_to_training_event(
     data = response.json()
     assert data["title"] == "Wassereinbruch Keller"
     assert data["status"] == "incoming"
+
+
+# ============================================
+# Personnel sync: deleting personnel is admin-only
+# ============================================
+
+
+@pytest.fixture
+def divera_key_unset(monkeypatch):
+    """No access key: a request that passes the role gate stops at the 400 before any upstream call."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "demo_mode", False)
+    monkeypatch.setattr(settings, "divera_access_key", "")
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_sync_remove_stale_refuses_editor(editor_client: AsyncClient, divera_key_unset):
+    response = await editor_client.post("/api/divera/personnel-sync/execute", json={"remove_stale": True})
+    assert response.status_code == 403
+    assert "Admin" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_sync_without_remove_stale_stays_editor(editor_client: AsyncClient, divera_key_unset):
+    response = await editor_client.post("/api/divera/personnel-sync/execute", json={"remove_stale": False})
+    # past the role gate, stopped by the missing key
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_personnel_sync_remove_stale_allows_admin(admin_client: AsyncClient, divera_key_unset):
+    response = await admin_client.post("/api/divera/personnel-sync/execute", json={"remove_stale": True})
+    # past the role gate, stopped by the missing key
+    assert response.status_code == 400

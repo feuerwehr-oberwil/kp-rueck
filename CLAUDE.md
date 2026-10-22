@@ -393,7 +393,7 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
   The language picker in Settings offers a locale only when its overlay covers **every** German
   leaf (`coversGerman` → `AVAILABLE_LOCALES`) – not "has some translations": one missing key
   hides the language entirely. So **`de.json` and `fr.json` must stay leaf-for-leaf equal**
-  (currently 3006 each); adding a German key without the French one silently drops French out
+  (currently 3794 each); adding a German key without the French one silently drops French out
   of the picker. Today: **`de` + `fr` ship, `it` is still `{}`**. Locale is per-device via the
   `NEXT_LOCALE` cookie. The in-app help is a separate per-language Markdown file
   (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
@@ -516,7 +516,7 @@ checks are `http://<host>:${HTTP_PORT}/tiles/…`. `docs/OFFLINE_MAPS.md` has bo
 ### Users
 Firefighting command post operators (KP Rück) managing active incidents in high-stress environments. They coordinate personnel, vehicles, and materials in real-time from a command post – **on a desktop with mouse and keyboard**. Speed, clarity, and zero-confusion are critical. This tool replaces a physical magnet board, so spatial familiarity and at-a-glance readability matter.
 
-**Tablets are KP Front's brief, not this one.** Do not size KP Rück's UI around touch targets; a phone is used for *viewing* (and for spawning training incidents), never for running the board. Sizing decisions follow from this – see the button size scale in `frontend/components/ui/button.tsx`.
+**Tablets are KP Front's brief, not this one.** Do not size KP Rück's UI around touch targets; a phone is used for *viewing* (and, with an editor account, for spawning training incidents), never for running the board. The viewer role is strictly read-only. Sizing decisions follow from this – see the button size scale in `frontend/components/ui/button.tsx`.
 
 ### Brand Personality
 **Reliable, Clear, Calm.** The interface should feel like a trusted instrument – professional, dependable, and composed under pressure. It communicates competence without being flashy. Swiss precision meets emergency readiness.

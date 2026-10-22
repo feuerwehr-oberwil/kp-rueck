@@ -335,12 +335,14 @@ async def unlock_feld(
 ) -> schemas.FeldUnlockResponse:
     """Step 2 of the door: trade the link token for an unlocked one.
 
-    **A Rück login counts instead of the code** (owner, 03.10.): a body without ``code`` is let
-    in on the caller's session — any active account, viewer included, because the code itself
-    grants nothing a viewer would not get: the same picker grant, for the same Ereignis (the
-    link token's), through the same claim step. No session (anonymous, expired, logged out) →
+    **An editor's Rück login counts instead of the code** (owner, 03.10.): a body without
+    ``code`` is let in on the caller's session when that account is an editor or admin – the
+    people who could read the code off the board anyway. The picker grant lets its holder
+    write Meldungen into the Ereignis, which a viewer may not do, so a viewer session is
+    treated like no session. No qualifying session (anonymous, expired, logged out, viewer) →
     403 ``code_required``, which is not a failed attempt: the phone then shows the code screen
-    as before. A body WITH a code always takes the code path, session or not.
+    and a viewer can still type the code like anyone else. A body WITH a code always takes the
+    code path, session or not.
 
     The exchange is server-side on purpose (decision 13). A screen that merely
     asked for the code before rendering would be bypassed by anyone who kept the
@@ -378,7 +380,7 @@ async def unlock_feld(
         )
 
     if payload.code is None:
-        if user is None:
+        if user is None or user.role not in ("editor", "admin"):
             raise HTTPException(
                 status_code=403,
                 detail={"error": "code_required", "message": "Bitte den Feld-Code eingeben"},

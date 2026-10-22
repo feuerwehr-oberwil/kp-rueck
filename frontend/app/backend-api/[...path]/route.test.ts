@@ -78,17 +78,27 @@ describe('bounded API proxy', () => {
     const response = await POST(post(new Uint8Array([0, 255, 128]), {
       'content-type': 'application/octet-stream',
       'transfer-encoding': 'chunked',
-      'x-forwarded-for': 'attacker',
+      'x-real-ip': 'attacker',
     }))
     expect(await response.text()).toBe('saved')
     expect(response.headers.get('set-cookie')).toContain('HttpOnly')
     expect(fetchMock).toHaveBeenCalledTimes(2)
     for (const [, options] of fetchMock.mock.calls) {
       expect(new Headers(options?.headers).has('transfer-encoding')).toBe(false)
-      expect(new Headers(options?.headers).has('x-forwarded-for')).toBe(false)
+      expect(new Headers(options?.headers).has('x-real-ip')).toBe(false)
       expect(new Uint8Array(await new Response(options?.body).arrayBuffer())).toEqual(new Uint8Array([0, 255, 128]))
     }
     expect(String(fetchMock.mock.calls[1][0])).toBe('http://backend:8000/api/test/')
+  })
+
+  // The backend reads the rightmost X-Forwarded-For entry (appended by Caddy / Railway's
+  // edge); relaying the header as received keeps that entry the client's real address.
+  it('relays the inbound X-Forwarded-For unchanged so per-IP limits see the real client', async () => {
+    fetchMock.mockResolvedValue(new Response('ok'))
+    await POST(post('x', { 'x-forwarded-for': '6.6.6.6, 203.0.113.7', 'x-forwarded-host': 'evil.example' }))
+    const forwarded = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    expect(forwarded.get('x-forwarded-for')).toBe('6.6.6.6, 203.0.113.7')
+    expect(forwarded.has('x-forwarded-host')).toBe(false)
   })
 
   it('does not send cookies or an upload to a cross-origin redirect', async () => {

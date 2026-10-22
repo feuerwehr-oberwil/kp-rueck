@@ -25,8 +25,9 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/settings',
 }))
 
+const role = vi.hoisted(() => ({ isAdmin: true }))
 vi.mock('@/lib/contexts/auth-context', () => ({
-  useAuth: () => ({ isEditor: true, isAdmin: true, isAuthenticated: true }),
+  useAuth: () => ({ isEditor: true, isAdmin: role.isAdmin, isAuthenticated: true }),
 }))
 vi.mock('@/lib/contexts/event-context', () => ({
   useEvent: () => ({
@@ -80,6 +81,7 @@ function openSection(section: string) {
 }
 
 beforeEach(() => {
+  role.isAdmin = true
   params.current = new URLSearchParams()
   push.mockReset()
   api.getDemoStatus.mockReset().mockResolvedValue(null)
@@ -346,5 +348,24 @@ describe('Einstellungen › Seitenleiste — ein «Hier bist du»', () => {
       expect(label?.textContent).toBe(row.getAttribute('title'))
       if (row !== current[0]) expect(row.className).not.toMatch(/(^|\s)bg-(background|foreground)/)
     }
+  })
+})
+
+// An editor following an admin link (the user menu's «Verbindung» row used to point every
+// role at ?section=sync) lands on «Allgemein», not on a panel that only answers 403.
+describe('Einstellungen › Rolle — ?section= nur für sichtbare Abschnitte', () => {
+  it.each(['sync', 'users', 'audit'])('sends an editor asking for ?section=%s to «Allgemein»', (section) => {
+    role.isAdmin = false
+    openSection(section)
+    const nav = screen.getAllByRole('navigation').at(-1)!
+    expect(within(nav).getByRole('button', { current: 'page' })).toHaveTextContent('Allgemein')
+    expect(api.getAuditLogs).not.toHaveBeenCalled()
+  })
+
+  it('offers an editor «Anhängen» only – «Ersetzen» is an admin import', async () => {
+    role.isAdmin = false
+    openSection('import')
+    expect(await screen.findByRole('button', { name: /Anhängen/, pressed: true })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Ersetzen/ })).not.toBeInTheDocument()
   })
 })

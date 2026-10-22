@@ -19,6 +19,7 @@ import type { Event } from '@/lib/types/incidents'
 const archiveEvent = vi.hoisted(() => vi.fn())
 const deleteEvent = vi.hoisted(() => vi.fn())
 const createEvent = vi.hoisted(() => vi.fn())
+const role = vi.hoisted(() => ({ isAdmin: true }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -38,6 +39,10 @@ vi.mock('@/lib/contexts/event-context', () => ({
     unarchiveEvent: vi.fn(),
     deleteEvent,
   }),
+}))
+
+vi.mock('@/lib/contexts/auth-context', () => ({
+  useAuth: () => ({ isAdmin: role.isAdmin, isEditor: true }),
 }))
 
 vi.mock('@/lib/api-client', () => ({
@@ -115,6 +120,10 @@ async function openDialog(name: 'Archivieren' | 'Löschen') {
   return { user, dialog: await screen.findByRole('dialog') }
 }
 
+beforeEach(() => {
+  role.isAdmin = true
+})
+
 describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
   beforeEach(() => {
     archiveEvent.mockReset()
@@ -165,6 +174,19 @@ describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
     // Esc darf den laufenden Vorgang nicht aus dem Blickfeld nehmen.
     await user.keyboard('{Escape}')
     expect(screen.getByRole('dialog')).toBeVisible()
+  })
+
+  it('bietet einem Editor auf einem archivierten Ereignis kein Löschen an (nur Admin)', async () => {
+    role.isAdmin = false
+    const user = userEvent.setup()
+    renderWithIntl(<EventsPage />)
+    await user.click(screen.getByRole('button', { name: 'Archiv (1)' }))
+    const card = screen
+      .getAllByTestId('event-card')
+      .find((c) => within(c).queryByText('Hochwasser Alt')) as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'Aktionen' }))
+    expect(await screen.findByRole('menuitem', { name: 'Einsatzrapport (PDF)' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Löschen' })).not.toBeInTheDocument()
   })
 })
 

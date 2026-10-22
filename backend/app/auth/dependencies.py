@@ -185,7 +185,8 @@ async def get_optional_user(
     The logged-in user, or None for an anonymous caller or a session that is no longer valid.
 
     For the doors a person with a Rück login does not have to knock on (the Feld-Code): the
-    session counts IN PLACE OF the code, never in addition to it, and every check
+    session counts IN PLACE OF the code, never in addition to it – the caller decides which
+    roles qualify (the Feld door: editor and admin only) – and every check
     `get_current_user` makes (expiry, logout, deactivation, session version) still decides —
     an expired session is simply «no session», and the caller falls back to the code.
     """

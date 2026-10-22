@@ -920,11 +920,11 @@ async def test_concurrent_claim_requests_can_consume_a_picker_grant_only_once(te
 
 
 class TestSessionInsteadOfCode:
-    """A Rück login opens the Feld door without the four digits (owner, 03.10.2026).
+    """An editor's Rück login opens the Feld door without the four digits (owner, 03.10.2026).
 
     The session counts INSTEAD of the code: the same picker grant, for the link's Ereignis, through
-    the same claim step. Anything that is not a valid session falls back to the code — without
-    the attempt counting as a failure.
+    the same claim step. Anything that is not a valid editor/admin session (viewer included) falls
+    back to the code – without the attempt counting as a failure.
     """
 
     @staticmethod
@@ -939,7 +939,7 @@ class TestSessionInsteadOfCode:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    @pytest.mark.parametrize("role", ["editor", "viewer", "admin"])
+    @pytest.mark.parametrize("role", ["editor", "admin"])
     async def test_a_logged_in_phone_gets_the_picker_without_a_code(
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User, role: str
     ):
@@ -958,6 +958,22 @@ class TestSessionInsteadOfCode:
         # ... and it is the ordinary picker grant: the claim step takes it as from a code
         claim = await client.post(f"/api/feld/claim?token={body['token']}", json={"personnel_id": str(person.id)})
         assert claim.status_code == 200, claim.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    async def test_a_viewer_session_still_needs_the_code(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event
+    ):
+        # The picker grant writes Meldungen; a viewer may not, so their session is no session here.
+        await self._login(client, db_session, "viewer")
+        token = generate_feld_token(test_event.id)
+
+        response = await client.post(f"/api/feld/unlock?token={token}", json={})
+        assert response.status_code == 403
+        assert response.json()["detail"]["error"] == "code_required"
+
+        response = await client.post(f"/api/feld/unlock?token={token}", json={"code": test_event.feld_code})
+        assert response.status_code == 200, response.text
 
     @pytest.mark.asyncio
     @pytest.mark.api

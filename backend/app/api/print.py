@@ -685,10 +685,14 @@ async def get_pending_jobs(
 @router.get("/jobs/{job_id}/", response_model=schemas.PrintJobResponse)
 async def get_print_job(
     job_id: uuid.UUID,
-    current_user: CurrentUser,
+    current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> PrintJob:
-    """Get a single print job by id (used by the frontend to poll test-print results)."""
+    """Get a single print job by id (used by the frontend to poll test-print results).
+
+    Editor only: the payload carries the Feld QR token and Feld-Code of a printed slip, and the
+    only caller (the Testdruck in Settings) polls a job it just queued as an editor.
+    """
     result = await db.execute(select(PrintJob).where(PrintJob.id == job_id))
     job = result.scalar_one_or_none()
 

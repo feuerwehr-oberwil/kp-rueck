@@ -524,13 +524,13 @@ async def test_delete_event_requires_auth(client: AsyncClient, archived_event: E
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_delete_event_success(editor_client: AsyncClient, archived_event: Event):
+async def test_delete_event_success(admin_client: AsyncClient, archived_event: Event):
     """Test deleting an archived event successfully."""
-    response = await editor_client.delete(f"/api/events/{archived_event.id}")
+    response = await admin_client.delete(f"/api/events/{archived_event.id}")
     assert response.status_code == 204
 
     # Verify event is gone (even with include_archived)
-    response = await editor_client.get("/api/events/?include_archived=true")
+    response = await admin_client.get("/api/events/?include_archived=true")
     event_ids = [e["id"] for e in response.json()["events"]]
     assert str(archived_event.id) not in event_ids
 
@@ -538,10 +538,10 @@ async def test_delete_event_success(editor_client: AsyncClient, archived_event: 
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_delete_event_is_recorded_in_the_audit_log(
-    editor_client: AsyncClient,
+    admin_client: AsyncClient,
     db_session: AsyncSession,
     archived_event: Event,
-    test_editor: User,
+    test_admin: User,
 ):
     """Deleting an Ereignis is the one destructive action with no Undo — it has to leave a record.
 
@@ -562,12 +562,12 @@ async def test_delete_event_is_recorded_in_the_audit_log(
         location_address="Hauptstrasse 4",
         status="incoming",
         event_id=archived_event.id,
-        created_by=test_editor.id,
+        created_by=test_admin.id,
     )
     db_session.add(doomed)
     await db_session.commit()
 
-    response = await editor_client.delete(f"/api/events/{archived_event.id}")
+    response = await admin_client.delete(f"/api/events/{archived_event.id}")
     assert response.status_code == 204
 
     entry = (
@@ -582,7 +582,7 @@ async def test_delete_event_is_recorded_in_the_audit_log(
         .scalars()
         .one()
     )
-    assert entry.user_id == test_editor.id
+    assert entry.user_id == test_admin.id
     assert entry.changes_json is not None
     assert entry.changes_json["name"] == "Archived Event"
     assert entry.changes_json["incident_count"] == 1
@@ -595,18 +595,18 @@ async def test_delete_event_is_recorded_in_the_audit_log(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_delete_event_must_be_archived_first(editor_client: AsyncClient, test_event: Event):
+async def test_delete_event_must_be_archived_first(admin_client: AsyncClient, test_event: Event):
     """Test that non-archived events cannot be deleted."""
-    response = await editor_client.delete(f"/api/events/{test_event.id}")
+    response = await admin_client.delete(f"/api/events/{test_event.id}")
     assert response.status_code == 400
     assert response.json()["detail"] == "Ungültige Anfrage"
 
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_delete_event_not_found(editor_client: AsyncClient):
+async def test_delete_event_not_found(admin_client: AsyncClient):
     """Test deleting a non-existent event."""
-    response = await editor_client.delete(f"/api/events/{uuid4()}")
+    response = await admin_client.delete(f"/api/events/{uuid4()}")
     assert response.status_code == 404
 
 
@@ -615,6 +615,14 @@ async def test_delete_event_not_found(editor_client: AsyncClient):
 async def test_delete_event_viewer_forbidden(viewer_client: AsyncClient, archived_event: Event):
     """Test that viewers cannot delete events."""
     response = await viewer_client.delete(f"/api/events/{archived_event.id}")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_delete_event_editor_forbidden(editor_client: AsyncClient, archived_event: Event):
+    """Permanent deletion is admin-only; an editor can archive but not delete."""
+    response = await editor_client.delete(f"/api/events/{archived_event.id}")
     assert response.status_code == 403
 
 

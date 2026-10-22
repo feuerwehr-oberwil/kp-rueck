@@ -2922,7 +2922,6 @@
       "attachedMany": "{count} Notfälle wurden dem Ereignis zugewiesen",
       "errorTitle": "Fehler",
       "attachError": "Notfälle konnten nicht angehängt werden",
-      "notLoggedIn": "Nicht angemeldet",
       "title": "Alarmeingang",
       "entriesCount": "{count, plural, one {# Eintrag} other {# Einträge}}",
       "searchPlaceholder": "Suchen …",

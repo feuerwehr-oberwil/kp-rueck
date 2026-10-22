@@ -139,7 +139,7 @@ export function NotificationProvider({
   pollInterval = 10000
 }: NotificationProviderProps) {
   const { selectedEvent } = useEvent()
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, isEditor, loading: authLoading } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS)
   const [notificationsUnavailable, setNotificationsUnavailable] = useState(false)
@@ -299,8 +299,10 @@ export function NotificationProvider({
     }
   }
 
-  // Dismiss a notification
+  // Dismiss a notification. Editors only – the backend refuses a viewer, so for one
+  // this (and dismissAll below) is a no-op rather than a 403 and an error toast.
   const dismissNotification = async (id: string) => {
+    if (!isEditor) return
     try {
       const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/notifications/${id}/dismiss`, {
@@ -330,6 +332,7 @@ export function NotificationProvider({
 
   // Dismiss all active notifications
   const dismissAllNotifications = async (except?: ReadonlySet<string>) => {
+    if (!isEditor) return
     const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
 
     if (activeNotifications.length === 0) {

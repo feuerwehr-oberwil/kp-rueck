@@ -48,9 +48,15 @@ class TestAuditLogAuthentication:
     """Test authentication and authorization for audit endpoints."""
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_requires_editor(self, viewer_client: AsyncClient):
+    async def test_query_audit_log_requires_admin(self, viewer_client: AsyncClient):
         """Verify viewer role gets 403 Forbidden."""
         response = await viewer_client.get("/api/audit")
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_query_audit_log_refuses_editor(self, editor_client: AsyncClient):
+        """The log carries IP addresses and user agents – an editor gets 403."""
+        response = await editor_client.get("/api/audit")
         assert response.status_code == 403
 
     @pytest.mark.asyncio
@@ -64,9 +70,9 @@ class TestAuditLogQuery:
     """Test audit log query endpoint."""
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_no_filters(self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]):
+    async def test_query_audit_log_no_filters(self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]):
         """Verify default query returns entries ordered by timestamp desc."""
-        response = await editor_client.get("/api/audit")
+        response = await admin_client.get("/api/audit")
         assert response.status_code == 200
 
         data = response.json()
@@ -79,10 +85,10 @@ class TestAuditLogQuery:
 
     @pytest.mark.asyncio
     async def test_query_audit_log_filter_resource_type(
-        self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]
+        self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]
     ):
         """Query with resource_type filter."""
-        response = await editor_client.get("/api/audit?resource_type=incident")
+        response = await admin_client.get("/api/audit?resource_type=incident")
         assert response.status_code == 200
 
         data = response.json()
@@ -91,13 +97,13 @@ class TestAuditLogQuery:
 
     @pytest.mark.asyncio
     async def test_query_audit_log_filter_resource_id(
-        self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]
+        self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]
     ):
         """Query with resource_id filter."""
         # Get a specific resource_id from test entries
         resource_id = test_audit_entries[0].resource_id
 
-        response = await editor_client.get(f"/api/audit?resource_id={resource_id}")
+        response = await admin_client.get(f"/api/audit?resource_id={resource_id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -107,12 +113,12 @@ class TestAuditLogQuery:
     @pytest.mark.asyncio
     async def test_query_audit_log_filter_user_id(
         self,
-        editor_client: AsyncClient,
+        admin_client: AsyncClient,
         test_audit_entries: list[AuditLog],
         test_editor: User,
     ):
         """Query with user_id filter."""
-        response = await editor_client.get(f"/api/audit?user_id={test_editor.id}")
+        response = await admin_client.get(f"/api/audit?user_id={test_editor.id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -121,10 +127,10 @@ class TestAuditLogQuery:
 
     @pytest.mark.asyncio
     async def test_query_audit_log_filter_action_type(
-        self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]
+        self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]
     ):
         """Query with action_type filter."""
-        response = await editor_client.get("/api/audit?action_type=create")
+        response = await admin_client.get("/api/audit?action_type=create")
         assert response.status_code == 200
 
         data = response.json()
@@ -133,14 +139,14 @@ class TestAuditLogQuery:
 
     @pytest.mark.asyncio
     async def test_query_audit_log_filter_date_range(
-        self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]
+        self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]
     ):
         """Query with date range filter."""
         now = datetime.now(UTC)
         start_date = (now - timedelta(minutes=10)).isoformat()
         end_date = now.isoformat()
 
-        response = await editor_client.get(f"/api/audit?start_date={start_date}&end_date={end_date}")
+        response = await admin_client.get(f"/api/audit?start_date={start_date}&end_date={end_date}")
         assert response.status_code == 200
 
         data = response.json()
@@ -149,7 +155,7 @@ class TestAuditLogQuery:
         assert len(data) >= 6
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_pagination(self, editor_client: AsyncClient, db_session: AsyncSession):
+    async def test_query_audit_log_pagination(self, admin_client: AsyncClient, db_session: AsyncSession):
         """Test pagination with limit and offset."""
         # Create many entries
         for i in range(150):
@@ -163,13 +169,13 @@ class TestAuditLogQuery:
         await db_session.commit()
 
         # First page
-        response1 = await editor_client.get("/api/audit?limit=50&offset=0")
+        response1 = await admin_client.get("/api/audit?limit=50&offset=0")
         assert response1.status_code == 200
         data1 = response1.json()
         assert len(data1) == 50
 
         # Second page
-        response2 = await editor_client.get("/api/audit?limit=50&offset=50")
+        response2 = await admin_client.get("/api/audit?limit=50&offset=50")
         assert response2.status_code == 200
         data2 = response2.json()
         assert len(data2) == 50
@@ -178,16 +184,16 @@ class TestAuditLogQuery:
         assert data1[0]["id"] != data2[0]["id"]
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_max_limit(self, editor_client: AsyncClient):
+    async def test_query_audit_log_max_limit(self, admin_client: AsyncClient):
         """Query with limit > 1000 should be capped."""
-        response = await editor_client.get("/api/audit?limit=2000")
+        response = await admin_client.get("/api/audit?limit=2000")
         # Should fail validation (le=1000)
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_query_audit_log_empty_result(self, editor_client: AsyncClient):
+    async def test_query_audit_log_empty_result(self, admin_client: AsyncClient):
         """Query with filters matching no entries."""
-        response = await editor_client.get("/api/audit?resource_type=nonexistent_type")
+        response = await admin_client.get("/api/audit?resource_type=nonexistent_type")
         assert response.status_code == 200
 
         data = response.json()
@@ -198,12 +204,12 @@ class TestResourceHistory:
     """Test resource history endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_resource_history(self, editor_client: AsyncClient, test_audit_entries: list[AuditLog]):
+    async def test_get_resource_history(self, admin_client: AsyncClient, test_audit_entries: list[AuditLog]):
         """Get complete history for a specific resource."""
         resource_id = test_audit_entries[0].resource_id
         resource_type = test_audit_entries[0].resource_type
 
-        response = await editor_client.get(f"/api/audit/resource/{resource_type}/{resource_id}")
+        response = await admin_client.get(f"/api/audit/resource/{resource_type}/{resource_id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -216,8 +222,13 @@ class TestResourceHistory:
         assert timestamps == sorted(timestamps, reverse=True)
 
     @pytest.mark.asyncio
-    async def test_get_resource_history_requires_editor(self, viewer_client: AsyncClient):
+    async def test_get_resource_history_refuses_viewer(self, viewer_client: AsyncClient):
         """Verify viewer role gets 403."""
-        fake_id = uuid4()
-        response = await viewer_client.get(f"/api/audit/resource/incident/{fake_id}")
+        response = await viewer_client.get(f"/api/audit/resource/incident/{uuid4()}")
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_get_resource_history_refuses_editor(self, editor_client: AsyncClient):
+        """Only the admin audit view reads the log – an editor gets 403."""
+        response = await editor_client.get(f"/api/audit/resource/incident/{uuid4()}")
         assert response.status_code == 403

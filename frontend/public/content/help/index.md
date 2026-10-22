@@ -48,7 +48,7 @@ Ereignisse verwalten, wechseln, archivieren, exportieren.
 **Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
 ### Einstellungen (`G S`)
-System-Konfiguration: Benutzer, Sync, Drucker, Kartenstil und mehr.
+System-Konfiguration: Benutzer, Sync, Drucker, Kartenstil und mehr. Benutzer, Sync und das Audit-Protokoll sehen nur Admins.
 
 ### Hilfe (`G H`)
 Diese Dokumentationsseite.
@@ -758,9 +758,9 @@ Die lokale Instanz synchronisiert automatisch mit Railway. Der Sync-Status wird 
 
 **Railway → Lokal:** Daten werden automatisch von Railway heruntergeladen.
 
-**Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung mit "Jetzt synchronisieren" Button.
+**Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung – für Admins mit "Jetzt synchronisieren" Button.
 
-Sync-Einstellungen unter Einstellungen → Sync Tab.
+Sync-Einstellungen unter Einstellungen → Sync Tab (nur Admins).
 
 ### Verbindungsstatus (Benutzermenü)
 
@@ -773,7 +773,7 @@ Im Benutzermenü (oben rechts) zeigt der Bereich "Verbindung" den Status aller S
 | **Sync** | Railway ↔ Lokal Synchronisation |
 | **Drucker** | Thermodrucker-Status: Deaktiviert / Bereit / Fehler |
 
-Klick auf einen Eintrag öffnet die entsprechenden Einstellungen.
+Admins öffnen mit einem Klick die Sync-Einstellungen.
 
 **Neue Version verfügbar.** Läuft auf dem Server eine neuere Version als die offene Seite, erscheint leise «Neue Version verfügbar · Neu laden» – neu laden, sobald es passt. Wandanzeigen laden sich selbst neu, einmal pro neuer Version. Die Versionsangabe («v‹Version› · ‹Commit› · ‹Datum›») steht im Benutzermenü unter «Abmelden».
 

@@ -48,7 +48,7 @@ Gérer, changer, archiver et exporter les événements.
 **L’archivage dit ce qui est encore ouvert.** La fenêtre liste ce que l’archivage couperait : les interventions non clôturées (avec « Afficher sur le tableau »), les récupérations ouvertes, le matériel encore sur une place sinistrée et les personnes encore annoncées. La case « désannoncer automatiquement », cochée par défaut, annonce le départ de tout le monde à l’archivage – heure de départ = fin de l’événement. Tant que quelque chose est ouvert, le bouton s’appelle « Archiver quand même ».
 
 ### Réglages (`G S`)
-Configuration du système : utilisateurs, synchronisation, imprimante, style de carte et plus encore.
+Configuration du système : utilisateurs, synchronisation, imprimante, style de carte et plus encore. Les utilisateurs, la synchronisation et le journal d’audit ne sont visibles que pour les admins.
 
 ### Aide (`G H`)
 Cette page de documentation.
@@ -763,9 +763,9 @@ L’instance locale se synchronise automatiquement avec Railway. L’état de la
 
 **Railway → local :** les données sont téléchargées automatiquement depuis Railway.
 
-**Local → Railway :** lorsque Railway est de nouveau en ligne, une notification apparaît avec le bouton « Synchroniser maintenant ».
+**Local → Railway :** lorsque Railway est de nouveau en ligne, une notification apparaît – pour les admins avec le bouton « Synchroniser maintenant ».
 
-Réglages de synchronisation sous Réglages → onglet Sync.
+Réglages de synchronisation sous Réglages → onglet Sync (admins uniquement).
 
 ### État des liaisons (menu utilisateur)
 
@@ -778,7 +778,7 @@ Dans le menu utilisateur (en haut à droite), la section « Liaison » montre l�
 | **Sync** | Synchronisation Railway ↔ local |
 | **Imprimante** | État de l’imprimante thermique : désactivée / prête / erreur |
 
-Un clic sur une entrée ouvre les réglages correspondants.
+Pour les admins, un clic ouvre les réglages de synchronisation.
 
 **Nouvelle version disponible.** Si le serveur fait tourner une version plus récente que la page ouverte, « Nouvelle version disponible · Recharger » apparaît discrètement – recharger quand cela convient. Les écrans muraux se rechargent d’eux-mêmes, une fois par nouvelle version. L’indication de version (« v‹version› · ‹commit› · ‹date› ») figure dans le menu utilisateur sous « Se déconnecter ».
 

@@ -334,11 +334,11 @@ async def test_incident_delete_clears_assignments(
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_event_delete_cascade_handling(editor_client: AsyncClient, db_session: AsyncSession):
+async def test_event_delete_cascade_handling(admin_client: AsyncClient, db_session: AsyncSession):
     """Test that deleting event handles related incidents."""
     # Create event
     event_data = {"name": "Cascade Delete Event", "training_flag": True}
-    response = await editor_client.post("/api/events/", json=event_data)
+    response = await admin_client.post("/api/events/", json=event_data)
     assert response.status_code == 201
     event_id = response.json()["id"]
 
@@ -350,18 +350,18 @@ async def test_event_delete_cascade_handling(editor_client: AsyncClient, db_sess
             "type": "brandbekaempfung",
             "priority": "medium",
         }
-        await editor_client.post("/api/incidents/", json=incident_data)
+        await admin_client.post("/api/incidents/", json=incident_data)
 
     # Archive first (required for deletion)
-    response = await editor_client.post(f"/api/events/{event_id}/archive")
+    response = await admin_client.post(f"/api/events/{event_id}/archive")
     assert response.status_code == 200
 
     # Delete event
-    response = await editor_client.delete(f"/api/events/{event_id}")
+    response = await admin_client.delete(f"/api/events/{event_id}")
     assert response.status_code == 204
 
     # Verify event is deleted
-    response = await editor_client.get(f"/api/events/{event_id}")
+    response = await admin_client.get(f"/api/events/{event_id}")
     assert response.status_code == 404
 
     # Incidents should be deleted or properly handled (no integrity errors)

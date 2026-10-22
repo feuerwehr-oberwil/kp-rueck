@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
 /**
- * Redirect page - Audit logs have been merged into Settings
+ * Redirect page - Audit logs have been merged into Settings. The audit section is
+ * admin-only; an editor sent there lands on the default section (settings `resolveSection`).
  */
 export default function AuditRedirect() {
   const router = useRouter();

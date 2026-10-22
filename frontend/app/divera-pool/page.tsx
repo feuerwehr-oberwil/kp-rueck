@@ -12,6 +12,7 @@ import { apiClient, ApiError, type ApiDiveraEmergency, type ApiDuplicateCandidat
 import { useDuplicateCandidates } from '@/lib/hooks/use-duplicate-candidates';
 import { DuplicateHint } from '@/components/duplicates/duplicate-hint';
 import { wsClient } from '@/lib/websocket-client';
+import { ProtectedRoute } from '@/components/protected-route';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,17 @@ import { useTranslations } from 'next-intl';
 import { getDateFnsLocale } from '@/lib/date-locale';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
+// Behind ProtectedRoute like the board: a viewer is sent to /display/board before the pool
+// (archived and unattached alarms included) is ever fetched.
 export default function DiveraPoolPage() {
+  return (
+    <ProtectedRoute>
+      <DiveraPool />
+    </ProtectedRoute>
+  );
+}
+
+function DiveraPool() {
   const t = useTranslations('divera.pool');
   const tDuplicates = useTranslations('duplicates');
   const { isAuthenticated, isEditor } = useAuth();
@@ -275,10 +286,6 @@ export default function DiveraPoolPage() {
       return timestamp;
     }
   };
-
-  if (!isAuthenticated) {
-    return <div className="p-8 text-center text-muted-foreground">{t('notLoggedIn')}</div>;
-  }
 
   const hasSelection = selectedEmergencies.size > 0;
 
