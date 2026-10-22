@@ -364,7 +364,7 @@
           "admin"
         ],
         "summary": "Execute Excel Import",
-        "description": "Execute Excel import with specified mode. `mode` is required – there is no default.\n\nModes:\n- replace: Delete all existing data, insert new\n- append: Keep existing, add new",
+        "description": "Execute Excel import with specified mode. `mode` is required – there is no default.\n\nModes:\n- replace: Delete all existing data, insert new (Admin only – it wipes the station's\n  roster, fleet and material inventory)\n- append: Keep existing, add new (Editor)",
         "operationId": "execute_excel_import_api_admin_import_execute_post",
         "parameters": [
           {
@@ -2520,7 +2520,7 @@
           "divera"
         ],
         "summary": "Execute Personnel Sync",
-        "description": "Execute personnel sync from Divera.\n\nFetches current members from Divera, compares with DB, and applies changes.\nOptionally removes personnel not found in Divera.\n\nEditor role required. Divera access key must be configured.",
+        "description": "Execute personnel sync from Divera.\n\nFetches current members from Divera, compares with DB, and applies changes.\nOptionally removes personnel not found in Divera.\n\nEditor role required; `remove_stale` (deleting personnel) requires admin. Divera access key\nmust be configured.",
         "operationId": "execute_personnel_sync_api_divera_personnel_sync_execute_post",
         "parameters": [
           {
@@ -3521,7 +3521,7 @@
           "events"
         ],
         "summary": "Delete Event",
-        "description": "Permanently delete an event (editor only).\n\nEvent must be archived first before it can be deleted.",
+        "description": "Permanently delete an event (admin only – archiving stays with editors).\n\nEvent must be archived first before it can be deleted.",
         "operationId": "delete_event_api_events__event_id__delete",
         "parameters": [
           {
@@ -10859,7 +10859,7 @@
           "print"
         ],
         "summary": "Get Print Job",
-        "description": "Get a single print job by id (used by the frontend to poll test-print results).",
+        "description": "Get a single print job by id (used by the frontend to poll test-print results).\n\nEditor only: the payload carries the Feld QR token and Feld-Code of a printed slip, and the\nonly caller (the Testdruck in Settings) polls a job it just queued as an editor.",
         "operationId": "get_print_job_api_print_jobs__job_id___get",
         "parameters": [
           {
@@ -14280,7 +14280,7 @@
           "feld"
         ],
         "summary": "Unlock Feld",
-        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\n**A Rück login counts instead of the code** (owner, 03.10.): a body without ``code`` is let\nin on the caller's session — any active account, viewer included, because the code itself\ngrants nothing a viewer would not get: the same picker grant, for the same Ereignis (the\nlink token's), through the same claim step. No session (anonymous, expired, logged out) →\n403 ``code_required``, which is not a failed attempt: the phone then shows the code screen\nas before. A body WITH a code always takes the code path, session or not.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns a single-use, five-minute picker grant in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
+        "description": "Step 2 of the door: trade the link token for an unlocked one.\n\n**An editor's Rück login counts instead of the code** (owner, 03.10.): a body without\n``code`` is let in on the caller's session when that account is an editor or admin – the\npeople who could read the code off the board anyway. The picker grant lets its holder\nwrite Meldungen into the Ereignis, which a viewer may not do, so a viewer session is\ntreated like no session. No qualifying session (anonymous, expired, logged out, viewer) →\n403 ``code_required``, which is not a failed attempt: the phone then shows the code screen\nand a viewer can still type the code like anyone else. A body WITH a code always takes the\ncode path, session or not.\n\nThe exchange is server-side on purpose (decision 13). A screen that merely\nasked for the code before rendering would be bypassed by anyone who kept the\nURL — the point is that the *link* stops being sufficient.\n\nReturns a single-use, five-minute picker grant in the same response, because the only thing the caller\ncan do next is find their own name, and a second round trip on a phone in\nthe rain buys nothing.\n\nRate limited hard: the limit counts every attempt, but a device unlocks once\nper Ereignis, so the ceiling only ever bites on repeated guessing.\n\n**The refusals are told apart in the body**, because the phone screen has to\nsay something different for each: 403 carries how many tries are left, 429\ncarries the seconds to wait (`Retry-After` says the same, but a browser is\nonly allowed to read that header cross-origin when CORS exposes it, and the\nsplit-origin deployments do not). An expired link token never reaches here —\nit is the 401 from ``require_feld_claims``.",
         "operationId": "unlock_feld_api_feld_unlock_post",
         "parameters": [
           {
@@ -18181,7 +18181,7 @@
           "notifications"
         ],
         "summary": "Dismiss Notification",
-        "description": "Mark notification as dismissed.\n\nAny authenticated user can dismiss notifications.",
+        "description": "Mark notification as dismissed (Editor only).\n\nDismissal is global – it hides the notification for everyone on the board and marks a\nFeld request as seen – so it is a write, not a viewer's personal preference.",
         "operationId": "dismiss_notification_api_notifications__notification_id__dismiss_post",
         "parameters": [
           {

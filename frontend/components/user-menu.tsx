@@ -63,7 +63,7 @@ export function UserMenu({
   onPrint,
 }: UserMenuProps = {}) {
   const t = useTranslations('nav.userMenu');
-  const { user, isEditor, isAuthenticated } = useAuth();
+  const { user, isEditor, isAdmin, isAuthenticated } = useAuth();
   const tAccount = useTranslations('nav.account');
   const { requestLogout, logoutDialog } = useLogout();
   const { selectedEvent } = useEvent();
@@ -139,16 +139,17 @@ export function UserMenu({
 
   // Sync status
   const { status: syncStatus, isLoading: syncLoading, error: syncError, isStale } = useSyncStatus();
-  useRailwayRecovery(syncStatus);
+  useRailwayRecovery(syncStatus, isAdmin);
   // No sync dot on the central Railway instance: it has no peer, and «Sync:
   // Offline» there (it was shown to everyone who is not admin, since only admins
   // may read the sync config) described a connection that cannot exist. The
   // status itself now says which instance this is.
   const showSyncStatus = !isRailwayConfig(syncConfig) && !isCentralInstance(syncStatus);
 
-  // Load config to check if we're on Railway
+  // Load config to check if we're on Railway. Admins only: GET /api/sync/config is
+  // admin-only, and for everyone else it was a guaranteed 403 on every page.
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !isAdmin) return;
 
     const loadConfig = async () => {
       try {
@@ -159,7 +160,7 @@ export function UserMenu({
       }
     };
     loadConfig();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isAdmin]);
 
   // Subscribe to WebSocket status changes
   useEffect(() => {
@@ -356,6 +357,21 @@ export function UserMenu({
     return t('statusConnected');
   };
 
+  const connectionRow = (
+    <div className="flex items-center justify-between w-full">
+      <span className="text-xs text-muted-foreground">{t('connection')}</span>
+      <div className="flex items-center gap-2">
+        <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
+        <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
+        {showSyncStatus && (
+          <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
+        )}
+        <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
+        <div className={`h-2 w-2 rounded-full ${getDiveraStatusColor()}`} />
+      </div>
+    </div>
+  );
+
   return (
     <>
     <DropdownMenu>
@@ -412,25 +428,22 @@ export function UserMenu({
             </>
           )}
 
-          {/* CONNECTION STATUS - dots only, rich popover on hover */}
+          {/* CONNECTION STATUS - dots only, rich popover on hover. The row links to the
+              Sync settings for admins only (an admin-only section); for everyone else it
+              is a plain row that keeps the menu open. */}
           <HoverCard openDelay={80} closeDelay={120}>
             <HoverCardTrigger asChild>
-              <DropdownMenuItem asChild>
-                <Link href="/settings?section=sync" className="cursor-pointer">
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-xs text-muted-foreground">{t('connection')}</span>
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
-                      <div className={`h-2 w-2 rounded-full ${getWsStatusColor()}`} />
-                      {showSyncStatus && (
-                        <div className={`h-2 w-2 rounded-full ${getSyncStatusColor()}`} />
-                      )}
-                      <div className={`h-2 w-2 rounded-full ${getPrinterStatusColor()}`} />
-                      <div className={`h-2 w-2 rounded-full ${getDiveraStatusColor()}`} />
-                    </div>
-                  </div>
-                </Link>
-              </DropdownMenuItem>
+              {isAdmin ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/settings?section=sync" className="cursor-pointer">
+                    {connectionRow}
+                  </Link>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
+                  {connectionRow}
+                </DropdownMenuItem>
+              )}
             </HoverCardTrigger>
             <HoverCardContent side="left" sideOffset={8} align="start" className="w-56">
               <div className="flex flex-col gap-2 text-sm">

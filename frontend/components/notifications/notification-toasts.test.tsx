@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   notifications: [] as Notification[],
   operations: [] as Array<{ id: string; status: string; assignedReko?: { id: string; name: string } | null }>,
   canNavigateToIncident: true,
+  pathname: "/",
+  isEditor: true,
 }))
 
 vi.mock("sonner", () => {
@@ -46,6 +48,8 @@ vi.mock("sonner", () => {
 vi.mock("@/components/ui/sonner", () => ({ Toaster: () => null }))
 
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))
+vi.mock("next/navigation", () => ({ usePathname: () => mocks.pathname }))
+vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => ({ isEditor: mocks.isEditor }) }))
 
 vi.mock("@/lib/contexts/notification-context", () => ({
   useNotifications: () => ({
@@ -94,6 +98,8 @@ describe("NotificationToasts", () => {
     mocks.toastCalls.length = 0
     mocks.canNavigateToIncident = true
     mocks.operations = []
+    mocks.pathname = "/"
+    mocks.isEditor = true
     mocks.dismissNotification.mockClear()
     mocks.dismiss.mockClear()
     // Node 26 ships no localStorage unless started with --localstorage-file, and
@@ -215,6 +221,32 @@ describe("NotificationToasts", () => {
       </NextIntlClientProvider>,
     )
 
+    expect(mocks.dismissNotification).not.toHaveBeenCalled()
+  })
+
+  // A wall display is unattended and runs as the viewer: no toasts, and no write
+  // on the station's behalf even when the board has overtaken an alarm.
+  it("stays quiet on a wall display: no toast, no auto-dismiss", () => {
+    mocks.pathname = "/display/board"
+    mocks.notifications = [fieldMessage(), fieldMessage({ type: "field_report" })]
+    mocks.operations = [{ id: "incident-1", status: "enroute" }]
+
+    render(
+      <NextIntlClientProvider locale="de" messages={de}>
+        <NotificationToasts />
+      </NextIntlClientProvider>,
+    )
+
+    expect(mocks.toastCalls).toHaveLength(0)
+    expect(mocks.dismissNotification).not.toHaveBeenCalled()
+  })
+
+  it("never dismisses on a viewer's behalf – not automatically, not on closing the toast", () => {
+    mocks.isEditor = false
+    mocks.operations = [{ id: "incident-1", status: "enroute" }]
+    const fired = firedToast(fieldMessage({ type: "field_report" }))
+
+    ;(fired.options.onDismiss as () => void)()
     expect(mocks.dismissNotification).not.toHaveBeenCalled()
   })
 })

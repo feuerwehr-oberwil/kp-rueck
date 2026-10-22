@@ -563,12 +563,19 @@ async def execute_personnel_sync(
     Fetches current members from Divera, compares with DB, and applies changes.
     Optionally removes personnel not found in Divera.
 
-    Editor role required. Divera access key must be configured.
+    Editor role required; `remove_stale` (deleting personnel) requires admin. Divera access key
+    must be configured.
     """
     if settings.demo_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Personnel sync is disabled in demo mode",
+        )
+
+    if request_data.remove_stale and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Entfernen von Personal beim Abgleich erfordert Admin-Berechtigung",
         )
 
     if not settings.divera_access_key:

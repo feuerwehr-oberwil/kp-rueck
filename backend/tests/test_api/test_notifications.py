@@ -170,16 +170,10 @@ async def test_dismiss_notification_not_found(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_dismiss_notification_viewer_can_dismiss(viewer_client: AsyncClient, test_notification: Notification):
-    """Test that viewers can dismiss notifications.
-
-    Note: The viewer_client uses a dependency override with a fake user that is
-    not stored in the database. Since dismiss_notification sets dismissed_by (a FK
-    to users.id), the commit will fail with a FK violation (IntegrityError).
-    The ASGITransport raises app exceptions by default, so we expect an error.
-    """
-    with pytest.raises(Exception):
-        await viewer_client.post(f"/api/notifications/{test_notification.id}/dismiss")
+async def test_dismiss_notification_viewer_forbidden(viewer_client: AsyncClient, test_notification: Notification):
+    """Dismissal is global (hides it for the whole board), so a viewer may not do it."""
+    response = await viewer_client.post(f"/api/notifications/{test_notification.id}/dismiss")
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

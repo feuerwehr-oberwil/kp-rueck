@@ -250,7 +250,7 @@ async def test_import_execute_invalid_mode(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_import_execute_replace_mode(editor_client: AsyncClient):
+async def test_import_execute_replace_mode(admin_client: AsyncClient):
     """Test import execution in replace mode (mocked)."""
     with (
         patch(
@@ -266,12 +266,26 @@ async def test_import_execute_replace_mode(editor_client: AsyncClient):
         files = {
             "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         }
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["mode"] == "replace"
         assert data["counts"]["personnel"] == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_import_execute_replace_mode_refuses_editor(editor_client: AsyncClient):
+    """A replace wipes roster, fleet and material – an editor gets 403 and nothing is imported."""
+    with patch("app.api.admin.import_data", new_callable=AsyncMock) as import_data:
+        files = {
+            "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        }
+        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+    assert response.status_code == 403
+    assert "Admin" in response.json()["detail"]
+    import_data.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -336,7 +350,7 @@ async def test_import_execute_append_keeps_existing_rows(editor_client: AsyncCli
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_import_execute_replace_still_replaces(editor_client: AsyncClient, db_session: AsyncSession):
+async def test_import_execute_replace_still_replaces(admin_client: AsyncClient, db_session: AsyncSession):
     """The other side of the same fix: `replace` must keep deleting when it is asked for.
 
     Fixing the binding must not quietly turn the destructive mode off for the operators who
@@ -354,7 +368,7 @@ async def test_import_execute_replace_still_replaces(editor_client: AsyncClient,
         "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
     with patch("app.api.admin.validate_and_parse_excel", return_value=parsed):
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
 
     assert response.status_code == 200
     assert response.json()["mode"] == "replace"
@@ -547,7 +561,7 @@ async def test_import_preview_append_reports_no_deletions(editor_client: AsyncCl
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_import_execute_replace_refuses_live_assignments(
-    editor_client: AsyncClient, db_session: AsyncSession, assigned_resources
+    admin_client: AsyncClient, db_session: AsyncSession, assigned_resources
 ):
     """`replace` must not orphan assignments that are still on a running incident.
 
@@ -561,7 +575,7 @@ async def test_import_execute_replace_refuses_live_assignments(
         "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
     with patch("app.api.admin.validate_and_parse_excel", return_value=parsed):
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
 
     assert response.status_code == 409
     detail = response.json()["detail"]
@@ -580,7 +594,7 @@ async def test_import_execute_replace_refuses_live_assignments(
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_import_execute_replace_names_material_blockers(
-    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident, test_editor: User
+    admin_client: AsyncClient, db_session: AsyncSession, test_incident: Incident, test_editor: User
 ):
     """The state an operator lands in after doing the one thing they know about.
 
@@ -607,7 +621,7 @@ async def test_import_execute_replace_names_material_blockers(
         "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
     with patch("app.api.admin.validate_and_parse_excel", return_value=full_workbook()):
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
 
     assert response.status_code == 409
     detail = response.json()["detail"]
@@ -688,14 +702,14 @@ async def test_import_preview_counts_group_assignments(editor_client: AsyncClien
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_import_execute_replace_refuses_group_assignments(
-    editor_client: AsyncClient, db_session: AsyncSession, group_assigned_person
+    admin_client: AsyncClient, db_session: AsyncSession, group_assigned_person
 ):
     """An Auftrag holding a squad blocks the wipe, and the refusal says it is an Auftrag."""
     files = {
         "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
     with patch("app.api.admin.validate_and_parse_excel", return_value=full_workbook()):
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
 
     assert response.status_code == 409
     detail = response.json()["detail"]
@@ -751,7 +765,7 @@ async def test_import_preview_counts_cascaded_check_ins(
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_import_execute_replace_refuses_missing_sheet(
-    editor_client: AsyncClient, db_session: AsyncSession, test_data
+    admin_client: AsyncClient, db_session: AsyncSession, test_data
 ):
     """A Personnel-only workbook in `replace` mode wiped the fleet and the material list.
 
@@ -769,7 +783,7 @@ async def test_import_execute_replace_refuses_missing_sheet(
         "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
     with patch("app.api.admin.validate_and_parse_excel", return_value=parsed):
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
 
     assert response.status_code == 409
     detail = response.json()["detail"]
@@ -787,7 +801,7 @@ async def test_import_execute_replace_refuses_missing_sheet(
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_import_execute_replace_accepts_empty_sheet(
-    editor_client: AsyncClient, db_session: AsyncSession, test_data
+    admin_client: AsyncClient, db_session: AsyncSession, test_data
 ):
     """An empty sheet is an answer – "the station has no vehicles" – and must still clear.
 
@@ -803,7 +817,7 @@ async def test_import_execute_replace_accepts_empty_sheet(
         "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
     with patch("app.api.admin.validate_and_parse_excel", return_value=parsed):
-        response = await editor_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
+        response = await admin_client.post("/api/admin/import/execute", files=files, data={"mode": "replace"})
 
     assert response.status_code == 200
     assert (await db_session.execute(select(Vehicle))).scalars().all() == []

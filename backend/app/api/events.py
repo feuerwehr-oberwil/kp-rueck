@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentAdmin, CurrentEditor, CurrentUser
 from ..crud import events as crud
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
@@ -243,11 +243,11 @@ async def unarchive_event(
 async def delete_event(
     event_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentEditor,
+    current_user: CurrentAdmin,
     request: Request,
 ) -> None:
     """
-    Permanently delete an event (editor only).
+    Permanently delete an event (admin only – archiving stays with editors).
 
     Event must be archived first before it can be deleted.
     """

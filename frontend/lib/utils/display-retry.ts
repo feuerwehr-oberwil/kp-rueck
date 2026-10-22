@@ -33,10 +33,19 @@ const ATTEMPT_KEY = 'display-error-attempts'
  */
 export const HEALTHY_UPTIME_MS = 120_000
 
+/**
+ * True for a wall-display path (`/display` and `/display/*`) – the same prefix rule
+ * `globalShortcutsEnabled` applies. The app shell and the notification toasts use it
+ * to keep those screens quiet (no palette, no bell, no toasts, no auto-dismiss).
+ */
+export function isDisplayPath(pathname: string | null | undefined): boolean {
+  return pathname === '/display' || (pathname?.startsWith('/display/') ?? false)
+}
+
 /** True when the current document is an unattended wall display. */
 export function isDisplayRoute(): boolean {
   if (typeof window === 'undefined') return false
-  return window.location.pathname.startsWith('/display')
+  return isDisplayPath(window.location.pathname)
 }
 
 export function readRetryAttempts(): number {

@@ -57,12 +57,17 @@ async function proxyRequest(request: NextRequest) {
   // Forward other headers (excluding problematic ones)
   // Skip content-length: fetch auto-sets it from the body (Blob)
   //
-  // The x-forwarded-* headers are dropped rather than relayed: this route used to pass the
-  // browser's copy straight through, and the backend keyed its login throttle, its request
-  // rate limit and the audit log's IP attribution on it. Sending one header was enough to
-  // pick your own address for all three. The backend now reads the entry its own outermost
-  // proxy appended (middleware/rate_limit.client_ip), and not forwarding a client-supplied
-  // value keeps this hop from muddying that chain.
+  // X-Forwarded-For is relayed UNCHANGED (it is not in this list). The backend keys its login
+  // throttle, Feld-Code lockout, request rate limit and the audit log's IP on the entry its
+  // outermost proxy appended – the trusted_proxy_count-th from the RIGHT
+  // (middleware/rate_limit.client_ip). By the time a request reaches this route, Caddy or
+  // Railway's edge has already appended the real client address on the right, so forwarding
+  // the header as received keeps that entry where the backend looks; whatever a client forged
+  // sits further left and is ignored. Dropping the header (as this route once did) made the
+  // backend fall back to the socket – this container – and every caller shared one address.
+  // Appending our own hop would push the real entry one place left, so we don't.
+  // The other x-forwarded-* and x-real-ip are still dropped: the backend reads none of them
+  // and a client could set them freely.
   const skipHeaders = [
     'host',
     'cookie',
@@ -73,7 +78,6 @@ async function proxyRequest(request: NextRequest) {
     'te',
     'trailer',
     'upgrade',
-    'x-forwarded-for',
     'x-forwarded-host',
     'x-forwarded-proto',
     'x-real-ip',

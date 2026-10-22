@@ -24,11 +24,12 @@ const AUDIT_LOG_LIMIT = 100;
  */
 export function useAuditLog({
   activeSection,
-  isEditor,
+  isAdmin,
   events,
 }: {
   activeSection: string;
-  isEditor: boolean;
+  /** GET /api/audit is admin-only – nobody else fetches it. */
+  isAdmin: boolean;
   events: ReturnType<typeof useEvent>['events'];
 }) {
   const t = useTranslations('settings');
@@ -65,10 +66,10 @@ export function useAuditLog({
 
   // Fetch audit logs when on audit section
   useEffect(() => {
-    if (activeSection === 'audit' && isEditor) {
+    if (activeSection === 'audit' && isAdmin) {
       fetchAuditLogs();
     }
-  }, [activeSection, isEditor, auditResourceFilter, auditActionFilter]);
+  }, [activeSection, isAdmin, auditResourceFilter, auditActionFilter]);
 
   const handleAuditExport = async () => {
     if (!auditExportEventId) {

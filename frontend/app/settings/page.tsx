@@ -8,11 +8,12 @@
  * `/display/board` before this renders, so the `isEditor` checks below are constant-true
  * today – see `components/protected-route.tsx` for why they are kept.
  *
- * `activeSection` is read unfiltered from the URL, so `?section=users` and
- * `?section=audit` are reachable by anyone who gets this far. That is safe because the
- * data is not: `GET /api/users` requires `CurrentAdmin` and `GET /api/audit` requires
- * `CurrentEditor`, so those panels render empty rather than leaking. If you add a
- * section here, gate its endpoint on the backend – not just its sidebar entry.
+ * `?section=` is resolved against the sections this role may see (`resolveSection`), so an
+ * editor who follows a `?section=users`, `?section=sync` or `?section=audit` link lands on
+ * the default section instead of an admin panel that would only answer 403. That is UX,
+ * not the boundary: `GET /api/users`, `/api/sync/*` and `GET /api/audit` require
+ * `CurrentAdmin`. If you add a section here, gate its endpoint on the backend – not just
+ * its sidebar entry.
  */
 
 import { useMemo, useState, useEffect } from 'react';
@@ -198,7 +199,8 @@ const SECTIONS = [
 
   // ---- Protokoll
   { id: 'import', icon: FileSpreadsheet, group: 'records', editorOnly: true, adminOnly: false },
-  { id: 'audit', icon: FileText, group: 'records', editorOnly: true, adminOnly: false },
+  // The full log carries IPs and user agents – admin-only (matches GET /api/audit).
+  { id: 'audit', icon: FileText, group: 'records', editorOnly: true, adminOnly: true },
   // Not adminOnly: «Problem melden» is for whoever hit the problem. The consent switch
   // inside the section is what checks isAdmin — and it is the only gate now. The whole
   // «Daten» group used to be wrapped in `isEditor &&`, so a viewer who hit a problem
@@ -210,6 +212,19 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
+type Section = typeof SECTIONS[number];
+
+const DEFAULT_SECTION: SectionId = 'general';
+
+/** The sections a role may open – the sidebar, the mobile picker, the search and `?section=` all use it. */
+function visibleSectionsFor(isEditor: boolean, isAdmin: boolean): Section[] {
+  return SECTIONS.filter(s => (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin));
+}
+
+/** `?section=` → a section this role may see; anything else (unknown, or above the role) → the default. */
+function resolveSection(param: string | null, visible: readonly Section[]): SectionId {
+  return visible.find(s => s.id === param)?.id ?? DEFAULT_SECTION;
+}
 
 interface SettingConfig {
   key: string;
@@ -285,11 +300,12 @@ export default function SettingsPage() {
   const { isEditor, isAdmin, isAuthenticated } = useAuth();
   const { events, isLoading: eventsLoading } = useEvent();
   const isMobile = useIsMobile();
-  // Active section from URL or default
-  const sectionParam = searchParams.get('section') as SectionId | null;
-  const activeSection = sectionParam && SECTIONS.some(s => s.id === sectionParam)
-    ? sectionParam
-    : 'general';
+  // Filter sections based on role. Memoised because the search below depends on it – a
+  // fresh array every render would re-run the catalogue scan on every keystroke anywhere
+  // on the page, not only on the search field.
+  const visibleSections = useMemo(() => visibleSectionsFor(isEditor, isAdmin), [isEditor, isAdmin]);
+  // Active section from URL, resolved against what this role may see (or the default)
+  const activeSection = resolveSection(searchParams.get('section'), visibleSections);
 
   // General settings state
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -305,7 +321,7 @@ export default function SettingsPage() {
 
   // Sync status
   const { status: syncStatus, isLoading: isSyncLoading, error: syncError, isStale } = useSyncStatus();
-  useRailwayRecovery(syncStatus);
+  useRailwayRecovery(syncStatus, isAdmin);
 
   // Are there real offline map tiles on this server? Answered next to the Karten-Modus
   // select, because that is where «Nur Offline» gets chosen – and choosing it without
@@ -330,7 +346,7 @@ export default function SettingsPage() {
 
   // The audit section: export, log, filters — see use-audit-log. Called here so
   // its fetch effect keeps its place after the demo-status one.
-  const auditLog = useAuditLog({ activeSection, isEditor, events });
+  const auditLog = useAuditLog({ activeSection, isAdmin, events });
 
   const handleSyncComplete = () => {
     setHistoryRefreshTrigger((prev) => prev + 1);
@@ -538,14 +554,6 @@ export default function SettingsPage() {
       </div>
     );
   };
-
-  // Filter sections based on editor role. Memoised because the search below depends on
-  // it — a fresh array every render would re-run the catalogue scan on every keystroke
-  // anywhere on the page, not only on the search field.
-  const visibleSections = useMemo(
-    () => SECTIONS.filter(s => (!s.editorOnly || isEditor) && (!s.adminOnly || isAdmin)),
-    [isEditor, isAdmin],
-  );
 
   // Suche. `null` heisst «nichts eingetippt» und lässt die Gliederung stehen; eine leere
   // Liste heisst «gesucht und nichts gefunden» und sagt das auch.
@@ -969,7 +977,7 @@ export default function SettingsPage() {
 
       case 'personnel':
         // Lock is applied inside so the "Sortierung" tab stays viewable in demo.
-        return <PersonnelSettings demoMode={demoMode} />;
+        return <PersonnelSettings demoMode={demoMode} isAdmin={isAdmin} />;
 
       case 'vehicles':
         return (
@@ -983,7 +991,7 @@ export default function SettingsPage() {
         return <MaterialSettings demoMode={demoMode} />;
 
       case 'import':
-        return <ExcelImportSection importer={excelImport} demoMode={demoMode} />;
+        return <ExcelImportSection importer={excelImport} demoMode={demoMode} isAdmin={isAdmin} />;
 
       case 'audit':
         return <AuditLogSection audit={auditLog} events={events} eventsLoading={eventsLoading} />;

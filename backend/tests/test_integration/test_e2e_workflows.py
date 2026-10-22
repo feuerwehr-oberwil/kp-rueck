@@ -464,27 +464,27 @@ async def test_event_archive_unarchive_workflow(editor_client: AsyncClient, db_s
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_event_delete_requires_archive_first(editor_client: AsyncClient, db_session: AsyncSession):
+async def test_event_delete_requires_archive_first(admin_client: AsyncClient, db_session: AsyncSession):
     """Test that event must be archived before deletion."""
     # Create event
     event_data = {"name": "Delete Test Event", "training_flag": True}
-    response = await editor_client.post("/api/events/", json=event_data)
+    response = await admin_client.post("/api/events/", json=event_data)
     event_id = response.json()["id"]
 
     # Try to delete without archiving first
-    response = await editor_client.delete(f"/api/events/{event_id}")
+    response = await admin_client.delete(f"/api/events/{event_id}")
     assert response.status_code == 400  # Should fail
 
     # Archive first
-    response = await editor_client.post(f"/api/events/{event_id}/archive")
+    response = await admin_client.post(f"/api/events/{event_id}/archive")
     assert response.status_code == 200
 
     # Now delete should work
-    response = await editor_client.delete(f"/api/events/{event_id}")
+    response = await admin_client.delete(f"/api/events/{event_id}")
     assert response.status_code == 204
 
     # Verify deletion
-    response = await editor_client.get(f"/api/events/{event_id}")
+    response = await admin_client.get(f"/api/events/{event_id}")
     assert response.status_code == 404
 
 

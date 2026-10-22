@@ -346,8 +346,9 @@ async def execute_excel_import(
     Execute Excel import with specified mode. `mode` is required – there is no default.
 
     Modes:
-    - replace: Delete all existing data, insert new
-    - append: Keep existing, add new
+    - replace: Delete all existing data, insert new (Admin only – it wipes the station's
+      roster, fleet and material inventory)
+    - append: Keep existing, add new (Editor)
     """
     if settings.demo_mode:
         raise HTTPException(
@@ -356,6 +357,11 @@ async def execute_excel_import(
         )
 
     import_mode = _require_import_mode(mode)
+    if import_mode == "replace" and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Import im Modus 'replace' erfordert Admin-Berechtigung",
+        )
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")

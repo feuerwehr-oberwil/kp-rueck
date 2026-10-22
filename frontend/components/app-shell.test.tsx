@@ -30,7 +30,7 @@ vi.mock("@/components/incident-truncation-banner", () => ({
   IncidentTruncationBanner: () => null,
 }));
 vi.mock("@/components/notifications/persistent-notification-sidebar", () => ({
-  PersistentNotificationSidebar: () => null,
+  PersistentNotificationSidebar: () => <div data-testid="notification-sidebar" />,
 }));
 
 import { AppShell } from "@/components/app-shell";
@@ -63,6 +63,14 @@ describe("AppShell – Kommandopalette", () => {
     mockUseAuth.mockReturnValue({ isAuthenticated: true });
     render(<AppShell>content</AppShell>);
     expect(screen.getByTestId("command-palette")).toBeInTheDocument();
+  });
+
+  it("keeps a wall display quiet: no palette, no notification sidebar", () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: true });
+    pathname = "/display/board";
+    render(<AppShell>content</AppShell>);
+    expect(screen.queryByTestId("command-palette")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notification-sidebar")).not.toBeInTheDocument();
   });
 
   it("mounts the global G-chords once, only when signed in", () => {

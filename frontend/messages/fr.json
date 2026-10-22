@@ -402,7 +402,6 @@
       "attachedMany": "{count} urgences ont été attribuées à l’événement",
       "errorTitle": "Erreur",
       "attachError": "Les urgences n’ont pas pu être rattachées",
-      "notLoggedIn": "Non connecté",
       "title": "Alarmes entrantes",
       "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
       "searchPlaceholder": "Rechercher …",

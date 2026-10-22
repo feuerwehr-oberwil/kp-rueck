@@ -67,7 +67,12 @@ import {
 } from '@/lib/roster-order';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
-export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) {
+/**
+ * Einstellungen › Personal: the roster, its sort order and the Divera sync.
+ * `isAdmin` unlocks the sync's «nicht mehr in Divera entfernen» option – deleting
+ * personnel through the sync is admin-only on the backend (`remove_stale`).
+ */
+export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoMode?: boolean; isAdmin?: boolean }) {
   const t = useTranslations('settings');
   const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -923,7 +928,7 @@ export function PersonnelSettings({ demoMode = false }: { demoMode?: boolean }) 
               </div>
 
               <div className="flex-shrink-0 space-y-3 border-t pt-3">
-                {syncPreview.not_in_divera.length > 0 && (
+                {isAdmin && syncPreview.not_in_divera.length > 0 && (
                   <div className="flex items-center space-x-2 rounded-md border p-3">
                     <Checkbox
                       id="remove-stale"

@@ -19,6 +19,7 @@ from app.models import (
     Incident,
     Material,
     Personnel,
+    PrintJob,
     User,
     Vehicle,
 )
@@ -563,6 +564,36 @@ async def test_viewer_cannot_access_admin_export(viewer_client: AsyncClient):
     """Test that viewers cannot access admin export endpoint."""
     response = await viewer_client.get("/api/admin/export/data")
     assert response.status_code == 403
+
+
+@pytest_asyncio.fixture
+async def feld_slip_job(db_session: AsyncSession) -> PrintJob:
+    """A queued slip whose payload carries the Feld door (QR token + code)."""
+    job = PrintJob(
+        id=uuid4(),
+        job_type="assignment",
+        status="pending",
+        payload={"title": "Keller unter Wasser", "feld_qr": "signed-token", "feld_code": "4711"},
+    )
+    db_session.add(job)
+    await db_session.commit()
+    return job
+
+
+@pytest.mark.asyncio
+@pytest.mark.security
+async def test_viewer_cannot_read_a_print_job(viewer_client: AsyncClient, feld_slip_job: PrintJob):
+    """The payload is the Feld door; a viewer must not be able to read it off a slip."""
+    response = await viewer_client.get(f"/api/print/jobs/{feld_slip_job.id}/")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.security
+async def test_editor_can_read_a_print_job(editor_client: AsyncClient, feld_slip_job: PrintJob):
+    response = await editor_client.get(f"/api/print/jobs/{feld_slip_job.id}/")
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending"
 
 
 # ============================================

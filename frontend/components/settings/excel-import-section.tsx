@@ -31,8 +31,19 @@ import type { ExcelImport } from '@/components/settings/use-excel-import';
  *
  * The JSX of the settings page's `import` section, moved verbatim
  * (2026-09-23); the state and handlers come from `useExcelImport`.
+ *
+ * «Ersetzen» is offered to admins only (the backend refuses `mode=replace` from an
+ * editor); an editor sees «Anhängen» alone, which is also the default mode.
  */
-export function ExcelImportSection({ importer, demoMode }: { importer: ExcelImport; demoMode: boolean }) {
+export function ExcelImportSection({
+  importer,
+  demoMode,
+  isAdmin,
+}: {
+  importer: ExcelImport;
+  demoMode: boolean;
+  isAdmin: boolean;
+}) {
   const t = useTranslations('settings');
   const {
     preview,
@@ -164,11 +175,11 @@ export function ExcelImportSection({ importer, demoMode }: { importer: ExcelImpo
             </div>
             {/* One column on a phone: two side by side were ~120px each at 360 and the hints
                 ran out of their cards. */}
-            <div className="grid grid-cols-1 gap-3 sm:ml-12 sm:grid-cols-2">
+            <div className={`grid grid-cols-1 gap-3 sm:ml-12 ${isAdmin ? 'sm:grid-cols-2' : ''}`}>
               {([
                 { mode: 'replace' as const, icon: Trash2 },
                 { mode: 'append' as const, icon: Plus },
-              ]).map(({ mode, icon: ModeIcon }) => {
+              ]).filter(({ mode }) => isAdmin || mode !== 'replace').map(({ mode, icon: ModeIcon }) => {
                 const selected = importMode === mode;
                 const destructive = mode === 'replace';
                 return (

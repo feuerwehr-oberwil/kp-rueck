@@ -11,6 +11,7 @@ import { StaleDataBanner } from '@/components/stale-data-banner'
 import { IncidentTruncationBanner } from '@/components/incident-truncation-banner'
 import { PersistentNotificationSidebar } from '@/components/notifications/persistent-notification-sidebar'
 import { RouteSlot } from '@/components/route-slot'
+import { isDisplayPath } from '@/lib/utils/display-retry'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -39,10 +40,15 @@ const DOCUMENT_FLOW_ROUTES = ['/reko', '/alarm', '/check-in', '/feld']
  * shortcut is not an access control, and the entries it lists are not public.
  * Gating the mount rather than the handler also takes the `keydown` listener and
  * the `kp:open-command-palette` window listener away with it.
+ *
+ * The wall displays (`/display/*`) get neither the palette nor the notification
+ * sidebar: they are unattended read-only screens (the viewer role lands there),
+ * so a stray ⌘K or a bell panel would only cover the Lage.
  */
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const { isAuthenticated } = useAuth()
+  const isDisplay = isDisplayPath(pathname)
 
   const isDocumentFlow = DOCUMENT_FLOW_ROUTES.some(
     route => pathname === route || pathname.startsWith(`${route}/`)
@@ -57,8 +63,8 @@ export function AppShell({ children }: AppShellProps) {
         <IncidentTruncationBanner />
         {children}
         {isAuthenticated && <CommandPalette />}
-      {isAuthenticated && <GlobalShortcuts />}
-      <UpdateNotice />
+        {isAuthenticated && <GlobalShortcuts />}
+        <UpdateNotice />
       </>
     )
   }
@@ -82,9 +88,9 @@ export function AppShell({ children }: AppShellProps) {
           {/* Never `{children}` straight in <main>: React error #418 on a cold load (route-slot.tsx). */}
           <RouteSlot>{children}</RouteSlot>
         </main>
-        <PersistentNotificationSidebar />
+        {!isDisplay && <PersistentNotificationSidebar />}
       </div>
-      {isAuthenticated && <CommandPalette />}
+      {isAuthenticated && !isDisplay && <CommandPalette />}
       {isAuthenticated && <GlobalShortcuts />}
       <UpdateNotice />
     </div>
