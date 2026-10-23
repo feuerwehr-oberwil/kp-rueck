@@ -26,7 +26,7 @@ from ..schemas import NotificationSettings
 # card that reads «…strasse 8».
 from . import notification_params as texts
 from .incident_display import get_home_city, location_display
-from .pdf_report_service import STATUS_LABELS
+from .rapport_rows import STATUS_LABELS
 
 logger = logging.getLogger(__name__)
 

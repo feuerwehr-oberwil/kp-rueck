@@ -40,7 +40,7 @@ from ..models import (
     Vehicle,
 )
 from .audit_export_service import EventReportData
-from .pdf_report_service import (
+from .rapport_rows import (
     LOCAL_TZ,
     WorkWindow,
     board_personnel_count,

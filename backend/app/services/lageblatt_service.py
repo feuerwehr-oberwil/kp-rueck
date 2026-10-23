@@ -47,9 +47,12 @@ from ..models import (
     StatusTransition,
     Vehicle,
 )
+from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
-from .pdf_report_service import (
+from .pdf_report_service import logo_flowable, photo_grid
+from .photo_storage import ExportPhoto
+from .rapport_rows import (
     LOCAL_TZ,
     POWER_LABELS,
     PRIORITY_LABELS,
@@ -57,17 +60,13 @@ from .pdf_report_service import (
     TYPE_LABELS,
     WorkWindow,
     extra_material_left_on_site_names,
-    format_location_for_display,
-    logo_flowable,
     material_left_on_site_names,
-    photo_grid,
     rapport_by_incident,
     rapport_work_windows,
     reko_arrival_line,
     reko_filing_lines,
     vehicle_present_names,
 )
-from .photo_storage import ExportPhoto
 
 # The handwriting continuation area fills the rest of the page below the data
 # (field test 07.09.: «gleich ganze Seite füllen»). When less than this many
