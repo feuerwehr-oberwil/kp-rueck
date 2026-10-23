@@ -158,3 +158,25 @@ describe('the finished-Reko keyword', () => {
     expect(matchesIncidentQuery(makeOperation({ status: 'enroute' }), 'reko', NO_MATERIALS, undefined, 'de')).toBe(false)
   })
 })
+
+// UX-DESKTOP-08: «which Einsätze have no vehicle?» – the cards hide an empty Fahrzeuge row.
+describe('the «ohne fahrzeug» keyword', () => {
+  it('finds dispatched and running Einsätze without a vehicle, never «Zu Fuss»', () => {
+    const query = (op: Operation) => matchesIncidentQuery(op, ' Ohne  Fahrzeug ', NO_MATERIALS, undefined, 'de')
+
+    expect(query(makeOperation({ status: 'enroute' }))).toBe(true)
+    expect(query(makeOperation({ status: 'active' }))).toBe(true)
+    expect(query(makeOperation({ status: 'active', vehicles: ['TLF'] }))).toBe(false)
+    expect(query(makeOperation({ status: 'active', zuFuss: true }))).toBe(false)
+    // An Auftrag's stop: the vehicles are on the route.
+    expect(query(makeOperation({ status: 'enroute', groupId: 'g-1' }))).toBe(false)
+    // Not dispatched yet: no vehicle is expected there.
+    expect(query(makeOperation({ status: 'incoming' }))).toBe(false)
+  })
+
+  it('works in French too, and the German keyword still does', () => {
+    const op = makeOperation({ status: 'enroute' })
+    expect(matchesIncidentQuery(op, 'sans véhicule', NO_MATERIALS, undefined, 'fr')).toBe(true)
+    expect(matchesIncidentQuery(op, 'ohne fahrzeug', NO_MATERIALS, undefined, 'fr')).toBe(true)
+  })
+})

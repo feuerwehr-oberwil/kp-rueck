@@ -101,6 +101,9 @@ interface DroppableColumnProps {
   isCollapsed?: boolean
   /** Fold / unfold. Absent = this board does not offer folding at all. */
   onToggleCollapsed?: (columnId: string) => void
+  /** A board search is narrowing the cards: an empty column then says «Keine
+   *  Treffer.», not «Noch keine Einsätze.» – false with 21 on the board. */
+  searchActive?: boolean
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -122,7 +125,8 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.canDrag !== next.canDrag ||
     prev.onSort !== next.onSort ||
     prev.isCollapsed !== next.isCollapsed ||
-    prev.onToggleCollapsed !== next.onToggleCollapsed
+    prev.onToggleCollapsed !== next.onToggleCollapsed ||
+    prev.searchActive !== next.searchActive
   ) {
     return false
   }
@@ -174,6 +178,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onSort,
   isCollapsed: isFoldedByOperator = false,
   onToggleCollapsed,
+  searchActive = false,
 }: DroppableColumnProps) {
   const t = useTranslations('kanban')
   const tDash = useTranslations('kanban.dashboard')
@@ -441,7 +446,9 @@ export const DroppableColumn = memo(function DroppableColumn({
             header's own control, where it is labelled. */}
         {isEmpty && !isOver && (
           <div className="flex items-center justify-center h-32">
-            <p className="text-sm text-muted-foreground/70 select-none">{t('column.empty')}</p>
+            <p className="text-sm text-muted-foreground/70 select-none">
+              {searchActive ? t('column.noMatches') : t('column.empty')}
+            </p>
           </div>
         )}
 
