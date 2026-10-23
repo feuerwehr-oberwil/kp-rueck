@@ -45,6 +45,7 @@ HTTP_PORT=8080                     # what your reverse proxy forwards to
 HTTPS_PORT=8443                    # NOT 443 – see the warning below
 CORS_ORIGINS=https://rueck.example.org   # the URL BROWSERS use, not http://127.0.0.1:8080
 AUTH_COOKIE_SECURE=                # leave blank; CORS_ORIGINS above already answers this
+TRUSTED_PROXY_COUNT=2              # your proxy + KP Rück's Caddy – see the note below
 ```
 
 ```bash
@@ -60,6 +61,26 @@ DOMAIN=                  # unused without --profile tls
 > to decide whether the login cookie carries the `Secure` flag. Put the plain-HTTP forwarding
 > address in it and you get an `https://` board whose API calls are all refused, and a login
 > cookie sent without `Secure` over a connection that has TLS. Write the name people type.
+
+> **Two proxies in front of the backend means `TRUSTED_PROXY_COUNT=2`.** The backend picks the
+> caller's IP out of `X-Forwarded-For` by counting proxies from the right, and that IP keys the
+> login throttle, the rate limit and the audit trail. The default `1` is right for Caddy alone;
+> behind your proxy it reads your proxy's address for every caller, so one busy device trips
+> the rate limit for everyone. The count only helps if the header survives Caddy, though:
+> Caddy ignores an incoming `X-Forwarded-For` from a proxy it does not trust, and the shipped
+> `deploy/Caddyfile` trusts none. Add a global options block as the very first thing in it,
+> naming the address your proxy connects to Caddy from, and carry that edit across updates:
+>
+> ```caddyfile
+> {
+> 	servers {
+> 		trusted_proxies static 172.17.0.1/32   # your proxy's address, not this example
+> 	}
+> }
+> ```
+>
+> Never set the count higher than the proxies really in front: too high trusts entries the
+> caller wrote. (The «Keeping it simpler» layout below has no outer proxy and keeps `1`.)
 
 > **`HTTPS_PORT` must be changed even when unused.** KP Rück's Caddy publishes it
 > unconditionally – it is the single origin the Caddyfile routes and is deliberately *not*
@@ -150,10 +171,10 @@ openssl rand -hex 24     # once per stack
 ```
 
 In KP Rück the secret can now be set in `.env` and **wins over the database value**, so a
-deployment can be provisioned entirely from the file. Left blank, the old behaviour stands: one
-is auto-generated on first boot and has to be read back out with
-`SELECT value FROM settings WHERE key = 'alarm_webhook_secret';`. KP Front has always taken it
-from the environment.
+deployment can be provisioned entirely from the file. Left blank, one is auto-generated on first
+boot, and an admin reads or rotates it at **Einstellungen → Betrieb → Alarm-Eingang →
+Webhook-Schlüssel für Alarme** (rotation is disabled while `.env` pins it). KP Front has always
+taken it from the environment.
 
 **One payload, two webhooks.** ⚠️ **This section used to say the opposite** – that the two
 contracts "overlap but are not interchangeable", with a table of differences and the
@@ -208,8 +229,9 @@ Worth stating, so you don't go looking for problems that aren't there:
 
 - **Databases.** Each stack runs its own Postgres in its own compose project, on no published
   port. Different default `POSTGRES_USER`/`POSTGRES_DB`, and they never see each other.
-- **Compose projects.** Two directories means two project names, so container names, networks
-  and volumes are already namespaced. Nothing to rename.
+- **Compose projects.** Each stack pins its own project name (`name: kp-rueck`, `name:
+  kp-front`), so container names, networks and volumes are already namespaced whatever the
+  directories are called. Nothing to rename – and do not override either with `-p`.
 - **Secrets other than the alarm one.** `SECRET_KEY`, `AUTH_SECRET_KEY`, database passwords,
   Divera and Traccar credentials – per stack, no coordination needed. (Both may legitimately use
   the *same* Divera access key; that is a Divera account detail, not a collision.)
@@ -285,10 +307,12 @@ Before you start the second stack:
 - [ ] KP Rück's `HTTP_PORT` **and** `HTTPS_PORT` are both free – `HTTPS_PORT` is not `443`.
 - [ ] `CORS_ORIGINS` (KP Rück) and `PUBLIC_URL` (KP Front) each point at their **own** stack –
       and `CORS_ORIGINS` holds the URL *browsers* use, not the address an outer proxy forwards to.
+- [ ] Behind the outer proxy: `TRUSTED_PROXY_COUNT=2` in the KP Rück `.env`, and its Caddy
+      trusts that proxy (§1).
 - [ ] `AUTH_COOKIE_SECURE` is **blank** in the KP Rück `.env`; if KP Front is on plain HTTP, its
       `COOKIE_SECURE=false` is set.
 - [ ] `ALARM_WEBHOOK_SECRET` is a **different** value in each `.env`.
-- [ ] The dispatch system has a separate webhook per stack — same payload, own URL, own secret.
+- [ ] The dispatch system has a separate webhook per stack – same payload, own URL, own secret.
 - [ ] `docker compose up -d` on the second stack, then confirm the **first** one is still
       answering. A port collision shows up as a container that won't start; a CORS mistake only
       shows up in the browser.
