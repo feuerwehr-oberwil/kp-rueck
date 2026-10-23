@@ -11,7 +11,8 @@ import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
 import { isValidUUID } from '@/lib/utils/validation'
 import { isStringArray, readItem, readJson, writeItem, writeJson } from '@/lib/utils/safe-storage'
-import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
+import { wsClient } from '@/lib/websocket-client'
+import { usePolling } from '@/lib/hooks/use-polling'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { dismissOutageToast, showOutageToast } from '@/lib/api/http'
@@ -526,66 +527,36 @@ export function NotificationProvider({
     })
   }, [fetchNotifications, markAvailable, markUnavailable])
 
-  // WebSocket + polling fallback for notifications
+  const canFetch = !authLoading && isAuthenticated && !!eventId && isValidUUID(eventId)
+
+  // Nothing to ask about — an empty bell here is an answer, not a gap, so any
+  // outstanding "I cannot tell" state goes with it.
   useEffect(() => {
-    // Only fetch if auth is loaded, we have a selected event with valid ID, and user is authenticated
-    if (authLoading || !eventId || !isValidUUID(eventId) || !isAuthenticated) {
-      // Nothing to ask about — an empty bell here is an answer, not a gap, so
-      // any outstanding "I cannot tell" state goes with it.
-      markAvailable()
-      setNotifications(EMPTY_LIST)
-      return
+    if (canFetch) return
+    markAvailable()
+    setNotifications(EMPTY_LIST)
+  }, [canFetch, markAvailable])
+
+  /** One sync: the list, plus the settings if they have never arrived. */
+  const sync = useCallback(async () => {
+    await refetchNotifications()
+    if (settingsLoadedRef.current) return
+    const loaded = await fetchSettings()
+    if (loaded) {
+      settingsLoadedRef.current = true
+      setSettings(loaded)
     }
+  }, [refetchNotifications])
 
-    /** One sync: the list, plus the settings if they have never arrived. */
-    const sync = async () => {
-      await refetchNotifications()
-      if (settingsLoadedRef.current) return
-      const loaded = await fetchSettings()
-      if (loaded) {
-        settingsLoadedRef.current = true
-        setSettings(loaded)
-      }
-    }
-
-    // Initial fetch
-    sync()
-
-    // Listen for WebSocket notification events
-    const unsubscribeNotification = wsClient.on('notification_update', () => {
-      sync()
+  // The socket pushes `notification_update`; the poll covers the gaps while it
+  // is down (and runs once when it comes back).
+  usePolling(sync, { intervalMs: pollInterval, enabled: canFetch, skipWhileWsConnected: true })
+  useEffect(() => {
+    if (!canFetch) return
+    return wsClient.on('notification_update', () => {
+      void sync()
     })
-
-    // Fallback polling when WebSocket is disconnected
-    let pollIntervalId: NodeJS.Timeout | undefined
-
-    const startPolling = () => {
-      if (!pollIntervalId) {
-        pollIntervalId = setInterval(sync, pollInterval)
-      }
-    }
-
-    const stopPolling = () => {
-      if (pollIntervalId) {
-        clearInterval(pollIntervalId)
-        pollIntervalId = undefined
-      }
-    }
-
-    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
-      if (status === 'disconnected' || status === 'error') {
-        startPolling()
-      } else if (status === 'connected') {
-        stopPolling()
-      }
-    })
-
-    return () => {
-      unsubscribeNotification()
-      unsubscribeStatus()
-      stopPolling()
-    }
-  }, [pollInterval, eventId, isAuthenticated, authLoading, refetchNotifications, markAvailable])
+  }, [canFetch, sync])
 
   // Calculate unread count (active notifications)
   const unreadCount = notifications.filter((n) => !n.dismissed).length

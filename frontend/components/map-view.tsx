@@ -33,7 +33,9 @@ import { DEFAULT_CENTER_LATLNG, fitTo, Z, type LatLngPoint } from "@/lib/map-vie
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { VehicleTrails } from "./map/vehicle-trails"
 import { ChevronDown, Maximize, AlertTriangle, Truck, Users } from "lucide-react"
-import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
+import { usePathname } from "next/navigation"
+import { isDisplayPath } from "@/lib/utils/display-retry"
+import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
@@ -1059,9 +1061,14 @@ export default function MapView({
     }, LABEL_HOVER_CLOSE_MS)
   }, [])
 
-  // Vehicle positions from Traccar GPS
-  const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
-  const [traccarConfigured, setTraccarConfigured] = useState<boolean>(false)
+  // Vehicle positions from Traccar GPS. A wall (`/display/*`) keeps polling while
+  // hidden: nobody is there to bring the tab back to the front.
+  const unattended = isDisplayPath(usePathname())
+  const { positions: livePositions, configured: traccarConfigured } = useVehiclePositions({
+    enabled: !tokenMode,
+    pauseWhenHidden: !unattended,
+  })
+  const vehiclePositions = positionsOverride ?? livePositions
   // KP Rück vehicles for mapping Traccar device names → vehicle names
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
 
@@ -1069,9 +1076,6 @@ export default function MapView({
   useEffect(() => {
     if (vehiclesOverride) setVehicles(vehiclesOverride)
   }, [vehiclesOverride])
-  useEffect(() => {
-    if (positionsOverride) setVehiclePositions(positionsOverride)
-  }, [positionsOverride])
 
   // Load firestation settings and vehicle list from backend
   useEffect(() => {
@@ -1110,81 +1114,6 @@ export default function MapView({
 
     loadSettings()
   }, [tokenMode])
-
-  // Fetch vehicle positions from Traccar
-  const fetchVehiclePositions = useCallback(async () => {
-    try {
-      const positions = await apiClient.getVehiclePositions()
-      setVehiclePositions(positions)
-    } catch {
-      // Silent by design: Traccar is optional, and a station without it would
-      // otherwise get this on every poll tick.
-    }
-  }, [])
-
-  // Check Traccar status and use WebSocket + polling fallback for positions
-  useEffect(() => {
-    // Token mode gets positions from the override prop, not auth-only Traccar.
-    if (tokenMode) return
-    let cancelled = false
-    let pollInterval: NodeJS.Timeout | null = null
-    let unsubscribePositions: (() => void) | null = null
-    let unsubscribeStatus: (() => void) | null = null
-
-    const checkTraccarStatus = async () => {
-      try {
-        const status = await apiClient.getTraccarStatus()
-        // Bail if the component unmounted during the await — otherwise we'd
-        // register WS subscriptions after cleanup already ran, leaking them.
-        if (cancelled) return
-        setTraccarConfigured(status.configured)
-
-        if (status.configured) {
-          await fetchVehiclePositions()
-          if (cancelled) return
-
-          // Listen for WebSocket position updates (server-side Traccar polling)
-          unsubscribePositions = wsClient.on('vehicle_positions_update', (data: { data: ApiVehiclePosition[] }) => {
-            setVehiclePositions(data.data)
-          })
-
-          // Fallback polling when WebSocket is disconnected
-          const startPolling = () => {
-            if (!pollInterval) {
-              pollInterval = setInterval(fetchVehiclePositions, 10000)
-            }
-          }
-
-          const stopPolling = () => {
-            if (pollInterval) {
-              clearInterval(pollInterval)
-              pollInterval = null
-            }
-          }
-
-          unsubscribeStatus = wsClient.onStatusChange((wsStatus: WebSocketStatus) => {
-            if (wsStatus === 'disconnected' || wsStatus === 'error') {
-              startPolling()
-            } else if (wsStatus === 'connected') {
-              stopPolling()
-            }
-          })
-        }
-      } catch {
-        // Same reasoning as fetchVehiclePositions: no Traccar is a normal setup.
-        setTraccarConfigured(false)
-      }
-    }
-
-    checkTraccarStatus()
-
-    return () => {
-      cancelled = true
-      if (pollInterval) clearInterval(pollInterval)
-      unsubscribePositions?.()
-      unsubscribeStatus?.()
-    }
-  }, [fetchVehiclePositions, tokenMode])
 
   // Map Traccar device names to KP Rück vehicle names for assignment line matching
   // Strategies: exact name match, then display_order match (numeric device name → vehicle at that order)
@@ -1445,7 +1374,7 @@ export default function MapView({
         />
 
         {/* Vehicle breadcrumb trails */}
-        <VehicleTrails enabled={traccarConfigured} />
+        <VehicleTrails enabled={traccarConfigured} pauseWhenHidden={!unattended} />
 
         {/* Firestation marker (no label — operators know where they are) */}
         <GlyphMarker

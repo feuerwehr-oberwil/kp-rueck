@@ -5,7 +5,8 @@ import type { Map as MlMap, MapLayerMouseEvent } from "maplibre-gl"
 import { Layer, Popup, Source, useMap, type LineLayerSpecification } from "react-map-gl/maplibre"
 
 import { apiClient, type ApiVehicleTrail } from "@/lib/api-client"
-import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
+import { wsClient } from "@/lib/websocket-client"
+import { usePolling } from "@/lib/hooks/use-polling"
 import { MAP_COLORS } from "@/lib/map-colors"
 import { vis, type FeatureCollectionData } from "@/lib/map-view"
 import { cn } from "@/lib/utils"
@@ -63,8 +64,10 @@ interface VehicleTrailsProps {
   enabled: boolean
   /** How many minutes of trail history to show */
   minutes?: number
-  /** Polling interval in ms */
+  /** Polling interval in ms (only while the socket is down) */
   pollInterval?: number
+  /** False on the unattended walls (`/display/*`) – see `usePolling`. */
+  pauseWhenHidden?: boolean
 }
 
 /** What the cursor is currently over – the sticky tooltip follows it. */
@@ -87,6 +90,7 @@ export function VehicleTrails({
   enabled,
   minutes = 30,
   pollInterval = 30000,
+  pauseWhenHidden = true,
 }: VehicleTrailsProps) {
   const t = useTranslations("map.view")
   const [trails, setTrails] = useState<ApiVehicleTrail[]>([])
@@ -102,46 +106,15 @@ export function VehicleTrails({
     }
   }, [minutes])
 
+  // The server pushes `vehicle_trails_update`; the poll covers the gaps while the
+  // socket is down (and runs once when it comes back).
+  usePolling(fetchTrails, { intervalMs: pollInterval, enabled, pauseWhenHidden, skipWhileWsConnected: true })
   useEffect(() => {
     if (!enabled) return
-
-    fetchTrails()
-
-    // Listen for WebSocket trail updates
-    const unsubscribeTrails = wsClient.on('vehicle_trails_update', (data: { data: ApiVehicleTrail[] }) => {
+    return wsClient.on('vehicle_trails_update', (data: { data: ApiVehicleTrail[] }) => {
       setTrails(data.data)
     })
-
-    // Fallback polling when WebSocket is disconnected
-    let interval: NodeJS.Timeout | undefined
-
-    const startPolling = () => {
-      if (!interval) {
-        interval = setInterval(fetchTrails, pollInterval)
-      }
-    }
-
-    const stopPolling = () => {
-      if (interval) {
-        clearInterval(interval)
-        interval = undefined
-      }
-    }
-
-    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
-      if (status === 'disconnected' || status === 'error') {
-        startPolling()
-      } else if (status === 'connected') {
-        stopPolling()
-      }
-    })
-
-    return () => {
-      unsubscribeTrails()
-      unsubscribeStatus()
-      stopPolling()
-    }
-  }, [enabled, fetchTrails, pollInterval])
+  }, [enabled])
 
   const data = useMemo<FeatureCollectionData>(() => {
     if (!enabled) return EMPTY_TRAILS

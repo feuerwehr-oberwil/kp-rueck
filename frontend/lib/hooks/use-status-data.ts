@@ -9,6 +9,7 @@ import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
 import { personResourceState } from "@/lib/resource-status"
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
+import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 
 export interface VehicleWithStatus {
   id: string
@@ -59,7 +60,6 @@ export function useStatusData() {
       ),
     [rosterPersonnel, occupiedResourceIds],
   )
-  const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [vehicles, setVehicles] = useState<Array<Omit<VehicleWithStatus, 'assignedOperation' | 'gps' | 'driverName'>>>([])
 
   const fetchVehicles = useCallback(async () => {
@@ -82,8 +82,8 @@ export function useStatusData() {
   // `vehicle_update` (room "operations", joined on connect) fires on every
   // fleet change; its payload varies by action (full vehicle on update, bare
   // id on delete), so refetch the list instead of patching it. While the
-  // socket is down, a slow poll covers the gap — same pattern as the position
-  // effect below, just at a wall-display pace instead of GPS pace.
+  // socket is down, a slow poll covers the gap — at a wall-display pace
+  // instead of GPS pace.
   useEffect(() => {
     let pollInterval: NodeJS.Timeout | undefined
 
@@ -111,62 +111,8 @@ export function useStatusData() {
     }
   }, [fetchVehicles])
 
-  const fetchPositions = useCallback(async () => {
-    try {
-      const positions = await apiClient.getVehiclePositions()
-      setVehiclePositions(positions)
-    } catch { /* silent */ }
-  }, [])
-
-  useEffect(() => {
-    let pollInterval: NodeJS.Timeout | undefined
-    let unsubscribePositions: (() => void) | undefined
-    let unsubscribeStatus: (() => void) | undefined
-
-    const init = async () => {
-      try {
-        const status = await apiClient.getTraccarStatus()
-        if (status.configured) {
-          fetchPositions()
-
-          // Listen for WebSocket position updates
-          unsubscribePositions = wsClient.on('vehicle_positions_update', (data: { data: ApiVehiclePosition[] }) => {
-            setVehiclePositions(data.data)
-          })
-
-          // Fallback polling when disconnected
-          const startPolling = () => {
-            if (!pollInterval) {
-              pollInterval = setInterval(fetchPositions, 10000)
-            }
-          }
-
-          const stopPolling = () => {
-            if (pollInterval) {
-              clearInterval(pollInterval)
-              pollInterval = undefined
-            }
-          }
-
-          unsubscribeStatus = wsClient.onStatusChange((wsStatus: WebSocketStatus) => {
-            if (wsStatus === 'disconnected' || wsStatus === 'error') {
-              startPolling()
-            } else if (wsStatus === 'connected') {
-              stopPolling()
-            }
-          })
-        }
-      } catch { /* silent */ }
-    }
-
-    init()
-
-    return () => {
-      if (pollInterval) clearInterval(pollInterval)
-      unsubscribePositions?.()
-      unsubscribeStatus?.()
-    }
-  }, [fetchPositions])
+  // The Statusanzeige is a wall: it keeps polling while hidden (see usePolling).
+  const { positions: vehiclePositions } = useVehiclePositions({ pauseWhenHidden: false })
 
   const stats: StatusStats = useMemo(() => {
     const byStatus: Record<string, Operation[]> = {}

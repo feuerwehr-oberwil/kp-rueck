@@ -257,6 +257,32 @@ describe("GroupsProvider — group_update WS event", () => {
   })
 })
 
+describe("GroupsProvider — socket back up", () => {
+  const reconnect = async () => {
+    await act(async () => {
+      ws.statusHandlers.forEach((cb) => cb("disconnected"))
+      ws.statusHandlers.forEach((cb) => cb("connected"))
+    })
+  }
+
+  it("re-reads the routes when the sync version moved while it was down", async () => {
+    await renderLoaded()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
+    getSyncVersion.mockResolvedValue({ version: "v2" })
+    await reconnect()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
+  })
+
+  it("asks only for the version when nothing changed", async () => {
+    await renderLoaded()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
+    const versionCalls = getSyncVersion.mock.calls.length
+    await reconnect()
+    await waitFor(() => expect(getSyncVersion.mock.calls.length).toBeGreaterThan(versionCalls))
+    expect(getIncidentGroups).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe("GroupsProvider — stop reorder sequencing", () => {
   it("does not send a newer order until the older request settles", async () => {
     getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["a", "b", "c"] })])
