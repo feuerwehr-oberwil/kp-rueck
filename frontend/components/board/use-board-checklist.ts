@@ -78,8 +78,7 @@ export function useBoardChecklist(input: UseBoardChecklistInput) {
     // Until the facts arrive: nothing yet, same as before the first poll landed.
     if (!checklistEnabled || !selectedEvent || !checklistFacts) return { completed: 0, total: 0 }
     return summarizeChecklist(selectedEvent.id, checklistFacts)
-    // checklistOverridesVersion: the summary reads the overrides from localStorage.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checklistOverridesVersion: the summary reads the overrides from localStorage
   }, [checklistEnabled, selectedEvent, checklistFacts, checklistOverridesVersion])
 
   // Auto-open the checklist once per event whenever setup is still incomplete

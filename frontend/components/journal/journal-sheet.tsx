@@ -11,7 +11,7 @@
  * «korrigiert» with the old wording one tap away, as on paper.
  */
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useTranslations } from "next-intl"
 import { Filter, Hash, Link2, Pencil, X } from "lucide-react"
 
@@ -134,14 +134,14 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
   // handed to the composer once and then consumed, so a later remount of the composer
   // (after the next correction, say) does not replay it.
   const [pendingCompose, setPendingCompose] = useState<JournalComposeRequest | null>(null)
+  // Once per request (`at`), not per new object identity.
   const composeAt = composeRequest?.at
-  useEffect(() => {
+  const takeComposeRequest = useEffectEvent(() => {
     if (!composeRequest) return
     setCorrecting(null)
     setPendingCompose(composeRequest)
-    // Once per request (`at`), not per new object identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composeAt])
+  })
+  useEffect(() => takeComposeRequest(), [composeAt])
 
   return (
     <FooterSheet
@@ -538,8 +538,10 @@ function JournalComposer({
   // selected, so an earlier link never rides along onto the new line. Focus after the
   // sheet's own open focus, which would otherwise take the caret straight back; not
   // tied to this effect's cleanup, since consuming the request re-runs it at once.
+  // Once per request — `choices` changes with every board update, so it and the rest are
+  // read through an effect event.
   const composeAt = composeRequest?.at
-  useEffect(() => {
+  const startCompose = useEffectEvent(() => {
     if (!composeRequest || correcting) return
     const choice = composeRequest.incidentId ? (choices.find((c) => c.id === composeRequest.incidentId) ?? null) : null
     if (choice?.id !== linked?.id) {
@@ -548,9 +550,8 @@ function JournalComposer({
     }
     onComposeHandled()
     setTimeout(() => inputRef.current?.focus(), 60)
-    // Once per request — `choices` changes with every board update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composeAt])
+  })
+  useEffect(() => startCompose(), [composeAt])
 
   const query = correcting || pickerOpen ? null : incidentQuery(text)
   const suggestions = query === null ? [] : suggestIncidents(query, choices)

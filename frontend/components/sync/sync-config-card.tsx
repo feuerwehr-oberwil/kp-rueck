@@ -9,7 +9,7 @@
  * 200 Pixeln ist keine URL, sondern ein Ausschnitt davon.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useEffectEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -39,13 +39,6 @@ export function SyncConfigCard() {
   const [conflictBuffer, setConflictBuffer] = useState<number>(5)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Load config on mount. `loadConfig` is a plain function re-created on every
-  // render, so listing it as a dep would refetch on every render.
-  useEffect(() => {
-    loadConfig()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const loadConfig = async () => {
     try {
       setIsLoading(true)
@@ -62,6 +55,13 @@ export function SyncConfigCard() {
       setIsLoading(false)
     }
   }
+
+  // Load config on mount. `loadConfig` is a plain function re-created on every
+  // render, so the mount effect calls it through an effect event.
+  const loadOnMount = useEffectEvent(() => void loadConfig())
+  useEffect(() => {
+    loadOnMount()
+  }, [])
 
   const handleSave = async () => {
     try {
