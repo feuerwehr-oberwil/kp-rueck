@@ -238,7 +238,7 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     if (!auftragPickerIncidentId) return
     const op = operations.find((o) => o.id === auftragPickerIncidentId)
     if (!op?.groupId) return
-    // The release toast («… von <Auftrag> gelöst · Rückgängig») says it.
+    // The release toast («… von <Auftrag> freigegeben · Rückgängig») says it.
     await release.releaseStop(op.groupId, auftragPickerIncidentId)
   }
 
