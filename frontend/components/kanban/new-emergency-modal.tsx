@@ -513,7 +513,7 @@ export function NewEmergencyModal({
               nobody needs at that moment. */}
           <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
             <div className="flex items-center gap-3">
-              <Plus className="h-6 w-6 text-primary" />
+              <Plus className="h-6 w-6 text-muted-foreground" />
               <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             </div>
             <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
@@ -538,7 +538,7 @@ export function NewEmergencyModal({
       <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-primary" />
+            <Plus className="h-6 w-6 text-muted-foreground" />
             <DialogTitle>{t('common.newIncident')}</DialogTitle>
           </div>
           <DialogDescription>

@@ -283,10 +283,12 @@ New connectors are welcome contributions – the alarm and alerting seams are th
 
 ## Known limitations
 
-- **The UI is German and French; everything the backend writes is German.** Both catalogues are
-  complete and both languages are selectable per device. But PDFs, Excel exports, thermal print
-  output and API error details are German-only, and no French-speaking firefighter has reviewed
-  the translation yet. Italian is a registered stub (`it.json` is empty) and stays hidden until
+- **The UI is German and French; most of what the backend writes is German.** Both catalogues
+  are complete and both languages are selectable per device. Notifications (sent as `type` +
+  `params`) and the `/feld` errors (a stable `code`, `backend/app/utils/error_codes.py`) are
+  rendered in the device's language; PDFs, Excel exports, thermal print output and the other API
+  error details are German-only, and no French-speaking firefighter has reviewed the translation
+  yet. Italian is a registered stub (`it.json` is empty) and stays hidden until
   it covers every German key.
 - **The board needs a network.** Offline coverage means map tiles, the paper Lageblatt, and
   automatic thermal snapshots – not offline editing. When the connection goes, you go to paper;
@@ -317,6 +319,10 @@ kp-rueck/
 │   └── alembic/              # Database migrations
 ├── tools/print-agent/        # Standalone thermal print agent
 ├── tileserver/               # Offline map tile server
+├── deploy/                   # Caddyfile + double-click launchers (macOS, Windows)
+├── scripts/                  # Backup/restore, .env init, tiles, release and shared-file checks
+├── shared/                   # MANIFEST.json of the files kept byte-identical with KP Front
+├── docker-compose.yml        # Production stack (published images behind Caddy)
 ├── docker-compose.dev.yml    # Development setup
 └── justfile                  # Task runner (run `just` for all commands)
 ```

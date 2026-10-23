@@ -1297,11 +1297,14 @@ export default function MapPage() {
                   const rows = sectionedIncidents[group]
                   const enabled = statusFilters[group]
                   return (
-                    <div key={group} className={group === 'completed' && !enabled ? 'opacity-60' : undefined}>
+                    // ONE dimming: the muted text itself. A folded group used to
+                    // add opacity-60 on top of a `/70` line (1.8:1, sweep
+                    // 2026-10); the turned chevron already says «folded».
+                    <div key={group}>
                       <button
                         onClick={() => toggleStatusFilter(group)}
                         aria-expanded={enabled}
-                        className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                        className="flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <ChevronDown
                           className={`h-3 w-3 transition-transform ${enabled ? '' : '-rotate-90'}`}
@@ -1312,7 +1315,7 @@ export default function MapPage() {
                           shorter than the statuses it stands for, and on its own
                           it left the operator guessing whether «Rückfahrt»
                           counted as finished — so the section says so. */}
-                      <p className="px-2 pb-1 text-[10px] leading-tight text-muted-foreground/70">
+                      <p className="px-2 pb-1 text-2xs leading-tight text-muted-foreground">
                         {t(`statusGroups.${group}Members`)}
                       </p>
                       <Reveal open={enabled && rows.length > 0}>

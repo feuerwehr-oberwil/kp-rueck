@@ -114,7 +114,7 @@ export function FeldMaterialTable({ materials }: { materials: ApiFeldMaterialIte
             >
               <h3
                 className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${
-                  state === 'left' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
+                  state === 'left' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
                 }`}
               >
                 {t(`state.${state}`)} · {byState[state].length}

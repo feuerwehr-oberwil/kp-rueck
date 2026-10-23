@@ -129,7 +129,7 @@ export function GpsReleasePrompt() {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-primary" />
+            <Truck className="h-5 w-5 text-muted-foreground" />
             {t('title')}
           </AlertDialogTitle>
           <AlertDialogDescription>

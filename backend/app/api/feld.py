@@ -49,7 +49,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,7 +65,7 @@ from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import duplicates, incident_display, notification_service
 from ..services.duplicates import MergeRefusedError
-from ..services.photo_storage import photo_storage
+from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.settings import (
     FELD_DRIVER_MESSAGE_CHIPS_KEY,
     FELD_MESSAGE_CHIPS_KEY,
@@ -683,7 +682,7 @@ async def _authorized_incident(
     incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id, sources=sources)
     if incident is None:
         raise CodedHTTPException(
-            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugeteilt."
+            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugewiesen."
         )
     return incident, person
 
@@ -691,27 +690,6 @@ async def _authorized_incident(
 def _actor(person: Personnel) -> crud.FieldActor:
     """A `/feld` write is always a field write — never a user (decision 28)."""
     return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
-
-
-async def _enforce_demo_photo_limits(db: AsyncSession, file: UploadFile) -> None:
-    """The demo's photo ceiling, same shape as the Reko form's (`api/reko.py`).
-
-    `/feld` works in the demo on purpose (§8) — it is a feature the demo should
-    show — but it is a *public, token-gated* upload path there, which is strictly
-    more exposed than the Reko form. So it gets the same 1 MB / 15 photos cap.
-    No-op outside the demo.
-    """
-    if not settings.demo_mode:
-        return
-
-    contents = await file.read()
-    if len(contents) > 1 * 1024 * 1024:
-        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
-    await file.seek(0)
-
-    result = await db.execute(select(sa_func.coalesce(sa_func.array_length(SchadenplatzReport.photos_json, 1), 0)))
-    if sum(row[0] for row in result) >= 15:
-        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
 
 
 @router.post("/incidents/{incident_id}/arrived", response_model=schemas.FieldReportState)
@@ -1179,7 +1157,7 @@ async def upload_photo(
     orders of magnitude more expensive than a poll.
     """
     incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
-    await _enforce_demo_photo_limits(db, file)
+    await enforce_demo_photo_limits(db, file, SchadenplatzReport.photos_json)
     photos = await crud.add_photo(db, incident, actor=_actor(person), file=file, request=request)
     return schemas.RapportPhotosResponse(
         incident_id=incident.id,

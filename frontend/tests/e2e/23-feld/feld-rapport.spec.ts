@@ -252,7 +252,7 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       await expect(finishedRow.getByText(`EL: ${leader.name}`)).toBeVisible();
       await expect(finishedRow.getByText('kein EL erfasst')).toHaveCount(0);
       // The crew is off the finished Schadenplatz but can still file for it.
-      await expect(finishedRow.getByText('Nicht mehr zugeteilt')).toBeVisible();
+      await expect(finishedRow.getByText('Nicht mehr zugewiesen')).toBeVisible();
 
       // …and it is still there in the detail header, where the form opens.
       await feld.openAssignment(street(finished));

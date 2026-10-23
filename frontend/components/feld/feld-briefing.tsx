@@ -183,7 +183,7 @@ export function FeldBriefing({
           {/* A tel: link, because the whole point of carrying the Melder here is
               that somebody rings them from the pavement. */}
           {phone ? (
-            <a href={`tel:${phone.replace(/\s/g, '')}`} className="text-primary underline underline-offset-2">
+            <a href={`tel:${phone.replace(/\s/g, '')}`} className="text-foreground underline underline-offset-2">
               {contact ? `${contact} · ${phone}` : phone}
             </a>
           ) : (

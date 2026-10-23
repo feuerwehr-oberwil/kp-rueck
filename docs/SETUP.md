@@ -31,7 +31,11 @@ images. It never overwrites an existing `.env`. Updates require a deliberate mov
 matching release, including Compose and `deploy/` files: follow
 [`DEPLOYMENT.md` §4](DEPLOYMENT.md#4-updating). Use a published release ZIP, not the `main` branch
 ZIP: work in progress may name images that have not been published yet. Keep the installation
-folder name and location stable so Compose keeps using the same project and volumes.
+folder where it is: the Compose project and its volumes are pinned by name (`name: kp-rueck` in
+`docker-compose.yml`), but the `.env`, the default `./backups` and the mounted `deploy/Caddyfile`
+and `scripts/` are read from this folder – start a copy somewhere else and it takes over the
+same containers and volumes without the old `.env` or backups. Do not override the project
+name with `docker compose -p` either: `just up` and `just doctor` look for `kp-rueck-backend-1`.
 
 Two honest warnings about first launch: on macOS, Gatekeeper refuses a downloaded `.command`
 on plain double-click – **right-click → Open** once, and it runs normally from then on. On
@@ -112,9 +116,11 @@ fails at everything.
 <details>
 <summary><strong>By hand instead</strong> (no <code>just</code>, or you want to see every line)</summary>
 
-`cp .env.example .env` and fill in the five values. The first three have no safe default; the
-two account passwords may stay empty – the board then boots *unclaimed* and the first browser
-visit sets the accounts at `/setup`:
+`cp .env.example .env` and fill in the five values. The first three have no safe default –
+Compose refuses to start without them; the two account passwords may stay empty – the board
+then boots *unclaimed* and the first browser visit sets the accounts at `/setup` (with a domain,
+behind the «Einrichtungscode», see below). `KP_RUECK_TAG`, also required, comes pre-filled with
+this release's version; leave it.
 
 ```bash
 POSTGRES_PASSWORD=…          # any strong value
@@ -206,7 +212,7 @@ exactly what you are looking at.
 Log in as **`admin`** with your `ADMIN_SEED_PASSWORD`, then:
 
 1. **Change that password.** It was in a file on disk before it was a login. It lives in
-   **Einstellungen → Konfiguration → Benutzer**: find your own row, use **Passwort zurücksetzen**,
+   **Einstellungen → Einrichtung → Benutzer**: find your own row, use **Passwort zurücksetzen**,
    type the new one.
 
    There is no "change my own password" page, and you are not missing it – it does not exist.
@@ -255,7 +261,7 @@ sample resources and sample incidents; that is a development fixture, not someth
 deployment inherits.)
 
 You do not type in a roster. There is an Excel round-trip, and it lives at
-**Einstellungen → Daten → Import/Export**:
+**Einstellungen → Protokoll → Import/Export**:
 
 1. **Vorlage herunterladen** – the empty workbook, with the right sheets, headers and a few
    example rows (`GET /api/admin/import/template`). The examples are labelled
@@ -333,15 +339,16 @@ longer exist.
 the importer understood them, and how many rows it parsed in total. That catches a misread
 column, which is what it is for.
 
-> **What it does not yet show is what `Ersetzen` would delete.** The backend computes those
-> figures – personnel, vehicles, materials, and the incident assignments that would be left
-> pointing at resources which no longer exist – and returns them, but the screen does not
-> display them yet. So the preview looking calm is not evidence that nothing is about to be
-> deleted.
->
-> Until it does: **before you ever run `Ersetzen` on a board that already has data, export
-> first** – **Einstellungen → Daten → Export** – and keep that file. It is the same workbook
-> shape, so it is also the thing you re-import to undo a mistake.
+Under the rows sits the **«Bilanz»**: per resource «Bestand heute», «Aus Datei», «Wird
+gelöscht» and «Bestand nachher», then the assignments that would be left pointing at resources
+which no longer exist, and what is deleted along with personnel and vehicles (check-ins,
+Spezialfunktionen, links to the alerting account). With **Anhängen** it says «Es wird nichts
+gelöscht.» Read the «Wird gelöscht» column before you press anything.
+
+> **Before you ever run `Ersetzen` on a board that already has data, export first** –
+> **Einstellungen → Protokoll → Import/Export → Exportieren** – and keep that file. It is the
+> same workbook shape, so it is also the thing you re-import to undo a mistake; the check-ins and
+> alerting links the Bilanz lists as deleted come back only from a backup.
 
 Two refusals do protect you, and they are real rather than advisory – see the two paragraphs
 above: `Ersetzen` is rejected while resources are still assigned on a running incident, and
@@ -380,7 +387,7 @@ rejected.
 > every sheet, or use **Anhängen**.
 
 If you only want to touch one of the three, either use **Anhängen**, or export first
-(**Daten → Export**) and edit the full workbook so the other two sheets carry their current
+(**Protokoll → Import/Export → Exportieren**) and edit the full workbook so the other two sheets carry their current
 contents.
 
 | Sheet | Column | Required | Legal values |
@@ -434,20 +441,15 @@ Find your station's coordinates by right-clicking it in Google Maps, or on
 [openstreetmap.org](https://www.openstreetmap.org/) (right-click → *Show address*); decimal
 degrees, WGS84, latitude first. Four decimals is about ten metres, which is plenty.
 
-The neighbouring settings – **Einsatzgebiet (Ort)**, **Funkrufname**, **Karten-Modus**,
-**Kartenstil** – are already under **Einstellungen → Konfiguration → Allgemein**, and the
-`Einsatzgebiet` is worth filling in at the same time: it is what shortens addresses on the board.
+All three are in **Einstellungen → Einrichtung → Allgemein** – **Name der Feuerwehr**,
+**Magazin – Breitengrad**, **Magazin – Längengrad** – editor rights. Scripted, they are ordinary
+settings keys: `PATCH /api/settings/firestation_name` and the same for the two coordinates.
 
-<!-- TODO: replace the paragraph below with the real path once the station-identity control
-     ships (Einstellungen → Konfiguration → …). Not present in
-     frontend/app/settings/page.tsx as of 2026-08-16. -->
-
-> **The three station-identity fields are the ones with no control yet.** One is being built.
-> Until it lands they are ordinary settings keys over the API – `PATCH
-> /api/settings/firestation_name` and the same for the two coordinates, editor rights, one call
-> each. They have been writable that way since **0.4.0**; what has been missing is somewhere to
-> click. Earlier versions of this guide claimed they were already on the settings page. They
-> were not, and this is where that gets said out loud.
+The neighbouring settings on that page – **Einsatzgebiet (Ort)**, **Funkrufname**,
+**Karten-Modus**, **Kartenstil** – are worth filling in at the same time: the `Einsatzgebiet` is
+what shortens addresses on the board. The two CARTO map styles need a CARTO browser key in
+`.env` (`CARTO_API_KEY`, read at runtime and sent with the tile requests); OSM, topo and the
+offline tiles need none.
 
 Vehicles and personnel can also be created and edited individually afterwards; the Excel path is
 for the bulk of it, and for the yearly tidy-up.
@@ -516,17 +518,15 @@ are live, and the UI adapts rather than hard-coding vendors.
   ```bash
   ALARM_WEBHOOK_SECRET=$(openssl rand -hex 24)
   ```
-  Leave it blank and one is generated into the database on first boot instead. An **admin** can
-  then read it back – or replace it – without a database shell:
-  `GET /api/settings/alarm-webhook-secret` shows the current value and says whether it comes
-  from `env` or the `database`, and `POST /api/settings/alarm-webhook-secret/rotate` issues a
-  new one. Rotation is **refused with a `409` while `ALARM_WEBHOOK_SECRET` is set in `.env`**,
-  because the env value wins: rotating would change a value nobody reads, and you would hand
-  your dispatcher a secret that rejects every alarm. Change a pinned secret in `.env` and
-  restart the backend.
-
-  <!-- TODO: name the settings page location once the reveal/rotate control ships
-       (Einstellungen → …). It is not on the page as of 2026-08-16. -->
+  Leave it blank and one is generated into the database on first boot instead. An **admin** reads
+  it back – or replaces it – at **Einstellungen → Betrieb → Alarm-Eingang → Webhook-Schlüssel
+  für Alarme**: «Schlüssel anzeigen», «Kopieren», «Neu erzeugen», with a badge saying whether it
+  comes from the `.env` or the database. Scripted, the same is
+  `GET /api/settings/alarm-webhook-secret` and `POST /api/settings/alarm-webhook-secret/rotate`.
+  Rotation is **refused (`409`, and the button is disabled) while `ALARM_WEBHOOK_SECRET` is set
+  in `.env`**, because the env value wins: rotating would change a value nobody reads, and you
+  would hand your dispatcher a secret that rejects every alarm. Change a pinned secret in `.env`
+  and restart the backend.
 
   Reading it straight out of the database still works and is the fallback for a deployment whose
   UI you cannot reach; it is no longer the documented route. Running KP Front too? Generate a

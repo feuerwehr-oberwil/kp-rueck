@@ -217,7 +217,7 @@ export function MapPickerModal({
           {/* Selected location info */}
           {validPin && (
             <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
-              <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 {isGeocoding ? (
                   <div className="text-sm text-muted-foreground">{t('mapPicker.searchingAddress')}</div>

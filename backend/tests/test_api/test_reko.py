@@ -268,7 +268,7 @@ async def test_submit_reko_report_invalid_token(client: AsyncClient, test_incide
     }
     response = await client.post("/api/reko/", json=report_data)
     assert response.status_code == 400
-    assert "invalid token" in response.json()["detail"].lower()
+    assert "ungültiger reko-link" in response.json()["detail"].lower()
     # The crew's phone says it in its own language from the code (utils/error_codes.py).
     assert response.json()["code"] == "reko_link_invalid"
 

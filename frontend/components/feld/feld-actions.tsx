@@ -542,7 +542,7 @@ export function FeldActions({
           a vehicle dispatched after the request, or the dismissed warning bell.
           Derived server-side; no operator ever clicks an "acknowledge". */}
       {pickupNeeded && (
-        <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+        <div className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
           {/* One line — «Abholung gemeldet · 09:04 · wartet 12 Min». It used to be two that
               said «seit» twice. */}
           <p className="font-medium">

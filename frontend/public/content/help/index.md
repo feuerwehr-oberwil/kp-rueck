@@ -1,6 +1,6 @@
 # KP Rück Dokumentation
 
-Digitaler Ersatz für die Magnettafel im Kommandoposten. Verwalten Sie Einsätze, Personal und Material zentral in Echtzeit.
+Digitaler Ersatz für die Magnettafel im Kommandoposten. Einsätze, Personal und Material zentral und in Echtzeit verwalten.
 
 ## Ansichten
 
@@ -15,7 +15,7 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«Rapporte» in der Fusszeile (`O`).** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
 
-**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuteilungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse oder mit dem Kettensymbol vor der Zeile wird ein Einsatz verknüpft; er steht dann vorne in der Zeile, `⌫` in der leeren Zeile nimmt ihn wieder weg. **`⇧J`** öffnet das Tagebuch gleich mit dem Cursor in der Zeile, und ist eine Karte ausgewählt, ist sie schon verknüpft (in der Befehlspalette: «Tagebuch-Eintrag schreiben»). Jede Zeile trägt Datum und Uhrzeit. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Mittel. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
+**«Tagebuch» in der Fusszeile (`J`).** Das Einsatztagebuch des Ereignisses, das Neueste zuoberst. Statuswechsel, Zuweisungen und Abzüge, Meldungen vom Feld und an den Trupp, Reko-Berichte, Divera-Alarme, «vor Ort», «beendet» und Abholungen stehen von selbst darin; ein gelöschter oder zusammengeführter Einsatz bleibt mit seinen Zeilen stehen und ist so markiert. Unten eine Zeile für alles, was zu keiner Karte gehört («Gemeindepräsident informiert», «Strom Quartier Nord aus») – mit `#` und den ersten Buchstaben der Adresse oder mit dem Kettensymbol vor der Zeile wird ein Einsatz verknüpft; er steht dann vorne in der Zeile, `⌫` in der leeren Zeile nimmt ihn wieder weg. **`⇧J`** öffnet das Tagebuch gleich mit dem Cursor in der Zeile, und ist eine Karte ausgewählt, ist sie schon verknüpft (in der Befehlspalette: «Tagebuch-Eintrag schreiben»). Jede Zeile trägt Datum und Uhrzeit. Gelöscht wird nichts: ein falscher Eintrag wird mit dem Stift korrigiert, die Zeile zeigt dann «korrigiert hh:mm» und auf Klick den alten Wortlaut. Filter: Manuell, Feld, Status, Ressourcen. Das PDF-Einsatztagebuch druckt genau diese Einträge. Auf dem Handy unter «Mehr».
 
 **«Kennzahlen» im Benutzermenü (`Z`).** Oben rechts im Personen-Menü, auch über `Cmd/Ctrl+K` und auf dem Handy unter «Mehr» – nicht mehr in der Fusszeile. Ein Fenster über der Seite mit der Lage in Zahlen – Meldungen, offen (je Priorität), in Arbeit, erledigt – und die Reaktionszeiten ab Eingang bis **Disponiert**, **Vor Ort** und **Abschluss**, als Median und P90 je Priorität, dazu die älteste noch wartende «Hoch»-Meldung (ein Klick öffnet sie). Dieselben Werte wie die Tabelle «Reaktionszeiten» im Einsatzbericht (PDF); wie gerechnet wird, steht hinter dem ⓘ. Bei einer Übung heisst die Ansicht **Übungsauswertung**; für ein vergangenes Ereignis steht sie unter **Ereignisse → ⋯ → Kennzahlen**, und an der Wand im Status-Display (`/display/status`) über den Einsätzen.
 
@@ -28,7 +28,7 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 
 **Kartenlegende:**
 - **Priorität (Füllung):** Grün=Niedrig, Gelb=Mittel, Rot=Hoch
-- **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Beendet
+- **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
 
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
@@ -57,7 +57,7 @@ Diese Dokumentationsseite.
 
 **Audit-Export:** Einstellungen → Import/Export → Ereignis auswählen → Excel-Export. Enthält alle Einsätze, Zuweisungen (inkl. Historie), Statusänderungen und Reko-Berichte. Für Abrechnung und Nachbesprechung. Das Audit-Protokoll wird im Hintergrund automatisch aufgeräumt (Standard-Aufbewahrung 90 Tage, im Demo-Modus 7 Tage), damit die Tabelle nicht unbegrenzt wächst.
 
-**Drucken & Export:** Footer → "Drucken" oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
+**Drucken & Export:** Footer → «Drucken» oder Taste `D` öffnet **ein** Slide-up mit drei Spalten – alles, was auf Papier oder in eine Datei geht, an einer Stelle:
 - **Thermodruck** – Board-Snapshot auf den [Thermodrucker](#thermodrucker)
 - **Status drucken (A4)** – Druckvorschau mit Optionen: Einsätze nach Status filtern, Karten-Übersicht (zeigt alle Einsatzorte auf einer Karte), Fahrzeugstatus einblenden
 - **Export** – Bericht (PDF), Lageblatt (A4) und Audit (XLSX) als Datei auf dieses Gerät
@@ -68,7 +68,7 @@ Diese Dokumentationsseite.
 
 Für Kommandoposten mit mehreren Bildschirmen gibt es spezielle Anzeige-Seiten unter `/display`. Diese sind rein lesend – keine Bearbeitungsfunktionen.
 
-**Zugriff:** Benutzermenü → Abschnitt "Anzeige" (öffnet in neuem Tab), oder direkt `/display` aufrufen.
+**Zugriff:** Benutzermenü → Abschnitt «Anzeige» (öffnet in neuem Tab), oder direkt `/display` aufrufen.
 
 ### Lagekarte (`/display/map`)
 Vollbild-Karte ohne Seitenleiste. Zeigt alle Einsatzorte, GPS-Fahrzeugpositionen und animierte Zuweisungslinien (Fahrzeug → Einsatz). Ideal für einen zentralen Lagebildschirm.
@@ -108,7 +108,7 @@ Unter **Einstellungen → Karten-Modus** stehen drei Einstellungen zur Wahl:
 
 Offline-Kacheln müssen einmalig heruntergeladen werden, und zwar für das **eigene** Gebiet – die Voreinstellung deckt Basel-Landschaft ab. Das macht die Person, die den Server betreut, mit `just tiles-download` auf dem Docker-Host; die Anleitung dazu steht in `docs/OFFLINE_MAPS.md`. Der Download ist gross und dauert; er gehört auf einen ruhigen Nachmittag, nicht auf den Abend vor einer Übung.
 
-**Solange keine Kacheln da sind, ist "Nur Offline" nicht wählbar.** Beim ersten Start wird eine leere Start-Kacheldatei angelegt, damit der Kachel-Server überhaupt hochfährt – sie enthält nichts. Die Einstellungsseite prüft das und schreibt direkt neben die Auswahl, was tatsächlich installiert ist; ohne Kacheln bleibt auch "Auto" online und fällt bei einem Ausfall auf nichts zurück.
+**Solange keine Kacheln da sind, ist «Nur Offline» nicht wählbar.** Beim ersten Start wird eine leere Start-Kacheldatei angelegt, damit der Kachel-Server überhaupt hochfährt – sie enthält nichts. Die Einstellungsseite prüft das und schreibt direkt neben die Auswahl, was tatsächlich installiert ist; ohne Kacheln bleibt auch «Auto» online und fällt bei einem Ausfall auf nichts zurück.
 
 Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es unterscheidet zwischen «nur die minimalen Start-Kacheln» und «echte Offline-Daten für die Region».
 
@@ -116,7 +116,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 ## Suche
 
-Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stops. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
 Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist.
 
@@ -165,7 +165,7 @@ Zeigen, wie lange ein Einsatz bereits offen ist:
 
 ### Nachbarhilfe
 
-Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann "Nachbarhilfe" aktiviert werden. Rechtsklick auf Karte → "Nachbarhilfe" oder im Detail-Dialog. Markierte Einsätze zeigen ein Gebäude-Icon.
+Bei Einsätzen mit Unterstützung einer Nachbarfeuerwehr kann «Nachbarhilfe» aktiviert werden. Rechtsklick auf Karte → «Nachbarhilfe» oder im Detail-Dialog. Markierte Einsätze zeigen ein Gebäude-Icon.
 
 ### Telefon / Laufkundschaft-Abzeichen
 
@@ -207,7 +207,7 @@ Rechtsklick auf eine Einsatzkarte öffnet ein Menü mit folgenden Optionen:
 ### Setup-Checkliste (beim Aufstarten des KP)
 
 Öffnet sich von selbst, sobald ein Ereignis ausgewählt wird, und ist danach über
-**"Checkliste n/m"** in der Fussleiste erreichbar. Sie führt durch das, was in den
+**«Checkliste n/m»** in der Fussleiste erreichbar. Sie führt durch das, was in den
 ersten Minuten passieren muss: Mannschaft informieren, Check-In-, Reko-, Alarm-
 und Feld-Link verteilen, Fahrer zuweisen, Drucker prüfen, Papier-Fallback
 scharfstellen.
@@ -216,7 +216,7 @@ scharfstellen.
   Fahrzeug, Drucker erreichbar). Jede Zeile lässt sich zusätzlich **von Hand**
   abhaken und wieder aufmachen – pro Gerät gemerkt.
 - **Unter den Link-Zeilen steht, für wen der Link ist und wie viele Ausdrucke es
-  braucht** ("Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug"). Ist ein
+  braucht** («Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug»). Ist ein
   Thermodrucker erreichbar, druckt die Zeile den QR-Code, sonst kopiert sie den
   Link.
 - **Anpassbar:** Einstellungen → Checkliste. Dort lässt sich jeder Schritt
@@ -225,9 +225,9 @@ scharfstellen.
 
 ### Neuer Einsatz kommt rein
 
-1. `N` drücken oder "Neuer Einsatz" klicken
+1. `N` drücken oder «Neuer Einsatz» klicken
 2. Adresse und Typ eingeben
-3. Einsatz erscheint in "Eingegangen"
+3. Einsatz erscheint in «Eingegangen»
 4. Priorität setzen (`Shift+1/2/3`)
 5. Entscheiden: Direkt disponieren oder erst Reko?
 
@@ -239,7 +239,7 @@ Steht schon ein offener Einsatz desselben Ereignisses innerhalb von 50 m oder an
 sagt der Dialog unter dem Einsatzort «Möglicherweise dasselbe wie …». **Zusammenführen** hängt die
 Meldung samt Melder als Nachtrag an jenen Einsatz – es entsteht keine zweite Karte. **Trotzdem neu**
 blendet den Hinweis aus. Alarme, die automatisch hereinkommen (Divera, Alarm-Link), werden nie von
-selbst zusammengeführt: Ihre Karte zeigt «Mögliches Duplikat von …» mit **Zusammenführen** und
+selbst zusammengeführt: ihre Karte zeigt «Mögliches Duplikat von …» mit **Zusammenführen** und
 **Kein Duplikat**.
 
 Jeder **offene** Einsatz lässt sich zusammenführen, auch einer, an dem schon gearbeitet wird. Was
@@ -247,7 +247,7 @@ auf der Karte ist, zieht mit um: Mannschaft, Fahrzeuge, Material, Reko-Berichte 
 Rapport, Meldungen an den Trupp, Anfragen vom Feld und die Hinweise Nachbarhilfe, Am Warten, Zu Fuss.
 Vorher fragt die Karte nach und nennt, was mitkommt.
 
-- **Auf beiden Karten dieselbe Person oder dasselbe Fahrzeug:** es bleibt bei einer Zuteilung (der
+- **Auf beiden Karten dieselbe Person oder dasselbe Fahrzeug:** es bleibt bei einer Zuweisung (der
   der verbleibenden Karte).
 - **Zwei Einsatzleiter:** der der verbleibenden Karte bleibt es.
 - **Zwei Rapporte:** beide bleiben erhalten; der Einsatzbericht (PDF) druckt den zweiten unter
@@ -269,10 +269,10 @@ ersten Meldung.
 
 ### Reko durchführen
 
-1. Einsatz in "Reko" verschieben (ziehen oder `>`)
-2. Offizier per Rechtsklick als "Reko" markieren
+1. Einsatz in «Reko» verschieben (ziehen oder `>`)
+2. Offizier per Rechtsklick als «Reko» markieren
 3. Link kopieren und via WhatsApp senden → Offizier öffnet vor Ort
-4. Offizier klickt "Ich bin vor Ort" → Kommandoposten sieht Ankunft mit Zeitstempel
+4. Offizier klickt «Ich bin vor Ort» → Kommandoposten sieht Ankunft mit Zeitstempel
 5. Reko-Formular ausfüllen, Fotos hochladen
 6. Basierend auf Bericht: Disponieren oder Abschliessen
 
@@ -284,42 +284,42 @@ derselbe Bericht im KP erfasst – siehe
 
 **Reko-Status auf Karten:**
 - Kein Icon: Keine Reko-Aktivität
-- Fernglas (grau): Offizier vor Ort, prüft Lage ("vor Ort HH:MM" neben Name)
+- Fernglas (grau): Offizier vor Ort, prüft Lage («vor Ort HH:MM» neben Name)
 - Fernglas (grün mit Hintergrund): Reko-Bericht eingereicht
 
 ### Ressourcen zuweisen und losschicken
 
 1. Fahrzeuge zuweisen: `1-5` Tasten
 2. Personal und Material auf Einsatzkarte ziehen (Drag & Drop)
-3. Einsatz in "Disponiert" verschieben
-4. "WhatsApp kopieren" klicken → Einsatzdetails in Gruppenchat senden
-5. Optional: "Divera-Alarm" klicken → zugewiesene Personen direkt via Divera-Push alarmieren
-6. Bei Rückmeldung, dass vor Ort → in "Einsatz" verschieben
+3. Einsatz in «Disponiert» verschieben
+4. «WhatsApp kopieren» klicken → Einsatzdetails in Gruppenchat senden
+5. Optional: «Divera-Alarm» klicken → zugewiesene Personen direkt via Divera-Push alarmieren
+6. Bei Rückmeldung, dass vor Ort → in «Einsatz» verschieben
 
 ### Divera-Alarmierung
 
-Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **Divera 24/7** (Push) alarmiert werden. Der Alarm enthält als **Stichwort** den Einsatztyp (z. B. "KP: Elementarereignis") und als Text die Einsatzdetails (Meldung, Fahrzeuge, Mannschaft, Material); die Adresse wird als Divera-Feld mitgegeben.
+Zusätzlich zu WhatsApp und Drucker können zugewiesene Personen direkt über **Divera 24/7** (Push) alarmiert werden. Der Alarm enthält als **Stichwort** den Einsatztyp (z. B. «KP: Elementarereignis») und als Text die Einsatzdetails (Meldung, Fahrzeuge, Mannschaft, Material); die Adresse wird als Divera-Feld mitgegeben.
 
-- **Wo:** Button **"Divera-Alarm"** im Einsatz-Detail-Dialog und im Disponiert-Dialog.
+- **Wo:** Button **«Divera-Alarm»** im Einsatz-Detail-Dialog und im Disponiert-Dialog.
 - **Empfänger:** die dem Einsatz zugewiesene Mannschaft (vorausgewählt) sowie die **Fahrer** der zugewiesenen Fahrzeuge (gelistet, aber nicht vorausgewählt). Vor dem Senden bestätigen.
 - **Verknüpfung:** Nur mit Divera **verknüpfte** Personen können alarmiert werden – nicht verknüpfte sind ausgegraut. Verknüpft wird über den Divera-Personen-Sync (Einstellungen → Personal).
-- **Aktivieren:** Einstellungen → Alarmierung → "Ausalarmierung" einschalten. Dort gibt es auch einen **Testalarm** an eine einzelne Person. Ist auf dem Server kein Alarmierungs-Anbieter hinterlegt, ist der Schalter **ausgegraut** und die Zeile sagt es – so entsteht gar nicht erst ein Alarm-Knopf auf dem Board, der beim Drücken nichts tut. Welche Bereiche eingerichtet sind, steht unter **Einstellungen → Integrationen**.
+- **Aktivieren:** Einstellungen → Alarmierung → «Ausalarmierung» einschalten. Dort gibt es auch einen **Testalarm** an eine einzelne Person. Ist auf dem Server kein Alarmierungs-Anbieter hinterlegt, ist der Schalter **ausgegraut** und die Zeile sagt es – so entsteht gar nicht erst ein Alarm-Knopf auf dem Board, der beim Drücken nichts tut. Welche Bereiche eingerichtet sind, steht unter **Einstellungen → Integrationen**.
 - Wird im **Übungs- und Demo-Modus nicht** ausgelöst; der Pager wird bewusst nicht angesteuert (Push/keine Doppel-Alarmierung).
 
 ### Divera-Mitteilung (Info, kein Alarm)
 
-Die Standby-Info aus der Checkliste – "KP-Rück ist aktiv, bitte Telefon
-mitnehmen" – kann statt über WhatsApp direkt als **Divera-Mitteilung** rausgehen.
+Die Standby-Info aus der Checkliste – «KP-Rück ist aktiv, bitte Telefon
+mitnehmen» – kann statt über WhatsApp direkt als **Divera-Mitteilung** rausgehen.
 Eine Mitteilung ist bewusst **kein Alarm**: sie erscheint als Push in der
 Divera-App, weckt niemanden wie ein Aufgebot und steuert keinen Pager an.
 
-- **Wo:** Button **"Divera-Mitteilung"** neben "WhatsApp senden" in der
+- **Wo:** Button **«Divera-Mitteilung»** neben «WhatsApp senden» in der
   Setup-Checkliste (beide Nachrichten-Zeilen). Er erscheint nur, wenn ein
   Alarmierungs-Anbieter eingerichtet **und** die Ausalarmierung eingeschaltet ist.
 - **Empfänger:** Es wird **nichts** vorausgewählt. Im Bestätigungsfenster die
-  **Divera-Gruppen** ankreuzen, an die es gehen soll. "Alle im Standort" gibt es,
+  **Divera-Gruppen** ankreuzen, an die es gehen soll. «Alle im Standort» gibt es,
   ist aber eine bewusste Entscheidung mit Warnhinweis – eine Mitteilung für
-  "Pikett" soll nicht versehentlich die ganze Feuerwehr erreichen.
+  «Pikett» soll nicht versehentlich die ganze Feuerwehr erreichen.
 - **Text:** kommt aus der Vorlage (Einstellungen → Alarmierung) und ist im
   Fenster vor dem Senden noch editierbar.
 - Wird im **Übungs- und Demo-Modus nicht** wirklich gesendet.
@@ -363,17 +363,17 @@ das einzige Eingabegerät, das das System noch hat.
   Unterschied.
 - Kopfzeile: `{anwesend} anwesend · {gegangen} gegangen · {total} Mannschaft`.
 - **«Alle abmelden»** setzt am Ende des Ereignisses alle Anwesenden auf
-  «gegangen». Zuteilungen bleiben bestehen, andere Ereignisse werden nicht berührt.
-- Wer noch einem Einsatz zugeteilt ist, bekommt beim Abmelden eine Rückfrage –
-  danach wird abgemeldet, die Zuteilung bleibt. Das Board ist die Stelle, die sie
+  «gegangen». Zuweisungen bleiben bestehen, andere Ereignisse werden nicht berührt.
+- Wer noch einem Einsatz zugewiesen ist, bekommt beim Abmelden eine Rückfrage –
+  danach wird abgemeldet, die Zuweisung bleibt. Das Board ist die Stelle, die sie
   auflösen kann; ein hartes Verbot würde zwingen, zum Abmelden die Ansicht zu wechseln.
 - Wer als *nicht verfügbar* geführt ist, erscheint ausgegraut mit Grund.
 - **«Person hinzufügen»** im Appell legt die Person an **und meldet sie direkt an**.
 
 > **Nachbarhilfe und Zivilschutz können sich nicht selbst anmelden.** Der Check-In
-> zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuteilungen. Der
+> zeigt nur den eigenen Bestand, und Sichtbarkeit kommt aus den Zuweisungen. Der
 > vorgesehene Weg ist: im Appell (oder in der Seitenleiste) über **«Person
-> hinzufügen»** erfassen und anschliessend dem Einsatz zuteilen. Das ist kein
+> hinzufügen»** erfassen und anschliessend dem Einsatz zuweisen. Das ist kein
 > Fehler und kein fehlendes Feature – es ist der Arbeitsweg.
 
 **Reko-Bericht über Funk.** Im Einsatz-Detail, Block *Reko*:
@@ -431,7 +431,7 @@ Gr. ×2» statt Prosa.
   «gesehen» (der Trupp liest «Vom KP gesehen») und bleibt offen. Dasselbe macht
   **Gesehen** direkt an der Anforderung. «Alle schliessen» lässt Anforderungen
   stehen; die Glocke zählt die offenen.
-- **Material zuteilen / Personal zuteilen** öffnet den gewohnten Zuweisungsdialog für
+- **Material zuweisen / Mannschaft zuweisen** öffnet den gewohnten Zuweisungsdialog für
   diesen Einsatz, schon nach dem Gerät gesucht, und setzt die Anforderung auf «in
   Arbeit».
 - **Abholung:** *Erledigt* hier und «Abholung disponiert» am Abholungs-Band sind
@@ -453,7 +453,7 @@ Gr. ×2» statt Prosa.
 
 ## Einsatz-Workflow
 
-Einsätze durchlaufen 7 Spalten: **Eingegangen** → **Reko** → **Reko abgeschlossen** → **Disponiert / Anfahrt** → **Im Einsatz** → **Beendet / Rückfahrt** → **Abgeschlossen**
+Einsätze durchlaufen 7 Spalten: **Eingegangen** → **Reko** → **Reko abgeschlossen** → **Disponiert / Anfahrt** → **Im Einsatz** → **Rückfahrt** → **Abgeschlossen**
 
 | Spalte | Beschreibung |
 |-------|-------------|
@@ -462,12 +462,12 @@ Einsätze durchlaufen 7 Spalten: **Eingegangen** → **Reko** → **Reko abgesch
 | Reko abgeschlossen | Reko-Bericht liegt vor, Entscheid steht aus |
 | Disponiert / Anfahrt | Ressourcen zugewiesen, Trupp unterwegs |
 | Im Einsatz | Aktive Arbeitsphase |
-| Beendet / Rückfahrt | Arbeit fertig, Trupp fährt zurück |
+| Rückfahrt | Arbeit fertig, Trupp fährt zurück |
 | Abgeschlossen | Erledigt, Personal & Fahrzeuge automatisch freigegeben. Die Spalte lässt sich einklappen. |
 
-**Beendet / Rückfahrt oder Abgeschlossen?**
+**Rückfahrt oder Abgeschlossen?**
 
-- **Beendet / Rückfahrt** – Die Arbeiten am Schadenplatz sind beendet. Mannschaft und Fahrzeuge befinden sich auf der Rückfahrt oder sind noch nicht vollständig zurück. Material kann weiterhin am Schadenplatz stehen.
+- **Rückfahrt** – Die Arbeiten am Schadenplatz sind beendet. Mannschaft und Fahrzeuge befinden sich auf der Rückfahrt oder sind noch nicht vollständig zurück. Material kann weiterhin am Schadenplatz stehen.
 - **Abgeschlossen** – Der Einsatz ist vollständig erledigt. Mannschaft und Fahrzeuge sind wieder verfügbar. Beim Material ist geklärt, was ins Magazin zurückgekehrt, verbraucht oder vor Ort geblieben ist. Der Rapport ist eingegangen oder sein Fehlen wurde bewusst geprüft.
 
 Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **Ereignis** als Ganzes (`G E`).
@@ -478,7 +478,7 @@ Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **E
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
-**Meldung vom Feld «Einsatz beendet»:** Der Hinweis auf der Karte bzw. im Detail schiebt den Einsatz mit einem Klick nach **Beendet / Rückfahrt** – und hört dort auf. Er startet **nicht** den Abschluss (Materialabfrage, Rückfragen): der Trupp fährt gerade heim, das ist genau diese Spalte. Abgeschlossen wird nachher, wie sonst auch. Braucht der Trupp eine Mitfahrgelegenheit, meldet er eine **Abholung** – die erscheint als eigenes Band im Einsatz-Detail, gleich neben der Feld-Meldung.
+**Meldung vom Feld «Einsatz beendet»:** Der Hinweis auf der Karte bzw. im Detail schiebt den Einsatz mit einem Klick nach **Rückfahrt** – und hört dort auf. Er startet **nicht** den Abschluss (Materialabfrage, Rückfragen): der Trupp fährt gerade heim, das ist genau diese Spalte. Abgeschlossen wird nachher, wie sonst auch. Braucht der Trupp eine Mitfahrgelegenheit, meldet er eine **Abholung** – die erscheint als eigenes Band im Einsatz-Detail, gleich neben der Feld-Meldung.
 
 ---
 
@@ -488,11 +488,11 @@ Bei einer **Flächenlage** (z. B. Sturm- oder Hochwasserschäden mit vielen klei
 
 Öffnen mit der Taste `A` oder über die **Aufträge**-Leiste am unteren Bildschirmrand.
 
-### Auftrag erstellen & Stops hinzufügen
+### Auftrag erstellen & Stopps hinzufügen
 
 1. **Neuer Auftrag** in der Aufträge-Leiste (Name + Farbe wählen – die Farbe kennzeichnet die Route auf Board und Karte).
-2. **Stops (Einsätze) hinzufügen** – drei Wege:
-   - **Einsatz-Auswahl** («+ Stop»): bestehende Einsätze aus einer Liste auswählen. Umschalten auf **Karte** zeigt die Einsätze geografisch – Marker anklicken wählt sie aus.
+2. **Stopps (Einsätze) hinzufügen** – drei Wege:
+   - **Einsatz-Auswahl** («+ Stopp»): bestehende Einsätze aus einer Liste auswählen. Umschalten auf **Karte** zeigt die Einsätze geografisch – Marker anklicken wählt sie aus.
    - **Karte** (`/map` → Routenplanung): auf einen Einsatz-Marker oder eine freie Stelle klicken.
    - **Drag & Drop**: eine Einsatzkarte direkt auf den Auftrag ziehen.
 
@@ -504,7 +504,7 @@ Aufträge, die bei jeder Lage vorkommen, muss niemand jedes Mal neu tippen. Unte
 
 Der Schalter pro Vorlage entscheidet, was damit passiert:
 
-- **Bei jeder Lage** – der Auftrag wird bei jedem neuen Ereignis automatisch angelegt, leer und bereit für Stops.
+- **Bei jeder Lage** – der Auftrag wird bei jedem neuen Ereignis automatisch angelegt, leer und bereit für Stopps.
 - **Nur auf Abruf** – die Vorlage steht oben in der Aufträge-Leiste als Knopf; ein Klick legt den Auftrag an.
 
 Zwei Dinge, die bewusst so sind: Ein hinterlegtes Fahrzeug wird **auch dann zugewiesen, wenn es schon anderswo im Einsatz ist** – die Konfliktwarnung auf dem Board soll genau das sichtbar machen. Und eine Vorlage enthält **kein Personal**: wer im Trupp ist, entscheidet sich pro Lage danach, wer da ist.
@@ -513,37 +513,37 @@ Ein aus einer Vorlage entstandener Auftrag ist danach ein ganz normaler Auftrag 
 
 ### Route-eigene Ressourcen
 
-Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route selbstständig abarbeitet** – wir leiten diesen einen Trupp nur von Stop zu Stop.
+Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route selbstständig abarbeitet** – wir leiten diesen einen Trupp nur von Stopp zu Stopp.
 
 Daraus folgt:
 
-- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stops gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stops tragen **keine eigenen Ressourcen**.
-- Ein Einsatz ist **ganz im Auftrag oder gar nicht** – es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stop (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
-- Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stop abgeschlossen** ist.
+- Ein Auftrag **besitzt seine Ressourcen selbst**: Fahrzeug, Personal und Material werden **dem Auftrag** zugewiesen und gelten **für alle Stopps gemeinsam** – der Trupp fährt sie ja der Reihe nach ab. Die einzelnen Stopps tragen **keine eigenen Ressourcen**.
+- Ein Einsatz ist **ganz im Auftrag oder gar nicht** – es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stopp (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
+- Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stopp abgeschlossen** ist.
 
 ### Route planen & optimieren
 
-- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stops + Routenlinie neben der geordneten Stop-Liste. Stops per Drag & Drop umsortieren, per Kartenklick neue Stops anhängen.
+- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren, per Kartenklick neue Stopps anhängen.
 - **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte.
-- **Reihenfolge optimieren**: berechnet per Nächster-Nachbar-Heuristik eine kurze Reihenfolge ab einem Startpunkt (**Magazin**, **Fahrzeug-GPS** oder **erster Stop**). Der Vorschlag wird als Vorschau angezeigt – **Übernehmen** oder **Verwerfen**.
+- **Reihenfolge optimieren**: berechnet per Nächster-Nachbar-Heuristik eine kurze Reihenfolge ab einem Startpunkt (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**). Der Vorschlag wird als Vorschau angezeigt – **Übernehmen** oder **Verwerfen**.
 
 ### Funkdurchsage für einen Auftrag
 
-Ein Auftrag wird **einmal vergeben, nicht bei jedem Stop neu**. Die App erkennt selbst, welcher Fall vorliegt – es gibt keinen zusätzlichen Knopf, der Disponiert-Dialog bleibt der Auslöser, nur der Text unterscheidet sich:
+Ein Auftrag wird **einmal vergeben, nicht bei jedem Stopp neu**. Die App erkennt selbst, welcher Fall vorliegt – es gibt keinen zusätzlichen Knopf, der Disponiert-Dialog bleibt der Auslöser, nur der Text unterscheidet sich:
 
-- **Der erste Stop, der auf «Disponiert» geht, ist die Auftragsvergabe.** Die Durchsage nennt den ganzen Auftrag: Mannschaft, Fahrzeuge und Material zuerst, danach die nummerierte Liste aller Stops.
-- **Jeder weitere Stop ist eine Fortsetzung** und wird nur noch kurz angesagt: «Auftrag ‹Sturmholz Oberwil› weiter mit Stop 3: Mühlemattstrasse 12.» Die Mannschaft wird nicht ein zweites Mal vorgelesen.
+- **Der erste Stopp, der auf «Disponiert» geht, ist die Auftragsvergabe.** Die Durchsage nennt den ganzen Auftrag: Mannschaft, Fahrzeuge und Material zuerst, danach die nummerierte Liste aller Stopps.
+- **Jeder weitere Stopp ist eine Fortsetzung** und wird nur noch kurz angesagt: «Auftrag ‹Sturmholz Oberwil› weiter mit Stopp 3: Mühlemattstrasse 12.» Die Mannschaft wird nicht ein zweites Mal vorgelesen.
 - **Bekommt die Route zwischendurch Mannschaft, ein Fahrzeug oder Material dazu**, gibt es wieder die volle Durchsage – wer neu dabei ist, hat den Auftrag noch nie gehört.
 
-**Erledigte Stops fallen aus der Liste, behalten aber ihre Nummer.** Ist Stop 1 abgearbeitet, heisst es «2 Stops: 2. …, 3. …». So meint «Stop 3» über die ganze Lebensdauer des Auftrags dieselbe Adresse.
+**Erledigte Stopps fallen aus der Liste, behalten aber ihre Nummer.** Ist Stopp 1 abgearbeitet, heisst es «2 Stopps: 2. …, 3. …». So meint «Stopp 3» über die ganze Lebensdauer des Auftrags dieselbe Adresse.
 
-**Besonderes** (Reko-Gefahren, Nachbarhilfe) steht gesammelt am Schluss, jeweils mit der Adresse dazu – nicht verstreut zwischen den Stops.
+**Besonderes** (Reko-Gefahren, Nachbarhilfe) steht gesammelt am Schluss, jeweils mit der Adresse dazu – nicht verstreut zwischen den Stopps.
 
-**Durchsage wiederholen:** Funkverkehr geht verloren. In der Aufträge-Leiste hat jeder Auftrag den Knopf **Durchsage wiederholen** (im aufgeklappten Auftrag neben «Routen-Editor», ausserdem im ⋮-Menü und per Rechtsklick). Er zeigt die zuletzt gemachte Durchsage im selben Wortlaut noch einmal an – ohne einen Stop-Dialog wieder aufmachen zu müssen und ohne sie neu zu zählen.
+**Durchsage wiederholen:** Funkverkehr geht verloren. In der Aufträge-Leiste hat jeder Auftrag den Knopf **Durchsage wiederholen** (im aufgeklappten Auftrag neben «Routen-Editor», ausserdem im ⋮-Menü und per Rechtsklick). Er zeigt die zuletzt gemachte Durchsage im selben Wortlaut noch einmal an – ohne einen Stopp-Dialog wieder aufmachen zu müssen und ohne sie neu zu zählen.
 
 ### Auf der Karte anzeigen
 
-**Aufträge anzeigen** auf `/map` zeichnet alle Routen als farbige Linien mit nummerierten Stops. Dabei wird die Marker-Einfärbung automatisch auf **Färben nach: Auftrag** umgestellt, sodass jeder Einsatz die Farbe seiner Route trägt (Einsätze ohne Auftrag = «Kein Auftrag»).
+**Aufträge anzeigen** auf `/map` zeichnet alle Routen als farbige Linien mit nummerierten Stopps. Dabei wird die Marker-Einfärbung automatisch auf **Färben nach: Auftrag** umgestellt, sodass jeder Einsatz die Farbe seiner Route trägt (Einsätze ohne Auftrag = «Kein Auftrag»).
 
 ---
 
@@ -557,7 +557,7 @@ Ein Auftrag wird **einmal vergeben, nicht bei jedem Stop neu**. Die App erkennt 
 
 Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden.
 
-**Rückgängig nach dem Lösen.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stop oder eine Routen-Ressource gelöst, erscheint «… gelöst · Rückgängig». Rückgängig teilt sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo eingeteilt, bleibt sie dort, und die Meldung sagt wo.
+**Rückgängig nach dem Freigeben.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stopp oder eine Routen-Ressource freigegeben, erscheint «… freigegeben · Rückgängig». Rückgängig weist sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo zugewiesen, bleibt sie dort, und die Meldung sagt wo.
 
 **Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz entfernen». Mit der Maus ändert sich nichts.
 
@@ -571,7 +571,7 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden.
 
 Erneuter Rechtsklick entfernt die Zuweisung.
 
-**Fahrer: kommt zurück oder bleibt vor Ort?** Bei jedem zugewiesenen Fahrzeug lässt sich per Klick auf das Fahrer-Badge umschalten, ob der Fahrer nach der Anlieferung **zurückkommt** oder **vor Ort bleibt**. Standard ist **„kommt zurück"** – bei diesen Einsätzen sollen unsere Fahrzeuge nur pendeln (Personal und Material anliefern und danach wieder verfügbar sein), statt am Einsatzort gebunden zu bleiben.
+**Fahrer: kommt zurück oder bleibt vor Ort?** Bei jedem zugewiesenen Fahrzeug lässt sich per Klick auf das Fahrer-Badge umschalten, ob der Fahrer nach der Anlieferung **zurückkommt** oder **vor Ort bleibt**. Standard ist **«kommt zurück»** – bei diesen Einsätzen sollen unsere Fahrzeuge nur pendeln (Personal und Material anliefern und danach wieder verfügbar sein), statt am Einsatzort gebunden zu bleiben.
 
 ### Sicherheitsabfragen – das Auffangnetz
 
@@ -579,12 +579,12 @@ Damit in hektischen Momenten kein Schritt vergessen geht, blendet das System bei
 
 | Situation | Abfrage |
 |-----------|---------|
-| **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl – auch bei einem Auftrag. „Schliessen" lässt das Fahrzeug bewusst ohne Fahrer; der Auftrag zeigt dann «Kein Fahrer · Fahrer wählen», und Disponiert-Text, WhatsApp-Text und A4-Druck sagen «ohne Fahrer». |
+| **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl – auch bei einem Auftrag. «Schliessen» lässt das Fahrzeug bewusst ohne Fahrer; der Auftrag zeigt dann «Kein Fahrer · Fahrer wählen», und Disponiert-Text, WhatsApp-Text und A4-Druck sagen «ohne Fahrer». |
 | **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden – beim erneuten Zuweisen: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
-| **In die Reko-Spalte ohne Reko-Person** | Wird ein Einsatz nach „Reko" verschoben, ohne dass eine Reko-Person zugewiesen ist, erscheint „Keine Reko-Person zugewiesen": **Reko-Person zuweisen** (sie erhält dann das Reko-Formular) oder „Trotzdem fortfahren". |
-| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach „Disponiert" **Personal, Fahrzeuge oder Mittel** (Fahrzeuge entfallen bei „zu Fuss"), erscheint „Ressourcen fehlen". Empfohlen ist **Zuweisen** – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter; „Trotzdem disponieren" fährt bewusst unterbestückt los. |
-| **Abgeschlossenen Einsatz als Stop hinzufügen** | Wird ein bereits abgeschlossener Einsatz an einen Auftrag gehängt – per Stop-Auswahl, «An Auftrag verteilen» oder Drag & Drop –, fragt das System nach. Es ist **erlaubt** (Wiederaufnahme, zweiter Besuch derselben Adresse), soll aber nicht unbemerkt passieren. |
-| **Abschliessen mit zugewiesenem Material** | Wird ein Einsatz abgeschlossen, während noch Material zugewiesen ist, fragt das System: **Material zurück** (freigeben) oder „Vor Ort gelassen" (zugewiesen lassen, z. B. wenn es vor Ort bleibt). |
+| **In die Reko-Spalte ohne Reko-Person** | Wird ein Einsatz nach «Reko» verschoben, ohne dass eine Reko-Person zugewiesen ist, erscheint «Keine Reko-Person zugewiesen»: **Reko-Person zuweisen** (sie erhält dann das Reko-Formular) oder «Trotzdem fortfahren». |
+| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach «Disponiert» **Personal, Fahrzeuge oder Material** (Fahrzeuge entfallen bei «zu Fuss»), erscheint «Ressourcen fehlen». Empfohlen ist **Zuweisen** – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter; «Trotzdem disponieren» fährt bewusst unterbestückt los. |
+| **Abgeschlossenen Einsatz als Stopp hinzufügen** | Wird ein bereits abgeschlossener Einsatz an einen Auftrag gehängt – per Stopp-Auswahl, «An Auftrag verteilen» oder Drag & Drop –, fragt das System nach. Es ist **erlaubt** (Wiederaufnahme, zweiter Besuch derselben Adresse), soll aber nicht unbemerkt passieren. |
+| **Abschliessen mit zugewiesenem Material** | Wird ein Einsatz abgeschlossen, während noch Material zugewiesen ist, fragt das System: **Material zurück** (freigeben) oder «Vor Ort gelassen» (zugewiesen lassen, z. B. wenn es vor Ort bleibt). |
 
 Personal und Fahrzeuge werden beim Abschliessen automatisch freigegeben; nur Material wird abgefragt, weil es bewusst vor Ort bleiben kann.
 
@@ -592,8 +592,8 @@ Personal und Fahrzeuge werden beim Abschliessen automatisch freigegeben; nur Mat
 
 ## Tastaturkürzel
 
-Drücken Sie `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle samt
-Tastaturkürzel und ist auch über das Benutzermenü ("Befehle & Tastaturkürzel")
+Drück `Cmd/Ctrl+K` für die Befehlspalette – sie listet alle Befehle samt
+Tastaturkürzel und ist auch über das Benutzermenü («Befehle & Tastaturkürzel»)
 erreichbar. Kürzel sind inaktiv, während ein Eingabefeld fokussiert ist.
 
 ### Zuweisen durch Tippen
@@ -656,10 +656,14 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | `⇧J` | Neuer Tagebuch-Eintrag (mit der ausgewählten Karte verknüpft) |
 | `Z` | Kennzahlen (Lage, Reaktionszeiten) öffnen/schliessen |
 
-### Kanban-Board – Einsatz (Maus über der Karte)
+### Kanban-Board – Einsatz (ausgewählte Karte)
+Ausgewählt ist die zuletzt angeklickte Karte – oder die, zu der du mit den Pfeiltasten gegangen
+bist. Was etwas ändert, wirkt nur auf die ausgewählte Karte, nie auf die unter der Maus.
+
 | Shortcut | Aktion |
 |----------|--------|
-| `E` / `Enter` | Details öffnen |
+| `←` `↑` `↓` `→` | Auswahl zur Nachbarkarte bewegen (eingeklappte und leere Spalten werden übersprungen) |
+| `E` / `Enter` | Details öffnen (die Karte unter der Maus, sonst die ausgewählte) |
 | `1-5` | Fahrzeug zuweisen/entfernen |
 | `Shift+1-3` | Priorität: Niedrig / Mittel / Hoch |
 | `0` | Zu Fuss umschalten |
@@ -675,7 +679,7 @@ Handy-Formularen (Feld, Reko, Check-In) gibt es sie bewusst nicht.
 | `Q` / `[` | Personal-Seitenleiste ein/aus |
 | `W` / `]` | Material-Seitenleiste ein/aus |
 | `I` / `\` | Seitenpanel ein/aus |
-| `K` | Ausgewählten Einsatz auf der Kartenseite öffnen (nur bei offenem Seitenpanel) |
+| `K` | Ausgewählten Einsatz auf der Kartenseite öffnen |
 | `B` | Benachrichtigungen |
 | `P` | Personal suchen |
 | `M` | Material suchen |
@@ -710,11 +714,11 @@ Ist das ausgewählte Ereignis eine Übung, erscheint **in der Fusszeile des Boar
 | **Burst (5×)** | Fünf zufällige Einsätze auf einmal |
 | **Gezielter Einsatz** | Bestimmtes Szenario an einer gewählten Adresse oder einem Karten-Pin |
 
-Jede Generierung bestätigt mit einer kurzen Meldung (Toast), welcher Einsatz erzeugt wurde – so ist sofort sichtbar, dass etwas passiert ist, und man klickt nicht versehentlich mehrfach (z. B. auf „Burst") und erzeugt zu viele Einsätze.
+Jede Generierung bestätigt mit einer kurzen Meldung (Toast), welcher Einsatz erzeugt wurde – so ist sofort sichtbar, dass etwas passiert ist, und man klickt nicht versehentlich mehrfach (z. B. auf «Burst») und erzeugt zu viele Einsätze.
 
 ### Demo-Sandbox
 
-Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **persönliche Übungslage** (eigene „Demo-Lage"), damit sich gleichzeitige Demo-Besucher nicht dasselbe Board teilen. Das Demo-Banner kennzeichnet eine solche Sandbox und zeigt die verbleibende Zeit bis zum Reset.
+Im öffentlichen Demo-Modus erhält jeder Editor-Login (`demo-editor`) eine **persönliche Übungslage** (eigene «Demo-Lage»), damit sich gleichzeitige Demo-Besucher nicht dasselbe Board teilen. Das Demo-Banner kennzeichnet eine solche Sandbox und zeigt die verbleibende Zeit bis zum Reset.
 
 ---
 
@@ -741,7 +745,7 @@ Für Personen, die einen Alarm **erfassen** sollen, ohne Login und ohne Kenntnis
 
 **Benutzen:** Wer den Link öffnet, sieht ein schlankes, mobil-optimiertes Formular und kann damit beliebig viele Alarme erfassen – kein Login nötig. Reihenfolge der Felder: zuerst der **Standort** (mit Adresssuche), dann die **Meldung** (was gemeldet wurde – die Adresse steht ja schon oben, also nicht doppelt eingeben), die **Priorität** als drei Schnellauswahl-Tasten (Niedrig / Mittel / Hoch), Einsatzart, weitere Hinweise und Melder/Anrufer.
 
-**Auf dem Board:** So erfasste Alarme landen in der Spalte "Eingegangen" und tragen ein blaues **„Telefon"-Abzeichen** – damit die Einsatzleitung erkennt, dass die Meldung von einer ungeprüften Quelle stammt, und sie prüfen kann. Adresse und Standort werden direkt mitgeschickt.
+**Auf dem Board:** So erfasste Alarme landen in der Spalte «Eingegangen» und tragen ein blaues **«Telefon»-Abzeichen** – damit die Einsatzleitung erkennt, dass die Meldung von einer ungeprüften Quelle stammt, und sie prüfen kann. Adresse und Standort werden direkt mitgeschickt.
 
 > Der Link erlaubt nur das **Anlegen** von Alarmen (kein Lesen/Bearbeiten) und ist durch ein striktes Anfragelimit geschützt. Da er 30 Tage gültig ist: nur an vertrauenswürdige Stellen weitergeben.
 
@@ -758,13 +762,13 @@ Die lokale Instanz synchronisiert automatisch mit Railway. Der Sync-Status wird 
 
 **Railway → Lokal:** Daten werden automatisch von Railway heruntergeladen.
 
-**Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung – für Admins mit "Jetzt synchronisieren" Button.
+**Lokal → Railway:** Wenn Railway wieder online ist, erscheint eine Benachrichtigung – für Admins mit «Jetzt synchronisieren» Button.
 
 Sync-Einstellungen unter Einstellungen → Sync Tab (nur Admins).
 
 ### Verbindungsstatus (Benutzermenü)
 
-Im Benutzermenü (oben rechts) zeigt der Bereich "Verbindung" den Status aller Systeme:
+Im Benutzermenü (oben rechts) zeigt der Bereich «Verbindung» den Status aller Systeme:
 
 | System | Bedeutung |
 |--------|-----------|
@@ -781,8 +785,10 @@ Admins öffnen mit einem Klick die Sync-Einstellungen.
 
 ## Ausfallsicherheit (Papier-Fallback)
 
-Einstellungen → **Ausfallsicherheit**. Zwei Schalter, die den aktuellen Board-Stand
-ausserhalb des Systems bereithalten, bevor man ihn braucht:
+Zwei Schalter, die den aktuellen Board-Stand ausserhalb des Systems bereithalten, bevor
+man ihn braucht – an zwei Orten, weil der eine für die ganze Station gilt und der andere
+nur für den Rechner, an dem du sitzt: der Thermodruck unter Einstellungen → Betrieb →
+**Ausfallsicherheit**, der Lageblatt-Download unter Einstellungen → **Dieses Gerät**.
 
 | Schalter | Was er tut | Reichweite |
 |----------|------------|------------|
@@ -860,21 +866,21 @@ Ein **Print-Agent** läuft auf einem Raspberry Pi im Kommandoposten-Netzwerk. Er
 
 | Auftrag | Auslöser | Inhalt |
 |---------|----------|--------|
-| **Einsatzzettel** | Automatisch beim Wechsel auf **"Disponiert / Anfahrt"** – einmal pro Einsatz –, oder jederzeit von Hand über Rechtsklick → "Einsatzzettel drucken" | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
-| **Board-Snapshot** | Footer → "Drucken" (oder Taste `D`) → Spalte **Thermodruck** → Optionen wählen → "Drucken" | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
+| **Einsatzzettel** | Automatisch beim Wechsel auf **«Disponiert / Anfahrt»** – einmal pro Einsatz –, oder jederzeit von Hand über Rechtsklick → «Einsatzzettel drucken» | Adresse, Typ, Priorität, Beschreibung, Fahrzeuge, Personal, Material |
+| **Board-Snapshot** | Footer → «Drucken» (oder Taste `D`) → Spalte **Thermodruck** → Optionen wählen → «Drucken» | Ereignis-Übersicht, Einsätze mit Details, Fahrzeugstatus, Personal-Liste |
 | **QR-Code-Zettel** | Fusszeile → «Links & QR» (Check-in, Feld, Alarm, Wandanzeige) → Drucker-Symbol | Titel, Kurzbeschreibung und scannbarer QR-Code des Links – zum Verteilen auf Papier |
 
 ### QR-Code-Zettel
 
-Jede Zeile im Sheet «Links & QR» (Check-in, Feld, Alarm erfassen, Wandanzeige) hat neben "Kopieren" und "Öffnen" ein Drucker-Symbol (nur sichtbar, wenn der Drucker aktiviert ist). Der Feld-Zettel trägt zusätzlich den Feld-Code und das Ablaufdatum des Links. Damit wird ein kompakter Zettel mit dem QR-Code und einer kurzen Beschreibung gedruckt – praktisch, um jemandem den passenden Link in die Hand zu drücken, ohne ein Gerät teilen zu müssen.
+Jede Zeile im Sheet «Links & QR» (Check-in, Feld, Alarm erfassen, Wandanzeige) hat neben «Kopieren» und «Öffnen» ein Drucker-Symbol (nur sichtbar, wenn der Drucker aktiviert ist). Der Feld-Zettel trägt zusätzlich den Feld-Code und das Ablaufdatum des Links. Damit wird ein kompakter Zettel mit dem QR-Code und einer kurzen Beschreibung gedruckt – praktisch, um jemandem den passenden Link in die Hand zu drücken, ohne ein Gerät teilen zu müssen.
 
 ### Board-Snapshot Optionen
 
 Die Spalte **Thermodruck** im Drucken-Slide-up hat dazu drei Schalter:
 
-- **Beendete Einsätze** – auch archivierte Einsätze einbeziehen (Standard: aus)
+- **Abgeschlossene Einsätze** – auch archivierte Einsätze einbeziehen (Standard: aus)
 - **Fahrzeug-Status** – Verfügbarkeit aller Fahrzeuge anzeigen (Standard: ein)
-- **Personal-Übersicht** – Liste aller anwesenden Personen mit Zuteilungsstatus (Standard: ein)
+- **Personal-Übersicht** – Liste aller anwesenden Personen mit Zuweisungsstatus (Standard: ein)
 
 ### Polling-Verhalten
 

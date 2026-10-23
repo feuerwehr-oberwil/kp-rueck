@@ -474,7 +474,7 @@ export default function RekoForm() {
             <span className="text-sm text-muted-foreground">{t('contactLabel')}</span>
             <a
               href={telHref(incidentDetails.contact) ?? undefined}
-              className="text-sm font-medium text-primary hover:underline"
+              className="text-sm font-medium text-foreground underline underline-offset-2 hover:decoration-2"
             >
               {incidentDetails.contact}
             </a>

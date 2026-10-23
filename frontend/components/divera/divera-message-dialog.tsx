@@ -138,7 +138,7 @@ export function DiveraMessageDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
+            <MessageCircle className="h-5 w-5 text-muted-foreground" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -211,7 +211,7 @@ export function DiveraMessageDialog({
                 {target === "all" && <Check className="size-4 shrink-0" />}
               </button>
               {target === "all" && (
-                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-600 dark:text-amber-500">
+                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   {t("allWarning")}
                 </p>

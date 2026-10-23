@@ -217,13 +217,13 @@ export function DisplayIncidentCard({
               the head's 8px gap away from the title. */}
           <div className="flex items-center gap-1.5 flex-shrink-0 empty:hidden">
             {operation.source === "intake" && (
-              <div className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30" title={t("card.intakeTooltip")}>
-                <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.intakeTooltip")}>
+                <Phone className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {operation.source === "feld" && (
-              <div className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30" title={t("card.feldTooltip")}>
-                <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.feldTooltip")}>
+                <Axe className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {operation.amWarten && (

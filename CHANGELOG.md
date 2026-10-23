@@ -28,14 +28,67 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **«Erstellen und nächsten erfassen» on «Neuer Einsatz»** (#214). The arrow beside «Einsatz
+  erstellen» (or Ctrl/⌘ ↵) creates the card and leaves the dialog open and empty with the cursor
+  in the Einsatzort, for a run of calls. Einsatzart, Telefonisch/Vom Feld and the Auftrag carry
+  over. «Einsatz erstellen» itself is unchanged.
+- **Arrow keys move the selection between cards** (#215). Enter or Space opens the selected
+  card. Sideways keeps the row and skips empty and folded columns; Alt+← / Alt+→ stay the
+  browser's back and forward.
+
 ### Changed
 
+- **«Rückfahrt» replaces «Beendet» everywhere** (#215). The column, the status on every card,
+  the phone filter, the wall display, the Feld status and the print all use one word for
+  `returning`. The phone filter now has one row per status, in board order.
+- **Some actions are admin-only now** (#217): Excel import «Ersetzen», Divera sync that removes
+  stale people, permanently deleting an Ereignis, and the audit log. *An editor who used these
+  needs an admin account or an admin to do it.* Dismissing a notification needs an editor. A
+  viewer types the Feld-Code instead of being let through by their session, and `/display` is a
+  quiet surface (no toasts, sidebar or command palette).
+- **The current page in the top navigation looks current, not unavailable** (#215): it sits
+  lifted in a track like a tab bar; an item you cannot open without an Ereignis stays faded.
+- **Confirmation prompts put «Abbrechen» next to the action** (#215), and a prompt whose write
+  failed stays open with its button live again instead of disappearing behind a red toast.
+- **One verb for assigning: «zuweisen».** A request from the field now says «Mannschaft
+  zuweisen» (it said «Personal zuteilen» and opened «Mannschaft zu Einsatz zuweisen»), and the
+  Einsatztagebuch filter «Mittel» is now «Ressourcen», so it no longer reads like the priority.
+- **`/feld` says «Stopps»** for the stops of an Auftrag (it said «Stops»).
+- **The tile scripts read `TILES_NAME` from `.env`**, like compose and `just tiles-status`, so a
+  station that renamed its tiles file no longer gets a download under the default name.
+- **Icons redrawn by lucide 1.x** (#181). The GitHub report route shows a CircleDot icon,
+  because lucide dropped brand icons.
 - **Railway: no more `railway.json`.** Railway stops reading config-as-code files on
   2026-12-01, so the builder, start command, healthcheck, restart policy, replica count and app
   sleeping now live only in each service's settings. `backend/railway.json` and
   `frontend/railway.json` are gone. *If you run KP Rück on Railway, set the values in
   docs/RAILWAY.md §3.2/§3.3 (and staging's two differences, §8.2) on your services before your
   next deploy.* Compose is not affected.
+
+### Fixed
+
+- **The weather radar shows frames again** (#213). MeteoSwiss renamed its radar files on
+  13.10.2026 and every frame failed; the poller now takes the names from MeteoSwiss's own index.
+- **The map no longer logs a CSP error on every load** (#212): the radar placeholder is a real
+  image on the site instead of a broken `data:` URL.
+- **A cold load of the board or the map no longer re-renders the whole page** (#211) – React
+  error #418 on about one load in five in the production build.
+- **A failed audit export says so** (#210) with a toast «Audit-Export fehlgeschlagen»; before,
+  the button just went back and no file came.
+- **Keyboard on the board** (#215): Enter on a button inside a card activates that button
+  instead of opening the card, and the focus ring shows on Hoch cards too.
+- **Rate limits, lockouts and the audit log see the real client** (#217): the frontend's
+  `/backend-api` proxy passes `X-Forwarded-For` on instead of replacing it with its own address.
+- **Screen readers name the per-user actions in Einstellungen** (#215): «Benutzer Meier
+  bearbeiten» instead of five unnamed buttons per row.
+
+### Security
+
+- **Dependency advisories**: certifi 2026.10.19 (GHSA-6q48-6c7w-9gw2, #216), Mako 1.4.3
+  (GHSA-5639-2j2p-m4mx, #207). A print job's detail (it carries the Feld link and code) needs an
+  editor (#217).
 
 ## [0.8.0] – 2026-10-10
 

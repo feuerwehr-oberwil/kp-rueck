@@ -23,6 +23,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..database import get_db
 from ..models import Event, Incident, JournalEntry, User
 from ..services.journal import entry_out, journal_rows
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_journal_update
 
 router = APIRouter(prefix="/events", tags=["journal"])
@@ -125,7 +126,7 @@ async def append_journal_line(
     if payload.incident_id is not None:
         incident = await db.get(Incident, payload.incident_id)
         if incident is None or incident.event_id != event_id:
-            raise HTTPException(status_code=422, detail="Einsatz gehört nicht zu diesem Ereignis")
+            raise HTTPException(status_code=422, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
     entry = await _write_once(
         db,
         event_id,

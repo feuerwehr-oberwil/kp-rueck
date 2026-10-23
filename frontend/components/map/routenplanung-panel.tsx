@@ -35,9 +35,7 @@ import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { RouteStopList } from "./route-stop-list"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "./route-optimize"
 import { ShellLoader } from "@/components/ui/shell-loader"
-
-// Same six-swatch palette as the Aufträge sheet so routes read apart at a glance.
-const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
+import { AUFTRAG_SWATCHES } from "@/lib/map-colors"
 
 // Optimize now persists immediately, so the shared list never shows a pending
 // "changed" preview state.
@@ -82,14 +80,14 @@ export function RoutenplanungPanel({
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
-  const [newColor, setNewColor] = useState<string>(SWATCHES[0])
+  const [newColor, setNewColor] = useState<string>(AUFTRAG_SWATCHES[0])
 
   const stopIds = group?.stopIds ?? []
   const displayOrder = stopIds
 
   const startCreate = () => {
     setNewName(t("defaultName", { n: groups.length + 1 }))
-    setNewColor(SWATCHES[groups.length % SWATCHES.length])
+    setNewColor(AUFTRAG_SWATCHES[groups.length % AUFTRAG_SWATCHES.length])
     setCreating(true)
   }
 
@@ -105,7 +103,7 @@ export function RoutenplanungPanel({
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
         <div className="flex items-center gap-2">
-          <RouteIcon className="h-4 w-4 text-primary" />
+          <RouteIcon className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-lg font-bold">{t("title")}</h2>
         </div>
         <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={onExit}>
@@ -173,7 +171,7 @@ export function RoutenplanungPanel({
         </div>
 
         {creating && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.03] px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
             <Input
               autoFocus
               value={newName}
@@ -186,7 +184,7 @@ export function RoutenplanungPanel({
               placeholder={t("namePlaceholder")}
             />
             <div className="flex items-center gap-1">
-              {SWATCHES.map((c) => (
+              {AUFTRAG_SWATCHES.map((c) => (
                 <button
                   key={c}
                   type="button"

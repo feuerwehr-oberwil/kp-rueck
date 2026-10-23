@@ -280,7 +280,7 @@ export function DisponierTransitionDialog({
               copy/print row because it is a decision about the Einsatz, not a
               way of passing the message on. */}
           {offerBatch && (
-            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
               <p className="text-sm">
                 {t("disponiert.auftragBatchQuestion", {
                   name: auftrag?.name ?? "",

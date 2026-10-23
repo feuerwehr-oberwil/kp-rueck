@@ -223,7 +223,7 @@ export function DispatchPreview({
           title={t("tabComplete", { label: completion.label })}
           data-testid="dispatch-completion"
         >
-          <kbd className="rounded-sm border border-border px-1 font-sans text-[10px] leading-4">⇥</kbd>
+          <kbd className="rounded-sm border border-border px-1 font-sans text-2xs leading-4">⇥</kbd>
           <span className="max-w-[10rem] truncate">{completion.label}</span>
         </span>
       )}

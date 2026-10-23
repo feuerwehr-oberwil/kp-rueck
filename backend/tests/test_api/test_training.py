@@ -181,7 +181,7 @@ async def test_generate_emergencies_live_event_forbidden(editor_client: AsyncCli
         json={"count": 1},
     )
     assert response.status_code == 400
-    assert "training" in response.json()["detail"].lower()
+    assert "übungen" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -272,7 +272,7 @@ async def test_generate_emergencies_invalid_category(editor_client: AsyncClient,
         json={"count": 1, "category": "invalid"},
     )
     assert response.status_code == 400
-    assert "category" in response.json()["detail"].lower()
+    assert "kategorie" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -1461,7 +1461,7 @@ async def test_simulate_pickup_on_a_live_event_is_refused(
     for path in ("arrived", "pickup"):
         live = await editor_client.post(f"/api/training/events/{live_event.id}/simulate/{path}/{incident.id}")
         assert live.status_code == 400
-        assert live.json()["detail"] == "Only available for training events"
+        assert live.json()["detail"] == "Nur für Übungen verfügbar"
 
         unknown = await editor_client.post(f"/api/training/events/{uuid4()}/simulate/{path}/{incident.id}")
         assert unknown.status_code == 404

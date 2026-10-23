@@ -858,7 +858,7 @@ describe('/feld says where the crew is on each row', () => {
     withRow({ is_active_assignment: false })
     renderWithIntl(<FeldPage />)
 
-    expect(await screen.findByText('Nicht mehr zugeteilt')).toBeInTheDocument()
+    expect(await screen.findByText('Nicht mehr zugewiesen')).toBeInTheDocument()
     expect(screen.queryByText('Anfahrt')).not.toBeInTheDocument()
   })
 

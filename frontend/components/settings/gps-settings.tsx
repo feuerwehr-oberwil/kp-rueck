@@ -149,7 +149,7 @@ export function GpsSettingsCard({
     <SettingCard
       title={
         <span className="flex items-center gap-2">
-          <Satellite className="size-4 text-primary" />
+          <Satellite className="size-4 text-muted-foreground" />
           {t("gps.title")}
         </span>
       }

@@ -360,7 +360,9 @@ def test_decode_token_wrong_algorithm():
     data = {"sub": str(uuid.uuid4()), "exp": datetime.now(UTC) + timedelta(minutes=15)}
 
     # Create token with different algorithm
-    wrong_algo_token = jwt.encode(data, "wrong_secret", algorithm="HS512")
+    wrong_algo_token = jwt.encode(
+        data, "wrong-secret-" + "x" * 64, algorithm="HS512"
+    )  # a 64-byte key: no InsecureKeyLengthWarning
 
     with pytest.raises(jwt.PyJWTError) as exc_info:
         decode_token(wrong_algo_token)

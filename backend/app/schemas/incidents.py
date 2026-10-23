@@ -385,11 +385,25 @@ class IncidentResponse(IncidentBase):
 
 # Status transitions
 class StatusTransitionCreate(BaseModel):
-    """Schema for creating status transition."""
+    """Body of POST /incidents/{id}/status.
+
+    `from_status` is the status the client SAW. The server never refuses on it:
+    the transition always moves the card from its real current status (and
+    records that), and a mismatch comes back as `stale_from_status`.
+    """
 
     from_status: IncidentStatus
     to_status: IncidentStatus
     notes: str | None = None
+
+
+class IncidentStatusUpdateResponse(IncidentResponse):
+    """POST /incidents/{id}/status: the card after the move, plus a staleness flag."""
+
+    # The status the server actually moved the card FROM, set only when it differs
+    # from the request's `from_status` – someone else moved the card in between.
+    # null = the client's view was current.
+    stale_from_status: IncidentStatus | None = None
 
 
 class StatusTransitionResponse(BaseModel):

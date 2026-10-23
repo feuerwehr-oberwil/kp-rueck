@@ -165,7 +165,7 @@ describe('AttendanceModal', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Bürgin Anton/ }))
     expect(checkOutPersonnelForEvent).not.toHaveBeenCalled()
-    expect(await screen.findByText(/noch an Hauptstrasse 12 zugeteilt/)).toBeInTheDocument()
+    expect(await screen.findByText(/noch «Hauptstrasse 12» zugewiesen/)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Trotzdem abmelden' }))
     await waitFor(() =>

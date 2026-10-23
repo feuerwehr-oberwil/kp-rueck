@@ -8,7 +8,7 @@ import shutil
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 # Optional MIME type detection for enhanced security
 try:
@@ -20,6 +20,9 @@ except ImportError:
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from ..config import get_settings
 from ..utils.error_codes import CodedHTTPException, ErrorCode
@@ -104,7 +107,7 @@ class PhotoStorageService:
         base = os.path.realpath(self.photos_dir)
         full = os.path.realpath(os.path.join(base, *parts))
         if not full.startswith(base + os.sep):
-            raise HTTPException(status_code=400, detail="Path traversal detected")
+            raise HTTPException(status_code=400, detail="Ungültiger Dateipfad")
         return Path(full)
 
     def _get_incident_dir(self, incident_id: uuid.UUID) -> Path:
@@ -126,7 +129,7 @@ class PhotoStorageService:
                 raise CodedHTTPException(
                     400,
                     ErrorCode.PHOTO_INVALID_EXTENSION,
-                    f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}",
+                    f"Ungültige Dateiendung. Erlaubt: {', '.join(self.allowed_extensions)}",
                     # The configured list, not a hard-coded one: the sentence names what
                     # this station actually accepts («JPG, JPEG, PNG, WEBP»).
                     params={"allowed": ", ".join(e.lstrip(".").upper() for e in self.allowed_extensions)},
@@ -153,7 +156,7 @@ class PhotoStorageService:
                 raise CodedHTTPException(
                     400,
                     ErrorCode.PHOTO_INVALID_TYPE,
-                    f"Invalid file type detected: {mime}. Only image files are allowed.",
+                    f"Ungültiger Dateityp: {mime}. Nur Bilder sind erlaubt.",
                 )
 
         # Validate PIL can open the file (don't use verify() — it's overly strict
@@ -168,7 +171,7 @@ class PhotoStorageService:
             logger.warning("Rejected decompression bomb at open: %s", e)
             raise CodedHTTPException(413, ErrorCode.PHOTO_TOO_MANY_PIXELS, "Bild zu gross (Pixelmasse).") from None
         except Exception:
-            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Invalid or corrupted image file") from None
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Ungültige oder beschädigte Bilddatei") from None
 
         # Dimensions BEFORE the decode below. `Image.open` only parses the header, so this is
         # the last cheap moment: `img.load()` allocates the full bitmap, and a file that is
@@ -185,7 +188,7 @@ class PhotoStorageService:
         try:
             img.load()  # Force decode to confirm it's a real image
         except Exception:
-            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Invalid or corrupted image file") from None
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Ungültige oder beschädigte Bilddatei") from None
 
     def _sanitize_filename(self, filename: str) -> str:
         """
@@ -266,7 +269,7 @@ class PhotoStorageService:
             raise CodedHTTPException(
                 400,
                 ErrorCode.PHOTO_LIMIT,
-                f"Maximum {self.max_photos} photos per report",
+                f"Maximal {self.max_photos} Fotos pro Bericht",
                 params={"max": self.max_photos},
             )
 
@@ -289,7 +292,7 @@ class PhotoStorageService:
                 raise CodedHTTPException(
                     413,
                     ErrorCode.PHOTO_TOO_LARGE,
-                    f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
+                    f"Datei zu gross. Maximal {settings.max_photo_size_mb} MB",
                     params={"max_mb": settings.max_photo_size_mb},
                 )
             chunks.append(chunk)
@@ -399,11 +402,11 @@ class PhotoStorageService:
 
         # Validate filename doesn't contain path traversal sequences
         if "/" in filename or "\\" in filename or ".." in filename:
-            raise HTTPException(status_code=400, detail="Invalid filename: path traversal sequences not allowed")
+            raise HTTPException(status_code=400, detail="Ungültiger Dateiname")
 
         # Ensure filename matches expected pattern (UUID.jpg)
         if not re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$", filename):
-            raise HTTPException(status_code=400, detail="Invalid filename format: must be UUID.jpg")
+            raise HTTPException(status_code=400, detail="Ungültiger Dateiname")
 
         # Ensure the resolved path is within photos_dir (prevents traversal)
         file_path = self._inside_photos_dir(str(incident_id), filename)
@@ -462,3 +465,32 @@ class PhotoStorageService:
 
 # Singleton instance
 photo_storage = PhotoStorageService()
+
+#: The demo's photo ceiling: per file, and per table across the whole demo.
+DEMO_MAX_PHOTO_BYTES = 1 * 1024 * 1024
+DEMO_MAX_PHOTOS = 15
+
+
+async def enforce_demo_photo_limits(
+    db: AsyncSession, file: UploadFile, photos_column: InstrumentedAttribute[list[Any] | None]
+) -> None:
+    """The demo's 1 MB / 15 photos cap, shared by the Reko form and `/feld` uploads.
+
+    Call before saving; `photos_column` is the JSONB list the upload lands in
+    (`RekoReport.photos_json` or `SchadenplatzReport.photos_json`). No-op outside
+    the demo. The count must be `jsonb_array_length` – `array_length` exists only
+    for real Postgres arrays and 500'd every demo upload (field test 07.09.).
+    """
+    if not settings.demo_mode:
+        return
+
+    contents = await file.read()
+    if len(contents) > DEMO_MAX_PHOTO_BYTES:
+        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
+    await file.seek(0)
+
+    total = await db.scalar(select(func.coalesce(func.sum(func.jsonb_array_length(photos_column)), 0)))
+    if (total or 0) >= DEMO_MAX_PHOTOS:
+        raise CodedHTTPException(
+            403, ErrorCode.PHOTO_DEMO_LIMIT, f"Demo-Modus: Maximale Anzahl Fotos ({DEMO_MAX_PHOTOS}) erreicht."
+        )

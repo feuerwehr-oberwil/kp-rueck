@@ -27,7 +27,6 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { BaseMap } from "@/components/map/base-map"
 import { MapTooltip, type MapTooltipSide } from "@/components/map/map-tooltip"
@@ -144,11 +143,6 @@ interface IncidentPickerDialogProps {
   onCreateNew?: () => void
 }
 
-function statusLabel(op: Operation): string {
-  const col = columns.find((c) => c.status.includes(op.status))
-  return col?.title ?? op.status
-}
-
 export function IncidentPickerDialog({
   open,
   onOpenChange,
@@ -159,6 +153,7 @@ export function IncidentPickerDialog({
   onCreateNew,
 }: IncidentPickerDialogProps) {
   const t = useTranslations("kanban.incidentPicker")
+  const tColumn = useTranslations("kanban.columns")
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Karte is the default view — located incidents are easier to pick spatially.
@@ -491,7 +486,7 @@ export function IncidentPickerDialog({
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
-                      {getIncidentTypeLabel(op.incidentType)} · {statusLabel(op)}
+                      {getIncidentTypeLabel(op.incidentType)} · {tColumn(op.status)}
                     </p>
                   </div>
                 </label>
