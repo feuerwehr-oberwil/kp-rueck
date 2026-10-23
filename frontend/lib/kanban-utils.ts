@@ -78,7 +78,8 @@ export const STATUS_ACCENT: Record<OperationStatus, {
   },
 }
 
-// Kanban column definitions
+// Kanban column definitions: order, colour and the starting fold. The header words
+// live in the messages (`kanban.columns.<id>`).
 // Colors come from STATUS_ACCENT — see there for why they are what they are.
 //
 // `id` IS a status: since database, API and board share one vocabulary there is
@@ -93,18 +94,17 @@ export const STATUS_ACCENT: Record<OperationStatus, {
 // at 3am a column may only disappear because someone folded it.
 export const columns: Array<{
   id: OperationStatus
-  title: string
   status: OperationStatus[]
   color: string
   collapsible?: boolean
 }> = [
-  { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: STATUS_ACCENT.incoming.surface },
-  { id: "reko", title: "REKO", status: ["reko"], color: STATUS_ACCENT.reko.surface },
-  { id: "reko_done", title: "REKO ABGESCHLOSSEN", status: ["reko_done"], color: STATUS_ACCENT.reko_done.surface },
-  { id: "enroute", title: "DISPONIERT / ANFAHRT", status: ["enroute"], color: STATUS_ACCENT.enroute.surface },
-  { id: "active", title: "EINSATZ", status: ["active"], color: STATUS_ACCENT.active.surface },
-  { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: STATUS_ACCENT.returning.surface },
-  { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
+  { id: "incoming", status: ["incoming"], color: STATUS_ACCENT.incoming.surface },
+  { id: "reko", status: ["reko"], color: STATUS_ACCENT.reko.surface },
+  { id: "reko_done", status: ["reko_done"], color: STATUS_ACCENT.reko_done.surface },
+  { id: "enroute", status: ["enroute"], color: STATUS_ACCENT.enroute.surface },
+  { id: "active", status: ["active"], color: STATUS_ACCENT.active.surface },
+  { id: "returning", status: ["returning"], color: STATUS_ACCENT.returning.surface },
+  { id: "complete", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
 ]
 
 /**

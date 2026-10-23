@@ -106,7 +106,7 @@ graph TB
 | **API Routes** | 37 route modules covering incidents, resources, feld, journal, print, weather, integrations, setup, admin |
 | **Middleware Stack** | CORS, audit logging, security headers, rate limiting |
 | **CRUD Layer** | Async database operations with eager loading (prevents N+1 queries) |
-| **WebSocket Manager** | Socket.IO server, room-based broadcasting per event |
+| **WebSocket Manager** | Socket.IO server with two fixed rooms (`operations`, `admin`); every board broadcast goes to `operations` and clients filter by Ereignis |
 | **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling and Divera Rückmeldungen (`divera_responses`), the Einsatztagebuch (`journal`), duplicate detection and merge (`duplicates`, `merge_work`), Reaktionszeiten/Kennzahlen (`reaction_times`), the weather layer (`weather/`), roster snapshot + station index sync, training auto-generation, photo storage, PDF/Excel exports |
 | **Auth / Tokens** | JWT generation, validation, blocklist, role-based access |
 
@@ -358,16 +358,24 @@ sequenceDiagram
     F->>F: Optimistic UI update
     F->>B: POST /api/incidents/{incident_id}/assign
     B->>B: Create assignment in DB
-    B->>WS: Broadcast "assignment_update"
+    B->>WS: Broadcast "assignment_update" (room "operations")
     WS->>O: Push update to all clients
     O->>O: Reload data from API
-    B-->>F: 201 Created
+    B-->>F: 200 OK (the assignment)
 
-    Note over F,O: If WebSocket disconnects:
-    F->>B: GET /api/incidents (every 5-10s)
-    B-->>F: Full incident list
-    F->>F: Diff and update UI
+    Note over F,O: While the WebSocket is down:
+    loop every 5 s ±20 %, doubling on failure up to 30 s
+        F->>B: GET /api/incidents/sync-version?event_id=…
+        B-->>F: { version }
+        opt version changed
+            F->>B: Full board load (incidents, resources, …)
+        end
+    end
 ```
+
+The fallback poll lives in `frontend/lib/contexts/operations/use-board-sync.ts`: an unchanged
+version only refreshes «last synced», so a quiet board costs one tiny request per tick. (Polling
+was the MVP's only sync; the WebSocket path came in `b67360d`.)
 
 Assigning to an *Auftrag* (a routed group of incidents) goes through
 `POST /api/incident-groups/{group_id}/assign` instead – same flow, but the resource
@@ -390,19 +398,19 @@ sequenceDiagram
         B-->>A: Job list (as soon as one is queued)
     end
 
-    A->>B: PATCH /api/print/jobs/{id}/claim
+    A->>B: PATCH /api/print/jobs/{id}/claim/
     A->>A: Format print layout
     A->>P: Send ESC/POS commands
     P-->>A: Print complete
-    A->>B: PATCH /api/print/jobs/{id}/complete
+    A->>B: PATCH /api/print/jobs/{id}/complete/
 ```
 
 ### Alarm Import
 
 Alarms reach the intake pool from **any** dispatch system through the generic,
 provider-neutral `POST /api/alarms` webhook (see
-[ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)); Divera is one built-in adapter
-that funnels into the same pool, inference, and auto-attach logic. All paths
+[ALARM-INTEGRATIONS.md](ALARM-INTEGRATIONS.md)); Divera and FireHub are built-in
+adapters that funnel into the same pool, inference, and auto-attach logic. All paths
 store to `divera_emergencies` with `source`/`source_id` provenance.
 
 ```mermaid
@@ -423,6 +431,11 @@ sequenceDiagram
         B->>B: Store in divera_emergencies (source=divera)
         B->>WS: Broadcast new alarm
         WS->>C: Show alarm notification
+    else FireHub webhook (adapter)
+        X->>B: POST /api/firehub/webhook (Einsatzstart / Einsatzende)
+        B->>B: Start: store (source=firehub) · End: note only, no card moves
+        B->>WS: Broadcast new alarm
+        WS->>C: Show alarm notification
     else Divera polling (fallback)
         loop Every 30s (when clients connected)
             B->>D: GET /api/v2/alarms
@@ -440,21 +453,23 @@ sequenceDiagram
 
 ## Incident Lifecycle
 
-An incident has exactly **seven** statuses – one kanban column each, defined once in
-`frontend/lib/kanban-utils.ts` (`columns`) and typed in `frontend/lib/api/types/incidents.ts`.
+An incident has exactly **seven** statuses – one kanban column each. Order, colour and the
+starting fold are `columns` in `frontend/lib/kanban-utils.ts`; the header words are
+`kanban.columns.<status>` in `frontend/messages/*.json`; the type is in
+`frontend/lib/api/types/incidents.ts`.
 Columns may be skipped in either direction; there is no enforced state machine, and there is
 **no `archiv` status** – archiving happens one level up, on the *Ereignis*
 (`events.archived_at`), never on a single incident.
 
 | # | Status (API) | Column header (German UI) | Meaning |
 |---|--------------|---------------------------|---------|
-| 1 | `incoming` | EINGEGANGEN | Reported, not yet assessed |
-| 2 | `reko` | REKO | Field recon in progress |
-| 3 | `reko_done` | REKO ABGESCHLOSSEN | Recon report filed, decision pending |
-| 4 | `enroute` | DISPONIERT / ANFAHRT | Crew and vehicles dispatched |
-| 5 | `active` | EINSATZ | Working on scene |
-| 6 | `returning` | BEENDET / RÜCKFAHRT | Work done, crew driving back |
-| 7 | `complete` | ABGESCHLOSSEN | Closed. Starts folded on every board (any column can be folded; only this one starts that way) |
+| 1 | `incoming` | Eingegangen | Reported, not yet assessed |
+| 2 | `reko` | Reko | Field recon in progress |
+| 3 | `reko_done` | Reko abgeschlossen | Recon report filed, decision pending |
+| 4 | `enroute` | Disponiert / Anfahrt | Crew and vehicles dispatched |
+| 5 | `active` | Im Einsatz | Working on scene |
+| 6 | `returning` | Rückfahrt | Work done, crew driving back |
+| 7 | `complete` | Abgeschlossen | Closed. Starts folded on every board (any column can be folded; only this one starts that way) |
 
 ```mermaid
 stateDiagram-v2
@@ -477,7 +492,7 @@ At each transition:
   made the change
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
-  (`crud/incidents.auto_release_incident_resources`); moving back out restores them
+  (`crud/assignments.auto_release_incident_resources`); moving back out restores them
 
 ### Duplicates and merge
 

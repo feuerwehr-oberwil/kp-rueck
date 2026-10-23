@@ -259,6 +259,8 @@ services:
     environment:
       # Empty DOMAIN → Caddy binds :80 inside the container (plain HTTP, no cert).
       DOMAIN: ${DOMAIN:-:80}
+      # The proxy in front of this Caddy, if any (deploy/Caddyfile). Empty = trust nobody.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

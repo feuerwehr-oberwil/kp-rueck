@@ -40,7 +40,6 @@ function useIsLargeScreen() {
 interface DroppableColumnProps {
   column: {
     id: string
-    title: string
     status: string[]
     color: string
     collapsible?: boolean
