@@ -46,6 +46,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
+import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 import { getActiveLocale } from '@/lib/i18n-messages'
 import {
   assignmentRapportApplies,
@@ -81,6 +82,7 @@ const INCIDENT_COOKIE = 'feld-selected-incident'
  *  stops the crew re-typing the code every time the tab is dropped. */
 const TOKEN_COOKIE = 'feld-device-token'
 const COOKIE_EXPIRY_DAYS = 7
+const FELD_COOKIE_SCOPE = { path: '/feld', days: COOKIE_EXPIRY_DAYS }
 
 /**
  * How often the field list refetches while the tab is visible.
@@ -100,22 +102,6 @@ const FELD_POLL_MS = 10000
  * end of the page must always come clear. Change the pill, change this.
  */
 const MELDEN_FAB_CLEARANCE = 'pb-32'
-
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`))
-  return match ? match[2] : null
-}
-
-function writeCookie(name: string, value: string) {
-  const expires = new Date()
-  expires.setDate(expires.getDate() + COOKIE_EXPIRY_DAYS)
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/feld`
-}
-
-function clearCookie(name: string) {
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
-}
 
 /** A lockout countdown as «4:12» — minutes and seconds, because "noch 252
  *  Sekunden" is a number nobody converts while standing in the rain. */
@@ -501,9 +487,9 @@ function FeldSurface() {
     setViewMode('code')
     setCodeInput('')
     setCodeError(linkToken && decodeFeldCredential(linkToken) ? { kind: 'expired' } : null)
-    clearCookie(TOKEN_COOKIE)
-    clearCookie(PERSON_COOKIE)
-    clearCookie(INCIDENT_COOKIE)
+    clearCookie(TOKEN_COOKIE, FELD_COOKIE_SCOPE)
+    clearCookie(PERSON_COOKIE, FELD_COOKIE_SCOPE)
+    clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
     clearFeldName()
     restoredFromCookie.current = false
     restoredIncident.current = false
@@ -681,8 +667,8 @@ function FeldSurface() {
     }
     if (bound?.personnelId) {
       setDeviceToken(linkToken)
-      writeCookie(TOKEN_COOKIE, linkToken)
-      writeCookie(PERSON_COOKIE, bound.personnelId)
+      writeCookie(TOKEN_COOKIE, linkToken, FELD_COOKIE_SCOPE)
+      writeCookie(PERSON_COOKIE, bound.personnelId, FELD_COOKIE_SCOPE)
       setViewMode('assignments')
       loadAssignments(bound.personnelId, { token: linkToken })
       setLoading(false)
@@ -745,8 +731,8 @@ function FeldSurface() {
     try {
       const claim = await apiClient.claimFeldPerson(token, person.personnel_id)
       setDeviceToken(claim.token)
-      writeCookie(TOKEN_COOKIE, claim.token)
-      writeCookie(PERSON_COOKIE, person.personnel_id)
+      writeCookie(TOKEN_COOKIE, claim.token, FELD_COOKIE_SCOPE)
+      writeCookie(PERSON_COOKIE, person.personnel_id, FELD_COOKIE_SCOPE)
       // Readable from /reko too, so the form keeps saying who is filing.
       writeFeldName(person.name)
       setSelectedPerson(person)
@@ -800,7 +786,7 @@ function FeldSurface() {
     }
     setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
-    writeCookie(INCIDENT_COOKIE, assignment.incident_id)
+    writeCookie(INCIDENT_COOKIE, assignment.incident_id, FELD_COOKIE_SCOPE)
   }, [token, selectedPerson, router])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
@@ -809,7 +795,7 @@ function FeldSurface() {
   const leaveAssignment = useCallback(() => {
     setViewMode('assignments')
     setSelectedIncidentId(null)
-    clearCookie(INCIDENT_COOKIE)
+    clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
   }, [])
 
   // (The person is no longer restored from the picker: since plan 26 a returning
@@ -829,7 +815,7 @@ function FeldSurface() {
     // Gone from the list (reassigned, event over, wrong person on this phone):
     // forget it rather than leave a pointer to a page we cannot show.
     if (!assignments.some(a => a.incident_id === savedId)) {
-      clearCookie(INCIDENT_COOKIE)
+      clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
       return
     }
     setSelectedIncidentId(savedId)
