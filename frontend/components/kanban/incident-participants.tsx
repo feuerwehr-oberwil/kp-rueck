@@ -65,13 +65,12 @@ export function IncidentParticipants({
   // Refetch when the incident changes under a panel that stays mounted, and on
   // every mount: the tab can sit open on a running incident for an hour, and a
   // crew list that quietly stopped updating is worse than one that takes a
-  // moment to appear.
+  // moment to appear. (`load` changes exactly when `incidentId` does.)
   useEffect(() => {
     setParticipants(null)
     setFailed(false)
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incidentId])
+  }, [load])
 
   // No card and no hairline under the heading («Nur Abstand») — the heading
   // names the block, whitespace does the separating, same as the timeline

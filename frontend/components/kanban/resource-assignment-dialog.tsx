@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
@@ -807,48 +808,48 @@ export function ResourceAssignmentDialog({
   // resource type — the same action as clicking it. The onAssign*/onRemove*
   // callbacks are wired by the parent, so in route-assign mode this assigns to the
   // Auftrag (via assignResource) exactly like clicking, not to a single incident.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
-      const target = e.target as HTMLElement | null
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
-      // The compact «Filtern» menu has type-ahead of its own.
-      if (target?.closest?.('[role="menu"]')) return
-      if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
-      const idx = Number(e.key) - 1
-      // Indexed in the order the grid DRAWS them (free block, then the
-      // spoken-for block) — «3» has to be the third tile on screen.
-      if (resourceType === "vehicles") {
-        const v = vehicleSections.ordered[idx]
-        if (v) {
-          e.preventDefault()
-          handleToggleVehicle(v)
-        }
-      } else if (resourceType === "crew") {
-        const p = crewSections.ordered[idx]
-        if (p) {
-          e.preventDefault()
-          handleTogglePersonSelection(p)
-        }
-      } else if (resourceType === "materials") {
-        const flat = [
-          ...groupedFilteredMaterials.groups.flatMap((g) => g.materials),
-          ...ungroupedMaterialSections.free,
-          ...ungroupedMaterialSections.busy,
-        ]
-        const m = flat[idx]
-        if (m) {
-          e.preventDefault()
-          handleToggleMaterialSelection(m)
-        }
+  // An effect event, so a key always sees the lists and handlers of the latest render.
+  const onNumberKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+    const target = e.target as HTMLElement | null
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+    // The compact «Filtern» menu has type-ahead of its own.
+    if (target?.closest?.('[role="menu"]')) return
+    if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
+    const idx = Number(e.key) - 1
+    // Indexed in the order the grid DRAWS them (free block, then the
+    // spoken-for block) — «3» has to be the third tile on screen.
+    if (resourceType === "vehicles") {
+      const v = vehicleSections.ordered[idx]
+      if (v) {
+        e.preventDefault()
+        handleToggleVehicle(v)
+      }
+    } else if (resourceType === "crew") {
+      const p = crewSections.ordered[idx]
+      if (p) {
+        e.preventDefault()
+        handleTogglePersonSelection(p)
+      }
+    } else if (resourceType === "materials") {
+      const flat = [
+        ...groupedFilteredMaterials.groups.flatMap((g) => g.materials),
+        ...ungroupedMaterialSections.free,
+        ...ungroupedMaterialSections.busy,
+      ]
+      const m = flat[idx]
+      if (m) {
+        e.preventDefault()
+        handleToggleMaterialSelection(m)
       }
     }
+  })
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => onNumberKey(e)
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-    // Handlers are stable enough within an open session; lists gate the indexing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, resourceType, filteredVehicles, sortedFilteredPersonnel, groupedFilteredMaterials])
+  }, [open])
 
   // Commit changes when "Fertig" is clicked (for crew and materials)
   const handleConfirm = () => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -224,13 +225,12 @@ export default function PhotoUpload({
     commitQueue(queueRef.current.map(item => (item.id === id ? { ...item, state } : item)))
   }, [commitQueue])
 
-  // Revoke all blob URLs on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      localPreviews.forEach(url => URL.revokeObjectURL(url))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Revoke all blob URLs on unmount to prevent memory leaks. Through an effect event: a plain
+  // mount-only cleanup closed over the first render's map, which is always empty.
+  const revokePreviews = useEffectEvent(() => {
+    localPreviews.forEach(url => URL.revokeObjectURL(url))
+  })
+  useEffect(() => () => revokePreviews(), [])
 
   // Whether this phone has a network. Only used to word the waiting state: a
   // cellar is not a fault, and the queue behaves the same either way.
@@ -381,6 +381,9 @@ export default function PhotoUpload({
    * carries an image — a pasted address still lands in the field under the
    * cursor.
    */
+  // `handleFileUpload` is a plain function redeclared every render: the listener reaches the
+  // current one through an effect event instead of re-subscribing on every render.
+  const uploadPasted = useEffectEvent((images: File[]) => void handleFileUpload(images))
   useEffect(() => {
     if (!dense || disabled) return
     const onPaste = (event: ClipboardEvent) => {
@@ -389,14 +392,10 @@ export default function PhotoUpload({
       )
       if (images.length === 0) return
       event.preventDefault()
-      void handleFileUpload(images)
+      uploadPasted(images)
     }
     document.addEventListener('paste', onPaste)
     return () => document.removeEventListener('paste', onPaste)
-    // `handleFileUpload` is a plain function redeclared every render; it reads
-    // only refs and stable callbacks, so re-subscribing on every render would
-    // buy nothing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dense, disabled])
 
   /** «Nochmals senden» on the one photo that did not make it. */

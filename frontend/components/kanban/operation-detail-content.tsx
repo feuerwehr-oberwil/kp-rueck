@@ -2,6 +2,7 @@
 
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -335,6 +336,10 @@ export function OperationDetailContent({
       }
     : null
 
+  // The three effects below are triggered by the incident or by `openOnTab` (whose nonce makes
+  // a repeat click a new event) and READ the tab it asks for – never depend on it.
+  const currentRequestedTab = useEffectEvent(() => requestedTab)
+
   useEffect(() => {
     setShowDeleteConfirm(false)
     setRekoDialogOpen(false)
@@ -345,11 +350,10 @@ export function OperationDetailContent({
     // A notification's tab outranks the memory: the operator clicked one
     // specific thing. `setTab`, never `selectTab` — this must not be written
     // back, or one bell click would repoint the card for good.
-    setTab(requestedTab ?? readRememberedTab(operation.id) ?? 'overview')
     // openOnTab is read, not depended on: it must not re-run this reset on its
     // own — the effect below owns that, and doing it here as well would fight
     // an operator who switched tabs after arriving.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setTab(currentRequestedTab() ?? readRememberedTab(operation.id) ?? 'overview')
   }, [selectedEvent?.id, operation.id])
 
   // A second (or third) click on the same notification. The panel keeps this
@@ -357,8 +361,8 @@ export function OperationDetailContent({
   // — and "take me to the thing you just told me about" has to work every time,
   // not only the first. The nonce is what makes a repeat click a new event.
   useEffect(() => {
-    if (requestedTab) setTab(requestedTab)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const tab = currentRequestedTab()
+    if (tab) setTab(tab)
   }, [openOnTab])
 
   /**
@@ -372,12 +376,11 @@ export function OperationDetailContent({
    * One frame late, so the tab set above has been rendered before we measure.
    */
   useEffect(() => {
-    if (openOnTab?.section !== 'resources' || requestedTab !== 'overview') return
+    if (openOnTab?.section !== 'resources' || currentRequestedTab() !== 'overview') return
     const frame = window.requestAnimationFrame(() => {
       resourcesRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     })
     return () => window.cancelAnimationFrame(frame)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnTab])
 
   /**

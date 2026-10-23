@@ -204,28 +204,24 @@ export function UserMenu({
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
-  const checkConnection = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/health`);
-      if (response.ok) {
-        setStatus("connected");
-      } else {
+  // One health poll for the whole mount (`apiUrl` is fixed at mount).
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/health`);
+        if (response.ok) {
+          setStatus("connected");
+        } else {
+          setStatus("disconnected");
+        }
+      } catch {
         setStatus("disconnected");
       }
-    } catch {
-      setStatus("disconnected");
-    }
-  };
-
-  // One health poll for the whole mount. `checkConnection` is a plain function
-  // re-created on every render; listing it as a dep would tear down and rebuild
-  // the 30s interval on every render.
-  useEffect(() => {
+    };
     checkConnection();
     const interval = setInterval(checkConnection, 30000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [apiUrl]);
 
   if (!isAuthenticated || !user) {
     return null;

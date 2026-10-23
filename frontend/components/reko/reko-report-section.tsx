@@ -36,6 +36,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -191,15 +192,14 @@ export default function RekoReportSection({
   // lands would give an amend an empty form. Keyed on the nonce so a second
   // deep link to the same incident opens it again — and so a later re-render
   // cannot re-open a form the operator has closed.
+  // `startEditing` is a plain function redeclared every render, read through an effect event.
   const openedForNonce = useRef<number | null>(null)
+  const startEditingFromLink = useEffectEvent(startEditing)
   useEffect(() => {
     if (openEditorNonce === undefined || !canEdit || isLoading) return
     if (openedForNonce.current === openEditorNonce) return
     openedForNonce.current = openEditorNonce
-    startEditing()
-    // `startEditing` is a plain function redeclared every render; the nonce guard
-    // above is what makes this run once per deep link.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    startEditingFromLink()
   }, [openEditorNonce, canEdit, isLoading])
 
   async function handleSave() {

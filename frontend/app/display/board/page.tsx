@@ -121,13 +121,14 @@ function BoardDisplay() {
   }, [operations])
 
   // Keep selected operation in sync with live data
+  const selectedOperationId = selectedOperation?.id
   useEffect(() => {
-    if (selectedOperation) {
-      const updated = operations.find(op => op.id === selectedOperation.id)
+    if (selectedOperationId) {
+      const updated = operations.find(op => op.id === selectedOperationId)
       if (updated) setSelectedOperation(updated)
       else setSelectedOperation(null) // operation was deleted
     }
-  }, [operations, selectedOperation?.id])
+  }, [operations, selectedOperationId])
 
   // Folding a column changes its width by hundreds of pixels, which shoves every
   // column after it sideways. «Abgeschlossen» lives at the far right, so the

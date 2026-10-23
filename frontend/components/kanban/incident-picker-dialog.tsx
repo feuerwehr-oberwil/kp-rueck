@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
 import type { Map as MlMap } from "maplibre-gl"
@@ -190,11 +191,13 @@ export function IncidentPickerDialog({
     [operations, targetGroupId],
   )
 
-  // Pre-select the route's current members whenever the dialog (re-)opens.
-  useEffect(() => {
-    if (!open) return
+  // Pre-select the route's current members whenever the dialog (re-)opens – the board as it
+  // is then; a board update while it is open must not undo the operator's ticks.
+  const preselectMembers = useEffectEvent(() => {
     setSelected(new Set(operations.filter((op) => op.groupId === targetGroupId).map((op) => op.id)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  useEffect(() => {
+    if (open) preselectMembers()
   }, [open, targetGroupId])
 
   /**

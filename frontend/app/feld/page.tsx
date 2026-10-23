@@ -15,6 +15,7 @@
  */
 
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
@@ -541,8 +542,10 @@ function FeldSurface() {
 
   // The one decision on mount: has this device already been through the door?
   // A stored token means yes, and it goes straight to the list — the code is
-  // asked once per device, not once per visit.
-  useEffect(() => {
+  // asked once per device, not once per visit. Keyed on the link alone: the helpers it calls
+  // are read through an effect event, because re-running the door on every `loadAssignments`
+  // identity change would drag a crew back out of whatever they had navigated to.
+  const passDoor = useEffectEvent(() => {
     if (!linkToken) {
       setError(t('missingCode'))
       setLoading(false)
@@ -604,10 +607,8 @@ function FeldSurface() {
     return () => {
       alive = false
     }
-    // Mount only: re-running this on every `loadAssignments` identity change
-    // would drag a crew back out of whatever they had navigated to.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkToken, t])
+  })
+  useEffect(() => passDoor(), [linkToken])
 
   /**
    * Step 3 of the door: this device is that person from now on.

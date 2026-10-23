@@ -1,6 +1,15 @@
 {
-  "$comment": "Allowed ESLint WARNINGS per rule – checked by scripts/lint-ratchet.mjs (`pnpm lint`). Numbers only go down: `pnpm lint --tighten` lowers them after a fix; never raise one to make a new warning pass. The exhaustive-deps ones are each a behaviour decision (adding the dependency re-runs the effect), so they are capped, not silenced.",
-  "warnings": {
-    "react-hooks/exhaustive-deps": 12
+  "$comment": "Allowed ESLint WARNINGS and eslint-disable SUPPRESSIONS per rule – checked by scripts/lint-ratchet.mjs (`pnpm lint`). Numbers only go down: `pnpm lint --tighten` lowers them after a fix; never raise one to make a new warning or disable pass. An exhaustive-deps finding is a behaviour decision (adding the dependency re-runs the effect): «the latest X without re-running» is useEffectEvent, and a disable that stays says why on its own line (`// eslint-disable-next-line <rule> -- why`).",
+  "warnings": {},
+  "suppressed": {
+    "@next/next/no-img-element": 2,
+    "@typescript-eslint/no-empty-object-type": 1,
+    "@typescript-eslint/no-explicit-any": 4,
+    "@typescript-eslint/no-require-imports": 1,
+    "@typescript-eslint/no-unsafe-function-type": 6,
+    "no-console": 3,
+    "no-control-regex": 1,
+    "react-hooks/exhaustive-deps": 1,
+    "react-hooks/rules-of-hooks": 7
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
@@ -241,8 +242,10 @@ export default function RekoForm() {
     setFormData(dummyData)
   };
 
-  // Validate access and load existing data
-  useEffect(() => {
+  // Validate access and load existing data – once per link (incident, token, person); the
+  // helpers and `t` are read through an effect event, so nothing else can reload the form
+  // under the crew's typing.
+  const loadForm = useEffectEvent(() => {
     async function init() {
       if (!incidentId || !token) {
         setLinkInvalid(true)
@@ -321,7 +324,8 @@ export default function RekoForm() {
     }
 
     init()
-  }, [incidentId, token, personnelId])
+  })
+  useEffect(() => loadForm(), [incidentId, token, personnelId])
 
   // Save to localStorage on every form change for offline resilience
   useEffect(() => {
@@ -330,16 +334,18 @@ export default function RekoForm() {
     saveToLocalStorage(formData)
   }, [formData, localStorageLoaded, isLoading, saveToLocalStorage])
 
+  const autosave = useEffectEvent(() => void saveDraft())
   // Auto-save draft to server every 30 seconds (backup to server).
   // Stops as soon as submission starts so no late draft-save races the submit.
   useEffect(() => {
     if (!incidentId || !token || isLoading || isSubmitting) return
 
     const interval = setInterval(() => {
-      saveDraft()
+      autosave()
     }, 30000)
 
     return () => clearInterval(interval)
+    // `formData` restarts the timer: a draft goes 30 s after the last change.
   }, [formData, incidentId, token, isLoading, isSubmitting])
 
   const saveDraft = useCallback(async () => {

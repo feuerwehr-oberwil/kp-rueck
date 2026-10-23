@@ -505,6 +505,8 @@ jobs:
       # that dropped below its number fails too until `pnpm lint --tighten` writes the lower
       # count — so a fixed warning cannot quietly come back. The script prints the per-rule
       # counts and says which of those cases it is; raising a number is never the fix.
+      # `eslint-disable` comments are counted the same way, per rule (FE-08): a disable makes no
+      # warning, so without that a new one slipped past the cap.
       - name: Run ESLint
         run: pnpm lint
 
