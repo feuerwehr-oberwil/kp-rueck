@@ -464,7 +464,7 @@ export function isOverdue(
 
 /** Where a status sits in the board's column order — the one place that knows
  *  «später» means «weiter rechts». -1 for a status no column carries. */
-export function statusColumnIndex(status: OperationStatus): number {
+function statusColumnIndex(status: OperationStatus): number {
   return columns.findIndex((column) => column.status.includes(status))
 }
 
