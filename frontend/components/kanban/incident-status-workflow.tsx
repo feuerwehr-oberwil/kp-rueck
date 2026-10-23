@@ -1078,8 +1078,11 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* «Nicht verschieben», not «Abbrechen»: the card goes back where it came from
+          (Esc too), and the text says the move has NOT happened yet. Wide enough for
+          the three answers on one row in German. */}
       <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoMissing()}>
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Binoculars className="h-5 w-5 text-primary" />
@@ -1097,7 +1100,7 @@ export function IncidentStatusWorkflowDialogs({
               {tReko("proceedAnyway")}
             </Button>
             <Button variant="outline" onClick={controller.cancelRekoMissing}>
-              {tCommon("cancel")}
+              {tReko("dontMove")}
             </Button>
             <Button onClick={() => {
               const operation = controller.rekoMissingOperation
@@ -1110,7 +1113,8 @@ export function IncidentStatusWorkflowDialogs({
       </AlertDialog>
 
       <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoFormMissing()}>
-        <AlertDialogContent>
+        {/* xl: three answers on one row in German, like the Reko gate above. */}
+        <AlertDialogContent className="sm:max-w-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-primary" />
