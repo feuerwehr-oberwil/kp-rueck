@@ -112,6 +112,10 @@ export function LocationInput({
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
+  // The suggestion list — a blur INTO it is a pick in progress, not leaving the field.
+  const optionsRef = useRef<HTMLDivElement>(null)
+  // A mouse press that focuses the field: its mouse-up must not undo the select-all.
+  const focusingClickRef = useRef(false)
   const initialAddressRef = useRef(address)
   const addressChangedRef = useRef(false)
   const geocodeInputsRef = useRef({ address, latitude, longitude, onCoordinatesChange })
@@ -153,6 +157,20 @@ export function LocationInput({
   useEffect(() => {
     if (!editing) setAddressSearchQuery(address ?? "")
   }, [address, editing])
+
+  // The host EMPTIED the address (a form reset): the field empties too, even while it has
+  // the focus. «Erstellen und nächsten erfassen» by Ctrl ↵ focuses the Ort in the same batch
+  // as its reset, so `editing` was already true and the previous call's address stayed in the
+  // field — and went onto the next card with a Tab and a create.
+  const previousAddressRef = useRef(address)
+  useEffect(() => {
+    const before = previousAddressRef.current
+    previousAddressRef.current = address
+    if ((before ?? "").trim() && !(address ?? "").trim()) {
+      setAddressSearchQuery("")
+      setAddressSearchOpen(false)
+    }
+  }, [address])
 
   const denseRow = dense && !stackedOnPhone
 
@@ -303,9 +321,11 @@ export function LocationInput({
       return
     }
     if (event.key === "Enter") {
-      // Inside a form, Enter must pick the address rather than submit it.
+      // Inside a form, Enter must pick the address rather than submit it. With no row
+      // highlighted it commits the typed text — never «the first hit», which for a street
+      // the geocoder ranks nationwide was the same name 130 km away.
       event.preventDefault()
-      const picked = addressResults[activeIndex >= 0 ? activeIndex : 0]
+      const picked = activeIndex >= 0 ? addressResults[activeIndex] : undefined
       if (picked) handleAddressSelect(picked)
       else commitFreetext(addressSearchQuery)
     }
@@ -468,6 +488,17 @@ export function LocationInput({
                     setAddressSearchQuery(e.target.value)
                     setAddressSearchOpen(true)
                   }}
+                  onMouseDown={(e) => {
+                    focusingClickRef.current = document.activeElement !== e.currentTarget
+                  }}
+                  onMouseUp={(e) => {
+                    // The click that focuses keeps the select-all from onFocus — without this
+                    // its mouse-up drops the caret mid-text, and the next address is typed INTO
+                    // the old one («Bahnhofstrasse 22 3904 NSWEEP…aters»). Later clicks place
+                    // the caret as usual.
+                    if (focusingClickRef.current) e.preventDefault()
+                    focusingClickRef.current = false
+                  }}
                   onFocus={(e) => {
                     setEditing(true)
                     // Only reopen the list when there is something to search for.
@@ -477,14 +508,17 @@ export function LocationInput({
                     if (addressSearchQuery.trim()) setAddressSearchOpen(true)
                     e.target.select()
                   }}
-                  onBlur={() => {
+                  onBlur={(e) => {
+                    // Focus moving into the suggestion list is a pick in progress: that
+                    // pick commits, not the half-typed query behind it. (The rows keep
+                    // the focus in the field on mousedown, so this is the rare path.)
+                    if (optionsRef.current?.contains(e.relatedTarget as Node | null)) return
                     setEditing(false)
-                    // Leaving the field with text nobody committed: take it as
-                    // freetext rather than silently throwing it away. Skipped
-                    // while the list is open, because that blur is a click on a
-                    // result — and that result must win, not the half-typed
-                    // query behind it.
-                    if (!addressSearchOpen && addressSearchQuery.trim() !== (address ?? "").trim()) {
+                    // Leaving the field with text nobody committed — a tap on «Einsatz
+                    // erstellen», «Weiter», the next field, anywhere — takes it as freetext
+                    // rather than silently throwing it away. With the list open too: on a
+                    // phone it is open the whole time one types.
+                    if (addressSearchQuery.trim() !== (address ?? "").trim()) {
                       commitFreetext(addressSearchQuery)
                     }
                   }}
@@ -539,7 +573,7 @@ export function LocationInput({
                 {/* data-testid is the contract for the E2E page object: an option is
                     either a geocoded result row or the «…» übernehmen freetext
                     fallback, and clicking either commits the address. */}
-                <div id="location-options" data-testid="location-options" className="overflow-y-auto overscroll-contain max-h-[260px]">
+                <div id="location-options" ref={optionsRef} data-testid="location-options" className="overflow-y-auto overscroll-contain max-h-[260px]">
                   {/* One type scale for the whole dropdown: an option title is
                       text-sm, everything secondary (coordinates, hints, status
                       lines) is text-xs. The popover itself sets no font size,

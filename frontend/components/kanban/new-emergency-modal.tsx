@@ -436,8 +436,10 @@ export function NewEmergencyModal({
     </>
   )
 
+  // «Abbrechen» throws the call away: the next «Neuer Einsatz» opens empty. (✕, Esc and the
+  // phone's swipe only close — what was typed stays for the next open, see PHONE below.)
   const cancelButton = (
-    <Button variant="outline" onClick={() => onOpenChange(false)}>
+    <Button variant="outline" onClick={resetAndClose}>
       {t('common.cancel')}
     </Button>
   )
