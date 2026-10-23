@@ -1,16 +1,38 @@
-"""Training emergency auto-generation service."""
+"""Training emergency auto-generation, and the simulated field work of the Übungssteuerung."""
 
 import logging
 import random
-from typing import Literal
+from io import BytesIO
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
+from fastapi import Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DiveraEmergency, EmergencyTemplate, Incident, Notification, Setting, TrainingLocation
+from app.crud import feld as feld_crud
+from app.models import (
+    DiveraEmergency,
+    EmergencyTemplate,
+    Incident,
+    IncidentAssignment,
+    IncidentGroupAssignment,
+    Material,
+    Notification,
+    Personnel,
+    Setting,
+    TrainingLocation,
+    User,
+)
+from app.schemas import RapportUpdate, SimulateRapportResponse
 from app.services import notification_params
-from app.services.training_simulation_data import generate_intake_caller, vary_dispatch_numbers
+from app.services.training_photos import pick_pool_photos
+from app.services.training_simulation_data import (
+    RAPPORT_SIM_PROFILE,
+    generate_intake_caller,
+    generate_rapport_data,
+    vary_dispatch_numbers,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -415,3 +437,191 @@ async def generate_training_divera_emergency(
 
     generator = TrainingGenerator(db)
     return await generator.generate_pool_emergency(event_id, category, settings)
+
+
+# ---------------------------------------------------------------------------
+# Simulated field work, for the Übungssteuerung's injects (api/training_simulate.py)
+# ---------------------------------------------------------------------------
+
+
+async def has_vehicle(db: AsyncSession, incident: Incident) -> bool:
+    """Is a vehicle actually with this crew — directly or through its Auftrag?
+
+    An Auftrag owns its resources for every stop, so a stop with no assignment
+    row of its own can still have a vehicle standing in front of it. Getting
+    this wrong would strand a squad that has its Pio parked next to it.
+    """
+    direct = await db.execute(
+        select(IncidentAssignment.id)
+        .where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "vehicle",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    if direct.first() is not None:
+        return True
+    if incident.group_id is None:
+        return False
+    grouped = await db.execute(
+        select(IncidentGroupAssignment.id)
+        .where(
+            IncidentGroupAssignment.incident_group_id == incident.group_id,
+            IncidentGroupAssignment.resource_type == "vehicle",
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+        .limit(1)
+    )
+    return grouped.first() is not None
+
+
+def stranded_pickup_note(incident: Incident) -> str:
+    """Why this crew is stuck, in the words the field would use.
+
+    Two situations cover practically every real pickup: the Trupp walked there,
+    or the vehicle that brought them drove on to the next Schadenplatz.
+    """
+    return "Trupp zu Fuss vor Ort" if incident.zu_fuss else "Fahrzeug ist weitergefahren"
+
+
+async def simulated_material_units(db: AsyncSession, incident_id: UUID) -> list[dict[str, Any]]:
+    """The checklist rows to answer, with the ``type`` the bucket rule needs.
+
+    Released units included, the same as the real prefill: a pump that came back
+    early still belongs in the record. ``Material.type`` is a
+    station-configurable free string, which is why it travels to the generator
+    instead of being mapped to an enum on the way.
+    """
+    result = await db.execute(
+        select(IncidentAssignment.id, Material.name, Material.type, Material.consumable)
+        .join(Material, Material.id == IncidentAssignment.resource_id)
+        .where(
+            IncidentAssignment.incident_id == incident_id,
+            IncidentAssignment.resource_type == "material",
+        )
+        .order_by(Material.location_sort_order, Material.name)
+    )
+    return [
+        {"assignment_id": assignment_id, "name": name, "type": material_type, "consumable": consumable}
+        for assignment_id, name, material_type, consumable in result.all()
+    ]
+
+
+async def simulated_filer(
+    db: AsyncSession,
+    incident: Incident,
+    current_user: User,
+    rng: random.Random,
+) -> feld_crud.FieldActor:
+    """Who files this simulated rapport (§16.1): the EL 70 %, someone else 30 %.
+
+    The leader comes from ``services.incident_leader`` through
+    ``get_incident_leaders``, never from the raw ``is_leader`` flag — a
+    completed incident has no active leader row left, and completed incidents
+    are exactly the ones this inject exists for.
+
+    An incident with nobody assigned falls back to the editor, which renders as
+    "im KP erfasst". That is the truth of the situation and not worth faking.
+    """
+    leaders = await feld_crud.get_incident_leaders(db, [incident.id])
+    leader = leaders.get(incident.id)
+
+    crew_result = await db.execute(
+        select(Personnel.id, Personnel.name)
+        .join(IncidentAssignment, IncidentAssignment.resource_id == Personnel.id)
+        .where(
+            IncidentAssignment.incident_id == incident.id,
+            IncidentAssignment.resource_type == "personnel",
+        )
+        .order_by(Personnel.name)
+    )
+    crew = sorted({(row[0], row[1]) for row in crew_result.all()}, key=lambda entry: entry[1])
+    others = [entry for entry in crew if leader is None or entry[0] != leader[0]]
+
+    if leader is not None and (not others or rng.random() < RAPPORT_SIM_PROFILE.filed_by_leader):
+        return feld_crud.FieldActor(personnel_id=leader[0], personnel_name=leader[1])
+    if others:
+        personnel_id, name = rng.choice(others)
+        return feld_crud.FieldActor(personnel_id=personnel_id, personnel_name=name)
+    return feld_crud.FieldActor(user=current_user)
+
+
+async def attach_simulated_rapport_photos(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    actor: feld_crud.FieldActor,
+    request: Request,
+) -> int:
+    """Put 0-2 curated scene photos on the Schadenplatz-Rapport; returns how many.
+
+    The same offline pool the simulated Reko reports draw from
+    (``services/training_photos``), but through ``crud.feld.add_photo`` rather
+    than the storage service directly: a rapport photo carries its own audit
+    entry and its own ``updated_by``, and going around that door would leave a
+    file on the report that nobody filed. So the exercise shows the KP a rapport
+    photo that is indistinguishable from a crew's.
+
+    Degrades to fewer or no photos on any per-file failure — a stripped or
+    unreadable pool must never break the inject.
+    """
+    attached = 0
+    for path in pick_pool_photos(incident.type):
+        try:
+            upload = UploadFile(file=BytesIO(path.read_bytes()), filename=path.name)
+            await feld_crud.add_photo(db, incident, actor=actor, file=upload, request=request)
+            attached += 1
+        except Exception as exc:  # a bad pool image is not a failed exercise
+            logger.warning("Skipping training pool photo %s for rapport: %s", path, exc)
+    return attached
+
+
+async def file_simulated_rapport(
+    db: AsyncSession,
+    incident: Incident,
+    *,
+    current_user: User,
+    rng: random.Random,
+    request: Request,
+) -> SimulateRapportResponse:
+    """Generate one plausible rapport and file it through the shared upsert.
+
+    Everything the KP feels — the card badge, "Material zurück – freigeben", the
+    Restliste, the Einsätze export — comes out of this one call, because it
+    is the same ``save_rapport`` an operator and a crew both reach.
+
+    Photos go on **before** the rapport is filed, which is the order a crew
+    works in: they photograph the Schadenplatz while filling the form.
+    """
+    actor = await simulated_filer(db, incident, current_user, rng)
+    photos = await attach_simulated_rapport_photos(db, incident, actor=actor, request=request)
+    view = await feld_crud.get_rapport(db, incident, actor=actor)
+    prefill = view["prefill"]
+    units = await simulated_material_units(db, incident.id)
+
+    data = generate_rapport_data(
+        incident_type=incident.type,
+        title=incident.title,
+        description=incident.description,
+        materials=units,
+        # The prefilled checklist itself, which is what a crew answers against.
+        # Only the rows the board dispatched (§18.33 put the whole fleet on the
+        # list): a simulated crew correcting the board by unticking is realistic,
+        # a simulated crew inventing a vehicle that was never sent is not.
+        vehicles=[{"vehicle_id": row["vehicle_id"]} for row in view["vehicles"] if row["on_board"]],
+        board_personnel_count=prefill["board_personnel_count"],
+        rng=rng,
+    )
+    saved = await feld_crud.save_rapport(db, incident, actor=actor, payload=RapportUpdate(**data), request=request)
+
+    ticked = sum(1 for row in saved["materials"] if row["used"] or row["left_on_site"])
+    return SimulateRapportResponse(
+        incident_id=incident.id,
+        incident_title=incident.title,
+        filed_by=actor.personnel_name,
+        vehicles_present=sum(1 for row in saved["vehicles"] if row["present"]),
+        materials_ticked=ticked,
+        photos=photos,
+        message=f"Rapport erfasst: {incident.location_address or incident.title}{actor.suffix}",
+    )

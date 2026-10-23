@@ -58,6 +58,8 @@ from .api.stats import router as stats_router
 from .api.sync import router as sync_router
 from .api.traccar import router as traccar_router
 from .api.training import router as training_router
+from .api.training_gps_sim import router as training_gps_sim_router
+from .api.training_simulate import router as training_simulate_router
 from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
 from .api.viewer import router as viewer_router
@@ -638,6 +640,8 @@ app.include_router(sync_router, prefix=settings.api_v1_prefix)
 app.include_router(traccar_router, prefix=settings.api_v1_prefix)
 app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)
+app.include_router(training_simulate_router, prefix=settings.api_v1_prefix)
+app.include_router(training_gps_sim_router, prefix=settings.api_v1_prefix)
 app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(viewer_router, prefix=settings.api_v1_prefix)
 app.include_router(weather_router, prefix=settings.api_v1_prefix)
