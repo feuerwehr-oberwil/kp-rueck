@@ -450,7 +450,12 @@
     @apply text-lg;
   }
 
-  /* Improved focus states for accessibility */
+  /* THE focus style: a crisp 2px slate outline with a 2px gap. Button, Input,
+     Select, Textarea, Checkbox and Switch (components/ui) draw no focus style of
+     their own and rely on this rule – they used to add a soft 3px ring halo, so
+     tabbing across the top bar alternated between two languages (sweep
+     2026-10, VISUAL-09). The outline is the one that survives the Hoch card's
+     `priority-high-pulse`, which animates box-shadow and would eat a ring. */
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
