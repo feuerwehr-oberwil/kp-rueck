@@ -144,7 +144,7 @@ async def assign_resource(
     if resource_type == "personnel":
         await sync_auto_leader(db, incident_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(assignment)
 
     return assignment
@@ -225,7 +225,7 @@ async def update_assignment(
         await db.flush()
         await sync_auto_leader(db, assignment.incident_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(assignment)
     return schemas.AssignmentResponse.model_validate(assignment)
 
@@ -706,7 +706,7 @@ async def transfer_assignments(
     await sync_auto_leader(db, source_incident_id)
     await sync_auto_leader(db, target_incident_id)
 
-    await db.commit()
+    await db.flush()
 
     return {
         "transferred_count": len(new_assignment_ids),

@@ -174,7 +174,7 @@ extend-immutable-calls = [
 "app/services/training.py" = ["S311"]
 "app/services/training_simulation_data.py" = ["S311"]
 "app/services/training_photos.py" = ["S311"]
-"app/api/training.py" = ["S311"]
+"app/api/training_simulate.py" = ["S311"]
 "app/seed_training.py" = ["S311"]
 
 [tool.mypy]

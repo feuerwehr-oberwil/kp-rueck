@@ -80,6 +80,10 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
   injected too.
 - Lifecycle goes in the `lifespan` context, never the deprecated startup/shutdown events.
 - SQLAlchemy 2.0 mapped-column syntax; full type hints.
+- **CRUD and services flush, the request commits** (once, before the response – `commit_request`).
+  Anything a board or another session reacts to goes out after the commit: `after_commit(db, …)`
+  or a background task. Every other explicit commit says why beside it. The rule: above `get_db`
+  in `backend/app/database.py`.
 
 ### Frontend (Next.js)
 

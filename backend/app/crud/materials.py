@@ -245,7 +245,7 @@ async def create_material(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(material)
     return material
 
@@ -307,7 +307,7 @@ async def update_material(
             request=request,
         )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(material)
     return material
 
@@ -350,7 +350,7 @@ async def archive_material(
             changes={"name": material.name, "archived_at": material.archived_at.isoformat()},
             request=request,
         )
-        await db.commit()
+        await db.flush()
         await db.refresh(material)
 
     return material
@@ -382,7 +382,7 @@ async def restore_material(
             changes={"name": material.name},
             request=request,
         )
-        await db.commit()
+        await db.flush()
         await db.refresh(material)
 
     return material
@@ -435,5 +435,5 @@ async def purge_material(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
     return PurgeOutcome(purged=True, name=name, usage=usage)

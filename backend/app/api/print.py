@@ -742,7 +742,7 @@ async def claim_print_job(
         # Lost the race, or it was never claimable. Either way the agent must not print it.
         raise HTTPException(status_code=409, detail=f"Druckauftrag wartet nicht (Status: {job.status})")
 
-    await db.commit()
+    await db.flush()
     await db.refresh(job)
 
     # The claim is the only proof the agent is alive and took this particular job.
@@ -799,7 +799,7 @@ async def complete_print_job(
         # survives a printer that is merely rebooting. See PrintJobUpdate.retryable.
         job.retry_count += 1
 
-    await db.commit()
+    await db.flush()
     await db.refresh(job)
 
     # The whole point: a failure with "Papier leer" has to reach the person who is
@@ -824,6 +824,5 @@ async def delete_print_job(
         raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     await db.delete(job)
-    await db.commit()
 
     logger.info(f"Print job {job_id} deleted by user {current_user.username}")

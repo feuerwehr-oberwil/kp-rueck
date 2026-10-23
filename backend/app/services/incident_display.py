@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from .pdf_report_service import format_location_for_display
+from .address_display import format_location_for_display
 from .settings import get_setting_value
 
 

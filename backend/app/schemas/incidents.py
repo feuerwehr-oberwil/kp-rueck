@@ -68,7 +68,77 @@ class IncidentStatus(str, Enum):
     COMPLETE = "complete"
 
 
-class IncidentBase(BaseModel):
+def check_free_text(v: str | None) -> str | None:
+    """A free-text column (Meldung, Notizen): at most 2000 characters, stripped."""
+    if v and len(v) > 2000:
+        raise ValueError("Description must be 2000 characters or less")
+    return v.strip() if v else v
+
+
+class LocationFields(BaseModel):
+    """The coordinate checks every incident-shaped schema shares.
+
+    Validators only (`check_fields=False`): each schema declares `location_lat` and
+    `location_lng` itself, so its own field order – and the OpenAPI document – stay as they
+    are. Inherit it rather than re-registering the validators by hand.
+    """
+
+    @field_validator("location_lat", check_fields=False)
+    @classmethod
+    def validate_latitude(cls, v: str | Decimal | None) -> str | Decimal | None:
+        """Validate latitude is within valid range."""
+        if v is not None:
+            try:
+                lat_val = float(str(v))
+                if not -90 <= lat_val <= 90:
+                    raise ValueError("Latitude must be between -90 and 90 degrees")
+            except (ValueError, TypeError) as e:
+                if "Latitude must be between" not in str(e):
+                    raise ValueError("Invalid latitude value") from e
+                raise
+        return v
+
+    @field_validator("location_lng", check_fields=False)
+    @classmethod
+    def validate_longitude(cls, v: str | Decimal | None) -> str | Decimal | None:
+        """Validate longitude is within valid range."""
+        if v is not None:
+            try:
+                lng_val = float(str(v))
+                if not -180 <= lng_val <= 180:
+                    raise ValueError("Longitude must be between -180 and 180 degrees")
+            except (ValueError, TypeError) as e:
+                if "Longitude must be between" not in str(e):
+                    raise ValueError("Invalid longitude value") from e
+                raise
+        return v
+
+
+class IncidentFields(LocationFields):
+    """`LocationFields` plus the title and the Meldung (`description`) checks.
+
+    For the schemas that create or correct a whole incident; a schema that only takes
+    coordinates (`FeldIncidentUpdate`) inherits `LocationFields` alone.
+    """
+
+    @field_validator("title", check_fields=False)
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        """Validate incident title."""
+        if not v or not v.strip():
+            raise ValueError("Title cannot be empty")
+        if len(v) > 200:
+            raise ValueError("Title must be 200 characters or less")
+        return v.strip()
+
+    @field_validator("description", check_fields=False)
+    @classmethod
+    def validate_description(cls, v: str | None) -> str | None:
+        """Validate description length if provided."""
+        return check_free_text(v)
+
+
+class IncidentBase(IncidentFields):
     """Base incident schema."""
 
     title: str
@@ -91,54 +161,6 @@ class IncidentBase(BaseModel):
     # an incident already attached to a route.
     group_id: UUID | None = None
 
-    @field_validator("title")
-    @classmethod
-    def validate_title(cls, v: str) -> str:
-        """Validate incident title."""
-        if not v or not v.strip():
-            raise ValueError("Title cannot be empty")
-        if len(v) > 200:
-            raise ValueError("Title must be 200 characters or less")
-        return v.strip()
-
-    @field_validator("location_lat")
-    @classmethod
-    def validate_latitude(cls, v: str | Decimal | None) -> str | Decimal | None:
-        """Validate latitude is within valid range."""
-        if v is not None:
-            try:
-                lat_val = float(str(v))
-                if not -90 <= lat_val <= 90:
-                    raise ValueError("Latitude must be between -90 and 90 degrees")
-            except (ValueError, TypeError) as e:
-                if "Latitude must be between" not in str(e):
-                    raise ValueError("Invalid latitude value") from e
-                raise
-        return v
-
-    @field_validator("location_lng")
-    @classmethod
-    def validate_longitude(cls, v: str | Decimal | None) -> str | Decimal | None:
-        """Validate longitude is within valid range."""
-        if v is not None:
-            try:
-                lng_val = float(str(v))
-                if not -180 <= lng_val <= 180:
-                    raise ValueError("Longitude must be between -180 and 180 degrees")
-            except (ValueError, TypeError) as e:
-                if "Longitude must be between" not in str(e):
-                    raise ValueError("Invalid longitude value") from e
-                raise
-        return v
-
-    @field_validator("description")
-    @classmethod
-    def validate_description(cls, v: str | None) -> str | None:
-        """Validate description length if provided."""
-        if v and len(v) > 2000:
-            raise ValueError("Description must be 2000 characters or less")
-        return v.strip() if v else v
-
 
 class IncidentCreate(IncidentBase):
     """Schema for creating incident."""
@@ -149,7 +171,7 @@ class IncidentCreate(IncidentBase):
     source: EditorIncidentSource = "operator"
 
 
-class PublicIncidentCreate(BaseModel):
+class PublicIncidentCreate(IncidentFields):
     """Lean schema for alarms created via the public token-gated intake form.
 
     Intentionally narrow: a phone operator / walk-in only provides the essentials.
@@ -177,17 +199,9 @@ class PublicIncidentCreate(BaseModel):
     contact_phone: str | None = None  # Direct phone number
     internal_notes: str | None = None  # «Notizen» — further hints from the call
 
-    # Reuse the shared validators from IncidentBase. `.__func__` unwraps the classmethod so it
-    # can be re-registered here; mypy sees the already-bound method and doesn't model the
-    # descriptor, hence the narrow ignores. The runtime behaviour is pydantic's documented way
-    # of sharing validators between models.
-    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
-    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
-    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
-    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
     # Same rule for the notes: free text through a login-less door needs the same
     # 2000-character cap, and the same strip, as the Meldung next to it.
-    _validate_notes = field_validator("internal_notes")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
+    _validate_notes = field_validator("internal_notes")(check_free_text)
 
 
 class IncidentUpdate(BaseModel):

@@ -80,7 +80,7 @@ async def create_event(
     db.add(event)
     await db.flush()
     await auftrag_templates_crud.instantiate_auto_templates(db, event.id, created_by)
-    await db.commit()
+    await db.flush()
     await db.refresh(event)
     return event
 
@@ -106,7 +106,7 @@ async def update_event(db: AsyncSession, event_id: uuid.UUID, event_data: schema
         setattr(event, field, value)
 
     event.updated_at = datetime.now(UTC)
-    await db.commit()
+    await db.flush()
     await db.refresh(event)
     return event
 
@@ -148,7 +148,7 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     from ..services.divera_responses import purge_event
 
     await purge_event(db, event_id)
-    await db.commit()
+    await db.flush()
     await db.refresh(event)
     return event
 
@@ -170,7 +170,7 @@ async def unarchive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None
 
     event.archived_at = None
     event.updated_at = datetime.now(UTC)
-    await db.commit()
+    await db.flush()
     await db.refresh(event)
     return event
 
@@ -250,7 +250,7 @@ async def delete_event(
 
     # Cascade delete will handle all related incidents, assignments, etc.
     await db.delete(event)
-    await db.commit()
+    await db.flush()
     return True
 
 

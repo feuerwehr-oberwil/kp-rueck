@@ -400,7 +400,7 @@ async def update_sync_config(
             user_id=current_user.id,
         )
 
-    await db.commit()
+    await db.flush()
 
     return await get_sync_config(current_user, db)
 

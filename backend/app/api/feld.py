@@ -60,7 +60,7 @@ from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..crud.feld.melden import never_left_the_window
-from ..database import get_db
+from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import duplicates, incident_display, notification_service
@@ -404,6 +404,9 @@ async def unlock_feld(
                 settings.feld_code_max_failed_attempts,
             )
             await notification_service.create_feld_code_rotated_notification(db, event)
+        # Committed here, not with the request: the count (and the KP's notice) must survive
+        # the 403 below, which rolls the request back.
+        await db.commit()
         # The failure that fills the counter answers "wait", not "wrong": the
         # code the crew types next is refused whatever it says, and telling
         # them it was wrong would send them looking for a better one.
@@ -937,22 +940,20 @@ async def report_new_incident(
 
     if merge_target is not None:
         target_response = await board_response(db, merge_target)
-        await broadcast_incident_update(target_response.model_dump(mode="json"), "update")
+        after_commit(db, broadcast_incident_update, target_response.model_dump(mode="json"), "update")
         return schemas.FeldIncidentCreated(incident_id=incident.id, takeover="none", merged_into=merge_target.id)
 
     # Sent as a new card — with «Trotzdem neu», without a pin, or from an older
     # page that never asked: the KP still gets told it may be the same
     # Schadenplatz, and decides on the board.
-    if await duplicates.flag_possible_duplicate(db, incident):
-        await db.commit()
-        await db.refresh(incident)
+    await duplicates.flag_possible_duplicate(db, incident)
 
     # Same broadcast + sync path as every other create, so the board moves
     # without a refresh and the card is not a ghost until somebody polls. The
     # payload is a dict and the action is «create», like every other sender:
     # this one used to pass the bare id string under «created», which no
     # listener could have read as an incident.
-    await broadcast_incident_update({"id": str(incident.id), "status": incident.status}, "create")
+    after_commit(db, broadcast_incident_update, {"id": str(incident.id), "status": incident.status}, "create")
 
     return schemas.FeldIncidentCreated(incident_id=incident.id, takeover=mode)
 
@@ -1008,7 +1009,7 @@ async def correct_own_report(
     updated = await crud.update_field_report(db, incident, person, payload, request)
     # The board is looking at this card right now — a correction that only lands
     # on the next poll is a correction the operator reads too late.
-    await broadcast_incident_update({"id": str(updated.id), "status": updated.status}, "update")
+    after_commit(db, broadcast_incident_update, {"id": str(updated.id), "status": updated.status}, "update")
 
     home_city = await incident_display.get_home_city(db)
     return schemas.FeldOwnReport(

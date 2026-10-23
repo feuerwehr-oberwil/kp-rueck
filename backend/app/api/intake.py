@@ -22,7 +22,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, field_validator
+from pydantic import field_validator
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,7 +35,7 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
-from ..schemas.incidents import IncidentBase, IncidentPriority, IncidentType
+from ..schemas.incidents import IncidentFields, IncidentPriority, IncidentType, check_free_text
 from ..services import duplicates, incident_display
 from ..services.audit import log_action
 from ..services.tokens import (
@@ -166,7 +166,6 @@ async def create_intake_alarm(
     # nothing is merged on their word. The card is flagged instead, and the KP
     # merges with one click if it is the same Schadenplatz.
     if await duplicates.flag_possible_duplicate(db, new_incident):
-        await db.commit()
         await db.refresh(new_incident)
 
     # Trigger immediate sync in background (event-based sync)
@@ -240,7 +239,7 @@ def append_reporter_note(existing: str | None, addition: str) -> str | None:
     return f"{existing}\n{INTAKE_NOTE_PREFIX}{text}"
 
 
-class IntakeAlarmUpdate(BaseModel):
+class IntakeAlarmUpdate(IncidentFields):
     """A correction to an alarm that has not been disponiert yet.
 
     Field-for-field ``FeldIncidentUpdate`` (`schemas/feld.py`), including its
@@ -279,12 +278,7 @@ class IntakeAlarmUpdate(BaseModel):
     contact: str | None = None
     contact_phone: str | None = None
 
-    # Same `__func__` unwrap as PublicIncidentCreate — see the note there.
-    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
-    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
-    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
-    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
-    _validate_notes = field_validator("internal_notes")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
+    _validate_notes = field_validator("internal_notes")(check_free_text)
 
 
 async def _authorized_intake_report(
@@ -526,7 +520,7 @@ async def correct_intake_alarm(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     # The board is looking at this card right now — a correction that only lands
