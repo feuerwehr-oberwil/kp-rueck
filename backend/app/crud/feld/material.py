@@ -22,11 +22,10 @@ from ...models import (
 )
 from ...schemas.feld import RapportMaterialDecision
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies, reko_not_relevant_ids
-from .rapport import (
-    _board_material_units,
+from .rapport import _board_material_units, _names
+from .rapport_reconcile import (
     _is_answered,
     _jsonable_materials,
-    _names,
     normalize_extra_materials,
     reconcile_materials,
 )
