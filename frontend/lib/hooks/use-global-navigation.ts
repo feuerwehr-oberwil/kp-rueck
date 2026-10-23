@@ -4,7 +4,8 @@ import { useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
-import { isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
+import { isOverlayOpen } from "@/lib/hooks/use-kanban-shortcuts"
+import { isTypingTarget } from "@/lib/typing-target"
 import { openCommandPalette } from "@/components/ui/command-palette"
 
 /**

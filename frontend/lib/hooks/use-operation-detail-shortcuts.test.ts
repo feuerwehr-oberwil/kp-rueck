@@ -198,6 +198,31 @@ describe("useOperationDetailShortcuts", () => {
     expect(onAssignVehicle).not.toHaveBeenCalled();
   });
 
+  it("leaves a <select> and an editor alone too – Shift+1 there is typing, not priority", () => {
+    renderHook(() =>
+      useOperationDetailShortcuts({
+        enabled: true,
+        operation: minimalOperation(),
+        availableVehicles,
+        onUpdate,
+        onAssignVehicle,
+        onRemoveVehicle,
+      }),
+    );
+    const select = document.createElement("select");
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "true");
+    const inEditor = document.createElement("span");
+    editor.appendChild(inEditor);
+    document.body.append(select, editor);
+    for (const target of [select, inEditor]) {
+      target.dispatchEvent(new KeyboardEvent("keydown", { key: "!", shiftKey: true, bubbles: true }));
+    }
+    select.remove();
+    editor.remove();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
   it("detaches the listener when enabled flips to false", () => {
     const initialProps = { enabled: true };
     const { rerender } = renderHook(

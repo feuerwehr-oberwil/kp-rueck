@@ -65,7 +65,8 @@ import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { Reveal } from "@/components/ui/reveal"
 // The board's shortcut hook owns the canonical "should this keystroke reach the
 // page?" rules; the map answers the same questions and reuses them.
-import { isActivationTarget, isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
+import { isActivationTarget, isOverlayOpen } from "@/lib/hooks/use-kanban-shortcuts"
+import { isTypingTarget } from "@/lib/typing-target"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"

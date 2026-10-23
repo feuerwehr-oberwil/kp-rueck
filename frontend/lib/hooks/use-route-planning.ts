@@ -29,6 +29,7 @@ import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { haversineKm, isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
+import { findVehiclePosition } from "@/lib/vehicle-positions"
 import {
   parseReportedAt,
   resolveRouteStart,
@@ -51,23 +52,6 @@ const DEFAULT_STATION: [number, number] = [47.51637699933488, 7.561800450458299]
 export interface OrderedStop {
   id: string
   op: Operation | undefined
-}
-
-/** Match a vehicle name against a Traccar device name (mirrors assignment-lines). */
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[\s\-_.]+/g, "")
-}
-
-function findVehiclePosition(vehicleName: string, positions: ApiVehiclePosition[]): ApiVehiclePosition | undefined {
-  const target = normalizeName(vehicleName)
-  const exact = positions.find((p) => p.device_name.toLowerCase() === vehicleName.toLowerCase())
-  if (exact) return exact
-  const normalized = positions.find((p) => normalizeName(p.device_name) === target)
-  if (normalized) return normalized
-  return positions.find((p) => {
-    const dev = normalizeName(p.device_name)
-    return dev.includes(target) || target.includes(dev)
-  })
 }
 
 export function useRoutePlanning(groupId: string | null | undefined) {

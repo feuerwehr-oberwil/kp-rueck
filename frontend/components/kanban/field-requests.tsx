@@ -26,7 +26,7 @@ import { apiClient, type ApiFieldRequest, type ApiFieldRequestKind } from '@/lib
 import type { Operation } from '@/lib/contexts/operations-context'
 import { assignTargetFor, fieldRequestLabel, fieldRequestStatusLabel, isOpenRequest } from '@/lib/field-requests'
 import { useFieldRequestActions } from '@/lib/hooks/use-field-requests'
-import { getActiveLocale } from '@/lib/i18n-messages'
+import { formatTime } from '@/lib/format-time'
 import { cn } from '@/lib/utils'
 
 /** How the assignment flow is opened — the board's own dialog, searched. */
@@ -39,13 +39,6 @@ const KIND_ICON: Record<ApiFieldRequestKind, typeof Package> = {
   message: MessageSquare,
 }
 
-function formatTime(value: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? ''
-    : date.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
-}
 
 /** offen = amber (it wants somebody), in Arbeit = slate, erledigt = quiet + ✓. */
 export function FieldRequestStatusChip({ request, className }: { request: ApiFieldRequest; className?: string }) {

@@ -31,17 +31,11 @@ import { Binoculars, MapPin, MessageSquareText, Package, Phone, TriangleAlert, T
 
 import { FeldSection } from '@/components/feld/feld-section'
 import type { ApiFeldAssignment, ApiFeldMaterialLine, ApiFeldVehicleLine } from '@/lib/api-client'
-import { getActiveLocale } from '@/lib/i18n-messages'
+import { formatTime } from '@/lib/format-time'
 
 /** The `DangersAssessment` keys the board renders badges for. */
 const DANGER_KEYS = ['fire', 'fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const
 
-function formatTime(value: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
-}
 
 /**
  * The Gefahren badges, in the board's own wording.
