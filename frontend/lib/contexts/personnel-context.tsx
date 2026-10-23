@@ -1,12 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react"
-import { toast } from "sonner"
-import { translateOutsideReact } from "@/lib/i18n-messages"
-import { apiClient, type ApiPersonnel } from "@/lib/api-client"
-import { isValidUUID } from "@/lib/utils/validation"
-import { useAuth } from "./auth-context"
-import { useEvent } from "./event-context"
+import { useContext } from "react"
+import { OperationsContext } from "./operations/contexts"
 
 // Types
 /**
@@ -54,117 +49,19 @@ export interface Person {
   checkedInAt?: string | null
 }
 
-interface PersonnelContextType {
-  personnel: Person[]
-  setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
-  isLoading: boolean
-  /**
-   * Fetch personnel from the API.
-   * @param options.skipStateUpdate When true, returns the list without writing
-   *   to local state — used by operations-context to avoid a flicker where
-   *   raw API personnel (duty-status-based) is briefly shown before the
-   *   reconciled event-scoped status is applied. The caller then owns the
-   *   state, so a failed fetch REJECTS instead of resolving to [].
-   */
-  refreshPersonnel: (options?: { skipStateUpdate?: boolean }) => Promise<Person[]>
-}
-
-const PersonnelContext = createContext<PersonnelContextType | undefined>(undefined)
-
-// Helper to convert API type to frontend type
-const apiPersonToPerson = (apiPerson: ApiPersonnel): Person => ({
-  id: String(apiPerson.id),
-  name: apiPerson.name,
-  role: apiPerson.role as PersonRole,
-  status: apiPerson.status === "unavailable" ? "unavailable" : "available",
-  tags: apiPerson.tags || [],
-  roleSortOrder: apiPerson.role_sort_order,
-  diveraLinked: apiPerson.divera_linked ?? false,
-  checkedInAt: apiPerson.checked_in_at ?? null,
-})
-
-export function PersonnelProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, loading: authLoading } = useAuth()
-  const { selectedEvent } = useEvent()
-  const [personnel, setPersonnel] = useState<Person[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  // Deduplicate the "failed to load" toast across a single outage —
-  // refreshPersonnel is called by both the kanban polling loop AND
-  // WebSocket update handlers, so a real network outage can fire it
-  // dozens of times per minute.
-  const hasShownLoadErrorRef = useRef(false)
-
-  const refreshPersonnel = useCallback(
-    async (options?: { skipStateUpdate?: boolean }): Promise<Person[]> => {
-      if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
-        if (!options?.skipStateUpdate) setPersonnel([])
-        return []
-      }
-
-      try {
-        setIsLoading(true)
-        const apiPersonnel = await apiClient.getAllPersonnel({
-          checked_in_only: true,
-          event_id: selectedEvent.id,
-        })
-        const personnelList = apiPersonnel.map(apiPersonToPerson)
-        if (!options?.skipStateUpdate) setPersonnel(personnelList)
-        hasShownLoadErrorRef.current = false
-        return personnelList
-      } catch (error) {
-        console.error("Failed to load personnel:", error)
-        if (!hasShownLoadErrorRef.current) {
-          hasShownLoadErrorRef.current = true
-          toast.error(translateOutsideReact('notifications.personnel.loadFailedTitle'), {
-            description: translateOutsideReact('notifications.personnel.loadFailedDescription'),
-          })
-        }
-        // The board (skipStateUpdate) owns the state and must see the failure:
-        // an empty list here would read as «nobody checked in» and strip every
-        // crew off every card on the next reload.
-        if (options?.skipStateUpdate) throw error
-        return []
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [selectedEvent],
-  )
-
-  // Load initial data
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) {
-      setIsLoading(false)
-      return
-    }
-
-    if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
-      setPersonnel([])
-      setIsLoading(false)
-      return
-    }
-
-    refreshPersonnel()
-  }, [authLoading, isAuthenticated, selectedEvent, refreshPersonnel])
-
-  return (
-    <PersonnelContext.Provider
-      value={{
-        personnel,
-        setPersonnel,
-        isLoading,
-        refreshPersonnel,
-      }}
-    >
-      {children}
-    </PersonnelContext.Provider>
-  )
-}
-
+/**
+ * The checked-in roster of the selected Ereignis, reconciled by the board load
+ * (who is on which Einsatz). A selector over the board provider – the roster is
+ * its state (`lib/contexts/operations/use-resource-lists.ts`), not a provider of
+ * its own any more.
+ *
+ * `refreshPersonnel()` writes the raw list (no board reconciliation) until the
+ * next board load – the attendance dialog uses it right after a check-in.
+ */
 export function usePersonnel() {
-  const context = useContext(PersonnelContext)
+  const context = useContext(OperationsContext)
   if (context === undefined) {
-    throw new Error("usePersonnel must be used within a PersonnelProvider")
+    throw new Error("usePersonnel must be used within an OperationsProvider")
   }
-  return context
+  return { personnel: context.personnel, refreshPersonnel: context.refreshPersonnel }
 }

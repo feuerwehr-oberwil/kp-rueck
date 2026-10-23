@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Notification, NotificationSettings } from '@/lib/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
@@ -11,7 +11,8 @@ import { useAuth } from '@/lib/contexts/auth-context'
 import { getApiUrl } from '@/lib/env'
 import { isValidUUID } from '@/lib/utils/validation'
 import { isStringArray, readItem, readJson, writeItem, writeJson } from '@/lib/utils/safe-storage'
-import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
+import { wsClient } from '@/lib/websocket-client'
+import { usePolling } from '@/lib/hooks/use-polling'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { dismissOutageToast, showOutageToast } from '@/lib/api/http'
@@ -105,6 +106,9 @@ const SIDEBAR_OPEN_KEY = 'notification-sidebar-open'
  */
 const UNAVAILABLE_TOAST_ID = 'notifications-unavailable'
 
+/** The empty bell, one array: setting it again bails out of the render. */
+const EMPTY_LIST: Notification[] = []
+
 /**
  * What one poll learned. A failed fetch is NOT an empty notification list —
  * collapsing the two is what let the panel claim all is well while the backend
@@ -115,6 +119,67 @@ type NotificationFetchResult =
   /** No event picked / not signed in yet — there is nothing to ask about. */
   | { status: 'skipped' }
   | { status: 'failed' }
+
+/**
+ * Fetch notification settings. `null` means "could not tell" — NOT "defaults".
+ * Handing back DEFAULT_NOTIFICATION_SETTINGS on a failed request silently
+ * overwrote the station's configuration (sound, thresholds) with ours, which
+ * is a wrong answer dressed up as a right one.
+ */
+async function fetchSettings(): Promise<NotificationSettings | null> {
+  try {
+    const apiUrl = getApiUrl()
+    const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      console.error('Failed to fetch notification settings:', response.statusText)
+      return null
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error fetching notification settings:', error)
+    return null
+  }
+}
+
+/** Two rows say the same thing – every field the bell, the sidebar or a toast reads. */
+function sameNotification(a: Notification, b: Notification): boolean {
+  return (
+    a.id === b.id &&
+    a.type === b.type &&
+    a.severity === b.severity &&
+    a.message === b.message &&
+    a.incident_id === b.incident_id &&
+    a.dismissed === b.dismissed &&
+    a.created_at.getTime() === b.created_at.getTime() &&
+    JSON.stringify(a.params ?? null) === JSON.stringify(b.params ?? null)
+  )
+}
+
+/**
+ * The next notification list, reusing `prev`'s row objects where a row did not
+ * change – and `prev` itself when none did. The poll and every
+ * `notification_update` hand over a freshly parsed array; without this, each one
+ * re-rendered all eleven consumers (bell, toasts, sidebar, board rows) even
+ * when it learned nothing. Same idea as `areOperationListsEqual` for the board.
+ */
+export function reconcileNotifications(prev: Notification[], next: Notification[]): Notification[] {
+  const byId = new Map(prev.map((n) => [n.id, n]))
+  let changed = prev.length !== next.length
+  const merged = next.map((n, i) => {
+    const old = byId.get(n.id)
+    if (old && sameNotification(old, n)) {
+      if (prev[i] !== old) changed = true
+      return old
+    }
+    changed = true
+    return n
+  })
+  return changed ? merged : prev
+}
 
 /** The context, or undefined outside a provider — for leaf components that a
  *  test (or a login-less page) renders without the whole provider tree. */
@@ -141,7 +206,7 @@ export function NotificationProvider({
 }: NotificationProviderProps) {
   const { selectedEvent } = useEvent()
   const { isAuthenticated, isEditor, loading: authLoading } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>(EMPTY_LIST)
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS)
   const [notificationsUnavailable, setNotificationsUnavailable] = useState(false)
   const [lastNotificationSyncAt, setLastNotificationSyncAt] = useState<Date | null>(null)
@@ -232,17 +297,19 @@ export function NotificationProvider({
     readJson(SEEN_NOTIFICATION_IDS_KEY, isStringArray, [])
   )
 
+  const eventId = selectedEvent?.id ?? null
+
   // Fetch notifications from backend
-  const fetchNotifications = async (): Promise<NotificationFetchResult> => {
+  const fetchNotifications = useCallback(async (): Promise<NotificationFetchResult> => {
     // Don't fetch if auth is loading, no event is selected, event ID is invalid, or user is not authenticated
-    if (authLoading || !selectedEvent || !isValidUUID(selectedEvent.id) || !isAuthenticated) {
+    if (authLoading || !eventId || !isValidUUID(eventId) || !isAuthenticated) {
       return { status: 'skipped' }
     }
 
     try {
       const apiUrl = getApiUrl()
       // Runs on a ~5s poll — stay quiet on the happy path, surface only real failures.
-      const response = await fetch(`${apiUrl}/api/notifications/?event_id=${selectedEvent.id}`, {
+      const response = await fetch(`${apiUrl}/api/notifications/?event_id=${eventId}`, {
         credentials: 'include',
       })
 
@@ -273,36 +340,11 @@ export function NotificationProvider({
       }
       return { status: 'failed' }
     }
-  }
-
-  /**
-   * Fetch notification settings. `null` means "could not tell" — NOT "defaults".
-   * Handing back DEFAULT_NOTIFICATION_SETTINGS on a failed request silently
-   * overwrote the station's configuration (sound, thresholds) with ours, which
-   * is a wrong answer dressed up as a right one.
-   */
-  const fetchSettings = async (): Promise<NotificationSettings | null> => {
-    try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        console.error('Failed to fetch notification settings:', response.statusText)
-        return null
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error fetching notification settings:', error)
-      return null
-    }
-  }
+  }, [authLoading, eventId, isAuthenticated])
 
   // Dismiss a notification. Editors only – the backend refuses a viewer, so for one
   // this (and dismissAll below) is a no-op rather than a 403 and an error toast.
-  const dismissNotification = async (id: string) => {
+  const dismissNotification = useCallback(async (id: string) => {
     if (!isEditor) return
     try {
       const apiUrl = getApiUrl()
@@ -329,10 +371,10 @@ export function NotificationProvider({
         description: translateOutsideReact('notifications.center.retryDescription'),
       })
     }
-  }
+  }, [isEditor])
 
   // Dismiss all active notifications
-  const dismissAllNotifications = async (except?: ReadonlySet<string>) => {
+  const dismissAllNotifications = useCallback(async (except?: ReadonlySet<string>) => {
     if (!isEditor) return
     const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
 
@@ -385,10 +427,10 @@ export function NotificationProvider({
         description: translateOutsideReact('notifications.center.retryDescription'),
       })
     }
-  }
+  }, [isEditor, notifications])
 
   // Update notification settings
-  const updateSettings = async (newSettings: Partial<NotificationSettings>) => {
+  const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
     try {
       const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
@@ -416,34 +458,34 @@ export function NotificationProvider({
         description: translateOutsideReact('notifications.center.retryDescription'),
       })
     }
-  }
+  }, [])
 
   /** Raise the "I cannot tell" state — once per outage, not once per poll. */
-  const markUnavailable = () => {
+  const markUnavailable = useCallback(() => {
     if (unavailableRef.current) return
     unavailableRef.current = true
     setNotificationsUnavailable(true)
     // Quiet while the stale banner shows the outage (lib/api/http.ts).
     showOutageToast(UNAVAILABLE_TOAST_ID)
-  }
+  }, [])
 
   /** Clear it again the moment a request comes back. */
-  const markAvailable = () => {
+  const markAvailable = useCallback(() => {
     if (!unavailableRef.current) return
     unavailableRef.current = false
     setNotificationsUnavailable(false)
     dismissOutageToast(UNAVAILABLE_TOAST_ID)
-  }
+  }, [])
 
   // Manual refetch function
-  const refetchNotifications = async () => {
+  const refetchNotifications = useCallback(async () => {
     const result = await fetchNotifications()
 
     if (result.status === 'skipped') {
       // No event, no session — an empty bell is the correct answer here, and
       // it is not an outage.
       markAvailable()
-      setNotifications([])
+      setNotifications(EMPTY_LIST)
       return
     }
 
@@ -476,77 +518,50 @@ export function NotificationProvider({
       const locallyDismissed = new Set(
         prev.filter((n) => n.dismissed).map((n) => n.id)
       )
-      return newNotifications.map((n) =>
-        !n.dismissed && locallyDismissed.has(n.id) ? { ...n, dismissed: true } : n
+      return reconcileNotifications(
+        prev,
+        newNotifications.map((n) =>
+          !n.dismissed && locallyDismissed.has(n.id) ? { ...n, dismissed: true } : n
+        ),
       )
     })
-  }
+  }, [fetchNotifications, markAvailable, markUnavailable])
 
-  // WebSocket + polling fallback for notifications
+  const canFetch = !authLoading && isAuthenticated && !!eventId && isValidUUID(eventId)
+
+  // Nothing to ask about — an empty bell here is an answer, not a gap, so any
+  // outstanding "I cannot tell" state goes with it.
   useEffect(() => {
-    // Only fetch if auth is loaded, we have a selected event with valid ID, and user is authenticated
-    if (authLoading || !selectedEvent || !isValidUUID(selectedEvent.id) || !isAuthenticated) {
-      // Nothing to ask about — an empty bell here is an answer, not a gap, so
-      // any outstanding "I cannot tell" state goes with it.
-      markAvailable()
-      setNotifications([])
-      return
+    if (canFetch) return
+    markAvailable()
+    setNotifications(EMPTY_LIST)
+  }, [canFetch, markAvailable])
+
+  /** One sync: the list, plus the settings if they have never arrived. */
+  const sync = useCallback(async () => {
+    await refetchNotifications()
+    if (settingsLoadedRef.current) return
+    const loaded = await fetchSettings()
+    if (loaded) {
+      settingsLoadedRef.current = true
+      setSettings(loaded)
     }
+  }, [refetchNotifications])
 
-    /** One sync: the list, plus the settings if they have never arrived. */
-    const sync = async () => {
-      await refetchNotifications()
-      if (settingsLoadedRef.current) return
-      const loaded = await fetchSettings()
-      if (loaded) {
-        settingsLoadedRef.current = true
-        setSettings(loaded)
-      }
-    }
-
-    // Initial fetch
-    sync()
-
-    // Listen for WebSocket notification events
-    const unsubscribeNotification = wsClient.on('notification_update', () => {
-      sync()
+  // The socket pushes `notification_update`; the poll covers the gaps while it
+  // is down (and runs once when it comes back).
+  usePolling(sync, { intervalMs: pollInterval, enabled: canFetch, skipWhileWsConnected: true })
+  useEffect(() => {
+    if (!canFetch) return
+    return wsClient.on('notification_update', () => {
+      void sync()
     })
-
-    // Fallback polling when WebSocket is disconnected
-    let pollIntervalId: NodeJS.Timeout | undefined
-
-    const startPolling = () => {
-      if (!pollIntervalId) {
-        pollIntervalId = setInterval(sync, pollInterval)
-      }
-    }
-
-    const stopPolling = () => {
-      if (pollIntervalId) {
-        clearInterval(pollIntervalId)
-        pollIntervalId = undefined
-      }
-    }
-
-    const unsubscribeStatus = wsClient.onStatusChange((status: WebSocketStatus) => {
-      if (status === 'disconnected' || status === 'error') {
-        startPolling()
-      } else if (status === 'connected') {
-        stopPolling()
-      }
-    })
-
-    return () => {
-      unsubscribeNotification()
-      unsubscribeStatus()
-      stopPolling()
-    }
-  }, [pollInterval, selectedEvent, isAuthenticated, authLoading])
+  }, [canFetch, sync])
 
   // Calculate unread count (active notifications)
   const unreadCount = notifications.filter((n) => !n.dismissed).length
 
-  const value: NotificationContextValue = {
+  const value = useMemo<NotificationContextValue>(() => ({
     notifications,
     unreadCount,
     settings,
@@ -567,7 +582,28 @@ export function NotificationProvider({
     registerFieldActionHandler,
     assignAction,
     registerAssignHandler,
-  }
+  }), [
+    notifications,
+    unreadCount,
+    settings,
+    notificationsUnavailable,
+    lastNotificationSyncAt,
+    dismissNotification,
+    dismissAllNotifications,
+    updateSettings,
+    refetchNotifications,
+    isSidebarOpen,
+    toggleSidebar,
+    openSidebar,
+    closeSidebar,
+    navigateToIncident,
+    canNavigateToIncident,
+    registerNavigateHandler,
+    fieldAction,
+    registerFieldActionHandler,
+    assignAction,
+    registerAssignHandler,
+  ])
 
   return (
     <NotificationContext.Provider value={value}>

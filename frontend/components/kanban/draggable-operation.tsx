@@ -45,7 +45,10 @@ import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
-import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
+import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
+import { useMediaQuery } from "@/lib/hooks/use-media-query"
+
+const widthHasSidePanel = () => window.innerWidth >= SIDE_PANEL_BREAKPOINT
 
 interface DraggableOperationProps {
   operation: Operation
@@ -240,13 +243,12 @@ function DraggableOperationBase({
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
-  // `null` until the first measurement. Not `false`: the selection frame below
-  // is gated on this, and a card that renders unstyled for one frame on a board
-  // that does have the side panel is exactly the flicker we are avoiding. An
-  // unmeasured card is therefore assumed to be on a large screen for STYLING
-  // (server, hydration and first paint all agree), while the click handler keeps
-  // treating "not yet measured" as small, which is what it always did.
-  const [isLargeScreen, setIsLargeScreen] = useState<boolean | null>(null)
+  // Does a side panel sit beside the board? The server and the hydrating render
+  // answer yes: the selection frame below is gated on this, and a card that renders
+  // unstyled for one frame on a board that does have the side panel is exactly the
+  // flicker we are avoiding. A click only happens after hydration, so it always
+  // gets the real answer. jsdom (no matchMedia) reads the width.
+  const isLargeScreen = useMediaQuery(SIDE_PANEL_MEDIA_QUERY, true, widthHasSidePanel)
   const [isPrinting, setIsPrinting] = useState(false)
   const { materialGroups } = useMaterials()
   const { groups, getGroupResources } = useGroups()
@@ -329,9 +331,8 @@ function DraggableOperationBase({
 
   // Selection is only worth showing while a side panel is on screen to reflect
   // it. Below SIDE_PANEL_BREAKPOINT the detail opens as a modal, so the frame
-  // would just sit behind the overlay. `!== false` and not `=== true`: see the
-  // note on the state — an unmeasured card keeps the frame.
-  const showSelectionFrame = !!isSelected && isLargeScreen !== false
+  // would just sit behind the overlay.
+  const showSelectionFrame = !!isSelected && isLargeScreen
 
   /**
    * The card's ONE way into the detail — every target on the card goes through
@@ -386,16 +387,6 @@ function DraggableOperationBase({
       setIsPrinting(false)
     }
   }
-
-  // Detect screen width for sidebar vs modal behavior
-  useEffect(() => {
-    const checkWidth = () => {
-      setIsLargeScreen(window.innerWidth >= SIDE_PANEL_BREAKPOINT)
-    }
-    checkWidth()
-    window.addEventListener('resize', checkWidth)
-    return () => window.removeEventListener('resize', checkWidth)
-  }, [])
 
   // Get priority styling configuration
   const priority = (operation.priority || 'low') as Priority

@@ -691,7 +691,7 @@ export function BoardDialogs({
         <TransferIncidentDialog
           open={!!transferSourceOp}
           onOpenChange={(open) => !open && setTransferSourceOp(null)}
-          sourceIncident={transferSourceOp as unknown as Incident}
+          sourceIncident={transferSourceOp}
           sourceName={transferSourceOp?.location}
           availableIncidents={transferAvailableIncidents}
           onTransfer={handleTransfer}

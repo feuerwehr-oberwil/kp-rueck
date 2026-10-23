@@ -10,20 +10,19 @@ import {
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
   type ApiPersonnel,
-  type ApiVehicle,
   type GroupResourceType,
 } from "@/lib/api-client"
 import type { GroupAssignment, GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
-import { shouldStartPollingOnMount } from "@/lib/sync-cooldown"
 import { isValidUUID, randomId } from "@/lib/utils/validation"
-import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
+import { wsClient } from "@/lib/websocket-client"
+import { usePolling } from "@/lib/hooks/use-polling"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import { usePersonnel } from "./personnel-context"
 import { useMaterials } from "./materials-context"
 
-// Re-export the client type for convenience (mirrors materials-context exposing Material).
+// Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
 
 /** Fields the UI supplies when creating an Auftrag (event scope is injected). */
@@ -127,14 +126,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { materials } = useMaterials()
   // Readiness lives in the operations context (refreshed with every poll).
   // GroupsProvider sits inside OperationsProvider in the root layout.
-  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling } = useOperations()
+  // So does the fleet, for naming a route's vehicle assignments (they carry ids).
+  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling, vehicles } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadedEventId, setLoadedEventId] = useState<string | null>(null)
-  // Vehicle name lookup — no dedicated vehicles context exists, so resolve the
-  // route's vehicle assignments (which carry ids) to names via a light fetch.
-  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
   /**
    * The FULL roster, for name resolution only.
    *
@@ -145,11 +142,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
    * `GroupResources` printed the raw UUID instead: the Auftrag card, the
    * WhatsApp message, the Funkspruch and the printout.
    *
-   * Fetched once, exactly like the vehicle list above and for the same reason.
+   * Fetched once per sign-in: it answers «what is this id called», not who is on duty.
    */
   const [roster, setRoster] = useState<ApiPersonnel[]>([])
 
-  // Toast deduplication across an outage; matches the materials-context pattern.
+  // Toast deduplication across an outage; same pattern as the roster and depot loaders.
   const hasShownErrorRef = useRef(false)
   // Every optimistic mutation bumps this epoch. A refresh discards its result if
   // the epoch moved while it was in flight — otherwise a poll/WS reload that
@@ -197,73 +194,87 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedEvent])
 
-  // Load the vehicle list and the roster once (name resolution for route
-  // assignments). Neither is event-scoped: both answer "what is this id called",
-  // and an id that is on a route is on it whatever the person's duty status is.
+  // Load the roster once (name resolution for route assignments). Not
+  // event-scoped: an id that is on a route is on it whatever the person's duty
+  // status is.
   useEffect(() => {
     if (authLoading || !isAuthenticated) return
-    apiClient
-      .getVehicles()
-      .then((list) => setVehicles(list))
-      .catch(() => {
-        // Silent: names fall back to the placeholder until the list loads.
-      })
     apiClient
       .getAllPersonnel()
       .then((list) => setRoster(list))
       .catch(() => {
-        // Silent, same reason.
+        // Silent: names fall back to the placeholder until the list loads.
       })
   }, [authLoading, isAuthenticated])
 
-  // Initial load + WebSocket subscription + polling fallback. The socket
-  // lifecycle itself is owned by operations-context; here we only subscribe.
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return
+  const authReady = !authLoading && isAuthenticated
+  const scopeEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
 
-    const nextEventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
-    activeEventIdRef.current = nextEventId
+  // A new scope (sign-in, Ereignis switch): forget the old one before the
+  // first load of the new one lands.
+  useEffect(() => {
+    if (!authReady) return
+    activeEventIdRef.current = scopeEventId
     loadSequenceRef.current++
     setGroups([])
     setIsLoaded(false)
     setLoadedEventId(null)
     lastSyncVersionRef.current = null
+  }, [authReady, scopeEventId])
 
-    if (!nextEventId) {
-      // Only declare "loaded" once events have actually resolved, so consumers
-      // don't flash an empty state before the selected event is known.
-      if (isEventLoaded) setIsLoaded(true)
-      return
-    }
+  // No Ereignis: only declare "loaded" once events have actually resolved, so
+  // consumers don't flash an empty state before the selected event is known.
+  useEffect(() => {
+    if (authReady && !scopeEventId && isEventLoaded) setIsLoaded(true)
+  }, [authReady, scopeEventId, isEventLoaded])
 
-    const eventId = nextEventId
-    let cancelled = false
-
-    const loadData = async () => {
-      const epochAtStart = mutationEpochRef.current
+  /**
+   * The initial load and the polling fallback in one. The cheap sync version
+   * (it folds in incident_groups) gates the full reload, so a tick that finds
+   * nothing new costs one small request. `usePolling` runs it on a new scope,
+   * every POLLING_INTERVAL while the socket is down, and once when the socket
+   * comes back – group_update broadcasts sent while we were out of the room
+   * are gone otherwise. The socket lifecycle itself is owned by
+   * operations-context; here we only listen.
+   */
+  const syncGroups = useCallback(async () => {
+    const eventId = scopeEventId
+    if (!eventId) return
+    const epochAtStart = mutationEpochRef.current
+    try {
+      const versionSnapshot = await apiClient.getSyncVersion(eventId).catch(() => null)
+      if (versionSnapshot && versionSnapshot.version === lastSyncVersionRef.current) return
+      // Claimed only now: a tick that found nothing new must not invalidate a
+      // refresh a broadcast started meanwhile.
       const sequence = ++loadSequenceRef.current
-      try {
-        const versionSnapshot = await apiClient.getSyncVersion(eventId).catch(() => null)
-        const apiGroups = await apiClient.getIncidentGroups(eventId)
-        if (cancelled || activeEventIdRef.current !== eventId || sequence !== loadSequenceRef.current) return
-        if (mutationEpochRef.current !== epochAtStart) return
-        setGroups(apiGroups.map(apiGroupToGroup))
-        hasShownErrorRef.current = false
-        lastSyncVersionRef.current = versionSnapshot?.version ?? null
-      } catch (error) {
-        console.error("Failed to load Aufträge:", error)
-      } finally {
-        if (!cancelled && activeEventIdRef.current === eventId) {
-          setIsLoaded(true)
-          setLoadedEventId(eventId)
-        }
+      const apiGroups = await apiClient.getIncidentGroups(eventId)
+      if (activeEventIdRef.current !== eventId || sequence !== loadSequenceRef.current) return
+      if (mutationEpochRef.current !== epochAtStart) return
+      const next = apiGroups.map(apiGroupToGroup)
+      groupsRef.current = next
+      setGroups(next)
+      hasShownErrorRef.current = false
+      lastSyncVersionRef.current = versionSnapshot?.version ?? null
+    } catch (error) {
+      console.error("Failed to load Aufträge:", error)
+    } finally {
+      if (activeEventIdRef.current === eventId) {
+        setIsLoaded(true)
+        setLoadedEventId(eventId)
       }
     }
+  }, [scopeEventId])
 
-    loadData()
+  usePolling(syncGroups, {
+    intervalMs: POLLING_INTERVAL,
+    enabled: authReady && scopeEventId !== null,
+    skipWhileWsConnected: true,
+  })
 
-    // Coalesce related broadcasts: one backend action may emit an incident,
-    // assignment and group event in quick succession.
+  // Coalesce related broadcasts: one backend action may emit an incident,
+  // assignment and group event in quick succession.
+  useEffect(() => {
+    if (!authReady || !scopeEventId) return
     let refreshTimeout: ReturnType<typeof setTimeout> | undefined
     const scheduleRefresh = () => {
       if (refreshTimeout) return
@@ -272,73 +283,16 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         void refreshGroups()
       }, 25)
     }
-    const unsubscribeGroupUpdate = wsClient.on("group_update", scheduleRefresh)
-    const unsubscribeAssignmentUpdate = wsClient.on("assignment_update", scheduleRefresh)
-    const unsubscribeIncidentUpdate = wsClient.on("incident_update", scheduleRefresh)
-
-    // Polling fallback: only while the socket is down. Mirrors operations-context —
-    // a lightweight sync-version check gates the full group reload.
-    let pollTimeout: ReturnType<typeof setTimeout> | undefined
-    let isPollingActive = false
-
-    const schedulePoll = () => {
-      if (!isPollingActive) return
-      pollTimeout = setTimeout(async () => {
-        if (!isPollingActive) return
-        try {
-          const { version } = await apiClient.getSyncVersion(eventId)
-          if (version !== lastSyncVersionRef.current) {
-            lastSyncVersionRef.current = version
-            await refreshGroups()
-          }
-        } catch {
-          // Ignore; the next tick retries.
-        }
-        if (isPollingActive) schedulePoll()
-      }, POLLING_INTERVAL)
-    }
-
-    const startPolling = () => {
-      if (!isPollingActive) {
-        isPollingActive = true
-        schedulePoll()
-      }
-    }
-
-    const stopPolling = () => {
-      isPollingActive = false
-      if (pollTimeout) {
-        clearTimeout(pollTimeout)
-        pollTimeout = undefined
-      }
-    }
-
-    const statusUnsubscribe = wsClient.onStatusChange((status: WebSocketStatus) => {
-      if (status === "disconnected" || status === "error") {
-        startPolling()
-      } else if (status === "connected") {
-        stopPolling()
-        // Resync once per (re)connect: group_update events broadcast while we
-        // weren't in the room are gone otherwise.
-        refreshGroups()
-      }
-    })
-
-    // If the socket is already down when this effect runs, start polling now.
-    // Shared with operations-context, which was missing it — see
-    // `shouldStartPollingOnMount`.
-    if (shouldStartPollingOnMount(wsClient.getStatus())) startPolling()
-
+    const unsubscribers = [
+      wsClient.on("group_update", scheduleRefresh),
+      wsClient.on("assignment_update", scheduleRefresh),
+      wsClient.on("incident_update", scheduleRefresh),
+    ]
     return () => {
-      cancelled = true
-      unsubscribeGroupUpdate()
-      unsubscribeAssignmentUpdate()
-      unsubscribeIncidentUpdate()
+      unsubscribers.forEach((unsubscribe) => unsubscribe())
       if (refreshTimeout) clearTimeout(refreshTimeout)
-      statusUnsubscribe()
-      stopPolling()
     }
-  }, [authLoading, isAuthenticated, selectedEvent, isEventLoaded, refreshGroups])
+  }, [authReady, scopeEventId, refreshGroups])
 
   const createGroup = useCallback(
     async (input: CreateGroupInput): Promise<IncidentGroup | null> => {

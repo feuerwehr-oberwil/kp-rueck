@@ -88,7 +88,7 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
 ### Frontend (Next.js)
 
 - **Client Components in practice**: **all 22 pages under `app/` are `'use client'`** – this is
-  the reality, not an aspiration to fix. The root layout mounts 10 providers (auth, operations,
+  the reality, not an aspiration to fix. The root layout mounts 8 providers (auth, operations,
   event, theme, i18n, …), and the board is a live, interactive surface: there is no
   meaningful server-rendered page here. Do not "restore" server components on a page as a
   cleanup; it will fail on the first context hook. Server components remain fine for genuinely

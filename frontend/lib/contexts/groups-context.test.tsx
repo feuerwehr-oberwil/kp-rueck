@@ -62,6 +62,7 @@ const operationsState = vi.hoisted(() => {
   const settling = { count: 0 }
   return {
     outOfServiceVehicleIds: new Set<string>(),
+    vehicles: [] as { id: string; name: string }[],
     requestVehicleDriver: vi.fn(),
     settling,
     beginAssignmentSettling: () => {
@@ -111,7 +112,6 @@ vi.mock("@/lib/websocket-client", () => ({ wsClient: ws.client }))
 
 const getIncidentGroups = vi.fn()
 const getSyncVersion = vi.fn()
-const getVehicles = vi.fn()
 const createIncidentGroup = vi.fn()
 const updateIncidentGroup = vi.fn()
 const deleteIncidentGroup = vi.fn()
@@ -129,7 +129,6 @@ vi.mock("@/lib/api-client", async () => ({
   apiClient: {
     getIncidentGroups: (...a: unknown[]) => getIncidentGroups(...a),
     getSyncVersion: (...a: unknown[]) => getSyncVersion(...a),
-    getVehicles: (...a: unknown[]) => getVehicles(...a),
     getAllPersonnel: (...a: unknown[]) => getAllPersonnel(...a),
     createIncidentGroup: (...a: unknown[]) => createIncidentGroup(...a),
     updateIncidentGroup: (...a: unknown[]) => updateIncidentGroup(...a),
@@ -160,13 +159,13 @@ const wrapper = ({ children }: { children: React.ReactNode }) => <GroupsProvider
 beforeEach(() => {
   eventState.selectedEvent = { id: EVENT_ID }
   operationsState.outOfServiceVehicleIds = new Set()
+  operationsState.vehicles = []
   operationsState.requestVehicleDriver.mockReset()
   operationsState.settling.count = 0
   getEventSpecialFunctions.mockReset().mockResolvedValue([])
   ws.reset()
   getIncidentGroups.mockReset().mockResolvedValue([])
   getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
-  getVehicles.mockReset().mockResolvedValue([])
   getAllPersonnel.mockReset().mockResolvedValue([])
   createIncidentGroup.mockReset()
   updateIncidentGroup.mockReset()
@@ -254,6 +253,32 @@ describe("GroupsProvider — group_update WS event", () => {
     await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
     ws.emit(event, {})
     await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
+  })
+})
+
+describe("GroupsProvider — socket back up", () => {
+  const reconnect = async () => {
+    await act(async () => {
+      ws.statusHandlers.forEach((cb) => cb("disconnected"))
+      ws.statusHandlers.forEach((cb) => cb("connected"))
+    })
+  }
+
+  it("re-reads the routes when the sync version moved while it was down", async () => {
+    await renderLoaded()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
+    getSyncVersion.mockResolvedValue({ version: "v2" })
+    await reconnect()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
+  })
+
+  it("asks only for the version when nothing changed", async () => {
+    await renderLoaded()
+    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
+    const versionCalls = getSyncVersion.mock.calls.length
+    await reconnect()
+    await waitFor(() => expect(getSyncVersion.mock.calls.length).toBeGreaterThan(versionCalls))
+    expect(getIncidentGroups).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -376,7 +401,7 @@ describe("GroupsProvider — assign / unassign route resources", () => {
 
   it("opens the driver prompt for a route vehicle nobody drives (same rule as an Einsatz)", async () => {
     getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    getVehicles.mockResolvedValue([{ id: "v1", name: "TLF" }])
+    operationsState.vehicles = [{ id: "v1", name: "TLF" }]
     assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
     const { result } = await renderLoaded()
     await waitFor(() => expect(result.current.groups).toHaveLength(1))
@@ -396,7 +421,7 @@ describe("GroupsProvider — assign / unassign route resources", () => {
 
   it("a route vehicle stays «settling» until its driver check has answered (⌘K waits on it)", async () => {
     getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    getVehicles.mockResolvedValue([{ id: "v1", name: "TLF" }])
+    operationsState.vehicles = [{ id: "v1", name: "TLF" }]
     assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
     let answer: (functions: unknown[]) => void = () => {}
     getEventSpecialFunctions.mockImplementation(() => new Promise((resolve) => (answer = resolve)))

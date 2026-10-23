@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/contexts/auth-context"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { usePolling } from "@/lib/hooks/use-polling"
+import { isTypingTarget } from "@/lib/typing-target"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { SearchInput } from "@/components/ui/search-input"
@@ -26,22 +27,6 @@ const displayPages = [
 
 /** Which display pages filter on the top bar's search field. */
 const SEARCHABLE_PAGES = ["/display/board", "/display/status"]
-
-/**
- * Mirrors `isTypingTarget` in `lib/hooks/use-kanban-shortcuts.ts` — a bare `s`
- * must never steal a character out of a field somebody is typing in. It is not
- * imported because that module is the main board's shortcut hook and does not
- * export the helper.
- */
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (target instanceof HTMLInputElement) return true
-  if (target instanceof HTMLTextAreaElement) return true
-  if (target instanceof HTMLSelectElement) return true
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  const role = target.getAttribute("role")
-  return role === "combobox" || role === "listbox" || role === "option"
-}
 
 /** True while any Radix dialog is open on the page (the incident detail, mostly). */
 function isModalOpen(): boolean {

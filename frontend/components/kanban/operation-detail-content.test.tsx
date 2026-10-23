@@ -9,7 +9,8 @@ import type { Person } from "@/lib/contexts/personnel-context"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const transferAssignments = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const getVehicles = vi.hoisted(() => vi.fn().mockResolvedValue([]))
+// The board sync's fleet (`useOperations().vehicles`) – the quick-assign shortcuts count it.
+const fleet = vi.hoisted(() => ({ vehicles: [] as Array<{ id: string; name: string; type: string; status: string; display_order: number }> }))
 const sourcePerson = vi.hoisted((): Person => ({
   id: "person-1",
   name: "Reko Eins",
@@ -25,6 +26,7 @@ vi.mock("@/lib/contexts/operations-context", () => ({
     setOperations: vi.fn(),
     refreshOperations,
     personnel: [],
+    vehicles: fleet.vehicles,
   }),
 }))
 vi.mock("@/lib/contexts/event-context", () => ({
@@ -74,7 +76,6 @@ const getIncidentParticipants = vi.hoisted(() => vi.fn().mockResolvedValue({ par
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
-    getVehicles,
     getIncidents: vi.fn().mockResolvedValue([]),
     transferAssignments,
     updateAssignment: vi.fn(),
@@ -199,8 +200,7 @@ beforeEach(() => {
   })
   refreshOperations.mockClear()
   transferAssignments.mockClear()
-  getVehicles.mockClear()
-  getVehicles.mockResolvedValue([])
+  fleet.vehicles = []
   getIncidentTimeline.mockClear()
   getIncidentTimeline.mockResolvedValue({ events: [] })
   getIncidentParticipants.mockClear()
@@ -457,10 +457,10 @@ describe("OperationDetailContent", () => {
   // whole incident plus its resources, and CI is slower than a laptop.
   it("brings Übersicht forward when a shortcut targets a control on it", async () => {
     const user = userEvent.setup()
-    getVehicles.mockResolvedValue([
-      { id: "v1", name: "TLF", type: "TLF", display_order: 1 },
-      { id: "v2", name: "Pio", type: "Pio", display_order: 2 },
-    ])
+    fleet.vehicles = [
+      { id: "v1", name: "TLF", type: "TLF", status: "available", display_order: 1 },
+      { id: "v2", name: "Pio", type: "Pio", status: "available", display_order: 2 },
+    ]
 
     renderWithIntl(
       <OperationDetailContent
@@ -472,8 +472,6 @@ describe("OperationDetailContent", () => {
         onRemoveVehicle={vi.fn()}
       />,
     )
-
-    await waitFor(() => expect(getVehicles).toHaveBeenCalled())
 
     // Every mutating shortcut now aims at a control on Übersicht: priority,
     // "zu Fuss" and the quick-assign fleet all sit there. Fired from another

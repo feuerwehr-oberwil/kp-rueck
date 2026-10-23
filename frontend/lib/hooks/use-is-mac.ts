@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
  * Starts `false` so the server render and first client render agree
  * (avoiding a hydration mismatch); flips to `true` after mount on Mac.
  */
-export function useIsMac(): boolean {
+function useIsMac(): boolean {
   const [isMac, setIsMac] = useState(false)
 
   useEffect(() => {

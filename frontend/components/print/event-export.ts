@@ -4,8 +4,12 @@ import { apiClient } from "@/lib/api-client"
  *  fallback Lageblatt, and the audit trail. */
 export type EventExportKind = "report" | "lageblatt" | "audit"
 
-/** Mirrors the backend slug: lowercase, umlauts transliterated, everything else "-". */
-function slugifyEventName(name: string): string {
+/**
+ * Mirror of the backend slug (`slugify_event_name`, api/exports.py): lowercase,
+ * umlauts transliterated, every other run of non-alphanumerics collapsed to "-".
+ * The downloads name themselves client-side, so the two have to agree.
+ */
+export function slugifyEventName(name: string): string {
   return (
     name
       .toLowerCase()
