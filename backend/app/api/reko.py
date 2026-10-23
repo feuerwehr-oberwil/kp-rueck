@@ -23,13 +23,11 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser, get_current_user
-from ..config import settings
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
@@ -48,7 +46,7 @@ from ..websocket_manager import (
 logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.merge_links import live_incident_id, merged_into_ids
-from ..services.photo_storage import photo_storage
+from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.tokens import (
     decode_form_token,
     generate_feld_token,
@@ -690,27 +688,7 @@ async def upload_photo(
         request, incident_id, x_reko_token, access_token, authorization, db, write=True
     )
 
-    # Demo mode: limit file size to 1MB and total photos to 15
-    if settings.demo_mode:
-        # Check file size (read first chunk to estimate)
-        contents = await file.read()
-        if len(contents) > 1 * 1024 * 1024:  # 1MB
-            raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
-        # Reset file position for photo_storage
-        await file.seek(0)
-
-        # Count total photos across all reports. `photos_json` is JSONB, so this
-        # must be jsonb_array_length — `array_length` only exists for real
-        # Postgres arrays, and calling it here 500'd EVERY demo photo upload
-        # (field test 07.09.: «Interner Serverfehler», egal welches Format).
-        total_photos_result = await db.execute(
-            select(sa_func.coalesce(sa_func.jsonb_array_length(RekoReport.photos_json), 0))
-        )
-        total_photos = sum(r[0] for r in total_photos_result)
-        if total_photos >= 15:
-            raise CodedHTTPException(
-                403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht."
-            )
+    await enforce_demo_photo_limits(db, file, RekoReport.photos_json)
 
     try:
         report = await _photo_report(db, incident_id, user, x_reko_token, report_id)
