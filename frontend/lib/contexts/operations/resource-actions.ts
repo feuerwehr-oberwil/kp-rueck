@@ -11,6 +11,7 @@ import type { Material } from "../materials-context"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { findRecentRemoval, recordRemoval } from "@/lib/recent-removals"
+import { drivenElsewhere, type DrivenElsewhere } from "@/lib/driver-conflict"
 import type { Operation, OperationStatus, OperationsContextType } from "./types"
 import type { BoardMutationContext } from "./board-context"
 
@@ -33,6 +34,7 @@ export function createResourceActions(board: BoardMutationContext) {
     armAssignmentCooldown,
     releaseAssignmentCooldown,
     beginAssignmentSettling,
+    refreshOperations,
   } = board
 
   const removeCrew = (operationId: string, crewName: string): Promise<boolean> => {
@@ -213,11 +215,16 @@ export function createResourceActions(board: BoardMutationContext) {
     // «Doppelbelegung? Trotzdem zuweisen» did nothing: the confirm called
     // straight back into this function, which refused it again without a word.
     //
-    // Special functions (Reko/Fahrer/Magazin) are deliberately not a conflict:
-    // they are event-scoped, hold no incident, and are already surfaced with a
-    // badge where they are picked.
+    // Special functions (Reko/Magazin) are deliberately not a conflict: they are
+    // event-scoped, hold no incident, and are already surfaced with a badge where
+    // they are picked. The Fahrer is the exception: they are wherever their
+    // vehicle stands, so that Einsatz is a «Bisher» row too (lib/driver-conflict.ts).
     if (!force) {
-      const conflicts = collectConflicts(op => op.crew.includes(personName), operationId)
+      const driving = drivenElsewhere(person, operations, operationId)
+      const conflicts = collectConflicts(
+        op => op.crew.includes(personName) || op.id === driving?.operationId,
+        operationId,
+      )
       if (conflicts.length > 0) {
         setResourceConflict({
           resourceType: "personnel",
@@ -626,6 +633,31 @@ export function createResourceActions(board: BoardMutationContext) {
     return Promise.resolve(true)
   }
 
+  /** «Hierher verschieben» for a Fahrer: the role goes too, the vehicle is left without one. */
+  const releaseDriverRole = async (personId: string, personName: string, driving: DrivenElsewhere): Promise<boolean> => {
+    if (!selectedEvent) return false
+    try {
+      await apiClient.unassignSpecialFunction(selectedEvent.id, {
+        personnel_id: personId,
+        function_type: "driver",
+        vehicle_id: driving.vehicleId,
+      })
+    } catch (err) {
+      console.error("Failed to release driver role:", err)
+      toast.error(translateOutsideReact('notifications.operations.resourceNotMovedTitle', { name: personName }), {
+        description: translateOutsideReact('notifications.operations.resourceNotMovedDescription'),
+      })
+      return false
+    }
+    setPersonnel((people) =>
+      people.map((p) =>
+        p.id === personId ? { ...p, isDriver: false, driverVehicleId: undefined, driverVehicleName: undefined } : p,
+      ),
+    )
+    void refreshOperations()
+    return true
+  }
+
   const resolveResourceConflict = async (action: "move" | "keep") => {
     const conflict = resourceConflict
     if (!conflict) return
@@ -645,6 +677,14 @@ export function createResourceActions(board: BoardMutationContext) {
   ) => {
     setResourceConflict(null)
 
+    // A Fahrer whose vehicle stands on another Einsatz leaves that role behind on
+    // a move, whichever entry point asked — or «verschieben» leaves them 2×.
+    if (action === "move" && conflict.resourceType === "personnel") {
+      const person = personnel.find((p) => p.id === conflict.resourceId)
+      const driving = drivenElsewhere(person, operations, conflict.targetOperationId)
+      if (driving && !(await releaseDriverRole(conflict.resourceId, conflict.resourceName, driving))) return
+    }
+
     if (conflict.customResolve) {
       await conflict.customResolve(action)
       return
@@ -662,7 +702,10 @@ export function createResourceActions(board: BoardMutationContext) {
           resourceType === "vehicle"
             ? removeVehicle(c.operationId, resourceName)
             : resourceType === "personnel"
-              ? removeCrew(c.operationId, resourceName)
+              // A row that is only the driven vehicle's Einsatz has no crew row to remove.
+              ? operations.find((op) => op.id === c.operationId)?.crew.includes(resourceName) === false
+                ? Promise.resolve(true)
+                : removeCrew(c.operationId, resourceName)
               : removeMaterial(c.operationId, resourceId)
         )
       )

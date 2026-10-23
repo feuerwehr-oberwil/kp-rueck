@@ -12,12 +12,23 @@ import { getIncidentTypeLabel } from "@/lib/incident-types"
  * `rekoKeywords` is the whole word that finds a card with a finished Reko: the
  * Reko column's own label («reko» / «reconnaissance») plus «reko» in every
  * language, because that is what everyone says on the radio.
+ *
+ * `noVehicleKeywords` («ohne fahrzeug», «sans véhicule» – German in every
+ * language, like «reko») finds what the cards cannot show: an Einsatz that is
+ * dispatched or running with no vehicle on it, unless it is «Zu Fuss» or a stop
+ * of an Auftrag (the route carries the vehicles). An empty
+ * Fahrzeuge row is simply hidden on a card, so «which have no vehicle?» had no
+ * answer on the board at all.
  */
 interface SearchLabels {
   priority: Readonly<Record<string, string>>
   status: Readonly<Record<string, string>>
   rekoKeywords: ReadonlySet<string>
+  noVehicleKeywords: ReadonlySet<string>
 }
+
+/** Where a vehicle is expected: dispatched (Anfahrt) or on site. */
+const NEEDS_VEHICLE: ReadonlySet<string> = new Set(["enroute", "active"])
 
 const labelCache = new Map<SupportedLocale, SearchLabels>()
 
@@ -31,6 +42,7 @@ function searchLabels(locale: SupportedLocale = getActiveLocale()): SearchLabels
     priority: lower(messages.incidents.priority),
     status: lower(messages.kanban.columns),
     rekoKeywords: new Set(["reko", messages.kanban.columns.reko.toLowerCase()]),
+    noVehicleKeywords: new Set(["ohne fahrzeug", messages.kanban.search.noVehicleKeyword.toLowerCase()]),
   }
   labelCache.set(locale, labels)
   return labels
@@ -71,6 +83,18 @@ export function matchesIncidentQuery(
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   const labels = searchLabels(locale)
+
+  // A keyword is the whole query, and it answers only its own question.
+  if (labels.noVehicleKeywords.has(needle.replace(/\s+/g, " "))) {
+    // A stop of an Auftrag rides on the route's vehicles, not its own.
+    return (
+      NEEDS_VEHICLE.has(operation.status) &&
+      operation.vehicles.length === 0 &&
+      !operation.vehicle &&
+      !operation.zuFuss &&
+      !operation.groupId
+    )
+  }
 
   return (
     operation.location.toLowerCase().includes(needle) ||

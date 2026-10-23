@@ -14,6 +14,7 @@ import { isStringArray, readItem, readJson, writeItem, writeJson } from '@/lib/u
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
+import { dismissOutageToast, showOutageToast } from '@/lib/api/http'
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -422,11 +423,8 @@ export function NotificationProvider({
     if (unavailableRef.current) return
     unavailableRef.current = true
     setNotificationsUnavailable(true)
-    toast.error(translateOutsideReact('errors.api.connectionTitle'), {
-      id: UNAVAILABLE_TOAST_ID,
-      description: translateOutsideReact('common.staleDataBanner.connectionLost'),
-      duration: Infinity,
-    })
+    // Quiet while the stale banner shows the outage (lib/api/http.ts).
+    showOutageToast(UNAVAILABLE_TOAST_ID)
   }
 
   /** Clear it again the moment a request comes back. */
@@ -434,7 +432,7 @@ export function NotificationProvider({
     if (!unavailableRef.current) return
     unavailableRef.current = false
     setNotificationsUnavailable(false)
-    toast.dismiss(UNAVAILABLE_TOAST_ID)
+    dismissOutageToast(UNAVAILABLE_TOAST_ID)
   }
 
   // Manual refetch function

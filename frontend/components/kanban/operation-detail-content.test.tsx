@@ -967,7 +967,7 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
     expect(ownScope.queryByText("Fahrzeuge (0)")).toBeNull()
 
     // Visible is only half of it: the operator has to be able to release them.
-    await user.click(ownScope.getByTitle("Person entfernen"))
+    await user.click(ownScope.getByTitle("Person freigeben"))
     expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Beat Kunz")
   })
 
@@ -1057,7 +1057,7 @@ describe("OperationDetailContent · chip menu on touch", () => {
     await screen.findByRole("menu", { name: "Frei Anna" })
     expect(screen.getAllByRole("menuitem").map((row) => row.textContent)).toEqual([
       "ELAls Einsatzleiter markieren",
-      "Vom Einsatz entfernen",
+      "Vom Einsatz freigeben",
     ])
     await user.click(screen.getByRole("menuitem", { name: "Als Einsatzleiter markieren" }))
     await waitFor(() =>
@@ -1072,7 +1072,7 @@ describe("OperationDetailContent · chip menu on touch", () => {
     const menu = await screen.findByRole("menu", { name: "Muster Hans" })
     expect(menu).toHaveTextContent("Einsatzleiter")
     expect(screen.queryByRole("menuitem", { name: "Als Einsatzleiter markieren" })).toBeNull()
-    await user.click(screen.getByRole("menuitem", { name: "Vom Einsatz entfernen" }))
+    await user.click(screen.getByRole("menuitem", { name: "Vom Einsatz freigeben" }))
     expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Muster Hans")
   })
 })

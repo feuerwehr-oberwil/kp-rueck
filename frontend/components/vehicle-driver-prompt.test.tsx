@@ -58,7 +58,7 @@ describe("VehicleDriverPrompt on an Auftrag", () => {
       </NextIntlClientProvider>,
     )
     expect(await screen.findByText(/ist dem Auftrag «Route West» zugewiesen, aber niemand fährt/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole("button", { name: "Fahrzeug entfernen" }))
+    await userEvent.click(screen.getByRole("button", { name: "Fahrzeug freigeben" }))
     expect(routes.unassignResource).toHaveBeenCalledWith("g1", "ga1")
   })
 

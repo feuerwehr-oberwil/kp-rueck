@@ -133,7 +133,14 @@ class Geocoder:
         finally:
             _request_active.reset(marker)
 
-    async def _lookup(self, db: AsyncSession, url: str, parameters: dict[str, str]) -> Any:
+    async def _lookup(
+        self, db: AsyncSession, url: str, parameters: dict[str, str], *, wait_for_slot: bool = False
+    ) -> Any:
+        """Cached provider call behind the shared dispatch gate.
+
+        `wait_for_slot`: a follow-up call of the same search (the broad swisstopo query after an
+        empty local one) waits for the next slot once instead of failing – the first call has just
+        taken the current one."""
         key = (url, tuple(sorted(parameters.items())))
         now = time.monotonic()
         for stale in [entry for entry, (expiry, _) in self.cache.items() if expiry <= now]:
@@ -141,7 +148,13 @@ class Geocoder:
         if key in self.cache:
             self.cache.move_to_end(key)
             return self.cache[key][1]
-        await reserve_dispatch(db)
+        try:
+            await reserve_dispatch(db)
+        except GeocodingBusyError:
+            if not wait_for_slot:
+                raise
+            await asyncio.sleep(DISPATCH_INTERVAL.total_seconds())
+            await reserve_dispatch(db)
         payload = await self._fetch(url, parameters)
         self.cache[key] = (time.monotonic() + CACHE_TTL, payload)
         while len(self.cache) > CACHE_LIMIT:
@@ -154,23 +167,30 @@ class Geocoder:
         if settings.geocoding_provider == "swisstopo":
             if query.countrycodes and "ch" not in query.countrycodes.split(","):
                 return []
-            # SearchServer's bbox is a hard filter, unlike Nominatim's viewbox bias.
-            # Keep Swiss results broad; the caller already sorts around its station.
-            payload = await self._lookup(
-                db,
-                SWISS_BASE + "/SearchServer",
-                {
-                    "searchText": query.q,
-                    "type": "locations",
-                    "origins": "address,gazetteer,zipcode",
-                    "limit": "10",
-                    "sr": "4326",
-                },
-            )
-            if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
-                raise GeocodingUnavailableError
+            # SearchServer ranks nationwide and its bbox is a HARD filter, unlike Nominatim's
+            # viewbox bias: «Bahnhofstrasse 22» broad gives ten hits in GR and VS, none near the
+            # station. So ask inside the station's box first and go broad only when that finds
+            # nothing (a Nachbarhilfe address, a place name further away).
+            parameters = {
+                "searchText": query.q,
+                "type": "locations",
+                "origins": "address,gazetteer,zipcode",
+                "limit": "10",
+                "sr": "4326",
+            }
+            entries: list[Any] = []
+            bbox = _lv95_bbox(query.viewbox) if query.viewbox else None
+            if bbox:
+                # The bbox is read in the request's `sr`, and only the Swiss grids filter;
+                # attrs.lat/lon stay WGS84 either way.
+                local = {**parameters, "sr": "2056", "bbox": bbox}
+                entries = _swiss_entries(await self._lookup(db, SWISS_BASE + "/SearchServer", local))
+            if not entries:
+                entries = _swiss_entries(
+                    await self._lookup(db, SWISS_BASE + "/SearchServer", parameters, wait_for_slot=bbox is not None)
+                )
             results = []
-            for entry in payload["results"][:10]:
+            for entry in entries[:10]:
                 if not isinstance(entry, dict) or not isinstance(entry.get("attrs"), dict):
                     continue
                 attrs = entry["attrs"]
@@ -267,6 +287,33 @@ class Geocoder:
             if label and distance <= 100:
                 candidates.append((distance, label))
         return min(candidates)[1] if candidates else None
+
+
+def _swiss_entries(payload: object) -> list[Any]:
+    results = payload.get("results") if isinstance(payload, dict) else None
+    if not isinstance(results, list):
+        raise GeocodingUnavailableError
+    return results
+
+
+def _lv95(lat: float, lon: float) -> tuple[float, float]:
+    """WGS84 → LV95 (E, N) by swisstopo's approximate formulas – about a metre, plenty for a box."""
+    p = (lat * 3600 - 169028.66) / 10000
+    q = (lon * 3600 - 26782.5) / 10000
+    east = 2600072.37 + 211455.93 * q - 10938.51 * q * p - 0.36 * q * p**2 - 44.54 * q**3
+    north = 1200147.07 + 308807.95 * p + 3745.25 * q**2 + 76.63 * p**2 - 194.56 * q**2 * p + 119.79 * p**3
+    return east, north
+
+
+def _lv95_bbox(viewbox: str) -> str | None:
+    """The client's WGS84 viewbox («west,south,east,north») as an LV95 SearchServer bbox, or None
+    outside Switzerland's grid, where the formulas mean nothing."""
+    west, south, east, north = (float(part) for part in viewbox.split(","))
+    if not (west >= 5.5 and east <= 11 and south >= 45.5 and north <= 48.2):
+        return None
+    corners = [_lv95(lat, lon) for lat in (south, north) for lon in (west, east)]
+    xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+    return ",".join(str(round(v)) for v in (min(xs), min(ys), max(xs), max(ys)))
 
 
 def _nominatim_result(entry: object) -> AddressSuggestion | None:

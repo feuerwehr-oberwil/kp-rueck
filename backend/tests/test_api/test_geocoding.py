@@ -3,7 +3,7 @@
 import asyncio
 import gzip
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -263,6 +263,69 @@ async def test_nominatim_adapter_preserves_viewbox_bias(editor_client, provider,
             },
         )
     ]
+
+
+# Around Oberwil BL: the box the board sends when the station's coordinates are set.
+OBERWIL_VIEWBOX = "7.5074,47.4643,7.6074,47.5643"
+
+
+def _swiss_hit(label: str, lat: float, lon: float) -> dict:
+    return {"attrs": {"lat": lat, "lon": lon, "label": label}}
+
+
+async def test_swisstopo_asks_inside_the_station_box_first(editor_client, provider, monkeypatch):
+    """«Bahnhofstrasse 22» nationwide is ten hits in GR and VS; inside the box it is the region."""
+    instance, _, _ = provider
+    calls = []
+
+    async def fetch(url, parameters):
+        calls.append(parameters)
+        return {"results": [_swiss_hit("Bahnhofstrasse 22 <b>4106 Therwil</b>", 47.499, 7.555)]}
+
+    monkeypatch.setattr(instance, "_fetch", fetch)
+    response = await editor_client.get(
+        "/api/geocoding/search", params={"q": "Bahnhofstrasse 22", "viewbox": OBERWIL_VIEWBOX}
+    )
+    assert response.json()[0]["formattedAddress"] == "Bahnhofstrasse 22 4106 Therwil"
+    # One call: LV95 grid (the only one SearchServer's bbox filters in), the box around the station.
+    assert len(calls) == 1
+    assert calls[0]["sr"] == "2056"
+    assert calls[0]["bbox"] == "2605176,1257060,2612725,1268190"
+
+
+async def test_swisstopo_goes_broad_only_when_the_box_finds_nothing(editor_client, provider, monkeypatch):
+    instance, _, _ = provider
+    calls = []
+
+    async def fetch(url, parameters):
+        calls.append(parameters)
+        hits = [] if "bbox" in parameters else [_swiss_hit("Bahnhofstrasse 22 <b>3904 Naters</b>", 46.32, 7.99)]
+        return {"results": hits}
+
+    monkeypatch.setattr(instance, "_fetch", fetch)
+    # The second call needs the next dispatch slot; it waits for it rather than answering 429.
+    monkeypatch.setattr(geocoding, "DISPATCH_INTERVAL", timedelta(milliseconds=50))
+    response = await editor_client.get("/api/geocoding/search", params={"q": "Naters", "viewbox": OBERWIL_VIEWBOX})
+    assert response.status_code == 200
+    assert response.json()[0]["formattedAddress"] == "Bahnhofstrasse 22 3904 Naters"
+    assert ["bbox" in call for call in calls] == [True, False]
+    assert calls[1]["sr"] == "4326"
+
+
+async def test_swisstopo_without_a_swiss_box_stays_broad(editor_client, provider, monkeypatch):
+    instance, _, _ = provider
+    calls = []
+
+    async def fetch(url, parameters):
+        calls.append(parameters)
+        return {"results": []}
+
+    monkeypatch.setattr(instance, "_fetch", fetch)
+    monkeypatch.setattr(geocoding, "DISPATCH_INTERVAL", timedelta(0))
+    # No station box, and a box outside Switzerland's grid (Berlin): one broad call each.
+    for params in ({"q": "Example"}, {"q": "Other", "viewbox": "13,52,14,53"}):
+        assert (await editor_client.get("/api/geocoding/search", params=params)).status_code == 200
+    assert [call.get("bbox") for call in calls] == [None, None]
 
 
 async def test_separate_workers_compete_for_one_database_dispatch_slot(test_engine):

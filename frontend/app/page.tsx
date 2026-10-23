@@ -137,7 +137,7 @@ export default function FireStationDashboard() {
     occupiedResourceIds,
   } = useGroups()
   // The operator's own releases (card chips, detail panel, shortcut toggle) get
-  // «… gelöst · Rückgängig»; internal releases keep the raw context functions.
+  // «… freigegeben · Rückgängig»; internal releases keep the raw context functions.
   const release = useReleaseUndo()
   // ⌘K type-to-dispatch, registered with the palette early and filled in below
   // where the bindings and drop wrappers it needs exist (see «Type-to-dispatch»).
@@ -1679,6 +1679,7 @@ export default function FireStationDashboard() {
                       onSort={isEditor ? handleColumnSort : undefined}
                       isCollapsed={collapsedColumns.isCollapsed(column.id)}
                       onToggleCollapsed={collapsedColumns.toggle}
+                      searchActive={searchQuery.trim() !== ""}
                     />
                   )
                 })}
