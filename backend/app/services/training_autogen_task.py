@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import async_session_maker
 from app.models import DiveraEmergency, Event, Incident, Setting
 from app.services.training import TrainingGenerator
 
@@ -67,12 +67,8 @@ class TrainingAutoGenTask:
         """Monitor settings and manage auto-generation."""
         while self.running:
             try:
-                async for db in get_db():
-                    try:
-                        await self._check_and_run(db)
-                    finally:
-                        await db.close()
-                    break  # outside `finally` — there it would swallow the error above
+                async with async_session_maker() as db:
+                    await self._check_and_run(db)
             except Exception as e:
                 logger.error("Error in training auto-gen monitor: %s", e)
 
@@ -183,12 +179,14 @@ class TrainingAutoGenTask:
 
         if mode == "divera":
             emergency = await generator.generate_pool_emergency(event.id, settings=settings)
+            await db.commit()  # the boards refetch on the broadcast
             await broadcast_emergency_received(
                 schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
             )
             logger.info("Auto-generated simulated Divera alarm: %s", emergency.title)
         else:
             incident = await generator.generate_emergency(event.id, settings=settings)
+            await db.commit()  # the boards refetch on the broadcast
             await broadcast_incident_update(
                 schemas.IncidentResponse.model_validate(incident).model_dump(mode="json"), "create"
             )

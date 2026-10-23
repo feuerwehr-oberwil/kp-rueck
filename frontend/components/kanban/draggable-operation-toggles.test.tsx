@@ -337,7 +337,7 @@ describe('the card routes each block into the detail', () => {
   it('leaves a chip’s own action alone — it removes, and navigates nowhere', async () => {
     const onRemoveCrew = vi.fn()
     const onClick = mount({ onRemoveCrew })
-    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans entfernen' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Muster Hans freigeben' }))
     expect(onRemoveCrew).toHaveBeenCalledWith('Muster Hans')
     expect(onClick).not.toHaveBeenCalled()
   })
@@ -396,7 +396,7 @@ describe('a chip on a touch screen', () => {
 
   it('offers no hidden ✕ to brush against', () => {
     mount()
-    expect(screen.queryByRole('button', { name: 'Muster Hans entfernen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Muster Hans freigeben' })).not.toBeInTheDocument()
   })
 
   it('opens a menu on the person, and «Details öffnen» goes where the tap used to', async () => {
@@ -408,7 +408,7 @@ describe('a chip on a touch screen', () => {
       'Details öffnen',
       // The «EL» glyph, then the label.
       'ELAls Einsatzleiter markieren',
-      'Vom Einsatz entfernen',
+      'Vom Einsatz freigeben',
     ])
     expect(onClick).not.toHaveBeenCalled()
 
@@ -449,18 +449,18 @@ describe('a chip on a touch screen', () => {
     const onRemoveCrew = vi.fn()
     const onClick = mount({ onRemoveCrew })
     await userEvent.click(screen.getByRole('button', { name: 'Muster Hans' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Vom Einsatz entfernen' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Vom Einsatz freigeben' }))
     expect(onRemoveCrew).toHaveBeenCalledWith('Muster Hans')
     expect(onClick).not.toHaveBeenCalled()
   })
 
-  it('says «Fahrzeug entfernen» on a vehicle and names its state in the header', async () => {
+  it('says «Fahrzeug freigeben» on a vehicle and names its state in the header', async () => {
     const onRemoveVehicle = vi.fn()
     mount({ onRemoveVehicle })
     await userEvent.click(screen.getByRole('button', { name: /^TLF Oberwil/ }))
     const menu = await screen.findByRole('menu', { name: 'TLF Oberwil' })
     expect(menu).toHaveTextContent('fährt zurück')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Fahrzeug entfernen' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Fahrzeug freigeben' }))
     expect(onRemoveVehicle).toHaveBeenCalledWith('TLF Oberwil')
   })
 })

@@ -117,7 +117,6 @@ async def create_user(
         changes={"username": user.username, "role": user.role, "display_name": user.display_name},
         request=request,
     )
-    await db.commit()
 
     logger.info("User %s created by admin %s", user.username, current_user.username)
     return user
@@ -191,7 +190,7 @@ async def update_user(
             changes=changes,
             request=request,
         )
-        await db.commit()
+        await db.flush()
         await db.refresh(user)
         logger.info("User %s updated by admin %s: %s", user.username, current_user.username, list(changes.keys()))
 
@@ -241,7 +240,6 @@ async def reset_user_password(
         changes={"action": "password_reset_by_admin"},
         request=request,
     )
-    await db.commit()
 
     logger.info("Password reset for user %s by admin %s", user.username, current_user.username)
 
@@ -293,7 +291,6 @@ async def delete_user(
             changes={"username": username, "action": "permanently_deleted"},
             request=request,
         )
-        await db.commit()
         logger.info("User %s permanently deleted by admin %s", username, current_user.username)
     else:
         # A later reactivation must not resurrect credentials from before deactivation.
@@ -309,5 +306,4 @@ async def delete_user(
             changes={"username": username, "action": "deactivated"},
             request=request,
         )
-        await db.commit()
         logger.info("User %s deactivated by admin %s", username, current_user.username)

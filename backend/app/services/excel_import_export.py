@@ -40,7 +40,7 @@ from ..models import (
     Vehicle,
 )
 from .audit_export_service import EventReportData
-from .pdf_report_service import (
+from .rapport_rows import (
     LOCAL_TZ,
     WorkWindow,
     board_personnel_count,
@@ -705,7 +705,6 @@ async def import_data(
             await db.execute(delete(Vehicle).where(Vehicle.archived_at.is_(None)))
         if parsed_data.materials.present:
             await db.execute(delete(Material).where(Material.archived_at.is_(None)))
-        await db.commit()
 
     # Insert personnel
     for person_data in parsed_data.personnel.rows:
@@ -732,7 +731,9 @@ async def import_data(
         db.add(material)
         counts["materials"] += 1
 
-    await db.commit()
+    # One transaction with the DELETEs above (the request commits): a row that fails to insert
+    # leaves the old tables standing, not empty ones.
+    await db.flush()
 
     return counts
 

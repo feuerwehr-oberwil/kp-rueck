@@ -3,6 +3,8 @@
 import { ArrowRight, Package, Plus, Truck, User } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { drivenElsewhere } from "@/lib/driver-conflict"
+import { getIncidentRefLabel } from "@/lib/incident-types"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -32,21 +34,34 @@ import {
  * «Bisher: Bahnhofstrasse 12» against «Neu: Rebgasse 8» — because whoever moves
  * a resource is deciding what it is taken away FROM.
  *
+ * A Fahrer is also wherever the vehicle they drive stands: that row says «fährt
+ * Mowa» (added when the entry point only knew the crew rows), and a line under
+ * the rows says the move releases the role (lib/driver-conflict.ts).
+ *
  * Mounted once in the root layout.
  */
 export function ResourceConflictPrompt() {
   const t = useTranslations('incidents.resourceConflict')
   const tCommon = useTranslations('incidents.common')
-  const { resourceConflict, resolveResourceConflict, cancelResourceConflict } = useOperations()
+  const { resourceConflict, resolveResourceConflict, cancelResourceConflict, operations, personnel } = useOperations()
 
   if (!resourceConflict) return null
 
-  const { resourceType, resourceName, conflicts, targetOperationLabel } = resourceConflict
+  const { resourceType, resourceName, targetOperationLabel } = resourceConflict
   const Icon = resourceType === "vehicle" ? Truck : resourceType === "material" ? Package : User
+  const driving = resourceType === "personnel"
+    ? drivenElsewhere(personnel.find((p) => p.id === resourceConflict.resourceId), operations, resourceConflict.targetOperationId)
+    : null
+  const drivenOp = driving ? operations.find((op) => op.id === driving.operationId) : undefined
+  const conflicts: { operationId: string; operationLabel: string }[] =
+    drivenOp && !resourceConflict.conflicts.some((c) => c.operationId === drivenOp.id)
+      ? [...resourceConflict.conflicts, { operationId: drivenOp.id, operationLabel: getIncidentRefLabel(drivenOp) }]
+      : resourceConflict.conflicts
 
   return (
     <AlertDialog open={true} onOpenChange={(open) => { if (!open) cancelResourceConflict() }}>
-      <AlertDialogContent>
+      {/* xl: the three answers fit one row in German (the footer wraps rather than overflow). */}
+      <AlertDialogContent className="sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Icon className="h-5 w-5 text-muted-foreground" />
@@ -65,6 +80,9 @@ export function ResourceConflictPrompt() {
               <span className="min-w-0">
                 <span className="text-muted-foreground">{t('currentLabel')}: </span>
                 <span className="font-medium text-foreground">{conflict.operationLabel}</span>
+                {driving?.operationId === conflict.operationId && (
+                  <span className="text-muted-foreground"> · {t('drives', { vehicle: driving.vehicleName })}</span>
+                )}
               </span>
             </div>
           ))}
@@ -81,6 +99,9 @@ export function ResourceConflictPrompt() {
             </>
           )}
         </div>
+        {driving && (
+          <p className="text-sm text-muted-foreground">{t('moveReleasesDriver', { vehicle: driving.vehicleName })}</p>
+        )}
 
         {/* One row, one height, and the ConfirmDialog geometry: the
             «…aber mach stattdessen das» answer — keep the double booking —

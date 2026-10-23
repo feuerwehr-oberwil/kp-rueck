@@ -58,6 +58,7 @@ const api = vi.hoisted(() => ({
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
   assignResource: vi.fn(),
+  unassignSpecialFunction: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -513,5 +514,34 @@ describe("OperationsProvider — assignment work that may still ask (⌘K waits 
       await resolving
     })
     expect(rendered.result.current.isAssignmentSettling()).toBe(false)
+  })
+})
+
+// UX-DESKTOP-04: the Fahrer is wherever the vehicle they drive stands. «Hierher
+// verschieben» used to take them off the crew only and leave them driving it on
+// the old Einsatz – still 2× straight after the operator chose «move».
+describe("OperationsProvider — Doppelbelegung of a Fahrer", () => {
+  it("asks about the Einsatz the driven vehicle stands on, and «verschieben» releases the role", async () => {
+    const rendered = renderHook(() => useOperations(), { wrapper })
+    await waitFor(() => expect(rendered.result.current.operations).toHaveLength(2))
+    const driver = rendered.result.current.personnel.find((p) => p.id === "p-driver")!
+    api.assignResource.mockResolvedValue({ id: "as-new" })
+    api.unassignSpecialFunction.mockReset().mockResolvedValue(undefined)
+
+    // p-driver is no crew anywhere, but drives the TLF, which stands on inc-full.
+    await act(async () => {
+      await rendered.result.current.assignPersonToOperation("p-driver", driver.name, "inc-bare")
+    })
+    expect(rendered.result.current.resourceConflict?.conflicts.map((c) => c.operationId)).toEqual(["inc-full"])
+
+    await act(async () => {
+      await rendered.result.current.resolveResourceConflict("move")
+    })
+    expect(api.unassignSpecialFunction).toHaveBeenCalledWith(EVENT, {
+      personnel_id: "p-driver",
+      function_type: "driver",
+      vehicle_id: "v-tlf",
+    })
+    expect(api.assignResource).toHaveBeenCalledWith("inc-bare", expect.objectContaining({ resource_id: "p-driver" }))
   })
 })

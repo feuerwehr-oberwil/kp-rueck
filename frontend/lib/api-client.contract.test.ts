@@ -21,6 +21,7 @@ const toast = vi.hoisted(() =>
 vi.mock('sonner', () => ({ toast }))
 
 import { apiClient, ApiError, getRestReachable, onRestReachableChange } from './api-client'
+import { claimOutageVoice } from './api/http'
 
 const BASE = 'http://test-backend'
 
@@ -360,5 +361,29 @@ describe('apiClient — the transport rules every method inherits', () => {
     expect(toast.dismiss).toHaveBeenCalledWith('api-connection-lost')
     expect(seen).toEqual([false, true])
     unsubscribe()
+  })
+
+  // UX-DESKTOP-11: the stale banner already says it – a red sticky toast on top was a second voice.
+  it('stays quiet while the stale banner holds the outage, and a claim takes a raised toast down', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockImplementation(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const outage = apiClient.getAllSettings()
+    await vi.runAllTimersAsync()
+    await outage
+    expect(toast.error).toHaveBeenCalledTimes(1)
+    expect(toast.error.mock.calls[0][0]).toBe('Server nicht erreichbar – angezeigt wird der letzte Stand.')
+
+    const release = claimOutageVoice()
+    expect(toast.dismiss).toHaveBeenCalledWith('api-connection-lost')
+    const again = apiClient.getAllSettings()
+    await vi.runAllTimersAsync()
+    await again
+    expect(toast.error).toHaveBeenCalledTimes(1)
+
+    release()
+    fetchMock.mockImplementation(async () => json())
+    await apiClient.getAllSettings()
   })
 })

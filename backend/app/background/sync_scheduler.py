@@ -5,7 +5,7 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from app.database import get_db
+from app.database import async_session_maker
 from app.environment import blocked_reason, is_domain_blocked
 from app.logging_config import get_logger
 from app.services.settings import DEFAULT_SETTINGS, get_setting_value
@@ -42,7 +42,7 @@ async def scheduled_sync() -> None:
         return
 
     # Get database session
-    async for db in get_db():
+    async with async_session_maker() as db:
         try:
             # Check Railway URL from database settings
             railway_url = await get_setting_value(db, "railway_database_url", "")
@@ -94,7 +94,6 @@ async def scheduled_sync() -> None:
 
         except Exception as e:
             logger.error(f"Sync error: {e}")
-        break  # Only use one session (outside `finally`: there it would swallow errors)
 
 
 def start_sync_scheduler() -> None:

@@ -157,7 +157,7 @@
         "confirmTypo": "meintest du?",
         "confirmSplit": "zwei Personen?",
         "choiceConfirm": "bestätigen für «{text}»",
-        "toastMoved": "{name} von {from} abgezogen",
+        "toastMoved": "{name} von {from} freigegeben",
         "tabComplete": "⇥ ergänzt zu «{label}»"
       },
       "journal": "Einsatztagebuch öffnen",
@@ -308,9 +308,9 @@
     },
     "chipMenu": {
       "openDetails": "Details öffnen",
-      "removeFromIncident": "Vom Einsatz entfernen",
-      "removeFromAuftrag": "Vom Auftrag entfernen",
-      "remove": "Entfernen"
+      "removeFromIncident": "Vom Einsatz freigeben",
+      "removeFromAuftrag": "Vom Auftrag freigeben",
+      "remove": "Freigeben"
     },
     "participants": {
       "title": "Bisher im Einsatz",
@@ -399,7 +399,7 @@
       "noEventSelected": "Kein Ereignis ausgewählt.",
       "deleteIncidentTitle": "Einsatz wirklich löschen?",
       "deleteIncidentDescription": "Der Einsatz «{name}» wird gelöscht und nicht nur archiviert – er wird vollständig vom Board entfernt.",
-      "removeNamed": "{name} entfernen",
+      "removeNamed": "{name} freigeben",
       "available": "Verfügbar",
       "inUse": "Im Einsatz",
       "counterLoading": "–/– verfügbar",
@@ -458,7 +458,7 @@
       "unknownResource": "Unbekannt",
       "statusMovedToast": "{name} → {status}",
       "vehicleAssignedToast": "{vehicle} zu {name} zugewiesen",
-      "vehicleRemovedToast": "{vehicle} von {name} entfernt",
+      "vehicleRemovedToast": "{vehicle} von {name} freigegeben",
       "priorityChangedToast": "{name}: Priorität {priority}",
       "zuFussOnToast": "{name}: zu Fuss unterwegs",
       "zuFussOffToast": "{name}: nicht mehr zu Fuss",
@@ -586,16 +586,17 @@
       "confirm": "Nächsten Stopp auf Einsatz"
     },
     "rekoMissing": {
-      "description": "<hl>{location}</hl> wurde in die Reko-Spalte verschoben, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",
+      "description": "<hl>{location}</hl> soll in die Reko-Spalte, es ist aber noch keine Reko-Person zugewiesen. Ohne Zuweisung erhält niemand das Reko-Formular. Möchtest du jetzt jemanden zuweisen oder trotzdem fortfahren?",
       "proceedAnyway": "Trotzdem fortfahren",
+      "dontMove": "Nicht verschieben",
       "assignReko": "Reko-Person zuweisen"
     },
     "driverPrompt": {
       "driverlessTitle": "Fahrzeug ohne Fahrer?",
-      "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?",
-      "driverlessRemove": "Fahrzeug entfernen",
+      "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder freigeben?",
+      "driverlessRemove": "Fahrzeug freigeben",
       "driverlessKeep": "Ohne Fahrer lassen",
-      "driverlessRouteDescription": "«{vehicle}» ist dem Auftrag «{auftrag}» zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder entfernen?"
+      "driverlessRouteDescription": "«{vehicle}» ist dem Auftrag «{auftrag}» zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder freigeben?"
     },
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
@@ -680,10 +681,14 @@
       "collapse": "Spalte einklappen",
       "dropHere": "Einsatz hier ablegen",
       "empty": "Noch keine Einsätze.",
+      "noMatches": "Keine Treffer.",
       "collapsedHint": "{title} – {count} – zum Aufklappen klicken",
       "statusDistinctionHint": "Rückfahrt: Arbeiten am Schadenplatz beendet, Ressourcen noch auf der Rückfahrt. Abgeschlossen: Einsatz vollständig erledigt, Ressourcen freigegeben, offene Rückmeldungen geprüft.",
       "overdueTitle": "{count} überfällig: {titles}",
       "overdueMore": "… und {count} weitere"
+    },
+    "search": {
+      "noVehicleKeyword": "ohne fahrzeug"
     },
     "timeline": {
       "loadFailed": "Verlauf konnte nicht geladen werden.",
@@ -691,7 +696,7 @@
       "title": "Verlauf",
       "subtitle": "Statusänderungen, Zuweisungen und Meldungen",
       "empty": "Noch keine Einträge.",
-      "removed": "entfernt",
+      "removed": "freigegeben",
       "assigned": "zugewiesen",
       "unknown": "(unbekannt)",
       "kpMessageVerb": "an Trupp"
@@ -728,10 +733,10 @@
       "nachbarhilfeDescription": "Einsatz mit Nachbarfeuerwehr-Beteiligung",
       "noCrew": "Keine Mannschaft zugewiesen",
       "noVehicles": "Keine Fahrzeuge zugewiesen",
-      "removeVehicle": "Fahrzeug entfernen",
+      "removeVehicle": "Fahrzeug freigeben",
       "leaderFailed": "Einsatzleiter konnte nicht gesetzt werden.",
-      "removePerson": "Person entfernen",
-      "removeMaterial": "Material entfernen",
+      "removePerson": "Person freigeben",
+      "removeMaterial": "Material freigeben",
       "noMaterial": "Kein Material zugewiesen",
       "resourceEmpty": "keine",
       "changeStatus": "Status ändern",
@@ -766,7 +771,7 @@
       "conflictDescription": "<strong>{name}</strong> ist aktuell {assignment}. Als {function} kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictAssignedOne": "dem Einsatz «{location}» zugewiesen",
       "conflictAssignedMany": "{count} Einsätzen zugewiesen",
-      "confirmAction": "Vom Einsatz entfernen & zuweisen",
+      "confirmAction": "Vom Einsatz freigeben & zuweisen",
       "unassignTitle": "{function}-Funktion entfernen?",
       "unassignRekoDescription": "<strong>{name}</strong> verliert die Reko-Funktion und erscheint nicht mehr in den Reko-Ansichten (Reko-Dashboard, Karte). Bestehende Einsatz-Zuweisungen bleiben bestehen. Die Person gilt danach wieder als normale Einsatzkraft.",
       "unassignRekoTransfer": "{count, plural, one {# Einsatz übertragen} other {# Einsätze übertragen}}",
@@ -1239,7 +1244,7 @@
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
-      "conflictConfirm": "Vom Einsatz entfernen & zuweisen",
+      "conflictConfirm": "Vom Einsatz freigeben & zuweisen",
       "drivesVehicle": "Fährt {vehicle}",
       "reassignTitle": "Fahrer wechseln",
       "reassignDescription": "<strong>{name}</strong> fährt aktuell <strong>{fromVehicle}</strong>. Als Fahrer von <strong>{vehicle}</strong> übernehmen? Der bisherige Einsatz als Fahrer wird beendet.",
@@ -1266,7 +1271,9 @@
       "titleNamed": "{name} ist schon im Einsatz",
       "prompt": "Was soll gelten?",
       "currentLabel": "Bisher",
-      "newLabel": "Neu"
+      "newLabel": "Neu",
+      "drives": "fährt {vehicle}",
+      "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} Min",
@@ -3037,7 +3044,7 @@
       "addStopsFailed": "Stopps konnten nicht hinzugefügt werden",
       "removeStopFailed": "Stopp konnte nicht entfernt werden",
       "assignFailed": "Ressource konnte nicht zugewiesen werden",
-      "unassignFailed": "Ressource konnte nicht entfernt werden"
+      "unassignFailed": "Ressource konnte nicht freigegeben werden"
     },
     "personnel": {
       "loadFailedTitle": "Personal konnte nicht geladen werden",
@@ -3051,11 +3058,11 @@
       "retryDescription": "Bitte erneut versuchen."
     },
     "operations": {
-      "removeFailedTitle": "Entfernen fehlgeschlagen",
-      "removePersonFailedDescription": "Die Person konnte nicht entfernt werden.",
-      "removeRekoFailedDescription": "Die Reko-Person konnte nicht entfernt werden.",
-      "removeMaterialFailedDescription": "Das Material konnte nicht entfernt werden.",
-      "removeVehicleFailedDescription": "Das Fahrzeug konnte nicht entfernt werden.",
+      "removeFailedTitle": "Freigeben fehlgeschlagen",
+      "removePersonFailedDescription": "Die Person konnte nicht freigegeben werden.",
+      "removeRekoFailedDescription": "Die Reko-Person konnte nicht freigegeben werden.",
+      "removeMaterialFailedDescription": "Das Material konnte nicht freigegeben werden.",
+      "removeVehicleFailedDescription": "Das Fahrzeug konnte nicht freigegeben werden.",
       "conflictTitle": "Von anderer Person geändert",
       "conflictDescription": "Dieser Einsatz wurde gerade von jemand anderem aktualisiert – die Ansicht wurde neu geladen.",
       "amWartenClearedTitle": "«Am Warten» aufgehoben",
@@ -3096,7 +3103,7 @@
       "resourceNotMovedTitle": "{name} nicht verschoben",
       "resourceNotMovedDescription": "Nicht alle Einsätze konnten bereinigt werden – bitte prüfen.",
       "resourceMovedTitle": "{name} verschoben",
-      "resourceMovedDescription": "Von {labels} entfernt."
+      "resourceMovedDescription": "Von {labels} freigegeben."
     },
     "railway": {
       "backOnlineTitle": "Railway ist wieder online",
@@ -3253,8 +3260,8 @@
       "trainingVehicleDown": "Fahrzeug {vehicle} ausgefallen – Ersatz disponieren"
     },
     "release": {
-      "released": "{resource} von {target} gelöst",
-      "releasedMany": "{count} × {resource} von {target} gelöst",
+      "released": "{resource} von {target} freigegeben",
+      "releasedMany": "{count} × {resource} von {target} freigegeben",
       "restored": "{resource} wieder bei {target}",
       "restoreFailedTitle": "{resource} konnte nicht zurückgeholt werden",
       "reason": {
@@ -3282,8 +3289,7 @@
     "api": {
       "title": "API Fehler",
       "noErrorDetails": "Keine Fehlerdetails verfügbar",
-      "connectionTitle": "Verbindungsfehler",
-      "connectionDescription": "Keine Verbindung zum Server. Bitte prüfe deine Internetverbindung.",
+      "connectionTitle": "Server nicht erreichbar – angezeigt wird der letzte Stand.",
       "unknown": "Unbekannter Fehler",
       "photoUploadFailed": "Foto-Upload fehlgeschlagen",
       "uploadTimeout": "Upload-Zeitüberschreitung - bitte erneut versuchen"
@@ -4451,7 +4457,7 @@
       "deleted": "Einsatz gelöscht",
       "restored": "Einsatz wiederhergestellt",
       "assigned": "{name} zugewiesen",
-      "unassigned": "{name} vom Einsatz abgezogen",
+      "unassigned": "{name} vom Einsatz freigegeben",
       "reko": "Reko-Bericht eingegangen",
       "rekoWith": "Reko-Bericht eingegangen: {text}",
       "alarm": "Divera-Alarm ausgelöst ({count} Empfänger)",

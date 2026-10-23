@@ -133,5 +133,4 @@ async def update_role_sort_orders(
             .values(role_sort_order=category_update.sort_order)
         )
 
-    await db.commit()
     return {"status": "success", "updated_categories": len(sort_update.categories)}

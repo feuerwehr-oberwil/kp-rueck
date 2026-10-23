@@ -22,7 +22,7 @@ async def set_identity(
     external_id: str,
     metadata: dict[str, Any] | None = None,
 ) -> models.PersonnelExternalIdentity:
-    """Create or update a person's identity at a provider (upsert, commits)."""
+    """Create or update a person's identity at a provider (upsert; flushes, the caller commits)."""
     existing = (
         await db.execute(
             select(models.PersonnelExternalIdentity)
@@ -35,7 +35,7 @@ async def set_identity(
         existing.external_id = external_id
         if metadata is not None:
             existing.metadata_json = metadata
-        await db.commit()
+        await db.flush()
         return existing
 
     identity = models.PersonnelExternalIdentity(
@@ -45,7 +45,7 @@ async def set_identity(
         metadata_json=metadata,
     )
     db.add(identity)
-    await db.commit()
+    await db.flush()
     return identity
 
 

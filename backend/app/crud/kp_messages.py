@@ -51,7 +51,7 @@ async def create_kp_message(
         changes={"message": row.message, "source": "kp"},
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(row)
     return row
 

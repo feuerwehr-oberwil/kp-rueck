@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import special_functions as crud
-from ..database import get_db
+from ..database import after_commit, get_db
 from ..models import EventSpecialFunction, Personnel, SpecialFunctionType, Vehicle
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_special_function_update
@@ -138,8 +138,11 @@ async def assign_special_function(
         assigned_by=db_assignment.assigned_by,
     )
 
-    await broadcast_special_function_update(
-        {"event_id": str(event_id), "function_type": assignment.function_type}, action="assign"
+    after_commit(
+        db,
+        broadcast_special_function_update,
+        {"event_id": str(event_id), "function_type": assignment.function_type},
+        action="assign",
     )
 
     return response
@@ -166,6 +169,9 @@ async def unassign_special_function(
     if not success:
         raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
-    await broadcast_special_function_update(
-        {"event_id": str(event_id), "function_type": assignment.function_type}, action="unassign"
+    after_commit(
+        db,
+        broadcast_special_function_update,
+        {"event_id": str(event_id), "function_type": assignment.function_type},
+        action="unassign",
     )

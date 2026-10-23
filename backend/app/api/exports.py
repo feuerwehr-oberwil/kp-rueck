@@ -152,7 +152,6 @@ async def export_event_audit(
             timestamp=datetime.now(UTC),
         )
         db.add(audit_entry)
-        await db.commit()
 
         # Generate filename
         event_name_safe = get_safe_filename(event.name)
@@ -243,7 +242,6 @@ async def export_event_report(
             timestamp=datetime.now(UTC),
         )
         db.add(audit_entry)
-        await db.commit()
 
         date_str = datetime.now(UTC).strftime("%Y-%m-%d")
         filename = f"einsatzbericht-{slugify_event_name(event.name)}-{date_str}.pdf"

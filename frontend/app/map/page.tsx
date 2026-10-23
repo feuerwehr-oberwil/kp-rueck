@@ -139,7 +139,7 @@ export default function MapPage() {
     getGroupResources,
     occupiedResourceIds,
   } = useGroups()
-  // The operator's own releases get «… gelöst · Rückgängig» (lib/release-undo.ts).
+  // The operator's own releases get «… freigegeben · Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -611,7 +611,7 @@ export default function MapPage() {
     if (!auftragPickerIncidentId) return
     const operation = operations.find((item) => item.id === auftragPickerIncidentId)
     if (!operation?.groupId) return
-    // The release toast («… von <Auftrag> gelöst · Rückgängig») says it.
+    // The release toast («… von <Auftrag> freigegeben · Rückgängig») says it.
     await release.releaseStop(operation.groupId, operation.id)
   }
 

@@ -11,7 +11,7 @@ Since plan 26 "mine" is a **union of four sources** — crew, reko, driver,
 magazin — because a driver holds no personnel row at all and a Magazin person is
 assigned to nothing. The rule, its precedence, and which sources may write what
 live in ``visibility.py``; read that module's docstring before touching any of
-it.
+it. What a person's briefing then shows them is ``briefings.py``.
 
 Every endpoint mounts on ``person_has_event_access`` / ``get_authorized_incident``;
 adding one without either is the hole this package exists to prevent.
@@ -39,6 +39,12 @@ from .access import (
     revoke_claim,
     unlock_is_live,
 )
+from .briefings import (
+    _DANGER_KEYS,
+    _briefings,
+    _reko_briefings,
+    get_feld_assignments_for_personnel,
+)
 from .material import (
     apply_material_decisions,
     event_restliste,
@@ -64,24 +70,26 @@ from .rapport import (
     _concurrent_editor,
     _event_personnel,
     _fleet_vehicles,
+    _material_name_suggestions,
+    _names,
+    _route_assigned_ids,
+    add_photo,
+    get_rapport,
+    remove_photo,
+    save_rapport,
+)
+from .rapport_reconcile import (
     _is_answered,
     _jsonable_materials,
     _jsonable_personnel,
     _jsonable_vehicles,
-    _material_name_suggestions,
     _material_used,
-    _names,
-    _route_assigned_ids,
-    add_photo,
     derive_personnel_count,
-    get_rapport,
     normalize_extra_materials,
     normalize_extra_personnel,
     reconcile_materials,
     reconcile_personnel,
     reconcile_vehicles,
-    remove_photo,
-    save_rapport,
 )
 from .reports import (
     FieldActor,
@@ -109,7 +117,6 @@ from .requests import (
     set_request_status,
 )
 from .visibility import (
-    _DANGER_KEYS,
     ARRIVAL_SOURCES,
     RAPPORT_SOURCES,
     SOURCE_CREW,
@@ -119,15 +126,12 @@ from .visibility import (
     SOURCE_REKO,
     WORK_SOURCES,
     FeldSource,
-    _briefings,
     _event_incidents,
     _rapport_state,
     _rapport_states,
-    _reko_briefings,
     driver_vehicle_names,
     functions_for_personnel,
     get_authorized_incident,
-    get_feld_assignments_for_personnel,
     get_feld_personnel_for_event,
     get_incident_leaders,
     person_has_event_access,

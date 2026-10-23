@@ -226,7 +226,7 @@ async def _get_system_actor(db: AsyncSession) -> User:
             is_active=False,  # cannot log in — used only for attribution
         )
         db.add(user)
-        await db.commit()
+        await db.flush()
         await db.refresh(user)
     return user
 
@@ -485,7 +485,7 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
             .where(Event.archived_at.is_(None))
         )
         # Snapshot the values we need as plain primitives BEFORE any mutation, because
-        # update_incident_status() commits and would expire these ORM instances.
+        # each action below commits on its own, and a failed one rolls back and expires them.
         targets = [
             {
                 "assignment_id": assignment.id,
@@ -722,6 +722,7 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
 
     logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
     await create_vehicle_returned_notification(db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name)
+    await db.commit()
 
 
 async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: str, actor: User) -> None:
@@ -773,6 +774,8 @@ async def _fire_arrival(db: AsyncSession, incident_id: uuid.UUID, vehicle_name: 
             at=_now(),
             only_if_unset=True,
         )
+    # One commit per action, as a loop without a request: a later vehicle's failure keeps this one.
+    await db.commit()
     await broadcast_incident_update({"id": str(incident_id), "status": "active"}, "update")
 
 
@@ -867,3 +870,4 @@ async def _fire_group_return_prompt(
         incident_id=incident_id,
         vehicle_name=vehicle_name,
     )
+    await db.commit()

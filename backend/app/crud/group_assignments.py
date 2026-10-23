@@ -111,7 +111,7 @@ async def assign_group_resource(
     if resource_type == "personnel":
         await sync_auto_group_leader(db, group_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(assignment)
     return assignment
 
@@ -126,7 +126,7 @@ async def unassign_group_resource(
     """Soft-release a resource from an Auftrag (set ``unassigned_at``).
 
     Scoped to ``group_id`` so a stale/mismatched assignment id cannot release a
-    row on a different Auftrag. Commits the release. Returns False if no active
+    row on a different Auftrag. Flushes the release. Returns False if no active
     matching assignment exists.
     """
     result = await db.execute(
@@ -161,7 +161,7 @@ async def unassign_group_resource(
     if assignment.resource_type == "personnel":
         await sync_auto_group_leader(db, assignment.incident_group_id)
 
-    await db.commit()
+    await db.flush()
     return True
 
 
@@ -389,7 +389,7 @@ async def update_group_assignment(
         await db.flush()
         await sync_auto_group_leader(db, assignment.incident_group_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(assignment)
     return schemas.GroupAssignmentResponse.model_validate(assignment)
 

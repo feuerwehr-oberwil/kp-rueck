@@ -147,7 +147,7 @@ async def create_personnel(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(personnel)
     return personnel
 
@@ -202,7 +202,7 @@ async def update_personnel(
             request=request,
         )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(personnel)
     return personnel
 
@@ -236,5 +236,5 @@ async def delete_personnel(
 
     # Hard delete the personnel record
     await db.delete(personnel)
-    await db.commit()
+    await db.flush()
     return True

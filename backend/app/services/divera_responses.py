@@ -442,7 +442,7 @@ async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str
             incidents.add(emergency.created_incident_id)
     # Also for an alarm still waiting in the pool: attaching it later must find its answers.
     if changed:
-        await db.commit()
+        await db.flush()
     return events, incidents
 
 
@@ -461,7 +461,6 @@ async def purge_expired(db: AsyncSession) -> int:
         .values(responses_json=null(), responses_updated_at=None)
         .execution_options(synchronize_session=False)
     )
-    await db.commit()
     return int(getattr(result, "rowcount", 0) or 0)
 
 

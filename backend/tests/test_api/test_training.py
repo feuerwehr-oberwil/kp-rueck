@@ -190,7 +190,7 @@ async def test_generate_emergencies_success_in_demo_mode(
     editor_client: AsyncClient, training_event: Event, test_templates, test_locations, monkeypatch
 ):
     """Test successful emergency generation in the public demo."""
-    monkeypatch.setattr("app.api.training.settings.demo_mode", True)
+    monkeypatch.setattr("app.config.settings.demo_mode", True)
     with patch("app.api.training.generate_training_emergency", new_callable=AsyncMock) as mock_gen:
         # Create a mock incident
         mock_incident = Incident(
@@ -527,7 +527,7 @@ async def test_simulate_divera_creates_training_pool_entry(
     test_locations,
 ):
     """The inject lands in the Divera pool as a training-marked entry."""
-    with patch("app.api.training.broadcast_emergency_received", new_callable=AsyncMock) as mock_bc:
+    with patch("app.api.training_simulate.broadcast_emergency_received", new_callable=AsyncMock) as mock_bc:
         response = await editor_client.post(
             f"/api/training/events/{training_event.id}/simulate/divera",
             json={"category": "normal"},
@@ -735,7 +735,7 @@ async def test_simulate_checkin_trickle_schedules(
     editor_client: AsyncClient, db_session: AsyncSession, training_event: Event
 ):
     """Trickle mode returns the schedule instead of checking in immediately."""
-    from app.api.training import _trickle_tasks
+    from app.api.training_simulate import _trickle_tasks
     from app.models import Personnel
 
     for i in range(3):
