@@ -125,7 +125,9 @@ export function DetailField({
   const stacked = useStackedFields(stackedProp)
   if (stacked) {
     return (
-      <div className={cn("py-1.5", className)}>
+      // `data-stacked`: which layout the field chose (the same attribute `SettingRow` sets),
+      // so a test asks the field rather than its class list.
+      <div data-stacked="" className={cn("py-1.5", className)}>
         <Label htmlFor={htmlFor} title={description} className={STACKED_LABEL}>
           {label}
           {required && (
