@@ -1104,18 +1104,12 @@ async def unassign_reko_personnel(
     response_model=None,
 )
 async def transfer_reko_assignments(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
     from_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer from"),
     to_personnel_id: uuid.UUID = Query(..., description="Personnel ID to transfer to"),
     event_id: uuid.UUID = Query(..., description="Event ID"),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    current_user: CurrentEditor = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """

@@ -45,9 +45,7 @@ async def receive_firehub_webhook(
     payload: schemas.FireHubWebhook,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
+    request: Request,
 ) -> dict[str, Any]:
     """
     Receive a FireHub Einsatzstart/Einsatzende webhook.

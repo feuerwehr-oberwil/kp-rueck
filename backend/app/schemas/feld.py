@@ -16,10 +16,10 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .field_requests import FieldRequestResponse
-from .incidents import IncidentBase, IncidentPriority, IncidentType
+from .incidents import IncidentFields, IncidentPriority, IncidentType, LocationFields
 
 # 'none'      – no schadenplatz_reports row for this incident yet
 # 'draft'     – a row exists but is_draft is still True
@@ -1000,7 +1000,7 @@ class RapportMaterialDecisionsResponse(BaseModel):
     applied: bool = False
 
 
-class FeldIncidentCreate(BaseModel):
+class FeldIncidentCreate(IncidentFields):
     """«Neue Meldung» — a Schadenplatz reported by somebody standing in front of it.
 
     Deliberately narrower than the board's create and slightly wider than the
@@ -1038,15 +1038,8 @@ class FeldIncidentCreate(BaseModel):
     # `take_over` is ignored (services/duplicates.py; the KP can «Trennen»).
     merge_into_incident_id: UUID | None = None
 
-    _validate_title = field_validator("title")(IncidentBase.validate_title.__func__)  # type: ignore[attr-defined]
-    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
-    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
-    # One line, like its three siblings above: the ignore has to sit on the line
-    # mypy reports, and that is the `__func__` unwrap, not the decorator call.
-    _validate_description = field_validator("description")(IncidentBase.validate_description.__func__)  # type: ignore[attr-defined]
 
-
-class FeldIncidentUpdate(BaseModel):
+class FeldIncidentUpdate(LocationFields):
     """A correction to a Meldung that has not been disponiert yet.
 
     Every field optional and `None` means "unchanged", not "clear it": the phone
@@ -1068,9 +1061,6 @@ class FeldIncidentUpdate(BaseModel):
     internal_notes: str | None = None
     contact: str | None = None
     contact_phone: str | None = None
-
-    _validate_lat = field_validator("location_lat")(IncidentBase.validate_latitude.__func__)  # type: ignore[attr-defined]
-    _validate_lng = field_validator("location_lng")(IncidentBase.validate_longitude.__func__)  # type: ignore[attr-defined]
 
 
 class FeldOwnReport(BaseModel):

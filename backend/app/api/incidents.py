@@ -128,11 +128,8 @@ async def list_incidents(
 # docs/openapi.json.
 @router.get("/sync-version", response_model=None)
 async def get_sync_version(
+    current_user: CurrentUser,
     event_id: str = Query(...),
-    # The `= None` default is dead: the Annotated `Depends` in CurrentUser always injects a
-    # User. It cannot be dropped (it precedes other defaulted params) and it must NOT become
-    # `CurrentUser | None` — FastAPI stops seeing the Depends inside a Union and fails at import.
-    current_user: CurrentUser = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """Return a quick hash of the current state for change detection.

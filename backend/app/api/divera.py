@@ -72,9 +72,7 @@ async def receive_divera_webhook(
     payload: schemas.DiveraWebhookPayload,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
+    request: Request,
 ) -> dict[str, str | None]:
     """
     Receive Divera 24/7 webhook and store emergency.
