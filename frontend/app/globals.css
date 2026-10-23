@@ -379,6 +379,35 @@
    (inset shadow), so choosing never shifts the layout. Bordered controls use
    `border-sel-edge bg-sel-wash text-sel-foreground` instead, or <Button
    variant="selected">. */
+/* The board's three caption roles (sweep 2026-10, VISUAL-16). Around the
+   cards (16/700 title, 12/400 body) the small text had drifted into five
+   spellings of «caption» – 12/500, 12/600, 12/700, 11/500, 11/600. Small text
+   in the board chrome takes one of these, not a hand-picked size + weight:
+     type-label    12/600 caps, spaced – names a PLACE: column heads, the
+                   sidebar group heads, the column count beside its head
+     type-caption  12/500 – facts in a line: chips, counts, the «n frei» summary
+     type-micro    11/500 – the floor (see --text-2xs): «EL», the driver-stay
+                   chip, a sidebar row's where-line, an Auftrag's progress
+   Each sets size, line height and weight together, so do not combine one with
+   a `text-*` size, `font-*` weight or `leading-*` on the same element. */
+@utility type-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+}
+@utility type-caption {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 500;
+}
+@utility type-micro {
+  font-size: var(--text-2xs);
+  line-height: var(--text-2xs--line-height);
+  font-weight: 500;
+}
+
 @utility sel-choice {
   background-color: var(--sel-wash);
   color: var(--sel-foreground);

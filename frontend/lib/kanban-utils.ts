@@ -168,7 +168,7 @@ export const DEFAULT_COLLAPSED_COLUMN_IDS: OperationStatus[] = columns
  *
  * Change it here and all three change together — that is the point.
  */
-export const COLUMN_HEADER_CLASS = "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+export const COLUMN_HEADER_CLASS = "type-label text-muted-foreground"
 
 /** How wall text that must not truncate breaks instead (the /display card titles, column
  *  heads, the status list's addresses). Hyphenate at a syllable in the page's

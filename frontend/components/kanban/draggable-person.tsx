@@ -192,7 +192,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
               Time on duty is deliberately NOT here (owner, 09.10.: too much in
               the default view) — it lives in the Dienstzeiten sheet. */}
           {isOccupied && (engagement?.short || functionLabel) && (
-            <div className="truncate text-[11px] leading-tight text-muted-foreground" title={occupiedTooltip}>
+            <div className="truncate type-micro leading-tight text-muted-foreground" title={occupiedTooltip}>
               {engagement?.short ?? functionLabel}
             </div>
           )}

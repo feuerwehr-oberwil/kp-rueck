@@ -47,7 +47,7 @@ export function DriverStayGlyph({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 whitespace-nowrap",
+        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro whitespace-nowrap",
         "bg-foreground/10 text-foreground",
         className,
       )}

@@ -1083,7 +1083,7 @@ function DraggableOperationBase({
                             disabled={!onToggleDriverStay}
                             title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                             className={cn(
-                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 transition-colors",
+                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro transition-colors",
                               onToggleDriverStay && "cursor-pointer hover:brightness-110",
                               // Neutral ink in both states (quieter cards; the
                               // count-chip treatment, readable at 11px): the
@@ -1226,7 +1226,7 @@ function DraggableOperationBase({
                   <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                     {auftrag.name}
                   </span>
-                  <span className="truncate text-2xs text-muted-foreground">
+                  <span className="truncate type-micro text-muted-foreground">
                     <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
                     {auftragSummary && <> · {auftragSummary}</>}
                   </span>

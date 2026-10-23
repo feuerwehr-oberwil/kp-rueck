@@ -230,7 +230,7 @@ export function PersonnelSidebar({
                 ['bound', availabilityGroupedPersonnel.bound],
               ] as const).map(([kind, people]) => people.length === 0 ? null : (
                 <div key={kind}>
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="mb-1 type-label text-muted-foreground">
                     {kind === 'free'
                       ? tDash('groupFree', { count: people.length })
                       : tDash('groupBound', { count: people.length })}
@@ -300,7 +300,7 @@ export function PersonnelSidebar({
               is the line read in half a second, not a statistic. */}
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
             <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
                 <Check className="size-3.5" />
                 {tCommon('rosterFree', { count: rosterSummary.free })}
               </span>

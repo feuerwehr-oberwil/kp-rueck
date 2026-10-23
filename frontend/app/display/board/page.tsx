@@ -229,7 +229,7 @@ function BoardDisplay() {
             >
               <span aria-hidden className={cn("h-0.5 w-full", accent?.dot)} />
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
                 {ops.length}
                 {hasAlarm && (
                   <span
@@ -298,7 +298,7 @@ function BoardDisplay() {
                     The overdue dot rides on the count badge, as on the folded
                     strip, instead of taking 16px of the label's line. */}
                 <h2 className={cn("min-w-0 flex-1 leading-tight", WALL_TEXT_WRAP, COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
                   {ops.length}
                   {hasAlarm && (
                     <span
