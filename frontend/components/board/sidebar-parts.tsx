@@ -342,11 +342,16 @@ export function AggregatedMaterialRow({
               className={cn(
                 "group draggable rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
                 isDragging && "dragging",
-                allTaken && "opacity-60 hover:opacity-100",
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                {/* All units taken = a quiet name (as the person row), not a faded row. */}
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-sm font-medium",
+                    allTaken ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
+                  )}
+                >
                   {dragUnit.name}
                 </span>
                 {/* The count IS the state: 0/4 needs no extra dot. Amber once
