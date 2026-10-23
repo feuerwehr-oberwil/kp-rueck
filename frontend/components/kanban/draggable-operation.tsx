@@ -642,23 +642,25 @@ function DraggableOperationBase({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {operation.source === 'intake' && (
                 <div
-                  className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.intakeTooltip')}
                 >
-                  <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  <Phone className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               {/* Where the Meldung came from, as its own glyph: the phone desk
                   took a call, a Trupp stood in front of the thing. Both are
                   "somebody outside the KP said there is something here", and the
                   difference decides how much of it the operator re-checks — so
-                  it is drawn, not left to the source field in the detail. */}
+                  it is drawn, not left to the source field in the detail.
+                  Both tiles are muted like the Reko tile: sky is the Rückfahrt
+                  column's hue, and the tooltip carries the meaning. */}
               {operation.source === 'feld' && (
                 <div
-                  className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.feldTooltip')}
                 >
-                  <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  <Axe className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
