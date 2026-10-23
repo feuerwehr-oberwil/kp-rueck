@@ -44,7 +44,8 @@ export class RekoApi {
       params.append('personnel_id', personnelId)
     }
 
-    return httpRequest<ApiRekoFormResponse>(`/api/reko/form?${params.toString()}`)
+    // No toast: the form says it itself, once (a dead link gets the /alarm card).
+    return httpRequest<ApiRekoFormResponse>(`/api/reko/form?${params.toString()}`, { skipToast: true })
   }
 
   async saveRekoDraft(incidentId: string, token: string, data: ApiRekoReportCreate): Promise<ApiRekoReportResponse> {

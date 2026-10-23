@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, type ReactNode } from 'react'
+import { ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -68,5 +69,19 @@ export function LinkPageHeader({
         {trailing}
       </div>
     </header>
+  )
+}
+
+/**
+ * «Link ungültig oder abgelaufen» — the one card a dead link gets on a link page (/alarm, /reko):
+ * one message in the reader's words, no toast beside it, and no «Zurück» into a login screen.
+ */
+export function LinkInvalidCard({ title, description }: { title: ReactNode; description: ReactNode }) {
+  return (
+    <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+      <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-destructive" aria-hidden />
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    </div>
   )
 }

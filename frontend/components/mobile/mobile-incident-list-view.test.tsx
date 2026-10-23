@@ -10,6 +10,7 @@ import type { Operation } from '@/lib/contexts/operations-context'
 
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
+vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [] }) }))
 vi.mock('@/components/mobile/mobile-incident-card', () => ({
   MobileIncidentCard: ({ operation }: { operation: Operation }) => <div data-testid="card">{operation.location}</div>,
 }))
@@ -20,11 +21,14 @@ vi.mock('@/components/mobile/mobile-incident-detail-sheet', () => ({
 
 import { MobileIncidentListView } from '@/components/mobile/mobile-incident-list-view'
 
-const op = (id: string, location: string, status: Operation['status']) =>
+const op = (id: string, location: string, status: Operation['status'], notes = '') =>
   ({
     id,
     location,
     status,
+    notes,
+    contact: '',
+    materials: [],
     incidentType: 'elementarereignis',
     priority: 'medium',
     vehicles: [],
@@ -79,6 +83,24 @@ function renderBare(props: Partial<React.ComponentProps<typeof MobileIncidentLis
     <MobileIncidentListView operations={[]} materials={[]} formatLocation={(a) => a} {...props} />,
   )
 }
+
+describe('MobileIncidentListView — the search', () => {
+  it('finds an Einsatz by its Meldung — the board matcher, not a phone copy', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(
+      <MobileIncidentListView
+        operations={[
+          op('1', 'Bahnhofstrasse 22', 'incoming', 'Unterführung nach Starkregen überflutet'),
+          op('2', 'Langegasse 97', 'incoming'),
+        ]}
+        materials={[]}
+        formatLocation={(a) => a}
+      />,
+    )
+    await user.type(screen.getByPlaceholderText('Einsatz suchen …'), 'unterführung')
+    expect(screen.getAllByTestId('card').map((card) => card.textContent)).toEqual(['Bahnhofstrasse 22'])
+  })
+})
 
 describe('MobileIncidentListView — «Neuer Einsatz» in the footer', () => {
   it('gives the phone a visible way in that opens the form', async () => {

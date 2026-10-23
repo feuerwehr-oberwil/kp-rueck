@@ -1327,7 +1327,6 @@
       "add": "Hinzufügen"
     },
     "mobileCard": {
-      "leader": "EL: {name}",
       "noRapport": "kein Rapport",
       "meldung": "Meldung",
       "crew": "Mannschaft",
@@ -1363,7 +1362,7 @@
       "searchPlaceholder": "Einsatz suchen …",
       "noActive": "Keine aktiven Einsätze",
       "noHitsFor": "Keine Einsätze für «{query}».",
-      "searchScope": "Gesucht wird in Ort, Einsatzart, Fahrzeugen und Mannschaft.",
+      "searchScope": "Gesucht wird in Ort, Meldung, Einsatzart, Fahrzeugen, Mannschaft und Material.",
       "noneInFilter": "Keine Einsätze mit Status «{filter}».",
       "showAll": "Alle zeigen",
       "filter": "Filtern",
@@ -2583,10 +2582,10 @@
     },
     "success": {
       "title": "Reko-Bericht übermittelt",
-      "description": "Dein Reko-Bericht wurde erfolgreich an die Einsatzleitung übermittelt.",
-      "closeHint": "Du kannst dieses Fenster nun schliessen oder zur Übersicht zurückkehren.",
-      "incidentIdLabel": "Einsatz-ID:",
-      "backToOverview": "Zurück zur Übersicht"
+      "description": "Dein Reko-Bericht ist bei der Einsatzleitung.",
+      "descriptionAt": "{address} – an die Einsatzleitung übermittelt.",
+      "closeHint": "Du kannst dieses Fenster jetzt schliessen.",
+      "back": "Zurück"
     },
     "dashboard": {
       "invalidCode": "Ungültiger oder abgelaufener Code. Bitte Link erneut anfordern.",
@@ -2629,11 +2628,12 @@
     },
     "form": {
       "arrivalError": "Ankunft melden fehlgeschlagen",
-      "invalidLink": "Ungültiger Link. Bitte QR-Code erneut scannen.",
+      "invalidLink": "Dieser Reko-Link ist nicht mehr gültig. Bitte fordere einen neuen Link an.",
+      "invalidTitle": "Link ungültig oder abgelaufen",
       "unknownIncident": "Unbekannt",
       "localRestored": "Lokale Änderungen wiederhergestellt",
       "localRestoredDescription": "Deine zuvor eingegebenen Daten wurden geladen.",
-      "loadError": "Formular laden fehlgeschlagen. Token möglicherweise ungültig.",
+      "loadError": "Das Formular konnte nicht geladen werden. Verbindung prüfen und die Seite neu laden.",
       "relevantRequired": "Bitte «Einsatz relevant?» beantworten",
       "submitError": "Übermitteln fehlgeschlagen. Bitte erneut versuchen.",
       "contactLabel": "Kontakt / Melder: ",
@@ -3885,7 +3885,9 @@
       "noneFound": "Keine Personen gefunden",
       "badgeAssigned": "Im Einsatz",
       "badgeCheckedIn": "Anwesend",
-      "badgeNotCheckedIn": "Nicht hier"
+      "badgeNotCheckedIn": "Nicht hier",
+      "checkedOut": "{name} ausgecheckt.",
+      "undo": "Rückgängig"
     }
   },
   "feld": {
@@ -3904,6 +3906,7 @@
     "assignments": {
       "title": "Meine Schadenplätze",
       "notMe": "Nicht ich",
+      "notMeConfirm": "Abmelden",
       "empty": "Dir ist im Moment kein Schadenplatz zugeteilt. Melde dich beim KP – sobald du eingeteilt bist, erscheint er hier.",
       "released": "Nicht mehr zugeteilt",
       "past": "Früher",
@@ -3951,7 +3954,7 @@
       "kpStatus": "KP: {status}"
     },
     "actions": {
-      "title": "Meldungen an den KP",
+      "title": "Status an den KP",
       "arrived": "Angekommen",
       "arrivedDone": "Angekommen gemeldet",
       "arrivedAuto": "Angekommen erkannt",
@@ -4001,7 +4004,10 @@
       "ackSeen": "Vom KP gesehen",
       "ackVehicle": "KP hat {vehicle} disponiert",
       "ackResolved": "Abholung disponiert · {time}",
-      "requestLong": "Abholung anfordern"
+      "requestLong": "Abholung anfordern",
+      "reported": "Abholung gemeldet",
+      "waitingShort": "wartet {duration}",
+      "noteLink": "Notiz zur Abholung"
     },
     "pickupPrompt": {
       "title": "Abholung disponiert?",
@@ -4205,8 +4211,8 @@
       "codeCopied": "Feld-Code kopiert"
     },
     "melden": {
-      "fab": "Melden",
-      "title": "Neue Meldung",
+      "fab": "Neuer Schadenplatz",
+      "title": "Neuer Schadenplatz",
       "what": "Was",
       "useLocation": "Standort übernehmen",
       "locateFailed": "Standort nicht verfügbar",

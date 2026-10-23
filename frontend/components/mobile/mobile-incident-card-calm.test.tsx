@@ -3,10 +3,10 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Operation } from '@/lib/contexts/operations-context'
 
 /**
- * «Quieter cards» on the phone list (review 2026-10). Hoch keeps EXACTLY its
- * red treatment; Mittel/Niedrig lose the status tint and the dot, Mittel keeps
- * an amber left edge. Pinned because the tint is one `cn()` argument away from
- * coming back.
+ * «Quieter cards» on the phone list (review 2026-10, sweep 2026-10-23). Every
+ * priority reads like the board card (`PRIORITY_CARD_CLASSES`): a 4px left edge,
+ * red + wash + pulse for Hoch, amber for Mittel, plain for Niedrig — no status
+ * tint, no dot. Pinned because the tint is one `cn()` argument away from coming back.
  */
 
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
@@ -60,10 +60,11 @@ function cardOf(op: Operation) {
 }
 
 describe('the phone Einsatz card', () => {
-  it('keeps the full red treatment on Hoch', () => {
+  it('draws Hoch with the board card red edge and pulse, without a dot or a 2px frame', () => {
     const card = cardOf(operation({ priority: 'high' }))
-    expect(card).toHaveClass('border-2', 'border-red-500/40', 'bg-red-500/[0.04]')
-    expect(card.querySelector('.bg-red-500.rounded-full')).not.toBeNull()
+    expect(card).toHaveClass('border-l-4', 'border-l-destructive', 'priority-high-pulse')
+    expect(card).not.toHaveClass('border-2')
+    expect(card.querySelector('.rounded-full')).toBeNull()
   })
 
   it('draws Mittel as a neutral card with an amber edge and no status tint or dot', () => {
@@ -79,12 +80,17 @@ describe('the phone Einsatz card', () => {
     expect(card.className).not.toMatch(/bg-(orange|blue|emerald|teal|sky|slate|gray)-/)
   })
 
-  it('keeps the «kein Rapport» chip and the EL star neutral', () => {
-    const card = cardOf(
-      operation({ priority: 'high', status: 'active', hasBeenDispatched: true, leaderName: 'Muster Max' }),
-    )
-    expect(card.textContent).toMatch(/kein Rapport/)
-    expect(card.textContent).toMatch(/Muster Max/)
-    expect(card.innerHTML).not.toMatch(/amber-500\/15|text-amber-500/)
+  it('marks the Einsatzleiter with the desk «EL», never a star', () => {
+    const card = cardOf(operation({ leaderName: 'Muster Max' }))
+    expect(card.textContent).toMatch(/EL.*Muster Max/)
+    expect(card.querySelector('svg.lucide-star')).toBeNull()
+  })
+
+  it('says «kein Rapport» as a quiet line, not a pill, and the type as text, not a chip', () => {
+    const card = cardOf(operation({ status: 'active', hasBeenDispatched: true }))
+    const line = Array.from(card.querySelectorAll('p')).find((p) => p.textContent === 'kein Rapport')
+    expect(line).toHaveClass('text-muted-foreground')
+    expect(line).not.toHaveClass('rounded-full')
+    expect(card.querySelectorAll('[data-slot="badge"]')).toHaveLength(1)
   })
 })

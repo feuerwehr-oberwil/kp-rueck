@@ -129,7 +129,7 @@ test.describe('/feld: eine neue Meldung', () => {
     return { page, feld };
   }
 
-  const meldenButton = (page: Page) => page.getByRole('button', { name: 'Melden', exact: true });
+  const meldenButton = (page: Page) => page.getByRole('button', { name: 'Neuer Schadenplatz', exact: true });
   const takeOverSwitch = (page: Page) => page.getByRole('switch');
 
   test('der Reko-Trupp bekommt den Übernahme-Schalter gar nicht erst', async ({ browser }) => {
@@ -137,7 +137,7 @@ test.describe('/feld: eine neue Meldung', () => {
 
     await meldenButton(page).click();
     // The form is open — the switch simply is not part of it.
-    await expect(page.getByRole('heading', { name: 'Neue Meldung' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Neuer Schadenplatz' })).toBeVisible({
       timeout: FIELD_TIMEOUT,
     });
     await expect(takeOverSwitch(page)).toHaveCount(0);
@@ -149,7 +149,7 @@ test.describe('/feld: eine neue Meldung', () => {
     const { page } = await phoneFor(browser, fixture.crew);
 
     await meldenButton(page).click();
-    await expect(page.getByRole('heading', { name: 'Neue Meldung' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Neuer Schadenplatz' })).toBeVisible({
       timeout: FIELD_TIMEOUT,
     });
     await expect(takeOverSwitch(page)).toBeVisible();
@@ -161,7 +161,7 @@ test.describe('/feld: eine neue Meldung', () => {
     const { page, feld } = await phoneFor(browser, fixture.crew);
 
     await meldenButton(page).click();
-    await expect(page.getByRole('heading', { name: 'Neue Meldung' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Neuer Schadenplatz' })).toBeVisible({
       timeout: FIELD_TIMEOUT,
     });
 

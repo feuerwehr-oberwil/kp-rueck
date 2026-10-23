@@ -15,18 +15,18 @@ import { memo } from "react"
 import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle, Star, FileWarning } from "lucide-react"
+import { ChevronUp, ChevronDown, Minus, FileCheck, AlertTriangle } from "lucide-react"
 import { type Operation } from "@/lib/contexts/operations-context"
-import { columns } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
+import { LeaderGlyph } from "@/components/kanban/leader-badge"
 import { DuplicateFlag } from "@/components/duplicates/duplicate-flag"
 import { DriverStayGlyph } from "@/components/ui/driver-stay-glyph"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
-import { type Priority, PRIORITY_DOT_CLASSES, PRIORITY_EDGE_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -53,14 +53,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
   const tCard = useTranslations("kanban.card")
   const tMobile = useTranslations("incidents.mobileCard")
   const tDetail = useTranslations("incidents.mobileDetail")
+  const tLeader = useTranslations("kanban.leader")
   const priority = (operation.priority || "low") as Priority
-  const priorityConfig = { dot: PRIORITY_DOT_CLASSES[priority], chevron: PRIORITY_TEXT_CLASSES[priority] }
-
-  // Status tint — only a Hoch card still carries it (under its red wash,
-  // exactly as before). Mittel/Niedrig are calm: neutral card, status is in
-  // the badge and the filter pill, priority in the left edge + chevron.
-  const column = columns.find(col => col.status.includes(operation.status))
-  const columnColor = column?.color || "bg-muted"
+  const chevronClass = PRIORITY_ICON_CLASSES[priority]
 
   // The Schadenplatz-Rapport is due but nobody has filed it (drafts count as
   // missing — the chip is a reminder, and a draft is not an answer).
@@ -78,59 +73,43 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
     <Card
       className={cn(
         "p-3 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
-        // Hoch stays exactly as it was: red tint, 2px red border, dot + chevron.
-        // Everything else is a neutral card — no status tint — with a 4px left
-        // edge that is amber for Mittel and plain border for Niedrig, the same
-        // reading as the board's cards (lib/priority.ts PRIORITY_EDGE_CLASSES).
-        priority === "high"
-          ? cn(columnColor, "border-red-500/40 border-2 bg-red-500/[0.04] dark:bg-red-500/[0.06]")
-          : cn("bg-card border border-border border-l-4", PRIORITY_EDGE_CLASSES[priority])
+        // The board card's own priority reading (lib/priority.ts): a 4px left
+        // edge — red + wash + ring + pulse for Hoch, amber for Mittel, plain
+        // border for Niedrig. No status tint: the status is the badge's job.
+        "bg-card border border-border border-l-4",
+        PRIORITY_CARD_CLASSES[priority],
       )}
       onClick={onClick}
     >
       <div className="flex items-start gap-3">
         {/* Priority indicator */}
-        <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-          {/* The dot only where there is no coloured edge, i.e. on Hoch. */}
-          {priority === "high" && (
-            <div
-              className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", priorityConfig?.dot)}
-              aria-hidden="true"
-            />
-          )}
+        <div className="flex items-center flex-shrink-0 mt-0.5">
           {priority === "high" ? (
-            <ChevronUp className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityHighAria")} />
+            <ChevronUp className={cn("h-4 w-4", chevronClass)} aria-label={tCard("priorityHighAria")} />
           ) : priority === "medium" ? (
-            <Minus className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityMediumAria")} />
+            <Minus className={cn("h-4 w-4", chevronClass)} aria-label={tCard("priorityMediumAria")} />
           ) : (
-            <ChevronDown className={cn("h-4 w-4", priorityConfig?.chevron)} aria-label={tCard("priorityLowAria")} />
+            <ChevronDown className={cn("h-4 w-4", chevronClass)} aria-label={tCard("priorityLowAria")} />
           )}
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Location + the one debt that survives completion (image #21) */}
-          <div className="flex items-start justify-between gap-2">
-            {formatLocation(operation.location) && (
-              // Two lines, never cut: the address is what the card is for. On a 360px phone
-              // «Allschwilerstrasse 20» ended in an ellipsis (overflow sweep, 03.10.).
-              <h3 className="min-w-0 font-semibold text-base line-clamp-2 break-words leading-tight">
-                {formatLocation(operation.location)}
-              </h3>
-            )}
-            {rapportMissing && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">
-                <FileWarning className="h-3 w-3" />
-                {tMobile("noRapport")}
-              </span>
-            )}
-          </div>
+          {formatLocation(operation.location) && (
+            // Two lines, never cut: the address is what the card is for. On a 360px phone
+            // «Allschwilerstrasse 20» ended in an ellipsis (overflow sweep, 03.10.).
+            <h3 className="min-w-0 font-semibold text-base line-clamp-2 break-words leading-tight">
+              {formatLocation(operation.location)}
+            </h3>
+          )}
 
-          {/* Einsatzleiter — who to raise on the radio. */}
+          {/* Einsatzleiter — who to raise on the radio. The desk's «EL» mark,
+              never a star (leader-badge.tsx says why). */}
           {operation.leaderName && (
-            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-              <Star className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-              {tMobile("leader", { name: operation.leaderName })}
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <LeaderGlyph />
+              <span className="sr-only">{tLeader("is")}:</span>
+              <span className="min-w-0 break-words">{operation.leaderName}</span>
             </p>
           )}
 
@@ -162,14 +141,15 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
             />
           )}
 
-          {/* Type + Status */}
+          {/* Status + Type: the status is the one chip; the type is a label,
+              so it is plain muted text and never outshines the status. */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <Badge variant="outline" className="text-xs px-1.5 py-0">
-              {getIncidentTypeLabel(operation.incidentType)}
-            </Badge>
             <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-full">
               {getOperationStatusLabel(operation.status)}
             </Badge>
+            <span className="min-w-0 break-words text-xs text-muted-foreground">
+              {getIncidentTypeLabel(operation.incidentType)}
+            </span>
             {operation.hasCompletedReko && (
               <span title={t("rekoCompleted")}>
                 <FileCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
@@ -239,6 +219,11 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               iconClassName="h-3 w-3"
             />
           </div>
+          {/* The one debt that survives completion (image #21): a quiet line
+              under the time, not a pill in the title row. */}
+          {rapportMissing && (
+            <p className="mt-1 text-xs text-muted-foreground">{tMobile("noRapport")}</p>
+          )}
         </div>
       </div>
     </Card>

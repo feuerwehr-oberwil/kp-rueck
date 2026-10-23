@@ -718,6 +718,7 @@
     "assignments": {
       "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
+      "notMeConfirm": "Se déconnecter",
       "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
       "released": "Plus affecté",
       "past": "Précédemment",
@@ -765,7 +766,7 @@
       "kpStatus": "PC : {status}"
     },
     "actions": {
-      "title": "Annonces au PC",
+      "title": "Statut au PC",
       "arrived": "Arrivé",
       "arrivedDone": "Arrivée annoncée",
       "arrivedAuto": "Arrivée détectée",
@@ -815,7 +816,10 @@
       "ackSeen": "Vu par le PC",
       "ackVehicle": "Le PC a engagé {vehicle}",
       "ackResolved": "Récupération organisée · {time}",
-      "requestLong": "Demander une récupération"
+      "requestLong": "Demander une récupération",
+      "reported": "Récupération annoncée",
+      "waitingShort": "attend {duration}",
+      "noteLink": "Note pour la récupération"
     },
     "pickupPrompt": {
       "title": "Récupération organisée ?",
@@ -1019,8 +1023,8 @@
       "codeCopied": "Code terrain copié"
     },
     "melden": {
-      "fab": "Annoncer",
-      "title": "Nouvelle annonce",
+      "fab": "Nouvelle place sinistrée",
+      "title": "Nouvelle place sinistrée",
       "what": "Quoi",
       "useLocation": "Utiliser ma position",
       "locateFailed": "Position indisponible",
@@ -1381,7 +1385,6 @@
       "add": "Ajouter"
     },
     "mobileCard": {
-      "leader": "CI : {name}",
       "noRapport": "pas de rapport",
       "meldung": "Annonce",
       "crew": "Effectif",
@@ -1417,7 +1420,7 @@
       "searchPlaceholder": "Rechercher une intervention …",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
-      "searchScope": "Recherche dans le lieu, le type, les véhicules et l’équipe.",
+      "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
       "noneInFilter": "Aucune intervention au statut « {filter} ».",
       "showAll": "Tout afficher",
       "filter": "Filtrer",
@@ -1499,7 +1502,9 @@
       "noneFound": "Aucune personne trouvée",
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
-      "badgeNotCheckedIn": "Pas là"
+      "badgeNotCheckedIn": "Pas là",
+      "checkedOut": "{name} : départ enregistré.",
+      "undo": "Annuler"
     }
   },
   "kanban": {
@@ -3110,10 +3115,10 @@
     },
     "success": {
       "title": "Rapport de reconnaissance transmis",
-      "description": "Ton rapport de reconnaissance a bien été transmis à la conduite de l’intervention.",
-      "closeHint": "Tu peux maintenant fermer cette fenêtre ou revenir à la vue d’ensemble.",
-      "incidentIdLabel": "ID de l’intervention :",
-      "backToOverview": "Retour à la vue d’ensemble"
+      "description": "Ton rapport de reconnaissance est arrivé à la conduite de l’intervention.",
+      "descriptionAt": "{address} – transmis à la conduite de l’intervention.",
+      "closeHint": "Tu peux maintenant fermer cette fenêtre.",
+      "back": "Retour"
     },
     "dashboard": {
       "invalidCode": "Code non valable ou échu. Demande à nouveau le lien.",
@@ -3156,11 +3161,12 @@
     },
     "form": {
       "arrivalError": "Échec de l’annonce d’arrivée",
-      "invalidLink": "Lien non valable. Scanne à nouveau le code QR.",
+      "invalidLink": "Ce lien de reconnaissance n’est plus valable. Demande un nouveau lien.",
+      "invalidTitle": "Lien non valable ou expiré",
       "unknownIncident": "Inconnue",
       "localRestored": "Modifications locales restaurées",
       "localRestoredDescription": "Les données que tu avais saisies ont été rechargées.",
-      "loadError": "Échec du chargement du formulaire. Le jeton est peut-être non valable.",
+      "loadError": "Le formulaire n’a pas pu être chargé. Vérifie la connexion et recharge la page.",
       "relevantRequired": "Réponds à « Intervention pertinente ? »",
       "submitError": "Échec de la transmission. Réessaie.",
       "contactLabel": "Contact / annonceur : ",

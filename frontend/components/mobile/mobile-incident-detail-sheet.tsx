@@ -311,7 +311,9 @@ export function MobileIncidentDetailSheet({
                 {t(`status.${operation.status}`)}
               </Badge>
             )}
-            <Badge variant="outline" className="text-sm">
+            {/* `border-input`, the Select's own frame: a label beside the one
+                control must not be boxed louder than it. */}
+            <Badge variant="outline" className="border-input text-sm">
               {typeLabel(operation.incidentType)}
             </Badge>
             <IncidentTimeRow

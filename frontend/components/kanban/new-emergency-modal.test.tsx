@@ -195,6 +195,48 @@ describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
 })
 
 describe('NewEmergencyModal — Handy', () => {
+  it('asks before a swipe or ✕ throws away what was typed; «Verwerfen» empties and closes', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+      await user.type(screen.getByLabelText('Meldung'), 'Keller unter Wasser')
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+
+      expect(onOpenChange).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Verwerfen' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.getByLabelText('Meldung')).toHaveValue('')
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('closes without asking when nothing was typed', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('does not promise drag & drop on the phone, where there is none', () => {
+    viewport.mobile = true
+    try {
+      renderModal()
+      expect(screen.queryByText(/Drag & Drop/)).toBeNull()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
   it('is a bottom sheet on the keyboard edge with its actions in a footer that stays', () => {
     viewport.mobile = true
     try {
