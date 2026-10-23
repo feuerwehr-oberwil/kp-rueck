@@ -45,14 +45,11 @@ test.describe('Authentication', () => {
     await expect(page).not.toHaveURL(/\/login/);
   });
 
-  test('should show error for invalid credentials', async ({ page, loginPage }) => {
+  test('should show error for invalid credentials', async ({ loginPage }) => {
     await loginPage.goto();
 
     // Try to login with invalid credentials
     await loginPage.login('invalid', 'wrong');
-
-    // Wait a bit for the error to appear
-    await page.waitForTimeout(1000);
 
     // Verify error message is shown. Repeated runs can trip the per-username
     // failure throttle, which surfaces in the same place as a wrong password.

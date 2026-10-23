@@ -78,20 +78,29 @@ test.describe('Undo incident deletion', () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
-  test('letting the toast expire keeps the incident deleted after reload', async ({ authenticatedPage }) => {
+  test('letting the toast expire keeps the incident deleted after reload', async ({ authenticatedPage: page }) => {
+    // The undo toast lives 8 s (at most 10 s by «Anzeigedauer»): a fake clock jumps past it
+    // instead of the test sleeping through it. Installed before the board loads, so the
+    // toast's timer is one the clock owns. `fastForward`, not `runFor`: a jump fires each due
+    // timer once instead of replaying every animation frame and poll of those seconds.
+    await page.clock.install();
     const tag = `UndoC${Date.now()}`;
-    const card = await setupIncident(authenticatedPage, tag);
+    const board = await setupBoard(page, tag, { count: 2 });
+    const cards = page.locator('[data-testid="incident-card"]');
+    const doomed = cards.filter({ hasText: `${board.address} 1` });
+    const kept = cards.filter({ hasText: `${board.address} 2` });
+    await expect(doomed).toBeVisible({ timeout: 8000 });
 
-    await deleteViaCard(authenticatedPage, card);
+    await deleteViaCard(page, doomed);
 
-    const toast = authenticatedPage.locator('[data-sonner-toast]').filter({ hasText: 'Einsatz gelöscht' });
+    const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Einsatz gelöscht' });
     await expect(toast).toBeVisible({ timeout: 5000 });
+    await page.clock.fastForward(15_000);
+    await expect(toast).toBeHidden();
 
-    // Let the 8s undo toast expire, then reload — the card stays gone.
-    await authenticatedPage.waitForTimeout(9000);
-    await authenticatedPage.reload();
-    await authenticatedPage.waitForTimeout(1000);
-
-    await expect(authenticatedPage.locator('[data-testid="incident-card"]').filter({ hasText: tag })).toHaveCount(0);
+    await page.reload();
+    // The other card proves the board has loaded, so the absence below means something.
+    await expect(kept).toBeVisible({ timeout: 8000 });
+    await expect(doomed).toHaveCount(0);
   });
 });
