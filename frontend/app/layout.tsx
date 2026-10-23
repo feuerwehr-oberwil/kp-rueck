@@ -10,8 +10,6 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
-import { PersonnelProvider } from '@/lib/contexts/personnel-context'
-import { MaterialsProvider } from '@/lib/contexts/materials-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { GroupsProvider } from '@/lib/contexts/groups-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
@@ -138,28 +136,24 @@ export default async function RootLayout({
           <BootCover />
           <AuthProvider>
             <EventProvider>
-              <PersonnelProvider>
-                <MaterialsProvider>
-                  <OperationsProvider>
-                    <GroupsProvider>
-                      <NotificationProvider>
-                        <CommandPaletteProvider>
-                          <AppShell>
-                            {children}
-                          </AppShell>
-                          <NotificationToasts />
-                          <DismissAllToasts />
-                          <VehicleDriverPrompt />
-                          <ResourceConflictPrompt />
-                          <GpsReleasePrompt />
-                          <GpsArrivalPrompt />
-                          <PickupDonePrompt />
-                        </CommandPaletteProvider>
-                      </NotificationProvider>
-                    </GroupsProvider>
-                  </OperationsProvider>
-                </MaterialsProvider>
-              </PersonnelProvider>
+              <OperationsProvider>
+                <GroupsProvider>
+                  <NotificationProvider>
+                    <CommandPaletteProvider>
+                      <AppShell>
+                        {children}
+                      </AppShell>
+                      <NotificationToasts />
+                      <DismissAllToasts />
+                      <VehicleDriverPrompt />
+                      <ResourceConflictPrompt />
+                      <GpsReleasePrompt />
+                      <GpsArrivalPrompt />
+                      <PickupDonePrompt />
+                    </CommandPaletteProvider>
+                  </NotificationProvider>
+                </GroupsProvider>
+              </OperationsProvider>
             </EventProvider>
           </AuthProvider>
         </ThemeProvider>

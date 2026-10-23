@@ -37,6 +37,8 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
+import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import type { DispatchCommand } from "@/lib/hooks/use-command-dispatch"
@@ -72,8 +74,8 @@ import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import type { ThermoPrintOptions } from "@/components/print/print-hub-sheet"
-import type { Incident } from "@/lib/types/incidents"
-import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
+import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
+import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
@@ -92,7 +94,6 @@ import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 
 export default function FireStationDashboard() {
   const {
-    personnel: rosterPersonnel,
     materials,
     operations,
     setOperations,
@@ -133,8 +134,6 @@ export default function FireStationDashboard() {
     assignResource: assignGroupResource,
     unassignResource: unassignGroupResource,
     getGroupResources,
-    createGroup,
-    occupiedResourceIds,
   } = useGroups()
   // The operator's own releases (card chips, detail panel, shortcut toggle) get
   // «… freigegeben · Rückgängig»; internal releases keep the raw context functions.
@@ -147,23 +146,8 @@ export default function FireStationDashboard() {
     jump: (target: DispatchResource) => void
   }>({ vocabulary: () => ({ incidents: [], persons: [], vehicles: [], materials: [] }), run: () => {}, jump: () => {} })
 
-  /**
-   * The roster the board draws, with «steht auf einem Auftrag» folded in.
-   *
-   * This is the ONE place that can: a route's crew is held on the group, and
-   * `GroupsProvider` sits inside `OperationsProvider`, so the event-scoped
-   * reconciliation that produces `status` never sees a group assignment. Without
-   * this, a Sturm route with five people on it left all five drawn emerald in the
-   * sidebar and counted in «verfügbar» over it — the same bug `isReko` was given
-   * `personResourceState` to fix, one source of assignment later.
-   */
-  const personnel = useMemo(
-    () =>
-      rosterPersonnel.map((person) =>
-        occupiedResourceIds.personnel.has(person.id) ? { ...person, isOnAuftrag: true } : person,
-      ),
-    [rosterPersonnel, occupiedResourceIds],
-  )
+  // The roster the board draws, with «steht auf einem Auftrag» folded in.
+  const personnel = useAuftragRoster()
 
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)
@@ -206,7 +190,7 @@ export default function FireStationDashboard() {
 
   const { materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
-  const { isEditor, isAuthenticated } = useAuth()
+  const { isEditor } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
   // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
   const fatigueHours = notificationSettings.fatigue_hours
@@ -462,7 +446,7 @@ export default function FireStationDashboard() {
   )
 
   useRekoNotifications(handleOpenIncidentFromNotification, handleUpdateOperationReko)
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string; status: string }>>([])
+  const vehicleTypes = useVehicleShortcuts()
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
@@ -487,20 +471,6 @@ export default function FireStationDashboard() {
   const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
   // "+ Stop" incident picker: the route existing incidents are added to as stops.
   const [stopPickerGroupId, setStopPickerGroupId] = useState<string | null>(null)
-  // "An Auftrag verteilen" picker: the incident being distributed into a route.
-  const [auftragPickerIncidentId, setAuftragPickerIncidentId] = useState<string | null>(null)
-  // The ask-first for the two distribute moves without an undo: transferring a
-  // stop out of another Auftrag, or folding a disponierter Einsatz into one.
-  const [distributeConfirm, setDistributeConfirm] = useState<{
-    groupId: string
-    incidentId: string
-    incidentLabel: string
-    fromName: string | null
-    dispatched: boolean
-  } | null>(null)
-  // Route-level resource assign: when set, the assignment dialog is scoped to the
-  // ROUTE (Auftrag) rather than a single incident — assign/remove hit the group.
-  const [routeAssign, setRouteAssign] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
   const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   // The Appell. Not a ninth footer sheet and not a tab inside the shared QR body — it is
@@ -534,30 +504,12 @@ export default function FireStationDashboard() {
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
   const [mobilePersonnelSheetOpen, setMobilePersonnelSheetOpen] = useState(false)
-  const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
-  // These dialogs hold a snapshot of the operation; derive the LIVE operation so a
-  // resource assigned while the dialog is open (e.g. via the missing-resources
-  // "Zuweisen" flow) shows up in the radio text and Divera recipients instead of
-  // a stale "keine Person zugewiesen".
-  const diveraDialogOpLive = useMemo(
-    () => (diveraDialogOp ? operations.find(o => o.id === diveraDialogOp.id) ?? diveraDialogOp : null),
-    [diveraDialogOp, operations]
-  )
-  // Resource transfer ("Ressourcen übertragen") opened from the card context menu.
-  const [transferSourceOp, setTransferSourceOp] = useState<Operation | null>(null)
-  const [transferAvailableIncidents, setTransferAvailableIncidents] = useState<Incident[]>([])
-  const [isTransferring, setIsTransferring] = useState(false)
   const toggleDriverStay = useToggleDriverStay()
 
-  const statusWorkflow = useIncidentStatusWorkflow({
-    operations,
-    materials,
-    groups,
-    changeStatusToTop,
-    getGroupResources,
-    removeMaterial,
-    unassignGroupResource,
-  })
+  // The Einsatz dialogs this page shares with the Lagekarte (assignment, Auftrag
+  // picker, transfer, Divera, the status gates) – see incident-dialogs.tsx.
+  const dialogs = useIncidentDialogs()
+  const statusWorkflow = dialogs.statusWorkflow
   const {
     requestStatusChange,
     requestCompletion,
@@ -650,13 +602,6 @@ export default function FireStationDashboard() {
     return () => registerFieldActionHandler(null)
   }, [isEditor, registerFieldActionHandler, changeStatusToTop])
 
-  // Resource assignment dialog state
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
-  const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
-  const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
-  const [assignmentInitialSearch, setAssignmentInitialSearch] = useState<string | undefined>(undefined)
-  const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
-
   // Reko assignment dialog state (context menu)
   const [rekoAssignDialogOpen, setRekoAssignDialogOpen] = useState(false)
   const [rekoAssignOperationId, setRekoAssignOperationId] = useState<string | null>(null)
@@ -665,78 +610,10 @@ export default function FireStationDashboard() {
   // per card; the cards render the driver next to the Funkrufname.
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
 
-  // Thermal printer state
-  const [printerEnabled, setPrinterEnabled] = useState(false)
-  const [diveraEnabled, setDiveraEnabled] = useState(false)
+  // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
+  const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
   const [isPrintingBoard, setIsPrintingBoard] = useState(false)
-  const [funkrufname, setFunkrufname] = useState("Omega")
 
-  // Fetch Reko personnel names when the crew assignment dialog opens
-  // These personnel should be excluded from regular crew assignment (they're Reko only)
-  useEffect(() => {
-    async function fetchRekoPersonnel() {
-      if (!assignmentDialogOpen || assignmentResourceType !== 'crew' || !selectedEvent) {
-        setRekoPersonnelNames([])
-        return
-      }
-
-      try {
-        const specialFunctions = await apiClient.getEventSpecialFunctions(selectedEvent.id)
-        const rekoFunctions = specialFunctions.filter(f => f.function_type === 'reko')
-        const names = rekoFunctions
-          .map(f => {
-            const person = personnel.find(p => p.id === f.personnel_id)
-            return person?.name
-          })
-          .filter((name): name is string => name !== undefined)
-        setRekoPersonnelNames(names)
-      } catch (error) {
-        console.error('Failed to fetch Reko personnel:', error)
-        setRekoPersonnelNames([])
-      }
-    }
-
-    fetchRekoPersonnel()
-  }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
-
-
-  // Fetch printer status and settings once authenticated
-  useEffect(() => {
-    if (!isAuthenticated) return
-    async function fetchPrinterStatus() {
-      try {
-        const status = await apiClient.getPrinterStatus()
-        // Both, like the Divera check below: switched on AND an address the agent can
-        // reach. On `enabled` alone the print buttons rendered for a station that had
-        // never entered an IP — the job was accepted, queued, and never came out.
-        setPrinterEnabled(status.enabled && Boolean(status.ip?.trim()))
-      } catch {
-        // Printer API might not be available (e.g., Railway deployment)
-        setPrinterEnabled(false)
-      }
-    }
-    async function fetchFunkrufname() {
-      try {
-        const settings = await apiClient.getAllSettings()
-        if (settings.funkrufname) setFunkrufname(settings.funkrufname)
-        // The send button needs both the setting AND a configured access key —
-        // otherwise it would render and then 400 on send.
-        if (settings['divera.alarm_enabled'] === 'true') {
-          try {
-            const status = await apiClient.getDiveraPollingStatus()
-            setDiveraEnabled(status.configured === true)
-          } catch {
-            // Status endpoint unavailable — keep the old behavior (setting only)
-            setDiveraEnabled(true)
-          }
-        } else {
-          setDiveraEnabled(false)
-        }
-      } catch { /* ignore */ }
-    }
-    fetchPrinterStatus()
-    fetchFunkrufname()
-  }, [isAuthenticated])
 
   // Handle thermal board print
   const handlePrintBoard = useCallback(async (options?: ThermoPrintOptions) => {
@@ -768,8 +645,6 @@ export default function FireStationDashboard() {
     setRouteStopStatus,
     collapsedColumns,
     handleColumnSort,
-    handleOpenTransfer,
-    handleTransfer,
     moveOperationRight,
     moveOperationLeft,
     toggleVehicleAssignment,
@@ -795,15 +670,10 @@ export default function FireStationDashboard() {
     assignGroupResource,
     getGroupResources,
     release,
-    selectedEvent,
     expandColumnRef,
     vehicleTypes,
     setDeleteDialogOpen,
     setOperationToDelete,
-    setTransferSourceOp,
-    transferSourceOp,
-    setTransferAvailableIncidents,
-    setIsTransferring,
     toggleDriverStay,
     triggerRekoFormCheck,
     triggerRekoCheck,
@@ -862,29 +732,6 @@ export default function FireStationDashboard() {
     isMounted,
   })
 
-  // Load vehicles from API to populate vehicle types for shortcuts
-  useEffect(() => {
-    const loadVehicles = async () => {
-      try {
-        const vehicles = await apiClient.getVehicles()
-        // Sort vehicles by display_order and create vehicle types array with keyboard shortcuts
-        const sortedVehicles = vehicles.sort((a, b) => a.display_order - b.display_order)
-        const typesWithKeys = sortedVehicles.map((vehicle) => ({
-          key: String(vehicle.display_order),
-          name: vehicle.name,
-          id: vehicle.id,
-          type: vehicle.type,
-          // The sidebar's Fahrzeuge section draws «nicht einsatzbereit» off this.
-          status: vehicle.status,
-        }))
-        setVehicleTypes(typesWithKeys)
-      } catch {
-        // Silently fail - vehicles will load when backend is ready
-      }
-    }
-    loadVehicles()
-  }, [])
-
   // Refresh operations immediately when Kanban page loads
   useEffect(() => {
     refreshOperations()
@@ -910,7 +757,7 @@ export default function FireStationDashboard() {
       modalOpen:
         detailModalOpen ||
         newEmergencyModalOpen ||
-        assignmentDialogOpen ||
+        dialogs.assignmentOpen ||
         // Vehicle, Aufträge, Drucken, Links, Rapporte and Tagebuch footers are non-modal
         // on desktop: keep their toggle keys (F / A / D / T / O / J) able to close
         // them again. Every other shortcut still stops at an open sheet — it is
@@ -1384,34 +1231,19 @@ export default function FireStationDashboard() {
     assignmentLabelForPerson,
     checkInFromDivera,
     copyCheckInUrlToClipboard,
-    handleOpenAssignmentDialog,
     handleConfirmAddStops,
-    handleDistributeToAuftrag,
-    performDistribute,
-    handleChooseAuftrag,
-    handleRemoveFromAuftrag,
-    handleAssignRouteResource,
     handleOpenRekoAssignDialog,
     handleToggleNachbarhilfe,
     handleToggleAmWarten,
     handleToggleZuFuss,
-    assignedResources,
-    routeGroupResources,
-    occupiedPersonnelIds,
-    occupiedVehicleIds,
-    occupiedMaterialIds,
     deleteReleaseHint,
     handleDeleteOperationConfirm,
   } = useBoardDialogActions({
-    occupiedResourceIds,
     deleteOperation,
     operations,
     updateOperation,
     refreshPersonnel,
-    getGroupResources,
     addStopsToGroup,
-    groups,
-    release,
     closedStopGuard,
     selectedEvent,
     isEditor,
@@ -1419,21 +1251,12 @@ export default function FireStationDashboard() {
     openIncidentDetail,
     setActiveFooterSheet,
     stopPickerGroupId,
-    setAuftragPickerIncidentId,
-    auftragPickerIncidentId,
-    setDistributeConfirm,
-    routeAssign,
-    setRouteAssign,
+    openAssignment: dialogs.openAssignment,
     checkInUrl,
     setCopied,
     setAttendanceOpen,
     setOperationToDelete,
     operationToDelete,
-    setAssignmentDialogOpen,
-    setAssignmentResourceType,
-    setAssignmentOperationId,
-    assignmentOperationId,
-    setAssignmentInitialSearch,
     setRekoAssignDialogOpen,
     setRekoAssignOperationId,
   })
@@ -1660,15 +1483,15 @@ export default function FireStationDashboard() {
                       isDraggingRef={isDraggingOperationRef}
                       materials={materials}
                       formatLocation={formatLocation}
-                      onAssignResource={handleOpenAssignmentDialog}
+                      onAssignResource={dialogs.openAssignment}
                       onAssignReko={handleOpenRekoAssignDialog}
                       onToggleNachbarhilfe={handleToggleNachbarhilfe}
                       onToggleAmWarten={handleToggleAmWarten}
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? requestCompletion : undefined}
                       onRequestDelete={isEditor ? handleRequestDelete : undefined}
-                      onTransfer={isEditor ? handleOpenTransfer : undefined}
-                      onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
+                      onTransfer={isEditor ? dialogs.openTransfer : undefined}
+                      onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
                       cardView={cardView}
                       dominantIncidentType={dominantIncidentType}
                       printerEnabled={printerEnabled}
@@ -1769,15 +1592,11 @@ export default function FireStationDashboard() {
             } : undefined}
             onAssignVehicle={isEditor ? assignVehicleToOperation : undefined}
             onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
-            onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
             onRemoveCrew={isEditor ? release.releaseCrew : undefined}
             onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
             canEdit={isEditor}
             diveraEnabled={isEditor && diveraEnabled}
-            onSendDivera={isEditor ? (op) => setDiveraDialogOp(op) : undefined}
-            onChangeStatus={isEditor ? requestStatusChange : undefined}
-            onRequestComplete={isEditor ? requestCompletion : undefined}
-            onDistributeToAuftrag={isEditor ? handleDistributeToAuftrag : undefined}
+            {...dialogs.detailActions}
           />
 
           {/* Same `z-raised` as the left sidebar — see the note there. This side works
@@ -1846,72 +1665,46 @@ export default function FireStationDashboard() {
 
       <BoardDialogs
         activeFooterSheet={activeFooterSheet}
-        assignGroupResource={assignGroupResource}
-        assignMaterialToOperation={assignMaterialToOperation}
-        assignPersonToOperation={assignPersonToOperation}
-        assignVehicleToGroupWithConflict={assignVehicleToGroupWithConflict}
-        assignVehicleToIncidentWithConflict={assignVehicleToIncidentWithConflict}
-        assignedResources={assignedResources}
-        assignmentDialogOpen={assignmentDialogOpen}
         assignmentLabelForPerson={assignmentLabelForPerson}
-        assignmentOperationId={assignmentOperationId}
-        assignmentResourceType={assignmentResourceType}
-        assignmentInitialSearch={assignmentInitialSearch}
         attendanceOpen={attendanceOpen}
         auftraegeFocusGroupId={auftraegeFocusGroupId}
         auftraegeSheetOpen={auftraegeSheetOpen}
-        auftragPickerIncidentId={auftragPickerIncidentId}
         closedStopGuard={closedStopGuard}
-        createGroup={createGroup}
         createOperation={createOperation}
         mergeOperationInto={mergeOperationInto}
         deleteDialogOpen={deleteDialogOpen}
         deleteReleaseHint={deleteReleaseHint}
         detailModalOpen={detailModalOpen}
-        distributeConfirm={distributeConfirm}
-        diveraDialogOp={diveraDialogOp}
-        diveraDialogOpLive={diveraDialogOpLive}
+        dialogs={dialogs}
         diveraEnabled={diveraEnabled}
         diveraMessageText={diveraMessageText}
         filedRapports={filedRapports}
         formatLocation={formatLocation}
         funkrufname={funkrufname}
         groups={groups}
-        handleAssignRouteResource={handleAssignRouteResource}
-        handleChooseAuftrag={handleChooseAuftrag}
         handleConfirmAddStops={handleConfirmAddStops}
         handleDeleteOperationConfirm={handleDeleteOperationConfirm}
-        handleDistributeToAuftrag={handleDistributeToAuftrag}
-        handleOpenAssignmentDialog={handleOpenAssignmentDialog}
         handleOpenIncidentFromNotification={handleOpenIncidentFromNotification}
         journalCompose={journalCompose}
         handleOpenRapport={handleOpenRapport}
         handleOperationDelete={handleOperationDelete}
         handleOperationUpdate={handleOperationUpdate}
         handlePrintBoard={handlePrintBoard}
-        handleRemoveFromAuftrag={handleRemoveFromAuftrag}
-        handleToggleZuFuss={handleToggleZuFuss}
-        handleTransfer={handleTransfer}
         handleVehicleAssign={handleVehicleAssign}
         handleVehicleRemove={handleVehicleRemove}
         isEditor={isEditor}
         isPrintingBoard={isPrintingBoard}
-        isTransferring={isTransferring}
         linksSheetOpen={linksSheetOpen}
         materials={materials}
         mobilePersonnelSheetOpen={mobilePersonnelSheetOpen}
         newEmergencyGroupId={newEmergencyGroupId}
         newEmergencyModalOpen={newEmergencyModalOpen}
-        occupiedMaterialIds={occupiedMaterialIds}
-        occupiedPersonnelIds={occupiedPersonnelIds}
-        occupiedVehicleIds={occupiedVehicleIds}
         openAttendance={openAttendance}
         openDetailOnTab={openDetailOnTab}
         openIncidentDetail={openIncidentDetail}
         openRapports={openRapports}
         operationToDelete={operationToDelete}
         operations={operations}
-        performDistribute={performDistribute}
         crewDutySheetOpen={crewDutySheetOpen}
         fatigueHours={fatigueHours}
         personEngagements={personEngagements}
@@ -1923,48 +1716,37 @@ export default function FireStationDashboard() {
         refreshPersonnel={refreshPersonnel}
         rekoAssignDialogOpen={rekoAssignDialogOpen}
         rekoAssignOperationId={rekoAssignOperationId}
-        rekoPersonnelNames={rekoPersonnelNames}
         rekoPickerOpen={rekoPickerOpen}
-        removeCrew={removeCrew}
-        removeMaterial={removeMaterial}
-        removeVehicle={removeVehicle}
         release={release}
-        requestCompletion={requestCompletion}
-        requestStatusChange={requestStatusChange}
-        routeAssign={routeAssign}
-        routeGroupResources={routeGroupResources}
         routenEditorFocusIncidentId={routenEditorFocusIncidentId}
         routenEditorGroupId={routenEditorGroupId}
         selectedEvent={selectedEvent}
         selectedOperation={selectedOperation}
         setActiveFooterSheet={setActiveFooterSheet}
-        setAssignmentDialogOpen={setAssignmentDialogOpen}
         setAttendanceOpen={setAttendanceOpen}
-        setAuftragPickerIncidentId={setAuftragPickerIncidentId}
         setDeleteDialogOpen={setDeleteDialogOpen}
         setDetailModalOpen={setDetailModalOpen}
-        setDistributeConfirm={setDistributeConfirm}
-        setDiveraDialogOp={setDiveraDialogOp}
         setDiveraMessageText={setDiveraMessageText}
         setMobilePersonnelSheetOpen={setMobilePersonnelSheetOpen}
         setNewEmergencyGroupId={setNewEmergencyGroupId}
         setNewEmergencyModalOpen={setNewEmergencyModalOpen}
         setRekoAssignDialogOpen={setRekoAssignDialogOpen}
         setRekoPickerOpen={setRekoPickerOpen}
-        setRouteAssign={setRouteAssign}
         setRouteStopStatus={setRouteStopStatus}
         setRoutenEditorFocusIncidentId={setRoutenEditorFocusIncidentId}
         setRoutenEditorGroupId={setRoutenEditorGroupId}
         setStopPickerGroupId={setStopPickerGroupId}
-        setTransferSourceOp={setTransferSourceOp}
-        statusWorkflow={statusWorkflow}
         stopPickerGroupId={stopPickerGroupId}
-        toggleDriverStay={toggleDriverStay}
-        transferAvailableIncidents={transferAvailableIncidents}
-        transferSourceOp={transferSourceOp}
-        unassignGroupResource={unassignGroupResource}
         vehicleStatusSheetOpen={vehicleStatusSheetOpen}
-        vehicleTypes={vehicleTypes}
+      />
+      <IncidentDialogs
+        dialogs={dialogs}
+        vehicles={vehicleTypes}
+        printerEnabled={printerEnabled}
+        funkrufname={funkrufname}
+        diveraEnabled={diveraEnabled}
+        onOpenDetail={openIncidentDetail}
+        onShowCheckIn={() => setActiveFooterSheet('links')}
       />
     </ProtectedRoute>
   )

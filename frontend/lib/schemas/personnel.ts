@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { translateOutsideReact } from "@/lib/i18n-messages";
 
-export const personnelStatusSchema = z.enum([
+const personnelStatusSchema = z.enum([
   "available",
   "unavailable",
 ]);

@@ -6,14 +6,12 @@
 import type {
   ApiEventSpecialFunctionResponse,
   ApiFieldRequest,
-  ApiIncidentCreate,
-  ApiIncidentUpdate,
   ApiVehicle,
   IncidentStatus,
 } from "@/lib/api-client"
 import type { IncidentCoordinates } from "@/lib/coordinate-parser"
 import type { Person } from "../personnel-context"
-import type { Material } from "../materials-context"
+import type { Material, MaterialGroup } from "../materials-context"
 
 export type PersonRole = string
 
@@ -30,14 +28,6 @@ export interface DriverStayPayload {
   incident_id?: string
   driver_stay?: boolean
 }
-
-/** Callers pass coordinates as numbers; the API wants decimal strings. */
-export interface CoordinateInput {
-  location_lat?: number | string | null
-  location_lng?: number | string | null
-}
-export type IncidentCreateInput = Omit<ApiIncidentCreate, "location_lat" | "location_lng"> & CoordinateInput
-export type IncidentUpdateInput = Omit<ApiIncidentUpdate, "location_lat" | "location_lng"> & CoordinateInput
 
 export interface RekoSummary {
   isRelevant: boolean
@@ -156,10 +146,6 @@ export interface Operation {
   vehicleDriverStay: Map<string, boolean>
 }
 
-/**
- * Context interface for managing operations, personnel, and materials.
- * Personnel and materials are delegated to their own contexts but exposed here for backward compatibility.
- */
 /** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
  *  where it was just assigned, so dismissing can ask whether it comes back off. */
 export interface VehicleNeedingDriver {
@@ -169,13 +155,23 @@ export interface VehicleNeedingDriver {
   groupId?: string
 }
 
+/**
+ * The board: operations, and the roster and depot they are reconciled with
+ * (`usePersonnel()` / `useMaterials()` select from here).
+ */
 export interface OperationsContextType {
-  // Delegated from PersonnelContext
+  // Roster — the board load writes the event-scoped list
   personnel: Person[]
   setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
-  // Delegated from MaterialsContext
+  /** Fetch the roster; without `skipStateUpdate` the raw list goes into state
+   *  until the next board load reconciles it. */
+  refreshPersonnel: (options?: { skipStateUpdate?: boolean }) => Promise<Person[]>
+  // Depot — likewise
   materials: Material[]
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
+  materialGroups: MaterialGroup[]
+  /** Set or clear «Nicht einsatzbereit» (optimistic, rolls back on failure). */
+  setMaterialOutOfService: (materialId: string, outOfService: boolean) => Promise<void>
   // Operations state
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>

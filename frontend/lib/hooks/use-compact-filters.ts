@@ -1,6 +1,6 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useMediaQuery } from '@/lib/hooks/use-media-query'
 
 /**
  * «Is there room for the filter chips?» — a phone, or a window too SHORT for
@@ -15,21 +15,7 @@ import { useSyncExternalStore } from 'react'
  */
 export const COMPACT_FILTERS_QUERY = '(max-width: 639px), (max-height: 719px)'
 
-function subscribe(onChange: () => void): () => void {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {}
-  const mql = window.matchMedia(COMPACT_FILTERS_QUERY)
-  mql.addEventListener('change', onChange)
-  return () => mql.removeEventListener('change', onChange)
-}
-
-function getSnapshot(): boolean {
-  // No matchMedia (jsdom): the desktop chips.
-  if (typeof window.matchMedia !== 'function') return false
-  return window.matchMedia(COMPACT_FILTERS_QUERY).matches
-}
-
-const getServerSnapshot = () => false
-
+/** Server and jsdom (no matchMedia): the desktop chips. */
 export function useCompactFilters(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useMediaQuery(COMPACT_FILTERS_QUERY, false)
 }

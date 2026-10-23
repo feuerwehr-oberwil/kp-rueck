@@ -23,7 +23,6 @@ import { useEvent } from '@/lib/contexts/event-context';
 import { apiClient } from '@/lib/api-client';
 import { ProtectedRoute } from '@/components/protected-route';
 import { SearchInput } from '@/components/ui/search-input'
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -43,7 +42,6 @@ import {
   DEFAULT_FELD_DRIVER_MESSAGE_CHIPS,
 } from '@/lib/pickup';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -61,7 +59,6 @@ import {
   Package,
   FileSpreadsheet,
   FileText,
-  Save,
   Printer,
   Shield,
   Info,
@@ -77,7 +74,6 @@ import {
 } from 'lucide-react';
 import { useMessages, useTranslations } from 'next-intl';
 import { useIntlLocale } from '@/lib/date-locale';
-import { toast } from 'sonner';
 import { PageNavigation } from '@/components/page-navigation';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { NotificationSettingsCard } from '@/components/notifications/notification-settings';
@@ -86,14 +82,12 @@ import { ExcelImportSection } from '@/components/settings/excel-import-section';
 import { AuditLogSection } from '@/components/settings/audit-log-section';
 import { useAuditLog } from '@/components/settings/use-audit-log';
 import { useExcelImport } from '@/components/settings/use-excel-import';
+import { LATITUDE_RANGE, LONGITUDE_RANGE } from '@/components/settings/setting-validation';
 import {
-  LATITUDE_RANGE,
-  LONGITUDE_RANGE,
-  normalizeDecimal,
-  validateRangedSetting,
-  type SettingRange,
-  type SettingValidationError,
-} from '@/components/settings/setting-validation';
+  StationSettingsForm,
+  useStationSettings,
+  type SettingConfig,
+} from '@/components/settings/station-settings-form';
 import { DiveraAlarmSettingsCard } from '@/components/divera/divera-alarm-settings-card';
 import { GpsSettingsCard } from '@/components/settings/gps-settings';
 import { AlarmDescriptionFilterSettings } from '@/components/settings/alarm-description-filter-settings';
@@ -110,11 +104,7 @@ import { ChecklistSettings } from '@/components/settings/checklist-settings';
 import { AuftragTemplateSettings } from '@/components/settings/auftrag-template-settings';
 import { UserSettings } from '@/components/settings/user-settings';
 import { DemoLock } from '@/components/settings/demo-lock';
-import {
-  SettingBlock,
-  SettingCard,
-  SettingRow,
-} from '@/components/settings/setting-row';
+import { SettingBlock, SettingCard } from '@/components/settings/setting-row';
 import { SettingUnavailableNote } from '@/components/settings/setting-unavailable';
 import { IntegrationsSection } from './integrations-section';
 import { useTileAvailability } from '@/lib/hooks/use-tile-availability';
@@ -226,15 +216,6 @@ function resolveSection(param: string | null, visible: readonly Section[]): Sect
   return visible.find(s => s.id === param)?.id ?? DEFAULT_SECTION;
 }
 
-interface SettingConfig {
-  key: string;
-  type: 'number' | 'boolean' | 'text' | 'select';
-  unit?: string;
-  options?: string[];
-  /** Inclusive bounds for a `number`. Rejected client-side – the PATCH stores any string. */
-  range?: SettingRange;
-}
-
 // Labels/descriptions/option labels come from settings.page.general.configs.*
 const SETTING_CONFIGS: SettingConfig[] = [
   {
@@ -307,16 +288,6 @@ export default function SettingsPage() {
   // Active section from URL, resolved against what this role may see (or the default)
   const activeSection = resolveSection(searchParams.get('section'), visibleSections);
 
-  // General settings state
-  const [settings, setSettings] = useState<Record<string, string>>({});
-  const [serverSettings, setServerSettings] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
-  // Per-key validation failures for the ranged settings (the station coordinates).
-  // A rejected value stays in the input so the operator can fix the typo instead of
-  // retyping the whole coordinate – it is simply not PATCHed.
-  const [settingErrors, setSettingErrors] = useState<Record<string, SettingValidationError>>({});
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
 
   // Sync status
@@ -348,6 +319,11 @@ export default function SettingsPage() {
   // its fetch effect keeps its place after the demo-status one.
   const auditLog = useAuditLog({ activeSection, isAdmin, events });
 
+  // The station's key/value settings, shared by every section that edits keys.
+  // Called after the audit hook so the settings fetch keeps its place among the effects.
+  const stationSettings = useStationSettings({ enabled: isAuthenticated, canEdit: isEditor });
+  const { settings, setSettings, serverSettings, loading, error, saving, updateSetting } = stationSettings;
+
   const handleSyncComplete = () => {
     setHistoryRefreshTrigger((prev) => prev + 1);
   };
@@ -355,148 +331,6 @@ export default function SettingsPage() {
   // Navigate to section
   const navigateToSection = (sectionId: SectionId) => {
     router.push(`/settings?section=${sectionId}`, { scroll: false });
-  };
-
-  // Fetch general settings
-  const fetchSettings = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiClient.getAllSettings();
-      setSettings(data);
-      setServerSettings(data);
-    } catch (err) {
-      console.error('Failed to fetch settings:', err);
-      setError(err instanceof Error ? err.message : t('common.loadError'));
-      toast.error(t('common.loadSettingsError'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchSettings();
-    }
-  }, [isAuthenticated]);
-
-  const updateSetting = async (key: string, value: string) => {
-    if (!isEditor) {
-      toast.error(t('page.toasts.editorsOnly'));
-      return;
-    }
-    setSaving(key);
-    try {
-      await apiClient.updateSetting(key, value);
-      setSettings((prev) => ({ ...prev, [key]: value }));
-      setServerSettings((prev) => ({ ...prev, [key]: value }));
-    } catch (err) {
-      console.error(`Failed to update setting ${key}:`, err);
-      toast.error(t('common.saveError'));
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  // Render setting input
-  const renderSettingInput = (config: SettingConfig) => {
-    const value = settings[config.key] || '';
-    const isCurrentlySaving = saving === config.key;
-
-    // Boolean without options → render as Switch
-    if (config.type === 'boolean' && !config.options) {
-      return (
-        <Switch
-          id={config.key}
-          checked={value === 'true' || value === ''}
-          onCheckedChange={(checked) => updateSetting(config.key, String(checked))}
-          disabled={!isEditor || isCurrentlySaving}
-        />
-      );
-    }
-
-    if ((config.type === 'boolean' || config.type === 'select') && config.options) {
-      return (
-        <Select
-          value={value}
-          onValueChange={(newValue) => updateSetting(config.key, newValue)}
-          disabled={!isEditor || isCurrentlySaving}
-        >
-          <SelectTrigger id={config.key} className="w-full">
-            <SelectValue placeholder={t('page.general.selectPlaceholder')} />
-          </SelectTrigger>
-          <SelectContent>
-            {config.options.map((option) => {
-              const unavailable =
-                config.key === 'map_mode' &&
-                option === 'offline' &&
-                offlineTilesUnavailable &&
-                value !== option;
-              return (
-                <SelectItem key={option} value={option} disabled={unavailable}>
-                  {t(`page.general.configs.${config.key}.options.${option}`)}
-                  {unavailable && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {t('page.general.tiles.optionUnavailable')}
-                    </span>
-                  )}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      );
-    }
-
-    const validationError = settingErrors[config.key];
-
-    return (
-      <div className="space-y-1">
-        <Input
-          id={config.key}
-          // `text`, not `number`, even for the ranged ones: a number input silently
-          // discards a pasted "47,5164" instead of letting the comma be normalised,
-          // and its spinner is useless at six decimal places.
-          type="text"
-          inputMode={config.range ? 'decimal' : undefined}
-          value={value}
-          aria-invalid={validationError ? true : undefined}
-          aria-describedby={validationError ? `${config.key}-error` : undefined}
-          onChange={(e) => {
-            setSettings((prev) => ({ ...prev, [config.key]: e.target.value }));
-            setSettingErrors((prev) => {
-              if (!(config.key in prev)) return prev;
-              const { [config.key]: _removed, ...rest } = prev;
-              return rest;
-            });
-          }}
-          onBlur={(e) => {
-            const raw = e.target.value;
-            if (config.range) {
-              const problem = validateRangedSetting(raw, config.range);
-              if (problem) {
-                setSettingErrors((prev) => ({ ...prev, [config.key]: problem }));
-                return;
-              }
-            }
-            const next = config.range ? normalizeDecimal(raw) : raw;
-            if (next !== raw) setSettings((prev) => ({ ...prev, [config.key]: next }));
-            if (next !== serverSettings[config.key]) {
-              updateSetting(config.key, next);
-            }
-          }}
-          disabled={!isEditor || isCurrentlySaving}
-        />
-        {validationError && config.range && (
-          <p id={`${config.key}-error`} className="text-xs text-destructive">
-            {t(`page.general.validation.${validationError}`, {
-              min: config.range.min,
-              max: config.range.max,
-            })}
-          </p>
-        )}
-      </div>
-    );
   };
 
   /**
@@ -632,30 +466,25 @@ export default function SettingsPage() {
               ) : error ? (
                 <div className="pt-3">
                   <p className="text-destructive">{error}</p>
-                  <Button onClick={fetchSettings} className="mt-4">{t('common.retry')}</Button>
+                  <Button onClick={stationSettings.reload} className="mt-4">{t('common.retry')}</Button>
                 </div>
               ) : (
                 <DemoLock active={demoMode}>
-                  {SETTING_CONFIGS.map((config) => (
-                    <SettingRow
-                      key={config.key}
-                      label={t(`page.general.configs.${config.key}.label`)}
-                      htmlFor={config.key}
-                      hint={t(`page.general.configs.${config.key}.description`)}
+                  <StationSettingsForm
+                    configs={SETTING_CONFIGS}
+                    store={stationSettings}
+                    isEditor={isEditor}
+                    extras={{
                       // What «Nur Offline» would actually get you, right at the control
                       // that offers it – see use-tile-availability.ts.
-                      footer={config.key === 'map_mode' ? renderTileAvailability() : null}
-                    >
-                      <div className="flex w-full items-start gap-2">
-                        {/* Schalter drängen sich an die rechte Kante, alles mit einem Feld
-                            füllt die Spalte – so steht eine Kante über die ganze Karte. */}
-                        <div className={config.type === 'boolean' && !config.options ? 'ml-auto' : 'min-w-0 flex-1'}>
-                          {renderSettingInput(config)}
-                        </div>
-                        {saving === config.key && <Save className="mt-2.5 h-4 w-4 shrink-0 text-muted-foreground animate-pulse" />}
-                      </div>
-                    </SettingRow>
-                  ))}
+                      map_mode: {
+                        footer: renderTileAvailability(),
+                        unavailableOptions: offlineTilesUnavailable
+                          ? { offline: t('page.general.tiles.optionUnavailable') }
+                          : undefined,
+                      },
+                    }}
+                  />
                   {/* Renders its own <SettingRow>, so it needs no spacer of its own. */}
                   <BrandingSettings readOnly={!isEditor} />
                 </DemoLock>

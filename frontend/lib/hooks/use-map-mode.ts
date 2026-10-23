@@ -285,6 +285,6 @@ export function useMapMode() {
  * Free-standing rather than a hook member: it depends on nothing but the request's own origin,
  * and the same rule as `offlineTile()` applies – resolve per call, never at module load.
  */
-export function getOfflineStyleUrl(): string {
+function getOfflineStyleUrl(): string {
   return `${getTileBaseUrl()}/styles/basic-preview/style.json`;
 }

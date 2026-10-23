@@ -220,7 +220,7 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
   return outcome
 }
 
-export async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispatchDeps): Promise<void> {
+async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispatchDeps): Promise<void> {
   const operationId = outcome.operation.id
   const now = deps.getOperation(operationId)
   if (!now) return

@@ -25,16 +25,18 @@ vi.mock("./event-context", () => ({ useEvent: () => eventState }))
 
 const refreshPersonnel = vi.hoisted(() => vi.fn())
 const refreshMaterials = vi.hoisted(() => vi.fn())
-vi.mock("./personnel-context", () => ({
-  usePersonnel: () => {
+// The roster/depot loaders the provider owns: the board load calls their
+// refreshers (with skipStateUpdate) and writes the reconciled lists.
+const NO_GROUPS = vi.hoisted(() => [] as unknown[])
+const setMaterialOutOfService = vi.hoisted(() => vi.fn())
+vi.mock("./operations/use-resource-lists", () => ({
+  usePersonnelList: () => {
     const [personnel, setPersonnel] = useState<unknown[]>([])
     return { personnel, setPersonnel, refreshPersonnel }
   },
-}))
-vi.mock("./materials-context", () => ({
-  useMaterials: () => {
+  useMaterialList: () => {
     const [materials, setMaterials] = useState<unknown[]>([])
-    return { materials, setMaterials, refreshMaterials }
+    return { materials, setMaterials, materialGroups: NO_GROUPS, refreshMaterials, setMaterialOutOfService }
   },
 }))
 vi.mock("@/lib/websocket-client", () => ({
