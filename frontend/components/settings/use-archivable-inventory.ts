@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { FieldValues, UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -90,11 +90,11 @@ export function useInventoryList<T extends { id: string; archived_at?: string | 
     }
   };
 
-  // Load once on mount. `reload` is a plain function re-created on every
-  // render, so listing it as a dep would refetch on every render.
+  // Load once on mount. `reload` is a plain function re-created on every render, so the
+  // mount effect calls it through an effect event instead of depending on it.
+  const loadOnMount = useEffectEvent(() => void reload());
   useEffect(() => {
-    void reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadOnMount();
   }, []);
 
   const sorted = useMemo(() => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Siren, Link2Off } from "lucide-react"
 import {
@@ -89,9 +89,11 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
 
   // Re-prefill every time the dialog opens, so it reflects the current
   // assignments (changing the crew while closed and reopening shows the new set).
-  // Pre-select all linked crew; leave drivers unticked.
-  useEffect(() => {
-    if (!open || !operation) return
+  // Pre-select all linked crew; leave drivers unticked. Keyed on open + Einsatz id: the
+  // recipients, materials and event are read as they are at that moment, so a board update
+  // while the dialog is open does not overwrite what the operator is editing.
+  const prefill = useEffectEvent(() => {
+    if (!operation) return
     setSelected(
       new Set(
         recipients
@@ -119,7 +121,10 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  useEffect(() => {
+    if (!open) return
+    return prefill()
   }, [open, operation?.id])
 
   if (!operation) return null

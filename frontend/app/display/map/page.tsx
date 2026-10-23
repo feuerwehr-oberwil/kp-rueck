@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useEffectEvent, useMemo, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
@@ -387,11 +387,11 @@ function AuthenticatedDisplayMap({
   const { groups } = useGroups()
 
   // One refresh when the display map mounts. `refreshIncidents` is the
-  // operations context's callback and changes identity with the selected event,
-  // so listing it would turn this into a refetch-on-context-change effect.
+  // operations context's callback and changes identity with the selected event;
+  // read through an effect event, so this stays a mount effect.
+  const refreshOnMount = useEffectEvent(() => refreshIncidents())
   useEffect(() => {
-    refreshIncidents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refreshOnMount()
   }, [])
 
   // id → Operation lookup for the read-only Auftrag route overlay (stops are

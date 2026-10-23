@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useState, useEffect, useCallback } from 'react'
+import { Fragment, useState, useEffect, useEffectEvent, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -196,8 +196,9 @@ export function EventSetupChecklist({
   // It used to fetch five endpoints every 5 s for as long as the popover was
   // open, next to a board that had all of it already.
   const facts = useChecklistFacts()
-  useEffect(() => {
-    if (!facts) return
+  // Rebuilt when the facts (or the Ereignis) change. The tasks carry this render's handlers and
+  // props, read through an effect event so a new handler identity alone rebuilds nothing.
+  const buildTasks = useEffectEvent((facts: NonNullable<ReturnType<typeof useChecklistFacts>>) => {
     const { settings } = facts
     try {
       setWhatsappMessages({
@@ -249,8 +250,10 @@ export function EventSetupChecklist({
     } finally {
       setIsLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, facts, onChecklistLoaded])
+  })
+  useEffect(() => {
+    if (facts) buildTasks(facts)
+  }, [eventId, facts])
 
   // Load tick/un-tick overrides from localStorage
   useEffect(() => {

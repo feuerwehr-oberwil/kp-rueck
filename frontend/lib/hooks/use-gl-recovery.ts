@@ -14,7 +14,7 @@
  * looping.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { Map as MlMap } from 'maplibre-gl'
 import { reportClientError } from '@/lib/report-error'
 
@@ -64,6 +64,10 @@ export function useGlRecovery(
     remount()
   }, [remount])
 
+  // The caller passes a fresh `getMap` closure each render; the effect reads the current one and
+  // re-attaches only when a new canvas can exist (ready / generation).
+  const currentCanvas = useEffectEvent(() => getMap()?.getCanvas())
+
   useEffect(() => {
     if (!ready) return
     // getCanvas() throws once MapLibre has torn itself down; this effect can re-run against a map
@@ -71,7 +75,7 @@ export function useGlRecovery(
     // itself be a crash source.
     let canvas: HTMLCanvasElement | undefined
     try {
-      canvas = getMap()?.getCanvas()
+      canvas = currentCanvas()
     } catch {
       return
     }
@@ -93,8 +97,6 @@ export function useGlRecovery(
 
     canvas.addEventListener('webglcontextlost', onLost)
     return () => canvas.removeEventListener('webglcontextlost', onLost)
-    // getMap is a stable closure over a ref; generation/ready gate re-attachment to a new canvas.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, generation, remount])
 
   return { generation, lost, recover }

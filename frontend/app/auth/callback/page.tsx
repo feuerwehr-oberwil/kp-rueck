@@ -65,8 +65,8 @@ export default function MicrosoftCallbackPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : t('microsoftLoginFailed'));
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+    // `hasRun` makes this once per page load, so `t` changing identity re-runs nothing.
+  }, [searchParams, t]);
 
   // While the code is being redeemed this is the same start screen as every other one
   // (snail, «KP RÜCK», the phase). «Neu starten» goes back to the login rather than

@@ -10,7 +10,7 @@
  */
 
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useState, useMemo, useEffect, useEffectEvent, useRef, useCallback } from "react"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
@@ -345,13 +345,13 @@ export default function MapPage() {
   // `?mode=reko` — the Setup-Checkliste's "Reko-Modus öffnen" links here rather
   // than telling the operator where to look. Once only: leaving the mode must
   // not be undone by a re-render, and the URL is not the state.
+  // `enterRekoMode` is re-created every render; the URL is what decides here.
   const rekoDeepLinkRef = useRef(false)
+  const enterRekoModeFromLink = useEffectEvent(enterRekoMode)
   useEffect(() => {
     if (rekoDeepLinkRef.current || searchParams.get('mode') !== 'reko') return
     rekoDeepLinkRef.current = true
-    enterRekoMode()
-    // `enterRekoMode` is re-created every render; the URL is what decides here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    enterRekoModeFromLink()
   }, [searchParams])
 
   // Create a new Auftrag from the panel and select it for planning.
@@ -401,18 +401,17 @@ export default function MapPage() {
     else router.push(target.href)
   }, [router, isMobile])
 
-  // Zoom in on a vehicle by its 1-5 shortcut number
-  const focusVehicleByNumber = (vehicleNumber: number) => {
-    const vehicle = vehicleTypes.find((item) => item.key === String(vehicleNumber))
-    if (vehicle) {
-      setFocusVehicleName(vehicle.name)
-      setFocusVehicleTrigger((prev) => prev + 1)
-    }
-  }
-
   // Register command palette (Cmd+K) handlers for the map view
   const { registerHandlers, clearHandlers } = useCommandPalette()
   useEffect(() => {
+    // Zoom in on a vehicle by its 1-5 shortcut number
+    const focusVehicleByNumber = (vehicleNumber: number) => {
+      const vehicle = vehicleTypes.find((item) => item.key === String(vehicleNumber))
+      if (vehicle) {
+        setFocusVehicleName(vehicle.name)
+        setFocusVehicleTrigger((prev) => prev + 1)
+      }
+    }
     registerHandlers({
       onRefresh: () => refreshIncidents(),
       onToggleMapLabels: () => setShowLabels((prev) => !prev),
@@ -428,8 +427,7 @@ export default function MapPage() {
       onFocusIncidentSearch: () => document.getElementById('map-search-input')?.focus(),
     })
     return () => clearHandlers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes])
+  }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes, setColorByPersisted])
 
   // Use shared operation handlers hook
   const { handleOperationUpdate, handleVehicleRemove, handleOperationDelete } = useOperationHandlers({

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import { useTranslations } from "next-intl"
 import { MessageCircle, AlertTriangle, Users, Megaphone, Check } from "lucide-react"
 import {
@@ -64,10 +64,12 @@ export function DiveraMessageDialog({
   const [isSending, setIsSending] = useState(false)
 
   // Re-prefill on every open, so an edited template (or a changed event) is
-  // picked up instead of a stale first render being sent.
+  // picked up instead of a stale first render being sent. The event is read as it is at
+  // that moment; switching it while the dialog is open does not re-prefill.
+  const isTrainingNow = useEffectEvent(() => selectedEvent?.training_flag ?? false)
   useEffect(() => {
     if (!open) return
-    const isTraining = selectedEvent?.training_flag ?? false
+    const isTraining = isTrainingNow()
     setTitle((isTraining ? `ÜBUNG: ${defaultTitle || "KP-Rück"}` : defaultTitle || "KP-Rück").slice(0, 50))
     setText(isTraining ? `🔶 ÜBUNG – dies ist eine Übung.\n\n${defaultText}` : defaultText)
     setTarget("groups")
@@ -90,7 +92,6 @@ export function DiveraMessageDialog({
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultText, defaultTitle])
 
   const toggleGroup = (id: number) => {

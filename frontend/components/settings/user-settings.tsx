@@ -11,7 +11,7 @@
  * and a borderless empty input has no affordance.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useEffectEvent } from 'react';
 import { apiClient, type ApiUser, type ApiUserCreate, type ApiUserUpdate } from '@/lib/api-client';
 import { SettingCard } from '@/components/settings/setting-row';
 import { Button } from '@/components/ui/button';
@@ -126,10 +126,10 @@ export function UserSettings() {
   };
 
   // Load once on mount. `fetchUsers` is a plain function re-created on every
-  // render, so listing it as a dep would refetch on every render.
+  // render, so the mount effect calls it through an effect event.
+  const loadOnMount = useEffectEvent(() => void fetchUsers());
   useEffect(() => {
-    fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadOnMount();
   }, []);
 
   const handleCreate = async () => {

@@ -23,7 +23,7 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useEffectEvent, useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, Send } from 'lucide-react'
 
@@ -148,13 +148,14 @@ export function RekoReportForm({
   // "0"/"0." to falsy and clears the field mid-typing, so we keep the raw string
   // and sync it back only when the stored number changes elsewhere (quick-fill).
   const [durationText, setDurationText] = useState('')
-  useEffect(() => {
-    const num = value.effort_json.estimated_duration_hours
+  const syncDurationText = useEffectEvent((num: number | null | undefined) => {
     const parsed = durationText.trim() === '' ? null : parseFloat(durationText)
     if (num !== parsed && !(num === null && Number.isNaN(parsed))) {
       setDurationText(num === null || num === undefined ? '' : String(num))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  useEffect(() => {
+    syncDurationText(value.effort_json.estimated_duration_hours)
   }, [value.effort_json.estimated_duration_hours])
 
   function update<K extends keyof RekoFormData>(key: K, next: RekoFormData[K]) {
