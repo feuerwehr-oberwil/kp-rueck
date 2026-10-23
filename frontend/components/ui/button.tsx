@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
@@ -19,14 +19,14 @@ const buttonVariants = cva(
         // FILL (deep, low-chroma) and as text on the dark board it falls
         // under 4.5:1.
         destructive:
-          'border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/70 dark:text-red-400 dark:hover:bg-destructive/15 dark:hover:text-red-400 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
+          'border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/70 dark:text-red-400 dark:hover:bg-destructive/15 dark:hover:text-red-400',
         outline:
           'border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:
           'hover:bg-muted hover:text-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        link: 'text-foreground underline underline-offset-4 hover:decoration-2',
         // The CHOSEN option of a choice — filter pill, segmented toggle, the
         // current status. Tonal slate («A2»), never a fill: a filled button
         // reads as an action, and red means priority/danger on this board.

@@ -63,3 +63,16 @@ export const INCIDENT_TYPE_MARKER_COLORS: Record<string, string> = {
   gerettete_menschen: "#64748b",
   gerettete_tiere: "#64748b",
 }
+
+/**
+ * The colours an operator can give an Auftrag (route) – the swatch row in the
+ * Aufträge sheet, the Routenplanung panel and the Auftrag templates. A new
+ * route takes the next one in turn.
+ *
+ * Hues the board does not already speak: the old row was red (= Hoch), amber
+ * (= Mittel), emerald (= frei / Niedrig, byte-identical) and blue (= Disponiert),
+ * so a green route read as «frei» on the wall (sweep 2026-10, VISUAL-13).
+ * Violet, pink, cyan, lime, indigo, brown. A route keeps the colour it was
+ * stored with; only new choices come from here.
+ */
+export const AUFTRAG_SWATCHES = ["#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#6366f1", "#a16207"] as const

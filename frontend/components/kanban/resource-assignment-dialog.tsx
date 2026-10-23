@@ -1083,7 +1083,7 @@ export function ResourceAssignmentDialog({
           {elsewhere && (
             <span
               title={elsewhere.full}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
             >
               <Siren className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{elsewhere.short}</span>
@@ -1093,7 +1093,7 @@ export function ResourceAssignmentDialog({
             <span
               key={fn.label}
               title={fn.label}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
             >
               <fn.Icon className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{fn.label}</span>
@@ -1164,7 +1164,7 @@ export function ResourceAssignmentDialog({
             ) : elsewhere ? (
               <span
                 title={elsewhere.full}
-                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
               >
                 <Siren className="h-3 w-3 flex-shrink-0" />
                 <span className="truncate">{elsewhere.short}</span>
@@ -1264,7 +1264,7 @@ export function ResourceAssignmentDialog({
           ) : elsewhere ? (
             <span
               title={elsewhere.full}
-              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
             >
               <Siren className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{elsewhere.short}</span>
@@ -1272,7 +1272,7 @@ export function ResourceAssignmentDialog({
           ) : vehicleOnScene ? (
             <span
               title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}
-              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-emerald-600 dark:text-emerald-400"
+              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-emerald-700 dark:text-emerald-400"
             >
               <Truck className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{material.category}</span>
@@ -1477,7 +1477,7 @@ export function ResourceAssignmentDialog({
                       isActive
                         ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : vehiclePresent
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >

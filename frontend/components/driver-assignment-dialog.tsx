@@ -629,7 +629,7 @@ export function DriverAssignmentDialog({
                               aria-label={t('markAsDriver')}
                               disabled={isAssigning}
                               onClick={() => markAsDriver(person)}
-                              className="flex-shrink-0 px-2 text-muted-foreground hover:text-primary"
+                              className="flex-shrink-0 px-2 text-muted-foreground hover:text-foreground"
                             >
                               <UserPlus className="size-3.5" />
                             </Button>

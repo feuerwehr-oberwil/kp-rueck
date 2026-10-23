@@ -652,7 +652,7 @@ export default function SettingsPage() {
                         <div className={config.type === 'boolean' && !config.options ? 'ml-auto' : 'min-w-0 flex-1'}>
                           {renderSettingInput(config)}
                         </div>
-                        {saving === config.key && <Save className="mt-2.5 h-4 w-4 shrink-0 text-primary animate-pulse" />}
+                        {saving === config.key && <Save className="mt-2.5 h-4 w-4 shrink-0 text-muted-foreground animate-pulse" />}
                       </div>
                     </SettingRow>
                   ))}

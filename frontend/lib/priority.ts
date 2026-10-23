@@ -67,8 +67,8 @@ export const PRIORITY_DOT_CLASSES: Record<Priority, string> = {
 /** Matching text/icon tint (e.g. the up/down/flat priority chevron). */
 export const PRIORITY_TEXT_CLASSES: Record<Priority, string> = {
   high: "text-red-600 dark:text-red-400",
-  medium: "text-amber-600 dark:text-amber-400",
-  low: "text-emerald-600 dark:text-emerald-400",
+  medium: "text-amber-700 dark:text-amber-400",
+  low: "text-emerald-700 dark:text-emerald-400",
 }
 
 /**

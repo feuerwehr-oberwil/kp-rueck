@@ -577,7 +577,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                     {/* Empty when everything is fine — ~140 identical green
                         «Verfügbar» chips said nothing. Colour marks exceptions. */}
                     {person.status !== 'available' && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
                         <span aria-hidden className="size-1.5 rounded-full bg-amber-500" />
                         {t('common.unavailable')}
                       </span>

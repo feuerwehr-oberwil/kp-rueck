@@ -109,7 +109,7 @@ export function TransferIncidentDialog({
         <div className="space-y-2">
           {/* Address first (then title) to match the board/incident cards */}
           <div className="flex items-start gap-2">
-            <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
+            <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" />
             <div className="min-w-0 flex-1">
               <h4 className="font-semibold text-sm truncate" title={address || incident.title}>
                 {address || incident.title}

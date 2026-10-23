@@ -209,7 +209,7 @@ describe("special functions in the crew list", () => {
 
     const tile = screen.getByRole("button", { name: /Egger Olivier/ })
     expect(tile.className).not.toMatch(/amber/)
-    expect(tile.querySelector('[class*="text-amber-600"]')).not.toBeNull()
+    expect(tile.querySelector('[class*="text-amber-700"]')).not.toBeNull()
   })
 
   it("keeps the crew of THIS incident under «Verfügbar», ticked", () => {

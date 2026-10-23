@@ -374,7 +374,7 @@ function DiveraPool() {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="mt-2 text-sm text-primary hover:underline"
+                    className="mt-2 text-sm text-foreground underline underline-offset-2 hover:decoration-2"
                   >
                     {t('resetSearch')}
                   </button>
