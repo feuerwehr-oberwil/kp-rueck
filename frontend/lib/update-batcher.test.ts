@@ -165,4 +165,36 @@ describe("KeyedSerialQueue", () => {
     expect(started).toEqual(["a1", "flush"])
     a1.resolve()
   })
+
+  // «Erneut speichern» stands on this: the failed PATCH reaches its caller (so the field
+  // can say «Nicht gespeichert»), and the retry for the same incident leaves at once
+  // instead of waiting behind a rejected tail forever.
+  it("frees the key after a rejected task: the caller sees the error, the retry runs", async () => {
+    const queue = new KeyedSerialQueue()
+    const failed = queue.run("a", () => Promise.reject(new Error("offline")))
+    await expect(failed).rejects.toThrow("offline")
+    await new Promise((r) => setTimeout(r, 0))
+    expect(queue.isBusy("a")).toBe(false)
+
+    const retry = vi.fn(async () => "saved")
+    await expect(queue.run("a", retry)).resolves.toBe("saved")
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
+  it("keeps the key busy when a task ahead of a jump settles first", async () => {
+    const queue = new KeyedSerialQueue()
+    const slow = deferred()
+    const flush = deferred()
+    void queue.run("a", () => slow.promise)
+    void queue.run("a", () => flush.promise, { jump: true })
+
+    // The slow one settling must not delete the newer tail the jump left behind.
+    slow.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(queue.isBusy("a")).toBe(true)
+
+    flush.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(queue.isBusy("a")).toBe(false)
+  })
 })
