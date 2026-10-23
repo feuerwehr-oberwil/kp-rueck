@@ -8,7 +8,6 @@ from typing import Any
 from fastapi import Request
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..models import (
@@ -122,14 +121,10 @@ async def get_incidents(
     Returns:
         List of incidents with status_changed_at and assigned_vehicles populated (excludes soft-deleted incidents)
     """
-    # Use eager loading for relationships to avoid N+1 queries
+    # No selectinload of the collections: the batch queries below read exactly
+    # what the board needs, and nothing reads `.assignments` etc. off these rows.
     query = (
         select(Incident)
-        .options(
-            selectinload(Incident.status_transitions),
-            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports),
-        )
         .where(Incident.deleted_at.is_(None))
         # Manual board order first; created_at DESC breaks ties (e.g. brand-new
         # cards that share the default position 0 — newest on top).
@@ -321,17 +316,9 @@ async def get_incidents(
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
     """Get incident by ID with status_changed_at, assigned_vehicles, and has_completed_reko populated."""
-    # Use eager loading for relationships to avoid N+1 queries
-    result = await db.execute(
-        select(Incident)
-        .options(
-            selectinload(Incident.status_transitions),
-            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports),
-        )
-        .where(Incident.id == incident_id)
-    )
-    incident = result.scalar_one_or_none()
+    # The derived fields below come from their own small queries; the collections
+    # themselves are not loaded (no caller reads them off this object).
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
 
     if incident:
         # Get latest status transition timestamp (single query)
