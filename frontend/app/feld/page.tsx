@@ -92,6 +92,15 @@ const COOKIE_EXPIRY_DAYS = 7
  */
 const FELD_POLL_MS = 10000
 
+/**
+ * Bottom padding of the two views that carry the floating «＋ Neuer Schadenplatz»
+ * (`meldenFab`): its offset (`bottom-5`, 1.25rem) + its height (`h-13`, 3.25rem)
+ * + 3.5rem, so scrolled to the very end nothing on the page is under it. The pill
+ * may float over content mid-scroll — one scroll moves it out of the way — but the
+ * end of the page must always come clear. Change the pill, change this.
+ */
+const MELDEN_FAB_CLEARANCE = 'pb-32'
+
 function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`))
@@ -1044,7 +1053,7 @@ function FeldSurface() {
   }, [])
 
   /**
-   * «＋ Melden» — the crew reporting something they are standing in front of.
+   * «＋ Neuer Schadenplatz» — the crew reporting something they are standing in front of.
    *
    * One node, rendered by BOTH the list and the detail view. The person who
    * spots the next tree is the one already four taps deep at a Schadenplatz,
@@ -1374,16 +1383,20 @@ function FeldSurface() {
                     <div className="font-medium break-words">{person.name.trim() || tKanbanCommon('unknownResource')}</div>
                     {person.role && <div className="text-sm text-muted-foreground break-words">{person.role}</div>}
                   </div>
-                  <div className="flex-shrink-0 text-right">
-                    <div className="text-sm font-medium">
-                      {t('picker.incidentCount', { count: person.incident_count })}
-                    </div>
-                    {person.missing_rapport_count > 0 && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {t('picker.missingRapport', { count: person.missing_rapport_count })}
+                  {/* Only for somebody with work: «0 Schadenplätze» on most rows squeezed the
+                      names onto two lines and drowned the rows that matter. */}
+                  {person.incident_count > 0 && (
+                    <div className="flex-shrink-0 text-right">
+                      <div className="text-sm font-medium">
+                        {t('picker.incidentCount', { count: person.incident_count })}
                       </div>
-                    )}
-                  </div>
+                      {person.missing_rapport_count > 0 && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {t('picker.missingRapport', { count: person.missing_rapport_count })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </button>
               ))
             )}
@@ -1401,11 +1414,11 @@ function FeldSurface() {
       ?? formatLocationForDisplay(selectedAssignment.location_address ?? '', getGlobalHomeCity())
     const navigateUrl = navigationUrl(selectedAssignment)
     return (
-      // `pb-32` rather than the list's `pb-20`: the last thing in this view is
-      // the Rapport's own full-width «Senden», and the floating Melden button
-      // sits in the bottom right. Scrolled to the end — where a crew filing a
-      // Rapport ends up — the extra padding keeps the two a thumb apart.
-      <div className="min-h-screen bg-background pb-32">
+      // The floating «＋ Neuer Schadenplatz» stays where it is while scrolling;
+      // the end of the page can always scroll clear of it (MELDEN_FAB_CLEARANCE).
+      // Scrolled to the end — where a crew filing a Rapport ends up — the last
+      // thing, the Rapport's own full-width «Senden», sits a thumb above it.
+      <div className={`min-h-screen bg-background ${MELDEN_FAB_CLEARANCE}`}>
         {/* The address, always on screen. Folded blocks mean a crew can be four
             taps deep in a Rapport with nothing left in view that says WHICH
             Schadenplatz they are filing — and on a storm night there are six.
@@ -1639,7 +1652,7 @@ function FeldSurface() {
           </div>
         </div>
 
-        {/* The same «＋ Melden» the list carries. The crew standing at this
+        {/* The same «＋ Neuer Schadenplatz» the list carries. The crew standing at this
             Schadenplatz is the one who sees the next tree, and making them
             navigate back to report it is how the Meldung becomes a radio call. */}
         {meldenFab}
@@ -1649,7 +1662,7 @@ function FeldSurface() {
 
   // -------------------------------------------------------- assignments
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className={`min-h-screen bg-background ${MELDEN_FAB_CLEARANCE}`}>
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
         subtitle={roleLine || selectedPerson?.role || eventName}
@@ -1957,7 +1970,7 @@ function FeldSurface() {
             not-checked-in case still speaks for itself, loudly, above. */}
       </div>
 
-      {/* The floating «＋ Melden», built once above — see `meldenFab`. */}
+      {/* The floating «＋ Neuer Schadenplatz», built once above — see `meldenFab`. */}
       {meldenFab}
 
       {/* The correction sheet — the same form, prefilled. Keyed by incident so
@@ -1989,7 +2002,7 @@ function FeldSurface() {
         onOpenChange={setConfirmNotMe}
         title={t('assignments.notMeTitle')}
         description={t('assignments.notMeDescription')}
-        confirmText={t('assignments.notMe')}
+        confirmText={t('assignments.notMeConfirm')}
         onConfirm={handleNotMe}
       />
     </div>

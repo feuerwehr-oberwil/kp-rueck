@@ -629,7 +629,7 @@ table is readable by whoever walks past), but it travels further, so:
 
 **One thing the code does not gate**, so it is not reported as a bug later: anybody holding a
 valid `/feld` credential can *create* a Schadenplatz and put themselves on it – that is what
-«Neue Meldung» is for, and it is how a crew standing in front of a fallen tree gets it onto the
+«Neuer Schadenplatz» is for, and it is how a crew standing in front of a fallen tree gets it onto the
 board. It reaches the board flagged as coming from the field, with the reporter's name on the
 audit row. The mitigation is the code rotating per Ereignis, not a permission.
 

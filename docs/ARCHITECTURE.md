@@ -498,7 +498,7 @@ At each transition:
 
 A card can also leave the board without being closed: by being **merged** into another open
 Einsatz of the same Ereignis. Before «Neuer Einsatz», the Alarmeingang's «Anhängen» or `/feld`'s
-«Neue Meldung» creates a card, the backend looks for an open Einsatz within 50 m or at the same
+«Neuer Schadenplatz» creates a card, the backend looks for an open Einsatz within 50 m or at the same
 street and house number (`services/duplicates.py`) and the UI offers «Zusammenführen» or «Trotzdem
 neu». Automatic intake (webhook, poller, `/alarm`, bulk attach) never merges on its own – the new
 card is marked `possible_duplicate_of_id` and the operator decides.
