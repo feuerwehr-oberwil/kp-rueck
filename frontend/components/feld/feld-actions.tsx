@@ -542,7 +542,7 @@ export function FeldActions({
           a vehicle dispatched after the request, or the dismissed warning bell.
           Derived server-side; no operator ever clicks an "acknowledge". */}
       {pickupNeeded && (
-        <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+        <div className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
           <p className="font-medium">
             {tPickup('badge')}
             {formatPickupSince(pickupSince) ? ` · ${tPickup('since', { time: formatPickupSince(pickupSince) })}` : ''}

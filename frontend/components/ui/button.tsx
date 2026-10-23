@@ -26,7 +26,7 @@ const buttonVariants = cva(
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:
           'hover:bg-muted hover:text-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        link: 'text-foreground underline underline-offset-4 hover:decoration-2',
         // The CHOSEN option of a choice — filter pill, segmented toggle, the
         // current status. Tonal slate («A2»), never a fill: a filled button
         // reads as an action, and red means priority/danger on this board.

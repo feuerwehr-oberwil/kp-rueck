@@ -118,7 +118,7 @@ export function PersistentNotificationSidebar() {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 {t('activeHeading')}
-                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-foreground/10 text-foreground text-xs font-bold">
                   {activeNotifications.length}
                 </span>
               </h3>

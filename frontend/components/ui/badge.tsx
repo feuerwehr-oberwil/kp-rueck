@@ -9,8 +9,11 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
+        // The quiet grey chip. It used to be a red `bg-primary` fill – red
+        // means priority and danger only (CLAUDE.md → Colour roles), and every
+        // call site was overriding it anyway. Same as `secondary`.
         default:
-          'border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
+          'border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
         secondary:
           'border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
         // Solid token in both themes — same reasoning as the destructive

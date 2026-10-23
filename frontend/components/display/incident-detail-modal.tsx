@@ -324,7 +324,7 @@ export function IncidentDetailModal({
                       tel: also makes it selectable, which the mono <p> quietly was not. */}
                   <a
                     href={telHref(operation.contactPhone) ?? undefined}
-                    className="underline underline-offset-2 hover:text-primary"
+                    className="underline underline-offset-2 hover:decoration-2"
                   >
                     {operation.contactPhone}
                   </a>

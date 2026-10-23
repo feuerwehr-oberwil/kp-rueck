@@ -105,7 +105,7 @@ export function RoutenplanungPanel({
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-2 border-b pb-3">
         <div className="flex items-center gap-2">
-          <RouteIcon className="h-4 w-4 text-primary" />
+          <RouteIcon className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-lg font-bold">{t("title")}</h2>
         </div>
         <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={onExit}>
@@ -173,7 +173,7 @@ export function RoutenplanungPanel({
         </div>
 
         {creating && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.03] px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
             <Input
               autoFocus
               value={newName}

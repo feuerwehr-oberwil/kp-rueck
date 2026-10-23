@@ -388,7 +388,7 @@ export function AuftraegeSheet({
           <div className="flex-1 overflow-y-auto mt-3 pb-10 space-y-3">
             {/* Inline create row */}
             {creating && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.03] px-3 py-2.5">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                 <Route className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <Input
                   autoFocus

@@ -294,7 +294,7 @@ export function EventSetupChecklist({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
             <h3 className="text-base font-semibold">{t('title')}</h3>
           </div>
           <div className="flex items-center gap-3">

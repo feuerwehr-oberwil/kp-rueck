@@ -945,7 +945,7 @@ export function IncidentStatusWorkflowDialogs({
                   <AlertDialogTitle className="flex items-center gap-2">
                     {allFilled
                       ? <CheckCircle2 className="h-5 w-5 text-success" />
-                      : <Package className="h-5 w-5 text-primary" />}
+                      : <Package className="h-5 w-5 text-muted-foreground" />}
                     {tMissing(missingTitleKey)}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
@@ -1054,7 +1054,7 @@ export function IncidentStatusWorkflowDialogs({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Waypoints className="h-5 w-5 text-primary" />
+              <Waypoints className="h-5 w-5 text-muted-foreground" />
               {tNext("title")}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -1082,7 +1082,7 @@ export function IncidentStatusWorkflowDialogs({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Binoculars className="h-5 w-5 text-primary" />
+              <Binoculars className="h-5 w-5 text-muted-foreground" />
               {tCommon("noRekoAssigned")}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -1113,7 +1113,7 @@ export function IncidentStatusWorkflowDialogs({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-primary" />
+              <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
               {tRekoForm("title")}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -1164,11 +1164,11 @@ export function IncidentStatusWorkflowDialogs({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {continuation ? (
-                <Waypoints className="h-5 w-5 text-primary" />
+                <Waypoints className="h-5 w-5 text-muted-foreground" />
               ) : release ? (
-                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
               ) : (
-                <Package className="h-5 w-5 text-primary" />
+                <Package className="h-5 w-5 text-muted-foreground" />
               )}
               {continuation ? tCompletion("stopTitle") : release ? tCompletion("title") : tMat("title")}
             </AlertDialogTitle>
@@ -1210,8 +1210,8 @@ export function IncidentStatusWorkflowDialogs({
           {/* Where the squad goes now — named, because «der nächste Stopp» is
               an address somebody has to read out over the radio. */}
           {continuation && (
-            <div className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/5 px-3 py-2">
-              <Waypoints className="h-4 w-4 flex-shrink-0 text-primary" />
+            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+              <Waypoints className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {tCompletion("nextStop", { location: operationLabel(continuation.next) })}
               </span>
@@ -1351,7 +1351,7 @@ export function IncidentStatusWorkflowDialogs({
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
-                  <PenLine className="h-5 w-5 text-primary" />
+                  <PenLine className="h-5 w-5 text-muted-foreground" />
                   {tCorrection("title")}
                 </AlertDialogTitle>
                 <AlertDialogDescription>

@@ -384,7 +384,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+                            <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <span className="font-bold text-sm">{vehicle.name}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -461,7 +461,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-center gap-3">
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
-                          <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+                          <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <span className="font-bold text-sm">{vehicle.name}</span>
                         </div>
 

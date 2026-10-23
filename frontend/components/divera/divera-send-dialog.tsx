@@ -182,7 +182,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Siren className="h-5 w-5 text-primary" />
+            <Siren className="h-5 w-5 text-muted-foreground" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>

@@ -315,7 +315,7 @@ export function AssignRekoDialog({
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm truncate">{person.name}</p>
                               {isRecommended && (
-                                <Badge variant="outline" className="text-2xs px-1.5 py-0 border-primary/50 text-primary flex-shrink-0">
+                                <Badge variant="outline" className="text-2xs px-1.5 py-0 flex-shrink-0">
                                   {t('recommended')}
                                 </Badge>
                               )}
@@ -327,7 +327,7 @@ export function AssignRekoDialog({
                         </div>
                         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                           {isCurrentlyAssigned ? (
-                            <Badge variant="default" className="text-xs bg-success">
+                            <Badge variant="default" className="text-xs">
                               {t('assigned')}
                             </Badge>
                           ) : (

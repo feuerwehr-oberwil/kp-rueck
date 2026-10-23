@@ -394,7 +394,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
             subtitle={
               <Link
                 href="/settings?section=notifications"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 {t('materials.thresholdsLink')}
                 <ArrowRight className="h-3 w-3" />

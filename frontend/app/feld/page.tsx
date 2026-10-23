@@ -186,7 +186,7 @@ function LeaderLine({
 
   if (isSelf) {
     return (
-      <p className={`flex items-start gap-1.5 text-sm font-medium text-primary ${className ?? ''}`}>
+      <p className={`flex items-start gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
         <Star className="h-3.5 w-3.5 mt-0.5 shrink-0 fill-current" />
         <span>{t('self')}</span>
       </p>
@@ -1548,9 +1548,9 @@ function FeldSurface() {
                 page, directly under the actions it usually answers. Newest
                 last, thread order — same rule as the KP's own thread. */}
             {(selectedAssignment.kp_messages?.length ?? 0) > 0 && (
-              <section className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+              <section className="rounded-xl border border-border bg-muted/60 p-4">
                 <h2 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                  <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
+                  <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
                   {t('kpMessages.title')}
                 </h2>
                 <ol className="space-y-2">
@@ -1811,7 +1811,7 @@ function FeldSurface() {
                 {/* The KP's latest sentence to this squad (§P3.2), one line so
                     a message is noticed without opening the row. */}
                 {lastKpMessage && (
-                  <p className="mb-1.5 flex items-start gap-1.5 text-xs font-medium text-primary">
+                  <p className="mb-1.5 flex items-start gap-1.5 text-xs font-medium text-foreground">
                     <MessageSquare className="mt-px h-3.5 w-3.5 shrink-0" />
                     <span className="min-w-0 truncate">{lastKpMessage.message}</span>
                   </p>
@@ -1837,7 +1837,7 @@ function FeldSurface() {
                   {/* «Reko erfassen» only while a Reko can still change what
                       the KP does; a closed window says so instead (item P2.6). */}
                   {assignment.source === 'reko' && !rekoWindowClosed(assignment) && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
                       <FileText className="h-3 w-3" />
                       {t('source.rekoAction')}
                     </span>

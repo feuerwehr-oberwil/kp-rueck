@@ -138,7 +138,7 @@ export function DiveraMessageDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
+            <MessageCircle className="h-5 w-5 text-muted-foreground" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
