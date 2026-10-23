@@ -183,7 +183,8 @@ runs: http://localhost:8000/docs
   `TILES_BOUNDS` / `TILES_AREA` / `TILES_PBF_URL`, default Basel-Landschaft); `TILES_NAME` (the
   on-disk filename) is shared by all three tile scripts – don't rename it on an existing volume.
   There is no tileserver config file: `scripts/init-tileserver.sh` hands over to TileServer GL,
-  which auto-detects `/data/*.mbtiles`. The dev stack publishes the tileserver on :8080; the
+  which auto-detects `/data/*.mbtiles`. The generated data goes to zoom 14 (planetiler's default;
+  the script passes no `--maxzoom`) – closer zooms overzoom. The dev stack publishes the tileserver on :8080; the
   production stack publishes no tileserver port (Caddy routes `/tiles`).
 
 **Releases are for other stations, not for us.** A `v*` tag exists so a self-hoster can pull a
@@ -223,9 +224,9 @@ runtime `API_URL`. Same reasoning for map tiles (`getTileBaseUrl` → `/tiles`).
   path instead of throwing. `lib/i18n-keys-used.test.ts` resolves every literal `t('…')` to its
   `useTranslations` namespace and fails on keys absent from `de.json`; dynamic `${…}` keys
   need an entry in the label-coverage tests instead.
-- **Words**: a resource is **zugewiesen** (verb «zuweisen», noun «Zuweisung»), never «zugeteilt».
-  **Mannschaft** is the crew on an Einsatz; **Personal** is the roster (nav, sidebar, settings).
-  Releasing a resource is «freigeben».
+- **Words**: **Mannschaft** = the crew of an Einsatz/Auftrag; **Personal** = the roster
+  (sidebar, settings, check-in). The verb is **zuweisen** (never zuteilen); releasing a resource
+  is «freigeben».
 - **Wall text (`/display/*`) wraps, it doesn't truncate** – nobody at a wall can hover a
   tooltip. Addresses, column heads and labels use `WALL_TEXT_WRAP` (`lib/kanban-utils.ts`:
   hyphenate, `break-words` only as last resort, never `break-all`); a fact that still must fit

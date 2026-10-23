@@ -52,6 +52,12 @@ will keep holding.
   lifted in a track like a tab bar; an item you cannot open without an Ereignis stays faded.
 - **Confirmation prompts put «Abbrechen» next to the action** (#215), and a prompt whose write
   failed stays open with its button live again instead of disappearing behind a red toast.
+- **One verb for assigning: «zuweisen».** A request from the field now says «Mannschaft
+  zuweisen» (it said «Personal zuteilen» and opened «Mannschaft zu Einsatz zuweisen»), and the
+  Einsatztagebuch filter «Mittel» is now «Ressourcen», so it no longer reads like the priority.
+- **`/feld` says «Stopps»** for the stops of an Auftrag (it said «Stops»).
+- **The tile scripts read `TILES_NAME` from `.env`**, like compose and `just tiles-status`, so a
+  station that renamed its tiles file no longer gets a download under the default name.
 - **Icons redrawn by lucide 1.x** (#181). The GitHub report route shows a CircleDot icon,
   because lucide dropped brand icons.
 - **Railway: no more `railway.json`.** Railway stops reading config-as-code files on
