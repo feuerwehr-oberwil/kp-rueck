@@ -39,7 +39,7 @@ test.describe('Viewer role — operations board', () => {
     await selectEvent(viewerPage, VIEWER_LANDING, fixture.eventId);
   });
 
-  test('the editor board renders for an editor and is closed to a viewer', async ({
+  test('the editor board renders for an editor and is closed to a viewer', { tag: '@smoke' }, async ({
     authenticatedPage,
     viewerPage,
   }) => {

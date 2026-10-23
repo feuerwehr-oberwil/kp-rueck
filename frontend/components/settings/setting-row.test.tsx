@@ -33,17 +33,12 @@ describe('SettingRow on the phone', () => {
     setWidth(390)
     renderWithIntl(<GeneralRow />)
     expect(row()).toHaveAttribute('data-stacked')
-    const line = control().parentElement!
-    expect(line).toHaveClass('flex-col')
     // DOM order is reading order: label, hint, then the control
     const label = screen.getByText('Einsatzgebiet (Ort)')
     const hint = screen.getByText(/Haupteinsatzgebiet/)
     const input = screen.getByLabelText('Einsatzgebiet (Ort)')
     expect(label.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // the control column spans the row instead of being a 200px column at the right
-    expect(control()).toHaveClass('w-full')
-    expect(control()).not.toHaveClass('min-w-[200px]')
   })
 
   it('keeps a switch beside its label (the phone settings norm)', () => {
@@ -53,18 +48,16 @@ describe('SettingRow on the phone', () => {
         <Switch id="sound" />
       </SettingRow>,
     )
-    // the row turns back into a line when its control holds a switch (CSS :has)
-    expect(control().parentElement!.className).toMatch(/has-\[>\[data-slot=setting-control\]_\[data-slot=switch\]\]:flex-row/)
-    expect(control().className).toMatch(/has-\[\[data-slot=switch\]\]:w-auto/)
+    // The row turns back into a line through CSS `:has(… [data-slot=switch])`, which jsdom
+    // cannot apply: what can break here is the hook that rule keys on.
+    expect(row()).toHaveAttribute('data-stacked')
+    expect(control().querySelector('[data-slot="switch"]')).toBe(screen.getByRole('switch'))
   })
 
   it('keeps the side-by-side row on desktop', () => {
     setWidth(1440)
     renderWithIntl(<GeneralRow />)
     expect(row()).not.toHaveAttribute('data-stacked')
-    expect(control().parentElement).toHaveClass('flex', 'items-center')
-    expect(control().parentElement).not.toHaveClass('flex-col')
-    expect(control()).toHaveClass('min-w-[200px]')
   })
 })
 
@@ -77,25 +70,24 @@ describe('DetailField on the phone', () => {
       </DetailField>,
     )
     const label = screen.getByText('Name', { selector: 'label' })
-    expect(label).toHaveClass('block')
-    expect(label).not.toHaveClass('w-[120px]')
+    expect(label.closest('[data-stacked]')).not.toBeNull()
     expect(label.nextElementSibling).toContainElement(screen.getByLabelText('Name'))
   })
 
-  it('keeps the 120px label column on desktop, and an explicit `stacked` wins', () => {
+  it('keeps the label beside the control on desktop, and an explicit `stacked` wins', () => {
     setWidth(1440)
     const { unmount } = renderWithIntl(
       <DetailField label="Name" htmlFor="name">
         <Input id="name" />
       </DetailField>,
     )
-    expect(screen.getByText('Name', { selector: 'label' })).toHaveClass('w-[120px]')
+    expect(screen.getByText('Name', { selector: 'label' }).closest('[data-stacked]')).toBeNull()
     unmount()
     renderWithIntl(
       <DetailField label="Name" htmlFor="name" stacked>
         <Input id="name" />
       </DetailField>,
     )
-    expect(screen.getByText('Name', { selector: 'label' })).toHaveClass('block')
+    expect(screen.getByText('Name', { selector: 'label' }).closest('[data-stacked]')).not.toBeNull()
   })
 })

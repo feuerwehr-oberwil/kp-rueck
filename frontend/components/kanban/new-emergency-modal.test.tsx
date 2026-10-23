@@ -279,7 +279,7 @@ describe('NewEmergencyModal — Handy', () => {
       expect(sheet.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
       // labels ABOVE the fields on the phone: the label is its own block, the control below it
       const meldung = screen.getByText('Meldung', { selector: 'label' })
-      expect(meldung).toHaveClass('block')
+      expect(meldung.closest('[data-stacked]')).not.toBeNull()
       expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
       // switches: label left, switch right, one row
       const tel = screen.getByRole('switch', { name: 'Telefonisch' })
@@ -319,8 +319,8 @@ describe('NewEmergencyModal — Handy', () => {
       await user.tab()
       const advice = screen.getByRole('status')
       expect(phone).toHaveAccessibleDescription(advice.textContent!)
-      // stacked: no desktop label-column indent on the message
-      expect(advice.className).not.toMatch(/pl-\[/)
+      // inside the stacked field, so it takes the full width, not the desktop label indent
+      expect(advice.closest('[data-stacked]')).not.toBeNull()
     } finally {
       viewport.mobile = false
     }

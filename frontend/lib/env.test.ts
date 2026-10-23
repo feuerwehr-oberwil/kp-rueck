@@ -6,7 +6,7 @@
  * KP Rück was Railway-only for a long time and these helpers still carry that shape, so the
  * cases below are written as deployment topologies, not as branches.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildContentSecurityPolicy,
@@ -17,22 +17,17 @@ import {
   setRuntimeBackendOrigin,
 } from './env'
 
-/** Pretend the page is served from `href`. Only hostname/origin are read. */
+/** Vitest's jsdom environment exposes the JSDOM instance as a global. */
+declare const jsdom: { reconfigure(options: { url: string }): void }
+const ORIGINAL_URL = window.location.href
+
+/**
+ * Pretend the page is served from `href`: jsdom moves the real `window.location` there (no
+ * navigation), so hostname, origin and port are what a browser would report. A stubbed
+ * `location` object cannot be used – under the vmThreads pool the property is not configurable.
+ */
 function servedFrom(href: string) {
-  const url = new URL(href)
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    // `port` included deliberately: a real window.location has one, and leaving it undefined
-    // made every stub look like it was served from the default port. getTileBaseUrl() reads it
-    // to tell the dev server (:3000) apart from a compose stack on :8080.
-    value: {
-      hostname: url.hostname,
-      origin: url.origin,
-      href: url.href,
-      protocol: url.protocol,
-      port: url.port,
-    },
-  })
+  jsdom.reconfigure({ url: href })
 }
 
 /** No build-time NEXT_PUBLIC_* – how the published image is built. */
@@ -41,6 +36,8 @@ function noBuildTimeEnv() {
   vi.stubEnv('NEXT_PUBLIC_WS_URL', '')
   vi.stubEnv('NEXT_PUBLIC_TILE_URL', '')
 }
+
+afterAll(() => jsdom.reconfigure({ url: ORIGINAL_URL }))
 
 afterEach(() => {
   vi.unstubAllEnvs()

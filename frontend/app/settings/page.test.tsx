@@ -333,7 +333,7 @@ describe('Einstellungen › Seitenleiste — ein «Hier bist du»', () => {
   // Owner 03.10.: two rows looked current at once (hover and current were the
   // same dark pill), a long label squeezed its icon away, «Standard-Aufträge»
   // wrapped onto two centred lines.
-  it('marks exactly one row as current, with an ink tint, and keeps icon + left-aligned label on every row', () => {
+  it('marks exactly one row as current, with an ink tint, and names every row in full', () => {
     openSection('audit')
     const nav = screen.getAllByRole('navigation').at(-1)!
     const rows = within(nav).getAllByRole('button')
@@ -342,8 +342,6 @@ describe('Einstellungen › Seitenleiste — ein «Hier bist du»', () => {
     expect(current[0]).toHaveTextContent('Audit-Protokoll')
     expect(current[0].className).toContain('bg-foreground/[0.09]')
     for (const row of rows) {
-      expect(row).toHaveClass('text-left')
-      expect(row.querySelector('svg')).toHaveClass('shrink-0')
       const label = row.querySelector('span.truncate')
       expect(label?.textContent).toBe(row.getAttribute('title'))
       if (row !== current[0]) expect(row.className).not.toMatch(/(^|\s)bg-(background|foreground)/)

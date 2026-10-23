@@ -30,7 +30,7 @@ test.describe('Viewer role — map', () => {
     await selectEvent(viewerPage, '/display/map', fixture.eventId);
   });
 
-  test('the editor map renders for an editor and is closed to a viewer', async ({
+  test('the editor map renders for an editor and is closed to a viewer', { tag: '@smoke' }, async ({
     authenticatedPage,
     viewerPage,
   }) => {

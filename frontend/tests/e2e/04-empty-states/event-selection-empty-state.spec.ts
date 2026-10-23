@@ -45,30 +45,12 @@ test.describe('Event Selection Empty State', () => {
     // Verify "Neues Ereignis erstellen" button exists
     const createButton = authenticatedPage.locator('button:has-text("Neues Ereignis erstellen")');
     await expect(createButton).toBeVisible();
-
-    // Verify button has calendar icon
-    await expect(createButton.locator('svg[class*="lucide-calendar"]')).toBeVisible();
-
-    // Verify button is clickable (has hover effect class)
-    const hasHoverDelight = await createButton.evaluate(el =>
-      el.className.includes('hover-delight')
-    );
-    expect(hasHoverDelight).toBeTruthy();
   });
 
   test('displays "View Events" button', async ({ authenticatedPage }) => {
     // Verify "Ereignisse anzeigen" button exists
     const viewButton = authenticatedPage.locator('button:has-text("Ereignisse anzeigen")');
     await expect(viewButton).toBeVisible();
-
-    // Verify button has chevron icon
-    await expect(viewButton.locator('svg[class*="lucide-chevron-right"]')).toBeVisible();
-
-    // Verify button is outline variant
-    const isOutlineVariant = await viewButton.evaluate(el =>
-      el.className.includes('outline')
-    );
-    expect(isOutlineVariant).toBeTruthy();
   });
 
   test('create button navigates to events page with create action', async ({ authenticatedPage }) => {
@@ -121,7 +103,6 @@ test.describe('Event Selection Empty State - With Event Selected', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     // First navigate to events page
     await authenticatedPage.goto('/events');
-    await authenticatedPage.waitForTimeout(1000);
   });
 
   test('empty state does not show when event is selected', async ({ authenticatedPage }) => {

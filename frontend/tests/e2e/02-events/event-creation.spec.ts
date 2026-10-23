@@ -158,9 +158,6 @@ test.describe('Event Management', () => {
   test('should archive an event', async () => {
     await eventsPage.archiveEvent(testEventName);
 
-    // Wait for archive operation
-    await eventsPage.page.waitForTimeout(1000);
-
     // Event should no longer be in active events
     // It should appear behind the Archiv disclosure
     await expect(eventsPage.archivedEventsSection).toBeVisible();
@@ -171,11 +168,9 @@ test.describe('Event Management', () => {
   test('should unarchive an event', async () => {
     // First archive it
     await eventsPage.archiveEvent(testEventName);
-    await eventsPage.page.waitForTimeout(1000);
 
     // Then unarchive it
     await eventsPage.unarchiveEvent(testEventName);
-    await eventsPage.page.waitForTimeout(1000);
 
     // Should be back in active events: its row offers Auswählen again
     const card = eventsPage.eventCard(testEventName);
@@ -186,15 +181,12 @@ test.describe('Event Management', () => {
   test('should delete an archived event', async () => {
     // First archive it
     await eventsPage.archiveEvent(testEventName);
-    await eventsPage.page.waitForTimeout(1000);
 
     // Then delete it
     await eventsPage.deleteEvent(testEventName);
-    await eventsPage.page.waitForTimeout(1000);
 
     // Event should no longer exist
-    const exists = await eventsPage.isEventVisible(testEventName);
-    expect(exists).toBeFalsy();
+    await expect(eventsPage.eventCard(testEventName)).toHaveCount(0);
   });
 });
 
@@ -235,7 +227,6 @@ test.describe('Event Search & Filtering', () => {
     await eventsPage.clearSearch();
 
     // Should show events again
-    const exists = await eventsPage.isEventVisible(searchableEventName);
-    expect(exists).toBeTruthy();
+    await expect(eventsPage.eventCard(searchableEventName)).toBeVisible();
   });
 });
