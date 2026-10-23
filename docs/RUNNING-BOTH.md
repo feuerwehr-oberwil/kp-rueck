@@ -46,6 +46,7 @@ HTTPS_PORT=8443                    # NOT 443 – see the warning below
 CORS_ORIGINS=https://rueck.example.org   # the URL BROWSERS use, not http://127.0.0.1:8080
 AUTH_COOKIE_SECURE=                # leave blank; CORS_ORIGINS above already answers this
 TRUSTED_PROXY_COUNT=2              # your proxy + KP Rück's Caddy – see the note below
+TRUSTED_PROXIES=172.17.0.1/32      # the address your proxy reaches Caddy from – not this example
 ```
 
 ```bash
@@ -67,17 +68,9 @@ DOMAIN=                  # unused without --profile tls
 > login throttle, the rate limit and the audit trail. The default `1` is right for Caddy alone;
 > behind your proxy it reads your proxy's address for every caller, so one busy device trips
 > the rate limit for everyone. The count only helps if the header survives Caddy, though:
-> Caddy ignores an incoming `X-Forwarded-For` from a proxy it does not trust, and the shipped
-> `deploy/Caddyfile` trusts none. Add a global options block as the very first thing in it,
-> naming the address your proxy connects to Caddy from, and carry that edit across updates:
->
-> ```caddyfile
-> {
-> 	servers {
-> 		trusted_proxies static 172.17.0.1/32   # your proxy's address, not this example
-> 	}
-> }
-> ```
+> Caddy ignores an incoming `X-Forwarded-For` from a proxy it does not trust. `TRUSTED_PROXIES`
+> tells it which one to trust – the address or CIDR your proxy connects to Caddy from
+> (space-separated for several); `deploy/Caddyfile` reads it, and empty trusts nobody.
 >
 > Never set the count higher than the proxies really in front: too high trusts entries the
 > caller wrote. (The «Keeping it simpler» layout below has no outer proxy and keeps `1`.)
@@ -307,8 +300,8 @@ Before you start the second stack:
 - [ ] KP Rück's `HTTP_PORT` **and** `HTTPS_PORT` are both free – `HTTPS_PORT` is not `443`.
 - [ ] `CORS_ORIGINS` (KP Rück) and `PUBLIC_URL` (KP Front) each point at their **own** stack –
       and `CORS_ORIGINS` holds the URL *browsers* use, not the address an outer proxy forwards to.
-- [ ] Behind the outer proxy: `TRUSTED_PROXY_COUNT=2` in the KP Rück `.env`, and its Caddy
-      trusts that proxy (§1).
+- [ ] Behind the outer proxy: `TRUSTED_PROXY_COUNT=2` and `TRUSTED_PROXIES=<its address>` in the
+      KP Rück `.env` (§1).
 - [ ] `AUTH_COOKIE_SECURE` is **blank** in the KP Rück `.env`; if KP Front is on plain HTTP, its
       `COOKIE_SECURE=false` is set.
 - [ ] `ALARM_WEBHOOK_SECRET` is a **different** value in each `.env`.
