@@ -81,36 +81,17 @@ export function NotificationSettingsCard() {
   const [activeTab, setActiveTab] = useState<'live' | 'training'>('live')
   const [materialTypes, setMaterialTypes] = useState<string[]>([])
 
+  // The material locations, for one threshold row each. Read-only: a location with no
+  // threshold yet shows as off (the server skips it too) until the operator sets one. This
+  // effect used to seed -1 per new location by PATCHing `{ ...settings }` of the FIRST render –
+  // on a reload of /settings that is the provider's defaults, written over the station's own.
   useEffect(() => {
-    // Fetch unique material types from database
-    const fetchMaterialTypes = async () => {
-      try {
-        const materials = await apiClient.getAllMaterials()
-        // Materials use 'location' field for categorization (not 'type')
-        const types = Array.from(new Set(materials.map(m => m.location || 'General'))).sort()
-        setMaterialTypes(types)
-
-        // Ensure all types are in the threshold settings
-        const currentThresholds = { ...settings.material_depletion_threshold }
-        let updated = false
-
-        for (const type of types) {
-          if (!(type in currentThresholds)) {
-            currentThresholds[type] = -1 // Default disabled
-            updated = true
-          }
-        }
-
-        if (updated) {
-          await updateSettings({ ...settings, material_depletion_threshold: currentThresholds })
-        }
-      } catch (error) {
-        console.error('Failed to fetch material types:', error)
-      }
-    }
-
-    fetchMaterialTypes()
-  }, []) // Only run once on mount
+    apiClient
+      .getAllMaterials()
+      // Materials use 'location' field for categorization (not 'type')
+      .then((materials) => setMaterialTypes(Array.from(new Set(materials.map(m => m.location || 'General'))).sort()))
+      .catch((error) => console.error('Failed to fetch material types:', error))
+  }, [])
 
   const updateSetting = async <K extends keyof NotificationSettings>(
     key: K,
@@ -267,7 +248,7 @@ export function NotificationSettingsCard() {
             </p>
           )}
           {materialTypes.map((materialType) => {
-            const threshold = settings.material_depletion_threshold[materialType] ?? 2
+            const threshold = settings.material_depletion_threshold[materialType] ?? -1
             const isDisabled = threshold === -1
 
             return (
