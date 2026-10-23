@@ -103,7 +103,7 @@ describe('display-retry', () => {
       ['/map', false],
       ['/settings', false],
     ])('%s -> %s', (pathname, expected) => {
-      vi.stubGlobal('window', { location: { pathname } })
+      window.history.replaceState(null, '', pathname)
       expect(isDisplayRoute()).toBe(expected)
     })
   })
