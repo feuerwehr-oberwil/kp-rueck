@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useEffectEvent, Fragment } from 'react'
+import { useState, useEffect, Fragment } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import {

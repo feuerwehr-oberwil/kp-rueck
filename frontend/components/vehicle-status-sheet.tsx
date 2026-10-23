@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useEffectEvent, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"

@@ -11,7 +11,8 @@
  * and a borderless empty input has no affordance.
  */
 
-import { useState, useEffect, useEffectEvent } from 'react';
+import { useState, useEffect } from 'react';
+import { useEffectEvent } from '@/lib/hooks/use-effect-event';
 import { apiClient, type ApiUser, type ApiUserCreate, type ApiUserUpdate } from '@/lib/api-client';
 import { SettingCard } from '@/components/settings/setting-row';
 import { Button } from '@/components/ui/button';

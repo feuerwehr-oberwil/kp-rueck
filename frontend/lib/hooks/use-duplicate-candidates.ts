@@ -8,7 +8,8 @@
  * a card, so a lost request simply shows no hint.
  */
 
-import { useEffect, useEffectEvent, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 
 import { duplicateQueryKey, type DuplicateHintCandidate, type DuplicateQuery } from '@/lib/duplicates'
 

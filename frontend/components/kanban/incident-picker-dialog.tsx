@@ -10,7 +10,8 @@
  * pre-selected; unchecking one detaches it from the route on confirm.
  */
 
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
 import type { Map as MlMap } from "maplibre-gl"

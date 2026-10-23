@@ -1,7 +1,8 @@
 "use client"
 
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { useState, useEffect, useEffectEvent, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"

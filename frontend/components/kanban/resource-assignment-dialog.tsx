@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect, useEffectEvent, useRef } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useEffectEvent, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'

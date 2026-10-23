@@ -32,6 +32,18 @@ export default [
       // General rules
       "prefer-const": "error",
       "no-console": ["warn", { allow: ["warn", "error"] }],
+      // The App Router runs on the React Next vendors, which has no `useEffectEvent` yet:
+      // the import type-checks and passes Vitest, then crashes the page. See the hook's file.
+      "no-restricted-syntax": ["error",
+        {
+          selector: "ImportDeclaration[source.value='react'] > ImportSpecifier[imported.name=/^(experimental_)?useEffectEvent$/]",
+          message: "Import useEffectEvent from '@/lib/hooks/use-effect-event' – Next 15's vendored React does not export it.",
+        },
+        {
+          selector: "MemberExpression[object.name='React'][property.name=/^(experimental_)?useEffectEvent$/]",
+          message: "Use useEffectEvent from '@/lib/hooks/use-effect-event' – Next 15's vendored React does not export it.",
+        },
+      ],
     },
     settings: {
       react: {

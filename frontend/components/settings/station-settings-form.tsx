@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useEffectEvent, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffectEvent } from '@/lib/hooks/use-effect-event';
 import { useTranslations } from 'next-intl';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useEffectEvent, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'

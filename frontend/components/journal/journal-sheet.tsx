@@ -11,7 +11,8 @@
  * «korrigiert» with the old wording one tap away, as on paper.
  */
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Filter, Hash, Link2, Pencil, X } from "lucide-react"
 

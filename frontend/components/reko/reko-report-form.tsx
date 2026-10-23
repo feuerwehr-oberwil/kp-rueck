@@ -23,7 +23,8 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react'
-import { useEffect, useEffectEvent, useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { Check, Send } from 'lucide-react'
 

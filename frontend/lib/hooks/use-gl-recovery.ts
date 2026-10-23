@@ -14,7 +14,8 @@
  * looping.
  */
 
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import type { Map as MlMap } from 'maplibre-gl'
 import { reportClientError } from '@/lib/report-error'
 

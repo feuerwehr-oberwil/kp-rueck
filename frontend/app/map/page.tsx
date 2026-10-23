@@ -10,7 +10,8 @@
  */
 
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { useState, useMemo, useEffect, useEffectEvent, useRef, useCallback } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"

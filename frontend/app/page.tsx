@@ -9,7 +9,8 @@
  * `components/protected-route.tsx` for why and for what actually enforces the role.
  */
 
-import { useState, useEffect, useEffectEvent, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"

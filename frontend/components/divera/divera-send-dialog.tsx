@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useEffectEvent, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Siren, Link2Off } from "lucide-react"
 import {

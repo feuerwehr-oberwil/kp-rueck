@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useEffectEvent, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffectEvent } from '@/lib/hooks/use-effect-event';
 import type { FieldValues, UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';

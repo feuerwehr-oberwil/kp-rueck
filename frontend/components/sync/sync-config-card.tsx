@@ -9,7 +9,8 @@
  * 200 Pixeln ist keine URL, sondern ein Ausschnitt davon.
  */
 
-import { useState, useEffect, useEffectEvent } from 'react'
+import { useState, useEffect } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'

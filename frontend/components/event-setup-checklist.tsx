@@ -1,6 +1,7 @@
 'use client'
 
-import { Fragment, useState, useEffect, useEffectEvent, useCallback } from 'react'
+import { Fragment, useState, useEffect, useCallback } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'

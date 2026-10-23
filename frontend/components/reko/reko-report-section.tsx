@@ -35,7 +35,8 @@
  * longer says whether Reko is on site.
  */
 
-import { useState, useEffect, useEffectEvent, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'

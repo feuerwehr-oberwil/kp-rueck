@@ -14,7 +14,8 @@
  * field pages are the exception — this one is read on a phone in the rain.
  */
 
-import { Suspense, useState, useEffect, useEffectEvent, useCallback, useMemo, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'

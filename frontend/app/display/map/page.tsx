@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useEffectEvent, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"

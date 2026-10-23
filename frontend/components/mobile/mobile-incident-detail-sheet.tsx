@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useEffectEvent, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"

@@ -32,7 +32,8 @@
  * un-submit anything, which is the bug `isSubmittingRef` exists for.
  */
 
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Copy, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
