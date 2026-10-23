@@ -39,6 +39,7 @@ import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
@@ -298,7 +299,9 @@ export function OperationDetailContent({
     },
     [operation.id],
   )
-  const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
+  // The quick-assign fleet behind `1`..`5` – editors only; off the board sync.
+  const fleet = useVehicleShortcuts()
+  const availableVehicleCount = canEdit ? fleet.length : 0
   const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
@@ -331,27 +334,6 @@ export function OperationDetailContent({
         isReko: true,
       }
     : null
-
-  // Load available vehicles list when modal opens. The driver map is
-  // handled by useVehicleDrivers above (live-synced).
-  useEffect(() => {
-    const loadVehicles = async () => {
-      if (!active || !selectedEvent || !canEdit) return
-
-      try {
-        const vehicles = await apiClient.getVehicles()
-        const sorted = [...vehicles].sort((a, b) => a.display_order - b.display_order)
-        setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
-        toast.error(t('detail.vehiclesLoadFailed'), {
-          description: t('detail.vehiclesLoadFailedDescription'),
-        })
-      }
-    }
-
-    loadVehicles()
-  }, [active, canEdit, selectedEvent, t])
 
   useEffect(() => {
     setShowDeleteConfirm(false)
@@ -464,7 +446,7 @@ export function OperationDetailContent({
   // move the view either.
   useOperationDetailShortcutTabs({
     enabled: active && canEdit,
-    availableVehicleCount: availableVehicles.length,
+    availableVehicleCount,
     onFocusTab: selectTab,
   })
 

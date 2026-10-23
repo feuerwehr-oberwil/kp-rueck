@@ -111,7 +111,7 @@ function getServerSnapshot(): IncidentTimeMode {
 }
 
 /** Set the per-device mode. Persisted; the station setting no longer applies here. */
-export function setIncidentTimeMode(next: IncidentTimeMode): void {
+function setIncidentTimeMode(next: IncidentTimeMode): void {
   hasDeviceOverride = true
   writeItem(STORAGE_KEY, next)
   set(next)

@@ -51,14 +51,16 @@ import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/inciden
 import { isIncidentStatus, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { Reveal } from "@/components/ui/reveal"
 // The board's shortcut hook owns the canonical "should this keystroke reach the
 // page?" rules; the map answers the same questions and reuses them.
-import { isActivationTarget, isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
+import { isActivationTarget, isOverlayOpen } from "@/lib/hooks/use-kanban-shortcuts"
+import { isTypingTarget } from "@/lib/typing-target"
+import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
@@ -116,7 +118,7 @@ export default function MapPage() {
   useBootGate('map', operationsLoaded && mapIdle, tBoot('loading'))
   // vehicle name → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
-  const { isAuthenticated, isEditor } = useAuth()
+  const { isEditor } = useAuth()
   const {
     groups,
     createGroup,
@@ -142,9 +144,7 @@ export default function MapPage() {
   const [detailOnTab, setDetailOnTab] = useState<
     { tab: OperationDetailTab; nonce: number; section?: OperationDetailSection } | null
   >(null)
-  const [diveraEnabled, setDiveraEnabled] = useState(false)
-  const [printerEnabled, setPrinterEnabled] = useState(false)
-  const [funkrufname, setFunkrufname] = useState("Omega")
+  const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
   // Derive current operation from operations array to get real-time updates
   const selectedOperation = useMemo(() => {
     if (!selectedOperationId) return null
@@ -157,7 +157,8 @@ export default function MapPage() {
     active: true,
     completed: false, // Hidden by default (matches current behavior)
   })
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
+  // The board's numbering (display_order), so «3» is the same truck on both screens.
+  const vehicleTypes = useVehicleShortcuts()
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showDistances, setShowDistances] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
@@ -402,7 +403,7 @@ export default function MapPage() {
 
   // Zoom in on a vehicle by its 1-5 shortcut number
   const focusVehicleByNumber = (vehicleNumber: number) => {
-    const vehicle = vehicleTypes[vehicleNumber - 1]
+    const vehicle = vehicleTypes.find((item) => item.key === String(vehicleNumber))
     if (vehicle) {
       setFocusVehicleName(vehicle.name)
       setFocusVehicleTrigger((prev) => prev + 1)
@@ -422,7 +423,8 @@ export default function MapPage() {
         setSelectedIncidentId(null)
       },
       onSetMapColorBy: setColorByPersisted,
-      mapVehicleNames: vehicleTypes.map((v) => v.name),
+      // Indexed by shortcut number − 1, as the palette lists «1»…«5».
+      mapVehicleNames: [1, 2, 3, 4, 5].map((n) => vehicleTypes.find((v) => v.key === String(n))?.name ?? ''),
       onFocusIncidentSearch: () => document.getElementById('map-search-input')?.focus(),
     })
     return () => clearHandlers()
@@ -595,55 +597,6 @@ export default function MapPage() {
     return sections
   }, [incidents, searchQuery, tIncidents, tKanban])
 
-  // Load all vehicles for detail assignment while retaining the first five as
-  // numbered map shortcuts. Resolve Divera capability through the same settings
-  // checks as the board so a non-functional send button is never shown.
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const loadVehicles = async () => {
-      try {
-        const vehicles = await apiClient.getVehicles()
-        const typesWithKeys = vehicles.map((vehicle, index) => ({
-          key: String(index + 1),
-          name: vehicle.name,
-          id: vehicle.id,
-          type: vehicle.type,
-        }))
-        setVehicleTypes(typesWithKeys)
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
-      }
-    }
-    const loadDiveraCapability = async () => {
-      try {
-        const settings = await apiClient.getAllSettings()
-        if (settings.funkrufname) setFunkrufname(settings.funkrufname)
-        if (settings['divera.alarm_enabled'] !== 'true') {
-          setDiveraEnabled(false)
-          return
-        }
-        try {
-          const status = await apiClient.getDiveraPollingStatus()
-          setDiveraEnabled(status.configured === true)
-        } catch {
-          setDiveraEnabled(true)
-        }
-      } catch {
-        setDiveraEnabled(false)
-      }
-    }
-    const loadPrinterCapability = async () => {
-      try {
-        const status = await apiClient.getPrinterStatus()
-        setPrinterEnabled(status.enabled)
-      } catch {
-        setPrinterEnabled(false)
-      }
-    }
-    void loadVehicles()
-    void loadDiveraCapability()
-    void loadPrinterCapability()
-  }, [isAuthenticated])
 
   // Refresh incidents immediately when map page loads
   useEffect(() => {

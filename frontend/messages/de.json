@@ -725,8 +725,6 @@
         "history": "Verlauf",
         "switchHint": "Tab wechseln"
       },
-      "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
-      "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
       "incidentsLoadFailedDescription": "Die Einsätze konnten nicht geladen werden.",
       "meldungPlaceholder": "Eingegangene Meldung, Schadensbild …",
       "nachbarhilfeDescription": "Einsatz mit Nachbarfeuerwehr-Beteiligung",

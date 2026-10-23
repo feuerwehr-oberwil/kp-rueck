@@ -38,21 +38,7 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { fieldMessageProps, focusFirstBlockingField } from '@/components/ui/form-message'
-
-/**
- * Mirror of the backend slug (`slugify_event_name`, api/exports.py): lowercase,
- * umlauts transliterated, every other run of non-alphanumerics collapsed to "-".
- * The downloads name themselves client-side, so the two have to agree.
- */
-function slugifyEventName(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'ereignis'
-  )
-}
+import { slugifyEventName } from '@/components/print/event-export'
 
 /**
  * The two open-work counts as quiet amber chips on a list row. The full

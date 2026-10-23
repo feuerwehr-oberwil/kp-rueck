@@ -24,7 +24,9 @@ import { ShellLoader } from "@/components/ui/shell-loader"
 interface TransferIncidentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  sourceIncident: Incident
+  /** Only its id (kept out of the targets) and a fallback name are read – an
+   *  `Operation` or an `Incident` both fit. */
+  sourceIncident: { id: string; title?: string | null }
   sourceName?: string
   availableIncidents: Incident[]
   onTransfer: (targetIncidentId: string) => void
@@ -227,7 +229,7 @@ export function TransferIncidentDialog({
         onOpenChange={setConfirmOpen}
         title={t('transfer.confirmTitle')}
         description={t('transfer.confirmDescription', {
-          source: sourceName || sourceIncident.title,
+          source: sourceName || sourceIncident.title || '',
           target: selectedIncident
             ? selectedIncident.location_display ??
               (formatLocationForDisplay(selectedIncident.location_address ?? '', getGlobalHomeCity()) ||

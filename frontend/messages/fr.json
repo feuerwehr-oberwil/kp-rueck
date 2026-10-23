@@ -1953,8 +1953,6 @@
         "history": "Historique",
         "switchHint": "Changer d’onglet"
       },
-      "vehiclesLoadFailed": "Les véhicules n’ont pas pu être chargés",
-      "vehiclesLoadFailedDescription": "Réessaie ou rouvre la fenêtre.",
       "incidentsLoadFailedDescription": "Les interventions n’ont pas pu être chargées.",
       "meldungPlaceholder": "Annonce reçue, nature des dégâts …",
       "nachbarhilfeDescription": "Intervention avec participation d’un corps voisin",

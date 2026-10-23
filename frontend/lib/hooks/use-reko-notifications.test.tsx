@@ -21,6 +21,8 @@ vi.mock("@/lib/websocket-client", () => ({
   wsClient: {
     on: (event: string, handler: () => void) => { wsHandlers.set(event, handler); return () => wsHandlers.delete(event); },
     onStatusChange: () => () => {},
+    // Connected: the fallback poll never arms, so no timers in the test.
+    getStatus: () => "connected",
   },
 }));
 

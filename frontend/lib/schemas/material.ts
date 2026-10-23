@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { translateOutsideReact } from "@/lib/i18n-messages";
 
-export const materialStatusSchema = z.enum(["available", "unavailable"]);
+const materialStatusSchema = z.enum(["available", "unavailable"]);
 
 export const materialFormSchema = z.object({
   name: z

@@ -45,7 +45,7 @@ import { SearchInput } from '@/components/ui/search-input'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
 import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
-import { getActiveLocale } from '@/lib/i18n-messages'
+import { formatTime } from '@/lib/format-time'
 import {
   assignmentRapportApplies,
   decodeFeldCredential,
@@ -94,12 +94,6 @@ const FELD_POLL_MS = 10000
  */
 const MELDEN_FAB_CLEARANCE = 'pb-32'
 
-function formatTime(value: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
-}
 
 /** The board's statuses, as `feld.kpStatus.*` names them. A closed set — the
  *  guard keeps a future status from crashing `t()` on every phone at once. */

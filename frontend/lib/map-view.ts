@@ -86,23 +86,6 @@ export const EMPTY_STYLE: StyleSpecification = { version: 8, sources: {}, layers
  */
 export const vis = (on: boolean) => ({ visibility: (on ? 'visible' : 'none') as 'visible' | 'none' })
 
-/** Screen pixels per metre at a latitude and zoom – the scale factor of Web Mercator. */
-export const pxPerM = (lat: number, z: number) =>
-  Math.pow(2, z) / (156543.03392 * Math.cos((lat * Math.PI) / 180))
-
-/** Web-Mercator northing – the y half of the projection, without a map instance. */
-const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
-
-/**
- * Web-Mercator world pixel at a zoom. On a north-up map these are screen pixels up to a pan, so
- * a distance measured here is a distance on screen – which is what label stacking needs, without
- * asking the map to project every point on every render.
- */
-export function worldPx(lngLat: [number, number], z: number): [number, number] {
-  const s = 256 * Math.pow(2, z)
-  return [((lngLat[0] + 180) / 360) * s, (0.5 - mercY(lngLat[1]) / (2 * Math.PI)) * s]
-}
-
 /** A point in the order the app speaks it – `[lat, lng]`, which is MapLibre's reversed. */
 export type LatLngPoint = readonly [number, number]
 

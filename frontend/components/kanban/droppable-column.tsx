@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, memo, useSyncExternalStore } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
@@ -15,6 +15,7 @@ import { areOperationListsEqual } from "@/lib/operation-equality"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
+import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,19 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-// On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
-const subscribeLargeScreen = (cb: () => void) => {
-  const mql = window.matchMedia(SIDE_PANEL_MEDIA_QUERY)
-  mql.addEventListener("change", cb)
-  return () => mql.removeEventListener("change", cb)
-}
-const getIsLargeScreen = () => window.matchMedia(SIDE_PANEL_MEDIA_QUERY).matches
-const getIsLargeScreenServer = () => false
-
-function useIsLargeScreen() {
-  return useSyncExternalStore(subscribeLargeScreen, getIsLargeScreen, getIsLargeScreenServer)
-}
 
 interface DroppableColumnProps {
   column: {
@@ -199,7 +187,8 @@ export const DroppableColumn = memo(function DroppableColumn({
   const dropRef = useRef<HTMLElement | null>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
-  const isLargeScreen = useIsLargeScreen()
+  // On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
+  const isLargeScreen = useMediaQuery(SIDE_PANEL_MEDIA_QUERY, false)
 
   // Only a *click* scrolls; a column that was already folded at load must not
   // yank the board sideways on every mount.

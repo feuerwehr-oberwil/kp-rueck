@@ -506,7 +506,7 @@ export function IncidentDialogs({
         <TransferIncidentDialog
           open
           onOpenChange={(open) => !open && view.closeTransfer()}
-          sourceIncident={transferSource as unknown as Incident}
+          sourceIncident={transferSource}
           sourceName={formatLocation(transferSource.location ?? "") || getIncidentTypeLabel(transferSource.incidentType)}
           availableIncidents={view.transfer?.targets ?? []}
           onTransfer={view.runTransfer}

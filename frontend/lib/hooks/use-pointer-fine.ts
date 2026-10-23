@@ -1,6 +1,6 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useMediaQuery } from '@/lib/hooks/use-media-query'
 
 /**
  * The media query that means «there is a mouse (or pen) to hover with».
@@ -16,24 +16,11 @@ import { useSyncExternalStore } from 'react'
  */
 export const POINTER_FINE_QUERY = '(pointer: fine)'
 
-function subscribe(onChange: () => void): () => void {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {}
-  const mql = window.matchMedia(POINTER_FINE_QUERY)
-  mql.addEventListener('change', onChange)
-  return () => mql.removeEventListener('change', onChange)
-}
-
-function getSnapshot(): boolean {
-  // No matchMedia (jsdom, very old browsers): today's mouse behaviour.
-  if (typeof window.matchMedia !== 'function') return true
-  return window.matchMedia(POINTER_FINE_QUERY).matches
-}
-
-// The server has no pointer; render the mouse variant and let the client
-// correct it after hydration (useSyncExternalStore re-renders on mismatch).
-const getServerSnapshot = () => true
-
-/** True when the primary pointer is fine (mouse, trackpad, pen). */
+/**
+ * True when the primary pointer is fine (mouse, trackpad, pen). The server and
+ * jsdom (no matchMedia) answer with today's mouse behaviour; the client corrects
+ * it after hydration.
+ */
 export function usePointerFine(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useMediaQuery(POINTER_FINE_QUERY, true)
 }

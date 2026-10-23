@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { translateOutsideReact } from "@/lib/i18n-messages";
 
-export const vehicleStatusSchema = z.enum(["available", "unavailable"]);
+const vehicleStatusSchema = z.enum(["available", "unavailable"]);
 
 export const vehicleFormSchema = z.object({
   name: z
