@@ -31,7 +31,7 @@ const shared = {
   setupFiles: ["./vitest.setup.ts"],
   css: false,
   restoreMocks: true,
-} as const;
+};
 
 export default defineConfig({
   plugins: [react()],
