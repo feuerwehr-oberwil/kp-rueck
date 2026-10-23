@@ -1,8 +1,7 @@
 "use client"
 
 import type { useEvent } from "../event-context"
-import type { usePersonnel } from "../personnel-context"
-import type { useMaterials } from "../materials-context"
+import type { useMaterialList, usePersonnelList } from "./use-resource-lists"
 import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type MutableRefObject } from "react"
 import { apiClient, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
 import { setGlobalHomeCity } from "@/lib/utils"
@@ -39,15 +38,15 @@ function keepIfSame<T>(prev: T, next: T): T {
 }
 
 /** What the board's loader needs from the provider: who is signed in, which
- *  Ereignis, the personnel/material contexts, and the provider's own state
+ *  Ereignis, the roster/depot loaders, and the provider's own state
  *  setters plus the mutation-cooldown refs it must respect. */
 export interface BoardSyncInput {
   authLoading: boolean
   isAuthenticated: boolean
   selectedEvent: ReturnType<typeof useEvent>["selectedEvent"]
   isEventLoaded: boolean
-  refreshPersonnel: ReturnType<typeof usePersonnel>["refreshPersonnel"]
-  refreshMaterials: ReturnType<typeof useMaterials>["refreshMaterials"]
+  refreshPersonnel: ReturnType<typeof usePersonnelList>["refreshPersonnel"]
+  refreshMaterials: ReturnType<typeof useMaterialList>["refreshMaterials"]
   setPersonnel: Dispatch<SetStateAction<Person[]>>
   setMaterials: Dispatch<SetStateAction<Material[]>>
   setOperations: Dispatch<SetStateAction<Operation[]>>
@@ -174,6 +173,8 @@ export function useBoardSync(input: BoardSyncInput) {
 
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
+      setPersonnel([])
+      setMaterials([])
       // No Ereignis, no board to be fresh or stale about.
       boardEventIdRef.current = null
       setLastSyncAt(null)

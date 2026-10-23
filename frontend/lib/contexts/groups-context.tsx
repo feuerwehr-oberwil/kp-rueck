@@ -22,7 +22,7 @@ import { useEvent } from "./event-context"
 import { usePersonnel } from "./personnel-context"
 import { useMaterials } from "./materials-context"
 
-// Re-export the client type for convenience (mirrors materials-context exposing Material).
+// Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
 
 /** Fields the UI supplies when creating an Auftrag (event scope is injected). */
@@ -146,7 +146,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
    */
   const [roster, setRoster] = useState<ApiPersonnel[]>([])
 
-  // Toast deduplication across an outage; matches the materials-context pattern.
+  // Toast deduplication across an outage; same pattern as the roster and depot loaders.
   const hasShownErrorRef = useRef(false)
   // Every optimistic mutation bumps this epoch. A refresh discards its result if
   // the epoch moved while it was in flight — otherwise a poll/WS reload that
