@@ -18,13 +18,14 @@ import type { Locator, Page } from '@playwright/test';
  * `lib/hooks/use-incident-time-mode.ts`), so it dies with the browser context
  * each test gets and no case can leak its mode into the next.
  *
- * Everything is read through rendered text and the mode's own icon. An earlier
+ * Everything is read through rendered text and accessible names (the mode's icon and
+ * where the chip sits are on the visual screens). An earlier
  * version of this file asserted Tailwind class names — `font-mono`, `gap-`,
  * `justify-between` — several through `el.className.includes(...)` on an
  * `<svg>`, where `className` is an `SVGAnimatedString` and has no `.includes`.
  *
- * @smoke since 2026-10-08: green on every nightly since the 2026-10-05 fix, ~22 s for all
- * six, and the chip's accessible name changing was one of the 19 stale specs only the
+ * @smoke since 2026-10-08: green on every nightly since the 2026-10-05 fix, ~22 s for the
+ * then six, and the chip's accessible name changing was one of the 19 stale specs only the
  * nightly noticed after the October UI review.
  */
 
@@ -41,10 +42,6 @@ const ELAPSED = /^(\d+'|\d+h \d+')$/;
  * status age and alarm age cannot be confused by ear.
  */
 const ANY_MODE = /^(Startzeit: |Seit Statuswechsel |Seit Alarmierung )/;
-
-/** A distinct icon per mode, so the chip itself says which of the three it is. */
-const CLOCK = 'svg.lucide-clock'; // start
-const TIMER = 'svg.lucide-timer'; // column — the default
 
 /** The chip is a button: it opens the mode menu (`components/ui/incident-time.tsx`). */
 const timeChip = (card: Locator) => card.getByRole('button', { name: ANY_MODE });
@@ -72,7 +69,6 @@ test.describe('Time-Based Indicators - Display and Formatting', { tag: '@smoke' 
   }) => {
     const card = incidentCards(authenticatedPage).first();
     await expect(timeChip(card)).toHaveText(ELAPSED);
-    await expect(card.locator(TIMER)).toBeVisible();
   });
 
   test('a just-created incident reads as minutes old, not hours', async ({
@@ -90,27 +86,7 @@ test.describe('Time-Based Indicators - Display and Formatting', { tag: '@smoke' 
 
     // Replaced, not added — the whole point of one chip instead of two numbers.
     await expect(timeChip(card)).toHaveText(DISPATCH_TIME);
-    await expect(card.locator(CLOCK)).toBeVisible();
-    await expect(card.locator(TIMER)).toHaveCount(0);
-  });
-});
-
-test.describe('Time-Based Indicators - Layout and Position', { tag: '@smoke' }, () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await setupBoard(authenticatedPage, 'Layout Test');
-  });
-
-  test('the chip shares the Einsatzart row, pushed to the far end of it', async ({
-    authenticatedPage,
-  }) => {
-    const card = incidentCards(authenticatedPage).first();
-
-    const sirenBox = (await card.locator('svg.lucide-siren').boundingBox())!;
-    const chipBox = (await timeChip(card).boundingBox())!;
-
-    // One row: the type reads on the left, the number answers on the right.
-    expect(Math.abs(chipBox.y - sirenBox.y)).toBeLessThan(chipBox.height);
-    expect(chipBox.x).toBeGreaterThan(sirenBox.x);
+    await expect(timeChip(card)).toHaveAccessibleName(/^Startzeit: /);
   });
 });
 
@@ -150,7 +126,6 @@ test.describe('Time-Based Indicators - Phone layout', { tag: '@smoke' }, () => {
 
     for (let i = 0; i < 2; i += 1) {
       const card = cards.nth(i);
-      await expect(card.locator(TIMER)).toBeVisible();
       await expect(elapsed(card)).toBeVisible();
       // No mode menu to open here — see `elapsed`.
       await expect(timeChip(card)).toHaveCount(0);
