@@ -1,14 +1,13 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useMemo } from "react"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
-import { apiClient, type ApiVehiclePosition } from "@/lib/api-client"
+import type { ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
 import { personResourceState } from "@/lib/resource-status"
-import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 
 export interface VehicleWithStatus {
@@ -38,7 +37,7 @@ export interface StatusStats {
 }
 
 export function useStatusData() {
-  const { operations } = useOperations()
+  const { operations, vehicles: boardVehicles } = useOperations()
   const { personnel: rosterPersonnel } = usePersonnel()
   const { occupiedResourceIds } = useGroups()
   const { materials } = useMaterials()
@@ -60,56 +59,21 @@ export function useStatusData() {
       ),
     [rosterPersonnel, occupiedResourceIds],
   )
-  const [vehicles, setVehicles] = useState<Array<Omit<VehicleWithStatus, 'assignedOperation' | 'gps' | 'driverName'>>>([])
-
-  const fetchVehicles = useCallback(async () => {
-    try {
-      const v = await apiClient.getVehicles()
-      setVehicles(v.map((veh) => ({
+  // The fleet off the board sync, which reloads it on every `vehicle_update` and
+  // polls while the socket is down — so «Nicht einsatzbereit» set mid-shift
+  // reaches the wall without a reload (a display runs for days).
+  const vehicles = useMemo(
+    () =>
+      boardVehicles.map((veh) => ({
         id: veh.id,
         name: veh.name,
         type: veh.type,
         status: veh.status,
         outOfService: veh.out_of_service ?? false,
         displayOrder: veh.display_order,
-      })))
-    } catch { /* silent */ }
-  }, [])
-
-  // Load the fleet and KEEP it fresh. This used to be a mount-only fetch, so
-  // «Nicht einsatzbereit» set or cleared mid-shift never reached the wall
-  // display until somebody reloaded it — and a display runs for days.
-  // `vehicle_update` (room "operations", joined on connect) fires on every
-  // fleet change; its payload varies by action (full vehicle on update, bare
-  // id on delete), so refetch the list instead of patching it. While the
-  // socket is down, a slow poll covers the gap — at a wall-display pace
-  // instead of GPS pace.
-  useEffect(() => {
-    let pollInterval: NodeJS.Timeout | undefined
-
-    fetchVehicles()
-    const unsubscribeUpdate = wsClient.on('vehicle_update', () => {
-      void fetchVehicles()
-    })
-    const unsubscribeStatus = wsClient.onStatusChange((wsStatus: WebSocketStatus) => {
-      if (wsStatus === 'disconnected' || wsStatus === 'error') {
-        if (!pollInterval) {
-          pollInterval = setInterval(() => void fetchVehicles(), 30000)
-        }
-      } else if (wsStatus === 'connected') {
-        if (pollInterval) {
-          clearInterval(pollInterval)
-          pollInterval = undefined
-        }
-      }
-    })
-
-    return () => {
-      if (pollInterval) clearInterval(pollInterval)
-      unsubscribeUpdate()
-      unsubscribeStatus()
-    }
-  }, [fetchVehicles])
+      })),
+    [boardVehicles],
+  )
 
   // The Statusanzeige is a wall: it keeps polling while hidden (see usePolling).
   const { positions: vehiclePositions } = useVehiclePositions({ pauseWhenHidden: false })

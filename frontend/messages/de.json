@@ -725,8 +725,6 @@
         "history": "Verlauf",
         "switchHint": "Tab wechseln"
       },
-      "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
-      "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
       "noEventSelectedLong": "Kein Ereignis ausgewählt. Bitte wähle ein Ereignis aus.",
       "incidentsLoadFailedDescription": "Die Einsätze konnten nicht geladen werden.",
       "meldungPlaceholder": "Eingegangene Meldung, Schadensbild …",

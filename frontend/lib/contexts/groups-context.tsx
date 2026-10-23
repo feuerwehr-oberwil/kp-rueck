@@ -10,7 +10,6 @@ import {
   type ApiIncidentGroupCreate,
   type ApiIncidentGroupUpdate,
   type ApiPersonnel,
-  type ApiVehicle,
   type GroupResourceType,
 } from "@/lib/api-client"
 import type { GroupAssignment, GroupResources, IncidentGroup } from "@/lib/types/groups"
@@ -127,14 +126,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const { materials } = useMaterials()
   // Readiness lives in the operations context (refreshed with every poll).
   // GroupsProvider sits inside OperationsProvider in the root layout.
-  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling } = useOperations()
+  // So does the fleet, for naming a route's vehicle assignments (they carry ids).
+  const { outOfServiceVehicleIds, requestVehicleDriver, beginAssignmentSettling, vehicles } = useOperations()
 
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadedEventId, setLoadedEventId] = useState<string | null>(null)
-  // Vehicle name lookup — no dedicated vehicles context exists, so resolve the
-  // route's vehicle assignments (which carry ids) to names via a light fetch.
-  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
   /**
    * The FULL roster, for name resolution only.
    *
@@ -145,7 +142,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
    * `GroupResources` printed the raw UUID instead: the Auftrag card, the
    * WhatsApp message, the Funkspruch and the printout.
    *
-   * Fetched once, exactly like the vehicle list above and for the same reason.
+   * Fetched once per sign-in: it answers «what is this id called», not who is on duty.
    */
   const [roster, setRoster] = useState<ApiPersonnel[]>([])
 
@@ -197,22 +194,16 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedEvent])
 
-  // Load the vehicle list and the roster once (name resolution for route
-  // assignments). Neither is event-scoped: both answer "what is this id called",
-  // and an id that is on a route is on it whatever the person's duty status is.
+  // Load the roster once (name resolution for route assignments). Not
+  // event-scoped: an id that is on a route is on it whatever the person's duty
+  // status is.
   useEffect(() => {
     if (authLoading || !isAuthenticated) return
-    apiClient
-      .getVehicles()
-      .then((list) => setVehicles(list))
-      .catch(() => {
-        // Silent: names fall back to the placeholder until the list loads.
-      })
     apiClient
       .getAllPersonnel()
       .then((list) => setRoster(list))
       .catch(() => {
-        // Silent, same reason.
+        // Silent: names fall back to the placeholder until the list loads.
       })
   }, [authLoading, isAuthenticated])
 

@@ -15,14 +15,14 @@
 import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSProperties, type ReactNode } from "react"
 import type { Map as MlMap } from "maplibre-gl"
 import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
-import { useIncidents, type Operation } from "@/lib/contexts/operations-context"
+import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { BaseMap } from "./map/base-map"
 import { MapTooltip } from "./map/map-tooltip"
 import { GroupRoutes } from "./map/group-routes"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
-import { apiClient, ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
+import type { ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
 import { MapLegend } from "./map-legend"
 import { GpsSimBanner } from "./gps-sim-banner"
 import { colorAccent, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
@@ -976,6 +976,9 @@ interface MapViewProps {
   viewerToken?: string
 }
 
+const NO_SETTINGS: Record<string, string> = {}
+const NO_VEHICLES: ApiVehicle[] = []
+
 export default function MapView({
   selectedIncidentId,
   onMarkerClick,
@@ -1016,11 +1019,26 @@ export default function MapView({
   const tokenMode = incidentsOverride !== undefined
   const { incidents: contextIncidents } = useIncidents()
   const incidents = incidentsOverride ?? contextIncidents
-  const [firestationName, setFirestationName] = useState<string>(() => t('view.firestationFallback'))
-  const [firestationCoords, setFirestationCoords] = useState<LatLngPoint>(DEFAULT_CENTER_LATLNG)
-  const [firestationSettingsReady, setFirestationSettingsReady] = useState(false)
-  // Magazin/homebase from the GPS settings (gps.station_lat/lng) — null until configured
-  const [magazinCoords, setMagazinCoords] = useState<[number, number] | null>(null)
+  // Station, Magazin and fleet come off the board sync (`useOperations()`), which
+  // loads them with every board load. Token/read-only display has no cookie and
+  // no board: it keeps the default firestation coords and gets its vehicles
+  // through `vehiclesOverride`.
+  const { settings: boardSettings, vehicles: boardVehicles, isLoaded: boardLoaded } = useOperations()
+  const stationSettings = tokenMode ? NO_SETTINGS : boardSettings
+  const firestationName = stationSettings.firestation_name || t('view.firestationFallback')
+  const firestationCoords = useMemo<LatLngPoint>(() => {
+    const { firestation_latitude: lat, firestation_longitude: lng } = stationSettings
+    return lat && lng ? [parseFloat(lat), parseFloat(lng)] : DEFAULT_CENTER_LATLNG
+  }, [stationSettings])
+  const firestationSettingsReady = boardLoaded
+  // Magazin/homebase — null until configured. Same merge as the backend's
+  // get_station_coordinates: the legacy gps.* pair wins when set, the Allgemein
+  // coordinates are the fallback.
+  const magazinCoords = useMemo<[number, number] | null>(() => {
+    const magazinLat = parseFloat(stationSettings["gps.station_lat"] || stationSettings.firestation_latitude || "")
+    const magazinLng = parseFloat(stationSettings["gps.station_lng"] || stationSettings.firestation_longitude || "")
+    return Number.isFinite(magazinLat) && Number.isFinite(magazinLng) ? [magazinLat, magazinLng] : null
+  }, [stationSettings])
   // The live map, handed over by <BaseMap> once it has loaded (and again after a GL recovery
   // remount). Everything that used to be a react-leaflet child with `useMap()` hangs off it.
   const [map, setMap] = useState<MlMap | null>(null)
@@ -1070,50 +1088,7 @@ export default function MapView({
   })
   const vehiclePositions = positionsOverride ?? livePositions
   // KP Rück vehicles for mapping Traccar device names → vehicle names
-  const [vehicles, setVehicles] = useState<ApiVehicle[]>([])
-
-  // Token mode: feed vehicles + positions from the override props (no auth fetch).
-  useEffect(() => {
-    if (vehiclesOverride) setVehicles(vehiclesOverride)
-  }, [vehiclesOverride])
-
-  // Load firestation settings and vehicle list from backend
-  useEffect(() => {
-    // Token/read-only display has no cookie — skip the auth-only settings +
-    // vehicle fetch and keep the default firestation coords.
-    if (tokenMode) return
-    const loadSettings = async () => {
-      try {
-        const [settings, vehicleList] = await Promise.all([
-          apiClient.getAllSettings(),
-          apiClient.getVehicles().catch(() => [] as ApiVehicle[]),
-        ])
-        if (settings.firestation_name) {
-          setFirestationName(settings.firestation_name)
-        }
-        if (settings.firestation_latitude && settings.firestation_longitude) {
-          setFirestationCoords([
-            parseFloat(settings.firestation_latitude),
-            parseFloat(settings.firestation_longitude),
-          ])
-        }
-        // Same merge as the backend's get_station_coordinates: the legacy
-        // gps.* pair wins when set, the Allgemein coordinates are the fallback.
-        const magazinLat = parseFloat(settings["gps.station_lat"] || settings.firestation_latitude || "")
-        const magazinLng = parseFloat(settings["gps.station_lng"] || settings.firestation_longitude || "")
-        if (Number.isFinite(magazinLat) && Number.isFinite(magazinLng)) {
-          setMagazinCoords([magazinLat, magazinLng])
-        }
-        setVehicles(vehicleList)
-      } catch (error) {
-        console.error("Failed to load firestation settings:", error)
-      } finally {
-        setFirestationSettingsReady(true)
-      }
-    }
-
-    loadSettings()
-  }, [tokenMode])
+  const vehicles = vehiclesOverride ?? (tokenMode ? NO_VEHICLES : boardVehicles)
 
   // Map Traccar device names to KP Rück vehicle names for assignment line matching
   // Strategies: exact name match, then display_order match (numeric device name → vehicle at that order)

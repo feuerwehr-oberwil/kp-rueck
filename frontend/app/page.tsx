@@ -37,6 +37,8 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useRekoNotifications } from "@/lib/hooks/use-reko-notifications"
+import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import type { DispatchCommand } from "@/lib/hooks/use-command-dispatch"
@@ -206,7 +208,7 @@ export default function FireStationDashboard() {
 
   const { materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
-  const { isEditor, isAuthenticated } = useAuth()
+  const { isEditor } = useAuth()
   const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
   // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
   const fatigueHours = notificationSettings.fatigue_hours
@@ -462,7 +464,7 @@ export default function FireStationDashboard() {
   )
 
   useRekoNotifications(handleOpenIncidentFromNotification, handleUpdateOperationReko)
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string; status: string }>>([])
+  const vehicleTypes = useVehicleShortcuts()
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and
   // per-event file export live in it together (`PrintHubSheet`).
@@ -665,11 +667,9 @@ export default function FireStationDashboard() {
   // per card; the cards render the driver next to the Funkrufname.
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
 
-  // Thermal printer state
-  const [printerEnabled, setPrinterEnabled] = useState(false)
-  const [diveraEnabled, setDiveraEnabled] = useState(false)
+  // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
+  const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
   const [isPrintingBoard, setIsPrintingBoard] = useState(false)
-  const [funkrufname, setFunkrufname] = useState("Omega")
 
   // Fetch Reko personnel names when the crew assignment dialog opens
   // These personnel should be excluded from regular crew assignment (they're Reko only)
@@ -699,44 +699,6 @@ export default function FireStationDashboard() {
     fetchRekoPersonnel()
   }, [assignmentDialogOpen, assignmentResourceType, selectedEvent, personnel])
 
-
-  // Fetch printer status and settings once authenticated
-  useEffect(() => {
-    if (!isAuthenticated) return
-    async function fetchPrinterStatus() {
-      try {
-        const status = await apiClient.getPrinterStatus()
-        // Both, like the Divera check below: switched on AND an address the agent can
-        // reach. On `enabled` alone the print buttons rendered for a station that had
-        // never entered an IP — the job was accepted, queued, and never came out.
-        setPrinterEnabled(status.enabled && Boolean(status.ip?.trim()))
-      } catch {
-        // Printer API might not be available (e.g., Railway deployment)
-        setPrinterEnabled(false)
-      }
-    }
-    async function fetchFunkrufname() {
-      try {
-        const settings = await apiClient.getAllSettings()
-        if (settings.funkrufname) setFunkrufname(settings.funkrufname)
-        // The send button needs both the setting AND a configured access key —
-        // otherwise it would render and then 400 on send.
-        if (settings['divera.alarm_enabled'] === 'true') {
-          try {
-            const status = await apiClient.getDiveraPollingStatus()
-            setDiveraEnabled(status.configured === true)
-          } catch {
-            // Status endpoint unavailable — keep the old behavior (setting only)
-            setDiveraEnabled(true)
-          }
-        } else {
-          setDiveraEnabled(false)
-        }
-      } catch { /* ignore */ }
-    }
-    fetchPrinterStatus()
-    fetchFunkrufname()
-  }, [isAuthenticated])
 
   // Handle thermal board print
   const handlePrintBoard = useCallback(async (options?: ThermoPrintOptions) => {
@@ -861,29 +823,6 @@ export default function FireStationDashboard() {
     selectedEvent,
     isMounted,
   })
-
-  // Load vehicles from API to populate vehicle types for shortcuts
-  useEffect(() => {
-    const loadVehicles = async () => {
-      try {
-        const vehicles = await apiClient.getVehicles()
-        // Sort vehicles by display_order and create vehicle types array with keyboard shortcuts
-        const sortedVehicles = vehicles.sort((a, b) => a.display_order - b.display_order)
-        const typesWithKeys = sortedVehicles.map((vehicle) => ({
-          key: String(vehicle.display_order),
-          name: vehicle.name,
-          id: vehicle.id,
-          type: vehicle.type,
-          // The sidebar's Fahrzeuge section draws «nicht einsatzbereit» off this.
-          status: vehicle.status,
-        }))
-        setVehicleTypes(typesWithKeys)
-      } catch {
-        // Silently fail - vehicles will load when backend is ready
-      }
-    }
-    loadVehicles()
-  }, [])
 
   // Refresh operations immediately when Kanban page loads
   useEffect(() => {
