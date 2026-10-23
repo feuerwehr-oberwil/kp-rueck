@@ -495,9 +495,17 @@ this page does not try to rebuild one.
 **2. Before every migration – covered, by us.** The backend takes a `pg_dump -Fc` snapshot on
 boot whenever a migration is pending, into `/mnt/data/backups` on the volume, newest 5 kept.
 That is the gap Railway's nightly cannot close: a deploy that migrates live data at 14:20 and
-goes wrong is not helped by a backup from 03:00. Watch the deploy log for the line naming the
-snapshot file – or for `WARNING: pre-migration snapshot FAILED`, which means the migration below
-it ran with no way back.
+goes wrong is not helped by a backup from 03:00. Watch the deploy log for
+`Pre-migration snapshot: /mnt/data/backups/premigration-….dump (… bytes, verified readable)`.
+If the snapshot cannot be taken, the boot **stops before migrating**: the log says
+`ERROR: pre-migration snapshot failed: <reason>. Migration NOT started.`, a `SNAPSHOT-FAILED`
+marker is written to `/mnt/data/backups`, and the container exits – the health check never
+passes and the service answers 502 (§8.1 describes how the dashboard hides that). The database
+is untouched, so a deploy that «hangs» after an upgrade is a backup problem, not lost data: fix
+the reason in the log and redeploy, or redeploy the previous release, which still matches the
+schema.
+`PREMIGRATION_BACKUP=false` skips the snapshot – only after you have arranged another verified
+backup. A fresh empty database and a restart already at the newest migration need no snapshot.
 
 **3. The photos – NOT covered by anything automatic.** Reko photos live on the `/mnt/data`
 volume. They are not in the database, so Railway's database backup does not contain them, and
