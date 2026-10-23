@@ -147,6 +147,46 @@ class TestFieldReportParity:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_one_report_is_all_or_nothing(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+        monkeypatch,
+    ):
+        # Arrival AND pickup in one radio message: when the pickup half fails, the
+        # operator gets an error and the arrival must not be on the board either – nor
+        # announced to it. Each half used to commit on its own.
+        from app.crud import feld as feld_crud
+        from app.crud.feld import reports
+
+        incident_id = (await _make_incident(db_session, test_event, test_user)).id
+        sent: list[dict] = []
+
+        async def record(payload, _action):
+            sent.append(payload)
+
+        async def pickup_fails(*_args, **_kwargs):
+            raise RuntimeError("pickup write failed")
+
+        monkeypatch.setattr(reports, "broadcast_incident_update", record)
+        monkeypatch.setattr(feld_crud, "record_pickup", pickup_fails)
+
+        with pytest.raises(RuntimeError, match="pickup write failed"):
+            await editor_client.post(
+                f"/api/incidents/{incident_id}/field-report",
+                json={"arrived_at": datetime(2026, 8, 8, 23, 14, tzinfo=UTC).isoformat(), "pickup_needed": True},
+            )
+
+        arrived = await db_session.scalar(
+            select(SchadenplatzReport.arrived_at).where(SchadenplatzReport.incident_id == incident_id)
+        )
+        assert arrived is None
+        assert sent == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_field_complete_is_writable_from_the_board(
         self,
         editor_client: AsyncClient,

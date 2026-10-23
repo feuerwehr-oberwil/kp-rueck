@@ -323,7 +323,7 @@ async def create_field_report(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     if merge_target is not None:
@@ -732,6 +732,6 @@ async def update_field_report(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
     return incident

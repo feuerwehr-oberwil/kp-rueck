@@ -31,7 +31,7 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
-from ..database import get_db
+from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display
 from ..services.audit import log_action
@@ -59,12 +59,8 @@ async def trigger_sync_background() -> None:
         from ..services.settings import get_setting_value
         from ..services.sync_service import create_sync_service
 
-        # Get a new database session for background task
-        # One session, then out. The `break` used to sit in a `finally:`, which silently
-        # discarded anything raised above it — so a failing sync never reached the handler
-        # below and "Background sync failed" was never logged. The inner try/finally had no
-        # other purpose, so it is gone entirely.
-        async for db in get_db():
+        # Its own session: this runs after the response, outside the request's.
+        async with async_session_maker() as db:
             # Check Railway URL from database settings
             railway_url = await get_setting_value(db, "railway_database_url", "")
             if not railway_url:
@@ -85,7 +81,6 @@ async def trigger_sync_background() -> None:
                 logger.info("Event-based sync to Railway successful: %d records", sum(result.records_synced.values()))
             else:
                 logger.warning("Event-based sync to Railway failed: %s", result.errors)
-            break
     except Exception as e:
         # Log error but don't fail the incident creation
         logger.error("Background sync failed: %s", e)
@@ -341,7 +336,7 @@ async def merge_and_broadcast(
 ) -> schemas.MergeResponse:
     """Commit a merge and tell every board: the target changed, the report is gone."""
     report_id = result.report.id
-    await db.commit()
+    await db.flush()
     await db.refresh(result.target)
     target_response = await board_response(db, result.target)
     background_tasks.add_task(trigger_sync_background)
@@ -414,7 +409,6 @@ async def merge_new_report(
             incident=payload.incident.model_copy(update={"group_id": None}),
             current_user=current_user,
             request=request,
-            commit=False,
         )
         result = await duplicates.merge_report(db, report=report, target=target, user=current_user, request=request)
     except duplicates.MergeRefusedError as e:
@@ -825,7 +819,7 @@ async def update_field_request(
         else:
             # A leftover row that is not the current Abholung: close just it.
             await feld_crud.set_request_status(db, incident, row, status="done", user=current_user, request=request)
-            await feld_crud._broadcast(incident)
+            feld_crud._broadcast(db, incident)
     elif row.kind == "pickup" and row.status == "done":
         await db.commit()
         raise HTTPException(
@@ -841,7 +835,7 @@ async def update_field_request(
             await db.commit()
             raise HTTPException(status_code=409, detail=_REQUEST_MOVED_ON) from None
         if changed:
-            await feld_crud._broadcast(incident)
+            feld_crud._broadcast(db, incident)
         else:
             await db.commit()
     await db.refresh(row)
@@ -899,7 +893,6 @@ async def set_reko_arrived(
         changes={"arrived_at": report.arrived_at.isoformat() if report and report.arrived_at else None},
         request=request,
     )
-    await db.commit()
 
     arrived_at = report.arrived_at if report else None
 
@@ -1583,7 +1576,7 @@ async def unmerge_incident(
         raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
     target_id = result.target.id if result.target else None
     note_removed = result.note_removed
-    await db.commit()
+    await db.flush()
 
     restored = await board_response(db, await crud.get_incident(db, incident_id) or report)
     target_response = None
@@ -1620,7 +1613,7 @@ async def dismiss_duplicate(
     if incident is None or incident.deleted_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     await duplicates.dismiss_duplicate_flag(db, incident, user=current_user, request=request)
-    await db.commit()
+    await db.flush()
     response = await board_response(db, incident)
     background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
     return response

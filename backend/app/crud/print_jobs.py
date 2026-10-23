@@ -123,7 +123,7 @@ async def requeue_lost_jobs(db: AsyncSession) -> int:
     requeued += failed_result.rowcount or 0
 
     if requeued:
-        await db.commit()
+        await db.flush()
         logger.info("Requeued %d lost print job(s)", requeued)
 
     await expire_stale_jobs(db)
@@ -155,7 +155,7 @@ async def expire_stale_jobs(db: AsyncSession) -> int:
         expired += result.rowcount or 0
 
     if expired:
-        await db.commit()
+        await db.flush()
         logger.info("Expired %d stale print job(s) past their TTL", expired)
 
     return expired

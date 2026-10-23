@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import socketio
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
@@ -84,7 +84,7 @@ from .background import (
     stop_weather_scheduler,
 )
 from .config import settings
-from .database import engine, get_db
+from .database import async_session_maker, commit_request, engine
 from .ensure_accounts import ensure_dev_bypass_user
 from .environment import blocked_domains, deployment_role
 from .middleware.audit import AuditMiddleware
@@ -115,7 +115,6 @@ async def _setup_divera_polling():
     """
     from . import schemas
     from .crud import divera as divera_crud
-    from .database import async_session_maker
     from .services import divera_responses
     from .services.divera_intake import broadcast_emergency_received, try_auto_attach
     from .services.divera_poller import divera_poller
@@ -145,6 +144,7 @@ async def _setup_divera_polling():
                 # Auto-attach to the newest active event with the flag on, then
                 # broadcast (pool toast + board update) – same as the webhook path.
                 incident = await try_auto_attach(db, emergency)
+                await db.commit()  # the boards refetch on the broadcast below
                 await broadcast_emergency_received(
                     schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
                     schemas.IncidentResponse.model_validate(incident).model_dump(mode="json") if incident else None,
@@ -162,6 +162,7 @@ async def _setup_divera_polling():
         async with async_session_maker() as db:
             event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
             await divera_responses.purge_expired(db)
+            await db.commit()
         if event_ids or incident_ids:
             await broadcast_divera_responses_update(event_ids, incident_ids)
 
@@ -199,13 +200,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize default settings
     logger.info("Initializing default settings...")
-    async for db in get_db():
+    async with async_session_maker() as db:
         try:
             await initialize_default_settings(db)
+            await db.commit()
             logger.info("Default settings initialized")
         except Exception as e:
             logger.warning(f"Default settings initialization failed: {e}")
-        break  # Only need one session (outside `finally`: there it would swallow errors)
 
     # Einsatztagebuch: fill in what the log does not hold yet — on the first boot of this
     # version the whole history, afterwards whatever an old instance wrote during a cutover
@@ -221,12 +222,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # demo-seeded database used to break the moment anyone touched the board.
     # `is_auth_bypassed` is force-disabled in production, so this cannot run there.
     if auth_settings.is_auth_bypassed:
-        async for db in get_db():
+        async with async_session_maker() as db:
             try:
                 await ensure_dev_bypass_user(db)
             except Exception as e:
                 logger.warning(f"Could not ensure dev bypass user: {e}")
-            break
 
     # Seed database if requested
     if os.getenv("SEED_DATABASE", "").lower() == "true":
@@ -240,12 +240,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # the boot log right after starting the stack (auth/setup_token.py). After the seed, which
     # is what decides whether any account exists. A failure here must not stop the boot: the
     # code is then created and printed on the first claim attempt instead.
-    async for db in get_db():
+    async with async_session_maker() as db:
         try:
             await announce_setup_token_if_unclaimed(db)
         except Exception as e:
             logger.warning(f"Could not check for an unclaimed board: {e}")
-        break
 
     # Start background sync scheduler
     logger.info("Starting background sync scheduler...")
@@ -488,6 +487,8 @@ app = FastAPI(
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
     openapi_url=None if settings.is_production else "/openapi.json",
+    # The request commits – before the response is sent (see the rule above `get_db`).
+    dependencies=[Depends(commit_request, scope="function")],
 )
 
 # Add rate limiter state and exception handler

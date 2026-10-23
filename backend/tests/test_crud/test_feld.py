@@ -1589,8 +1589,11 @@ class TestFieldActionsReachTheBoardLive:
         incident = await _incident(db_session, test_event, test_user)
         actor = await self._actor(db_session)
 
+        # The broadcast follows the caller's commit (the request's, in the app).
         assert await crud.record_pickup(db_session, incident, actor=actor, needed=True, note="3 Personen")
+        await db_session.commit()
         assert await crud.record_pickup(db_session, incident, actor=actor, needed=False)
+        await db_session.commit()
 
         assert [action for _payload, action in sent] == ["update", "update"]
         assert [payload["pickup_needed"] for payload, _action in sent] == [True, False]
@@ -1617,7 +1620,9 @@ class TestFieldActionsReachTheBoardLive:
         actor = await self._actor(db_session)
 
         assert await crud.record_pickup(db_session, incident, actor=actor, needed=True, note="3 Personen")
+        await db_session.commit()
         assert not await crud.record_pickup(db_session, incident, actor=actor, needed=True, note="3 Personen")
+        await db_session.commit()
         assert len(sent) == 1
 
     @pytest.mark.asyncio
@@ -1638,6 +1643,7 @@ class TestFieldActionsReachTheBoardLive:
         now = datetime.now(UTC)
         assert await crud.record_arrival(db_session, incident, actor=actor, at=now, only_if_unset=True)
         assert await crud.record_field_complete(db_session, incident, actor=actor, at=now)
+        await db_session.commit()  # the broadcasts follow the caller's commit
 
         # Three, not two: the incident starts `active`, so the arrival moves
         # nothing, but «beendet» auto-moves the card (sweep 27 §P3.3) and that

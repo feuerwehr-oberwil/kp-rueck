@@ -297,8 +297,8 @@ async def attach_emergency_to_event(
         description_label_prefixes=await settings_service.get_alarm_description_label_prefixes(db),
     )
 
-    # Create the incident, carrying the alarm's provenance onto the board card. Not committed
-    # yet: the commit below releases the row lock, so incident and link land together.
+    # Create the incident, carrying the alarm's provenance onto the board card. The request's
+    # commit releases the row lock, so incident and link land together.
     incident = await incidents_crud.create_incident(
         db=db,
         incident=incident_create,
@@ -306,7 +306,6 @@ async def attach_emergency_to_event(
         request=request,
         source=emergency.source or "divera",
         source_ref=emergency.source_id,
-        commit=False,
     )
 
     # A re-attach takes the alarm (and its Rückmeldungen) away from another Ereignis.
@@ -325,7 +324,7 @@ async def attach_emergency_to_event(
             await db.rollback()
             raise HTTPException(status_code=e.status_code, detail=e.reason) from None
 
-    # Link emergency to event and incident (commits both)
+    # Link emergency to event and incident (the request commits both)
     try:
         await divera_crud.attach_emergency_to_event(
             db=db,
@@ -392,8 +391,8 @@ async def bulk_attach_emergencies(
 
     created_incidents = []
     errors = []
-    # Read before the loop: a failed emergency rolls the session back (below), which expires
-    # every loaded object, and a lazy reload from async code is a MissingGreenlet.
+    # Read before the loop: a failed emergency rolls its savepoint back (below), which can
+    # expire loaded objects, and a lazy reload from async code is a MissingGreenlet.
     event_is_training = event.training_flag
     rolled_back = False
     # Read once, not per emergency — the station's description filters are the same for all.
@@ -402,70 +401,69 @@ async def bulk_attach_emergencies(
 
     for emergency_id in request_data.emergency_ids:
         try:
-            # Locked like the single attach — see crud.divera.lock_divera_emergency
-            emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
-            if not emergency:
-                errors.append(f"Emergency {emergency_id} not found")
-                continue
+            # One savepoint per alarm: a failed one drops its own card (and lock), and the
+            # request's commit takes the others onto the board.
+            async with db.begin_nested():
+                # Locked like the single attach — see crud.divera.lock_divera_emergency
+                emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
+                if not emergency:
+                    errors.append(f"Emergency {emergency_id} not found")
+                    continue
 
-            # Skip if already attached to this event
-            if emergency.attached_to_event_id == request_data.event_id:
-                errors.append(f"Emergency {emergency_id} already attached to this event")
-                continue
+                # Skip if already attached to this event
+                if emergency.attached_to_event_id == request_data.event_id:
+                    errors.append(f"Emergency {emergency_id} already attached to this event")
+                    continue
 
-            # Allow re-attachment to different events
+                # Allow re-attachment to different events
 
-            # Simulated training alarms never become real incidents (the reverse
-            # direction is allowed — see the note on the single-attach route)
-            if emergency.is_training and not event_is_training:
-                errors.append(f"Emergency {emergency_id}: Übungs-Alarm kann nur an eine Übung angehängt werden")
-                continue
+                # Simulated training alarms never become real incidents (the reverse
+                # direction is allowed — see the note on the single-attach route)
+                if emergency.is_training and not event_is_training:
+                    errors.append(f"Emergency {emergency_id}: Übungs-Alarm kann nur an eine Übung angehängt werden")
+                    continue
 
-            # Create incident (type/priority inferred from title/text)
-            incident_create = incident_create_from_emergency(
-                emergency,
-                request_data.event_id,
-                description_filter_prefixes=description_filters,
-                description_label_prefixes=description_labels,
-            )
+                # Create incident (type/priority inferred from title/text)
+                incident_create = incident_create_from_emergency(
+                    emergency,
+                    request_data.event_id,
+                    description_filter_prefixes=description_filters,
+                    description_label_prefixes=description_labels,
+                )
 
-            incident = await incidents_crud.create_incident(
-                db=db,
-                incident=incident_create,
-                current_user=current_user,
-                request=request,
-                source=emergency.source or "divera",
-                source_ref=emergency.source_id,
-                commit=False,
-            )
-            # Nobody answered a duplicate hint for each of up to 100 alarms:
-            # flagged like an automatic door, never merged.
-            await duplicates.flag_possible_duplicate(db, incident)
+                incident = await incidents_crud.create_incident(
+                    db=db,
+                    incident=incident_create,
+                    current_user=current_user,
+                    request=request,
+                    source=emergency.source or "divera",
+                    source_ref=emergency.source_id,
+                )
+                # Nobody answered a duplicate hint for each of up to 100 alarms:
+                # flagged like an automatic door, never merged.
+                await duplicates.flag_possible_duplicate(db, incident)
 
-            previous_event_id = emergency.attached_to_event_id
-            # Link emergency (commits incident and link together, releasing the lock)
-            await divera_crud.attach_emergency_to_event(
-                db=db,
-                emergency_id=emergency_id,
-                event_id=request_data.event_id,
-                incident_id=incident.id,
-            )
-            await db.refresh(incident)
+                previous_event_id = emergency.attached_to_event_id
+                # Link emergency (incident and link land in the same commit)
+                await divera_crud.attach_emergency_to_event(
+                    db=db,
+                    emergency_id=emergency_id,
+                    event_id=request_data.event_id,
+                    incident_id=incident.id,
+                )
+                await db.refresh(incident)
 
-            created_incidents.append(incident)
-            if previous_event_id and previous_event_id != request_data.event_id:
-                background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
+                created_incidents.append(incident)
+                if previous_event_id and previous_event_id != request_data.event_id:
+                    background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
 
         except Exception as e:
             logger.error(f"Error attaching emergency {emergency_id}: {e}")
             errors.append(f"Emergency {emergency_id}: {e!s}")
-            # Drop this emergency's uncommitted incident (and its lock) — otherwise the NEXT
-            # emergency's commit would carry an unlinked card onto the board with it.
-            await db.rollback()
             rolled_back = True
 
     if rolled_back:
-        # The rollback expired the incidents committed before it; reload them explicitly.
+        # The savepoint's rollback may have expired cards created before it; reload them.
         for incident in created_incidents:
             await db.refresh(incident)
 

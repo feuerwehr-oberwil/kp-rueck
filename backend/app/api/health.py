@@ -298,7 +298,6 @@ async def create_demo_sandbox(
     db.add(event)
     await db.flush()
     await seed_demo_event_content(db, event)
-    await db.commit()
 
     logger.info(f"Created demo sandbox event {event.id} ({event.name})")
     return {"event_id": str(event.id), "name": event.name, "reused": False}

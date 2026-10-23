@@ -19,7 +19,7 @@ from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
 from ..crud import reko as reko_crud
 from ..crud.materials import apply_out_of_service
-from ..database import async_session_maker, get_db
+from ..database import after_commit, async_session_maker, get_db
 from ..models import (
     EmergencyTemplate,
     Event,
@@ -273,6 +273,7 @@ async def _trickle_checkins(event_id: UUID, people: list[tuple[UUID, str]], wind
         try:
             async with async_session_maker() as db:
                 result = await checkin_crud.check_in_personnel(db, event_id, person_id)
+                await db.commit()
             if result:
                 await broadcast_personnel_update({"id": str(person_id), "name": name, "checked_in": True}, "checkin")
         except Exception as e:
@@ -513,7 +514,7 @@ async def simulate_reko(
     photo_filenames = await attach_training_photos(incident_id, incident.type, current_photos=updated.photos_json)
     if photo_filenames:
         updated.photos_json = (updated.photos_json or []) + photo_filenames
-        await db.commit()
+        await db.flush()
         await db.refresh(updated)
 
     # Refresh incident to get current state
@@ -613,7 +614,7 @@ async def simulate_escalation(
             dismissed=False,
         )
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     response = await incident_display.incident_with_display(db, incident)
@@ -655,7 +656,6 @@ async def simulate_reinforcement_request(
             dismissed=False,
         )
     )
-    await db.commit()
 
     return SimulateInjectResponse(message=message)
 
@@ -1058,7 +1058,7 @@ async def simulate_field_report(
 
     # Same broadcast as the real /feld endpoint — the card must not be a ghost
     # until somebody polls.
-    await broadcast_incident_update({"id": str(new_incident.id), "status": new_incident.status}, "create")
+    after_commit(db, broadcast_incident_update, {"id": str(new_incident.id), "status": new_incident.status}, "create")
 
     return SimulateFieldReportResponse(
         incident_id=new_incident.id,

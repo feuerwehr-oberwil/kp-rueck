@@ -39,6 +39,14 @@ def reset_scheduler_state():
     sync_scheduler._current_sync_task = None
 
 
+def _session_maker(db):
+    """Stand-in for `async_session_maker`: `async with maker() as session` hands out `db`."""
+    maker = MagicMock()
+    maker.return_value.__aenter__ = AsyncMock(return_value=db)
+    maker.return_value.__aexit__ = AsyncMock(return_value=False)
+    return maker
+
+
 # ============================================
 # scheduled_sync Tests
 # ============================================
@@ -52,21 +60,18 @@ class TestScheduledSync:
         """Test that sync is skipped when shutdown flag is set."""
         sync_scheduler._shutting_down = True
 
-        with patch("app.background.sync_scheduler.get_db") as mock_get_db:
+        with patch("app.background.sync_scheduler.async_session_maker") as mock_maker:
             await scheduled_sync()
-            # get_db should not be called when shutting down
-            mock_get_db.assert_not_called()
+            # no session is opened when shutting down
+            mock_maker.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skips_sync_when_no_railway_url(self):
         """Test that sync is skipped when Railway URL is not configured."""
         mock_db = AsyncMock()
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,
@@ -87,11 +92,8 @@ class TestScheduledSync:
         mock_sync_service = AsyncMock()
         mock_sync_service.check_railway_health = AsyncMock(return_value=False)
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,
@@ -121,11 +123,8 @@ class TestScheduledSync:
             }
         )
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,
@@ -148,11 +147,8 @@ class TestScheduledSync:
         mock_sync_service.check_railway_health = AsyncMock(return_value=True)
         mock_sync_service.sync_bidirectional = AsyncMock(side_effect=Exception("Sync failed"))
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,
@@ -183,11 +179,8 @@ class TestScheduledSync:
             }
         )
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,
@@ -219,11 +212,8 @@ class TestIntervalChangeDetection:
         sync_scheduler.last_interval_minutes = 2
         mock_db = AsyncMock()
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,
@@ -255,11 +245,8 @@ class TestIntervalChangeDetection:
         sync_scheduler.scheduler = mock_scheduler
         mock_db = AsyncMock()
 
-        async def mock_get_db_gen():
-            yield mock_db
-
         with (
-            patch("app.background.sync_scheduler.get_db", return_value=mock_get_db_gen()),
+            patch("app.background.sync_scheduler.async_session_maker", _session_maker(mock_db)),
             patch(
                 "app.background.sync_scheduler.get_setting_value",
                 new_callable=AsyncMock,

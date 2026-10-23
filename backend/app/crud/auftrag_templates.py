@@ -106,7 +106,7 @@ async def create_template(
         changes={"created": payload.model_dump(mode="json")},
         request=request,
     )
-    await db.commit()
+    await db.flush()
     return await get_template(db, template.id)  # type: ignore[return-value]
 
 
@@ -145,7 +145,7 @@ async def update_template(
         changes={"updated": changes},
         request=request,
     )
-    await db.commit()
+    await db.flush()
     return await get_template(db, template_id)
 
 
@@ -170,7 +170,7 @@ async def delete_template(
         request=request,
     )
     await db.delete(template)
-    await db.commit()
+    await db.flush()
     return True
 
 
@@ -185,7 +185,7 @@ async def reorder_templates(db: AsyncSession, template_ids: list[uuid.UUID]) -> 
     for template in existing.values():
         if template.id not in template_ids:
             template.position += offset
-    await db.commit()
+    await db.flush()
 
 
 async def instantiate_auto_templates(

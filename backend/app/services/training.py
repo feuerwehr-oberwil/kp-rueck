@@ -94,7 +94,7 @@ class TrainingGenerator:
             source=source,
         )
         self.db.add(incident)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(incident)
         return incident
 
@@ -175,7 +175,7 @@ class TrainingGenerator:
             dismissed=False,
         )
         self.db.add(notification)
-        await self.db.commit()
+        await self.db.flush()
 
         # Log emergency creation
         logger.info("Training emergency created: %s at %s (category: %s)", incident.title, full_address, category)
@@ -226,7 +226,7 @@ class TrainingGenerator:
             dismissed=False,
         )
         self.db.add(notification)
-        await self.db.commit()
+        await self.db.flush()
 
         logger.info(
             "Manual training dispatch: %s at %s (template=%s, category=%s, pin=%s)",
@@ -302,7 +302,7 @@ class TrainingGenerator:
             },
         )
         self.db.add(emergency)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(emergency)
 
         logger.info(

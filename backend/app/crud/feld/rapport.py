@@ -1124,7 +1124,7 @@ async def save_rapport(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
 
     # Field crews only: a rapport typed at the KP itself (the board mount
@@ -1141,7 +1141,7 @@ async def save_rapport(
             message=message,
             params=params,
         )
-    await _broadcast(incident)
+    _broadcast(db, incident)
 
     return await get_rapport(db, incident, actor=actor)
 
@@ -1195,9 +1195,9 @@ async def add_photo(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
-    await _broadcast(incident)
+    _broadcast(db, incident)
     return list(report.photos_json or [])
 
 
@@ -1237,7 +1237,7 @@ async def remove_photo(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
-    await _broadcast(incident)
+    _broadcast(db, incident)
     return list(report.photos_json or [])

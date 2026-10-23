@@ -64,7 +64,7 @@ async def start_login(db: AsyncSession) -> MicrosoftLoginStart:
             expires_at=now + timedelta(seconds=LOGIN_TRANSACTION_SECONDS),
         )
     )
-    await db.commit()
+    await db.flush()
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     params = urlencode(
         {
@@ -100,7 +100,8 @@ async def consume_login(db: AsyncSession, state: str, browser_secret: str | None
             .returning(MicrosoftLoginTransaction)
         )
     ).scalar_one_or_none()
-    # Commit separately: failures later in login must never make the state reusable.
+    # Committed at once, not with the request: failures later in login must never make the
+    # state reusable.
     await db.commit()
     if transaction is None:
         raise ValueError("Invalid or expired browser transaction")

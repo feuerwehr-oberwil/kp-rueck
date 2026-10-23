@@ -378,10 +378,10 @@ async def apply_material_decisions(
         # Reassigned (not mutated in place) so SQLAlchemy sees the JSONB change.
         report.materials_json = _jsonable_materials(rows)
         report.extra_materials_json = extras
-        await db.commit()
+        await db.flush()
         # The Restliste / material-on-site panel reads these flags — tell the
         # boards to refetch instead of waiting out the poll.
-        await _broadcast(incident)
+        _broadcast(db, incident)
     # True whenever a rapport row was there to answer to — a decision that
     # matches what the rapport already said is applied, not skipped.
     return True

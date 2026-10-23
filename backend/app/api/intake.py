@@ -166,7 +166,6 @@ async def create_intake_alarm(
     # nothing is merged on their word. The card is flagged instead, and the KP
     # merges with one click if it is the same Schadenplatz.
     if await duplicates.flag_possible_duplicate(db, new_incident):
-        await db.commit()
         await db.refresh(new_incident)
 
     # Trigger immediate sync in background (event-based sync)
@@ -526,7 +525,7 @@ async def correct_intake_alarm(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     # The board is looking at this card right now — a correction that only lands

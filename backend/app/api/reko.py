@@ -709,7 +709,6 @@ async def upload_photo(
     # Update report with new photo
     current_photos = report.photos_json if report.photos_json else []
     report.photos_json = [*current_photos, filename]
-    await db.commit()
 
     return {"filename": filename}
 
@@ -927,7 +926,6 @@ async def serve_photo(
         },
         request=request,
     )
-    await db.commit()
 
     # Field credentials are revocable; their photos must be reauthorized on reload.
     return FileResponse(
@@ -1024,7 +1022,7 @@ async def assign_reko_personnel(
         purpose="reko",
     )
     db.add(db_assignment)
-    await db.commit()
+    await db.flush()
     await db.refresh(db_assignment)
 
     # Auto-move incident from "incoming" to "reko" when reko personnel is assigned
@@ -1038,7 +1036,6 @@ async def assign_reko_personnel(
             request=request,
             notes="Automatisch verschoben: Reko-Person zugewiesen",
         )
-        await db.commit()
         logger.info(
             "Auto-moved incident %s from incoming to reko after reko assignment",
             incident_id,
@@ -1150,8 +1147,6 @@ async def transfer_reko_assignments(
             )
             db.add(db_assignment)
             transferred.append(str(assignment["incident_id"]))
-
-    await db.commit()
 
     # Broadcast updates
     if background_tasks:

@@ -138,8 +138,6 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
             "emergency_id": str(emergency.id),
         },
     )
-    # log_action only flushes; the audit row is rolled back on session close without this.
-    await db.commit()
     logger.info("FireHub end noted for firehub:%s (incident=%s)", source_id, incident_id)
 
     return {

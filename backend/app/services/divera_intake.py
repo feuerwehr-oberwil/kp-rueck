@@ -19,6 +19,7 @@ module requires letter boundaries for a few ambiguous ones. That difference is r
 recorded in the shared file rather than quietly settled — see ``known_matcher_divergence``.
 """
 
+import contextlib
 import logging
 import re
 import secrets as _secrets
@@ -39,6 +40,7 @@ from ..alarm_keywords import (
 )
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
+from ..database import after_commit
 from .audit import log_action
 from .duplicates import flag_possible_duplicate
 from .settings import (
@@ -347,18 +349,18 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
     Divera — the emergency is already stored and stays manually attachable.
     """
     try:
-        return await _auto_attach(db, emergency)
+        # A savepoint: the caller's transaction holds the emergency itself, which a failed
+        # attach must not take down with it.
+        async with db.begin_nested():
+            return await _auto_attach(db, emergency)
     except Exception:
         logger.exception("Auto-attach failed for Divera emergency %s", emergency.divera_id)
         # Leave the session usable for the caller's response handling. The
         # rollback expires loaded attributes, so re-load the emergency before
         # the caller serializes it (sync attribute access on an expired object
         # would blow up in the async session).
-        try:
-            await db.rollback()
+        with contextlib.suppress(Exception):  # already on the error path; a failed refresh changes nothing
             await db.refresh(emergency)
-        except Exception:  # noqa: S110 — already on the error path; a failed rollback changes nothing
-            pass
         return None
 
 
@@ -424,7 +426,7 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
     )
     await events_crud.update_event_activity(db, event.id)
 
-    # One commit for incident and link — it is also what releases the row lock.
+    # The caller's commit stores incident and link together — it is also what releases the row lock.
     await divera_crud.attach_emergency_to_event(
         db=db, emergency_id=emergency.id, event_id=event.id, incident_id=incident.id
     )
@@ -432,7 +434,7 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
     # «Anrückend» on that Ereignis now includes this alarm's Rückmeldungen.
     from .divera_responses import broadcast_link_change
 
-    await broadcast_link_change(event.id, incident.id)
+    after_commit(db, broadcast_link_change, event.id, incident.id)
 
     # Reality preempts the drill. Simulated drives are global: they mask the real
     # Traccar position of their vehicle for EVERY consumer (map, GPS automation,
@@ -440,12 +442,7 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
     # lifetime, in-memory). A real alarm just put a real incident on the board —
     # from here on the map has to show where the vehicles actually are, so every
     # running simulation stops now rather than expiring under a live Einsatz.
-    # Lazy import mirrors traccar.py's: gps_simulation pulls in websocket_manager.
-    from .gps_simulation import gps_simulation
-
-    stopped = await gps_simulation.stop()
-    if stopped:
-        logger.info("Stopped %d simulated GPS drive(s): real alarm attached to event %s", stopped, event.id)
+    after_commit(db, _stop_gps_simulations, event.id)
 
     logger.info(
         "Divera emergency %s auto-attached to event %s (incident %s)",
@@ -454,6 +451,16 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         incident.id,
     )
     return incident
+
+
+async def _stop_gps_simulations(event_id: uuid.UUID) -> None:
+    """Once the real alarm is on the board: stop every simulated drive (see `_auto_attach`)."""
+    # Lazy import mirrors traccar.py's: gps_simulation pulls in websocket_manager.
+    from .gps_simulation import gps_simulation
+
+    stopped = await gps_simulation.stop()
+    if stopped:
+        logger.info("Stopped %d simulated GPS drive(s): real alarm attached to event %s", stopped, event_id)
 
 
 async def broadcast_emergency_received(

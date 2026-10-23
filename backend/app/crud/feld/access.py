@@ -42,7 +42,7 @@ async def create_unlock(db: AsyncSession, event_id: uuid.UUID) -> FeldUnlockClai
     """Record the short-lived picker grant after the current code was checked."""
     grant = FeldUnlockClaim(event_id=event_id, expires_at=datetime.now(UTC) + timedelta(minutes=FELD_UNLOCK_MINUTES))
     db.add(grant)
-    await db.commit()
+    await db.flush()
     await db.refresh(grant)
     return grant
 
@@ -130,7 +130,7 @@ async def regenerate_code(db: AsyncSession, event: Event) -> str:
     """
     await lock_event(db, event.id)
     await _rotate_code(db, event)
-    await db.commit()
+    await db.flush()
     await db.refresh(event)
     return event.feld_code
 
@@ -153,7 +153,7 @@ async def record_code_failure(db: AsyncSession, event: Event) -> bool:
       depot would hand the attacker a fresh budget of 29.
     * A rotation (this one, or «Neu generieren» on the board) resets it.
 
-    Commits either way: the count has to survive the 403 the caller raises next.
+    Flushes; the CALLER commits before the 403 it raises next, or the count is rolled back with it.
     """
     limit = settings.feld_code_max_failed_attempts
     now = datetime.now(UTC)
@@ -167,7 +167,7 @@ async def record_code_failure(db: AsyncSession, event: Event) -> bool:
     rotated = limit > 0 and event.feld_code_failures >= limit
     if rotated:
         await _rotate_code(db, event)
-    await db.commit()
+    await db.flush()
     await db.refresh(event)
     return rotated
 
@@ -179,7 +179,7 @@ async def create_claim(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid
     await lock_event(db, event_id)
     claim = FeldDeviceClaim(event_id=event_id, personnel_id=personnel_id)
     db.add(claim)
-    await db.commit()
+    await db.flush()
     await db.refresh(claim)
     return claim
 
@@ -242,7 +242,7 @@ async def revoke_all_claims(db: AsyncSession, event_id: uuid.UUID) -> int:
         )
         .values(revoked_at=datetime.now(UTC)),
     )
-    await db.commit()
+    await db.flush()
     return int(result.rowcount or 0)
 
 
@@ -258,7 +258,7 @@ async def revoke_claim(db: AsyncSession, claim_id: uuid.UUID, event_id: uuid.UUI
         )
         .values(revoked_at=datetime.now(UTC))
     )
-    await db.commit()
+    await db.flush()
 
 
 async def is_checked_in(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:

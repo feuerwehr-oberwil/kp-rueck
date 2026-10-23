@@ -69,7 +69,6 @@ async def upload_report_logo(
         changes={"key": branding.LOGO_SETTING_KEY, "before": None, "after": f"{size} bytes"},
         request=request,
     )
-    await db.commit()
     return {"size": size}
 
 
@@ -91,7 +90,6 @@ async def delete_report_logo(
         changes={"key": branding.LOGO_SETTING_KEY, "before": "gesetzt", "after": None},
         request=request,
     )
-    await db.commit()
     return Response(status_code=204)
 
 
@@ -132,7 +130,6 @@ async def reveal_alarm_webhook_secret(
         changes={"key": "alarm_webhook_secret", "action": "revealed"},
         request=request,
     )
-    await db.commit()
 
     return schemas.AlarmWebhookSecret(
         secret=secret,
@@ -178,7 +175,6 @@ async def rotate_alarm_webhook_secret(
         changes={"key": "alarm_webhook_secret", "action": "rotated"},
         request=request,
     )
-    await db.commit()
 
     return schemas.AlarmWebhookSecret(secret=new_secret, source="database", configured=True)
 
@@ -255,6 +251,5 @@ async def update_setting(
         changes={"key": key, "before": _audit_value(old_value), "after": _audit_value(update.value)},
         request=request,
     )
-    await db.commit()
 
     return setting

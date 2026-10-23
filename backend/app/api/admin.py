@@ -419,7 +419,6 @@ async def execute_excel_import(
         },
         request=request,
     )
-    await db.commit()
 
     return {
         "success": True,
@@ -452,7 +451,6 @@ async def export_all_data(
         changes={"filename": filename},
         request=request,
     )
-    await db.commit()
 
     return StreamingResponse(
         excel_bytes,
@@ -513,7 +511,6 @@ async def seed_training_templates(
             },
             request=request,
         )
-        await db.commit()
 
         return {
             "success": True,
