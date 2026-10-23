@@ -14,6 +14,13 @@ import { setupBoard } from '../../helpers/api.helper';
  * skipping the events/main POMs (which have drifted from the live UI).
  */
 
+/**
+ * The palette's input. An editor on the board gets the type-to-dispatch placeholder
+ * («Befehl suchen oder zuweisen: …», `common.commandPalette.dispatch.placeholder`), everyone else
+ * «Befehl suchen …» – both start the same, and this suite runs as an editor.
+ */
+const PALETTE_INPUT = /^Befehl suchen/;
+
 test.describe('Kanban shortcuts (live)', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     // A live board keeps polling; readiness is the rendered board, never network silence.
@@ -48,12 +55,12 @@ test.describe('Kanban shortcuts (live)', () => {
     // An anchor instead of a pause: keys are handled in order, so once «?» has opened the
     // palette, a modal that Meta+N had opened would be on screen too.
     await authenticatedPage.keyboard.press('?');
-    await expect(authenticatedPage.getByPlaceholder(/^Befehl suchen/)).toBeVisible();
+    await expect(authenticatedPage.getByPlaceholder(PALETTE_INPUT)).toBeVisible();
     // Not the palette, which lists «Neuer Einsatz» as one of its commands.
     await expect(
       authenticatedPage
         .locator('[role="dialog"]', { hasText: /neuer einsatz|neue meldung/i })
-        .filter({ hasNot: authenticatedPage.getByPlaceholder(/^Befehl suchen/) }),
+        .filter({ hasNot: authenticatedPage.getByPlaceholder(PALETTE_INPUT) }),
     ).toHaveCount(0);
   });
 });
@@ -71,7 +78,7 @@ test.describe('Command palette (live)', () => {
   test('Cmd+K opens the palette with shortcut hints, Esc closes it', async ({ authenticatedPage }) => {
     await authenticatedPage.keyboard.press('Meta+k');
 
-    const input = authenticatedPage.getByPlaceholder(/^Befehl suchen/);
+    const input = authenticatedPage.getByPlaceholder(PALETTE_INPUT);
     await expect(input).toBeVisible({ timeout: 3000 });
     // Shortcut hints are folded into the palette entries
     await expect(
@@ -89,7 +96,7 @@ test.describe('Command palette (live)', () => {
   // shortcuts-help dialog it was written against is gone, and the palette replaced it.
   test('? opens the command palette', async ({ authenticatedPage }) => {
     await authenticatedPage.keyboard.press('?');
-    await expect(authenticatedPage.getByPlaceholder(/^Befehl suchen/)).toBeVisible({
+    await expect(authenticatedPage.getByPlaceholder(PALETTE_INPUT)).toBeVisible({
       timeout: 3000,
     });
   });
@@ -101,7 +108,7 @@ test.describe('Command palette (live)', () => {
     await searchInput.click();
     await authenticatedPage.keyboard.press('?');
 
-    await expect(authenticatedPage.getByPlaceholder(/^Befehl suchen/)).toHaveCount(0);
+    await expect(authenticatedPage.getByPlaceholder(PALETTE_INPUT)).toHaveCount(0);
     await expect(searchInput).toHaveValue('?');
   });
 });
