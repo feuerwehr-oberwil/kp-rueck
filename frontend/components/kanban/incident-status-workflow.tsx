@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
   AlertCircle,
@@ -59,7 +59,44 @@ type ResourceType = "crew" | "vehicles" | "materials"
  * unless the incident is marked «zu Fuss» (which getMissingResources already honours).
  */
 const BLOCKING_RESOURCES: readonly ResourceType[] = ["crew", "vehicles"]
-type AssignmentReturn = { kind: "missing" | "returning"; operationId: string }
+
+/**
+ * What every gate remembers about the move that opened it.
+ *
+ * The gates open AFTER the card has moved, so Abbrechen is an undo:
+ * `returnStatus` is where the card came from (null when the mover did not say,
+ * and then cancelling only closes). Moving a card into a working column also
+ * auto-clears «Am Warten» (see `updateOperation`), so `restoreAmWarten` says
+ * whether the undo has to put that flag back — otherwise the operator cancels
+ * the move and the flag is gone anyway, with a toast already claiming it.
+ */
+interface GateBase {
+  operationId: string
+  returnStatus: OperationStatus | null
+  restoreAmWarten: boolean
+}
+
+/**
+ * The status gates. At most one is open at a time — the state is this union
+ * (or null), so two can't be open at once.
+ *
+ * - `missingResources`: «es fehlt noch etwas» before a dispatch
+ * - `returningVehicle`: «Beendet / Rückfahrt» without a vehicle
+ * - `rekoMissing` / `rekoFormMissing`: into Reko without a Reko person / report
+ * - `rekoAssignment`: the Reko picker opened from `rekoMissing`; it inherits
+ *   that gate's undo, so backing out of the picker lands where backing out of
+ *   the gate would have
+ * - `statusCorrection`: a BACKWARD move into «Disponiert / Anfahrt»; always
+ *   knows where the card came from
+ * - `materialDecision`: the completion gate, with what the completion releases
+ *   (snapshotted before the store emptied the card — see CompletionRelease)
+ */
+type OpenGate =
+  | (GateBase & { kind: "missingResources" | "returningVehicle" | "rekoMissing" | "rekoFormMissing" | "rekoAssignment" })
+  | (GateBase & { kind: "statusCorrection"; returnStatus: OperationStatus })
+  | (GateBase & { kind: "materialDecision"; release: CompletionRelease | null })
+
+export type GateKind = OpenGate["kind"]
 
 /**
  * What completing an incident is about to hand back — read off the card BEFORE
@@ -99,37 +136,21 @@ export function useIncidentStatusWorkflow({
   removeMaterial,
   unassignGroupResource,
 }: UseIncidentStatusWorkflowOptions) {
+  // The Funkdurchsage dialog. Not a gate: it opens AFTER the decision to
+  // dispatch, and closing it reverts nothing.
   const [disponiertOperationId, setDisponiertOperationId] = useState<string | null>(null)
-  const [missingResourcesOperationId, setMissingResourcesOperationId] = useState<string | null>(null)
-  // Status the incident was in BEFORE dispatch — Cancel in the missing-resources
-  // dialog reverts to it (the status change happens before the dialog opens).
-  const [missingResourcesReturnStatus, setMissingResourcesReturnStatus] = useState<OperationStatus | null>(null)
-  const [returningVehicleOperationId, setReturningVehicleOperationId] = useState<string | null>(null)
-  // Same Cancel-reverts pattern for the other post-change gates: each stores
-  // the status the incident was in BEFORE the change so Abbrechen can undo it.
-  const [returningVehicleReturnStatus, setReturningVehicleReturnStatus] = useState<OperationStatus | null>(null)
-  const [rekoMissingOperationId, setRekoMissingOperationId] = useState<string | null>(null)
-  const [rekoMissingReturnStatus, setRekoMissingReturnStatus] = useState<OperationStatus | null>(null)
-  const [rekoFormMissingOperationId, setRekoFormMissingOperationId] = useState<string | null>(null)
-  const [rekoFormMissingReturnStatus, setRekoFormMissingReturnStatus] = useState<OperationStatus | null>(null)
-  const [materialDecisionOperationId, setMaterialDecisionOperationId] = useState<string | null>(null)
-  const [materialDecisionReturnStatus, setMaterialDecisionReturnStatus] = useState<OperationStatus | null>(null)
-  // What that same completion hands back — see CompletionRelease. Null while no
-  // completion gate is open, and while one is open for material alone.
-  const [completionRelease, setCompletionRelease] = useState<CompletionRelease | null>(null)
-  // A card that arrived in «Disponiert / Anfahrt» from a LATER column: the
-  // operator is straightening a status, not sending anybody out.
-  const [statusCorrection, setStatusCorrection] = useState<{ operationId: string; previousStatus: OperationStatus } | null>(null)
+  // The one gate that is open, or null. A union rather than a pair of states per
+  // gate, so «only one gate is ever open» is what the state says, not a comment.
+  const [gate, setGate] = useState<OpenGate | null>(null)
+  // A gate parked while its assignment dialog runs (missing resources /
+  // returning vehicle) — brought back by `resumeGateAfterAssignment`.
+  const [suspendedGate, setSuspendedGate] = useState<OpenGate | null>(null)
   // The stop that just reached «Beendet», while the board asks whether the
   // squad should start the next one. Holds the FINISHED stop rather than the
   // candidate: the candidate is derived, so it cannot go stale against a route
-  // that changed while the dialog was open.
+  // that changed while the dialog was open. Not a gate either: it waits behind
+  // the returning-vehicle gate by design.
   const [nextStopAfterId, setNextStopAfterId] = useState<string | null>(null)
-  const [rekoAssignmentOperationId, setRekoAssignmentOperationId] = useState<string | null>(null)
-  // Carried over from the Reko gate so Abbrechen in the picker still undoes the
-  // move, exactly like Abbrechen one dialog earlier would have.
-  const [rekoAssignmentReturnStatus, setRekoAssignmentReturnStatus] = useState<OperationStatus | null>(null)
-  const [assignmentReturn, setAssignmentReturn] = useState<AssignmentReturn | null>(null)
   const [materialDecisions, setMaterialDecisions] = useState<Record<string, "magazin" | "vorort">>({})
   // What the Schadenplatz-Rapport already answered, per material id, plus who
   // answered it. The crew ticked "vor Ort verblieben" unit by unit at the
@@ -141,33 +162,26 @@ export function useIncidentStatusWorkflow({
   // The gate reads both (§18.23) and must say which it is reading.
   const [materialRapportIsDraft, setMaterialRapportIsDraft] = useState(false)
 
-  // Moving a card into a working column auto-clears «Am Warten» (see
-  // `updateOperation`). The gates below move FIRST and ask afterwards, so
-  // cancelling one has to put the flag back — otherwise the operator cancels
-  // the move and the flag is gone anyway, with a toast already claiming it.
-  // One ref is enough: only one gate is ever open at a time.
-  const clearedAmWartenRef = useRef<{ operationId: string } | null>(null)
-
-  const rememberAmWarten = useCallback(
-    (operationId: string) => {
-      const operation = operations.find((o) => o.id === operationId)
-      clearedAmWartenRef.current = operation?.amWarten ? { operationId } : null
-    },
+  /** A gate for `operationId`, remembering whether the move it follows
+   *  cleared «Am Warten». Called in the trigger, i.e. against the store as it
+   *  was BEFORE the move, which is the only moment the flag can still be read. */
+  const gateFor = useCallback(
+    (operationId: string, returnStatus: OperationStatus | null) => ({
+      operationId,
+      returnStatus,
+      restoreAmWarten: Boolean(operations.find((o) => o.id === operationId)?.amWarten),
+    }),
     [operations],
   )
 
   /** Undo a gate's move, restoring anything the move silently changed. */
-  const revertTo = useCallback(
-    (operationId: string, status: OperationStatus) => {
-      const remembered = clearedAmWartenRef.current
-      clearedAmWartenRef.current = null
+  const revertGate = useCallback(
+    ({ operationId, returnStatus, restoreAmWarten }: GateBase) => {
+      if (!returnStatus) return
       // Called with two arguments when there is nothing to put back, so the
       // ordinary revert keeps exactly the call shape it always had.
-      if (remembered?.operationId === operationId) {
-        changeStatusToTop(operationId, status, { amWarten: true })
-      } else {
-        changeStatusToTop(operationId, status)
-      }
+      if (restoreAmWarten) changeStatusToTop(operationId, returnStatus, { amWarten: true })
+      else changeStatusToTop(operationId, returnStatus)
     },
     [changeStatusToTop],
   )
@@ -201,12 +215,11 @@ export function useIncidentStatusWorkflow({
 
   /** The real dispatch path: the resource gate, then the Funkdurchsage dialog
    *  (which is also what RECORDS the Aufgebot on an Auftrag stop). */
-  const openDispatchGate = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    const operation = operationById(operationId)
+  const openDispatchGate = useCallback((base: GateBase) => {
+    const operation = operationById(base.operationId)
     if (!operation) return
     if (getMissingResources(operation).length > 0) {
-      setMissingResourcesOperationId(operation.id)
-      setMissingResourcesReturnStatus(previousStatus ?? null)
+      setGate({ ...base, kind: "missingResources" })
     } else {
       setDisponiertOperationId(operation.id)
     }
@@ -224,50 +237,43 @@ export function useIncidentStatusWorkflow({
    * very dispatch path for the case where they really are going out again.
    */
   const triggerDisponiertDialog = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    rememberAmWarten(operationId)
     const operation = operationById(operationId)
     if (!operation) return
+    const base = gateFor(operationId, previousStatus ?? null)
     if (previousStatus && isBackwardTransition(previousStatus, "enroute")) {
-      setStatusCorrection({ operationId, previousStatus })
+      setGate({ kind: "statusCorrection", ...base, returnStatus: previousStatus })
       return
     }
-    openDispatchGate(operationId, previousStatus)
-  }, [openDispatchGate, operationById, rememberAmWarten])
+    openDispatchGate(base)
+  }, [gateFor, openDispatchGate, operationById])
 
-  const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    rememberAmWarten(operationId)
-    const operation = operationById(operationId)
-    if (!operation) return
+  /** Still «Beendet» without a vehicle — no own vehicle, none on its route, not zu Fuss. */
+  const lacksReturningVehicle = useCallback((operation: Operation) => {
     const auftrag = findAuftragForStop(groups, operation)
     const routeVehicleCount = auftrag ? getGroupResources(auftrag.id).vehicles.length : 0
-    if (!operation.zuFuss && operation.vehicles.length === 0 && routeVehicleCount === 0) {
-      setReturningVehicleOperationId(operation.id)
-      // The assignment round-trip re-triggers without previousStatus — keep
-      // the stored return status alive instead of overwriting it with null.
-      if (previousStatus) setReturningVehicleReturnStatus(previousStatus)
-    } else {
-      // Gate resolved (vehicle assigned / zu Fuss) — drop any stored revert.
-      setReturningVehicleReturnStatus(null)
+    return !operation.zuFuss && operation.vehicles.length === 0 && routeVehicleCount === 0
+  }, [getGroupResources, groups])
+
+  const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
+    const operation = operationById(operationId)
+    if (operation && lacksReturningVehicle(operation)) {
+      setGate({ kind: "returningVehicle", ...gateFor(operationId, previousStatus ?? null) })
     }
-  }, [getGroupResources, groups, operationById, rememberAmWarten])
+  }, [gateFor, lacksReturningVehicle, operationById])
 
   const triggerRekoCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    rememberAmWarten(operationId)
     const operation = operationById(operationId)
     if (operation && !operation.assignedReko) {
-      setRekoMissingOperationId(operation.id)
-      setRekoMissingReturnStatus(previousStatus ?? null)
+      setGate({ kind: "rekoMissing", ...gateFor(operationId, previousStatus ?? null) })
     }
-  }, [operationById, rememberAmWarten])
+  }, [gateFor, operationById])
 
   const triggerRekoFormCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    rememberAmWarten(operationId)
     const operation = operationById(operationId)
     if (operation && !operation.hasCompletedReko) {
-      setRekoFormMissingOperationId(operation.id)
-      setRekoFormMissingReturnStatus(previousStatus ?? null)
+      setGate({ kind: "rekoFormMissing", ...gateFor(operationId, previousStatus ?? null) })
     }
-  }, [operationById, rememberAmWarten])
+  }, [gateFor, operationById])
 
   /**
    * The stop the squad drives to next once `operation` is closed — null when
@@ -308,7 +314,6 @@ export function useIncidentStatusWorkflow({
    * still the pre-completion array.
    */
   const promptMaterialDecision = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    rememberAmWarten(operationId)
     const operation = operationById(operationId)
     if (!operation) return
 
@@ -350,10 +355,12 @@ export function useIncidentStatusWorkflow({
     // it always was.
     if (!asksAboutMaterial && !offersNextStop && release.crew.length === 0 && release.vehicles.length === 0) return
 
-    setCompletionRelease(release.crew.length > 0 || release.vehicles.length > 0 ? release : null)
-    setMaterialDecisionOperationId(operation.id)
-    setMaterialDecisionReturnStatus(previousStatus ?? null)
-  }, [getGroupResources, groups, operationById, operations, rememberAmWarten, routeContinuationFor])
+    setGate({
+      kind: "materialDecision",
+      ...gateFor(operation.id, previousStatus ?? null),
+      release: release.crew.length > 0 || release.vehicles.length > 0 ? release : null,
+    })
+  }, [gateFor, getGroupResources, groups, operationById, operations, routeContinuationFor])
 
   const requestStatusChange = useCallback((operationId: string, targetStatus: OperationStatus) => {
     const operation = operationById(operationId)
@@ -398,71 +405,50 @@ export function useIncidentStatusWorkflow({
     [requestStatusChange],
   )
 
-  const suspendGateForAssignment = useCallback((kind: AssignmentReturn["kind"], operationId: string) => {
-    setMissingResourcesOperationId(null)
-    setReturningVehicleOperationId(null)
-    setAssignmentReturn({ kind, operationId })
-  }, [])
+  /** The open gate's operation when the open gate is a `kind` gate, else null. */
+  const gateOperation = (kind: GateKind) => (gate?.kind === kind ? operationById(gate.operationId) : null)
 
+  /** Park the open gate while its assignment dialog runs. */
+  const suspendGateForAssignment = useCallback(() => {
+    setSuspendedGate(gate)
+    setGate(null)
+  }, [gate])
+
+  /** The assignment dialog closed: bring the parked gate back, undo and all —
+   *  unless it was the returning-vehicle gate and a vehicle is now assigned,
+   *  which answers it (the move stands). */
   const resumeGateAfterAssignment = useCallback(() => {
-    if (!assignmentReturn) return
-    const { kind, operationId } = assignmentReturn
-    setAssignmentReturn(null)
-    if (kind === "missing") setMissingResourcesOperationId(operationId)
-    else triggerReturningVehicleCheck(operationId)
-  }, [assignmentReturn, triggerReturningVehicleCheck])
-
-  const cancelMissingResources = useCallback(() => {
-    if (missingResourcesOperationId && missingResourcesReturnStatus) {
-      revertTo(missingResourcesOperationId, missingResourcesReturnStatus)
+    if (!suspendedGate) return
+    setSuspendedGate(null)
+    if (suspendedGate.kind === "returningVehicle") {
+      const operation = operationById(suspendedGate.operationId)
+      if (!operation || !lacksReturningVehicle(operation)) return
     }
-    setMissingResourcesOperationId(null)
-    setMissingResourcesReturnStatus(null)
-  }, [missingResourcesOperationId, missingResourcesReturnStatus, revertTo])
+    setGate(suspendedGate)
+  }, [lacksReturningVehicle, operationById, suspendedGate])
 
-  const cancelReturningVehicle = useCallback(() => {
-    if (returningVehicleOperationId && returningVehicleReturnStatus) {
-      revertTo(returningVehicleOperationId, returningVehicleReturnStatus)
-    }
-    setReturningVehicleOperationId(null)
-    setReturningVehicleReturnStatus(null)
+  /**
+   * Abbrechen (and Escape, and the overlay) on a `kind` gate: undo the move
+   * that opened it, then close. A no-op unless that gate is the open one, so a
+   * dialog that is already on its way out cannot cancel the gate after it.
+   */
+  const cancelGate = useCallback((kind: GateKind) => {
+    if (gate?.kind !== kind) return
+    revertGate(gate)
+    setGate(null)
     // The move was undone, so the stop is not finished after all and there is
     // nothing to ask about the next one.
-    setNextStopAfterId(null)
-  }, [returningVehicleOperationId, returningVehicleReturnStatus, revertTo])
+    if (kind === "returningVehicle") setNextStopAfterId(null)
+  }, [gate, revertGate])
 
-  const cancelRekoMissing = useCallback(() => {
-    if (rekoMissingOperationId && rekoMissingReturnStatus) {
-      revertTo(rekoMissingOperationId, rekoMissingReturnStatus)
-    }
-    setRekoMissingOperationId(null)
-    setRekoMissingReturnStatus(null)
-  }, [rekoMissingOperationId, rekoMissingReturnStatus, revertTo])
+  /** Proceed past a `kind` gate: close it and let the move stand. */
+  const closeGate = useCallback((kind: GateKind) => {
+    if (gate?.kind === kind) setGate(null)
+  }, [gate])
 
-  const cancelRekoFormMissing = useCallback(() => {
-    if (rekoFormMissingOperationId && rekoFormMissingReturnStatus) {
-      revertTo(rekoFormMissingOperationId, rekoFormMissingReturnStatus)
-    }
-    setRekoFormMissingOperationId(null)
-    setRekoFormMissingReturnStatus(null)
-  }, [rekoFormMissingOperationId, rekoFormMissingReturnStatus, revertTo])
-
-  const cancelMaterialDecision = useCallback(() => {
-    if (materialDecisionOperationId && materialDecisionReturnStatus) {
-      revertTo(materialDecisionOperationId, materialDecisionReturnStatus)
-    }
-    setMaterialDecisionOperationId(null)
-    setMaterialDecisionReturnStatus(null)
-    setCompletionRelease(null)
-  }, [materialDecisionOperationId, materialDecisionReturnStatus, revertTo])
-
-  /** Backing out of the correction confirm puts the card where it came from. */
-  const cancelStatusCorrection = useCallback(() => {
-    if (statusCorrection) revertTo(statusCorrection.operationId, statusCorrection.previousStatus)
-    setStatusCorrection(null)
-  }, [revertTo, statusCorrection])
-
-  const materialDecisionOperation = operationById(materialDecisionOperationId)
+  const materialDecisionGate = gate?.kind === "materialDecision" ? gate : null
+  const materialDecisionOperationId = materialDecisionGate?.operationId ?? null
+  const materialDecisionOperation = gateOperation("materialDecision")
 
   /**
    * The open gate's route context: the Auftrag this stop belongs to and the
@@ -620,13 +606,11 @@ export function useIncidentStatusWorkflow({
         void removeMaterial(materialDecisionOperation.id, item.id)
       }
     }
-    setMaterialDecisionOperationId(null)
-    setMaterialDecisionReturnStatus(null)
-    setCompletionRelease(null)
+    setGate(null)
     return { returned: returnedItems.map((item) => item.id), kept }
   }, [groups, materialChoice, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
 
-  const returningVehicleOperation = operationById(returningVehicleOperationId)
+  const returningVehicleOperation = gateOperation("returningVehicle")
   const effectiveReturningVehicleOperation = returningVehicleOperation
     && !returningVehicleOperation.zuFuss
     && returningVehicleOperation.vehicles.length === 0
@@ -646,25 +630,22 @@ export function useIncidentStatusWorkflow({
     getResourceCoverage,
     suspendGateForAssignment,
     resumeGateAfterAssignment,
+    /** Abbrechen on a gate — see `cancelGate`. */
+    cancelGate,
+    /** Proceed past a gate («Trotzdem …», «Status korrigieren», a Reko
+     *  assigned) — the move stands. */
+    closeGate,
     disponiertOperation: operationById(disponiertOperationId),
     closeDisponiert: () => setDisponiertOperationId(null),
     openDisponiert: (operationId: string) => {
-      setMissingResourcesOperationId(null)
-      setMissingResourcesReturnStatus(null)
+      if (gate?.kind === "missingResources") setGate(null)
       setDisponiertOperationId(operationId)
     },
-    missingResourcesOperation: operationById(missingResourcesOperationId),
-    // No `closeMissingResources`: every way out of this gate is either
-    // «Trotzdem disponieren» (which is `openDisponiert`, and clears the state
-    // itself) or Abbrechen. A third "just close it" verb was what Escape ended
-    // up bound to.
-    cancelMissingResources,
+    // Every way out of this gate is either «Trotzdem disponieren» (which is
+    // `openDisponiert`, and closes the gate itself) or Abbrechen. A third "just
+    // close it" verb was what Escape ended up bound to.
+    missingResourcesOperation: gateOperation("missingResources"),
     returningVehicleOperation: effectiveReturningVehicleOperation,
-    closeReturningVehicle: () => {
-      setReturningVehicleOperationId(null)
-      setReturningVehicleReturnStatus(null)
-    },
-    cancelReturningVehicle,
     nextStopPrompt,
     closeNextStopPrompt: () => setNextStopAfterId(null),
     /**
@@ -678,33 +659,20 @@ export function useIncidentStatusWorkflow({
       setNextStopAfterId(null)
       requestStatusChange(stopId, "active")
     },
-    rekoMissingOperation: operationById(rekoMissingOperationId),
-    closeRekoMissing: () => {
-      setRekoMissingOperationId(null)
-      setRekoMissingReturnStatus(null)
-    },
-    cancelRekoMissing,
-    rekoFormMissingOperation: operationById(rekoFormMissingOperationId),
-    closeRekoFormMissing: () => {
-      setRekoFormMissingOperationId(null)
-      setRekoFormMissingReturnStatus(null)
-    },
-    cancelRekoFormMissing,
+    rekoMissingOperation: gateOperation("rekoMissing"),
+    rekoFormMissingOperation: gateOperation("rekoFormMissing"),
     /** The «Status korrigieren?» confirm, or null. Carries the operation so the
      *  dialog can name it, and the column it came from so it can be undone. */
-    statusCorrectionPrompt: statusCorrection
-      ? { operation: operationById(statusCorrection.operationId), previousStatus: statusCorrection.previousStatus }
+    statusCorrectionPrompt: gate?.kind === "statusCorrection"
+      ? { operation: operationById(gate.operationId), previousStatus: gate.returnStatus }
       : null,
-    /** «Status korrigieren» — the move stands, nothing is announced. */
-    confirmStatusCorrection: () => setStatusCorrection(null),
-    cancelStatusCorrection,
     /** «Neu disponieren …» — the correction was itself the mistake, or the
      *  squad really is going out again: hand over to the full dispatch path so
      *  the Funkdurchsage stays written in exactly one place. */
     dispatchAfterCorrection: () => {
-      const pending = statusCorrection
-      setStatusCorrection(null)
-      if (pending) openDispatchGate(pending.operationId, pending.previousStatus)
+      if (gate?.kind !== "statusCorrection") return
+      setGate(null)
+      openDispatchGate(gate)
     },
     materialDecisionOperation,
     /** The Auftrag this completion does NOT end, plus the stop it continues
@@ -718,20 +686,19 @@ export function useIncidentStatusWorkflow({
     /** What this completion releases, snapshotted before the card was emptied —
      *  null when the gate is open for material alone, and null for a stop of a
      *  standard Auftrag, whose crew and vehicles belong to the route. */
-    completionRelease,
+    completionRelease: materialDecisionGate?.release ?? null,
     /** Where the completed card came from, so the confirmation toast can offer
      *  «Rückgängig». Read from the gate rather than from `completionRelease`:
      *  a stop that hands nothing back has no snapshot but is just as undoable.
      *  Null when the mover did not say — an undo that guesses is not an undo. */
-    completionReturnStatus: materialDecisionReturnStatus,
+    completionReturnStatus: materialDecisionGate?.returnStatus ?? null,
     /** Put a just-completed incident back where it came from. The backend undoes
      *  its own release in the same transaction (`_undo_completion_release`) and
      *  the context refetches on leaving `complete`, so crew and vehicles come
      *  back — material that was sent to the Magazin does not. */
     reopenCompleted: (operationId: string, status: OperationStatus) => changeStatusToTop(operationId, status),
-    // Same here: confirming goes through `resolveMaterialDecision`, which
-    // clears the gate itself. Dismissing is a cancel.
-    cancelMaterialDecision,
+    // Confirming the completion gate goes through `resolveMaterialDecision`,
+    // which clears the gate itself. Dismissing is a cancel.
     materialDecisionItems,
     materialDecisions,
     /** Who filed the rapport the prefilled answers come from; null when none did. */
@@ -745,29 +712,13 @@ export function useIncidentStatusWorkflow({
       setMaterialDecisions((current) => ({ ...current, [materialId]: decision }))
     },
     resolveMaterialDecision,
-    rekoAssignmentOperation: operationById(rekoAssignmentOperationId),
-    openRekoAssignment: (operationId: string) => {
-      setRekoMissingOperationId(null)
-      setRekoMissingReturnStatus(null)
-      // Hand the revert status ON to the assignment step instead of dropping
-      // it. "Reko zuweisen" is not itself a decision to proceed — it opens a
-      // picker that can still be cancelled, and backing out of the picker has
-      // to land where backing out of the gate would have.
-      setRekoAssignmentReturnStatus(rekoMissingReturnStatus)
-      setRekoAssignmentOperationId(operationId)
-    },
-    /** Backed out of the picker → undo the move that opened the gate. */
-    cancelRekoAssignment: () => {
-      if (rekoAssignmentOperationId && rekoAssignmentReturnStatus) {
-        revertTo(rekoAssignmentOperationId, rekoAssignmentReturnStatus)
-      }
-      setRekoAssignmentOperationId(null)
-      setRekoAssignmentReturnStatus(null)
-    },
-    /** A Reko was actually assigned → the move stands. */
-    closeRekoAssignment: () => {
-      setRekoAssignmentOperationId(null)
-      setRekoAssignmentReturnStatus(null)
+    rekoAssignmentOperation: gateOperation("rekoAssignment"),
+    /** «Reko zuweisen» in the Reko gate: open the picker in its place. The
+     *  picker inherits the gate's undo — choosing to pick is not yet a decision
+     *  to proceed, and backing out of the picker has to land where backing out
+     *  of the gate would have. */
+    openRekoAssignment: () => {
+      if (gate?.kind === "rekoMissing") setGate({ ...gate, kind: "rekoAssignment" })
     },
     materials,
   }
@@ -885,8 +836,9 @@ export function IncidentStatusWorkflowDialogs({
     })
   }
 
-  const openAssignment = (resourceType: ResourceType, operationId: string, kind: AssignmentReturn["kind"]) => {
-    controller.suspendGateForAssignment(kind, operationId)
+  // The open gate waits while its assignment dialog runs.
+  const openAssignment = (resourceType: ResourceType, operationId: string) => {
+    controller.suspendGateForAssignment()
     onOpenAssignment(resourceType, operationId)
   }
 
@@ -908,14 +860,14 @@ export function IncidentStatusWorkflowDialogs({
   return (
     <>
       {/* Escape and the overlay are Abbrechen, never the override next to it.
-          These gates open because a card was ALREADY moved, so `close*` (which
+          These gates open because a card was ALREADY moved, so `closeGate` (which
           drops the revert status and leaves the move standing) is the same
           action as «Trotzdem disponieren» — bound to the one key an operator
-          hits to get out of a dialog they did not mean to open. `cancel*` puts
+          hits to get out of a dialog they did not mean to open. `cancelGate` puts
           the card back, which is what the Abbrechen button does and what
           dismissing a modal has to mean. `AssignRekoDialog` below already got
           this right; the four gates did not. */}
-      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelMissingResources()}>
+      <AlertDialog open={!!missingOperation} onOpenChange={(open) => !open && controller.cancelGate("missingResources")}>
         <AlertDialogContent>
           {missingOperation && (() => {
             const coverage = controller.getResourceCoverage(missingOperation)
@@ -959,7 +911,7 @@ export function IncidentStatusWorkflowDialogs({
                   {rows.map(({ key, icon: Icon, filled, summary }) => (
                     <button
                       key={key}
-                      onClick={() => openAssignment(key, missingOperation.id, "missing")}
+                      onClick={() => openAssignment(key, missingOperation.id)}
                       className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-sel-edge hover:bg-secondary/40"
                     >
                       {filled
@@ -999,7 +951,7 @@ export function IncidentStatusWorkflowDialogs({
                       {tMissing("dispatchAnyway")}
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => controller.cancelMissingResources()}>
+                  <Button variant="outline" onClick={() => controller.cancelGate("missingResources")}>
                     {tCommon("cancel")}
                   </Button>
                   <Button disabled={blocking} onClick={() => controller.openDisponiert(missingOperation.id)}>
@@ -1012,7 +964,7 @@ export function IncidentStatusWorkflowDialogs({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.cancelReturningVehicle()}>
+      <AlertDialog open={!!controller.returningVehicleOperation} onOpenChange={(open) => !open && controller.cancelGate("returningVehicle")}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -1027,15 +979,15 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="ghost" onClick={controller.closeReturningVehicle} className="sm:mr-auto">
+            <Button variant="ghost" onClick={() => controller.closeGate("returningVehicle")} className="sm:mr-auto">
               {tReturning("endAnyway")}
             </Button>
-            <Button variant="outline" onClick={controller.cancelReturningVehicle}>
+            <Button variant="outline" onClick={() => controller.cancelGate("returningVehicle")}>
               {tCommon("cancel")}
             </Button>
             <Button onClick={() => {
               const operation = controller.returningVehicleOperation
-              if (operation) openAssignment("vehicles", operation.id, "returning")
+              if (operation) openAssignment("vehicles", operation.id)
             }}>
               {tReturning("assignVehicle")}
             </Button>
@@ -1081,7 +1033,7 @@ export function IncidentStatusWorkflowDialogs({
       {/* «Nicht verschieben», not «Abbrechen»: the card goes back where it came from
           (Esc too), and the text says the move has NOT happened yet. Wide enough for
           the three answers on one row in German. */}
-      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoMissing()}>
+      <AlertDialog open={!!controller.rekoMissingOperation} onOpenChange={(open) => !open && controller.cancelGate("rekoMissing")}>
         <AlertDialogContent className="sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -1096,23 +1048,20 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="ghost" onClick={controller.closeRekoMissing} className="sm:mr-auto">
+            <Button variant="ghost" onClick={() => controller.closeGate("rekoMissing")} className="sm:mr-auto">
               {tReko("proceedAnyway")}
             </Button>
-            <Button variant="outline" onClick={controller.cancelRekoMissing}>
+            <Button variant="outline" onClick={() => controller.cancelGate("rekoMissing")}>
               {tReko("dontMove")}
             </Button>
-            <Button onClick={() => {
-              const operation = controller.rekoMissingOperation
-              if (operation) controller.openRekoAssignment(operation.id)
-            }}>
+            <Button onClick={controller.openRekoAssignment}>
               {tReko("assignReko")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.cancelRekoFormMissing()}>
+      <AlertDialog open={!!controller.rekoFormMissingOperation} onOpenChange={(open) => !open && controller.cancelGate("rekoFormMissing")}>
         {/* xl: three answers on one row in German, like the Reko gate above. */}
         <AlertDialogContent className="sm:max-w-xl">
           <AlertDialogHeader>
@@ -1128,17 +1077,17 @@ export function IncidentStatusWorkflowDialogs({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="ghost" onClick={controller.closeRekoFormMissing} className="sm:mr-auto">
+            <Button variant="ghost" onClick={() => controller.closeGate("rekoFormMissing")} className="sm:mr-auto">
               {tRekoForm("proceedAnyway")}
             </Button>
-            <Button variant="outline" onClick={controller.cancelRekoFormMissing}>
+            <Button variant="outline" onClick={() => controller.cancelGate("rekoFormMissing")}>
               {tCommon("cancel")}
             </Button>
             <Button onClick={() => {
               const operation = controller.rekoFormMissingOperation
-              // closeRekoFormMissing also drops the revert status — opening
+              // closeGate also drops the revert status — opening
               // the Reko details is a "proceed", not a cancel.
-              controller.closeRekoFormMissing()
+              controller.closeGate("rekoFormMissing")
               // …on the REKO tab, with the entry form already open. The
               // dialog's whole subject is that no Reko report was filled in,
               // and it used to land the operator on Übersicht — the one tab
@@ -1163,7 +1112,7 @@ export function IncidentStatusWorkflowDialogs({
           for the route alone, with no release list and none promised: on a
           standard Auftrag the Mittel belong to the route, so a stop hands
           nothing back and the offer would otherwise never be seen. */}
-      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.cancelMaterialDecision()}>
+      <AlertDialog open={!!controller.materialDecisionOperation} onOpenChange={(open) => !open && controller.cancelGate("materialDecision")}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -1326,7 +1275,7 @@ export function IncidentStatusWorkflowDialogs({
                 {tCompletion("stopConfirmAndNext")}
               </Button>
             )}
-            <Button variant="outline" onClick={controller.cancelMaterialDecision}>{tMat("cancel")}</Button>
+            <Button variant="outline" onClick={() => controller.cancelGate("materialDecision")}>{tMat("cancel")}</Button>
             <Button onClick={() => confirmCompletion(null)}>
               {continuation
                 ? tCompletion("stopConfirm")
@@ -1348,7 +1297,7 @@ export function IncidentStatusWorkflowDialogs({
           departure — or when the backward move was itself the misfire. */}
       <AlertDialog
         open={!!correction?.operation}
-        onOpenChange={(open) => !open && controller.cancelStatusCorrection()}
+        onOpenChange={(open) => !open && controller.cancelGate("statusCorrection")}
       >
         <AlertDialogContent>
           {correction?.operation && (
@@ -1391,10 +1340,10 @@ export function IncidentStatusWorkflowDialogs({
                 >
                   {tCorrection("dispatchAgain")}
                 </Button>
-                <Button variant="outline" onClick={controller.cancelStatusCorrection}>
+                <Button variant="outline" onClick={() => controller.cancelGate("statusCorrection")}>
                   {tCommon("cancel")}
                 </Button>
-                <Button onClick={controller.confirmStatusCorrection}>{tCorrection("confirm")}</Button>
+                <Button onClick={() => controller.closeGate("statusCorrection")}>{tCorrection("confirm")}</Button>
               </AlertDialogFooter>
             </>
           )}
@@ -1418,12 +1367,12 @@ export function IncidentStatusWorkflowDialogs({
       {controller.rekoAssignmentOperation && (
         <AssignRekoDialog
           open
-          onOpenChange={(open) => !open && controller.cancelRekoAssignment()}
+          onOpenChange={(open) => !open && controller.cancelGate("rekoAssignment")}
           incidentId={controller.rekoAssignmentOperation.id}
           incidentTitle={operationLabel(controller.rekoAssignmentOperation)}
           onAssigned={() => {
             void onRefresh()
-            controller.closeRekoAssignment()
+            controller.closeGate("rekoAssignment")
           }}
         />
       )}

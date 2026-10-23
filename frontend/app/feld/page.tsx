@@ -17,35 +17,34 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
-import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
   FeldUnlockError,
   NetworkError,
-  type FeldUnlockFailure,
-  type ApiFeldContextResponse,
   type ApiFeldPersonnel,
+  type ApiFeldUnlockResponse,
   type ApiFeldAssignment,
   type ApiFeldMaterialItem,
   type ApiFeldOwnReport,
   type ApiFieldReportState,
   type ApiSchadenplatzRapport,
 } from '@/lib/api-client'
+import { LeaderGlyph } from '@/components/kanban/leader-badge'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
+import { FELD_COOKIE_SCOPE, readDeviceToken, useFeldDoor } from '@/components/feld/feld-door'
 import { LinkPageHeader } from '@/components/link-page/link-page'
 import { FeldIdentityBar, clearFeldName, writeFeldName } from '@/components/feld/feld-identity-bar'
 import { FeldMaterialTable } from '@/components/feld/feld-material-table'
 import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SearchInput } from '@/components/ui/search-input'
-import { ShellLoader } from '@/components/ui/shell-loader'
 import { topLoading } from '@/components/ui/top-loading-bar'
 import { useBootGate } from '@/lib/boot-cover'
+import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 import { formatTime } from '@/lib/format-time'
 import {
   assignmentRapportApplies,
@@ -75,12 +74,6 @@ type ViewMode = 'code' | 'list' | 'assignments' | 'detail'
  *  none of which should cost the crew their place. Path-scoped to `/feld`. */
 const PERSON_COOKIE = 'feld-selected-person'
 const INCIDENT_COOKIE = 'feld-selected-incident'
-/** The device's own token, earned by entering the Feld-Code and naming yourself
- *  (plan 26, decisions 13 and 18). From here on this is the credential the page
- *  uses — the token in the URL is spent and never sent again. Storing it is what
- *  stops the crew re-typing the code every time the tab is dropped. */
-const TOKEN_COOKIE = 'feld-device-token'
-const COOKIE_EXPIRY_DAYS = 7
 
 /**
  * How often the field list refetches while the tab is visible.
@@ -100,29 +93,6 @@ const FELD_POLL_MS = 10000
  * end of the page must always come clear. Change the pill, change this.
  */
 const MELDEN_FAB_CLEARANCE = 'pb-32'
-
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`))
-  return match ? match[2] : null
-}
-
-function writeCookie(name: string, value: string) {
-  const expires = new Date()
-  expires.setDate(expires.getDate() + COOKIE_EXPIRY_DAYS)
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/feld`
-}
-
-function clearCookie(name: string) {
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/feld`
-}
-
-/** A lockout countdown as «4:12» — minutes and seconds, because "noch 252
- *  Sekunden" is a number nobody converts while standing in the rain. */
-function formatCountdown(seconds: number): string {
-  const safe = Math.max(0, Math.ceil(seconds))
-  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
-}
 
 
 /** The board's statuses, as `feld.kpStatus.*` names them. A closed set — the
@@ -173,7 +143,8 @@ function JourneyChip({ assignment }: { assignment: ApiFeldAssignment }) {
  * The EL briefing (decision 22): every `/feld` surface names the Einsatzleiter
  * of that Schadenplatz BEFORE the form opens, so a crew knows who is normally
  * expected to file. Briefed, never enforced — anybody assigned may still file.
- * The empty case reads "kein EL erfasst"; it is never a blank line.
+ * The empty case reads "kein EL erfasst"; it is never a blank line. Marked with
+ * the board's «EL» sign (LeaderGlyph), never a star – leader-badge.tsx says why.
  */
 function LeaderLine({
   assignment,
@@ -185,21 +156,30 @@ function LeaderLine({
   className?: string
 }) {
   const t = useTranslations('feld.leader')
+  const tLeader = useTranslations('kanban.leader')
   const isSelf = Boolean(assignment.leader_personnel_id && assignment.leader_personnel_id === selfId)
 
   if (isSelf) {
     return (
-      <p className={`flex items-start gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
-        <Star className="h-3.5 w-3.5 mt-0.5 shrink-0 fill-current" />
+      <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
+        <LeaderGlyph />
         <span>{t('self')}</span>
       </p>
     )
   }
 
   return (
-    <p className={`flex items-start gap-1.5 text-sm text-muted-foreground ${className ?? ''}`}>
-      <Star className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-      <span>{assignment.leader_name ? t('label', { name: assignment.leader_name }) : t('none')}</span>
+    <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm text-muted-foreground ${className ?? ''}`}>
+      <LeaderGlyph />
+      {assignment.leader_name ? (
+        <>
+          {/* The sign says «EL»; a screen reader hears the role. */}
+          <span className="sr-only">{tLeader('is')}:</span>
+          <span className="min-w-0 break-words">{assignment.leader_name}</span>
+        </>
+      ) : (
+        <span>{t('none')}</span>
+      )}
     </p>
   )
 }
@@ -342,40 +322,6 @@ function FeldSurface() {
    *  right there, and a dead end is the wrong answer to "das Netz war kurz weg". */
   const [errorRecoverable, setErrorRecoverable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('code')
-  /**
-   * The token this device actually uses.
-   *
-   * Starts as null and becomes, in turn, the unlocked token (the code was
-   * right) and then the bound one (a person was named). The link token from the
-   * URL is never used again after the exchange — that is the whole point of
-   * decision 13: holding the link stops being enough.
-   */
-  const [deviceToken, setDeviceToken] = useState<string | null>(null)
-  const [codeInput, setCodeInput] = useState('')
-  /**
-   * WHY the code screen said no — four causes, four different things to do.
-   *
-   * It used to be a boolean, so «Falscher Code» was also the answer to a
-   * lockout somebody else's typing had earned, to a poster that expired three
-   * weeks ago, and to a cellar with no reception. Three of those are not fixed
-   * by typing more carefully, and the screen said nothing else.
-   */
-  const [codeError, setCodeError] = useState<FeldUnlockFailure | null>(null)
-  /** The door's proof of place (station + Ereignis), fetched with the LINK
-   *  token before the code. Null while loading or when the fetch failed — the
-   *  door renders without the proof rather than blocking on it. */
-  const [doorContext, setDoorContext] = useState<ApiFeldContextResponse | null>(null)
-  /** Whether the (invisible) code input owns the focus — drives the active
-   *  cell's ring in the four-box rendering. */
-  const [codeFocused, setCodeFocused] = useState(false)
-  const codeInputRef = useRef<HTMLInputElement>(null)
-  /** Seconds left on a lockout, counted down locally so «4:12» actually moves. */
-  const [lockRemaining, setLockRemaining] = useState(0)
-  const [unlocking, setUnlocking] = useState(false)
-  // "Nicht ich" is not just a name change any more: it throws away the device's
-  // bound token, so the next person types the code. Worth asking first — on a
-  // wet phone it sits one thumb-width from the rest of the header.
-  const [confirmNotMe, setConfirmNotMe] = useState(false)
   const [meldenOpen, setMeldenOpen] = useState(false)
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
@@ -458,7 +404,6 @@ function FeldSurface() {
   // vehicle, and — the part that was missing entirely — "ich rücke ab".
   const [checkedIn, setCheckedIn] = useState(false)
   const [attendanceBusy, setAttendanceBusy] = useState(false)
-  const token = deviceToken
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
   const preselectApplied = useRef(false)
@@ -477,15 +422,10 @@ function FeldSurface() {
   }, [loadingAssignments])
 
   /**
-   * Back to the door: forget the device token, the person and the place.
-   *
-   * Two callers, and they are the same event from opposite ends — the crew
-   * handing the phone on ("nicht ich"), and the KP logging every device out
-   * from the board. A poster can start a new code exchange; a bound link or
-   * one-use picker credential cannot, so those require a fresh QR/link.
+   * The page's half of going back to the door (`forget` in `useFeldDoor` drops
+   * the token and the code): the person, the place and what was loaded for them.
    */
-  const forgetDevice = useCallback(() => {
-    setDeviceToken(null)
+  const forgetPersonAndPlace = useCallback(() => {
     setSelectedPerson(null)
     setPersonnel([])
     setAssignments([])
@@ -493,11 +433,8 @@ function FeldSurface() {
     setSelectedIncidentId(null)
     setSearchTerm('')
     setViewMode('code')
-    setCodeInput('')
-    setCodeError(linkToken && decodeFeldCredential(linkToken) ? { kind: 'expired' } : null)
-    clearCookie(TOKEN_COOKIE)
-    clearCookie(PERSON_COOKIE)
-    clearCookie(INCIDENT_COOKIE)
+    clearCookie(PERSON_COOKIE, FELD_COOKIE_SCOPE)
+    clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
     clearFeldName()
     restoredFromCookie.current = false
     restoredIncident.current = false
@@ -505,75 +442,24 @@ function FeldSurface() {
     // slip, that slip still names the Schadenplatz — so the preselect gets
     // another turn for the next person.
     preselectApplied.current = false
-  }, [linkToken])
+  }, [])
 
-  /**
-   * Step 2 of the door: trade the link token plus the four digits for an
-   * unlocked one, and get the picker back in the same response.
-   *
-   * Every failure is named (`FeldUnlockFailure`), because the four of them ask
-   * for four different moves. Only the wrong-code case clears the field: after
-   * a lockout or a dropped connection the digits are probably right, and making
-   * somebody type them again in the rain to find that out is a punishment for
-   * the network's mistake.
-   */
-  const submitCode = useCallback(async () => {
-    if (!linkToken || codeInput.length < 4 || unlocking) return
-    setUnlocking(true)
-    setCodeError(null)
-    try {
-      const data = await apiClient.unlockFeld(linkToken, codeInput)
-      setDeviceToken(data.token)
-      setPersonnel(data.personnel)
-      setEventName(data.event_name)
-      setViewMode('list')
-      setCodeInput('')
-    } catch (err) {
-      console.error('Feld unlock failed:', err)
-      const failure: FeldUnlockFailure =
-        err instanceof FeldUnlockError ? err.failure : { kind: 'wrong', attemptsLeft: null }
-      setCodeError(failure)
-      if (failure.kind === 'locked') setLockRemaining(failure.retryAfterSeconds)
-      if (failure.kind === 'wrong') setCodeInput('')
-    } finally {
-      setUnlocking(false)
-    }
-  }, [linkToken, codeInput, unlocking])
+  /** An unlock (the code, or a Rück session) brings the picker with it. */
+  const showPicker = useCallback((unlock: ApiFeldUnlockResponse) => {
+    setPersonnel(unlock.personnel)
+    setEventName(unlock.event_name)
+    setViewMode('list')
+  }, [])
 
-  // The proof of place, as soon as the door is on screen: station + Ereignis
-  // above the digits, so the person in the rain knows they reached the right
-  // brigade before typing anything.
-  useEffect(() => {
-    if (viewMode !== 'code' || !linkToken || doorContext) return
-    let alive = true
-    apiClient.getFeldContext(linkToken).then((ctx) => {
-      if (alive && ctx) setDoorContext(ctx)
-    })
-    return () => {
-      alive = false
-    }
-  }, [viewMode, linkToken, doorContext])
-
-  // The fourth digit submits by itself — no button that can look dead. Only in
-  // the clean state: after a lockout or a dropped connection the digits stay
-  // put and the retry is a deliberate tap (see the offline block below).
-  useEffect(() => {
-    if (viewMode === 'code' && codeInput.length === 4 && !unlocking && !codeError) {
-      submitCode()
-    }
-  }, [viewMode, codeInput, unlocking, codeError, submitCode])
-
-  // The lockout counts itself down and lets go on its own: a screen that says
-  // «Wieder frei in 0:00» and stays dead is the same dead end one line later.
-  useEffect(() => {
-    if (codeError?.kind !== 'locked') return
-    if (lockRemaining <= 0) {
-      setCodeError(null)
-      return
-    }
-    const timer = setTimeout(() => setLockRemaining(seconds => seconds - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [codeError, lockRemaining])
+  const {
+    deviceToken: token,
+    admit,
+    refuse,
+    forget: forgetDevice,
+    askNotMe,
+    codeScreen,
+    notMeDialog,
+  } = useFeldDoor({ linkToken, atDoor: viewMode === 'code', onUnlocked: showPicker, onForget: forgetPersonAndPlace })
 
   /**
    * ``silent`` is what the poll passes: no top loading bar, and a failed
@@ -668,24 +554,23 @@ function FeldSurface() {
     // incident memory. Adopting it is idempotent; no server call happens here.
     const bound = decodeFeldCredential(linkToken)
     if (bound && !bound.personnelId) {
-      setCodeError({ kind: 'expired' })
+      refuse({ kind: 'expired' })
       setViewMode('code')
       setLoading(false)
       return
     }
     if (bound?.personnelId) {
-      setDeviceToken(linkToken)
-      writeCookie(TOKEN_COOKIE, linkToken)
-      writeCookie(PERSON_COOKIE, bound.personnelId)
+      admit(linkToken, { remember: true })
+      writeCookie(PERSON_COOKIE, bound.personnelId, FELD_COOKIE_SCOPE)
       setViewMode('assignments')
       loadAssignments(bound.personnelId, { token: linkToken })
       setLoading(false)
       return
     }
-    const storedToken = readCookie(TOKEN_COOKIE)
+    const storedToken = readDeviceToken()
     const storedPerson = readCookie(PERSON_COOKIE)
     if (storedToken && storedPerson) {
-      setDeviceToken(storedToken)
+      admit(storedToken)
       setViewMode('assignments')
       loadAssignments(storedPerson, { token: storedToken })
       setLoading(false)
@@ -702,17 +587,15 @@ function FeldSurface() {
       .then((data) => {
         if (!alive) return
         if (data) {
-          setDeviceToken(data.token)
-          setPersonnel(data.personnel)
-          setEventName(data.event_name)
-          setViewMode('list')
+          admit(data.token)
+          showPicker(data)
         } else {
           setViewMode('code')
         }
       })
       .catch((err) => {
         if (!alive) return
-        setCodeError(err instanceof FeldUnlockError ? err.failure : null)
+        refuse(err instanceof FeldUnlockError ? err.failure : null)
         setViewMode('code')
       })
       .finally(() => {
@@ -738,9 +621,8 @@ function FeldSurface() {
     if (!token) return
     try {
       const claim = await apiClient.claimFeldPerson(token, person.personnel_id)
-      setDeviceToken(claim.token)
-      writeCookie(TOKEN_COOKIE, claim.token)
-      writeCookie(PERSON_COOKIE, person.personnel_id)
+      admit(claim.token, { remember: true })
+      writeCookie(PERSON_COOKIE, person.personnel_id, FELD_COOKIE_SCOPE)
       // Readable from /reko too, so the form keeps saying who is filing.
       writeFeldName(person.name)
       setSelectedPerson(person)
@@ -763,7 +645,7 @@ function FeldSurface() {
       setError(err instanceof NetworkError ? t('claim.offline') : t('invalidCode'))
       setErrorRecoverable(true)
     }
-  }, [token, loadAssignments, forgetDevice, t])
+  }, [token, admit, loadAssignments, forgetDevice, t])
 
   /**
    * Open a Schadenplatz and remember it, so a reload comes back HERE.
@@ -794,7 +676,7 @@ function FeldSurface() {
     }
     setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
-    writeCookie(INCIDENT_COOKIE, assignment.incident_id)
+    writeCookie(INCIDENT_COOKIE, assignment.incident_id, FELD_COOKIE_SCOPE)
   }, [token, selectedPerson, router])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
@@ -803,7 +685,7 @@ function FeldSurface() {
   const leaveAssignment = useCallback(() => {
     setViewMode('assignments')
     setSelectedIncidentId(null)
-    clearCookie(INCIDENT_COOKIE)
+    clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
   }, [])
 
   // (The person is no longer restored from the picker: since plan 26 a returning
@@ -823,7 +705,7 @@ function FeldSurface() {
     // Gone from the list (reassigned, event over, wrong person on this phone):
     // forget it rather than leave a pointer to a page we cannot show.
     if (!assignments.some(a => a.incident_id === savedId)) {
-      clearCookie(INCIDENT_COOKIE)
+      clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
       return
     }
     setSelectedIncidentId(savedId)
@@ -907,17 +789,6 @@ function FeldSurface() {
       setAttendanceBusy(false)
     }
   }, [token, selectedPerson, attendanceBusy])
-
-  /** Revoke on the server first; a lost connection must not leave a silently live credential. */
-  const handleNotMe = async () => {
-    if (!token) return
-    try {
-      await apiClient.logoutFeld(token)
-      forgetDevice()
-    } catch {
-      toast.error(t('access.failed'))
-    }
-  }
 
   const filteredPersonnel = useMemo(() => {
     // The board's Anwesenheit and the /check-in tablet order the same roster with
@@ -1171,168 +1042,7 @@ function FeldSurface() {
   }
 
   // ---------------------------------------------------------------- code
-  // Four boxes and one button. No explanation of where the code lives while
-  // nothing has gone wrong: whoever is standing here scanned the poster it is
-  // printed under two seconds ago, and the one screen somebody reads in the
-  // rain is not the place for a paragraph. What appears when it DOES go wrong
-  // is the whole point of this block — each of the four failures says what
-  // happened and what to do about it.
-  if (viewMode === 'code') {
-    // An expired link is its own screen: no field, no button. The four digits
-    // cannot fix a token that ran out, so asking for them again is the one
-    // thing this page must stop doing.
-    // Same for an address that is not the poster's link (`reopen`): scan again.
-    if (codeError?.kind === 'expired' || codeError?.kind === 'reopen') {
-      const reopen = codeError.kind === 'reopen'
-      return (
-        <div className="min-h-screen bg-background flex flex-col justify-center p-6">
-          <div className="mx-auto w-full max-w-xs">
-            <h1 className="mb-6 text-center text-2xl font-semibold">
-              {t(reopen ? 'code.reopenTitle' : 'code.expiredTitle')}
-            </h1>
-            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-              <p className="font-medium">{t(reopen ? 'code.reopenHeading' : 'code.expiredHeading')}</p>
-              <p className="mt-0.5">{t(reopen ? 'code.reopenBody' : 'code.expiredBody')}</p>
-            </div>
-            <p className="mt-3 rounded-lg border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground">
-              {t('code.expiredFoot')}
-            </p>
-          </div>
-        </div>
-      )
-    }
-
-    const locked = codeError?.kind === 'locked'
-    const countdown = formatCountdown(lockRemaining)
-    return (
-      <div className="min-h-screen bg-background flex flex-col justify-center p-6">
-        <div className="mx-auto w-full max-w-xs">
-          {/* The proof of place: station and Ereignis, fetched with the link
-              token before any digit. Whoever scanned a poster must see they
-              reached the right brigade — the heading falls back to the bare
-              prompt only while the proof has not arrived. */}
-          <div className="mb-8">
-            {doorContext?.station_name && (
-              <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                {doorContext.station_name}
-              </p>
-            )}
-            <h1 id="feld-code-title" className="mt-1 text-3xl font-semibold">
-              {doorContext?.event_name ?? t('code.title')}
-            </h1>
-            {doorContext?.training_flag && (
-              <span className="mt-2 inline-flex items-center rounded border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">
-                {t('code.training')}
-              </span>
-            )}
-          </div>
-
-          {/* Four cells over ONE invisible input: the input keeps the number
-              pad, paste and the accessible name; the cells are the rendering.
-              Labelled BY the heading — one accessible name, not two. */}
-          <div className="relative" onClick={() => codeInputRef.current?.focus()}>
-            <input
-              id="feld-code"
-              ref={codeInputRef}
-              aria-labelledby="feld-code-title"
-              // A phone must open the number pad for this, and a browser must
-              // not offer to remember it like a password.
-              inputMode="numeric"
-              autoComplete="off"
-              pattern="[0-9]*"
-              maxLength={4}
-              value={codeInput}
-              autoFocus
-              disabled={locked}
-              onFocus={() => setCodeFocused(true)}
-              onBlur={() => setCodeFocused(false)}
-              onChange={event => {
-                setCodeInput(event.target.value.replace(/\D/g, '').slice(0, 4))
-                // Typing clears a verdict about the digits, not one about the
-                // network or the lockout — those are still true.
-                setCodeError(current => (current?.kind === 'wrong' ? null : current))
-              }}
-              onKeyDown={event => {
-                if (event.key === 'Enter') submitCode()
-              }}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            />
-            <div aria-hidden className="pointer-events-none flex justify-between gap-3">
-              {[0, 1, 2, 3].map(index => (
-                <div
-                  key={index}
-                  className={`flex h-20 flex-1 items-center justify-center rounded-xl border-2 bg-muted text-4xl font-semibold tabular-nums transition-colors ${
-                    codeError?.kind === 'wrong'
-                      ? 'border-destructive'
-                      : codeFocused && Math.min(codeInput.length, 3) === index && !locked
-                        ? 'border-ring ring-2 ring-ring/25'
-                        : 'border-border'
-                  } ${locked ? 'opacity-60' : ''}`}
-                >
-                  {unlocking && index === 3 && codeInput.length === 4 ? (
-                    <ShellLoader className="size-6 text-muted-foreground" />
-                  ) : (
-                    codeInput[index] ?? ''
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Always visible, not withheld until a failure: the reasoning that a
-              scanner "just saw the poster" does not survive a gloved hand and a
-              borrowed phone. */}
-          <p className="mt-4 text-sm text-muted-foreground">{t('code.whereHint')}</p>
-
-          {/* Wrong: the only failure the typing can fix — so it is also the only
-              one that says where the code is written. Since the slip carries it
-              (see `links-qr-sheet`), that sentence is now true. */}
-          {codeError?.kind === 'wrong' && (
-            <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground">
-              <p className="font-medium text-destructive">{t('code.wrong')}</p>
-              {codeError.attemptsLeft !== null && (
-                <p className="mt-0.5">{t('code.attemptsLeft', { count: codeError.attemptsLeft })}</p>
-              )}
-              <p className="mt-1 text-xs text-muted-foreground">{t('code.whereHint')}</p>
-            </div>
-          )}
-
-          {/* Locked: the one message where the crew's own typing may not be to
-              blame at all — the station NATs every phone behind one address. */}
-          {locked && (
-            <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-              <p className="font-medium">{t('code.lockedTitle', { time: countdown })}</p>
-              <p className="mt-0.5">{t('code.lockedBody')}</p>
-            </div>
-          )}
-
-          {/* Offline: nothing was checked, so nothing is known about the code. */}
-          {codeError?.kind === 'offline' && (
-            <div className="mt-3 rounded-lg border border-info/40 bg-info/10 p-3 text-sm text-foreground">
-              <p className="font-medium">{t('code.offlineTitle')}</p>
-              <p className="mt-0.5">{t('code.offlineBody')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('code.offlineHint')}</p>
-            </div>
-          )}
-
-          {/* No standing submit button: the fourth digit submits by itself, so
-              the happy path never shows a control that could look dead. The one
-              deliberate tap left is the offline retry — the digits are kept and
-              probably right, so retrying must not mean retyping. */}
-          {codeError?.kind === 'offline' && (
-            <Button
-              size="lg"
-              className="mt-6 w-full"
-              disabled={codeInput.length < 4 || unlocking}
-              onClick={submitCode}
-            >
-              {t('code.retry')}
-            </Button>
-          )}
-        </div>
-      </div>
-    )
-  }
+  if (viewMode === 'code') return codeScreen
 
   // ---------------------------------------------------------------- list
   if (viewMode === 'list') {
@@ -1660,7 +1370,7 @@ function FeldSurface() {
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
         subtitle={roleLine || selectedPerson?.role || eventName}
-        onNotMe={() => setConfirmNotMe(true)}
+        onNotMe={askNotMe}
       />
 
       <div className="max-w-md mx-auto space-y-3 p-4">
@@ -1991,14 +1701,7 @@ function FeldSurface() {
         />
       )}
 
-      <ConfirmDialog
-        open={confirmNotMe}
-        onOpenChange={setConfirmNotMe}
-        title={t('assignments.notMeTitle')}
-        description={t('assignments.notMeDescription')}
-        confirmText={t('assignments.notMeConfirm')}
-        onConfirm={handleNotMe}
-      />
+      {notMeDialog}
     </div>
   )
 }

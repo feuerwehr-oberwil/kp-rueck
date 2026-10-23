@@ -117,7 +117,7 @@ interface AssignRekoDialogProps {
    * The dialog used to fire this and then call `onOpenChange(false)` itself,
    * which was wrong for the status gate: there, closing the dialog *means*
    * "backed out", and backing out reverts the card to the status it came from.
-   * React batches both calls, so `cancelRekoAssignment` still saw the old
+   * React batches both calls, so `cancelGate("rekoAssignment")` still saw the old
    * operation id and undid the very move the assignment had just justified —
    * the card jumped back to «Eingegangen» right after a successful assignment.
    */

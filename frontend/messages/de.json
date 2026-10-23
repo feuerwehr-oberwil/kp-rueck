@@ -725,7 +725,6 @@
         "history": "Verlauf",
         "switchHint": "Tab wechseln"
       },
-      "noEventSelectedLong": "Kein Ereignis ausgewählt. Bitte wähle ein Ereignis aus.",
       "incidentsLoadFailedDescription": "Die Einsätze konnten nicht geladen werden.",
       "meldungPlaceholder": "Eingegangene Meldung, Schadensbild …",
       "nachbarhilfeDescription": "Einsatz mit Nachbarfeuerwehr-Beteiligung",
@@ -3936,7 +3935,6 @@
       "submitted": "Rapport erfasst"
     },
     "leader": {
-      "label": "EL: {name}",
       "none": "kein EL erfasst",
       "self": "Du bist EL – der Rapport ist deine Aufgabe."
     },

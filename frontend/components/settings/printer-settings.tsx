@@ -21,6 +21,7 @@ import {
 import { apiClient, type ApiPrinterStatus } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
 import { SettingCard, SettingRow, SettingActions } from '@/components/settings/setting-row';
+import { useStationSettings } from '@/components/settings/station-settings-form';
 import { toast } from 'sonner';
 import { ShellLoader } from '@/components/ui/shell-loader';
 
@@ -37,10 +38,18 @@ type TestDruckPhase = 'queued' | 'printing' | 'done' | null;
 export function PrinterSettings() {
   const t = useTranslations('settings.printer');
   const tCommon = useTranslations('settings.common');
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  // The same store and save path as the settings page. No editor check of its own
+  // (`canEdit: true`): the section is editor-only and the page sits behind
+  // `ProtectedRoute`, so a viewer never gets here – and the PATCH is refused
+  // server-side anyway. A confirmed save re-reads the printer status.
+  const { settings, setSettings, serverSettings, loading, saving, updateSetting } = useStationSettings({
+    enabled: true,
+    canEdit: true,
+    onSaved: () => {
+      loadPrinterStatus();
+    },
+  });
   const [printerStatus, setPrinterStatus] = useState<ApiPrinterStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
   const [testingPrint, setTestingPrint] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -50,35 +59,16 @@ export function PrinterSettings() {
   const [testProgress, setTestProgress] = useState(0);
   const [testEta, setTestEta] = useState<string | null>(null);
 
-  // Track saved values to detect changes on blur
-  const savedSettingsRef = useRef<Record<string, string>>({});
   // Pending "reset the done bar" timer, so a quick re-run can cancel it.
   const testResetTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Load once on mount. The loaders are plain functions re-created on every
-  // render, so listing them as deps would refetch on every render.
+  // The printer status loads once on mount, after the settings (`useStationSettings`).
   useEffect(() => {
-    loadSettings();
     loadPrinterStatus();
     return () => {
       if (testResetTimerRef.current) clearTimeout(testResetTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const loadSettings = async () => {
-    setLoading(true);
-    try {
-      const data = await apiClient.getAllSettings();
-      setSettings(data);
-      savedSettingsRef.current = { ...data };
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-      toast.error(tCommon('loadSettingsError'));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadPrinterStatus = async (): Promise<ApiPrinterStatus | null> => {
     setStatusLoading(true);
@@ -92,22 +82,6 @@ export function PrinterSettings() {
       return null;
     } finally {
       setStatusLoading(false);
-    }
-  };
-
-  const updateSetting = async (key: string, value: string) => {
-    setSaving(key);
-    try {
-      await apiClient.updateSetting(key, value);
-      setSettings((prev) => ({ ...prev, [key]: value }));
-      savedSettingsRef.current[key] = value;
-      // Refresh status after settings change
-      loadPrinterStatus();
-    } catch (error) {
-      console.error(`Failed to update setting ${key}:`, error);
-      toast.error(tCommon('saveError'));
-    } finally {
-      setSaving(null);
     }
   };
 
@@ -295,7 +269,7 @@ export function PrinterSettings() {
               setSettings((prev) => ({ ...prev, 'printer.ip': e.target.value }))
             }
             onBlur={(e) => {
-              if (e.target.value !== savedSettingsRef.current['printer.ip']) {
+              if (e.target.value !== serverSettings['printer.ip']) {
                 updateSetting('printer.ip', e.target.value);
               }
             }}
@@ -316,7 +290,7 @@ export function PrinterSettings() {
               setSettings((prev) => ({ ...prev, 'printer.port': e.target.value }))
             }
             onBlur={(e) => {
-              if (e.target.value !== savedSettingsRef.current['printer.port']) {
+              if (e.target.value !== serverSettings['printer.port']) {
                 updateSetting('printer.port', e.target.value);
               }
             }}
