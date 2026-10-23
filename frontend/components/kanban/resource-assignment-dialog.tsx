@@ -40,7 +40,7 @@ interface ResourceAssignmentDialogProps {
   resourceType: 'crew' | 'vehicles' | 'materials' | null
   operationId: string | null
   /** The search the dialog opens with — a field request's item (R13), so
-   *  «Material zuteilen» on «Tauchpumpe Gr. ×2» lands on the pumps. */
+   *  «Material zuweisen» on «Tauchpumpe Gr. ×2» lands on the pumps. */
   initialSearch?: string
   /** Whether the dialog is assigning to a single incident or to an Auftrag (route).
    *  Drives the title/label wording; defaults to 'incident'. */

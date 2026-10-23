@@ -316,9 +316,9 @@
       "title": "Bisher im Einsatz",
       "loading": "Wird geladen …",
       "retry": "Erneut versuchen",
-      "empty": "Diesem Einsatz war noch nichts zugeteilt.",
+      "empty": "Diesem Einsatz war noch nichts zugewiesen.",
       "deletedResource": "Gelöschte Ressource",
-      "stints": "{count}× zugeteilt",
+      "stints": "{count}× zugewiesen",
       "stillOn": "seit {from}"
     },
     "clock": {
@@ -437,7 +437,6 @@
       "amWarten": "Am Warten",
       "amWartenDescription": "Einsatz verzögert / wartet auf Ressourcen",
       "amWartenPlaceholder": "Grund der Verzögerung …",
-      "rekoReports": "Reko-Berichte",
       "reko": "Reko",
       "magazin": "Magazin",
       "directLink": "Direkt-Link",
@@ -721,7 +720,6 @@
         "history": "Verlauf",
         "switchHint": "Tab wechseln"
       },
-      "viaAuftrag": "über Auftrag «{name}»",
       "vehiclesLoadFailed": "Fahrzeuge konnten nicht geladen werden",
       "vehiclesLoadFailedDescription": "Bitte erneut versuchen oder das Fenster neu öffnen.",
       "noEventSelectedLong": "Kein Ereignis ausgewählt. Bitte wähle ein Ereignis aus.",
@@ -742,8 +740,6 @@
       "diveraAlarm": "Aufgebot",
       "eventWideRekoTransfer": "Alle offenen Rekos übertragen",
       "eventWideRekoTransferTooltip": "Überträgt alle offenen Reko-Aufträge dieser Person im gesamten Ereignis, nicht nur diesen Einsatz.",
-      "allVehiclesAssigned": "Alle Fahrzeuge zugewiesen",
-      "resourcesCount": "Ressourcen ({count})",
       "sourceAuftrag": "Auftrag «{name}»",
       "sourceAuftragHint": "Fährt mit zum nächsten Stopp",
       "sourceIncident": "Nur dieser Einsatz",
@@ -767,12 +763,12 @@
       "unassignFailed": "Funktion konnte nicht entfernt werden",
       "driver": "Fahrer",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
-      "conflictDescription": "<strong>{name}</strong> ist aktuell {assignment}. Als {function} kann die Person nicht gleichzeitig einem Einsatz zugeteilt sein.",
+      "conflictDescription": "<strong>{name}</strong> ist aktuell {assignment}. Als {function} kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictAssignedOne": "dem Einsatz «{location}» zugewiesen",
       "conflictAssignedMany": "{count} Einsätzen zugewiesen",
       "confirmAction": "Vom Einsatz entfernen & zuweisen",
       "unassignTitle": "{function}-Funktion entfernen?",
-      "unassignRekoDescription": "<strong>{name}</strong> verliert die Reko-Funktion und erscheint nicht mehr in den Reko-Ansichten (Reko-Dashboard, Karte). Bestehende Einsatz-Zuteilungen bleiben bestehen. Die Person gilt danach wieder als normale Einsatzkraft.",
+      "unassignRekoDescription": "<strong>{name}</strong> verliert die Reko-Funktion und erscheint nicht mehr in den Reko-Ansichten (Reko-Dashboard, Karte). Bestehende Einsatz-Zuweisungen bleiben bestehen. Die Person gilt danach wieder als normale Einsatzkraft.",
       "unassignRekoTransfer": "{count, plural, one {# Einsatz übertragen} other {# Einsätze übertragen}}",
       "unassignDriverDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
       "unassignMagazinDescription": "<strong>{name}</strong> verliert die Magazin-Funktion und gilt danach wieder als normale Einsatzkraft.",
@@ -995,13 +991,13 @@
       "noneFound": "Keine Personen gefunden",
       "since": "seit {time}",
       "unavailable": "nicht verfügbar",
-      "assignedChip": "zugeteilt",
-      "assignedTitle": "Person ist noch zugeteilt",
-      "assignedDescription": "{name} ist noch an {where} zugeteilt – trotzdem abmelden? Die Zuteilung bleibt bestehen.",
+      "assignedChip": "zugewiesen",
+      "assignedTitle": "Person ist noch zugewiesen",
+      "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem abmelden? Die Zuweisung bleibt bestehen.",
       "checkOutAnyway": "Trotzdem abmelden",
       "checkOutAll": "Alle abmelden",
       "checkOutAllTitle": "Alle abmelden?",
-      "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuteilungen bleiben bestehen.",
+      "checkOutAllDescription": "{count, plural, one {# anwesende Person wird} other {# anwesende Personen werden}} auf «gegangen» gesetzt. Zuweisungen bleiben bestehen.",
       "quickAddHint": "Wird direkt angemeldet",
       "writeFailed": "Anwesenheit konnte nicht gespeichert werden"
     },
@@ -1220,7 +1216,7 @@
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
       "confirmTitle": "Ressourcen wirklich übertragen?",
-      "confirmDescription": "Alle zugeteilten Ressourcen von «{source}» werden auf «{target}» verschoben. Das lässt sich nicht rückgängig machen.",
+      "confirmDescription": "Alle zugewiesenen Ressourcen von «{source}» werden auf «{target}» verschoben. Das lässt sich nicht rückgängig machen.",
       "confirmCounts": "Es werden verschoben: {crew} Personal, {vehicles} Fahrzeuge, {materials} Material."
     },
     "driver": {
@@ -1242,7 +1238,7 @@
       "allAssignedHint": "Alle Personen sind bereits als Fahrer eingeteilt oder nicht eingecheckt",
       "close": "Schliessen",
       "conflictTitle": "Person ist einem Einsatz zugewiesen",
-      "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugeteilt sein.",
+      "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictConfirm": "Vom Einsatz entfernen & zuweisen",
       "drivesVehicle": "Fährt {vehicle}",
       "reassignTitle": "Fahrer wechseln",
@@ -1906,7 +1902,7 @@
         "locked": "Im Demo-Modus nicht änderbar"
       },
       "import": {
-        "importSuccess": "Import erfolgreich! {personnel} Personal, {vehicles} Fahrzeuge, {materials} Material importiert.",
+        "importSuccess": "Import erfolgreich – {personnel} Personal, {vehicles} Fahrzeuge, {materials} Material importiert.",
         "exportTitle": "Export",
         "exportDescription": "Alle Ressourcen als Excel herunterladen",
         "exportButton": "Exportieren",
@@ -1938,10 +1934,10 @@
         "modeChosen": "Gewählt",
         "importReplaceAction": "Bestand löschen und ersetzen",
         "switchToAppend": "Stattdessen anhängen",
-        "replaceBlockedTooltip": "{count} aktive Zuteilungen auf laufenden Einsätzen – «Ersetzen» wird abgelehnt.",
+        "replaceBlockedTooltip": "{count} aktive Zuweisungen auf laufenden Einsätzen – «Ersetzen» wird abgelehnt.",
         "sheetEmpty": "{resource}: keine Zeilen in der Datei.",
         "sheetEmptyAmbiguous": "{resource}: keine Zeilen in der Datei. Ist das Blatt mit Kopfzeile vorhanden, wird die Tabelle geleert – fehlt das Blatt ganz, lehnt der Import ab.",
-        "replaceConfirmDeletions": "Gelöscht werden <strong>{personnel}</strong> Personal, <strong>{vehicles}</strong> Fahrzeuge, <strong>{materials}</strong> Material – und <strong>{assignments}</strong> Zuteilungen zeigen danach ins Leere.",
+        "replaceConfirmDeletions": "Gelöscht werden <strong>{personnel}</strong> Personal, <strong>{vehicles}</strong> Fahrzeuge, <strong>{materials}</strong> Material – und <strong>{assignments}</strong> Zuweisungen zeigen danach ins Leere.",
         "balance": {
           "title": "Bilanz",
           "modeBadgeReplace": "Modus: Ersetzen",
@@ -1961,20 +1957,20 @@
           "afterEmpty": "leer",
           "totalRow": "Total Datensätze",
           "nothingDeletedTitle": "Es wird nichts gelöscht.",
-          "nothingDeletedHint": "Keine Zuteilung verliert ihre Ressource, kein laufender Einsatz ist betroffen.",
+          "nothingDeletedHint": "Keine Zuweisung verliert ihre Ressource, kein laufender Einsatz ist betroffen.",
           "consequencesTitle": "Folgen auf dem Einsatzboard",
-          "consequencesBlockedTitle": "Blockiert: aktive Zuteilungen auf laufenden Einsätzen und Aufträgen",
+          "consequencesBlockedTitle": "Blockiert: aktive Zuweisungen auf laufenden Einsätzen und Aufträgen",
           "repairableBadge": "Später aufräumbar",
-          "orphanedLabel": "Zuteilungen zeigen danach ins Leere",
+          "orphanedLabel": "Zuweisungen zeigen danach ins Leere",
           "orphanedActiveLabel": "davon aktiv auf laufenden Einsätzen",
-          "groupOrphanedLabel": "Auftrags-Zuteilungen zeigen danach ins Leere",
+          "groupOrphanedLabel": "Auftrags-Zuweisungen zeigen danach ins Leere",
           "groupOrphanedActiveLabel": "davon aktiv auf laufenden Aufträgen",
-          "consequencesHint": "Zuteilungen verweisen ohne Fremdschlüssel auf ihre Ressource: gelöschtes Personal, Fahrzeuge und Material lassen die Zuteilung stehen – auf einem Einsatz, der weiterläuft.",
-          "consequencesBlockedHint": "Zuteilungen freigeben, Einsätze und Aufträge abschliessen – oder mit «Anhängen» importieren. Abgeschlossene Einsätze blockieren nicht.",
+          "consequencesHint": "Zuweisungen verweisen ohne Fremdschlüssel auf ihre Ressource: gelöschtes Personal, Fahrzeuge und Material lassen die Zuweisung stehen – auf einem Einsatz, der weiterläuft.",
+          "consequencesBlockedHint": "Zuweisungen freigeben, Einsätze und Aufträge abschliessen – oder mit «Anhängen» importieren. Abgeschlossene Einsätze blockieren nicht.",
           "cascadeTitle": "Wird ersatzlos mitgelöscht",
           "cascadeBadge": "Nur mit Datensicherung",
           "cascadeAttendanceLabel": "Anwesenheiten (Check-Ins)",
-          "cascadeFunctionsLabel": "Zugeteilte Spezialfunktionen",
+          "cascadeFunctionsLabel": "Zugewiesene Spezialfunktionen",
           "cascadeIdentitiesLabel": "Verknüpfungen zum Alarmierungskonto",
           "cascadeHint": "Diese Zeilen hängen direkt an Personal und Fahrzeugen und verschwinden mit ihnen – auf dem Board bleibt nichts zum Aufräumen. Zurück holt sie nur eine Datensicherung, Alarmierungskonten müssen danach neu verknüpft werden."
         },
@@ -2269,7 +2265,6 @@
       "resetPasswordDescription": "Setze ein neues Passwort für {name}.",
       "newPasswordLabel": "Neues Passwort",
       "newPasswordPlaceholder": "Neues Passwort eingeben",
-      "resetting": "Wird zurückgesetzt …",
       "setPassword": "Passwort setzen",
       "deactivateTitle": "Benutzer deaktivieren?",
       "deactivateDescription": "Der Benutzer {name} wird deaktiviert und kann sich nicht mehr anmelden. Diese Aktion kann rückgängig gemacht werden.",
@@ -2513,7 +2508,7 @@
     },
     "deleteDialog": {
       "title": "Ereignis dauerhaft löschen?",
-      "warning": "Warnung: Dieser Vorgang kann nicht rückgängig gemacht werden!",
+      "warning": "Dieser Vorgang lässt sich nicht rückgängig machen.",
       "question": "Möchtest du das Ereignis «{name}» und alle zugehörigen Einsätze wirklich dauerhaft löschen?",
       "note": "Dies betrifft {count, plural, one {# Einsatz} other {# Einsätze}} und alle zugehörigen Daten.",
       "cancel": "Abbrechen",
@@ -2597,7 +2592,7 @@
       "openCount": "{count} offen",
       "doneCount": "{count} fertig",
       "totalCount": "{count, plural, one {# Einsatz insgesamt} other {# Einsätze insgesamt}}",
-      "completed": "Beendet"
+      "completed": "Abgeschlossen"
     },
     "photoUpload": {
       "notAnImage": "{name} ist kein Bild",
@@ -2781,13 +2776,12 @@
       "checkPrinter": "Drucker prüfen",
       "subjectSlip": "Einsatzzettel",
       "subjectBoard": "Board-Snapshot",
-      "subjectQr": "QR-Code",
       "subjectTest": "Testdruck",
       "subjectAbholliste": "Abholliste"
     },
     "common": {
       "incidentList": "Einsatzliste",
-      "completedIncidents": "Beendete Einsätze",
+      "completedIncidents": "Abgeschlossene Einsätze",
       "vehicleStatus": "Fahrzeug-Status",
       "print": "Drucken"
     },
@@ -3105,7 +3099,7 @@
       "resourceMovedDescription": "Von {labels} entfernt."
     },
     "railway": {
-      "backOnlineTitle": "Railway ist wieder online!",
+      "backOnlineTitle": "Railway ist wieder online",
       "backOnlineDescription": "Lokale Änderungen zu Railway synchronisieren?",
       "syncNowLabel": "Jetzt synchronisieren",
       "syncing": "Wird zu Railway synchronisiert …",
@@ -3345,7 +3339,7 @@
       "feld_person_not_found": "Person nicht gefunden",
       "feld_person_no_access": "Für diese Person ist in diesem Ereignis keine Einsatzstelle erfasst.",
       "feld_not_magazin": "Diese Person führt in diesem Ereignis nicht das Magazin.",
-      "feld_incident_not_assigned": "Diese Einsatzstelle ist dir nicht zugeteilt.",
+      "feld_incident_not_assigned": "Diese Einsatzstelle ist dir nicht zugewiesen.",
       "feld_report_not_yours": "Diese Meldung ist nicht deine.",
       "feld_report_taken_over": "Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Funk.",
       "feld_merge_target_closed": "Dieser Einsatz ist nicht mehr offen. Bitte neu melden.",
@@ -3489,7 +3483,7 @@
       "injectRapport": "Rapport eingetroffen",
       "injectRapportDesc": "Ein ausgefüllter Schadenplatz-Rapport trifft ein.",
       "injectFieldMessage": "Meldung vom Feld",
-      "injectFieldMessageDesc": "Kurze Meldung des Trupps ans KP – Glocke und Journal.",
+      "injectFieldMessageDesc": "Kurze Meldung des Trupps ans KP – Glocke und Tagebuch.",
       "injectPickupNeeded": "Abholung nötig melden",
       "injectPickupNeededDesc": "Der Trupp steht ohne Fahrzeug da und braucht eine Abholung.",
       "injectPickupDone": "Abholung disponiert melden",
@@ -3523,7 +3517,7 @@
       "fieldReportExample1": "Person in Wohnung vermutet",
       "fieldReportExample2": "Gasgeruch im UG",
       "fieldReportExample3": "Weiterer Baum auf der Strasse",
-      "fieldReportNoIncidents": "Kein offener Einsatz mit zugeteiltem Trupp – eine Meldung vom Feld braucht einen Trupp im Feld.",
+      "fieldReportNoIncidents": "Kein offener Einsatz mit zugewiesenem Trupp – eine Meldung vom Feld braucht einen Trupp im Feld.",
       "fieldReportHint": "Der Trupp meldet einen neuen Schadenplatz – trifft ein wie eine echte Meldung."
     }
   },
@@ -3755,7 +3749,6 @@
       "noVehicles": "Keine Fahrzeuge zugewiesen",
       "materialsHeading": "Material ({count})",
       "noMaterials": "Kein Material zugewiesen",
-      "rekoResult": "Reko-Ergebnis",
       "relevant": "Relevant:",
       "dangers": "Gefahren: {types}",
       "personnelNeed": "Mannschaftsbedarf:",
@@ -3815,11 +3808,8 @@
       "rekoCompleted": "Reko-Bericht ausgefüllt",
       "rekoOnSite": "Reko vor Ort",
       "invalidLink": "Ungültiger oder abgelaufener Link. Bitte einen neuen Link anfordern.",
-      "eventFallback": "Ereignis",
       "readOnly": "Nur-Lesen",
-      "hideCompleted": "Abgeschlossen ausblenden",
-      "showCompleted": "Abgeschlossen anzeigen",
-      "completedColumn": "ABGESCHLOSSEN ({count})"
+      "showCompleted": "Abgeschlossen anzeigen"
     }
   },
   "intake": {
@@ -3897,19 +3887,19 @@
       "description": "Wähle dich aus der Liste – danach siehst du deine Schadenplätze.",
       "searchPlaceholder": "Name suchen …",
       "noneFound": "Keine Person gefunden",
-      "empty": "In diesem Ereignis ist noch niemand einem Schadenplatz zugeteilt.",
+      "empty": "In diesem Ereignis ist noch niemand einem Schadenplatz zugewiesen.",
       "incidentCount": "{count, plural, one {# Schadenplatz} other {# Schadenplätze}}",
       "missingRapport": "{count} ohne Rapport"
     },
     "assignments": {
       "title": "Meine Schadenplätze",
       "notMe": "Nicht ich",
-      "empty": "Dir ist im Moment kein Schadenplatz zugeteilt. Melde dich beim KP – sobald du eingeteilt bist, erscheint er hier.",
-      "released": "Nicht mehr zugeteilt",
+      "empty": "Dir ist im Moment kein Schadenplatz zugewiesen. Melde dich beim KP – sobald du eingeteilt bist, erscheint er hier.",
+      "released": "Nicht mehr zugewiesen",
       "past": "Früher",
       "notMeTitle": "Abmelden?",
       "notMeDescription": "Dieses Gerät wird abgemeldet. Wer es als Nächstes benutzt, braucht den Feld-Code.",
-      "auftrag": "{name} · {count} Stops",
+      "auftrag": "{name} · {count, plural, one {# Stopp} other {# Stopps}}",
       "navigate": "Navigation starten",
       "journey": {
         "approach": "Anfahrt",
@@ -4005,7 +3995,7 @@
     },
     "pickupPrompt": {
       "title": "Abholung disponiert?",
-      "assigned": "{vehicle} ist neu bei {label} zugeteilt – dort wartet eine Abholung.",
+      "assigned": "{vehicle} ist neu bei {label} zugewiesen – dort wartet eine Abholung.",
       "returned": "{vehicle} ist zurück im Magazin. Bei {label} wartet noch eine Abholung.",
       "waiting": "Wartet seit {duration}.",
       "neverAutomatic": "Wird nie automatisch disponiert – nur diese Bestätigung räumt die Abholung weg.",
@@ -4063,7 +4053,7 @@
       "material": {
         "title": "Material",
         "empty": "Kein Material erfasst.",
-        "noLongerAssigned": "Nicht mehr zugeteilt",
+        "noLongerAssigned": "Nicht mehr zugewiesen",
         "consumable": "Verbrauch",
         "used": "gebraucht",
         "usedAria": "Gebraucht: {name}",
@@ -4122,7 +4112,7 @@
       "personnel": {
         "present": "war dabei",
         "presentAria": "War dabei: {name}",
-        "empty": "Das Board hat hierher niemanden zugeteilt.",
+        "empty": "Das Board hat hierher niemanden zugewiesen.",
         "searchPlaceholder": "Person suchen",
         "showRest": "Weitere Personen ({count})",
         "hideRest": "Weitere Personen ausblenden",
@@ -4156,9 +4146,9 @@
       "released": "{count, plural, one {# Gerät freigegeben} other {# Geräte freigegeben}}",
       "releaseFailed": "Freigeben fehlgeschlagen",
       "stillOnSiteTitle": "Vor Ort verblieben",
-      "stillOnSiteHint": "Bleibt zugeteilt, bis es abgeholt ist – erscheint in der Restliste.",
+      "stillOnSiteHint": "Bleibt zugewiesen, bis es abgeholt ist – erscheint in der Restliste.",
       "namedTitle": "Weiteres Material vor Ort",
-      "namedHint": "Vom Trupp benannt, nicht vom Board zugeteilt – es gibt nichts freizugeben. Steht auf der Restliste und auf der Abholliste."
+      "namedHint": "Vom Trupp benannt, nicht vom Board zugewiesen – es gibt nichts freizugeben. Steht auf der Restliste und auf der Abholliste."
     },
     "code": {
       "title": "Code eingeben",
@@ -4184,7 +4174,7 @@
       "reko": "Reko-Auftrag",
       "driver": "Als Fahrer · {vehicle}",
       "magazin": "Magazin",
-      "rekoReason": "Vom KP als Reko zugeteilt",
+      "rekoReason": "Vom KP als Reko zugewiesen",
       "magazinReason": "Material von hier ist noch nicht zurück",
       "rekoAction": "Reko erfassen",
       "rekoClosed": "Ohne Reko disponiert – keine Meldung mehr nötig"
@@ -4217,9 +4207,9 @@
       "failed": "Meldung konnte nicht abgesetzt werden.",
       "confirm": {
         "none": "Meldung ist beim KP",
-        "stop": "Als weiterer Stop in eurem Auftrag",
-        "auftrag": "Auftrag eröffnet – ihr habt jetzt zwei Stops",
-        "solo": "Meldung ist beim KP – ihr seid zugeteilt"
+        "stop": "Als weiterer Stopp in eurem Auftrag",
+        "auftrag": "Auftrag eröffnet – ihr habt jetzt zwei Stopps",
+        "solo": "Meldung ist beim KP – ihr seid zugewiesen"
       },
       "titlePhone": "Telefonische Meldung",
       "fabPhone": "Anruf erfassen",
@@ -4334,8 +4324,8 @@
       "done": "Erledigt",
       "doneTitle": "Als erledigt markieren – verschwindet von Karte und Seitenleiste",
       "reopen": "Wieder öffnen",
-      "assignMaterial": "Material zuteilen",
-      "assignCrew": "Personal zuteilen",
+      "assignMaterial": "Material zuweisen",
+      "assignCrew": "Mannschaft zuweisen",
       "pickupDone": "Abholung disponiert",
       "updateFailed": "Die Anforderung konnte nicht gespeichert werden.",
       "detailTitle": "Anforderungen vom Feld",
@@ -4424,14 +4414,14 @@
       "manual": "Manuell",
       "field": "Feld",
       "status": "Status",
-      "resources": "Mittel"
+      "resources": "Ressourcen"
     },
     "loading": "Einsatztagebuch wird geladen …",
     "loadFailed": "Einsatztagebuch konnte nicht geladen werden.",
     "retry": "Erneut versuchen",
     "emptyTitle": "Noch keine Einträge",
-    "emptyEditor": "Statuswechsel, Zuteilungen und Meldungen erscheinen hier von selbst. Was zu keinem Einsatz gehört, unten eintragen.",
-    "emptyViewer": "Statuswechsel, Zuteilungen und Meldungen erscheinen hier von selbst.",
+    "emptyEditor": "Statuswechsel, Zuweisungen und Meldungen erscheinen hier von selbst. Was zu keinem Einsatz gehört, unten eintragen.",
+    "emptyViewer": "Statuswechsel, Zuweisungen und Meldungen erscheinen hier von selbst.",
     "emptyFilteredTitle": "Keine Einträge in diesem Filter",
     "emptyFiltered": "Gefiltert: {filters}.",
     "corrected": "korrigiert {time}",
@@ -4454,7 +4444,7 @@
       "created": "Einsatz erstellt",
       "deleted": "Einsatz gelöscht",
       "restored": "Einsatz wiederhergestellt",
-      "assigned": "{name} zugeteilt",
+      "assigned": "{name} zugewiesen",
       "unassigned": "{name} vom Einsatz abgezogen",
       "reko": "Reko-Bericht eingegangen",
       "rekoWith": "Reko-Bericht eingegangen: {text}",

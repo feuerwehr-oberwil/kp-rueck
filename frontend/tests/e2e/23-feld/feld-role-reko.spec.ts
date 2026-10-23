@@ -240,7 +240,7 @@ test.describe('/feld als Reko-Trupp', () => {
     // `rekoAction`. Three separate strings because they answer three separate
     // questions: what this is, why it is on MY list, and what tapping does.
     await expect(rekoRow.getByText('Reko-Auftrag', { exact: true })).toBeVisible();
-    await expect(rekoRow.getByText('Vom KP als Reko zugeteilt')).toBeVisible();
+    await expect(rekoRow.getByText('Vom KP als Reko zugewiesen')).toBeVisible();
     await expect(rekoRow.getByText('Reko erfassen', { exact: true })).toBeVisible();
 
     // No Rapport chip: the trupp does not owe a Schadenplatz-Rapport, and a
@@ -313,7 +313,7 @@ test.describe('/feld als Reko-Trupp', () => {
     const fallbackRow = row(phone, fixture.fallbackIncident);
     await expect(fallbackRow).toBeVisible({ timeout: FIELD_TIMEOUT });
     await expect(fallbackRow.getByText('Reko-Auftrag', { exact: true })).toBeVisible();
-    await expect(fallbackRow.getByText('Vom KP als Reko zugeteilt')).toBeVisible();
+    await expect(fallbackRow.getByText('Vom KP als Reko zugewiesen')).toBeVisible();
     await expect(fallbackRow.getByText('Reko erfassen', { exact: true })).toBeVisible();
     await expect(fallbackRow.getByText('kein EL erfasst')).toHaveCount(0);
 

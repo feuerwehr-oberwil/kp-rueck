@@ -323,7 +323,6 @@
       "noVehicles": "Aucun véhicule attribué",
       "materialsHeading": "Matériel ({count})",
       "noMaterials": "Aucun matériel attribué",
-      "rekoResult": "Résultat de la reconnaissance",
       "relevant": "Pertinent :",
       "dangers": "Dangers : {types}",
       "personnelNeed": "Besoin en effectif :",
@@ -383,11 +382,8 @@
       "rekoCompleted": "Rapport de reconnaissance rempli",
       "rekoOnSite": "Reconnaissance sur place",
       "invalidLink": "Lien non valable ou échu. Demande un nouveau lien.",
-      "eventFallback": "Événement",
       "readOnly": "Lecture seule",
-      "hideCompleted": "Masquer les clôturées",
-      "showCompleted": "Afficher les clôturées",
-      "completedColumn": "CLÔTURÉES ({count})"
+      "showCompleted": "Afficher les clôturées"
     }
   },
   "divera": {
@@ -639,7 +635,7 @@
     },
     "deleteDialog": {
       "title": "Supprimer définitivement l’événement ?",
-      "warning": "Attention : cette opération est irréversible !",
+      "warning": "Cette opération est irréversible.",
       "question": "Veux-tu vraiment supprimer définitivement l’événement « {name} » et toutes les interventions qui s’y rattachent ?",
       "note": "Cela concerne {count, plural, one {# intervention} other {# interventions}} et toutes les données associées.",
       "cancel": "Annuler",
@@ -723,7 +719,7 @@
       "past": "Précédemment",
       "notMeTitle": "Se déconnecter ?",
       "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
-      "auftrag": "{name} · {count} arrêts",
+      "auftrag": "{name} · {count, plural, one {# arrêt} other {# arrêts}}",
       "navigate": "Lancer la navigation",
       "journey": {
         "approach": "Trajet aller",
@@ -1149,7 +1145,7 @@
       "doneTitle": "Marquer comme réglé – disparaît de la fiche et du panneau",
       "reopen": "Rouvrir",
       "assignMaterial": "Attribuer du matériel",
-      "assignCrew": "Attribuer du personnel",
+      "assignCrew": "Attribuer de l’effectif",
       "pickupDone": "Récupération organisée",
       "updateFailed": "La demande n’a pas pu être enregistrée.",
       "detailTitle": "Demandes du terrain",
@@ -1664,7 +1660,6 @@
       "amWarten": "En attente",
       "amWartenDescription": "Intervention retardée / en attente de ressources",
       "amWartenPlaceholder": "Motif du retard …",
-      "rekoReports": "Rapports de reconnaissance",
       "reko": "Reconnaissance",
       "magazin": "Caserne",
       "directLink": "Lien direct",
@@ -1948,7 +1943,6 @@
         "history": "Historique",
         "switchHint": "Changer d’onglet"
       },
-      "viaAuftrag": "via la mission « {name} »",
       "vehiclesLoadFailed": "Les véhicules n’ont pas pu être chargés",
       "vehiclesLoadFailedDescription": "Réessaie ou rouvre la fenêtre.",
       "noEventSelectedLong": "Aucun événement sélectionné. Choisis un événement.",
@@ -1969,8 +1963,6 @@
       "diveraAlarm": "Convocation",
       "eventWideRekoTransfer": "Transférer toutes les reconnaissances ouvertes",
       "eventWideRekoTransferTooltip": "Transfère toutes les missions de reconnaissance ouvertes de cette personne dans tout l’événement, pas seulement cette intervention.",
-      "allVehiclesAssigned": "Tous les véhicules sont attribués",
-      "resourcesCount": "Ressources ({count})",
       "sourceAuftrag": "Mission « {name} »",
       "sourceAuftragHint": "Poursuit vers l'étape suivante",
       "sourceIncident": "Uniquement cette intervention",
@@ -2789,7 +2781,7 @@
       "resourceMovedDescription": "Retiré de {labels}."
     },
     "railway": {
-      "backOnlineTitle": "Railway est de nouveau en ligne !",
+      "backOnlineTitle": "Railway est de nouveau en ligne",
       "backOnlineDescription": "Synchroniser les modifications locales vers Railway ?",
       "syncNowLabel": "Synchroniser maintenant",
       "syncing": "Synchronisation vers Railway …",
@@ -2974,13 +2966,12 @@
       "checkPrinter": "Vérifier l’imprimante",
       "subjectSlip": "Fiche d’intervention",
       "subjectBoard": "Instantané du tableau",
-      "subjectQr": "Code QR",
       "subjectTest": "Impression de test",
       "subjectAbholliste": "Liste de récupération"
     },
     "common": {
       "incidentList": "Liste des interventions",
-      "completedIncidents": "Interventions terminées",
+      "completedIncidents": "Interventions clôturées",
       "vehicleStatus": "État des véhicules",
       "print": "Imprimer"
     },
@@ -3608,7 +3599,7 @@
         "locked": "Non modifiable en mode démo"
       },
       "import": {
-        "importSuccess": "Import réussi ! {personnel} personnes, {vehicles} véhicules, {materials} matériels importés.",
+        "importSuccess": "Import réussi – {personnel} personnes, {vehicles} véhicules, {materials} matériels importés.",
         "exportTitle": "Export",
         "exportDescription": "Télécharger toutes les ressources en Excel",
         "exportButton": "Exporter",
@@ -3971,7 +3962,6 @@
       "resetPasswordDescription": "Définis un nouveau mot de passe pour {name}.",
       "newPasswordLabel": "Nouveau mot de passe",
       "newPasswordPlaceholder": "Saisir un nouveau mot de passe",
-      "resetting": "Réinitialisation …",
       "setPassword": "Définir le mot de passe",
       "deactivateTitle": "Désactiver l’utilisateur ?",
       "deactivateDescription": "L’utilisateur {name} sera désactivé et ne pourra plus se connecter. Cette action est réversible.",
@@ -4424,7 +4414,7 @@
       "manual": "Manuel",
       "field": "Terrain",
       "status": "Statut",
-      "resources": "Moyens"
+      "resources": "Ressources"
     },
     "loading": "Chargement du journal …",
     "loadFailed": "Le journal n'a pas pu être chargé.",

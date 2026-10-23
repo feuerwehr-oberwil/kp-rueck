@@ -8,7 +8,7 @@
  * never does. Its bell entry is not listed a second time below (the context's
  * `representedIds`), so one Meldung is one row. The row opens the incident on
  * the tab the list lives on; its buttons work the request in place, and
- * «Material zuteilen» / «Personal zuteilen» open the board's assignment dialog
+ * «Material zuweisen» / «Mannschaft zuweisen» open the board's assignment dialog
  * when the board is the page that is open.
  */
 
