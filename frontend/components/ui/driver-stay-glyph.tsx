@@ -14,7 +14,9 @@
  * whoever already knew to look. Reading a board is not a memory game: both
  * states are now written out in full — «bleibt vor Ort» / «fährt zurück» — and
  * the word and the icon (pin / return arrow) carry the difference. Both are
- * neutral muted chips since the «quieter cards» pass (2026-10): an amber chip
+ * neutral ink chips (the column-count treatment, `bg-foreground/10
+ * text-foreground` – muted on its own tint was ≈3:1) since the «quieter
+ * cards» pass (2026-10): an amber chip
  * on every crewed card was noise next to the Mittel edge and the Abholung
  * chip, which are the ambers that ask for action. Short
  * forms exist for the two surfaces where the chip is also a button and space is
@@ -46,7 +48,7 @@ export function DriverStayGlyph({
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 whitespace-nowrap",
-        "bg-muted-foreground/15 text-muted-foreground",
+        "bg-foreground/10 text-foreground",
         className,
       )}
     >

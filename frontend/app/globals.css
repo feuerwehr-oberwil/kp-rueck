@@ -117,7 +117,10 @@
   --secondary: oklch(0.30 0.012 250);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.32 0.01 250);
-  --muted-foreground: oklch(0.60 0.01 250);
+  /* 0.66, not 0.60: the secondary tier (Meldung, descriptions, placeholders)
+     sits on --card far more than on the page, and 0.60 measured ≈3.9:1 there.
+     0.66 ≈4.9:1 on --card, ≈5.6:1 on --background (sweep 2026-10, VISUAL-01). */
+  --muted-foreground: oklch(0.66 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
   /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
