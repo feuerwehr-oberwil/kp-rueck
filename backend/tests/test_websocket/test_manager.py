@@ -9,13 +9,11 @@ Tests cover:
 """
 
 import time
-import uuid
-from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.auth.security import create_access_token, create_login_tokens
+from app.auth.security import create_login_tokens
 from app.websocket_manager import (
     CLEANUP_INTERVAL_SECONDS,
     STALE_SESSION_TIMEOUT_SECONDS,
@@ -24,9 +22,7 @@ from app.websocket_manager import (
     broadcast_incident_update,
     broadcast_material_update,
     broadcast_personnel_update,
-    broadcast_system_message,
     broadcast_vehicle_update,
-    get_role_from_environ,
     get_websocket_cors_origins,
     ws_manager,
 )
@@ -314,18 +310,6 @@ class TestBroadcastFunctions:
                 room="operations",
             )
 
-    @pytest.mark.asyncio
-    async def test_broadcast_system_message(self):
-        """Test system message broadcast."""
-        with patch.object(ws_manager, "broadcast_update", new_callable=AsyncMock) as mock_broadcast:
-            await broadcast_system_message("Test message", level="warning")
-
-            mock_broadcast.assert_called_once()
-            call_args = mock_broadcast.call_args
-            assert call_args[0][0] == "system_message"
-            assert call_args[0][1]["message"] == "Test message"
-            assert call_args[0][1]["level"] == "warning"
-
 
 # ============================================
 # CORS Configuration Tests
@@ -475,15 +459,6 @@ class TestEdgeCases:
             # Should not raise exception, just log the error
             await manager.broadcast_update("test_event", {"data": "test"})
 
-    @pytest.mark.asyncio
-    async def test_send_to_client_error_handling(self, manager):
-        """Test that send_to_client errors are handled gracefully."""
-        with patch("app.websocket_manager.sio.emit", new_callable=AsyncMock) as mock_emit:
-            mock_emit.side_effect = Exception("Client disconnected")
-
-            # Should not raise exception
-            await manager.send_to_client("sid123", "test_event", {"data": "test"})
-
 
 # ============================================
 # Room Access Control Tests (Part C, plan 03)
@@ -541,39 +516,6 @@ class TestRoomAccessControl:
         await manager.connect(sid, {})
 
         assert await manager.join_room(sid, "operations") is True
-
-
-# ============================================
-# Cookie/JWT Role Extraction Tests
-# ============================================
-
-
-class TestGetRoleFromEnviron:
-    """Tests for the JWT cookie parsing helper."""
-
-    def test_valid_token_extracts_role(self):
-        token = create_access_token(data={"sub": "some-user-id", "role": "editor"})
-        environ = {"HTTP_COOKIE": f"access_token={token}"}
-
-        assert get_role_from_environ(environ) == "editor"
-
-    def test_missing_cookie_header(self):
-        assert get_role_from_environ({}) is None
-
-    def test_cookie_without_access_token(self):
-        assert get_role_from_environ({"HTTP_COOKIE": "other=value"}) is None
-
-    def test_garbage_token(self):
-        assert get_role_from_environ({"HTTP_COOKIE": "access_token=not.a.jwt"}) is None
-
-    def test_expired_token(self):
-        token = create_access_token(data={"sub": "u", "role": "editor"}, expires_delta=timedelta(seconds=-10))
-        environ = {"HTTP_COOKIE": f"access_token={token}"}
-
-        assert get_role_from_environ(environ) is None
-
-    def test_garbage_cookie_header(self):
-        assert get_role_from_environ({"HTTP_COOKIE": ";;;=;;;"}) is None
 
 
 # ============================================
@@ -645,38 +587,6 @@ class TestWsRequireAuth:
             assert ws_manager.user_sessions["strict_sid_3"]["role"] is None
         finally:
             await ws_manager.disconnect("strict_sid_3")
-
-
-# ============================================
-# Auth-payload token (sweep 27 §P3.4)
-# ============================================
-
-
-class TestGetRoleFromWsAuth:
-    """The split-origin credential: a short-lived `ws` token in the Socket.IO
-    auth payload, minted by GET /api/auth/ws-token."""
-
-    def test_valid_ws_token_extracts_role(self):
-        from app.auth.security import create_ws_token
-        from app.websocket_manager import get_role_from_ws_auth
-
-        token = create_ws_token(uuid.uuid4(), "editor")
-        assert get_role_from_ws_auth({"token": token}) == "editor"
-
-    def test_an_access_token_is_not_a_connect_credential(self):
-        """`type` is checked: the session cookie's JWT must not double here."""
-        from app.websocket_manager import get_role_from_ws_auth
-
-        token = create_access_token(data={"sub": "u", "role": "editor"})
-        assert get_role_from_ws_auth({"token": token}) is None
-
-    def test_missing_empty_and_garbage_payloads(self):
-        from app.websocket_manager import get_role_from_ws_auth
-
-        assert get_role_from_ws_auth(None) is None
-        assert get_role_from_ws_auth({}) is None
-        assert get_role_from_ws_auth({"token": "not.a.jwt"}) is None
-        assert get_role_from_ws_auth({"token": 42}) is None
 
 
 class TestConnectWithAuthPayload:

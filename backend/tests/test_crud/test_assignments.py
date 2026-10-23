@@ -5,7 +5,6 @@ Tests cover:
 - unassign_resource: Release resources from incidents
 - get_incident_assignments: Get all active assignments
 - get_assignments_by_event: Batch load assignments for an event
-- check_resource_conflicts: Check if resource is assigned elsewhere
 - auto_release_incident_resources: Auto-release on incident completion
 - transfer_assignments: Transfer assignments between incidents
 """
@@ -613,55 +612,6 @@ class TestGetAssignmentsByEvent:
         )
 
         assert assignments == {}
-
-
-# ============================================
-# Test: check_resource_conflicts
-# ============================================
-
-
-class TestCheckResourceConflicts:
-    """Tests for check_resource_conflicts function."""
-
-    async def test_no_conflicts_when_not_assigned(
-        self,
-        db_session: AsyncSession,
-        test_vehicle: Vehicle,
-    ):
-        """Test checking conflicts for unassigned resource."""
-        conflicts = await assignment_crud.check_resource_conflicts(
-            db=db_session,
-            resource_type="vehicle",
-            resource_id=test_vehicle.id,
-        )
-
-        assert conflicts == []
-
-    async def test_returns_incident_ids_when_assigned(
-        self,
-        db_session: AsyncSession,
-        test_incident: Incident,
-        test_vehicle: Vehicle,
-        test_user: User,
-        mock_request,
-    ):
-        """Test returns incident IDs where resource is assigned."""
-        await assignment_crud.assign_resource(
-            db=db_session,
-            incident_id=test_incident.id,
-            resource_type="vehicle",
-            resource_id=test_vehicle.id,
-            current_user=test_user,
-            request=mock_request,
-        )
-
-        conflicts = await assignment_crud.check_resource_conflicts(
-            db=db_session,
-            resource_type="vehicle",
-            resource_id=test_vehicle.id,
-        )
-
-        assert test_incident.id in conflicts
 
 
 # ============================================

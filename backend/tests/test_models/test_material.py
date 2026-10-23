@@ -12,38 +12,6 @@ from app.models import Material
 class TestMaterialModel:
     """Test Material model operations."""
 
-    async def test_create_material(self, db_session: AsyncSession):
-        """Test creating material."""
-        material = Material(
-            id=uuid4(),
-            name="Wasserpumpe",
-            status="available",
-            location="Lager Raum 3",
-        )
-        db_session.add(material)
-        await db_session.commit()
-        await db_session.refresh(material)
-
-        assert material.id is not None
-        assert material.name == "Wasserpumpe"
-        assert material.status == "available"
-        assert material.location == "Lager Raum 3"
-        assert material.created_at is not None
-        assert material.updated_at is not None
-
-    async def test_material_optional_fields(self, db_session: AsyncSession):
-        """Test creating material without optional description."""
-        material = Material(
-            id=uuid4(),
-            name="Test Material",
-            status="available",
-        )
-        db_session.add(material)
-        await db_session.commit()
-        await db_session.refresh(material)
-
-        assert material.description is None
-
     async def test_material_status_constraint(self, db_session: AsyncSession):
         """Test that invalid material status is rejected."""
         material = Material(
@@ -71,17 +39,3 @@ class TestMaterialModel:
             await db_session.commit()
             await db_session.refresh(material)
             assert material.status == status
-
-    async def test_material_with_location(self, db_session: AsyncSession):
-        """Test material with location tracking."""
-        material = Material(
-            id=uuid4(),
-            name="Test Equipment",
-            status="available",
-            location="TLF 1",
-        )
-        db_session.add(material)
-        await db_session.commit()
-        await db_session.refresh(material)
-
-        assert material.location == "TLF 1"

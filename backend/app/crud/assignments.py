@@ -371,25 +371,6 @@ async def get_assignments_by_event(
     return assignments_by_incident
 
 
-async def check_resource_conflicts(db: AsyncSession, resource_type: str, resource_id: uuid.UUID) -> list[uuid.UUID]:
-    """
-    Check if resource is assigned to any active incidents.
-
-    Returns:
-        List of incident IDs where resource is currently assigned
-    """
-    result = await db.execute(
-        select(IncidentAssignment.incident_id).where(
-            and_(
-                IncidentAssignment.resource_type == resource_type,
-                IncidentAssignment.resource_id == resource_id,
-                IncidentAssignment.unassigned_at.is_(None),
-            )
-        )
-    )
-    return list(result.scalars().all())
-
-
 async def auto_release_incident_resources(
     db: AsyncSession,
     incident_id: uuid.UUID,
