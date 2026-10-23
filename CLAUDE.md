@@ -35,7 +35,7 @@ cd backend && uv sync && uv run python -m app.seed   # tables + seed data
 cd backend && uv run uvicorn app.main:app --reload   # API on :8000 (Swagger at /docs)
 cd backend && uv run ruff check . && uv run ruff format .
 cd frontend && pnpm install && pnpm dev              # app on :3000
-cd frontend && pnpm lint                             # per-rule warning ratchet: eslint-ratchet.json
+cd frontend && pnpm lint                             # ratchet per rule on warnings AND eslint-disable comments: eslint-ratchet.json
 cd frontend && pnpm build
 ```
 
@@ -97,6 +97,12 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
   not `<main>{children}</main>` (`components/route-slot.tsx`). The route slot can still be
   pending when hydration reaches `<main>`, and the React in Next 15.5 then throws error #418
   and re-renders the whole root (18.10.2026; `route-slot.test.ts` goes red on that React).
+- **The app runs on the React Next vendors, not on `package.json`'s.** Next 15.5 renders the App
+  Router with its own React (a 19.2 canary), so a React API that Vitest and tsc accept can still be
+  missing in the browser. `useEffectEvent` is one: import it from `lib/hooks/use-effect-event.ts`
+  (lint stops the import from 'react'). It is the answer to «the latest X without re-running» –
+  exhaustive-deps has 0 warnings and its disables are capped by the lint ratchet; a disable that
+  must stay says why on its line (`-- reason`).
 - **API Integration**: Centralized API client in `lib/api-client.ts`
 - **State Management**: React Context for global state (`lib/contexts/`, the board in `operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`

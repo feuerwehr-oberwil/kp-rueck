@@ -98,8 +98,8 @@ if (errors > 0) console.error(`\n${errors} ESLint error(s). Errors are never all
 const fixHint = {
   warnings: "Fix the new one(s) listed above",
   suppressed:
-    "Fix the cause instead of silencing it (for exhaustive-deps: useEffectEvent for «the latest X" +
-    " without re-running»)",
+    "Fix the cause instead of silencing it (for exhaustive-deps: useEffectEvent from" +
+    " lib/hooks/use-effect-event for «the latest X without re-running»)",
 };
 for (const [kind, { over, under }] of Object.entries(checks)) {
   for (const { rule, have, allowed } of over) {
