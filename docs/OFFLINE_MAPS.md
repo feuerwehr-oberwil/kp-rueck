@@ -6,7 +6,9 @@ This guide explains the offline map tiles functionality in KP Rück. The system 
 
 The system uses a self-hosted [TileServer GL](https://github.com/maptiler/tileserver-gl) instance to serve map tiles locally. The defaults cover the Basel-Landschaft region (Switzerland) because that is where the first station running KP Rück sits – **any region** works, from free OpenStreetMap data, without touching the code. See [Using Custom Regions](#using-custom-regions).
 
-**Zoom Levels**: 0-17 (building-level detail)
+**Zoom Levels**: data to zoom 14 (planetiler's default – `download-tiles.sh` passes no
+`--maxzoom`); the map draws closer zooms by scaling that data, so streets and buildings stay
+visible at 17, with no extra detail beyond 14
 **Tile Format**: MBTiles (single-file SQLite database)
 **Data Source**: [Geofabrik](https://download.geofabrik.de/) OpenStreetMap extracts (free)
 
@@ -86,7 +88,7 @@ On first startup, the system creates a minimal but valid MBTiles file:
 The `just tiles-download` command downloads and generates complete tiles:
 - **Source**: Geofabrik OSM extracts (100% free, legal)
 - **Tool**: Planetiler (runs in Docker, no local installation needed)
-- **Coverage**: whatever `TILES_BOUNDS` covers (default: Basel-Landschaft), zoom 0-17
+- **Coverage**: whatever `TILES_BOUNDS` covers (default: Basel-Landschaft), data to zoom 14
 - **Size**: ~12 MB MBTiles (vector tiles, very efficient!)
 - **Data**: Complete street-level detail for offline use
 - **Update frequency**: Every 3-6 months recommended
@@ -149,7 +151,7 @@ just tiles-status
 curl "$BASE/health"
 ```
 
-Expected response: `{"status":"ok"}`
+Expected response: `OK` (plain text, HTTP 200)
 
 ### View Tile Server UI
 
@@ -158,7 +160,8 @@ Open `$BASE` in a browser – http://localhost:8080/ on the development stack,
 
 You should see:
 - TileServer GL interface
-- "basel-landschaft" data source listed
+- a `v3` data source once `just tiles-download` has run (the empty bootstrap placeholder is
+  listed under the file's own name, `${TILES_NAME}` – default `basel-landschaft`)
 - Preview map with tiles
 
 ### Test Tile Access
@@ -177,12 +180,6 @@ curl "$BASE/data/v3/10/533/358.pbf"
 3. Select "Offline" mode
 4. Navigate to Map view
 5. Verify tiles load correctly
-
-**One caveat when testing on the box itself**: the app derives the tile address from the address
-you browse it at (`getTileBaseUrl` in `frontend/lib/env.ts`). Anything other than `localhost` or
-`127.0.0.1` uses `/tiles` on its own origin, which is exactly what production serves. Open a
-production stack by its hostname or LAN IP – at `http://localhost:8080` the map looks for the
-tile server on the development port and finds Caddy instead.
 
 ## Tile Server Endpoints
 
@@ -233,24 +230,30 @@ Tiles should be updated periodically to include new streets, buildings, and map 
 
 **Recommended Update Frequency**: Every 3-6 months
 
-**Update Process**:
+A refresh is the first generation again – the same four `TILES_*` values, the same command.
+Nothing on the server remembers those values, which is why the first run should have left them
+somewhere (see [Using Custom Regions](#using-custom-regions)).
 
-1. Download new MBTiles file (following Option 1 or 2 above)
-2. Backup current tiles:
+1. **Check what is installed now** – the area the current set covers, so the new one matches:
    ```bash
-   docker exec "$TILESERVER" cp /data/basel-landschaft.mbtiles /data/basel-landschaft.mbtiles.backup
+   curl -s "$BASE/data/v3.json" | jq .bounds
    ```
-3. Copy new tiles:
+2. **Re-run the saved download line** – the one with your `TILES_REGION`, `TILES_BOUNDS`,
+   `TILES_AREA` and `TILES_PBF_URL` (just `just tiles-download` on the default region):
    ```bash
-   docker cp basel-landschaft.mbtiles "$TILESERVER":/data/basel-landschaft.mbtiles
+   TILES_REGION=… TILES_BOUNDS=… TILES_AREA=… TILES_PBF_URL=… just tiles-download
    ```
-   Or let the script do steps 1–4 for you: `./scripts/install-tiles.sh <file>` finds the
-   container itself.
-4. Restart tile server:
+   It downloads, generates, copies the file over the old one and restarts the tile server.
+   Then `just tiles-status`.
+3. **Fallback – a file generated elsewhere** (a laptop, see [`DEPLOYMENT.md`](DEPLOYMENT.md) §0):
+   keep the old set, then install the new one. `scripts/install-tiles.sh` copies, renames and
+   restarts; by hand it is a `docker cp` under the name the tile server looks for:
    ```bash
-   just tiles-restart
+   TILES_NAME="${TILES_NAME:-basel-landschaft}"   # whatever your .env says
+   docker exec "$TILESERVER" cp "/data/${TILES_NAME}.mbtiles" "/data/${TILES_NAME}.mbtiles.backup"
+   ./scripts/install-tiles.sh new.mbtiles
+   # or: docker cp new.mbtiles "$TILESERVER:/data/${TILES_NAME}.mbtiles" && just tiles-restart
    ```
-5. Verify new tiles work
 
 ## Troubleshooting
 
@@ -276,7 +279,7 @@ docker logs "$TILESERVER"
 **Check frontend console** for errors:
 - Network errors: Tile server may not be running
 - 404 errors: MBTiles file may be missing or misnamed
-- Tile coordinate errors: Zoom level may be out of range (0-17)
+- Tile coordinate errors: the request is outside `TILES_BOUNDS` (the data covers that box only)
 
 **Verify tile server is accessible**:
 ```bash
@@ -373,17 +376,11 @@ generating one tileset covering the desired bounds is the simplest supported set
 
 ### Performance Tuning
 
-**Increase cache size** (add to docker-compose environment):
-```yaml
-environment:
-  - TILESERVER_PORT=8080
-  - TILESERVER_CACHE=512  # MB
-```
-
-**Use SSD storage** for Docker volumes:
+**Use SSD storage** for the tile volume (`tiles` in `docker-compose.yml`,
+`tileserver-dev-data` in the development stack):
 ```yaml
 volumes:
-  tileserver-data:
+  tiles:
     driver: local
     driver_opts:
       type: none
@@ -394,13 +391,13 @@ volumes:
 ## Storage Requirements
 
 **These are *vector* tiles, generated with planetiler – an order of magnitude smaller than the
-raster tiles people expect.** The default region (Basel-Landschaft, zoom 0-17) produces a
-**~12 MB** `.mbtiles` file. A whole country is in the low gigabytes, not the tens.
+raster tiles people expect.** The default region (Basel-Landschaft, data to zoom 14) produces a
+**~12 MB** `.mbtiles` file. A whole country is in the hundreds of megabytes to a few gigabytes.
 
-| Coverage (zoom 0-17) | Approximate size |
+| Coverage (data to zoom 14) | Approximate size |
 |----------------------|------------------|
 | A district / canton (default: Basel-Landschaft) | **~12 MB** (measured) |
-| All of Switzerland | low single-digit GB (estimate) |
+| All of Switzerland | ~500 MB (estimate) |
 
 **The generation is the expensive part, not the result.** `scripts/download-tiles.sh`
 downloads ~500 MB of OSM data, needs ~2 GB of temporary disk and recommends 4 GB of RAM. On a
@@ -412,8 +409,8 @@ small station box, run the script on a laptop instead and copy the finished file
 ### Backup Tiles
 
 ```bash
-# Backup to local filesystem
-docker cp "$TILESERVER":/data/basel-landschaft.mbtiles ./backups/tiles-$(date +%Y%m%d).mbtiles
+# Backup to local filesystem (TILES_NAME as in your .env, default basel-landschaft)
+docker cp "$TILESERVER:/data/${TILES_NAME:-basel-landschaft}.mbtiles" ./backups/tiles-$(date +%Y%m%d).mbtiles
 ```
 
 ### Restore Tiles
@@ -423,7 +420,7 @@ docker cp "$TILESERVER":/data/basel-landschaft.mbtiles ./backups/tiles-$(date +%
 ./scripts/install-tiles.sh ./backups/tiles-20250101.mbtiles
 
 # Or by hand:
-docker cp ./backups/tiles-20250101.mbtiles "$TILESERVER":/data/basel-landschaft.mbtiles
+docker cp ./backups/tiles-20250101.mbtiles "$TILESERVER:/data/${TILES_NAME:-basel-landschaft}.mbtiles"
 just tiles-restart
 ```
 
@@ -460,7 +457,7 @@ The `scripts/init-tileserver.sh` script runs on container startup and:
 When you run `just tiles-download`:
 1. Downloads the OSM extract from Geofabrik (`TILES_PBF_URL`, ~500 MB for Switzerland)
 2. Runs Planetiler in Docker to convert OSM → MBTiles
-3. Generates vector tiles for the configured bounds (`TILES_BOUNDS`, zoom 0-17)
+3. Generates vector tiles for the configured bounds (`TILES_BOUNDS`, zoom 0-14 – planetiler's default)
 4. Copies MBTiles to tile server container (~12 MB final size)
 5. Restarts tile server, which auto-creates `basic-preview` style
 6. TileServer GL renders vector tiles as raster PNGs on-the-fly
@@ -543,13 +540,14 @@ just tiles-restart
 | `TILES_AREA` | planetiler's area name for the auxiliary data it fetches. Keep it consistent with the extract. |
 | `TILES_PBF_URL` | The Geofabrik extract from step 1. |
 
-Put them in your shell profile or a small wrapper script so a later tile refresh reproduces the
-same coverage – nothing on the server remembers what you passed.
+Keep that exact line – as a comment in `.env`, or in a small wrapper script – so a later tile
+refresh reproduces the same coverage: nothing on the server remembers what you passed, and the
+refresh is running it again ([Updating Tiles](#updating-tiles)).
 
 > **They do not belong in `.env`, and this is the one thing worth being pedantic about.**
 > `scripts/download-tiles.sh` reads them from the shell it is started in; it only reaches into
-> `.env` for `DOMAIN` and `HTTP_PORT`, so that its readiness probe at the end knows where to
-> look. Set `TILES_BOUNDS` in `.env` and nothing errors – the next `just tiles-download` simply
+> `.env` for `TILES_NAME` (below) and for `DOMAIN` and `HTTP_PORT`, so that its readiness probe
+> at the end knows where to look. Set `TILES_BOUNDS` in `.env` and nothing errors – the next `just tiles-download` simply
 > spends fifteen minutes generating Basel-Landschaft, and you find out when the map is blank
 > outside a canton you do not serve. `.env.example` documents the four for exactly this reason:
 > so the station that goes looking finds them, and finds them with this caveat attached.
@@ -557,13 +555,14 @@ same coverage – nothing on the server remembers what you passed.
 ### The filename is a separate decision
 
 `TILES_NAME` (default `basel-landschaft`) is the name of the `.mbtiles` file on the tileserver
-volume, not part of the geography above. Three places must agree on it:
-`scripts/download-tiles.sh`, `scripts/install-tiles.sh`, and `scripts/init-tileserver.sh` – all
-three read the same variable, and the tileserver container needs it in its environment too.
+volume, not part of the geography above. Three scripts must agree on it:
+`scripts/download-tiles.sh` and `scripts/install-tiles.sh` (the name they write) and
+`scripts/init-tileserver.sh` (the name the tile server looks for).
 
-This one **is** an `.env` variable, unlike the four above: `docker-compose.yml` passes it into
-the tileserver container from there, and `just doctor` / `just tiles-status` read it from the
-same file to tell real tiles apart from the bootstrap placeholder. It is documented in
+This one **is** an `.env` variable, unlike the four above, and `.env` is the one place to set it:
+`docker-compose.yml` passes it into the tileserver container from there, the two install scripts
+read it from the same file (a value set in the shell still wins), and `just doctor` /
+`just tiles-status` read it to tell real tiles apart from the bootstrap placeholder. It is documented in
 `.env.example`, commented out at its default.
 
 **An existing deployment should leave it alone.** Its tiles are already on the volume under the
@@ -573,10 +572,10 @@ fresh stack, if you would rather the file said what it holds.
 
 ### Size Estimates by Region
 
-| Region | OSM Extract | MBTiles (zoom 0-17) |
+| Region | OSM Extract | MBTiles (data to zoom 14) |
 |--------|-------------|---------------------|
-| Basel-Landschaft (canton) | ~500 MB | ~12 MB |
-| Switzerland (country) | ~1.5 GB | ~500 MB |
+| Basel-Landschaft (canton) | ~500 MB (the Switzerland extract) | ~12 MB (measured) |
+| Switzerland (country) | ~500 MB | ~500 MB |
 | Bavaria (state) | ~2 GB | ~800 MB |
 | All of Germany | ~4 GB | ~3 GB |
 
