@@ -253,7 +253,7 @@ function DisplayChrome({
           {/* Was a panel of its own on the share-link board, under a header that
               repeated the Ereignis name this one already carries. */}
           {token && (
-            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 sm:inline-flex dark:text-blue-400 shrink-0">
+            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex dark:text-blue-400 shrink-0">
               <Eye className="h-3.5 w-3.5" />
               {t('layout.readOnly')}
             </span>

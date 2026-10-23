@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -81,30 +81,20 @@ interface VehicleAuftrag {
   color: string | null
 }
 
-/** Tints an Auftrag chip in the route's colour. Returns undefined for a route
- *  without a colour, which then falls back to the neutral chip classes. */
-function auftragChipStyle(color: string | null): CSSProperties | undefined {
-  if (!color) return undefined
-  return {
-    color,
-    borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
-    backgroundColor: `color-mix(in oklab, ${color} 12%, transparent)`,
-  }
-}
-
-/** «Auftrag «Sturm West»» in the route's colour — so a vehicle's route is
- *  identifiable at a glance instead of reading as one more grey field. */
+/** «Auftrag «Sturm West»» with the route's colour as a dot — so a vehicle's
+ *  route is identifiable at a glance. Neutral text, as on the board card: a
+ *  route colour painted as text fell to 2.3:1 in light (sweep 2026-10). */
 function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
   return (
     <span
-      className={cn(
-        "inline-flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-sm font-medium",
-        !auftrag.color && "border-border bg-muted/60 text-foreground",
-      )}
-      style={auftragChipStyle(auftrag.color)}
+      className="inline-flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
       title={label}
     >
-      <Route className="h-3 w-3 flex-shrink-0" />
+      <Route className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+      <span
+        className="h-2 w-2 flex-shrink-0 rounded-full"
+        style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+      />
       <span className="truncate">{label}</span>
     </span>
   )

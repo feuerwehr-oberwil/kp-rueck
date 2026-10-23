@@ -509,7 +509,7 @@ export function TrainingSimulationControls() {
                           {/* The "beendet" report lives ONLY here — the board is
                               informed in the exercise itself (e.g. via radio). */}
                           {op.fieldCompleteReportedAt && op.status === 'active' && (
-                            <span className="text-emerald-600 dark:text-emerald-400"> · {t('fieldComplete')}</span>
+                            <span className="text-emerald-700 dark:text-emerald-400"> · {t('fieldComplete')}</span>
                           )}
                         </div>
                       </div>

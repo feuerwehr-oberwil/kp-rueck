@@ -267,7 +267,7 @@ export function MaterialSidebar({
           {/* Same helper as the list filter — see the crew footer above. */}
           {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
             <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
                 <Check className="size-3.5" />
                 {tCommon('rosterFree', { count: materialSummary.free })}
               </span>

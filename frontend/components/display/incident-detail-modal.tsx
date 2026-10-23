@@ -209,7 +209,7 @@ export function IncidentDetailModal({
           {/* Flags */}
           <div className="flex flex-wrap gap-2">
             {operation.source === 'intake' && (
-              <Badge variant="outline" className="gap-1 border-sky-500/50 text-sky-600 dark:text-sky-400">
+              <Badge variant="outline" className="gap-1 border-sky-500/50 text-sky-700 dark:text-sky-400">
                 <Phone className="h-3 w-3" /> {t('board.intakeBadge')}
               </Badge>
             )}
@@ -224,7 +224,7 @@ export function IncidentDetailModal({
               </Badge>
             )}
             {operation.amWarten && (
-              <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600 dark:text-amber-400">
+              <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-700 dark:text-amber-400">
                 <Timer className="h-3 w-3" /> {t('board.amWarten')}
               </Badge>
             )}
@@ -252,8 +252,14 @@ export function IncidentDetailModal({
           {auftrag && (
             <div className="space-y-1.5 rounded-md border border-border p-3">
               <div className="flex items-center gap-2">
-                <Waypoints className="h-4 w-4 flex-shrink-0" style={{ color: auftrag.color ?? "var(--muted-foreground)" }} />
-                <span className="text-sm font-bold uppercase tracking-wide" style={{ color: auftrag.color ?? "var(--muted-foreground)" }}>
+                {/* The route colour as a dot beside neutral text, as on the board
+                    card – never as the text colour (unreadable in light). */}
+                <Waypoints className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <span
+                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+                />
+                <span className="text-sm font-bold uppercase tracking-wide text-foreground">
                   {auftrag.name}
                 </span>
                 <span className="ml-auto text-xs font-mono uppercase tabular-nums text-muted-foreground">
@@ -409,7 +415,7 @@ export function IncidentDetailModal({
                     </p>
                   )}
                   {rekoSummary.hasDangers && (
-                    <div className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+                    <div className="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                       <span>{t('board.dangers', { types: rekoSummary.dangerTypes.join(", ") })}</span>
                     </div>

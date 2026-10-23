@@ -32,7 +32,7 @@ const BADGE_BASE =
 export function LeaderGlyph() {
   const t = useTranslations("kanban.leader")
   return (
-    <span className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-600 dark:text-amber-400")} aria-hidden="true">
+    <span className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-700 dark:text-amber-400")} aria-hidden="true">
       {t("abbr")}
     </span>
   )
@@ -56,7 +56,7 @@ export function LeaderBadge({
     if (!isLeader) return null
     return (
       <span
-        className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-600 dark:text-amber-400", className)}
+        className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-700 dark:text-amber-400", className)}
         title={t("is")}
         aria-label={t("is")}
       >
@@ -82,7 +82,7 @@ export function LeaderBadge({
         isLeader
           ? // Without a mouse the whole chip is the menu's trigger, so a tap
             // on the badge must fall through to it.
-            "bg-amber-400/20 text-amber-600 dark:text-amber-400 pointer-events-none pointer-fine:pointer-events-auto"
+            "bg-amber-400/20 text-amber-700 dark:text-amber-400 pointer-events-none pointer-fine:pointer-events-auto"
           : // Hidden until the row is hovered: on a twelve-person crew, twelve
             // grey EL stubs compete with the names they annotate. Without a
             // mouse there is no hover, so the stub is not there at all — it

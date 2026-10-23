@@ -211,7 +211,7 @@ export function DiveraMessageDialog({
                 {target === "all" && <Check className="size-4 shrink-0" />}
               </button>
               {target === "all" && (
-                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-600 dark:text-amber-500">
+                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   {t("allWarning")}
                 </p>

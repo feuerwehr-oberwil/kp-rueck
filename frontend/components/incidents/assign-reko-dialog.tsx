@@ -309,7 +309,7 @@ export function AssignRekoDialog({
                           <User className={cn(
                             "h-5 w-5 flex-shrink-0",
                             isCurrentlyAssigned ? "text-success" :
-                            person.open_count > 0 ? "text-amber-500" : "text-muted-foreground"
+                            person.open_count > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
                           )} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">

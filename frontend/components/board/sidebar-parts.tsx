@@ -360,7 +360,7 @@ export function AggregatedMaterialRow({
                 <span
                   className={cn(
                     "shrink-0 text-xs tabular-nums",
-                    allTaken ? "font-medium text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+                    allTaken ? "font-medium text-amber-700 dark:text-amber-400" : "text-muted-foreground",
                   )}
                   title={t('aggregateCountTitle', { free: freeUnits.length, total: units.length })}
                 >

@@ -300,7 +300,7 @@ export function PersonnelSidebar({
               is the line read in half a second, not a statistic. */}
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
             <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
                 <Check className="size-3.5" />
                 {tCommon('rosterFree', { count: rosterSummary.free })}
               </span>

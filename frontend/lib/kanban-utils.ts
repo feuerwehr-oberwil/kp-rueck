@@ -43,31 +43,31 @@ export const STATUS_ACCENT: Record<OperationStatus, {
   reko: {
     surface: "bg-emerald-100/80 dark:bg-emerald-950/70",
     border: "border-l-emerald-500",
-    text: "text-emerald-600 dark:text-emerald-400",
+    text: "text-emerald-700 dark:text-emerald-400",
     dot: "bg-emerald-500",
   },
   reko_done: {
     surface: "bg-teal-100/80 dark:bg-teal-950/70",
     border: "border-l-teal-500",
-    text: "text-teal-600 dark:text-teal-400",
+    text: "text-teal-700 dark:text-teal-400",
     dot: "bg-teal-500",
   },
   enroute: {
     surface: "bg-blue-100/80 dark:bg-blue-950/70",
     border: "border-l-blue-500",
-    text: "text-blue-600 dark:text-blue-400",
+    text: "text-blue-700 dark:text-blue-400",
     dot: "bg-blue-500",
   },
   active: {
     surface: "bg-orange-100/80 dark:bg-orange-950/70",
     border: "border-l-orange-500",
-    text: "text-orange-600 dark:text-orange-400",
+    text: "text-orange-700 dark:text-orange-400",
     dot: "bg-orange-500",
   },
   returning: {
     surface: "bg-sky-100/80 dark:bg-sky-950/70",
     border: "border-l-sky-500",
-    text: "text-sky-600 dark:text-sky-400",
+    text: "text-sky-700 dark:text-sky-400",
     dot: "bg-sky-500",
   },
   complete: {
@@ -488,7 +488,7 @@ export function ageChipClass(date: Date): string {
     case "alarm":
       return "text-red-600 dark:text-red-400 font-medium"
     case "warn":
-      return "text-amber-600 dark:text-amber-500 font-medium"
+      return "text-amber-700 dark:text-amber-500 font-medium"
     default:
       return "text-muted-foreground"
   }

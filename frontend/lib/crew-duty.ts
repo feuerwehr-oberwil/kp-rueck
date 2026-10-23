@@ -40,7 +40,7 @@ export function dutyLevel(minutes: number | null, fatigueHours: number): DutyLev
 /** Text colour per level — tone only; the weight changes too, so colour is never the only signal. */
 export const DUTY_TEXT_CLASSES: Record<DutyLevel, string> = {
   normal: 'text-muted-foreground',
-  long: 'font-semibold text-amber-600 dark:text-amber-400',
+  long: 'font-semibold text-amber-700 dark:text-amber-400',
   over: 'font-semibold text-red-600 dark:text-red-400',
 }
 

@@ -661,8 +661,10 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
           {v.driverName && <span className="text-[11px] xl:text-xs text-muted-foreground truncate">{v.driverName}</span>}
         </div>
         {/* Where it is. An Auftrag wins over the single stop's address — the same
-            answer the Fahrzeugstatus-Sheet gives — and it carries the route's own
-            colour, so «welches Fahrzeug fährt welche Tour» reads from the wall.
+            answer the Fahrzeugstatus-Sheet gives — and its dot carries the route's
+            own colour, so «welches Fahrzeug fährt welche Tour» reads from the wall.
+            The TEXT stays neutral: a route colour is a swatch, not a text colour
+            (#10b981 on white was 2.3:1 – sweep 2026-10, VISUAL-05).
             «Nicht einsatzbereit» wins over both: it is why the vehicle is nowhere. */}
         {isOutOfService ? (
           <p className="mt-0.5 truncate text-xs xl:text-sm font-medium text-muted-foreground">{tk('notReady')}</p>
@@ -672,10 +674,7 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
               className="h-2 w-2 xl:h-2.5 xl:w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
             />
-            <span
-              className={cn("truncate text-xs xl:text-sm font-medium", !auftrag.color && "text-muted-foreground")}
-              style={auftrag.color ? { color: auftrag.color } : undefined}
-            >
+            <span className="truncate text-xs xl:text-sm font-medium text-foreground">
               {tv('auftragLabel', { name: auftrag.name })}
             </span>
           </p>
@@ -767,7 +766,7 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
         </span>
       )}
       {p.isDriver && p.driverVehicleName && (
-        <span className="text-[10px] xl:text-xs text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
+        <span className="text-[10px] xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
       {clickable && (
         <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
