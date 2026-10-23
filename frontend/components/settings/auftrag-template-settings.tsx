@@ -53,10 +53,7 @@ import {
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Reveal } from '@/components/ui/reveal';
-
-/** The Aufträge-Slide-up's own six swatches — a Vorlage must not be able to
- *  produce a colour the manual create dialog cannot. */
-const SWATCHES = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'] as const;
+import { AUFTRAG_SWATCHES } from '@/lib/map-colors';
 
 /** One selectable vehicle or material, flattened for the picker. */
 interface ResourceOption {
@@ -140,7 +137,7 @@ export function AuftragTemplateSettings({ readOnly = false }: { readOnly?: boole
     if (!name) return;
     setCreating(true);
     try {
-      const created = await apiClient.createAuftragTemplate({ name, color: SWATCHES[0] });
+      const created = await apiClient.createAuftragTemplate({ name, color: AUFTRAG_SWATCHES[0] });
       setTemplates((current) => [...current, created]);
       setNewName('');
       setExpandedId(created.id); // straight into editing — a bare name is not a Vorlage yet
@@ -418,7 +415,7 @@ function TemplateRow({
           <div>
             <div className="mb-1.5 text-xs font-semibold text-muted-foreground">{t('colorLabel')}</div>
             <div className="flex gap-1.5">
-              {SWATCHES.map((swatch) => (
+              {AUFTRAG_SWATCHES.map((swatch) => (
                 <button
                   key={swatch}
                   type="button"

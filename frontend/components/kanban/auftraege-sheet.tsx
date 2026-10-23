@@ -87,10 +87,7 @@ import { stopStatusBorderClass } from "@/lib/kanban-utils"
 import { isToastLayer } from "@/lib/toast-layer"
 import type { GroupResources } from "@/lib/types/groups"
 import { Reveal } from "@/components/ui/reveal"
-
-// Six-swatch palette for the inline create / colour picker. Kept small and
-// distinct so routes read apart at a glance on board + map.
-const SWATCHES = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"] as const
+import { AUFTRAG_SWATCHES } from "@/lib/map-colors"
 
 // True when an event originates inside ANY dialog layered over this sheet.
 //
@@ -189,7 +186,7 @@ export function AuftraegeSheet({
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState("")
-  const [newColor, setNewColor] = useState<string>(SWATCHES[0])
+  const [newColor, setNewColor] = useState<string>(AUFTRAG_SWATCHES[0])
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -297,7 +294,7 @@ export function AuftraegeSheet({
 
   const startCreate = () => {
     setNewName(t("defaultName", { n: groups.length + 1 }))
-    setNewColor(SWATCHES[groups.length % SWATCHES.length])
+    setNewColor(AUFTRAG_SWATCHES[groups.length % AUFTRAG_SWATCHES.length])
     setCreating(true)
   }
 
@@ -402,7 +399,7 @@ export function AuftraegeSheet({
                   placeholder={t("namePlaceholder")}
                 />
                 <div className="flex items-center gap-1">
-                  {SWATCHES.map((c) => (
+                  {AUFTRAG_SWATCHES.map((c) => (
                     <button
                       key={c}
                       type="button"
@@ -940,7 +937,7 @@ function ColorPickerContent({ selected, onPick }: { selected: string | null; onP
       onOpenAutoFocus={(e) => e.preventDefault()}
     >
       <div className="flex items-center gap-1.5">
-        {SWATCHES.map((c) => (
+        {AUFTRAG_SWATCHES.map((c) => (
           <button
             key={c}
             type="button"
