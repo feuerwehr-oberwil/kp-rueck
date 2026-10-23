@@ -296,7 +296,7 @@ async def preview_excel_import(
     import_mode = _require_import_mode(mode)
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
+        raise HTTPException(status_code=400, detail=ErrorMessages.EXCEL_REQUIRED)
 
     file_bytes = await file.read()
 
@@ -364,7 +364,7 @@ async def execute_excel_import(
         )
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
+        raise HTTPException(status_code=400, detail=ErrorMessages.EXCEL_REQUIRED)
 
     file_bytes = await file.read()
 

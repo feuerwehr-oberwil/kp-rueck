@@ -149,7 +149,7 @@ class TestPhotoStorageService:
             photo_service._validate_file_type(b"\x00", "test.gif")
 
         assert exc_info.value.status_code == 400
-        assert "Invalid file extension" in exc_info.value.detail
+        assert "Ungültige Dateiendung" in exc_info.value.detail
         # The client names the formats from the station's own config, not a hard-coded list.
         assert exc_info.value.code == "photo_invalid_extension"
         assert exc_info.value.params == {"allowed": "JPG, JPEG, PNG, WEBP"}
@@ -243,8 +243,8 @@ class TestPhotoStorageService:
             await photo_service.save_photo(incident_id, upload_file_jpg, current_photos)
 
         assert exc_info.value.status_code == 400
-        assert "Maximum" in exc_info.value.detail
-        assert "20 photos" in exc_info.value.detail
+        assert "Maximal" in exc_info.value.detail
+        assert "20 Fotos" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_save_photo_invalid_extension(self, photo_service):
@@ -262,7 +262,7 @@ class TestPhotoStorageService:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
 
         assert exc_info.value.status_code == 400
-        assert "Invalid file extension" in exc_info.value.detail
+        assert "Ungültige Dateiendung" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_save_photo_file_too_large(self, photo_service):
@@ -290,7 +290,7 @@ class TestPhotoStorageService:
 
         # 413 Payload Too Large per RFC 9110 — bumped from 400 in A7
         assert exc_info.value.status_code == 413
-        assert "too large" in exc_info.value.detail
+        assert "zu gross" in exc_info.value.detail
         # The point of chunked reading: the body is refused as soon as it crosses the limit,
         # not after all 11 MB have been pulled into memory. Anything close to the full size
         # here means the early abort is gone.
@@ -312,7 +312,7 @@ class TestPhotoStorageService:
             await photo_service.save_photo(incident_id, MockUploadFile(), [])
 
         assert exc_info.value.status_code == 400
-        assert "Invalid or corrupted image file" in exc_info.value.detail or "Ungültige Datei" in exc_info.value.detail
+        assert "Ungültige oder beschädigte Bilddatei" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_save_photo_rejects_decompression_bomb(self, photo_service):

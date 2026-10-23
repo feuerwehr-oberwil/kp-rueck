@@ -48,7 +48,7 @@ async def test_health_check_database_failure(client: AsyncClient):
         response = await client.get("/health")
         assert response.status_code == 503
         data = response.json()
-        assert "Database connection failed" in data["detail"]
+        assert "Datenbankverbindung fehlgeschlagen" in data["detail"]
     finally:
         app.dependency_overrides.clear()
 

@@ -164,7 +164,7 @@ async def unassign_special_function(
         request,
     )
     if not success:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
     await broadcast_special_function_update(
         {"event_id": str(event_id), "function_type": assignment.function_type}, action="unassign"

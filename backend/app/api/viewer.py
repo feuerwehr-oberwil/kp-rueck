@@ -24,6 +24,7 @@ from ..services.gps_simulation import gps_simulation
 from ..services.reaction_times import load_event_figures
 from ..services.tokens import generate_viewer_token, validate_viewer_token
 from ..traccar import traccar_client
+from ..utils.errors import ErrorMessages
 from .special_functions import _enrich_assignments
 
 logger = logging.getLogger(__name__)
@@ -107,12 +108,12 @@ async def get_viewer_data(
     """
     event_id = validate_viewer_token(token)
     if not event_id:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 
     # Get event information
     event = await events_crud.get_event_by_id(db, event_id)
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Get all incidents for the event
     incidents = await incidents_crud.get_incidents(db, event_id=event_id)

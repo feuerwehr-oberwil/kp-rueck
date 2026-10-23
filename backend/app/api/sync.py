@@ -20,6 +20,7 @@ from app.environment import is_railway
 from app.models import SyncLog
 from app.schemas import SyncDirection, SyncLogResponse, SyncStatus, SyncStatusResponse
 from app.services.sync_service import SyncService, create_sync_service
+from app.utils.errors import ErrorMessages
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -112,7 +113,7 @@ async def sync_from_railway_endpoint(current_user: CurrentAdmin, db: AsyncSessio
     global _is_syncing, _last_sync_result
 
     if _is_syncing:
-        raise HTTPException(status_code=409, detail="Sync operation already in progress")
+        raise HTTPException(status_code=409, detail=ErrorMessages.SYNC_IN_PROGRESS)
 
     _is_syncing = True
     try:
@@ -148,7 +149,7 @@ async def sync_to_railway_endpoint(current_user: CurrentAdmin, db: AsyncSession 
     global _is_syncing, _last_sync_result
 
     if _is_syncing:
-        raise HTTPException(status_code=409, detail="Sync operation already in progress")
+        raise HTTPException(status_code=409, detail=ErrorMessages.SYNC_IN_PROGRESS)
 
     _is_syncing = True
     try:
@@ -318,7 +319,7 @@ async def sync_bidirectional_endpoint(current_user: CurrentAdmin, db: AsyncSessi
     global _is_syncing, _last_sync_result
 
     if _is_syncing:
-        raise HTTPException(status_code=409, detail="Sync operation already in progress")
+        raise HTTPException(status_code=409, detail=ErrorMessages.SYNC_IN_PROGRESS)
 
     _is_syncing = True
     try:
@@ -326,7 +327,7 @@ async def sync_bidirectional_endpoint(current_user: CurrentAdmin, db: AsyncSessi
 
         # Check Railway health
         if not await sync_service.check_railway_health():
-            raise HTTPException(status_code=503, detail="Railway database is unreachable")
+            raise HTTPException(status_code=503, detail="Railway-Datenbank nicht erreichbar")
 
         # Perform bidirectional sync
         results = await sync_service.sync_bidirectional()
@@ -421,7 +422,7 @@ async def get_delta_for_table(
     """
 
     if table_name not in SyncService.SYNCABLE_MODELS:
-        raise HTTPException(status_code=400, detail=f"Invalid table name: {table_name}")
+        raise HTTPException(status_code=400, detail=f"Ungültiger Tabellenname: {table_name}")
 
     model_class: type[_SyncableModel] = SyncService.SYNCABLE_MODELS[table_name]
 
@@ -432,7 +433,7 @@ async def get_delta_for_table(
             since_dt = datetime.fromisoformat(updated_since)
             query = query.where(model_class.updated_at > since_dt)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid timestamp format") from None
+            raise HTTPException(status_code=400, detail="Ungültiges Zeitformat") from None
 
     # Execute query
     result = await db.execute(query)
@@ -475,7 +476,7 @@ async def apply_delta_for_table(
     from app.schemas import Delta
 
     if table_name not in SyncService.SYNCABLE_MODELS:
-        raise HTTPException(status_code=400, detail=f"Invalid table name: {table_name}")
+        raise HTTPException(status_code=400, detail=f"Ungültiger Tabellenname: {table_name}")
 
     # Create delta with just this table's records
     delta = Delta()

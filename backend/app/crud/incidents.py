@@ -73,9 +73,9 @@ async def _dispatch_print_due(db: AsyncSession, incident_id: uuid.UUID, old_stat
 async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_id: uuid.UUID) -> IncidentGroup:
     group = await db.scalar(select(IncidentGroup).where(IncidentGroup.id == group_id).with_for_update())
     if group is None or group.deleted_at is not None:
-        raise InvalidIncidentGroupError("Auftrag not found or deleted")
+        raise InvalidIncidentGroupError("Auftrag nicht gefunden oder gelöscht")
     if group.event_id != event_id:
-        raise InvalidIncidentGroupError("Auftrag belongs to a different event")
+        raise InvalidIncidentGroupError("Auftrag gehört zu einem anderen Ereignis")
     return group
 
 

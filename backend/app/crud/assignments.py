@@ -99,7 +99,7 @@ async def assign_resource(
     # Check if already assigned to THIS incident
     already_assigned_to_this = any(assignment.incident_id == incident_id for assignment in existing_assignments)
     if already_assigned_to_this:
-        raise ValueError("Resource already assigned to this incident")
+        raise ValueError("Ressource ist diesem Einsatz bereits zugewiesen")
 
     # Check if assigned to OTHER incidents (conflict)
     # Note: We allow override with warning (UI should show warning to user before calling this)
@@ -122,7 +122,7 @@ async def assign_resource(
         # and the loser lands here. Same outcome the check above produces, so say the same
         # thing — the resource IS on the incident, the caller just did not win the insert.
         await db.rollback()
-        raise ValueError("Resource already assigned to this incident") from exc
+        raise ValueError("Ressource ist diesem Einsatz bereits zugewiesen") from exc
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
 
@@ -180,7 +180,7 @@ async def update_assignment(
         # nor clear it. The incident is then stuck with a truck as its
         # Einsatzleiter and no way back through the UI.
         if assignment.resource_type != "personnel":
-            raise ValueError("Only personnel assignments can be marked as Einsatzleiter")
+            raise ValueError("Nur Personal kann als Einsatzleiter markiert werden")
 
         incident = (
             await db.execute(select(Incident).where(Incident.id == assignment.incident_id))
@@ -636,12 +636,12 @@ async def transfer_assignments(
     source_result = await db.execute(select(Incident).where(Incident.id == source_incident_id))
     source_incident = source_result.scalar_one_or_none()
     if not source_incident:
-        raise ValueError("Source incident not found")
+        raise ValueError("Quell-Einsatz nicht gefunden")
 
     target_result = await db.execute(select(Incident).where(Incident.id == target_incident_id))
     target_incident = target_result.scalar_one_or_none()
     if not target_incident:
-        raise ValueError("Target incident not found")
+        raise ValueError("Ziel-Einsatz nicht gefunden")
 
     # Get all active assignments from source
     source_assignments = await get_incident_assignments(db, source_incident_id)

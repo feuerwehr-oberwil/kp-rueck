@@ -75,6 +75,7 @@ from ..services.training_simulation_data import (
     generate_reinforcement_request,
     generate_reko_report_data,
 )
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_incident_update,
     broadcast_personnel_update,
@@ -96,16 +97,16 @@ async def _require_training_event(db: AsyncSession, event_id: UUID) -> Event:
     """Shared guard: training endpoints only work on training events."""
     event = await db.get(Event, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.TRAINING_EVENTS_ONLY)
     return event
 
 
 async def _get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUID) -> Incident:
     incident = await db.get(Incident, incident_id)
     if not incident or incident.event_id != event_id or incident.deleted_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
     return incident
 
 
@@ -126,24 +127,24 @@ async def generate_emergencies(
     # Verify event exists and is training
     event = await db.get(Event, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     if not event.training_flag:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Can only generate emergencies for training events"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Alarme können nur in Übungen erzeugt werden"
         )
 
     # Validate count
     if request.count < 1 or request.count > 10:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Count must be between 1 and 10")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Anzahl muss zwischen 1 und 10 liegen")
 
     # Validate category
     if request.category and request.category not in ["normal", "critical"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category must be 'normal' or 'critical'")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.CATEGORY_INVALID)
 
     # Validate source
     if request.source not in ["operator", "intake"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source must be 'operator' or 'intake'")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Quelle muss 'operator' oder 'intake' sein")
 
     # Generate emergencies. If the training template/location pool was never seeded
     # the generator raises ValueError — surface that as a clean 503 (with CORS headers,
@@ -189,23 +190,23 @@ async def manual_dispatch(
     """
     event = await db.get(Event, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     if not event.training_flag:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only dispatch emergencies for training events",
+            detail="Alarme können nur in Übungen ausgelöst werden",
         )
 
     template = await db.get(EmergencyTemplate, request.template_id)
     if not template or not template.is_active:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Emergency template not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alarmvorlage nicht gefunden")
 
     generator = TrainingGenerator(db)
 
     if request.location_id is not None:
         location = await db.get(TrainingLocation, request.location_id)
         if not location or not location.is_active:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Training location not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Übungsort nicht gefunden")
         incident = await generator.dispatch_specific(event_id, template, location=location)
     else:
         # Ad-hoc map pin path — validator guarantees these fields are set.
@@ -231,9 +232,7 @@ async def list_templates(
 
     if category:
         if category not in ["normal", "critical"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Category must be 'normal' or 'critical'"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.CATEGORY_INVALID)
         query = query.where(EmergencyTemplate.category == category)
 
     result = await db.execute(query)
@@ -434,13 +433,13 @@ async def simulate_reko_arrived(
     """
     event = await db.get(Event, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.TRAINING_EVENTS_ONLY)
 
     incident = await db.get(Incident, incident_id)
     if not incident or incident.event_id != event_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
 
     if incident.status != "reko":
         raise HTTPException(
@@ -474,14 +473,14 @@ async def simulate_reko(
     # Verify event exists and is training
     event = await db.get(Event, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     if not event.training_flag:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only available for training events")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.TRAINING_EVENTS_ONLY)
 
     # Verify incident belongs to event
     incident = await db.get(Incident, incident_id)
     if not incident or incident.event_id != event_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found in this event")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
 
     if incident.status != "reko":
         raise HTTPException(
@@ -564,7 +563,7 @@ async def simulate_divera_alarm(
     await _require_training_event(db, event_id)
 
     if request.category and request.category not in ["normal", "critical"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category must be 'normal' or 'critical'")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.CATEGORY_INVALID)
 
     # Same Literal-vs-str gap as in `generate_emergencies`: the check above is the guarantee.
     category = cast(Literal["normal", "critical"] | None, request.category)
@@ -1311,7 +1310,7 @@ async def start_gps_simulation(
 
     vehicle = await db.get(Vehicle, request.vehicle_id)
     if not vehicle:
-        raise HTTPException(status_code=404, detail="Fahrzeug nicht gefunden")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
 
     # Drives to a training incident are always allowed — an open Ernstfall
     # event elsewhere does not lock the Übungssteuerung. The only target-side
@@ -1323,7 +1322,7 @@ async def start_gps_simulation(
             raise HTTPException(status_code=400, detail="incident_id fehlt")
         incident = await db.get(Incident, request.incident_id)
         if not incident or incident.deleted_at is not None:
-            raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+            raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
         event = await db.get(Event, incident.event_id)
         if not event or not event.training_flag:
             raise HTTPException(status_code=400, detail="Nur Einsätze aus Übungen können angefahren werden")
@@ -1406,7 +1405,7 @@ async def set_gps_simulation_speed(
 
     vehicle = await db.get(Vehicle, request.vehicle_id)
     if not vehicle:
-        raise HTTPException(status_code=404, detail="Fahrzeug nicht gefunden")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
 
     drive = await gps_simulation.set_speed(vehicle.name, max(10.0, min(100.0, request.speed_kmh)))
     if drive is None:
@@ -1427,7 +1426,7 @@ async def stop_gps_simulation(
     if request.vehicle_id is not None:
         vehicle = await db.get(Vehicle, request.vehicle_id)
         if not vehicle:
-            raise HTTPException(status_code=404, detail="Fahrzeug nicht gefunden")
+            raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
         vehicle_name = vehicle.name
 
     stopped = await gps_simulation.stop(vehicle_name)

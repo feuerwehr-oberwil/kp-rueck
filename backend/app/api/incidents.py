@@ -432,7 +432,7 @@ async def get_incident(
     """Get incident by ID."""
     incident = await crud.get_incident(db, incident_id)
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     return await incident_display.incident_with_display(db, incident)
 
 
@@ -453,7 +453,7 @@ async def create_incident(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, incident.event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Demo mode: cap incidents per event at 50 (the demo seed itself creates
     # ~21 per sandbox, so a global cap would make manual creation impossible).
@@ -579,7 +579,7 @@ async def update_status(
     )
 
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
     incident_response = await incident_display.incident_with_display(db, incident)
@@ -1464,7 +1464,7 @@ async def delete_incident(
     )
 
     if not success:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(broadcast_incident_update, {"id": str(incident_id)}, "delete")

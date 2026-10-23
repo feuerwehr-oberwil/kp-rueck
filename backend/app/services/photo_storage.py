@@ -107,7 +107,7 @@ class PhotoStorageService:
         base = os.path.realpath(self.photos_dir)
         full = os.path.realpath(os.path.join(base, *parts))
         if not full.startswith(base + os.sep):
-            raise HTTPException(status_code=400, detail="Path traversal detected")
+            raise HTTPException(status_code=400, detail="Ungültiger Dateipfad")
         return Path(full)
 
     def _get_incident_dir(self, incident_id: uuid.UUID) -> Path:
@@ -129,7 +129,7 @@ class PhotoStorageService:
                 raise CodedHTTPException(
                     400,
                     ErrorCode.PHOTO_INVALID_EXTENSION,
-                    f"Invalid file extension. Allowed: {', '.join(self.allowed_extensions)}",
+                    f"Ungültige Dateiendung. Erlaubt: {', '.join(self.allowed_extensions)}",
                     # The configured list, not a hard-coded one: the sentence names what
                     # this station actually accepts («JPG, JPEG, PNG, WEBP»).
                     params={"allowed": ", ".join(e.lstrip(".").upper() for e in self.allowed_extensions)},
@@ -156,7 +156,7 @@ class PhotoStorageService:
                 raise CodedHTTPException(
                     400,
                     ErrorCode.PHOTO_INVALID_TYPE,
-                    f"Invalid file type detected: {mime}. Only image files are allowed.",
+                    f"Ungültiger Dateityp: {mime}. Nur Bilder sind erlaubt.",
                 )
 
         # Validate PIL can open the file (don't use verify() — it's overly strict
@@ -171,7 +171,7 @@ class PhotoStorageService:
             logger.warning("Rejected decompression bomb at open: %s", e)
             raise CodedHTTPException(413, ErrorCode.PHOTO_TOO_MANY_PIXELS, "Bild zu gross (Pixelmasse).") from None
         except Exception:
-            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Invalid or corrupted image file") from None
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Ungültige oder beschädigte Bilddatei") from None
 
         # Dimensions BEFORE the decode below. `Image.open` only parses the header, so this is
         # the last cheap moment: `img.load()` allocates the full bitmap, and a file that is
@@ -188,7 +188,7 @@ class PhotoStorageService:
         try:
             img.load()  # Force decode to confirm it's a real image
         except Exception:
-            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Invalid or corrupted image file") from None
+            raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, "Ungültige oder beschädigte Bilddatei") from None
 
     def _sanitize_filename(self, filename: str) -> str:
         """
@@ -269,7 +269,7 @@ class PhotoStorageService:
             raise CodedHTTPException(
                 400,
                 ErrorCode.PHOTO_LIMIT,
-                f"Maximum {self.max_photos} photos per report",
+                f"Maximal {self.max_photos} Fotos pro Bericht",
                 params={"max": self.max_photos},
             )
 
@@ -292,7 +292,7 @@ class PhotoStorageService:
                 raise CodedHTTPException(
                     413,
                     ErrorCode.PHOTO_TOO_LARGE,
-                    f"File too large. Maximum size: {settings.max_photo_size_mb}MB",
+                    f"Datei zu gross. Maximal {settings.max_photo_size_mb} MB",
                     params={"max_mb": settings.max_photo_size_mb},
                 )
             chunks.append(chunk)
@@ -402,11 +402,11 @@ class PhotoStorageService:
 
         # Validate filename doesn't contain path traversal sequences
         if "/" in filename or "\\" in filename or ".." in filename:
-            raise HTTPException(status_code=400, detail="Invalid filename: path traversal sequences not allowed")
+            raise HTTPException(status_code=400, detail="Ungültiger Dateiname")
 
         # Ensure filename matches expected pattern (UUID.jpg)
         if not re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$", filename):
-            raise HTTPException(status_code=400, detail="Invalid filename format: must be UUID.jpg")
+            raise HTTPException(status_code=400, detail="Ungültiger Dateiname")
 
         # Ensure the resolved path is within photos_dir (prevents traversal)
         file_path = self._inside_photos_dir(str(incident_id), filename)

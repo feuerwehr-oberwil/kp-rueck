@@ -134,7 +134,7 @@ async def test_get_incident_not_found(editor_client: AsyncClient):
     """Test getting a non-existent incident returns 404."""
     response = await editor_client.get(f"/api/incidents/{uuid4()}")
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    assert "nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -229,7 +229,7 @@ async def test_create_incident_invalid_event(editor_client: AsyncClient):
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
     assert response.status_code == 404
-    assert "event not found" in response.json()["detail"].lower()
+    assert "ereignis nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio

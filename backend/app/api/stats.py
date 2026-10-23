@@ -15,6 +15,7 @@ from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..services.incident_display import get_home_city, location_display
 from ..services.reaction_times import load_event_figures
+from ..utils.errors import ErrorMessages
 
 router = APIRouter(prefix="/events", tags=["stats"])
 
@@ -38,7 +39,7 @@ async def get_event_stats(
     event_result = await db.execute(select(models.Event).where(models.Event.id == event_id))
     event = event_result.scalar_one_or_none()
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Get all incidents for this event (active and completed)
     incidents_result = await db.execute(
@@ -139,7 +140,7 @@ async def get_event_figures(
     """
     event = await db.get(models.Event, event_id)
     if event is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     incidents = (
         (
             await db.execute(
@@ -167,7 +168,7 @@ async def get_personnel_activity(
     """
     event_result = await db.execute(select(models.Event.id).where(models.Event.id == event_id))
     if event_result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     checked_in_result = await db.execute(
         select(models.Personnel, models.EventAttendance.checked_in_at)

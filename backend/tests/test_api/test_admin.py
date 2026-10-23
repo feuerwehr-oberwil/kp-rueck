@@ -152,7 +152,7 @@ async def test_import_preview_invalid_file_type(editor_client: AsyncClient):
     files = {"file": ("test.txt", b"fake content", "text/plain")}
     response = await editor_client.post("/api/admin/import/preview", files=files, data={"mode": "replace"})
     assert response.status_code == 400
-    assert "Excel format" in response.json()["detail"]
+    assert "Excel-Format" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

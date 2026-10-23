@@ -266,7 +266,7 @@ class TestAssignResource:
         )
 
         # Second assignment should fail
-        with pytest.raises(ValueError, match="already assigned to this incident"):
+        with pytest.raises(ValueError, match="diesem Einsatz bereits zugewiesen"):
             await assignment_crud.assign_resource(
                 db=db_session,
                 incident_id=test_incident.id,
@@ -868,7 +868,7 @@ class TestTransferAssignments:
         mock_request,
     ):
         """Test transfer fails when source incident doesn't exist."""
-        with pytest.raises(ValueError, match="Source incident not found"):
+        with pytest.raises(ValueError, match="Quell-Einsatz nicht gefunden"):
             await assignment_crud.transfer_assignments(
                 db=db_session,
                 source_incident_id=uuid4(),
@@ -896,7 +896,7 @@ class TestTransferAssignments:
             request=mock_request,
         )
 
-        with pytest.raises(ValueError, match="Target incident not found"):
+        with pytest.raises(ValueError, match="Ziel-Einsatz nicht gefunden"):
             await assignment_crud.transfer_assignments(
                 db=db_session,
                 source_incident_id=test_incident.id,
@@ -1104,7 +1104,7 @@ class TestTransactionIsolation:
         )
 
         # Second assignment to same incident should fail
-        with pytest.raises(ValueError, match="already assigned to this incident"):
+        with pytest.raises(ValueError, match="diesem Einsatz bereits zugewiesen"):
             await assignment_crud.assign_resource(
                 db=db_session,
                 incident_id=test_incident.id,

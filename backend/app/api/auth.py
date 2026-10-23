@@ -31,6 +31,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import User
 from ..services.audit import log_login, log_logout
+from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ async def refresh_token(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorMessages.USER_NOT_FOUND)
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzerkonto ist deaktiviert")
 
