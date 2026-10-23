@@ -9,7 +9,7 @@
  * `components/protected-route.tsx` for why and for what actually enforces the role.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useEffectEvent, useCallback, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams, useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
@@ -732,9 +732,11 @@ export default function FireStationDashboard() {
     isMounted,
   })
 
-  // Refresh operations immediately when Kanban page loads
+  // Refresh operations immediately when Kanban page loads – once, whatever identity
+  // `refreshOperations` has later.
+  const refreshOnMount = useEffectEvent(() => refreshOperations())
   useEffect(() => {
-    refreshOperations()
+    refreshOnMount()
   }, [])
 
 

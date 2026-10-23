@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffect, useEffectEvent, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useTranslations } from 'next-intl';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -102,9 +102,12 @@ export function useStationSettings({
     }
   };
 
+  // Load when the form becomes enabled; `reload` is a plain function, reached through an
+  // effect event.
+  const loadWhenEnabled = useEffectEvent(() => void reload());
   useEffect(() => {
     if (enabled) {
-      reload();
+      loadWhenEnabled();
     }
   }, [enabled]);
 

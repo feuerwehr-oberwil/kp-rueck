@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useEffectEvent, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -145,14 +145,16 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<VehicleStatus | null>(null)
   const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
 
-  // Auto-refresh every 10 seconds while sheet is open
+  // Auto-refresh every 10 seconds while sheet is open. `loadVehicleStatuses` is a plain
+  // function re-created every render, reached through an effect event.
+  const loadStatuses = useEffectEvent((silent: boolean) => void loadVehicleStatuses(silent))
   useEffect(() => {
     if (open && eventId) {
-      loadVehicleStatuses()
+      loadStatuses(false)
 
       // Set up auto-refresh
       refreshIntervalRef.current = setInterval(() => {
-        loadVehicleStatuses(true) // Silent refresh (no loading state)
+        loadStatuses(true) // Silent refresh (no loading state)
       }, 10000)
     }
 
@@ -244,38 +246,39 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   // Vehicles are already sorted by display_order in loadVehicleStatuses
   const displayedVehicles = vehicles
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!open) return
+  // Handle keyboard navigation. An effect event: one listener for the mount, and a key
+  // always sees the current list, selection and handlers.
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (!open) return
 
-      // Ignore if typing in input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        setSelectedVehicleIndex(prev =>
-          prev < displayedVehicles.length - 1 ? prev + 1 : 0
-        )
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        setSelectedVehicleIndex(prev =>
-          prev > 0 ? prev - 1 : displayedVehicles.length - 1
-        )
-      } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
-        e.preventDefault()
-        const vehicle = displayedVehicles[selectedVehicleIndex]
-        if (vehicle?.incident_id) {
-          handleVehicleClick(vehicle)
-        }
-      }
+    // Ignore if typing in input
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return
     }
 
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setSelectedVehicleIndex(prev =>
+        prev < displayedVehicles.length - 1 ? prev + 1 : 0
+      )
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setSelectedVehicleIndex(prev =>
+        prev > 0 ? prev - 1 : displayedVehicles.length - 1
+      )
+    } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
+      e.preventDefault()
+      const vehicle = displayedVehicles[selectedVehicleIndex]
+      if (vehicle?.incident_id) {
+        handleVehicleClick(vehicle)
+      }
+    }
+  })
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => onKeyDown(e)
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [open, displayedVehicles, selectedVehicleIndex])
+  }, [])
 
   const handleVehicleClick = (vehicle: VehicleStatus) => {
     if (vehicle.incident_id) {

@@ -202,6 +202,11 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
     setAuftraegeFocusGroupId,
     setNewEmergencyModalOpen,
     writeJournal,
+    // Stable (state setters, the App Router's router); listed so the rule can check the rest.
+    router,
+    setShowLeftSidebar,
+    setShowRightSidebar,
+    setSidePanelMode,
   ])
 
   return {
