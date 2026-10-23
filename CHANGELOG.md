@@ -30,6 +30,10 @@ will keep holding.
 
 ### Added
 
+- **Search keyword «ohne fahrzeug»** on the board finds dispatched Einsätze without a vehicle.
+- **Phone: checking someone out on the check-in kiosk can be undone** («Rückgängig» in the toast).
+- **`TRUSTED_PROXIES`** in `.env`: behind a second proxy, set it to that proxy's address together
+  with `TRUSTED_PROXY_COUNT=2` (docs/RUNNING-BOTH.md) – Caddy passes the real client on.
 - **«Erstellen und nächsten erfassen» on «Neuer Einsatz»** (#214). The arrow beside «Einsatz
   erstellen» (or Ctrl/⌘ ↵) creates the card and leaves the dialog open and empty with the cursor
   in the Einsatzort, for a run of calls. Einsatzart, Telefonisch/Vom Feld and the Auftrag carry
@@ -40,6 +44,32 @@ will keep holding.
 
 ### Changed
 
+- **Address search looks near the station first** (sweep 2026-10): «Bahnhofstrasse 22» offers
+  Therwil, Witterswil, Arlesheim instead of Naters VS; Enter with no suggestion highlighted keeps
+  what you typed. The typed address no longer disappears on the next tap on the phone.
+- **«Neuer Einsatz» starts empty after Ctrl ↵ and after «Abbrechen»**; the previous call's
+  address no longer carries into the next one.
+- **«Hierher verschieben» also releases the driver role**, and the sidebar shows where a driver is
+  («Fahrer Mowa · 12 · Ringstrasse 11»).
+- **One word for releasing: «freigeben»** (toast, chip, completion, gates).
+- **Offline: one message.** While the «Verbindung verloren» banner shows, no red toast on top;
+  elsewhere «Server nicht erreichbar – angezeigt wird der letzte Stand.»
+- **Error messages from the server are German** (about 150 were English, e.g. «Event not found»).
+- **Colour and contrast**: secondary text is brighter in dark mode, coloured text darker in light
+  mode; red appears only for priority and danger; one focus outline everywhere; the map legend
+  button reads «Legende»; Aufträge get colours the board doesn't use for status (violet, pink,
+  cyan, lime, indigo, brown – stored routes keep theirs); bound people in the sidebar keep the
+  where-line at full strength.
+- **Phone**: the search finds the Meldung; Feld's button says «Neuer Schadenplatz» and the chain
+  «Status an den KP»; the Hoch card matches the board's; «EL» instead of a star (also on `/feld`);
+  a sent Reko names the address instead of an ID; a dead Reko link shows one calm card; the phone
+  «Neuer Einsatz» asks before discarding typed text.
+- **On the map, keys 1–5 pick the same vehicle as on the board**, and «An Auftrag verteilen» asks
+  first and warns on a closed Einsatz, as on the board.
+- **The Auftrag picker shows each stop's status in the board's words** (it read «BEENDET / RÜCKFAHRT»).
+- **A status change records the status it really replaced**; when two operators move the same
+  card seconds apart, the second change's response says the status it saw was stale
+  (`stale_from_status`).
 - **«Rückfahrt» replaces «Beendet» everywhere** (#215). The column, the status on every card,
   the phone filter, the wall display, the Feld status and the print all use one word for
   `returning`. The phone filter now has one row per status, in board order.
@@ -69,6 +99,12 @@ will keep holding.
 
 ### Fixed
 
+- **A request that fails partway leaves nothing behind**, and the board is told only after a
+  write is saved (before, earlier steps of a failed request stayed, and a 200 could precede the
+  commit). The Excel «Ersetzen» import is one transaction.
+- **Photo uploads from `/feld` in demo mode** no longer answer 500.
+- **Reloading the Warnungen settings no longer resets the station's notification settings** to
+  the defaults.
 - **The weather radar shows frames again** (#213). MeteoSwiss renamed its radar files on
   13.10.2026 and every frame failed; the poller now takes the names from MeteoSwiss's own index.
 - **The map no longer logs a CSP error on every load** (#212): the radar placeholder is a real
