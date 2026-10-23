@@ -248,8 +248,8 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
 
       // Both rows name the EL. "kein EL erfasst" on the finished one is the
       // regression this test exists for.
-      await expect(runningRow.getByText(`EL: ${leader.name}`)).toBeVisible();
-      await expect(finishedRow.getByText(`EL: ${leader.name}`)).toBeVisible();
+      await expect(runningRow.locator(`[data-slot="feld-leader-line"]`, { hasText: leader.name })).toBeVisible();
+      await expect(finishedRow.locator(`[data-slot="feld-leader-line"]`, { hasText: leader.name })).toBeVisible();
       await expect(finishedRow.getByText('kein EL erfasst')).toHaveCount(0);
       // The crew is off the finished Schadenplatz but can still file for it.
       await expect(finishedRow.getByText('Nicht mehr zugewiesen')).toBeVisible();

@@ -3937,7 +3937,6 @@
       "submitted": "Rapport erfasst"
     },
     "leader": {
-      "label": "EL: {name}",
       "none": "kein EL erfasst",
       "self": "Du bist EL – der Rapport ist deine Aufgabe."
     },

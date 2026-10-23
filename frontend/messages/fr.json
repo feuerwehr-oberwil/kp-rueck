@@ -749,7 +749,6 @@
       "submitted": "Rapport saisi"
     },
     "leader": {
-      "label": "CI : {name}",
       "none": "aucun CI saisi",
       "self": "Tu es CI – le rapport est ta tâche."
     },

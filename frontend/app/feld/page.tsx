@@ -17,7 +17,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Star, Truck, User, Waypoints } from 'lucide-react'
+import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MapPin, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
 
 import {
   apiClient,
@@ -31,6 +31,7 @@ import {
   type ApiFieldReportState,
   type ApiSchadenplatzRapport,
 } from '@/lib/api-client'
+import { LeaderGlyph } from '@/components/kanban/leader-badge'
 import { FeldActions } from '@/components/feld/feld-actions'
 import { FeldBriefing, FeldBriefingLine } from '@/components/feld/feld-briefing'
 import { FELD_COOKIE_SCOPE, readDeviceToken, useFeldDoor } from '@/components/feld/feld-door'
@@ -148,7 +149,8 @@ function JourneyChip({ assignment }: { assignment: ApiFeldAssignment }) {
  * The EL briefing (decision 22): every `/feld` surface names the Einsatzleiter
  * of that Schadenplatz BEFORE the form opens, so a crew knows who is normally
  * expected to file. Briefed, never enforced — anybody assigned may still file.
- * The empty case reads "kein EL erfasst"; it is never a blank line.
+ * The empty case reads "kein EL erfasst"; it is never a blank line. Marked with
+ * the board's «EL» sign (LeaderGlyph), never a star – leader-badge.tsx says why.
  */
 function LeaderLine({
   assignment,
@@ -160,21 +162,30 @@ function LeaderLine({
   className?: string
 }) {
   const t = useTranslations('feld.leader')
+  const tLeader = useTranslations('kanban.leader')
   const isSelf = Boolean(assignment.leader_personnel_id && assignment.leader_personnel_id === selfId)
 
   if (isSelf) {
     return (
-      <p className={`flex items-start gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
-        <Star className="h-3.5 w-3.5 mt-0.5 shrink-0 fill-current" />
+      <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm font-medium text-foreground ${className ?? ''}`}>
+        <LeaderGlyph />
         <span>{t('self')}</span>
       </p>
     )
   }
 
   return (
-    <p className={`flex items-start gap-1.5 text-sm text-muted-foreground ${className ?? ''}`}>
-      <Star className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-      <span>{assignment.leader_name ? t('label', { name: assignment.leader_name }) : t('none')}</span>
+    <p data-slot="feld-leader-line" className={`flex items-baseline gap-1.5 text-sm text-muted-foreground ${className ?? ''}`}>
+      <LeaderGlyph />
+      {assignment.leader_name ? (
+        <>
+          {/* The sign says «EL»; a screen reader hears the role. */}
+          <span className="sr-only">{tLeader('is')}:</span>
+          <span className="min-w-0 break-words">{assignment.leader_name}</span>
+        </>
+      ) : (
+        <span>{t('none')}</span>
+      )}
     </p>
   )
 }
