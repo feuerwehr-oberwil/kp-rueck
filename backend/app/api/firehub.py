@@ -32,6 +32,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret, try_auto_attach
+from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ async def _handle_start(
         existing = await divera_crud.get_emergency_by_source(db, alarm.source, source_id)
         if existing:
             return _start_ack(existing.id, existing.created_incident_id, created=False)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Alarm already exists") from None
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.ALARM_EXISTS) from None
 
     logger.info("New FireHub alarm: firehub:%s, Title: %s", emergency.source_id, emergency.title)
 

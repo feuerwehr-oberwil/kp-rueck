@@ -71,7 +71,7 @@ async def get_event(
     """Get a single event by ID."""
     event = await crud.get_event_by_id(db, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {
@@ -105,7 +105,7 @@ async def get_event_restliste(
     """
     event = await crud.get_event_by_id(db, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
     return schemas.EventRestliste(**await feld_crud.event_restliste(db, event_id))
 
 
@@ -143,7 +143,7 @@ async def update_event(
     """Update an event (editor only)."""
     event = await crud.update_event(db, event_id, event_data)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {
@@ -182,7 +182,7 @@ async def archive_event(
     """
     event = await crud.archive_event(db, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     if checkout_attendees:
         checked_out = await checkin_crud.check_out_all_personnel(
@@ -221,7 +221,7 @@ async def unarchive_event(
     """Unarchive an event (restore from archive, editor only)."""
     event = await crud.unarchive_event(db, event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     incident_count = await crud.get_event_incident_count(db, event.id)
     event_dict = {

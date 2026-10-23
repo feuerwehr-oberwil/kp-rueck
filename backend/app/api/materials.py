@@ -14,6 +14,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import materials as crud
 from ..database import get_db
 from ..models import Material, MaterialGroup
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_material_update
 
 router = APIRouter(prefix="/materials", tags=["materials"])
@@ -23,7 +24,7 @@ def _archive_refused_detail(refused: crud.ArchiveRefused) -> str:
     """The 409 for archiving a deployed material — same shape as the purge's `in_use`."""
     return (
         f"«{refused.name}» steht aktuell auf {refused.active_incidents} Einsätzen und kann "
-        "nicht archiviert werden – zuerst die Zuteilung aufheben."
+        "nicht archiviert werden – zuerst die Zuweisung aufheben."
     )
 
 
@@ -67,7 +68,7 @@ async def get_material(
     """Get single material by ID. Archived materials are returned here."""
     material = await crud.get_material(db, material_id)
     if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_NOT_FOUND)
     return (await _with_usage(db, [material]))[0]
 
 
@@ -105,7 +106,7 @@ async def update_material(
     """
     updated = await crud.update_material(db, material_id, material, current_user, request)
     if not updated:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_NOT_FOUND)
 
     # Convert to Pydantic and broadcast WebSocket update
     material_response = (await _with_usage(db, [updated]))[0]
@@ -131,7 +132,7 @@ async def archive_material(
     """
     archived = await crud.archive_material(db, material_id, current_user, request)
     if not archived:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_NOT_FOUND)
     if isinstance(archived, crud.ArchiveRefused):
         raise HTTPException(status_code=409, detail=_archive_refused_detail(archived))
 
@@ -152,7 +153,7 @@ async def restore_material(
     """Bring an archived material back (editor only) — «Zurückholen»."""
     restored = await crud.restore_material(db, material_id, current_user, request)
     if not restored:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_NOT_FOUND)
 
     material_response = (await _with_usage(db, [restored]))[0]
     background_tasks.add_task(broadcast_material_update, material_response.model_dump(mode="json"), "create")
@@ -183,7 +184,7 @@ async def delete_material(
     if not permanent:
         archived = await crud.archive_material(db, material_id, current_user, request)
         if not archived:
-            raise HTTPException(status_code=404, detail="Material not found")
+            raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_NOT_FOUND)
         if isinstance(archived, crud.ArchiveRefused):
             raise HTTPException(status_code=409, detail=_archive_refused_detail(archived))
         background_tasks.add_task(broadcast_material_update, {"id": str(material_id)}, "delete")
@@ -191,7 +192,7 @@ async def delete_material(
 
     outcome = await crud.purge_material(db, material_id, current_user, request)
     if outcome.refusal == "not_found":
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_NOT_FOUND)
     if outcome.refusal == "not_archived":
         raise HTTPException(
             status_code=409,
@@ -290,7 +291,7 @@ async def update_material_group(
     result = await db.execute(select(MaterialGroup).where(MaterialGroup.id == group_id))
     db_group = result.scalar_one_or_none()
     if not db_group:
-        raise HTTPException(status_code=404, detail="Material group not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_GROUP_NOT_FOUND)
 
     update_data = group_update.model_dump(exclude_unset=True, exclude={"material_ids"})
     for field, value in update_data.items():
@@ -321,7 +322,7 @@ async def delete_material_group(
     result = await db.execute(select(MaterialGroup).where(MaterialGroup.id == group_id))
     db_group = result.scalar_one_or_none()
     if not db_group:
-        raise HTTPException(status_code=404, detail="Material group not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_GROUP_NOT_FOUND)
 
     # Unlink all materials first
     await db.execute(update(Material).where(Material.group_id == group_id).values(group_id=None))
@@ -333,4 +334,4 @@ async def delete_material_group(
         # Something still references this group (unexpected — members were just
         # unlinked). Roll back and return a clear conflict instead of a raw 500.
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Material group is still in use") from None
+        raise HTTPException(status_code=409, detail="Materialgruppe wird noch verwendet") from None

@@ -23,13 +23,11 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser, get_current_user
-from ..config import settings
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
@@ -48,7 +46,7 @@ from ..websocket_manager import (
 logger = get_logger(__name__)
 from ..services.audit import log_action
 from ..services.merge_links import live_incident_id, merged_into_ids
-from ..services.photo_storage import photo_storage
+from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.tokens import (
     decode_form_token,
     generate_feld_token,
@@ -69,7 +67,7 @@ async def _require_form_token(
     """Validate form scope and the live field device behind any derived credential."""
     claims = decode_form_token(token, str(incident_id))
     if claims is None:
-        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link")
     binding = claims.field_binding
     if binding is None:
         # Standalone board-issued links have no field device to revoke.
@@ -212,7 +210,7 @@ async def submit_reko_report(
     """
     field_token = report_data.token
     if field_token is not None and not validate_form_token(field_token, str(report_data.incident_id)):
-        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link")
 
     user = await _require_user_or_form_token(
         request,
@@ -379,7 +377,7 @@ async def get_report(
     report = result.scalar_one_or_none()
 
     if not report:
-        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, "Report not found")
+        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
 
     door_id = await _token_door_id(db, token, report.incident_id)
     await _require_user_or_form_token(request, door_id, token, access_token, authorization, db)
@@ -684,33 +682,13 @@ async def upload_photo(
     # A token that is present but wrong stays a 400 whoever is logged in: a
     # leaked link must not become a way to write into another incident.
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
-        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link")
 
     user = await _require_user_or_form_token(
         request, incident_id, x_reko_token, access_token, authorization, db, write=True
     )
 
-    # Demo mode: limit file size to 1MB and total photos to 15
-    if settings.demo_mode:
-        # Check file size (read first chunk to estimate)
-        contents = await file.read()
-        if len(contents) > 1 * 1024 * 1024:  # 1MB
-            raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
-        # Reset file position for photo_storage
-        await file.seek(0)
-
-        # Count total photos across all reports. `photos_json` is JSONB, so this
-        # must be jsonb_array_length — `array_length` only exists for real
-        # Postgres arrays, and calling it here 500'd EVERY demo photo upload
-        # (field test 07.09.: «Interner Serverfehler», egal welches Format).
-        total_photos_result = await db.execute(
-            select(sa_func.coalesce(sa_func.jsonb_array_length(RekoReport.photos_json), 0))
-        )
-        total_photos = sum(r[0] for r in total_photos_result)
-        if total_photos >= 15:
-            raise CodedHTTPException(
-                403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht."
-            )
+    await enforce_demo_photo_limits(db, file, RekoReport.photos_json)
 
     try:
         report = await _photo_report(db, incident_id, user, x_reko_token, report_id)
@@ -766,7 +744,7 @@ async def delete_photo(
         { "success": true }
     """
     if x_reko_token is not None and not validate_form_token(x_reko_token, str(incident_id)):
-        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Invalid token")
+        raise CodedHTTPException(400, ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link")
 
     user = await _require_user_or_form_token(
         request, incident_id, x_reko_token, access_token, authorization, db, write=True
@@ -783,7 +761,7 @@ async def delete_photo(
     # Check if photo exists in report
     current_photos = report.photos_json if report.photos_json else []
     if filename not in current_photos:
-        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found in report")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
 
     # Follow-up drafts inherit photos from earlier submissions. Unlinking one
     # report must preserve the file while any other report still references it.
@@ -912,7 +890,7 @@ async def serve_photo(
         if personnel_id is not None:
             report_query = report_query.where(RekoReport.submitted_by_personnel_id == personnel_id)
         if await db.scalar(report_query) is None:
-            raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
+            raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
     else:
         viewer_event_id = validate_viewer_token(token) if token else None
         if viewer_event_id is None:
@@ -923,17 +901,17 @@ async def serve_photo(
     incident = incident_result.scalar_one_or_none()
 
     if not incident:
-        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, "Incident not found")
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     if viewer_event_id and not await _viewer_token_may_see_photo(db, incident, filename, viewer_event_id):
-        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
 
     # Get photo path and verify it exists (this is also the path-traversal guard)
     file_path = photo_storage.get_photo_path(incident_id, filename) or (
         photo_storage.get_photo_path(live_id, filename) if live_id != incident_id else None
     )
     if not file_path:
-        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Photo not found")
+        raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
 
     # Log photo access for audit trail. `user=None` on the token door is the
     # provenance itself: nobody was logged in, somebody held a scoped link.
@@ -1021,7 +999,7 @@ async def assign_reko_personnel(
 
     # If the same person is already assigned, do nothing
     if currently_assigned_id == assignment.personnel_id:
-        raise HTTPException(status_code=400, detail="Personnel already assigned to this incident")
+        raise HTTPException(status_code=400, detail="Person ist diesem Einsatz bereits zugewiesen")
 
     # If a different Reko person is assigned, unassign them first
     if currently_assigned_id is not None:
@@ -1107,7 +1085,7 @@ async def unassign_reko_personnel(
     success = await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id)
 
     if not success:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
     # Broadcast WebSocket update
     background_tasks.add_task(

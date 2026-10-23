@@ -325,12 +325,11 @@ class TestStartSyncScheduler:
             mock_instance.start.assert_called_once()
 
     def test_initializes_last_interval(self):
-        """Test that last_interval_minutes is initialized from settings."""
+        """The first interval is the settings table's default, not an env knob."""
         with (
             patch("app.background.sync_scheduler.AsyncIOScheduler") as MockScheduler,
-            patch("app.background.sync_scheduler.settings") as mock_settings,
+            patch.dict("app.background.sync_scheduler.DEFAULT_SETTINGS", {"sync_interval_minutes": "5"}),
         ):
-            mock_settings.sync_interval_minutes = 5
             mock_instance = MagicMock()
             MockScheduler.return_value = mock_instance
 

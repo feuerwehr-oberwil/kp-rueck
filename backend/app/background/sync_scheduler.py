@@ -5,11 +5,10 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from app.config import settings
 from app.database import get_db
 from app.environment import blocked_reason, is_domain_blocked
 from app.logging_config import get_logger
-from app.services.settings import get_setting_value
+from app.services.settings import DEFAULT_SETTINGS, get_setting_value
 from app.services.sync_service import create_sync_service
 
 logger = get_logger(__name__)
@@ -104,7 +103,8 @@ def start_sync_scheduler() -> None:
 
     Called during FastAPI lifespan startup.
     Railway URL is checked from database settings on each sync run.
-    Uses config default interval on startup, then dynamically adjusts based on database settings.
+    Starts on the settings table's default interval; the first run reads the stored
+    one and reschedules if it differs (the interval lives in the settings table only).
     """
     global scheduler, last_interval_minutes
 
@@ -117,23 +117,22 @@ def start_sync_scheduler() -> None:
         return
 
     # Always start scheduler - Railway URL will be checked from database at runtime
-    # Initialize with config default (will be updated on first sync if database setting differs)
-    last_interval_minutes = settings.sync_interval_minutes
-    logger.info(f"Starting sync scheduler (initial interval: {settings.sync_interval_minutes} minutes)")
+    last_interval_minutes = int(DEFAULT_SETTINGS["sync_interval_minutes"])
+    logger.info(f"Starting sync scheduler (initial interval: {last_interval_minutes} minutes)")
 
     scheduler = AsyncIOScheduler()
 
     # Add scheduled sync job
     scheduler.add_job(
         scheduled_sync,
-        trigger=IntervalTrigger(minutes=settings.sync_interval_minutes),
+        trigger=IntervalTrigger(minutes=last_interval_minutes),
         id="railway_sync",
         name="Railway ↔ Local bidirectional sync",
         replace_existing=True,
     )
 
     scheduler.start()
-    logger.info(f"Sync scheduler started (syncing every {settings.sync_interval_minutes} minutes)")
+    logger.info(f"Sync scheduler started (syncing every {last_interval_minutes} minutes)")
 
 
 def stop_sync_scheduler(timeout_seconds: int = 10) -> None:

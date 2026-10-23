@@ -346,8 +346,10 @@ class TestCheckRailwayHealth:
     ):
         """Test health check returns False when connection fails."""
         with patch.object(sync_service, "get_railway_engine") as mock_get_engine:
-            mock_engine = AsyncMock()
-            mock_engine.connect.side_effect = Exception("Connection refused")
+            # `engine.connect()` is a plain call returning an async context manager –
+            # an AsyncMock here made it a coroutine, and the test passed on that TypeError.
+            mock_engine = MagicMock()
+            mock_engine.connect.side_effect = ConnectionRefusedError("Connection refused")
             mock_get_engine.return_value = mock_engine
 
             result = await sync_service.check_railway_health()

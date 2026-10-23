@@ -26,7 +26,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..config import settings
 
@@ -182,34 +181,3 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
             "X-RateLimit-Reset": str(reset_time),
         },
     )
-
-
-class RateLimitHeadersMiddleware:
-    """
-    Middleware to add rate limit headers to responses (pure ASGI middleware).
-
-    Adds X-RateLimit-* headers to help clients implement backoff.
-    """
-
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        request = Request(scope)
-
-        async def send_wrapper(message: Message) -> None:
-            if message["type"] == "http.response.start" and request.url.path.startswith("/api"):
-                # Check if X-RateLimit-Limit is already present (slowapi sets it for limited routes)
-                has_rate_limit = any(k == b"x-ratelimit-limit" for k, _ in message.get("headers", []))
-                if not has_rate_limit:
-                    message = {
-                        **message,
-                        "headers": [*list(message.get("headers", [])), (b"x-ratelimit-policy", b"100/minute")],
-                    }
-            await send(message)
-
-        await self.app(scope, receive, send_wrapper)

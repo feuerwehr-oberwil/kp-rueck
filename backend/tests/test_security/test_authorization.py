@@ -609,7 +609,7 @@ async def test_cannot_access_incident_with_random_uuid(editor_client: AsyncClien
     response = await editor_client.get(f"/api/incidents/{random_id}")
     assert response.status_code == 404
     # Error message should not leak information
-    assert "not found" in response.json()["detail"].lower()
+    assert "nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio

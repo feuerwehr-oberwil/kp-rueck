@@ -1,5 +1,6 @@
 """Application configuration using pydantic-settings."""
 
+import logging
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -7,6 +8,8 @@ from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .telemetry.dsn import UPSTREAM_DSN
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -72,7 +75,6 @@ class Settings(BaseSettings):
     # backend publishes none. nosec B104: the finding does not apply to a containerised service.
     host: str = "0.0.0.0"  # noqa: S104 – the container network is the boundary, not the process  # nosec B104
     port: int = 8000
-    reload: bool = False  # Set to False in production
 
     # Security - MUST be set via environment variable
     secret_key: str = ""  # Auto-generated in dev, required via env var in production
@@ -102,7 +104,7 @@ class Settings(BaseSettings):
             else:
                 # Auto-generate secure key for local development
                 generated_key = secrets.token_hex(32)  # 256-bit key
-                print(f"🔑 Generated development SECRET_KEY: {generated_key[:8]}...")
+                logger.warning("Generated a development SECRET_KEY (sessions end on restart)")
                 return generated_key
 
         # Validate provided key
@@ -129,9 +131,7 @@ class Settings(BaseSettings):
                         "Generate one with: openssl rand -hex 32"
                     )
                 # In development, warn but allow (for local testing)
-                print(
-                    f"⚠️  WARNING: SECRET_KEY contains weak pattern '{weak_pattern}'. This is only acceptable in development!"
-                )
+                logger.warning("SECRET_KEY contains weak pattern %r – acceptable in development only", weak_pattern)
 
         # Enforce minimum length (256 bits = 32 bytes = 64 hex chars recommended)
         if len(v) < 32:
@@ -304,11 +304,6 @@ class Settings(BaseSettings):
     # app is exposed directly, which makes the header be ignored entirely.
     trusted_proxy_count: int = 1
 
-    # Sync Configuration
-    railway_url: str = ""  # Railway production URL (empty = local mode, no sync)
-    sync_interval_minutes: int = 2  # Periodic sync interval
-    sync_conflict_buffer_seconds: int = 5  # Timestamp buffer for conflict resolution (Local wins if within buffer)
-
     # Traccar GPS Integration
     traccar_url: str = ""  # Traccar server URL (e.g., https://gps.example.com)
     traccar_email: str = ""  # Traccar account email for authentication
@@ -398,19 +393,6 @@ class Settings(BaseSettings):
         from app.environment import is_production_environment
 
         return is_production_environment()
-
-    @property
-    def is_testing(self) -> bool:
-        """Check if we're in test mode."""
-        import os
-        import sys
-
-        # Check multiple indicators of test mode
-        return (
-            "pytest" in sys.modules  # pytest is running
-            or os.getenv("PYTEST_CURRENT_TEST") is not None  # pytest env var
-            or "test" in self.database_url.lower()  # test database
-        )
 
 
 settings = Settings()

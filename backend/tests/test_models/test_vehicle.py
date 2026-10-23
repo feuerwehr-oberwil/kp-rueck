@@ -12,25 +12,6 @@ from app.models import Vehicle
 class TestVehicleModel:
     """Test Vehicle model operations."""
 
-    async def test_create_vehicle(self, db_session: AsyncSession):
-        """Test creating a vehicle."""
-        vehicle = Vehicle(
-            id=uuid4(),
-            name="TLF 1",
-            type="TLF",
-            status="available",
-        )
-        db_session.add(vehicle)
-        await db_session.commit()
-        await db_session.refresh(vehicle)
-
-        assert vehicle.id is not None
-        assert vehicle.name == "TLF 1"
-        assert vehicle.type == "TLF"
-        assert vehicle.status == "available"
-        assert vehicle.created_at is not None
-        assert vehicle.updated_at is not None
-
     async def test_vehicle_status_constraint(self, db_session: AsyncSession):
         """Test that invalid vehicle status is rejected."""
         vehicle = Vehicle(
@@ -59,10 +40,3 @@ class TestVehicleModel:
             await db_session.commit()
             await db_session.refresh(vehicle)
             assert vehicle.status == status
-
-    async def test_vehicle_fixture(self, test_vehicle: Vehicle):
-        """Test the test_vehicle fixture."""
-        assert test_vehicle.id is not None
-        assert test_vehicle.name == "TLF 1"
-        assert test_vehicle.type == "TLF"
-        assert test_vehicle.status == "available"

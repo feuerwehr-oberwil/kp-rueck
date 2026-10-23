@@ -134,10 +134,12 @@ async def receive_divera_webhook(
             logger.info("Concurrent Divera webhook ignored: ID %s", payload.id)
             return {"status": "ok", "message": "Duplicate emergency ignored"}
         logger.exception("Divera webhook hit an integrity error with no winner to ack: ID %s", payload.id)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Emergency already exists") from None
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.ALARM_EXISTS) from None
     except Exception as e:
         logger.error(f"Error processing Divera webhook: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing webhook") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Webhook konnte nicht verarbeitet werden"
+        ) from e
 
 
 @router.get("/emergencies", response_model=schemas.DiveraEmergencyListResponse)
@@ -197,7 +199,7 @@ async def get_divera_emergency(
     """Get a specific Divera emergency by ID."""
     emergency = await divera_crud.get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera emergency not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera-Alarm nicht gefunden")
 
     return schemas.DiveraEmergencyResponse.model_validate(emergency)
 
@@ -234,7 +236,7 @@ async def attach_emergency_to_event(
     # same alarm waits here until this one has committed its incident AND the link.
     emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
     if not emergency:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera emergency not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Divera-Alarm nicht gefunden")
 
     # Already on this event: hand back the card it made. This is the double click, or the
     # second of two operators — both meant "put this alarm on that board", and it is there.
@@ -248,7 +250,7 @@ async def attach_emergency_to_event(
             # Attached once, but the card has since been deleted: re-attaching to the same
             # event stays refused, as it always was — that is a decision, not a double click.
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Emergency already attached to this event"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Alarm ist diesem Ereignis bereits zugeordnet"
             )
         response.status_code = status.HTTP_200_OK
         return await incident_display.incident_with_display(db, existing)
@@ -258,7 +260,7 @@ async def attach_emergency_to_event(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, request_data.event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Simulated training alarms never become real incidents.
     #
@@ -386,7 +388,7 @@ async def bulk_attach_emergencies(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, request_data.event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     created_incidents = []
     errors = []
@@ -521,13 +523,13 @@ async def get_personnel_sync_preview(
     if settings.demo_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Personnel sync is disabled in demo mode",
+            detail="Personalabgleich ist im Demo-Modus deaktiviert",
         )
 
     if not settings.divera_access_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Divera access key not configured. Set DIVERA_ACCESS_KEY in settings.",
+            detail=ErrorMessages.DIVERA_NOT_CONFIGURED,
         )
 
     try:
@@ -569,7 +571,7 @@ async def execute_personnel_sync(
     if settings.demo_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Personnel sync is disabled in demo mode",
+            detail="Personalabgleich ist im Demo-Modus deaktiviert",
         )
 
     if request_data.remove_stale and current_user.role != "admin":
@@ -581,7 +583,7 @@ async def execute_personnel_sync(
     if not settings.divera_access_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Divera access key not configured. Set DIVERA_ACCESS_KEY in settings.",
+            detail=ErrorMessages.DIVERA_NOT_CONFIGURED,
         )
 
     try:
@@ -696,7 +698,7 @@ async def send_incident_alarm(
 
     incident = await incidents_crud.get_incident(db, incident_id)
     if not incident:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Training events run the full flow but never reach Divera — recipients are
     # still resolved so the simulated result can report how many WOULD be alarmed,
@@ -888,7 +890,7 @@ async def list_divera_members(
     if not settings.divera_access_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Divera access key not configured",
+            detail=ErrorMessages.DIVERA_NOT_CONFIGURED,
         )
     try:
         members = await fetch_divera_members()
@@ -913,7 +915,7 @@ async def list_divera_groups(
     if not settings.divera_access_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Divera access key not configured",
+            detail=ErrorMessages.DIVERA_NOT_CONFIGURED,
         )
     try:
         groups = await fetch_divera_groups()
@@ -1063,7 +1065,7 @@ async def send_test_alarm(
     if provider is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Divera access key not configured",
+            detail=ErrorMessages.DIVERA_NOT_CONFIGURED,
         )
     enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
     if enabled.lower() != "true":
@@ -1146,7 +1148,7 @@ async def get_event_divera_responses(
     Divera is not configured or no alarm of this Ereignis came from Divera.
     """
     if await events_crud.get_event_by_id(db, event_id) is None:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
     if not settings.divera_access_key:
         return await _responses_summary(db, [], event_id)
     emergencies = await divera_responses.emergencies_for_event(db, event_id)
@@ -1165,7 +1167,7 @@ async def get_incident_divera_responses(
     """
     incident = await incidents_crud.get_incident(db, incident_id)
     if incident is None:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     if not settings.divera_access_key:
         return await _responses_summary(db, [], incident.event_id)
     emergencies = await divera_responses.emergencies_for_incident(db, incident)

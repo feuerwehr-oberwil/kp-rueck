@@ -13,6 +13,7 @@ from ..crud import external_identities as identities_crud
 from ..crud import personnel as crud
 from ..database import get_db
 from ..models import Personnel
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
@@ -44,7 +45,7 @@ async def get_personnel(
     """Get single personnel by ID (roster data; no Ereignis, so no attendance)."""
     personnel = await crud.get_personnel(db, personnel_id)
     if not personnel:
-        raise HTTPException(status_code=404, detail="Personnel not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
     linked = bool(await identities_crud.get_identity_map(db, "divera", [personnel_id]))
     return crud.to_personnel_schema(personnel, None, divera_linked=linked)
 
@@ -81,7 +82,7 @@ async def update_personnel(
     """Update personnel (editor only)."""
     updated = await crud.update_personnel(db, personnel_id, personnel, current_user, request)
     if not updated:
-        raise HTTPException(status_code=404, detail="Personnel not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
 
     # Convert to Pydantic and broadcast WebSocket update. Editing name/role/tags says
     # nothing about attendance, and this route names no Ereignis to report it for.
@@ -103,7 +104,7 @@ async def delete_personnel(
     """Delete personnel (editor only) - soft delete."""
     success = await crud.delete_personnel(db, personnel_id, current_user, request)
     if not success:
-        raise HTTPException(status_code=404, detail="Personnel not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(broadcast_personnel_update, {"id": str(personnel_id)}, "delete")

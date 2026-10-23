@@ -61,8 +61,8 @@ async def assign_group_resource(
                 exists_as_other_type = True
                 break
         if exists_as_other_type:
-            raise ResourceTypeMismatchError("Resource id does not match resource_type")
-        raise ResourceNotFoundError("Resource not found")
+            raise ResourceTypeMismatchError("Ressource passt nicht zum Ressourcentyp")
+        raise ResourceNotFoundError("Ressource nicht gefunden")
 
     # Lock the parent because there may be no existing assignment row to lock.
     await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
@@ -79,7 +79,7 @@ async def assign_group_resource(
         .with_for_update()  # Row-level locking for transaction isolation
     )
     if existing.scalar_one_or_none() is not None:
-        raise ValueError("Resource already assigned to this Auftrag")
+        raise ValueError("Ressource ist diesem Auftrag bereits zugewiesen")
 
     assignment = IncidentGroupAssignment(
         incident_group_id=group_id,
@@ -92,7 +92,7 @@ async def assign_group_resource(
         await db.flush()
     except IntegrityError as exc:
         await db.rollback()
-        raise ValueError("Resource already assigned to this Auftrag") from exc
+        raise ValueError("Ressource ist diesem Auftrag bereits zugewiesen") from exc
 
     await log_action(
         db=db,
@@ -357,7 +357,7 @@ async def update_group_assignment(
     if "is_leader" in update_data:
         # Only a person can lead a route — see `crud.assignments.update_assignment`.
         if assignment.resource_type != "personnel":
-            raise ValueError("Only personnel assignments can be marked as Einsatzleiter")
+            raise ValueError("Nur Personal kann als Einsatzleiter markiert werden")
 
         group = (
             await db.execute(select(IncidentGroup).where(IncidentGroup.id == assignment.incident_group_id))
