@@ -1956,7 +1956,7 @@ export function OperationDetailContent({
       <TransferIncidentDialog
         open={transferDialogOpen}
         onOpenChange={setTransferDialogOpen}
-        sourceIncident={operation as unknown as Incident}
+        sourceIncident={operation}
         sourceName={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
         availableIncidents={availableIncidents}
         onTransfer={handleTransfer}

@@ -6,8 +6,6 @@
 import type {
   ApiEventSpecialFunctionResponse,
   ApiFieldRequest,
-  ApiIncidentCreate,
-  ApiIncidentUpdate,
   ApiVehicle,
   IncidentStatus,
 } from "@/lib/api-client"
@@ -30,14 +28,6 @@ export interface DriverStayPayload {
   incident_id?: string
   driver_stay?: boolean
 }
-
-/** Callers pass coordinates as numbers; the API wants decimal strings. */
-export interface CoordinateInput {
-  location_lat?: number | string | null
-  location_lng?: number | string | null
-}
-export type IncidentCreateInput = Omit<ApiIncidentCreate, "location_lat" | "location_lng"> & CoordinateInput
-export type IncidentUpdateInput = Omit<ApiIncidentUpdate, "location_lat" | "location_lng"> & CoordinateInput
 
 export interface RekoSummary {
   isRelevant: boolean
