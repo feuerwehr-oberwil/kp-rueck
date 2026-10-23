@@ -115,9 +115,10 @@ name the domains whatever you like, custom domains included.
    more. Reko photos live here; without a volume they land in ephemeral container storage and
    vanish on the next deploy.
 
-   > The backend container runs as **root**, so Railway's root-owned volume mounts are not a
-   > problem here. (KP Front is different – it runs as uid 10001 and needs `RAILWAY_RUN_UID=0`.
-   > Do not copy that setting into this project; it is not needed.)
+   > Railway mounts the volume owned by root. The backend's entrypoint starts as root, hands
+   > `/mnt/data` to `appuser` and then drops to it (`backend/entrypoint.sh`, `gosu`), so the
+   > mount needs nothing from you. (KP Front is different – it runs as uid 10001 and needs
+   > `RAILWAY_RUN_UID=0`. Do not copy that setting into this project; it is not needed.)
 
 3. **Variables:**
 
@@ -229,8 +230,8 @@ almost always one of these refusing a weak or missing value, and the message nam
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Railway reference, not a literal string. Railway hands out a `postgresql://` URL and the backend rewrites it to `postgresql+asyncpg://` itself (`config.py`), so paste it through unchanged |
 | `SECRET_KEY` | 32-byte hex | Signs every public token: check-in, Reko, viewer, alarm-intake and `/feld`. **Required. Keep stable** – changing it invalidates every printed QR and poster |
 | `AUTH_SECRET_KEY` | 32-byte hex | Signs login/refresh JWTs. **Required. Keep stable** – changing it logs everyone out |
-| `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. **Required** |
-| `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. **Required** |
+| `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. Optional, together with `VIEWER_PASSWORD`: leave both unset and the board boots **unclaimed** – the first visitor creates the accounts at `/setup` with the one-time «Einrichtungscode» from the backend's deploy log (`grep Einrichtungscode`; `SETUP_TOKEN` chooses your own) |
+| `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. Required whenever `ADMIN_SEED_PASSWORD` is set – the seed refuses one without the other |
 | `PHOTOS_DIR` | `/mnt/data/photos` | Must point inside the mounted volume |
 | `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
 | `PORT` | `8000` | Railway sets this automatically |

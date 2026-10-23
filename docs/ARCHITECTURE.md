@@ -553,7 +553,7 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 | Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |
 | Alarm Token | Generated in UI (QR code) | **30 days** (720 h) | Public alarm intake – **write**: creates incidents in one Ereignis, rate-limited and flagged `source='intake'` |
 | Feld Token (link) | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | Nothing on its own – the right to be asked for the Feld-Code |
-| Feld Token (unlocked) | `POST /feld/unlock` with the four-digit code | **72 hours** (`FELD_UNLOCK_MINUTES`, `crud/feld/access.py`) | The crew picker for one Ereignis, and nothing else; good for **one** claim (the unlock row is consumed) |
+| Feld Token (unlocked) | `POST /feld/unlock` with the four-digit code | **5 minutes** (`FELD_UNLOCK_MINUTES`, `crud/feld/access.py`) – the picker window | The crew picker for one Ereignis, and nothing else; good for **one** claim (the unlock row is consumed). Picking a name trades it for the 30-day bound token below, so a crew is not asked again |
 | Feld Token (bound) | `POST /feld/claim` with your own name | **30 days** (720 h) | The `/feld` field surface, **as exactly one person** |
 | Feld Token (bound, from the board) | `POST /api/reko/generate-link` with a `personnel_id` – the link the KP sends a Reko person | **72 hours** | The same as a claimed device, for that one person; backed by a device claim, so **Alle Geräte abmelden** recalls it |
 

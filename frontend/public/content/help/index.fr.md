@@ -560,7 +560,7 @@ Une mission est **attribuée une fois, pas à nouveau à chaque étape**. L’ap
 
 Seules les ressources disponibles (point vert) peuvent être attribuées.
 
-**Annuler après un retrait.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est retiré, « … retiré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
+**Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
 
 **Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Retirer de l’intervention » rouge. À la souris, rien ne change.
 

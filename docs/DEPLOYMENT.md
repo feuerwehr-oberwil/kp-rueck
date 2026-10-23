@@ -164,10 +164,14 @@ just up                        # = docker compose up -d, then waits and prints t
 just doctor
 ```
 
-By hand instead of `just init`: `cp .env.example .env` and fill in the five values compose
-refuses to start without – `POSTGRES_PASSWORD`, `SECRET_KEY`, `AUTH_SECRET_KEY` (both
-`openssl rand -hex 32`, both **stable forever**), `ADMIN_SEED_PASSWORD` and `VIEWER_PASSWORD`
-(≥12 characters each). Then the three networking lines: for HTTPS, `DOMAIN` = a hostname whose
+By hand instead of `just init`: `cp .env.example .env` and fill in the three secrets compose
+refuses to start without – `POSTGRES_PASSWORD`, `SECRET_KEY` and `AUTH_SECRET_KEY` (both
+`openssl rand -hex 32`, both **stable forever**) – plus `KP_RUECK_TAG`, the exact release
+(§3). `ADMIN_SEED_PASSWORD` and `VIEWER_PASSWORD` (≥12 characters each) are a pair: set both
+and the `admin` and `viewer` logins exist at first boot (the admin one without the viewer one
+stops the seed); leave both empty and the board boots unclaimed, and the first visitor creates
+the accounts at `/setup` – with the «Einrichtungscode» from the backend log when the board
+faces the internet (§9). Then the three networking lines: for HTTPS, `DOMAIN` = a hostname whose
 A/AAAA record points here, `HTTP_PORT=80`, `CORS_ORIGINS=https://<that domain>`.
 
 **The first boot takes two to three minutes** – image pulls, migrations and seeding all run
@@ -185,7 +189,9 @@ to anyone else on the same network.
 
 **Production hardening is automatic** under compose: the stack sets `ENVIRONMENT=production`,
 which makes the secrets mandatory (no per-restart `SECRET_KEY`), forbids the development auth
-bypass, keeps sample incidents off the board, and refuses to seed a shared `editor` login.
+bypass, seeds **no sample data at all** – no events or incidents, and no fleet, roster,
+materials or training locations either; only accounts, default settings and the alarm templates
+– and refuses to seed a shared `editor` login (`backend/app/environment.py`, `backend/app/seed.py`).
 Real editors come from SSO or are created by the admin.
 
 ## 3. Which version am I running?
@@ -209,10 +215,12 @@ backup first. Never update images alone while keeping old Compose, Caddy or scri
 1. Read the target release notes and choose a published `X.Y.Z`. Schedule downtime, stop new
    operational writes, and take and verify a database **and photos** backup (§6). Keep a private
    copy of `.env` and the complete old release for recovery.
-2. Preserve the **existing installation directory and Compose project identity**. Docker volume
-   names depend on that project. Do not start the newly unzipped version in a differently named
-   folder. Keep any existing `COMPOSE_PROJECT_NAME` or explicit `-p` choice unchanged; a deployment
-   using `-p` must continue using that same option rather than switching to a plain launcher.
+2. Preserve the **existing installation directory**. The volume names do not depend on it –
+   `docker-compose.yml` pins the project as `name: kp-rueck`, so the database and photo volumes
+   are `kp-rueck_…` from any folder – but `.env`, `backups/` and the bind-mounted `deploy/` and
+   `scripts/` live there. Do not override the project with `-p` or `COMPOSE_PROJECT_NAME`: that
+   *would* select different, empty volumes, and `just up` / `just doctor` look for the container
+   `kp-rueck-backend-1` by name.
 3. Install all files from the target release into that existing directory, including
    `docker-compose.yml`, `deploy/`, `scripts/` and `frontend/package.json`. Keep `.env`, backups,
    local data and operator configuration. Review custom Compose overrides against the new release.
@@ -225,6 +233,18 @@ backup first. Never update images alone while keeping old Compose, Caddy or scri
    If it fails, resolve the download first; do not start a partly available upgrade. Then run
    `docker compose up -d --pull never --no-build` (or the matching launcher after a successful
    pull). Verify health, login, an incident with photos, board updates and printing if enabled.
+
+For a Git checkout the whole update, after the backup in step 1, is:
+
+```bash
+cd /path/to/kp-rueck                    # the existing installation directory
+git fetch --tags
+git checkout vX.Y.Z                     # the published release you chose
+sed -i 's/^KP_RUECK_TAG=.*/KP_RUECK_TAG=X.Y.Z/' .env
+docker compose pull                     # every image first – stop here if this fails
+docker compose up -d --pull never --no-build
+just doctor
+```
 
 **Existing installation with `latest`, `X.Y`, or no pin:** the launcher stops without changing
 `.env` or the running stack. First identify the actual running application version (the image label
@@ -276,8 +296,8 @@ If the new release cannot be used:
 1. Stop `backend`, `frontend`, `backup` and `print-agent`. Keep the database running. Preserve
    the failed release's database and photos separately if they contain writes you need later.
 2. Select the previous release's **deployment files and exact image tag**. Keep the same Compose
-   project name, database/photo volumes and original secrets; a new folder name otherwise
-   selects different default volumes.
+   project name (`kp-rueck`, pinned in `docker-compose.yml` – no `-p`), database/photo volumes
+   and original secrets.
 3. Follow §6.1 to restore the matching pre-upgrade database and photo pair while the application
    stays stopped. The old database revision must belong to that previous release's migration
    tree. Do not start the old backend against the newer database or guess an Alembic downgrade.
@@ -473,8 +493,8 @@ capability away.
 Do this **once before you go live**, and after any change to how you back up:
 
 1. Copy a real backup pair onto a machine that is not the station's server.
-2. `git clone` the repository there, `cp .env.example .env`, and fill in the five secrets –
-   including the **same** `SECRET_KEY` and `AUTH_SECRET_KEY` as the backup.
+2. `git clone` the repository there, `cp .env.example .env`, and fill in the three secrets and
+   `KP_RUECK_TAG` – including the **same** `SECRET_KEY` and `AUTH_SECRET_KEY` as the backup.
 3. `docker compose up -d`, wait for it to come up, then run the restore above.
 4. Log in and check the board, one incident with photos, and the Einsatztagebuch export.
 5. `docker compose down -v` to throw the test stack away.
@@ -658,7 +678,7 @@ backend, the backend waits for the database. Caddy is the only service that publ
 | **`docker compose ps backup` shows nothing at all.** | The `backup` profile is not active, so the sidecar was never created – and a container that does not exist cannot report itself unhealthy. This is the only backup failure with no signal. | Check that `COMPOSE_PROFILES=backup` is still in `.env`, and that you are running compose from the directory that holds it (§6). |
 | **`docker compose ps backup` shows `unhealthy`.** | The last backup failed or is more than 26 hours old. Not "has never run": the sidecar takes one immediately on start, so this state on a fresh install means a real failure, not a wait. | `cat $BACKUP_HOST_DIR/last-backup.json` names the stage that broke, and `docker compose logs backup` shows it. Usual causes: the disk is full, the backup directory is not writable by the container, or `BACKUP_PG_IMAGE` is an older Postgres major than the `db` service (§6). |
 | **Microsoft sign-in works, but those users cannot change anything.** | `SSO_EDITOR_ALLOWLIST` is empty, so everyone from your tenant is provisioned as a viewer. | Set it to the comma-separated e-mail addresses that should get editor rights, and restart the backend. It is an explicit grant on purpose: any member of the tenant can reach that login. |
-| **An Excel import deleted the whole roster.** | The import ran in `Ersetzen` mode, which empties the tables the workbook has a sheet for before inserting. The preview does not yet display the deletion figures, so a calm-looking preview is not evidence that nothing was going to be deleted. | Restore from last night's backup (§6.1). For adding people to an existing roster the mode is `Anhängen`. Before any future `Ersetzen`, export first (**Einstellungen → Daten → Export**) – same workbook shape, so it is also the undo: [`SETUP.md` §3](SETUP.md). |
+| **An Excel import deleted the whole roster.** | The import ran in `Ersetzen` mode (admin only), which empties the tables the workbook has a sheet for before inserting. The preview's «Bilanz» showed it in the «Wird gelöscht» column. | Restore from last night's backup (§6.1). For adding people to an existing roster the mode is `Anhängen`. Before any future `Ersetzen`, export first (**Einstellungen → Protokoll → Import/Export**) – same workbook shape, so it is also the undo: [`SETUP.md` §3](SETUP.md). |
 | **The board is fine locally, but your uptime monitor keeps alerting.** | On a compose deployment those are two different questions. The stack is built to survive an uplink outage; an external monitor cannot see it during one. | The alert is not wrong, it is answering "can the internet reach this?". Check the board locally before assuming an outage – §7 has the long version, including where to put a monitor on a LAN-only install. |
 
 Still stuck? Open an [issue](https://github.com/feuerwehr-oberwil/kp-rueck/issues) with the output
