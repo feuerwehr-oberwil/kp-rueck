@@ -8,7 +8,9 @@ describe('useEffectEvent', () => {
   it('runs the latest render’s callback from an effect, and from the cleanup', () => {
     const seen: string[] = []
     function Probe({ label, trigger }: { label: string; trigger: number }) {
-      const report = useEffectEvent((when: string) => seen.push(`${when}:${label}`))
+      const report = useEffectEvent((when: string) => {
+        seen.push(`${when}:${label}`)
+      })
       useEffect(() => {
         report('run')
         return () => report('cleanup')
