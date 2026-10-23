@@ -798,11 +798,19 @@ async def update_incident_status(
     current_user: User | None,
     request: Request | None,
     notes: str | None = None,
+    seen_status: str | None = None,
 ) -> Incident | None:
     """
     Update incident status and create status transition record.
 
     Used for Kanban drag-and-drop.
+
+    The row is locked first, so two near-simultaneous moves of the same card
+    serialise: the second one reads – and records as `from_status` – the status
+    the first one left. ``seen_status`` is the status the caller's client showed;
+    it never blocks the move, but a mismatch is kept in the audit row
+    (``seen_status``) so a stale drag stays readable afterwards. The status the
+    card was moved from is set on the returned incident as ``previous_status``.
 
     ``request`` is None for system-initiated transitions (GPS automation) — there is no
     HTTP request to attribute, and ``log_action`` already handles a missing one by
@@ -821,11 +829,17 @@ async def update_incident_status(
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
     """
+    # populate_existing: a copy the caller loaded earlier must not hide a commit
+    # that landed while this request waited for the lock.
+    await db.execute(
+        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
+    )
     incident = await get_incident(db, incident_id)
     if not incident:
         return None
 
     old_status = incident.status
+    incident.previous_status = old_status
 
     # Update status
     incident.status = new_status
@@ -868,6 +882,8 @@ async def update_incident_status(
         changes={
             "status": {"before": old_status, "after": new_status},
             "notes": notes,
+            # The client moved a card whose status it saw as something else.
+            **({"seen_status": seen_status} if seen_status is not None and seen_status != old_status else {}),
             # The one caller that passes no user is the field auto-move; the
             # Einsatztagebuch tells the provenances apart by this.
             **({"source": "feld"} if current_user is None else {}),

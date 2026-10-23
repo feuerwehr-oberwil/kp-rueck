@@ -555,7 +555,7 @@ async def reorder_incidents(
         )
 
 
-@router.post("/{incident_id}/status", response_model=schemas.IncidentResponse)
+@router.post("/{incident_id}/status", response_model=schemas.IncidentStatusUpdateResponse)
 async def update_status(
     incident_id: uuid.UUID,
     status_update: schemas.StatusTransitionCreate,
@@ -563,11 +563,13 @@ async def update_status(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-) -> schemas.IncidentResponse:
+) -> schemas.IncidentStatusUpdateResponse:
     """
     Update incident status (Kanban drag-and-drop).
 
-    Creates status_transitions record.
+    Creates status_transitions record. Never refused for a stale `from_status`:
+    the move always goes from the card's real status, and the response's
+    `stale_from_status` names that status when the client saw another one.
     """
     incident = await crud.update_incident_status(
         db=db,
@@ -576,6 +578,7 @@ async def update_status(
         current_user=current_user,
         request=request,
         notes=status_update.notes,
+        seen_status=status_update.from_status.value,
     )
 
     if not incident:
@@ -593,7 +596,11 @@ async def update_status(
             "update",
         )
 
-    return incident_response
+    stale = incident.previous_status != status_update.from_status.value
+    return schemas.IncidentStatusUpdateResponse(
+        **dict(incident_response),
+        stale_from_status=schemas.IncidentStatus(incident.previous_status) if stale else None,
+    )
 
 
 @router.get("/{incident_id}/field-report", response_model=schemas.FieldReportState)
