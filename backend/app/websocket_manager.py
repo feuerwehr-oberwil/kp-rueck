@@ -28,6 +28,13 @@ CLEANUP_INTERVAL_SECONDS = 60  # Run cleanup every minute
 # Roles allowed to join the admin room
 ADMIN_ROOM_ROLES = ("admin", "editor")
 
+# How long one recheck of the connected sessions (`current_socket_roles`, a DB
+# session + two queries) answers for every emit after it. Without it every
+# broadcast – Traccar ticks, bulk assignments – opened its own session. The cost:
+# a session revoked in the DB keeps receiving for at most this long. Joining a
+# room and connecting always check afresh.
+ROLE_RECHECK_SECONDS = 2.0
+
 
 def get_role_from_environ(environ: dict[str, Any]) -> str | None:
     """Extract the user role from the JWT access_token cookie.
@@ -158,6 +165,8 @@ class WebSocketManager:
         }
         self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
         self.session_identities: dict[str, SocketIdentity] = {}
+        # (checked at, identities checked, roles of those that passed) – see ROLE_RECHECK_SECONDS.
+        self._roles_memo: tuple[float, frozenset[SocketIdentity], dict[SocketIdentity, str]] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
         # Any, not the real class: the whole point of the lazy import below is that this
         # module must not import the pollers at definition time (circular dependency).
@@ -315,17 +324,36 @@ class WebSocketManager:
             await self._traccar_poller.stop_polling()
             logger.info("Stopped Traccar polling (no users connected)")
 
-    async def revalidate_sessions(self, sid: str | None = None) -> None:
-        """Recheck delivery recipients, or just the client sending a keepalive."""
+    async def _socket_roles(self, identities: list[SocketIdentity], *, fresh: bool) -> dict[SocketIdentity, str]:
+        """`current_socket_roles`, answered from the last recheck while it is recent.
+
+        The memo only answers for identities it actually checked (a socket that
+        connected since forces a new query), and a login's expiry is applied on
+        every read, so a keepalive can never stretch it.
+        """
+        now = time.time()
+        memo = self._roles_memo
+        if not fresh and memo is not None and now - memo[0] < ROLE_RECHECK_SECONDS and memo[1].issuperset(identities):
+            return {i: memo[2][i] for i in identities if i in memo[2] and i.expires_at > now}
+        roles = await current_socket_roles(identities)
+        self._roles_memo = (now, frozenset(identities), roles)
+        return roles
+
+    async def revalidate_sessions(self, sid: str | None = None, *, fresh: bool = False) -> None:
+        """Recheck delivery recipients, or just the client sending a keepalive.
+
+        ``fresh`` skips the short memo (``ROLE_RECHECK_SECONDS``); joining a room uses it.
+        """
         if sid is None:
             identities = dict(self.session_identities)
         else:
             identity = self.session_identities.get(sid)
             identities = {sid: identity} if identity is not None else {}
         try:
-            roles = await current_socket_roles(list(identities.values()))
+            roles = await self._socket_roles(list(identities.values()), fresh=fresh)
         except Exception:
             logger.warning("Socket authorization unavailable; closing authenticated sessions")
+            self._roles_memo = None
             roles = {}
         for sid, identity in identities.items():
             role = roles.get(identity)
@@ -349,7 +377,7 @@ class WebSocketManager:
 
     async def join_room(self, sid: str, room: str) -> bool:
         """Add a client to a room for targeted updates."""
-        await self.revalidate_sessions()
+        await self.revalidate_sessions(fresh=True)
         if sid not in self.user_sessions:
             return False
         if room not in self.active_connections:
