@@ -217,7 +217,7 @@ export function AuditLogSection({
                     <TableCell>
                       {entry.changes_json ? (
                         <details className="cursor-pointer">
-                          <summary className="text-xs text-primary hover:text-primary/80">{t('page.audit.show')}</summary>
+                          <summary className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">{t('page.audit.show')}</summary>
                           <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
                             {JSON.stringify(entry.changes_json, null, 2)}
                           </pre>
@@ -253,7 +253,7 @@ export function AuditLogSection({
                 )}
                 {entry.changes_json && (
                   <details className="mt-2 cursor-pointer">
-                    <summary className="text-xs text-primary">{t('page.audit.showDetails')}</summary>
+                    <summary className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">{t('page.audit.showDetails')}</summary>
                     <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
                       {JSON.stringify(entry.changes_json, null, 2)}
                     </pre>

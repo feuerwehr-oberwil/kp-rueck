@@ -79,7 +79,7 @@ describe("JournalSheet", () => {
     expect(rows.map((r) => r.getAttribute("data-kind"))).toEqual(["manual", "message", "assignment", "status"])
     expect(rows[0]).toHaveTextContent("Gemeindepräsident informiert")
     expect(rows[1]).toHaveTextContent("Meier Anna: Brand aus")
-    expect(rows[2]).toHaveTextContent("TLF 1 zugeteilt")
+    expect(rows[2]).toHaveTextContent("TLF 1 zugewiesen")
     expect(rows[3]).toHaveTextContent("Eingegangen → Disponiert")
     // the Einsatz chip carries the board's own label
     expect(within(rows[3]).getByRole("button", { name: "Gartenweg 4" })).toBeInTheDocument()

@@ -119,12 +119,6 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",
-          // The dimming stayed through the row restyle: who is available has to
-          // be answerable at a glance down the column, and the amber dot alone
-          // is a smaller signal than a whole row changing weight. Hover brings
-          // the row back to full strength, so nothing dimmed is ever hard to
-          // read while it is being read.
-          isOccupied && !isDoubleBooked && "opacity-60 hover:opacity-100",
           !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked is the one exception: a genuine conflict the operator
@@ -139,7 +133,17 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
                   hover the name wraps to its full length instead of relying on
                   the browser's title tooltip, which only appears after a second
                   and is easy to miss while scanning. */}
-              <span className="font-medium text-sm text-foreground truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words">
+              {/* Bound = the NAME goes quiet, nothing else: who is available
+                  stays answerable at a glance down the column, while the
+                  where-line below – the one fact looked up here – keeps full
+                  strength. A whole-row opacity-60 put it at ≈2.4:1 (sweep
+                  2026-10, VISUAL-04); during a storm that is most rows. */}
+              <span
+                className={cn(
+                  "font-medium text-sm truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words",
+                  isOccupied && !isDoubleBooked ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
+                )}
+              >
                 {person.name}
               </span>
             </div>
@@ -188,7 +192,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
               Time on duty is deliberately NOT here (owner, 09.10.: too much in
               the default view) — it lives in the Dienstzeiten sheet. */}
           {isOccupied && (engagement?.short || functionLabel) && (
-            <div className="truncate text-[11px] leading-tight text-muted-foreground" title={occupiedTooltip}>
+            <div className="truncate type-micro leading-tight text-muted-foreground" title={occupiedTooltip}>
               {engagement?.short ?? functionLabel}
             </div>
           )}

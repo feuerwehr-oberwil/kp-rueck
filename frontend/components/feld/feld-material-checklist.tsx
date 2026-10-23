@@ -303,7 +303,7 @@ export function FeldMaterialChecklist({
                     <PackageOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="truncate text-sm">{row.name}</span>
                     {row.consumable && (
-                      <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
                         {t('consumable')}
                       </span>
                     )}

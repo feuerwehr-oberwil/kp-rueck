@@ -40,7 +40,6 @@ function useIsLargeScreen() {
 interface DroppableColumnProps {
   column: {
     id: string
-    title: string
     status: string[]
     color: string
     collapsible?: boolean
@@ -331,7 +330,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         {/* The count is the whole safety case for folding: the strip must never
             let the board hide that something is sitting in here. Same badge as
             the open header, not a quieter one. */}
-        <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+        <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
           {operations.length}
           {overdueTitle && (
             <span
@@ -404,7 +403,7 @@ export const DroppableColumn = memo(function DroppableColumn({
             {/* No overdue dot here, unlike the folded strip and the wall board:
                 every card in an open column already carries its own age chip,
                 and a second signal for the same fact is noise. */}
-            <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+            <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
               {operations.length}
             </span>
           </div>

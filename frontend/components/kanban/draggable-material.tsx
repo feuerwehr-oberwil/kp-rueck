@@ -58,19 +58,22 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
         "group rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
         canDrag && "draggable",
         isDragging && "dragging",
-        // A lighter row for a device that is spoken for — see the note in
-        // draggable-person.tsx for what was tried, reverted, and why only the
-        // opacity came back. A consumable never dims: stock handed out does
-        // not make the depot empty.
-        isOccupied && "opacity-60 hover:opacity-100",
         !canDrag && !isConsumable && material.status === "assigned" && "cursor-not-allowed",
         !canDrag && !isConsumable && material.status !== "assigned" && "cursor-pointer"
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-          {/* Wraps to its full length on hover — same reasoning as the person row. */}
-          <span className="font-medium text-sm text-foreground truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words">
+          {/* Wraps to its full length on hover — same reasoning as the person
+              row. A device that is spoken for gets a quiet name, not a faded
+              row (see draggable-person.tsx). A consumable never dims: stock
+              handed out does not make the depot empty. */}
+          <span
+            className={cn(
+              "font-medium text-sm truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words",
+              isOccupied ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
+            )}
+          >
             {material.name}
           </span>
           {/* Stock says so quietly; available draws nothing at all. */}
@@ -87,7 +90,7 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
 
         {onSite && (
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 type-micro text-warning-foreground"
             title={t('material.onSiteTitle', {
               address: onSite.address ?? '–',
               since: formatSince(onSite.since),

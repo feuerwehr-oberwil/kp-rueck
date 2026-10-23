@@ -8,7 +8,6 @@ from typing import Any
 from fastapi import Request
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..models import (
@@ -73,9 +72,9 @@ async def _dispatch_print_due(db: AsyncSession, incident_id: uuid.UUID, old_stat
 async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_id: uuid.UUID) -> IncidentGroup:
     group = await db.scalar(select(IncidentGroup).where(IncidentGroup.id == group_id).with_for_update())
     if group is None or group.deleted_at is not None:
-        raise InvalidIncidentGroupError("Auftrag not found or deleted")
+        raise InvalidIncidentGroupError("Auftrag nicht gefunden oder gelöscht")
     if group.event_id != event_id:
-        raise InvalidIncidentGroupError("Auftrag belongs to a different event")
+        raise InvalidIncidentGroupError("Auftrag gehört zu einem anderen Ereignis")
     return group
 
 
@@ -122,14 +121,10 @@ async def get_incidents(
     Returns:
         List of incidents with status_changed_at and assigned_vehicles populated (excludes soft-deleted incidents)
     """
-    # Use eager loading for relationships to avoid N+1 queries
+    # No selectinload of the collections: the batch queries below read exactly
+    # what the board needs, and nothing reads `.assignments` etc. off these rows.
     query = (
         select(Incident)
-        .options(
-            selectinload(Incident.status_transitions),
-            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports),
-        )
         .where(Incident.deleted_at.is_(None))
         # Manual board order first; created_at DESC breaks ties (e.g. brand-new
         # cards that share the default position 0 — newest on top).
@@ -321,17 +316,9 @@ async def get_incidents(
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
     """Get incident by ID with status_changed_at, assigned_vehicles, and has_completed_reko populated."""
-    # Use eager loading for relationships to avoid N+1 queries
-    result = await db.execute(
-        select(Incident)
-        .options(
-            selectinload(Incident.status_transitions),
-            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports),
-        )
-        .where(Incident.id == incident_id)
-    )
-    incident = result.scalar_one_or_none()
+    # The derived fields below come from their own small queries; the collections
+    # themselves are not loaded (no caller reads them off this object).
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
 
     if incident:
         # Get latest status transition timestamp (single query)
@@ -811,11 +798,19 @@ async def update_incident_status(
     current_user: User | None,
     request: Request | None,
     notes: str | None = None,
+    seen_status: str | None = None,
 ) -> Incident | None:
     """
     Update incident status and create status transition record.
 
     Used for Kanban drag-and-drop.
+
+    The row is locked first, so two near-simultaneous moves of the same card
+    serialise: the second one reads – and records as `from_status` – the status
+    the first one left. ``seen_status`` is the status the caller's client showed;
+    it never blocks the move, but a mismatch is kept in the audit row
+    (``seen_status``) so a stale drag stays readable afterwards. The status the
+    card was moved from is set on the returned incident as ``previous_status``.
 
     ``request`` is None for system-initiated transitions (GPS automation) — there is no
     HTTP request to attribute, and ``log_action`` already handles a missing one by
@@ -834,11 +829,17 @@ async def update_incident_status(
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
     """
+    # populate_existing: a copy the caller loaded earlier must not hide a commit
+    # that landed while this request waited for the lock.
+    await db.execute(
+        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
+    )
     incident = await get_incident(db, incident_id)
     if not incident:
         return None
 
     old_status = incident.status
+    incident.previous_status = old_status
 
     # Update status
     incident.status = new_status
@@ -881,6 +882,8 @@ async def update_incident_status(
         changes={
             "status": {"before": old_status, "after": new_status},
             "notes": notes,
+            # The client moved a card whose status it saw as something else.
+            **({"seen_status": seen_status} if seen_status is not None and seen_status != old_status else {}),
             # The one caller that passes no user is the field auto-move; the
             # Einsatztagebuch tells the provenances apart by this.
             **({"source": "feld"} if current_user is None else {}),

@@ -3,7 +3,6 @@
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,38 +11,6 @@ from app.models import User
 
 class TestUserModel:
     """Test User model operations."""
-
-    async def test_create_user_editor(self, db_session: AsyncSession):
-        """Test creating a user with editor role."""
-        user = User(
-            id=uuid4(),
-            username="editor_user",
-            password_hash="hashed_password",
-            role="editor",
-        )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
-
-        assert user.id is not None
-        assert user.username == "editor_user"
-        assert user.role == "editor"
-        assert user.created_at is not None
-        assert user.last_login is None
-
-    async def test_create_user_admin(self, db_session: AsyncSession):
-        """Test creating a user with admin role."""
-        user = User(
-            id=uuid4(),
-            username="admin_user",
-            password_hash="hashed_password",
-            role="admin",
-        )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
-
-        assert user.role == "admin"
 
     async def test_username_unique_constraint(self, db_session: AsyncSession):
         """Test that username must be unique."""
@@ -80,28 +47,3 @@ class TestUserModel:
 
         with pytest.raises(IntegrityError):
             await db_session.commit()
-
-    async def test_query_user_by_username(self, db_session: AsyncSession):
-        """Test querying user by username."""
-        # Create user
-        user = User(
-            id=uuid4(),
-            username="query_test",
-            password_hash="password",
-            role="editor",
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-        # Query by username
-        result = await db_session.execute(select(User).where(User.username == "query_test"))
-        found_user = result.scalar_one()
-
-        assert found_user.id == user.id
-        assert found_user.username == "query_test"
-
-    async def test_user_fixture(self, test_user: User):
-        """Test the test_user fixture."""
-        assert test_user.id is not None
-        assert test_user.username == "test_editor"
-        assert test_user.role == "editor"

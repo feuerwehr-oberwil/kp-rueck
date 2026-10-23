@@ -5488,7 +5488,7 @@
           "incidents"
         ],
         "summary": "Update Status",
-        "description": "Update incident status (Kanban drag-and-drop).\n\nCreates status_transitions record.",
+        "description": "Update incident status (Kanban drag-and-drop).\n\nCreates status_transitions record. Never refused for a stale `from_status`:\nthe move always goes from the card's real status, and the response's\n`stale_from_status` names that status when the client saw another one.",
         "operationId": "update_status_api_incidents__incident_id__status_post",
         "parameters": [
           {
@@ -5550,7 +5550,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IncidentResponse"
+                  "$ref": "#/components/schemas/IncidentStatusUpdateResponse"
                 }
               }
             }
@@ -27941,6 +27941,452 @@
         "title": "IncidentStatus",
         "description": "Incident status enumeration."
       },
+      "IncidentStatusUpdateResponse": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/IncidentType"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/IncidentPriority"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IncidentStatus",
+            "default": "incoming"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "internal_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Notes"
+          },
+          "nachbarhilfe": {
+            "type": "boolean",
+            "title": "Nachbarhilfe",
+            "default": false
+          },
+          "nachbarhilfe_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachbarhilfe Note"
+          },
+          "am_warten": {
+            "type": "boolean",
+            "title": "Am Warten",
+            "default": false
+          },
+          "am_warten_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Am Warten Note"
+          },
+          "zu_fuss": {
+            "type": "boolean",
+            "title": "Zu Fuss",
+            "default": false
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position",
+            "default": 0
+          },
+          "group_position": {
+            "type": "integer",
+            "title": "Group Position",
+            "default": 0
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "operator"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
+          },
+          "assigned_vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/AssignedVehicle"
+            },
+            "type": "array",
+            "title": "Assigned Vehicles",
+            "default": []
+          },
+          "has_completed_reko": {
+            "type": "boolean",
+            "title": "Has Completed Reko",
+            "default": false
+          },
+          "reko_arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reko Arrived At"
+          },
+          "reko_arrived_by_kp": {
+            "type": "boolean",
+            "title": "Reko Arrived By Kp",
+            "default": false
+          },
+          "field_complete_reported_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported At"
+          },
+          "field_complete_reported_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Complete Reported By"
+          },
+          "field_arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Arrived At"
+          },
+          "field_arrived_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Arrived By"
+          },
+          "field_arrived_by_automation": {
+            "type": "boolean",
+            "title": "Field Arrived By Automation",
+            "default": false
+          },
+          "has_schadenplatz_rapport": {
+            "type": "boolean",
+            "title": "Has Schadenplatz Rapport",
+            "default": false
+          },
+          "has_schadenplatz_rapport_draft": {
+            "type": "boolean",
+            "title": "Has Schadenplatz Rapport Draft",
+            "default": false
+          },
+          "has_been_dispatched": {
+            "type": "boolean",
+            "title": "Has Been Dispatched",
+            "default": false
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Note"
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "pickup_requested_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested By"
+          },
+          "field_requests": {
+            "items": {
+              "$ref": "#/components/schemas/FieldRequestResponse"
+            },
+            "type": "array",
+            "title": "Field Requests",
+            "default": []
+          },
+          "leader_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Name"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "possible_duplicate_of_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Possible Duplicate Of Id"
+          },
+          "stale_from_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_real_alarm": {
+            "type": "boolean",
+            "title": "From Real Alarm",
+            "description": "This incident came from a genuine dispatch alarm, not a simulated drill one.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "type",
+          "priority",
+          "id",
+          "event_id",
+          "created_at",
+          "updated_at",
+          "from_real_alarm"
+        ],
+        "title": "IncidentStatusUpdateResponse",
+        "description": "POST /incidents/{id}/status: the card after the move, plus a staleness flag."
+      },
       "IncidentTimelineEvent": {
         "properties": {
           "event_type": {
@@ -33473,7 +33919,7 @@
           "to_status"
         ],
         "title": "StatusTransitionCreate",
-        "description": "Schema for creating status transition."
+        "description": "Body of POST /incidents/{id}/status.\n\n`from_status` is the status the client SAW. The server never refuses on it:\nthe transition always moves the card from its real current status (and\nrecords that), and a mismatch comes back as `stale_from_status`."
       },
       "StatusTransitionResponse": {
         "properties": {

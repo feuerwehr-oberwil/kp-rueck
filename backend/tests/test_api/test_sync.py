@@ -229,7 +229,7 @@ async def test_sync_bidirectional_railway_unreachable(sync_admin_client: AsyncCl
 
         response = await sync_admin_client.post("/api/sync/bidirectional")
         assert response.status_code == 503
-        assert "unreachable" in response.json()["detail"].lower()
+        assert "nicht erreichbar" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -259,7 +259,7 @@ async def test_get_delta_invalid_table(sync_admin_client: AsyncClient):
     """Test getting delta for invalid table name."""
     response = await sync_admin_client.get("/api/sync/delta/invalid_table")
     assert response.status_code == 400
-    assert "invalid table" in response.json()["detail"].lower()
+    assert "ungültiger tabellenname" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -286,7 +286,7 @@ async def test_get_delta_invalid_timestamp(sync_admin_client: AsyncClient):
     """Test getting delta with invalid timestamp."""
     response = await sync_admin_client.get("/api/sync/delta/personnel?updated_since=invalid")
     assert response.status_code == 400
-    assert "timestamp" in response.json()["detail"].lower()
+    assert "zeitformat" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -334,7 +334,7 @@ async def test_sync_rejects_concurrent_operations(sync_admin_client: AsyncClient
     try:
         response = await sync_admin_client.post("/api/sync/from-railway")
         assert response.status_code == 409
-        assert "already in progress" in response.json()["detail"].lower()
+        assert "läuft bereits" in response.json()["detail"].lower()
 
         response = await sync_admin_client.post("/api/sync/to-railway")
         assert response.status_code == 409

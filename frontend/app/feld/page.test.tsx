@@ -186,7 +186,7 @@ describe('/feld handing the phone to someone else', () => {
   async function confirmLogout() {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Nicht ich' }))
-    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Nicht ich' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Abmelden' }))
   }
 
   it('waits for server revocation before clearing the phone and returning to the poster code', async () => {
@@ -683,7 +683,7 @@ describe('/feld offers «Melden» from the detail view as well', () => {
 
     // `feld-actions` is detail-only — the list never renders it.
     await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: 'Melden' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Neuer Schadenplatz' })).toBeInTheDocument()
     // One sheet, not one per view: the node is built once and mounted by
     // whichever view is on screen.
     expect(screen.getAllByTestId('feld-melden-sheet')).toHaveLength(1)
@@ -697,7 +697,7 @@ describe('/feld offers «Melden» from the detail view as well', () => {
     renderWithIntl(<FeldPage />)
 
     await waitFor(() => expect(screen.getByTestId('feld-actions')).toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: 'Melden' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Neuer Schadenplatz' })).not.toBeInTheDocument()
   })
 })
 
@@ -858,7 +858,7 @@ describe('/feld says where the crew is on each row', () => {
     withRow({ is_active_assignment: false })
     renderWithIntl(<FeldPage />)
 
-    expect(await screen.findByText('Nicht mehr zugeteilt')).toBeInTheDocument()
+    expect(await screen.findByText('Nicht mehr zugewiesen')).toBeInTheDocument()
     expect(screen.queryByText('Anfahrt')).not.toBeInTheDocument()
   })
 

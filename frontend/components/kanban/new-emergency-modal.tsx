@@ -86,6 +86,8 @@ import { cn } from "@/lib/utils"
 import { apiClient, type ApiDuplicateCandidate } from "@/lib/api-client"
 import { useDuplicateCandidates } from "@/lib/hooks/use-duplicate-candidates"
 import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
+import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
 const LOCATION_FIELD_ID = "location_address"
@@ -226,6 +228,18 @@ export function NewEmergencyModal({
     resetForm()
     onOpenChange(false)
   }
+
+  // PHONE: a swipe, the backdrop or ✕ close the sheet through `onOpenChange`, and on a phone a
+  // stray swipe is common — so with something typed it asks first. «Verwerfen» really discards;
+  // a clean close keeps the form as it is for the next open (Einsatzart, switches), as before.
+  const hasTypedInput = [formData.location, formData.notes, formData.contact, formData.contactPhone].some(
+    (value) => value.trim() !== "",
+  )
+  const closeGuard = useUnsavedChangesWarning({
+    isDirty: hasTypedInput,
+    isOpen: open && isMobile,
+    onClose: hasTypedInput ? resetAndClose : () => onOpenChange(false),
+  })
 
   // «Möglicherweise dasselbe wie …» — see the header. Asked only for an editor
   // with an Ereignis, and only once there is something to compare.
@@ -428,9 +442,13 @@ export function NewEmergencyModal({
               />
             </DetailField>
 
-            <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
-              {t('newEmergency.infoDragDrop')}
-            </p>
+            {/* The phone has no drag & drop and its detail sheet does not assign — the hint
+                would send the editor looking for something that is not there. */}
+            {!isMobile && (
+              <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
+                {t('newEmergency.infoDragDrop')}
+              </p>
+            )}
         </div>
 
     </>
@@ -486,17 +504,18 @@ export function NewEmergencyModal({
   // above the keys. The centred 90vh dialog this replaces kept its buttons — and with the
   // autofocused Einsatzort, the keyboard — at the bottom of the whole screen: whoever wanted to
   // create the Einsatz had to put the keyboard away first. Swiping it down closes it like the
-  // ✕ does; what was typed stays in this component's state for the next open, as before.
+  // ✕ does — and, with something typed, asks first (`closeGuard`).
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <>
+      <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
         <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl" onKeyDown={onKeyDown}>
           {/* While typing, the head is as short as it can be: the band above the keys is
               ~350px on an iPhone, and the sentence under the title is the one thing in it
               nobody needs at that moment. */}
           <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
             <div className="flex items-center gap-3">
-              <Plus className="h-6 w-6 text-primary" />
+              <Plus className="h-6 w-6 text-muted-foreground" />
               <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             </div>
             <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
@@ -508,6 +527,8 @@ export function NewEmergencyModal({
           </SheetFooter>
         </SheetContent>
       </Sheet>
+      <UnsavedChangesDialog {...closeGuard.dialogProps} />
+      </>
     )
   }
 
@@ -519,7 +540,7 @@ export function NewEmergencyModal({
       <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-primary" />
+            <Plus className="h-6 w-6 text-muted-foreground" />
             <DialogTitle>{t('common.newIncident')}</DialogTitle>
           </div>
           <DialogDescription>

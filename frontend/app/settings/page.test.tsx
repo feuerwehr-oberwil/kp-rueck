@@ -192,14 +192,14 @@ describe('Einstellungen › Import — Vorschau, dann Ersetzen mit Rückfrage', 
     expect(within(dialog).getByText('Datenimport ersetzen?')).toBeInTheDocument()
     // Both halves of the trade: what arrives, and what leaves.
     expect(dialog).toHaveTextContent('Importiert werden 2 Personal, 0 Fahrzeuge, 0 Material.')
-    expect(dialog).toHaveTextContent('Gelöscht werden 18 Personal, 4 Fahrzeuge, 30 Material – und 5 Zuteilungen zeigen danach ins Leere.')
+    expect(dialog).toHaveTextContent('Gelöscht werden 18 Personal, 4 Fahrzeuge, 30 Material – und 5 Zuweisungen zeigen danach ins Leere.')
     expect(api.executeExcelImport).not.toHaveBeenCalled()
 
     await user.click(within(dialog).getByRole('button', { name: 'Daten ersetzen' }))
     await waitFor(() =>
       expect(api.executeExcelImport).toHaveBeenCalledWith(expect.objectContaining({ name: 'roster.xlsx' }), 'replace'),
     )
-    expect(await screen.findByText('Import erfolgreich! 2 Personal, 0 Fahrzeuge, 0 Material importiert.')).toBeInTheDocument()
+    expect(await screen.findByText('Import erfolgreich – 2 Personal, 0 Fahrzeuge, 0 Material importiert.')).toBeInTheDocument()
   })
 
   it('cancelling the question imports nothing; «Stattdessen anhängen» switches the mode and drops the preview', async () => {
@@ -238,7 +238,7 @@ describe('Einstellungen › Import — Vorschau, dann Ersetzen mit Rückfrage', 
 
     const blocked = screen.getByRole('button', { name: 'Bestand löschen und ersetzen' })
     expect(blocked).toBeDisabled()
-    expect(blocked).toHaveAttribute('title', '3 aktive Zuteilungen auf laufenden Einsätzen – «Ersetzen» wird abgelehnt.')
+    expect(blocked).toHaveAttribute('title', '3 aktive Zuweisungen auf laufenden Einsätzen – «Ersetzen» wird abgelehnt.')
   })
 
   it('appends without asking', async () => {

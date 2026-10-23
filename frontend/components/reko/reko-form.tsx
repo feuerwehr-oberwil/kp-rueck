@@ -9,6 +9,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Binoculars, MapPin, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
+import { ApiError } from '@/lib/api/types'
+import { LinkInvalidCard } from '@/components/link-page/link-page'
 import {
   EMPTY_REKO_FORM,
   RekoReportForm,
@@ -73,6 +75,9 @@ export default function RekoForm() {
    *  kommt nicht durch" (a fault) and "kein Netz" (a cellar, and normal). */
   const [online, setOnline] = useState(true)
   const [validationError, setValidationError] = useState<string | null>(null)
+  // A dead link (no token, or the server refused it) gets the /alarm card — one
+  // message in the crew's words, not «Token» plus an «API Fehler» toast.
+  const [linkInvalid, setLinkInvalid] = useState(false)
   // Constant until the backend returns the event's training_flag on the Reko form
   // response (see the NOTE in the loader below); the dummy generator stays hidden.
   const isTraining = false
@@ -240,7 +245,7 @@ export default function RekoForm() {
   useEffect(() => {
     async function init() {
       if (!incidentId || !token) {
-        setValidationError(t('invalidLink'))
+        setLinkInvalid(true)
         setIsLoading(false)
         return
       }
@@ -303,7 +308,13 @@ export default function RekoForm() {
         setLocalStorageLoaded(true)
       } catch (error) {
         console.error('Failed to load form:', error)
-        setValidationError(t('loadError'))
+        // 4xx = the server refused this link (expired, revoked, wrong incident);
+        // anything else is the connection, which a new link would not fix.
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          setLinkInvalid(true)
+        } else {
+          setValidationError(t('loadError'))
+        }
       } finally {
         setIsLoading(false)
       }
@@ -395,8 +406,10 @@ export default function RekoForm() {
       // Intentionally keep isSubmitting/isSubmittingRef true on success so the
       // button stays disabled and no auto-save can fire until the redirect.
       setTimeout(() => {
+        // The address, so the success page can say WHICH Einsatz went to the KP.
         const params = new URLSearchParams()
-        params.set('id', incidentId!)
+        const where = incidentDetails.location || incidentTitle
+        if (where) params.set('ort', where)
         if (returnTo) {
           params.set('return_to', returnTo)
         }
@@ -417,6 +430,10 @@ export default function RekoForm() {
         <LoadingStatus size="surface" className="text-sm">{tLoading('loading')}</LoadingStatus>
       </div>
     )
+  }
+
+  if (linkInvalid) {
+    return <LinkInvalidCard title={t('invalidTitle')} description={t('invalidLink')} />
   }
 
   if (validationError) {
@@ -457,7 +474,7 @@ export default function RekoForm() {
             <span className="text-sm text-muted-foreground">{t('contactLabel')}</span>
             <a
               href={telHref(incidentDetails.contact) ?? undefined}
-              className="text-sm font-medium text-primary hover:underline"
+              className="text-sm font-medium text-foreground underline underline-offset-2 hover:decoration-2"
             >
               {incidentDetails.contact}
             </a>

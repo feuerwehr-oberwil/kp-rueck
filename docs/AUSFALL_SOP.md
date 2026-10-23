@@ -10,11 +10,12 @@ Papier führend, bis der Wiederanlauf ausgerufen wird.
 
 ## Vorbereitung (einmalig bzw. bei Ereignisstart)
 
-- [ ] Thermodrucker aktiv **und** in den Einstellungen *Papier-Fallback: Board
-      automatisch drucken* eingeschaltet (Standard: alle 15 Min, nur bei Änderungen)
+- [ ] Thermodrucker aktiv **und** *Board automatisch drucken (Thermo)* unter
+      Einstellungen → Betrieb → Ausfallsicherheit eingeschaltet (Standard: alle 15 Min,
+      nur bei Änderungen)
 - [ ] Alternativ/zusätzlich am Führungs-Gerät: *Lageblatt Auto-Download* unter
-      Einstellungen → Ausfallsicherheit aktivieren (lädt alle 15 Min ein aktuelles
-      A4-Lageblatt)
+      Einstellungen → **Dieses Gerät** aktivieren (lädt alle 15 Min ein aktuelles
+      A4-Lageblatt in den Download-Ordner dieses Rechners; gilt nur für dieses Gerät)
 - [ ] Physischer Fallback bereit: Magnetboard **oder** leere Führungsformulare
       (Elementarschaden FWI BL/BS) + Stifte + Klemmbrett im KP
 - [ ] Das Lageblatt aus KP Rück hat dieselben Spalten wie das kantonale

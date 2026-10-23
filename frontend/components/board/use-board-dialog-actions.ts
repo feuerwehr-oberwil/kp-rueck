@@ -170,7 +170,7 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     setAssignmentDialogOpen(true)
   }
 
-  // «Material zuteilen» / «Personal zuteilen» on a field request in the
+  // «Material zuweisen» / «Mannschaft zuweisen» on a field request in the
   // notification sidebar (R13) — the same dialog, searched for the item.
   // Through a ref so the registration does not churn on every render.
   const openAssignmentRef = useRef(handleOpenAssignmentDialog)

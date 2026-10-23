@@ -58,7 +58,7 @@ async def _resolve_event_and_actor(
         # what narrows `event_id` for the type checker on the way out.
         resolved = validate_checkin_token(token or "")
         if not resolved:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
         return resolved, None
 
     user = await get_current_user(request, access_token, authorization, db)
@@ -128,7 +128,7 @@ async def list_personnel_for_checkin(
 
     event = await events_crud.get_event_by_id(db, resolved_event_id)
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     personnel = await crud.get_available_personnel(
         db=db,
@@ -254,7 +254,7 @@ async def check_out(
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     if not person:
-        raise HTTPException(status_code=404, detail="Personnel not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
 
     # Broadcast WebSocket update for check-out
     if background_tasks:

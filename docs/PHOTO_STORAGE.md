@@ -2,7 +2,7 @@
 
 ## Overview
 
-The KP Rück backend supports photo uploads for Reko (field reconnaissance) reports. Photos are stored on disk and require persistent storage on Railway to survive container restarts.
+The KP Rück backend stores photos for two reports on an incident: the Reko (field reconnaissance) report and the Schadenplatz-Rapport filed from `/feld`. Both go through the same `PhotoStorageService` (`backend/app/services/photo_storage.py`) into the same per-incident directory; only the routes and who may read them differ. Photos are stored on disk and require persistent storage (a compose volume, or a Railway volume) to survive container restarts.
 
 ## Storage Strategy
 
@@ -91,12 +91,17 @@ All tests should pass with 99% code coverage for `photo_storage.py`.
    uv run uvicorn app.main:app --reload
    ```
 
-2. **Generate Reko link for an incident:**
+2. **Log in as an editor and generate the Reko link for an incident:**
    ```bash
-   curl -X POST http://localhost:8000/api/reko/generate-link \
-     -H "Content-Type: application/json" \
-     -d '{"incident_id": "YOUR_INCIDENT_UUID"}'
+   # The route is editor/admin only and reads the session cookie; its arguments are
+   # query parameters, not a JSON body.
+   curl -c /tmp/kp.cookies -X POST http://localhost:8000/api/auth/login \
+     -d "username=<editor>" -d "password=<password>"
+
+   curl -b /tmp/kp.cookies -X POST \
+     "http://localhost:8000/api/reko/generate-link?incident_id=YOUR_INCIDENT_UUID"
    ```
+   Without `personnel_id` the answer carries a per-incident form `token` (and a `/reko?…` link). With `&personnel_id=…` it returns a bound `/feld` token instead, which the Reko photo route below does not accept.
 
 3. **Upload a test photo:**
    ```bash
@@ -163,6 +168,8 @@ Response:
   Cache-Control: private, max-age=3600
 ```
 
+The same route also takes an editor session instead of the token (the board attaching a photo a crew sent over WhatsApp); `?report_id=` then picks the report to attach to.
+
 ### Photo Deletion
 ```http
 DELETE /api/reko/{incident_id}/photos/{filename}
@@ -172,6 +179,24 @@ Headers:
 Response:
   { "success": true }
 ```
+
+### Schadenplatz-Rapport photos
+
+Same storage and directory, separate doors – a rapport photo is never served by `GET /api/photos/…` to a share link (see below).
+
+| Route | Who | Purpose |
+|---|---|---|
+| `POST /api/feld/incidents/{incident_id}/photos?token=…&personnel_id=…` | `/feld` token + a person assigned to that Schadenplatz | Upload (multipart `file`) |
+| `DELETE /api/feld/incidents/{incident_id}/photos/{filename}?token=…&personnel_id=…` | same | Remove a mis-tapped photo |
+| `GET /api/feld/incidents/{incident_id}/photos/{filename}?token=…&personnel_id=…` | same, and the file must be listed by that incident's rapport | Read it back on the phone (`/feld` has no session) |
+| `POST /api/incidents/{incident_id}/rapport/photos` | editor session | The board attaching a photo for the crew |
+| `DELETE /api/incidents/{incident_id}/rapport/photos/{filename}` | editor session | Remove it again |
+
+The first photo creates the rapport as a draft if none exists yet. Uploads share the `PHOTO_UPLOAD` rate limit with the Reko route.
+
+### Training photo pool
+
+The training simulation (`POST /api/training/events/{event_id}/simulate/reko/{incident_id}` and `…/simulate/rapport…`) attaches 0–2 scene photos to the simulated report, picked by incident type from a curated, CC-licensed pool shipped inside the backend: `backend/app/assets/training_photos/<type>/*.jpg` (attribution in `ATTRIBUTION.md` there, curated once with `scripts/download-training-photos.py`). They are copied through the same storage path as real uploads, so serving, deletion and cleanup behave the same, and no network is needed at runtime. A type without its own folder borrows a sibling's (`_POOL_ALIASES` in `backend/app/services/training_photos.py`); a stripped or missing pool just yields reports without photos.
 
 ## Security Considerations
 
@@ -288,7 +313,17 @@ If you previously deployed without a volume:
 
 On the reference deployment (docker-compose) the photos live in the named `photos` volume, and
 **they are not in the database**. A `pg_dump` alone therefore restores a board with missing
-images. Back both up from the same moment:
+images. Back both up from the same moment.
+
+**On compose this is already done for you** by the `backup` sidecar (`COMPOSE_PROFILES=backup`,
+the `.env.example` default): `scripts/backup.sh --loop` takes a Postgres dump and a tarball of
+the `photos` volume (mounted read-only) every night at `BACKUP_AT` (03:30), keeps
+`BACKUP_KEEP_DAILY`/`BACKUP_KEEP_WEEKLY` (14/8) copies in `BACKUP_HOST_DIR` on the host, and turns
+`unhealthy` in `docker compose ps` when the last backup failed or is stale. `just backup` takes one
+now; `scripts/restore.sh <dump> --photos <tarball>` restores both into a fresh database
+(DEPLOYMENT.md §6.1).
+
+By hand, without the sidecar:
 
 ```bash
 docker compose exec -T db pg_dump -U kprueck kprueck | gzip > kprueck-$(date +%F).sql.gz

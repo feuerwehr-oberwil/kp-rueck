@@ -78,7 +78,7 @@ export function FormMessage({ tone = 'error', className, children, ...props }: F
         aria-hidden="true"
         className={cn(
           'mt-px size-3.5 shrink-0',
-          tone === 'advice' && 'text-amber-600 dark:text-amber-400',
+          tone === 'advice' && 'text-amber-700 dark:text-amber-400',
         )}
       />
       <span className="min-w-0">{children}</span>

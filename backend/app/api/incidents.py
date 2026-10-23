@@ -432,7 +432,7 @@ async def get_incident(
     """Get incident by ID."""
     incident = await crud.get_incident(db, incident_id)
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     return await incident_display.incident_with_display(db, incident)
 
 
@@ -453,7 +453,7 @@ async def create_incident(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, incident.event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Demo mode: cap incidents per event at 50 (the demo seed itself creates
     # ~21 per sandbox, so a global cap would make manual creation impossible).
@@ -555,7 +555,7 @@ async def reorder_incidents(
         )
 
 
-@router.post("/{incident_id}/status", response_model=schemas.IncidentResponse)
+@router.post("/{incident_id}/status", response_model=schemas.IncidentStatusUpdateResponse)
 async def update_status(
     incident_id: uuid.UUID,
     status_update: schemas.StatusTransitionCreate,
@@ -563,11 +563,13 @@ async def update_status(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-) -> schemas.IncidentResponse:
+) -> schemas.IncidentStatusUpdateResponse:
     """
     Update incident status (Kanban drag-and-drop).
 
-    Creates status_transitions record.
+    Creates status_transitions record. Never refused for a stale `from_status`:
+    the move always goes from the card's real status, and the response's
+    `stale_from_status` names that status when the client saw another one.
     """
     incident = await crud.update_incident_status(
         db=db,
@@ -576,10 +578,11 @@ async def update_status(
         current_user=current_user,
         request=request,
         notes=status_update.notes,
+        seen_status=status_update.from_status.value,
     )
 
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
     incident_response = await incident_display.incident_with_display(db, incident)
@@ -593,7 +596,11 @@ async def update_status(
             "update",
         )
 
-    return incident_response
+    stale = incident.previous_status != status_update.from_status.value
+    return schemas.IncidentStatusUpdateResponse(
+        **dict(incident_response),
+        stale_from_status=schemas.IncidentStatus(incident.previous_status) if stale else None,
+    )
 
 
 @router.get("/{incident_id}/field-report", response_model=schemas.FieldReportState)
@@ -1464,7 +1471,7 @@ async def delete_incident(
     )
 
     if not success:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(broadcast_incident_update, {"id": str(incident_id)}, "delete")

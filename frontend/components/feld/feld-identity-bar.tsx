@@ -62,8 +62,8 @@ export function FeldIdentityBar({
       <div className={LINK_PAGE_HEADER_ROW_CLASS}>
         {children}
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <User className="size-3.5 text-primary" />
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
+            <User className="size-3.5 text-muted-foreground" />
           </div>
           {/* Fixed height whether or not the name has arrived. The bar is the
               topmost thing on the page, so anything that grows here pushes the

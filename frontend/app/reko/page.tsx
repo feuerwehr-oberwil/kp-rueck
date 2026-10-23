@@ -17,21 +17,18 @@ export default function RekoPage() {
   // to the device, and a URL gets pasted, shared and logged.
   const [name, setName] = useState<string | null>(null)
   useEffect(() => setName(readFeldName()), [])
+  // «Zurück» only where there is somewhere to go back to. A Reko link opened
+  // straight from an alarm or a QR code has no history, and the old fallback
+  // `/` sent an unauthenticated phone to the login screen.
+  const [canGoBack, setCanGoBack] = useState(false)
+  useEffect(() => setCanGoBack(window.history.length > 1), [])
 
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      router.back()
-    } else {
-      router.push('/')
-    }
-  }
-
-  const back = (
-    <Button variant="ghost" size="sm" onClick={handleBack} className="min-h-11 shrink-0 -ml-1">
+  const back = canGoBack ? (
+    <Button variant="ghost" size="sm" onClick={() => router.back()} className="min-h-11 shrink-0 -ml-1">
       <ArrowLeft className="size-3.5" />
       {t('back')}
     </Button>
-  )
+  ) : null
 
   return (
     <div className="min-h-screen bg-background pb-24">

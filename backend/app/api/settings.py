@@ -199,7 +199,7 @@ async def get_setting(key: str, current_user: CurrentUser, db: AsyncSession = De
     setting = result.scalar_one_or_none()
 
     if not setting:
-        raise HTTPException(status_code=404, detail="Setting not found")
+        raise HTTPException(status_code=404, detail="Einstellung nicht gefunden")
 
     return setting
 
@@ -218,7 +218,7 @@ async def update_setting(
     # Only allow updates to known settings keys. The underlying service creates a
     # row for any key, so without this guard an editor could inject arbitrary keys.
     if key not in DEFAULT_SETTINGS:
-        raise HTTPException(status_code=404, detail="Unknown setting key")
+        raise HTTPException(status_code=404, detail="Unbekannte Einstellung")
 
     # ...and `railway_database_url` was in DEFAULT_SETTINGS, so the guard above admitted
     # the exact key the old comment claimed it protected. That value is fed straight into

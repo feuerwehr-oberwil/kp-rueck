@@ -1849,6 +1849,33 @@ class TestPhotos:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_upload_works_in_demo_mode(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_user: User,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """The demo cap's SQL runs against the real JSONB column.
+
+        The `/feld` copy counted with `array_length` (arrays only) and 500'd
+        every demo upload, after the Reko twin had already been fixed.
+        """
+        from app.config import settings as app_settings
+
+        monkeypatch.setattr(app_settings, "demo_mode", True)
+        incident, person, token = await self._setup(db_session, test_event, test_user)
+
+        upload = await client.post(
+            f"/api/feld/incidents/{incident.id}/photos",
+            params={"token": token, "personnel_id": str(person.id)},
+            files={"file": ("keller.jpg", _one_pixel_jpeg(), "image/jpeg")},
+        )
+        assert upload.status_code == 200, upload.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_the_field_can_read_its_own_photo_back(
         self,
         client: AsyncClient,

@@ -642,23 +642,25 @@ function DraggableOperationBase({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {operation.source === 'intake' && (
                 <div
-                  className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.intakeTooltip')}
                 >
-                  <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  <Phone className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               {/* Where the Meldung came from, as its own glyph: the phone desk
                   took a call, a Trupp stood in front of the thing. Both are
                   "somebody outside the KP said there is something here", and the
                   difference decides how much of it the operator re-checks — so
-                  it is drawn, not left to the source field in the detail. */}
+                  it is drawn, not left to the source field in the detail.
+                  Both tiles are muted like the Reko tile: sky is the Rückfahrt
+                  column's hue, and the tooltip carries the meaning. */}
               {operation.source === 'feld' && (
                 <div
-                  className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.feldTooltip')}
                 >
-                  <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  <Axe className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
@@ -1081,11 +1083,12 @@ function DraggableOperationBase({
                             disabled={!onToggleDriverStay}
                             title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
                             className={cn(
-                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 transition-colors",
+                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 type-micro transition-colors",
                               onToggleDriverStay && "cursor-pointer hover:brightness-110",
-                              // Neutral in both states (quieter cards): the
+                              // Neutral ink in both states (quieter cards; the
+                              // count-chip treatment, readable at 11px): the
                               // word and the pin/return icon say which.
-                              "bg-muted-foreground/15 text-muted-foreground",
+                              "bg-foreground/10 text-foreground",
                             )}
                           >
                             {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}
@@ -1223,7 +1226,7 @@ function DraggableOperationBase({
                   <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                     {auftrag.name}
                   </span>
-                  <span className="truncate text-2xs text-muted-foreground">
+                  <span className="truncate type-micro text-muted-foreground">
                     <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
                     {auftragSummary && <> · {auftragSummary}</>}
                   </span>

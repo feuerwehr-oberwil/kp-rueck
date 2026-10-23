@@ -64,7 +64,7 @@ export function ResourceConflictPrompt() {
       <AlertDialogContent className="sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5 text-primary" />
+            <Icon className="h-5 w-5 text-muted-foreground" />
             {t('titleNamed', { name: resourceName })}
           </AlertDialogTitle>
           <AlertDialogDescription>{t('prompt')}</AlertDialogDescription>

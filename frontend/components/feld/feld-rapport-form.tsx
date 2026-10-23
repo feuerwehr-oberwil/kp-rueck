@@ -847,7 +847,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             {telHref(formData.owner_phone) && (
               <a
                 href={telHref(formData.owner_phone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3" />
                 {t('ownerCall')}

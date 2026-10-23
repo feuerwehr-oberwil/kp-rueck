@@ -15,7 +15,7 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« Rapports » dans la barre du bas (`O`).** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
 
-**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse, ou le symbole de chaîne devant la ligne, lie une intervention ; elle s’affiche alors en tête de ligne, `⌫` dans la ligne vide la retire. **`⇧J`** ouvre le journal avec le curseur déjà dans la ligne, et si une carte est sélectionnée, elle est déjà liée (dans la palette de commandes : « Écrire dans le journal »). Chaque ligne porte la date et l’heure. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Moyens. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
+**« Journal » dans la barre du bas (`J`).** Le journal d’intervention de l’événement, le plus récent en haut. Changements de statut, attributions et retraits, messages du terrain et vers l’équipe, rapports de reconnaissance, alarmes Divera, « sur place », « terminé » et récupérations s’y inscrivent d’eux-mêmes ; une intervention supprimée ou fusionnée garde ses lignes, marquées. En bas, une ligne pour tout ce qui n’appartient à aucune carte (« Syndic informé », « Courant coupé quartier nord ») – `#` suivi des premières lettres de l’adresse, ou le symbole de chaîne devant la ligne, lie une intervention ; elle s’affiche alors en tête de ligne, `⌫` dans la ligne vide la retire. **`⇧J`** ouvre le journal avec le curseur déjà dans la ligne, et si une carte est sélectionnée, elle est déjà liée (dans la palette de commandes : « Écrire dans le journal »). Chaque ligne porte la date et l’heure. Rien n’est effacé : une entrée erronée se corrige avec le crayon, la ligne indique alors « corrigé hh:mm » et, sur clic, l’ancien libellé. Filtres : Manuel, Terrain, Statut, Ressources. Le journal PDF imprime exactement ces entrées. Sur le téléphone sous « Plus ».
 
 **« Indicateurs » dans le menu utilisateur (`Z`).** En haut à droite, dans le menu de la personne, aussi via `Cmd/Ctrl+K` et, sur le téléphone, sous « Plus » – plus dans la barre du bas. Une fenêtre au-dessus de la page avec la situation en chiffres – annonces, en attente (par priorité), en cours, terminées – et les temps de réaction depuis la réception jusqu’à **Engagé**, **Sur place** et **Clôture**, en médiane et P90 par priorité, ainsi que la plus ancienne annonce « haute » encore en attente (un clic l’ouvre). Les mêmes valeurs que le tableau « Reaktionszeiten » du rapport d’intervention (PDF) ; le mode de calcul se trouve derrière le ⓘ. Pour un exercice, la vue s’appelle **Évaluation de l’exercice** ; pour un événement passé, elle se trouve sous **Événements → ⋯ → Indicateurs**, et au mur dans l’affichage d’état (`/display/status`), au-dessus des interventions.
 
@@ -28,7 +28,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 
 **Légende de la carte :**
 - **Priorité (remplissage) :** vert = basse, jaune = moyenne, rouge = haute
-- **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = terminée
+- **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
 - **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
 
 **Clavier :** `L` étiquettes, `I` lignes, `1-5` afficher un véhicule – voir [Raccourcis clavier](#raccourcis-clavier).
@@ -116,7 +116,7 @@ En ligne de commande, `just tiles-status` distingue « uniquement les tuiles min
 
 ## Recherche
 
-La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. «haute», «En intervention»), texte de l’annonce et **nom de mission** ; «reko» ou «reconnaissance» trouve les interventions dont la reconnaissance est terminée – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
+La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. « haute », « En intervention »), texte de l’annonce et **nom de mission** ; « reko » ou « reconnaissance » trouve les interventions dont la reconnaissance est terminée – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
 
 Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte.
 
@@ -434,7 +434,7 @@ d’une phrase.
   « Vu par le PC ») et reste ouverte. **Vu**, directement sur la demande, fait la même
   chose. « Tout fermer » laisse les demandes en place ; la cloche compte celles qui sont
   ouvertes.
-- **Attribuer du matériel / Attribuer du personnel** ouvre la fenêtre d’attribution
+- **Attribuer du matériel / Attribuer de l’effectif** ouvre la fenêtre d’attribution
   habituelle pour cette intervention, déjà filtrée sur l’engin, et passe la demande à
   « en cours ».
 - **Ramassage :** *Réglé* ici et « Récupération organisée » sur le bandeau du ramassage
@@ -456,7 +456,7 @@ d’une phrase.
 
 ## Déroulement d’une intervention
 
-Une intervention traverse 7 colonnes : **Reçu** → **Reconnaissance** → **Reconnaissance terminée** → **Engagé / en route** → **En intervention** → **Terminé / retour** → **Clôturé**
+Une intervention traverse 7 colonnes : **Reçu** → **Reconnaissance** → **Reconnaissance terminée** → **Engagé / en route** → **En intervention** → **Retour** → **Clôturé**
 
 | Colonne | Description |
 |-------|-------------|
@@ -465,12 +465,12 @@ Une intervention traverse 7 colonnes : **Reçu** → **Reconnaissance** → **Re
 | Reconnaissance terminée | Le rapport de reconnaissance est là, la décision reste à prendre |
 | Engagé / en route | Ressources attribuées, le groupe est en route |
 | En intervention | Phase de travail active |
-| Terminé / retour | Travail achevé, le groupe rentre |
+| Retour | Travail achevé, le groupe rentre |
 | Clôturé | Réglé, personnel et véhicules libérés automatiquement. La colonne peut être repliée. |
 
-**Terminé / retour ou Clôturé ?**
+**Retour ou Clôturé ?**
 
-- **Terminé / retour** – Les travaux sur le lieu du sinistre sont achevés. L’effectif et les véhicules sont sur le chemin du retour ou pas encore tous rentrés. Du matériel peut encore rester sur place.
+- **Retour** – Les travaux sur le lieu du sinistre sont achevés. L’effectif et les véhicules sont sur le chemin du retour ou pas encore tous rentrés. Du matériel peut encore rester sur place.
 - **Clôturé** – L’intervention est entièrement réglée. L’effectif et les véhicules sont de nouveau disponibles. Pour le matériel, il est établi ce qui est revenu au magasin, a été consommé ou est resté sur place. Le rapport est arrivé, ou son absence a été vérifiée sciemment.
 
 Il n’existe pas d’« archive » pour une intervention isolée – c’est l’**événement** entier qui s’archive (`G E`).
@@ -481,7 +481,7 @@ Il n’existe pas d’« archive » pour une intervention isolée – c’est l�
 
 **Sauter des colonnes :** autorisé. Toutes les interventions n’ont pas besoin d’une reconnaissance.
 
-**Annonce du terrain « intervention terminée » :** l’indication sur la carte ou dans le détail déplace l’intervention d’un clic vers **Terminé / retour** – et s’arrête là. Elle ne lance **pas** la clôture (relevé du matériel, questions en retour) : le groupe est justement en train de rentrer, et c’est exactement cette colonne. La clôture vient après, comme d’habitude. Si le groupe a besoin d’être ramené, il annonce un **ramassage** – qui apparaît comme bandeau propre dans le détail de l’intervention, juste à côté de l’annonce du terrain.
+**Annonce du terrain « intervention terminée » :** l’indication sur la carte ou dans le détail déplace l’intervention d’un clic vers **Retour** – et s’arrête là. Elle ne lance **pas** la clôture (relevé du matériel, questions en retour) : le groupe est justement en train de rentrer, et c’est exactement cette colonne. La clôture vient après, comme d’habitude. Si le groupe a besoin d’être ramené, il annonce un **ramassage** – qui apparaît comme bandeau propre dans le détail de l’intervention, juste à côté de l’annonce du terrain.
 
 ---
 
@@ -560,7 +560,7 @@ Une mission est **attribuée une fois, pas à nouveau à chaque étape**. L’ap
 
 Seules les ressources disponibles (point vert) peuvent être attribuées.
 
-**Annuler après un retrait.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est retiré, « … retiré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
+**Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
 
 **Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Retirer de l’intervention » rouge. À la souris, rien ne change.
 
@@ -661,10 +661,14 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `⇧J` | Nouvelle entrée au journal (liée à la carte sélectionnée) |
 | `Z` | Ouvrir/fermer les indicateurs (situation, temps de réaction) |
 
-### Tableau kanban – intervention (souris sur la carte)
+### Tableau kanban – intervention (carte sélectionnée)
+La carte sélectionnée est la dernière cliquée – ou celle que tu as atteinte avec les flèches. Ce
+qui modifie quelque chose agit uniquement sur la carte sélectionnée, jamais sur celle sous la souris.
+
 | Raccourci | Action |
 |----------|--------|
-| `E` / `Enter` | Ouvrir les détails |
+| `←` `↑` `↓` `→` | Déplacer la sélection vers la carte voisine (les colonnes repliées et vides sont sautées) |
+| `E` / `Enter` | Ouvrir les détails (la carte sous la souris, sinon la sélectionnée) |
 | `1-5` | Attribuer/retirer un véhicule |
 | `Shift+1-3` | Priorité : basse / moyenne / haute |
 | `0` | Basculer « à pied » |
@@ -680,7 +684,7 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 | `Q` / `[` | Barre latérale du personnel afficher/masquer |
 | `W` / `]` | Barre latérale du matériel afficher/masquer |
 | `I` / `\` | Panneau latéral afficher/masquer |
-| `K` | Ouvrir l’intervention sélectionnée sur la page carte (panneau latéral ouvert requis) |
+| `K` | Ouvrir l’intervention sélectionnée sur la page carte |
 | `B` | Notifications |
 | `P` | Rechercher du personnel |
 | `M` | Rechercher du matériel |
@@ -786,8 +790,11 @@ Pour les admins, un clic ouvre les réglages de synchronisation.
 
 ## Résilience (repli papier)
 
-Réglages → **Résilience**. Deux commutateurs qui tiennent l’état actuel du tableau prêt
-en dehors du système, avant qu’on en ait besoin :
+Deux commutateurs qui tiennent l’état actuel du tableau prêt en dehors du système, avant
+qu’on en ait besoin – à deux endroits, parce que l’un vaut pour toute la station et l’autre
+seulement pour l’ordinateur devant lequel tu es : l’impression thermique sous Réglages →
+Exploitation → **Résilience**, le téléchargement de la feuille de situation sous Réglages →
+**Cet appareil**.
 
 | Commutateur | Ce qu’il fait | Portée |
 |----------|------------|------------|
@@ -878,7 +885,7 @@ Chaque ligne du panneau « Liens & QR » (arrivée, terrain, saisir une alarme, 
 
 La colonne **Impression thermique** du panneau d’impression comporte pour cela trois commutateurs :
 
-- **Interventions terminées** – inclure aussi les interventions archivées (par défaut : désactivé)
+- **Interventions clôturées** – inclure aussi les interventions archivées (par défaut : désactivé)
 - **État des véhicules** – afficher la disponibilité de tous les véhicules (par défaut : activé)
 - **Vue d’ensemble du personnel** – liste de toutes les personnes présentes avec leur statut d’affectation (par défaut : activé)
 

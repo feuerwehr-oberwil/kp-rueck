@@ -560,6 +560,8 @@ class Incident(Base):
     # — exactly today's behaviour, and the readers that need to cope with that already use
     # `getattr(..., default)`. A shared `= []` default would be a classic cross-instance leak.
     group_resources_released: bool
+    # The status `update_incident_status` moved the card from (read under the row lock).
+    previous_status: str
     status_changed_at: datetime | None
     assigned_vehicles: list[Any]
     has_completed_reko: bool

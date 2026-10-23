@@ -17,7 +17,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog, Event, Incident, User
+from app.models import AuditLog, Event, Incident, StatusTransition, User
 
 # ============================================
 # Fixtures
@@ -134,7 +134,7 @@ async def test_get_incident_not_found(editor_client: AsyncClient):
     """Test getting a non-existent incident returns 404."""
     response = await editor_client.get(f"/api/incidents/{uuid4()}")
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    assert "nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -229,7 +229,7 @@ async def test_create_incident_invalid_event(editor_client: AsyncClient):
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
     assert response.status_code == 404
-    assert "event not found" in response.json()["detail"].lower()
+    assert "ereignis nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -381,6 +381,46 @@ async def test_update_status_success(editor_client: AsyncClient, test_incident: 
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "reko"
+    assert data["stale_from_status"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_stale_status_move_is_recorded_not_refused(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident
+):
+    """Two operators move the same card from the same stale view.
+
+    The second move is not refused (owner, 2026-10-23: «definitely record
+    everything»): it goes from the card's REAL status, the transition says so,
+    the audit row keeps what the client saw, and the response flags it.
+    """
+    url = f"/api/incidents/{test_incident.id}/status"
+    first = await editor_client.post(url, json={"from_status": "incoming", "to_status": "reko"})
+    assert first.status_code == 200
+
+    second = await editor_client.post(url, json={"from_status": "incoming", "to_status": "enroute"})
+    assert second.status_code == 200
+    assert second.json()["status"] == "enroute"
+    assert second.json()["stale_from_status"] == "reko"
+
+    transitions = (
+        await db_session.execute(
+            select(StatusTransition)
+            .where(StatusTransition.incident_id == test_incident.id)
+            .order_by(StatusTransition.timestamp)
+        )
+    ).scalars()
+    assert [(t.from_status, t.to_status) for t in transitions] == [("incoming", "reko"), ("reko", "enroute")]
+
+    audits = (
+        await db_session.execute(
+            select(AuditLog)
+            .where(AuditLog.resource_id == test_incident.id, AuditLog.action_type == "status_change")
+            .order_by(AuditLog.timestamp)
+        )
+    ).scalars()
+    assert [a.changes_json.get("seen_status") for a in audits] == [None, "incoming"]
 
 
 @pytest.mark.asyncio

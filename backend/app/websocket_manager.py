@@ -6,7 +6,6 @@ import logging
 import os
 import time
 from collections.abc import Callable
-from http.cookies import SimpleCookie
 from typing import Any
 
 import socketio
@@ -28,80 +27,12 @@ CLEANUP_INTERVAL_SECONDS = 60  # Run cleanup every minute
 # Roles allowed to join the admin room
 ADMIN_ROOM_ROLES = ("admin", "editor")
 
-
-def get_role_from_environ(environ: dict[str, Any]) -> str | None:
-    """Extract the user role from the JWT access_token cookie.
-
-    Returns None for missing/invalid/expired tokens — never raises.
-    Display/viewer pages may legitimately connect without a JWT (Phase 1).
-    """
-    try:
-        cookie_header = environ.get("HTTP_COOKIE")
-        if not cookie_header:
-            return None
-
-        cookies = SimpleCookie()
-        cookies.load(cookie_header)
-        morsel = cookies.get("access_token")
-        if not morsel:
-            return None
-
-        # Reuse the auth module's decode logic (lazy import, matches the
-        # lazy-import style used elsewhere in this module)
-        from .auth.security import decode_token
-
-        payload = decode_token(morsel.value)
-        if payload.get("type") != "access":
-            return None
-        return payload.get("role")
-    except Exception:
-        return None
-
-
-def get_role_from_ws_auth(auth: dict[str, Any] | None) -> str | None:
-    """Extract the user role from the Socket.IO `auth` payload (sweep 27 §P3.4).
-
-    The payload carries a short-lived `ws` token minted by GET /api/auth/ws-token
-    — the split-origin answer: the `access_token` cookie is first-party to the
-    FRONTEND origin and never reaches the backend socket, so cookie auth alone
-    rejected every connect on Railway staging and prod (kp.fwo.li → kp-api.fwo.li)
-    and clients silently lived on the 5s polling fallback.
-
-    Only `type == "ws"` is accepted: an access token must not double as a
-    connect credential, and this token opens no HTTP endpoint. Returns None for
-    missing/invalid/expired tokens — never raises.
-    """
-    try:
-        if not auth:
-            return None
-        token = auth.get("token")
-        if not token or not isinstance(token, str):
-            return None
-
-        from .auth.security import decode_token
-
-        payload = decode_token(token)
-        if payload.get("type") != "ws":
-            return None
-        role = payload.get("role")
-        return role if isinstance(role, str) else None
-    except Exception:
-        return None
-
-
-def resolve_connect_role(environ: dict[str, Any], auth: dict[str, Any] | None) -> str | None:
-    """The connect's role, from EITHER credential.
-
-    Cookie first (same-origin deployments, unchanged), then the auth-payload
-    token (split-origin). Both absent/invalid → None, and `ws_require_auth`
-    decides whether that connect is allowed at all.
-    """
-    return get_role_from_environ(environ) or get_role_from_ws_auth(auth)
-
-
-def _is_production() -> bool:
-    """Check if running in production environment."""
-    return is_production_environment()
+# How long one recheck of the connected sessions (`current_socket_roles`, a DB
+# session + two queries) answers for every emit after it. Without it every
+# broadcast – Traccar ticks, bulk assignments – opened its own session. The cost:
+# a session revoked in the DB keeps receiving for at most this long. Joining a
+# room and connecting always check afresh.
+ROLE_RECHECK_SECONDS = 2.0
 
 
 def get_websocket_cors_origins() -> list[str]:
@@ -143,8 +74,8 @@ sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins=get_websocket_cors_origins(),
     cors_credentials=True,
-    logger=not _is_production(),  # Disable in production
-    engineio_logger=not _is_production(),  # Disable in production
+    logger=not is_production_environment(),  # Disable in production
+    engineio_logger=not is_production_environment(),  # Disable in production
 )
 
 
@@ -158,6 +89,8 @@ class WebSocketManager:
         }
         self.user_sessions: dict[str, dict[str, Any]] = {}  # sid -> user info
         self.session_identities: dict[str, SocketIdentity] = {}
+        # (checked at, identities checked, roles of those that passed) – see ROLE_RECHECK_SECONDS.
+        self._roles_memo: tuple[float, frozenset[SocketIdentity], dict[SocketIdentity, str]] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
         # Any, not the real class: the whole point of the lazy import below is that this
         # module must not import the pollers at definition time (circular dependency).
@@ -315,17 +248,36 @@ class WebSocketManager:
             await self._traccar_poller.stop_polling()
             logger.info("Stopped Traccar polling (no users connected)")
 
-    async def revalidate_sessions(self, sid: str | None = None) -> None:
-        """Recheck delivery recipients, or just the client sending a keepalive."""
+    async def _socket_roles(self, identities: list[SocketIdentity], *, fresh: bool) -> dict[SocketIdentity, str]:
+        """`current_socket_roles`, answered from the last recheck while it is recent.
+
+        The memo only answers for identities it actually checked (a socket that
+        connected since forces a new query), and a login's expiry is applied on
+        every read, so a keepalive can never stretch it.
+        """
+        now = time.time()
+        memo = self._roles_memo
+        if not fresh and memo is not None and now - memo[0] < ROLE_RECHECK_SECONDS and memo[1].issuperset(identities):
+            return {i: memo[2][i] for i in identities if i in memo[2] and i.expires_at > now}
+        roles = await current_socket_roles(identities)
+        self._roles_memo = (now, frozenset(identities), roles)
+        return roles
+
+    async def revalidate_sessions(self, sid: str | None = None, *, fresh: bool = False) -> None:
+        """Recheck delivery recipients, or just the client sending a keepalive.
+
+        ``fresh`` skips the short memo (``ROLE_RECHECK_SECONDS``); joining a room uses it.
+        """
         if sid is None:
             identities = dict(self.session_identities)
         else:
             identity = self.session_identities.get(sid)
             identities = {sid: identity} if identity is not None else {}
         try:
-            roles = await current_socket_roles(list(identities.values()))
+            roles = await self._socket_roles(list(identities.values()), fresh=fresh)
         except Exception:
             logger.warning("Socket authorization unavailable; closing authenticated sessions")
+            self._roles_memo = None
             roles = {}
         for sid, identity in identities.items():
             role = roles.get(identity)
@@ -349,7 +301,7 @@ class WebSocketManager:
 
     async def join_room(self, sid: str, room: str) -> bool:
         """Add a client to a room for targeted updates."""
-        await self.revalidate_sessions()
+        await self.revalidate_sessions(fresh=True)
         if sid not in self.user_sessions:
             return False
         if room not in self.active_connections:
@@ -388,17 +340,6 @@ class WebSocketManager:
             logger.debug("Broadcasted %s to %s recipients", event, len(recipients))
         except Exception as e:
             logger.error(f"Error broadcasting {event}: {e}")
-
-    async def send_to_client(self, sid: str, event: str, data: Any) -> None:
-        """Send a message to a specific client."""
-        try:
-            await self.revalidate_sessions()
-            if sid not in self.user_sessions:
-                return
-            await sio.emit(event, data, to=sid)
-            logger.info(f"Sent {event} to client {sid}")
-        except Exception as e:
-            logger.error(f"Error sending {event} to {sid}: {e}")
 
     def get_connection_count(self) -> int:
         """Get the total number of connected clients."""
@@ -598,18 +539,6 @@ async def broadcast_vehicle_positions(positions_data: list[dict[str, Any]]) -> N
 async def broadcast_vehicle_trails(trails_data: list[dict[str, Any]]) -> None:
     """Broadcast GPS trail updates to all clients in operations room."""
     await ws_manager.broadcast_update("vehicle_trails_update", {"data": trails_data}, room="operations")
-
-
-async def broadcast_system_message(message: str, level: str = "info") -> None:
-    """Broadcast system messages to all connected clients."""
-    await ws_manager.broadcast_update(
-        "system_message",
-        {
-            "message": message,
-            "level": level,  # 'info', 'warning', 'error'
-            "timestamp": asyncio.get_event_loop().time(),
-        },
-    )
 
 
 async def broadcast_message(data: dict[str, Any], room: str = "operations") -> None:

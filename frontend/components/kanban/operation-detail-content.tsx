@@ -1251,7 +1251,7 @@ export function OperationDetailContent({
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3 shrink-0" />
                 {t('common.callContact')}
@@ -1773,7 +1773,7 @@ export function OperationDetailContent({
               <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
 
               {/* Everything the field asked for, with its state (R13): offen →
-                  in Arbeit → erledigt, who and when. «Material zuteilen» opens
+                  in Arbeit → erledigt, who and when. «Material zuweisen» opens
                   the same assignment dialog as the «+» on the resource rows. */}
               <FieldRequestList
                 operation={operation}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { Truck, ChevronDown, Info } from "lucide-react"
+import { Truck, ChevronDown, List } from "lucide-react"
 import { MAP_COLORS, PRIORITY_MARKER_COLORS } from "@/lib/map-colors"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
@@ -97,8 +97,10 @@ export function MapLegend({
 
   // Open by default on desktop (Bastian's verdict from the field round: a
   // legend you have to find is a legend that gets skipped), collapsed on
-  // mobile where it would cover half the map. The compact ⓘ pill is the
-  // folded form either way.
+  // mobile where it would cover half the map. The «Legende» pill is the
+  // folded form either way – a WORD, not an ⓘ: a round ⓘ sat right above
+  // MapLibre's round ⓘ attribution, and the brighter bottom one gave you a
+  // copyright line (sweep 2026-10, VISUAL-08).
   const expanded = open ?? !isMobile
 
   // `bottom-11 right-2.5`: the legend stands just ABOVE the map's attribution ⓘ (bottom-right,
@@ -110,11 +112,11 @@ export function MapLegend({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="absolute bottom-11 right-2.5 z-map-chrome flex h-8 w-8 items-center justify-center rounded-full bg-card/95 backdrop-blur-sm border border-border shadow-lg hover:bg-card"
+        className="absolute bottom-11 right-2.5 z-map-chrome flex h-8 items-center gap-1.5 rounded-full bg-card/95 px-3 text-xs font-medium text-foreground backdrop-blur-sm border border-border shadow-lg hover:bg-card"
         aria-label={t('legend.show')}
-        title={t('legend.title')}
       >
-        <Info className="h-4 w-4 text-muted-foreground" />
+        <List className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+        {t('legend.title')}
       </button>
     )
   }
@@ -179,7 +181,7 @@ export function MapLegend({
             <LegendMarker fillColor={null} dasharray="4,3" />
             <span className="text-xs">
               {t('legend.statusOpen')}
-              <span className="block text-[10px] leading-tight text-muted-foreground">
+              <span className="block text-2xs leading-tight text-muted-foreground">
                 {t('statusGroups.openMembers')}
               </span>
             </span>
@@ -188,7 +190,7 @@ export function MapLegend({
             <LegendMarker fillColor={null} dasharray="none" />
             <span className="text-xs">
               {t('legend.statusActive')}
-              <span className="block text-[10px] leading-tight text-muted-foreground">
+              <span className="block text-2xs leading-tight text-muted-foreground">
                 {t('statusGroups.activeMembers')}
               </span>
             </span>
@@ -197,7 +199,7 @@ export function MapLegend({
             <LegendMarker fillColor={null} dasharray="2,2" opacity={0.6} />
             <span className="text-xs">
               {t('legend.statusCompleted')}
-              <span className="block text-[10px] leading-tight text-muted-foreground">
+              <span className="block text-2xs leading-tight text-muted-foreground">
                 {t('statusGroups.completedMembers')}
               </span>
             </span>

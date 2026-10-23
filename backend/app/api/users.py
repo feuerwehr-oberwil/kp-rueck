@@ -16,6 +16,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..services.audit import log_action
+from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ async def get_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     return user
 
@@ -146,7 +147,7 @@ async def update_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     # Prevent admin from deactivating themselves
     if user.id == current_user.id and user_data.is_active is False:
@@ -220,7 +221,7 @@ async def reset_user_password(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     # Hash before mutation. The database increment prevents concurrent resets
     # from losing an invalidation, and commits atomically with the new password.
@@ -269,7 +270,7 @@ async def delete_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     # Prevent admin from deleting themselves
     if user.id == current_user.id:

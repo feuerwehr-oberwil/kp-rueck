@@ -43,31 +43,31 @@ export const STATUS_ACCENT: Record<OperationStatus, {
   reko: {
     surface: "bg-emerald-100/80 dark:bg-emerald-950/70",
     border: "border-l-emerald-500",
-    text: "text-emerald-600 dark:text-emerald-400",
+    text: "text-emerald-700 dark:text-emerald-400",
     dot: "bg-emerald-500",
   },
   reko_done: {
     surface: "bg-teal-100/80 dark:bg-teal-950/70",
     border: "border-l-teal-500",
-    text: "text-teal-600 dark:text-teal-400",
+    text: "text-teal-700 dark:text-teal-400",
     dot: "bg-teal-500",
   },
   enroute: {
     surface: "bg-blue-100/80 dark:bg-blue-950/70",
     border: "border-l-blue-500",
-    text: "text-blue-600 dark:text-blue-400",
+    text: "text-blue-700 dark:text-blue-400",
     dot: "bg-blue-500",
   },
   active: {
     surface: "bg-orange-100/80 dark:bg-orange-950/70",
     border: "border-l-orange-500",
-    text: "text-orange-600 dark:text-orange-400",
+    text: "text-orange-700 dark:text-orange-400",
     dot: "bg-orange-500",
   },
   returning: {
     surface: "bg-sky-100/80 dark:bg-sky-950/70",
     border: "border-l-sky-500",
-    text: "text-sky-600 dark:text-sky-400",
+    text: "text-sky-700 dark:text-sky-400",
     dot: "bg-sky-500",
   },
   complete: {
@@ -78,7 +78,8 @@ export const STATUS_ACCENT: Record<OperationStatus, {
   },
 }
 
-// Kanban column definitions
+// Kanban column definitions: order, colour and the starting fold. The header words
+// live in the messages (`kanban.columns.<id>`).
 // Colors come from STATUS_ACCENT — see there for why they are what they are.
 //
 // `id` IS a status: since database, API and board share one vocabulary there is
@@ -93,18 +94,17 @@ export const STATUS_ACCENT: Record<OperationStatus, {
 // at 3am a column may only disappear because someone folded it.
 export const columns: Array<{
   id: OperationStatus
-  title: string
   status: OperationStatus[]
   color: string
   collapsible?: boolean
 }> = [
-  { id: "incoming", title: "EINGEGANGEN", status: ["incoming"], color: STATUS_ACCENT.incoming.surface },
-  { id: "reko", title: "REKO", status: ["reko"], color: STATUS_ACCENT.reko.surface },
-  { id: "reko_done", title: "REKO ABGESCHLOSSEN", status: ["reko_done"], color: STATUS_ACCENT.reko_done.surface },
-  { id: "enroute", title: "DISPONIERT / ANFAHRT", status: ["enroute"], color: STATUS_ACCENT.enroute.surface },
-  { id: "active", title: "EINSATZ", status: ["active"], color: STATUS_ACCENT.active.surface },
-  { id: "returning", title: "BEENDET / RÜCKFAHRT", status: ["returning"], color: STATUS_ACCENT.returning.surface },
-  { id: "complete", title: "ABGESCHLOSSEN", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
+  { id: "incoming", status: ["incoming"], color: STATUS_ACCENT.incoming.surface },
+  { id: "reko", status: ["reko"], color: STATUS_ACCENT.reko.surface },
+  { id: "reko_done", status: ["reko_done"], color: STATUS_ACCENT.reko_done.surface },
+  { id: "enroute", status: ["enroute"], color: STATUS_ACCENT.enroute.surface },
+  { id: "active", status: ["active"], color: STATUS_ACCENT.active.surface },
+  { id: "returning", status: ["returning"], color: STATUS_ACCENT.returning.surface },
+  { id: "complete", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
 ]
 
 /**
@@ -168,7 +168,7 @@ export const DEFAULT_COLLAPSED_COLUMN_IDS: OperationStatus[] = columns
  *
  * Change it here and all three change together — that is the point.
  */
-export const COLUMN_HEADER_CLASS = "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+export const COLUMN_HEADER_CLASS = "type-label text-muted-foreground"
 
 /** How wall text that must not truncate breaks instead (the /display card titles, column
  *  heads, the status list's addresses). Hyphenate at a syllable in the page's
@@ -488,7 +488,7 @@ export function ageChipClass(date: Date): string {
     case "alarm":
       return "text-red-600 dark:text-red-400 font-medium"
     case "warn":
-      return "text-amber-600 dark:text-amber-500 font-medium"
+      return "text-amber-700 dark:text-amber-500 font-medium"
     default:
       return "text-muted-foreground"
   }
