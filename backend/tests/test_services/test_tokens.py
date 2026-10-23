@@ -145,7 +145,7 @@ class TestFeldToken:
                 "exp": datetime.now(UTC) + timedelta(hours=1),
                 "type": "feld",
             },
-            "not-the-secret",
+            "not-the-secret-but-32-bytes-long",
             algorithm="HS256",
         )
         assert validate_feld_token(forged) is None

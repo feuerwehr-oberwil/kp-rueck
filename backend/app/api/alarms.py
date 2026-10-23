@@ -64,7 +64,7 @@ async def receive_alarm(
 
     if alarm.source in RESERVED_ALARM_SOURCES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Quelle '{alarm.source}' ist reserviert – bitte eine eigene Kennung für diesen Absender wählen",
         )
 

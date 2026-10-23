@@ -214,8 +214,8 @@ class TestPhotoStorageService:
         assert file_path.exists()
 
         # Verify file is a valid JPEG
-        img = Image.open(file_path)
-        assert img.format == "JPEG"
+        with Image.open(file_path) as img:
+            assert img.format == "JPEG"
 
     @pytest.mark.asyncio
     async def test_save_photo_png_converted_to_jpeg(self, photo_service, upload_file_png, temp_photos_dir):
@@ -230,8 +230,8 @@ class TestPhotoStorageService:
 
         incident_dir = temp_photos_dir / str(incident_id)
         file_path = incident_dir / filename
-        img = Image.open(file_path)
-        assert img.format == "JPEG"
+        with Image.open(file_path) as img:
+            assert img.format == "JPEG"
 
     @pytest.mark.asyncio
     async def test_save_photo_max_photos_exceeded(self, photo_service, upload_file_jpg):
