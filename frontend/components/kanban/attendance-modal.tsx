@@ -440,7 +440,7 @@ function AttendanceRow({
       <span className="min-w-0 flex-1 truncate">{person.name.trim() || tCommon('unknownResource')}</span>
 
       {assignedAt && (
-        <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
+        <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
           {t('assignedChip')}
         </span>
       )}

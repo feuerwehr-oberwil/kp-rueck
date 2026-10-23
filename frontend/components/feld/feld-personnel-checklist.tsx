@@ -234,7 +234,7 @@ export function FeldPersonnelChecklist({
                       {/* The one thing the roster cannot say: this person was at
                           the Appell tonight, so they were plausibly here. */}
                       {candidate.checked_in && (
-                        <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
                           {t('checkedIn')}
                         </span>
                       )}

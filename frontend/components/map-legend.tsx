@@ -179,7 +179,7 @@ export function MapLegend({
             <LegendMarker fillColor={null} dasharray="4,3" />
             <span className="text-xs">
               {t('legend.statusOpen')}
-              <span className="block text-[10px] leading-tight text-muted-foreground">
+              <span className="block text-2xs leading-tight text-muted-foreground">
                 {t('statusGroups.openMembers')}
               </span>
             </span>
@@ -188,7 +188,7 @@ export function MapLegend({
             <LegendMarker fillColor={null} dasharray="none" />
             <span className="text-xs">
               {t('legend.statusActive')}
-              <span className="block text-[10px] leading-tight text-muted-foreground">
+              <span className="block text-2xs leading-tight text-muted-foreground">
                 {t('statusGroups.activeMembers')}
               </span>
             </span>
@@ -197,7 +197,7 @@ export function MapLegend({
             <LegendMarker fillColor={null} dasharray="2,2" opacity={0.6} />
             <span className="text-xs">
               {t('legend.statusCompleted')}
-              <span className="block text-[10px] leading-tight text-muted-foreground">
+              <span className="block text-2xs leading-tight text-muted-foreground">
                 {t('statusGroups.completedMembers')}
               </span>
             </span>

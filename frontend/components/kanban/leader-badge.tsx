@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 
 /** Amber, like the other "pay attention to this one" marks on the board. */
 const BADGE_BASE =
-  "inline-flex flex-shrink-0 items-center justify-center rounded-[3px] px-1 font-mono text-[10px] font-bold uppercase leading-[1.4] tracking-wide"
+  "inline-flex flex-shrink-0 items-center justify-center rounded-[3px] px-1 font-mono text-2xs font-bold uppercase leading-[1.4] tracking-wide"
 
 /** The bare «EL» mark, for the chip menu's «Als Einsatzleiter markieren» row —
  *  the same two letters the role carries everywhere else, never a star. */

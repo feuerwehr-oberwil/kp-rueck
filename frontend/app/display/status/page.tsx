@@ -427,7 +427,7 @@ function SituationBoard({
               label={t('figures')}
               count={figures.total}
               badge={
-                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
                   {tFigures('wallBadge', {
                     waiting: figures.waiting,
                     high: figures.by_priority.find((p) => p.priority === "high")?.waiting ?? 0,
@@ -456,7 +456,7 @@ function SituationBoard({
               label={group.name}
               count={stops.length}
               badge={
-                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
                   {t('auftragStops', { count: stops.length })}
                 </span>
               }
@@ -525,7 +525,7 @@ function SituationBoard({
                 // fold — «Maschinisten 6» tells nobody that all six are out.
                 badge={
                   <span className={cn(
-                    "shrink-0 text-[10px] xl:text-xs tabular-nums",
+                    "shrink-0 text-2xs xl:text-xs tabular-nums",
                     free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: people.length })}
@@ -571,7 +571,7 @@ function SituationBoard({
                 count={items.length}
                 badge={
                   <span className={cn(
-                    "shrink-0 text-[10px] xl:text-xs tabular-nums",
+                    "shrink-0 text-2xs xl:text-xs tabular-nums",
                     free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: items.length })}
@@ -624,7 +624,7 @@ function PanelHeader({ title, count, subtitle }: {
           {count}
         </span>
       </div>
-      {subtitle && <p className="text-[10px] xl:text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      {subtitle && <p className="text-2xs xl:text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
     </div>
   )
 }
@@ -756,20 +756,20 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
       <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
       {/* Special-function markers — same icon language as the board roster. */}
       {p.isReko && (
-        <span className="inline-flex items-center gap-0.5 text-[10px] xl:text-xs text-muted-foreground shrink-0">
+        <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
           <Binoculars className="h-3 w-3" /> {tk('common.reko')}
         </span>
       )}
       {p.isMagazin && (
-        <span className="inline-flex items-center gap-0.5 text-[10px] xl:text-xs text-muted-foreground shrink-0">
+        <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
           <Package2 className="h-3 w-3" /> {tk('common.magazin')}
         </span>
       )}
       {p.isDriver && p.driverVehicleName && (
-        <span className="text-[10px] xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
+        <span className="text-2xs xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
       {clickable && (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
+        <span className="text-2xs xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
       )}
     </div>
   )
@@ -810,18 +810,18 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
       {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
       <span className={cn("text-xs xl:text-sm truncate flex-1", isOutOfService && "text-muted-foreground")}>{m.name}</span>
       {isOutOfService ? (
-        <span className="text-[10px] xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
+        <span className="text-2xs xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
       ) : single ? (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
+        <span className="text-2xs xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
       ) : assignedTo.length > 1 ? (
         <span
-          className="text-[10px] xl:text-xs text-muted-foreground shrink-0"
+          className="text-2xs xl:text-xs text-muted-foreground shrink-0"
           title={assignedTo.map((a) => a.label).join(", ")}
         >
           → {t('onIncidents', { count: assignedTo.length })}
         </span>
       ) : (
-        !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
+        !isAssigned && <span className="text-2xs xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
       )}
     </div>
   )

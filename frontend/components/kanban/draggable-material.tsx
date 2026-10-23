@@ -90,7 +90,7 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
 
         {onSite && (
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground"
             title={t('material.onSiteTitle', {
               address: onSite.address ?? '–',
               since: formatSince(onSite.since),
