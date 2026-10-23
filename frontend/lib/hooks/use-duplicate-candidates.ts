@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 
 import { duplicateQueryKey, type DuplicateHintCandidate, type DuplicateQuery } from '@/lib/duplicates'
 
@@ -24,13 +25,17 @@ export function useDuplicateCandidates<C extends DuplicateHintCandidate>(
     candidates: [],
   })
 
+  // `key` is the query's value, so the effect runs on it alone; the query object and `load` are
+  // read as they are when the debounce fires.
+  const loadCurrent = useEffectEvent(() => (query ? load(query) : null))
+
   useEffect(() => {
-    if (!key || !query) return
+    if (!key) return
     let cancelled = false
     const timer = setTimeout(() => {
       // Through a promise, so a loader that throws synchronously is just "no hint" too.
       Promise.resolve()
-        .then(() => load(query))
+        .then(() => loadCurrent())
         .then((response) => {
           if (!cancelled) setResult({ key, candidates: response?.candidates ?? [] })
         })
@@ -42,8 +47,6 @@ export function useDuplicateCandidates<C extends DuplicateHintCandidate>(
       cancelled = true
       clearTimeout(timer)
     }
-    // `query` is captured through `key`, which is its value; `load` is a stable callback per mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
   // A stale answer for a different address is no answer.

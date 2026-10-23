@@ -36,7 +36,7 @@ export interface DiagnosticsBundle {
 /** `kp-rueck-diagnose-2026-09-10.json` — dated, so two of them in a Downloads folder are
  *  distinguishable, and prefixed with the app so a maintainer holding both apps' files can
  *  tell them apart before opening either. */
-export function diagnosticsFilename(bundle: Pick<DiagnosticsBundle, 'app' | 'generatedAt'>): string {
+function diagnosticsFilename(bundle: Pick<DiagnosticsBundle, 'app' | 'generatedAt'>): string {
   const day = bundle.generatedAt.slice(0, 10) || new Date().toISOString().slice(0, 10)
   return `${bundle.app}-diagnose-${day}.json`
 }

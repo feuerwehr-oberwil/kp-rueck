@@ -97,7 +97,7 @@ async def create_special_function(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_assignment)
     return db_assignment
 
@@ -145,5 +145,5 @@ async def delete_special_function(
     )
 
     await db.delete(db_assignment)
-    await db.commit()
+    await db.flush()
     return True

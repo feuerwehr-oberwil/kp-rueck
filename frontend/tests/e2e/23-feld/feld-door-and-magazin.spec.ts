@@ -269,7 +269,7 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       // Nothing has happened yet: the list is still the same person's.
       await expect(feld.assignmentRow(street(fixture.incident))).toBeVisible();
 
-      await confirm.getByRole('button', { name: 'Nicht ich' }).click();
+      await confirm.getByRole('button', { name: 'Abmelden' }).click();
 
       // All the way back to the door, not just back to the picker: whoever
       // takes the phone next types the code. That is what makes the binding a
@@ -324,9 +324,9 @@ test.describe('/feld: die Tür und der Magazin-Blick', { tag: '@smoke' }, () => 
       await expect(phone.getByText('Material von hier ist noch nicht zurück')).toHaveCount(0);
       await expect(phone.getByText('kein Rapport')).toHaveCount(0);
 
-      // No «Melden»: the Magazin is at the station, and reporting a Schadenplatz
+      // No «Neuer Schadenplatz»: the Magazin is at the station, and reporting a Schadenplatz
       // is for the people standing in front of one.
-      await expect(phone.getByRole('button', { name: 'Melden', exact: true })).toHaveCount(0);
+      await expect(phone.getByRole('button', { name: 'Neuer Schadenplatz', exact: true })).toHaveCount(0);
     } finally {
       await phone.context().close();
     }

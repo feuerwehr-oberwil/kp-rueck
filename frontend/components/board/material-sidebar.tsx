@@ -189,7 +189,7 @@ export function MaterialSidebar({
                   <div key={category}>
                     {/* Caps like every sidebar heading — a depot label
                         must not read as a device. */}
-                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</h3>
+                    <h3 className="mb-1 type-label text-muted-foreground">{category}</h3>
                     <div className="space-y-0.5">
                       {/* Material groups/blocks */}
                       {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
@@ -267,7 +267,7 @@ export function MaterialSidebar({
           {/* Same helper as the list filter — see the crew footer above. */}
           {isLoaded && !boardNeverLoaded && !effectiveMaterialQuery && (
             <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
                 <Check className="size-3.5" />
                 {tCommon('rosterFree', { count: materialSummary.free })}
               </span>

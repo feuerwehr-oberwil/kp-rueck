@@ -279,6 +279,12 @@ describe('an open Abholung', () => {
     expect(screen.getByText('3 Personen')).toBeInTheDocument()
   })
 
+  it('says it in one line — gemeldet, the time, how long — never «seit» twice', () => {
+    render({ pickup_needed: true, pickup_requested_at: '2026-08-09T21:14:00Z' })
+    const line = screen.getByText(/^Abholung gemeldet · \d\d:\d\d · wartet \S+/)
+    expect(line.textContent).not.toMatch(/seit/)
+  })
+
   it('never offers to report itself abgeholt — that is the KP\'s chip (§18.9)', async () => {
     const user = userEvent.setup()
     render({
@@ -289,9 +295,10 @@ describe('an open Abholung', () => {
 
     expect(screen.queryByRole('button', { name: /Abgeholt/i })).not.toBeInTheDocument()
 
-    // The button is still there and still only asks — re-opening it updates the
-    // note rather than clearing anything.
-    await user.click(screen.getByRole('button', { name: 'Abholung anfordern' }))
+    // The link no longer offers to ask again — it adjusts the note, and that
+    // updates the note rather than clearing anything.
+    expect(screen.queryByRole('button', { name: 'Abholung anfordern' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Notiz zur Abholung' }))
     await user.type(screen.getByPlaceholderText(/Notiz/), '5 Personen')
     await user.click(screen.getByRole('button', { name: 'Notiz aktualisieren' }))
 

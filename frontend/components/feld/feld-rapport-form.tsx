@@ -33,6 +33,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Copy, Phone, RotateCcw, Send, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
@@ -286,7 +287,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
   // ------------------------------------------------------------------ load
   const cancelledRef = useRef(false)
-  const load = useCallback(async () => {
+  const load = async () => {
     setIsLoading(true)
     setLoadError(false)
     try {
@@ -316,18 +317,18 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     } finally {
       if (!cancelledRef.current) setIsLoading(false)
     }
-    // The transport identity changes on every render of the parent; the
-    // incident is what actually decides which rapport this is.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incidentId])
+  }
 
+  // The transport identity changes on every render of the parent; the
+  // incident is what actually decides which rapport this is.
+  const loadForIncident = useEffectEvent(() => void load())
   useEffect(() => {
     cancelledRef.current = false
-    load()
+    loadForIncident()
     return () => {
       cancelledRef.current = true
     }
-  }, [load])
+  }, [incidentId])
 
   // Persist on every change, so a closed tab or a dead network loses nothing.
   useEffect(() => {
@@ -847,7 +848,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             {telHref(formData.owner_phone) && (
               <a
                 href={telHref(formData.owner_phone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3" />
                 {t('ownerCall')}

@@ -212,7 +212,7 @@ export function MobileBottomNavigation({
                       {selectedEvent ? selectedEvent.name : t('noEventSelected')}
                     </p>
                     {selectedEvent?.training_flag && (
-                      <span className="text-xs text-orange-600 dark:text-orange-400">{t('training')}</span>
+                      <span className="text-xs text-orange-700 dark:text-orange-400">{t('training')}</span>
                     )}
                   </div>
                   {otherEvents.map((event) => (

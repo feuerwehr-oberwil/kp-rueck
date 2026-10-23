@@ -1,6 +1,7 @@
 /** Address lookup through the authenticated, operator-configured backend. */
 import { z } from 'zod'
 import { getApiUrl } from './env'
+import { haversineKm } from './utils/route-geo'
 
 const suggestionSchema = z.object({
   id: z.string(),
@@ -94,22 +95,6 @@ function getViewboxForCenter([lon, lat]: [number, number]): string {
   ].join(',')
 }
 
-/**
- * Calculate distance between two points using Haversine formula
- * Returns distance in kilometers
- */
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371 // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
-
 /** Search results retain the configured station's distance ordering. */
 export async function searchAddress(query: string, options?: SearchOptions): Promise<SearchResult[]> {
   const trimmed = query.trim()
@@ -122,7 +107,7 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
     if (!parsed.success) return []
     if (options?.stationCenter) {
       const [lon, lat] = options.stationCenter
-      parsed.data.sort((a, b) => calculateDistance(a.lat, a.lon, lat, lon) - calculateDistance(b.lat, b.lon, lat, lon))
+      parsed.data.sort((a, b) => haversineKm([a.lat, a.lon], [lat, lon]) - haversineKm([b.lat, b.lon], [lat, lon]))
     }
     return parsed.data
   } catch {

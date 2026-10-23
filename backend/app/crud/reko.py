@@ -74,7 +74,7 @@ async def get_or_create_reko_report(
         # Update personnel_id if provided and not already set
         if personnel_id and not report.submitted_by_personnel_id:
             report.submitted_by_personnel_id = personnel_id
-            await db.commit()
+            await db.flush()
             await db.refresh(report)
         return report
 
@@ -120,7 +120,7 @@ async def get_or_create_reko_report(
         )
 
     db.add(report)
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
 
     return report
@@ -178,7 +178,7 @@ async def get_or_create_kp_reko_report(
         created_by_user_id=user.id,
     )
     db.add(report)
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
     return report
 
@@ -233,7 +233,7 @@ async def update_reko_report(
 
     report.updated_at = datetime.now(UTC)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
 
     return report
@@ -323,7 +323,7 @@ async def mark_reko_arrived(
             report.arrived_at = datetime.now(UTC)
             newly_arrived = True
 
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
 
     # «Reko vor Ort» rings the bell — HERE, not in the API route, so every
@@ -400,7 +400,7 @@ async def set_reko_arrived_by_user(
             report.arrived_reported_by_user_id = None
         if cleared is None:
             return None
-        await db.commit()
+        await db.flush()
         await db.refresh(cleared)
         return cleared
 
@@ -422,7 +422,7 @@ async def set_reko_arrived_by_user(
         target.arrived_at = at or datetime.now(UTC)
         target.arrived_reported_by_user_id = user.id
 
-    await db.commit()
+    await db.flush()
     await db.refresh(target)
     return target
 
@@ -560,7 +560,7 @@ async def process_reko_submission(
             notes="Reko-Formular eingereicht",
         )
         db.add(transition)
-        await db.commit()
+        await db.flush()
         await db.refresh(incident)
         # The report may have been expired along with the card it moved onto (a
         # merge loads the card with its reports); reload it before reading on.
@@ -581,7 +581,7 @@ async def process_reko_submission(
         )
         if has_danger and incident.priority == "low":
             incident.priority = "medium"
-            await db.commit()
+            await db.flush()
             await db.refresh(incident)
             await db.refresh(report)
 

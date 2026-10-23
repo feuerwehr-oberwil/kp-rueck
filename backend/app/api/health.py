@@ -115,7 +115,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection failed",
+            detail="Datenbankverbindung fehlgeschlagen",
         ) from None
 
 
@@ -298,7 +298,6 @@ async def create_demo_sandbox(
     db.add(event)
     await db.flush()
     await seed_demo_event_content(db, event)
-    await db.commit()
 
     logger.info(f"Created demo sandbox event {event.id} ({event.name})")
     return {"event_id": str(event.id), "name": event.name, "reused": False}
@@ -329,4 +328,4 @@ async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, 
         return {"status": "reset_complete"}
     except Exception as e:
         logger.error(f"Demo reset failed: {e}")
-        raise HTTPException(status_code=500, detail="Reset failed") from e
+        raise HTTPException(status_code=500, detail="Zurücksetzen fehlgeschlagen") from e

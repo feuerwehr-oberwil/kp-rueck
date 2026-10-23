@@ -32,6 +32,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret, try_auto_attach
+from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,7 @@ async def receive_firehub_webhook(
     payload: schemas.FireHubWebhook,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
+    request: Request,
 ) -> dict[str, Any]:
     """
     Receive a FireHub Einsatzstart/Einsatzende webhook.
@@ -91,7 +90,7 @@ async def _handle_start(
         existing = await divera_crud.get_emergency_by_source(db, alarm.source, source_id)
         if existing:
             return _start_ack(existing.id, existing.created_incident_id, created=False)
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Alarm already exists") from None
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.ALARM_EXISTS) from None
 
     logger.info("New FireHub alarm: firehub:%s, Title: %s", emergency.source_id, emergency.title)
 
@@ -137,8 +136,6 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
             "emergency_id": str(emergency.id),
         },
     )
-    # log_action only flushes; the audit row is rolled back on session close without this.
-    await db.commit()
     logger.info("FireHub end noted for firehub:%s (incident=%s)", source_id, incident_id)
 
     return {

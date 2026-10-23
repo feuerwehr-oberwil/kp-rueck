@@ -58,7 +58,6 @@ services:
       # failures that mean nothing. Must be >= 12 characters (`get_admin_password()` in
       # backend/app/seed.py rejects shorter). Keep in step with frontend/tests/constants.ts.
       ADMIN_SEED_PASSWORD: "${ADMIN_SEED_PASSWORD:-kp-dev-password}"
-      RELOAD: "true"
       # Divera stays OFF unless this is set — an unset key means `get_provider()`
       # returns None and every outbound path (alarm, Mitteilung) is refused before
       # it can reach anybody's phone. Set it in the repo-root `.env` (gitignored)

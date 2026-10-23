@@ -505,6 +505,8 @@ jobs:
       # that dropped below its number fails too until `pnpm lint --tighten` writes the lower
       # count — so a fixed warning cannot quietly come back. The script prints the per-rule
       # counts and says which of those cases it is; raising a number is never the fix.
+      # `eslint-disable` comments are counted the same way, per rule (FE-08): a disable makes no
+      # warning, so without that a new one slipped past the cap.
       - name: Run ESLint
         run: pnpm lint
 
@@ -607,9 +609,10 @@ jobs:
   #
   # The full suite is ~300 specs at ~25 minutes and flaky enough that a red result had stopped
   # carrying information, so it stayed switched off entirely and CI covered no click-through at
-  # all. This runs the eight specs on the paths where a break is both plausible and expensive:
-  # log in, land on the board, create an event, select it, create an incident, and alarm intake
-  # in and out. Tag more with `{ tag: '@smoke' }` as they prove stable.
+  # all. This runs the @smoke specs on the paths where a break is both plausible and expensive:
+  # log in, land on the board, create an event, select it, create an incident, alarm intake
+  # in and out, and a viewer bounced off the editor board, map and settings (07-viewer-role).
+  # Tag more with `{ tag: '@smoke' }` as they prove stable.
   #
   # REQUIRED ON MAIN since 2026-08-21. It was deliberately held out until it had been green
   # across runs it did not deserve to be, and it has: repeated PR and push runs plus the 0.7.0
@@ -732,10 +735,9 @@ jobs:
         env:
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
-          # No @smoke spec logs in as the viewer today, so this is prophylactic: tagging one
-          # later must not silently reproduce the nightly's failure, where the missing variable
-          # sends the specs to the dev default in tests/constants.ts and every viewer login
-          # times out at the login screen.
+          # The 07-viewer-role @smoke specs log in as the viewer. Without this the specs fall
+          # back to the dev default in tests/constants.ts and every viewer login times out at
+          # the login screen (the nightly's old failure).
           VIEWER_PASSWORD: ${{ env.E2E_PASSWORD }}
           NEXT_PUBLIC_API_URL: http://localhost:8000
           CI: true

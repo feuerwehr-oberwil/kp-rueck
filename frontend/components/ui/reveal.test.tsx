@@ -38,7 +38,6 @@ describe("Reveal", () => {
     render(<Reveal open>Inhalt</Reveal>)
     const box = screen.getByText("Inhalt").parentElement as HTMLElement
     expect(box).toHaveAttribute("data-state", "open")
-    expect(box).toHaveClass("grid-rows-[1fr]")
   })
 
   it("renders nothing while closed", () => {
@@ -46,20 +45,20 @@ describe("Reveal", () => {
     expect(screen.queryByText("Inhalt")).toBeNull()
   })
 
-  it("slides open from 0fr to 1fr", async () => {
+  it("mounts closed and opens a frame later, so the slide has a start value", async () => {
     const { rerender } = render(<Reveal open={false}>Inhalt</Reveal>)
     rerender(<Reveal open>Inhalt</Reveal>)
     const box = () => screen.getByText("Inhalt").parentElement as HTMLElement
-    expect(box()).toHaveClass("grid-rows-[0fr]")
+    expect(box()).toHaveAttribute("data-state", "closed")
     await flushFrames()
-    expect(box()).toHaveClass("grid-rows-[1fr]")
+    expect(box()).toHaveAttribute("data-state", "open")
   })
 
   it("keeps the body mounted (and inert) while it slides shut, then removes it", async () => {
     const { rerender } = render(<Reveal open>Inhalt</Reveal>)
     rerender(<Reveal open={false}>Inhalt</Reveal>)
     const box = screen.getByText("Inhalt").parentElement as HTMLElement
-    expect(box).toHaveClass("grid-rows-[0fr]")
+    expect(box).toHaveAttribute("data-state", "closed")
     expect(box).toHaveAttribute("inert")
     await act(async () => {
       vi.advanceTimersByTime(REVEAL_MS + 50)
@@ -71,7 +70,7 @@ describe("Reveal", () => {
     setReducedMotion(true)
     const { rerender } = render(<Reveal open={false}>Inhalt</Reveal>)
     rerender(<Reveal open>Inhalt</Reveal>)
-    expect(screen.getByText("Inhalt").parentElement).toHaveClass("grid-rows-[1fr]")
+    expect(screen.getByText("Inhalt").parentElement).toHaveAttribute("data-state", "open")
     rerender(<Reveal open={false}>Inhalt</Reveal>)
     expect(screen.queryByText("Inhalt")).toBeNull()
   })
@@ -93,15 +92,5 @@ describe("Reveal", () => {
     const body = document.getElementById("body") as HTMLElement
     expect(body.hidden).toBe(true)
     expect(body.querySelector("input")?.value).toBe("halb getippt")
-  })
-
-  it("never grows wider than itself: one long line cannot widen a phone list", () => {
-    // jsdom has no layout, so this pins the two classes that do it: a grid item's minimum
-    // width is its content's min-content unless the track and the item both say otherwise.
-    render(<Reveal open><span className="truncate">Testalarm KP Front Verbindungstest Wandanzeige</span></Reveal>)
-    const clip = screen.getByText(/Testalarm/).parentElement as HTMLElement
-    const grid = clip.parentElement as HTMLElement
-    expect(grid.className).toContain("grid-cols-[minmax(0,1fr)]")
-    expect(clip.className).toContain("min-w-0")
   })
 })

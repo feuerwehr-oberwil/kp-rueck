@@ -34,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, RefreshCw, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   DropdownMenu,
@@ -50,7 +50,8 @@ import { SettingCard } from './setting-row';
 import { useIntegrationCapability } from '@/lib/hooks/use-integrations';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
-import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
+import { SortableHead } from './inventory-table';
+import { useInventoryDialog, useInventoryList } from './use-archivable-inventory';
 import {
   personnelFormDefaults,
   personnelFormSchema,
@@ -67,6 +68,36 @@ import {
 } from '@/lib/roster-order';
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
 
+type SortColumn = 'name' | 'role' | 'status';
+
+/**
+ * The admin table's order, ascending.
+ *
+ * It used to lowercase both values and compare them with `<` / `>`, which is
+ * UTF-16 code-unit order: «Öhler» sorted after «Zwahlen» and «äsch» after
+ * every z-name. This is the one screen where the whole roster is maintained,
+ * so it was also the screen where a name was hardest to find. Names go
+ * through the app's canonical comparator now; the Grad column sorts by the
+ * station's own `role_sort_order` first, which is what the rank editor below
+ * this table actually sets.
+ */
+function comparePersonnel(a: ApiPersonnel, b: ApiPersonnel, column: SortColumn): number {
+  switch (column) {
+    case 'name':
+      return compareByName(a, b);
+    case 'role':
+      return compareByRankThenName(
+        { name: a.name, role: a.role, roleSortOrder: a.role_sort_order },
+        { name: b.name, role: b.role, roleSortOrder: b.role_sort_order },
+      );
+    case 'status':
+      // Collation of data, not formatting: de-CH on purpose (see roster-order).
+      return a.status.localeCompare(b.status, 'de-CH') || compareByName(a, b);
+    default:
+      return 0;
+  }
+}
+
 /**
  * Einstellungen › Personal: the roster, its sort order and the Divera sync.
  * `isAdmin` unlocks the sync's «nicht mehr in Divera entfernen» option – deleting
@@ -74,14 +105,9 @@ import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader';
  */
 export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoMode?: boolean; isAdmin?: boolean }) {
   const t = useTranslations('settings');
-  const [personnel, setPersonnel] = useState<ApiPersonnel[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPersonnel, setEditingPersonnel] = useState<ApiPersonnel | null>(null);
   const [newTag, setNewTag] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personnelToDelete, setPersonnelToDelete] = useState<ApiPersonnel | null>(null);
-  const [sortColumn, setSortColumn] = useState<'name' | 'role' | 'status'>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Divera sync state. Ohne hinterlegten Personal-Anbieter gibt es nichts abzugleichen:
   // Der Knopf öffnete bisher einen Dialog, der sofort mit einem Fehler antwortete. Die
@@ -104,44 +130,26 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
   const tags = form.watch('tags');
   const roleValue = form.watch('role');
 
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingPersonnel(null);
-    setNewTag('');
-    form.reset(personnelFormDefaults);
-  };
+  const dialog = useInventoryDialog<ApiPersonnel, PersonnelFormValues>(
+    form,
+    personnelFormDefaults,
+    () => setNewTag(''),
+  );
+  const { guard } = dialog;
 
-  const guard = useUnsavedChangesWarning({
-    isDirty: form.formState.isDirty,
-    isOpen: isDialogOpen,
-    onClose: closeDialog,
+  const {
+    rows: personnel,
+    setRows: setPersonnel,
+    sorted: sortedPersonnel,
+    sort,
+    reload: loadPersonnel,
+  } = useInventoryList<ApiPersonnel, SortColumn>({
+    list: () => apiClient.getAllPersonnel(),
+    compare: comparePersonnel,
+    initialSort: 'name',
+    loadError: t('personnel.loadError'),
+    logLabel: 'personnel',
   });
-
-  // Load once on mount. `loadPersonnel` is a plain function re-created on every
-  // render, so listing it as a dep would refetch on every render.
-  useEffect(() => {
-    loadPersonnel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadPersonnel = async () => {
-    try {
-      const data = await apiClient.getAllPersonnel();
-      if (!data) {
-        // GET degraded to undefined after retries — keep previous state instead
-        // of crashing the sort memos with a non-iterable value.
-        if (personnel.length === 0) {
-          toast.error(t('personnel.loadError'), {
-            description: t('common.reloadPage'),
-          });
-        }
-        return;
-      }
-      setPersonnel(data);
-    } catch (error) {
-      console.error('Failed to load personnel:', error);
-    }
-  };
 
   // Extract unique roles for the role selector
   const existingRoles = useMemo(() => {
@@ -162,24 +170,22 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
   }, [personnel]);
 
   const handleOpenCreate = () => {
-    setEditingPersonnel(null);
-    setNewTag('');
-    form.reset(personnelFormDefaults);
-    setIsDialogOpen(true);
+    dialog.open(null, personnelFormDefaults);
   };
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      if (editingPersonnel) {
-        const updated = await apiClient.updatePersonnel(editingPersonnel.id, values);
+      const editing = dialog.editing;
+      if (editing) {
+        const updated = await apiClient.updatePersonnel(editing.id, values);
         setPersonnel((prev) =>
-          prev.map((p) => (p.id === editingPersonnel.id ? updated : p))
+          prev.map((p) => (p.id === editing.id ? updated : p))
         );
       } else {
         const created = await apiClient.createPersonnel(values);
         setPersonnel((prev) => [...prev, created]);
       }
-      closeDialog();
+      dialog.close();
     } catch (error) {
       console.error('Failed to save personnel:', error);
       toast.error(t('common.saveError'), {
@@ -189,9 +195,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
   });
 
   const handleEdit = (person: ApiPersonnel) => {
-    setEditingPersonnel(person);
-    setNewTag('');
-    form.reset({
+    dialog.open(person, {
       name: person.name,
       role: person.role || '',
       status:
@@ -200,7 +204,6 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
           : 'available',
       tags: person.tags || [],
     });
-    setIsDialogOpen(true);
   };
 
   const handleDeleteClick = (person: ApiPersonnel) => {
@@ -243,47 +246,6 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
     setNewTag('');
   };
 
-  // Handle column header click for sorting
-  const handleSort = (column: 'name' | 'role' | 'status') => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
-
-  /**
-   * The admin table's order.
-   *
-   * It used to lowercase both values and compare them with `<` / `>`, which is
-   * UTF-16 code-unit order: «Öhler» sorted after «Zwahlen» and «äsch» after
-   * every z-name. This is the one screen where the whole roster is maintained,
-   * so it was also the screen where a name was hardest to find. Names go
-   * through the app's canonical comparator now; the Grad column sorts by the
-   * station's own `role_sort_order` first, which is what the rank editor below
-   * this table actually sets.
-   */
-  const sortedPersonnel = useMemo(() => {
-    const direction = sortDirection === 'asc' ? 1 : -1;
-    return [...personnel].sort((a, b) => {
-      switch (sortColumn) {
-        case 'name':
-          return direction * compareByName(a, b);
-        case 'role':
-          return direction * compareByRankThenName(
-            { name: a.name, role: a.role, roleSortOrder: a.role_sort_order },
-            { name: b.name, role: b.role, roleSortOrder: b.role_sort_order },
-          );
-        case 'status':
-          // Collation of data, not formatting: de-CH on purpose (see roster-order).
-          return direction * (a.status.localeCompare(b.status, 'de-CH') || compareByName(a, b));
-        default:
-          return 0;
-      }
-    });
-  }, [personnel, sortColumn, sortDirection]);
-
   // The list's own filter bar: ~140 rows whose only affordance used to be a
   // column sort. Free text goes over name, Grad and tags; the Rolle chip
   // narrows to one Grad. The count next to them says what the filter did.
@@ -307,16 +269,6 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       );
     });
   }, [sortedPersonnel, listQuery, roleFilter]);
-
-  // Render sort indicator
-  const SortIndicator = ({ column }: { column: 'name' | 'role' | 'status' }) => {
-    if (sortColumn !== column) return null;
-    return sortDirection === 'asc' ? (
-      <ArrowUp className="ml-1 h-3 w-3 inline" />
-    ) : (
-      <ArrowDown className="ml-1 h-3 w-3 inline" />
-    );
-  };
 
   // Extract unique roles with their sort orders and counts
   const roleCategories = useMemo(() => {
@@ -528,25 +480,16 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('name')}
-                >
-                  {t('common.name')}<SortIndicator column="name" />
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('role')}
-                >
-                  {t('common.role')}<SortIndicator column="role" />
-                </TableHead>
+                <SortableHead sort={sort} column="name">
+                  {t('common.name')}
+                </SortableHead>
+                <SortableHead sort={sort} column="role">
+                  {t('common.role')}
+                </SortableHead>
                 <TableHead>{t('personnel.tags')}</TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('status')}
-                >
-                  {t('personnel.availability')}<SortIndicator column="status" />
-                </TableHead>
+                <SortableHead sort={sort} column="status">
+                  {t('personnel.availability')}
+                </SortableHead>
                 <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -577,7 +520,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                     {/* Empty when everything is fine — ~140 identical green
                         «Verfügbar» chips said nothing. Colour marks exceptions. */}
                     {person.status !== 'available' && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
                         <span aria-hidden className="size-1.5 rounded-full bg-amber-500" />
                         {t('common.unavailable')}
                       </span>
@@ -656,11 +599,11 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
       </Tabs>
 
       {/* Edit / Create Personnel Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
+      <Dialog open={dialog.isOpen} onOpenChange={guard.handleOpenChange}>
         <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
-              {editingPersonnel ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
+              {dialog.editing ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
             </DialogTitle>
           </DialogHeader>
           {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.
@@ -865,7 +808,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                 </Button>
                 <Button type="submit" disabled={submitDisabled}>
                   {isSaving && <ShellLoader className="size-4" />}
-                  {editingPersonnel ? t('common.save') : t('common.create')}
+                  {dialog.editing ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
             </form>

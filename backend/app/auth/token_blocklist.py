@@ -20,11 +20,12 @@ primary-key lookup.
 import asyncio
 import contextlib
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import execute_dml
 from ..models import RevokedToken
@@ -35,14 +36,14 @@ logger = logging.getLogger(__name__)
 class TokenBlocklist:
     """Blocklist for revoked JWT tokens, backed by ``revoked_tokens``."""
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
+    def __init__(self, session_factory: Callable[[], AsyncSession] | None = None) -> None:
         # Resolved lazily so importing this module never forces the engine to build
         # (keeps the pure/unit tests import-safe) and so tests can inject a test factory.
         self._session_factory = session_factory
         self._cleanup_task: asyncio.Task[None] | None = None
         self._cleanup_interval = 3600  # Clean up every hour
 
-    def _factory(self) -> async_sessionmaker[AsyncSession]:
+    def _factory(self) -> Callable[[], AsyncSession]:
         if self._session_factory is None:
             from ..database import async_session_maker
 

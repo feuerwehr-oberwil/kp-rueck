@@ -88,10 +88,7 @@ async def unassign_resource(
     )
 
     if not success:
-        raise HTTPException(status_code=404, detail="Assignment not found")
-
-    # unassign_resource flushes only — this endpoint owns the commit (H3).
-    await db.commit()
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(
@@ -131,7 +128,7 @@ async def update_assignment(
         await db.rollback()
         raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from e
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
     # "driver_stay" lets other clients apply the change surgically (just the
     # on-site flag on the matching assignment) instead of a full board reload.
@@ -181,9 +178,8 @@ async def release_all_resources(
         request=request,
     )
 
-    # auto_release/unassign_resource flush only — ONE commit for the whole
-    # release, so all-or-nothing instead of a partial release on crash (H3).
-    await db.commit()
+    # auto_release/unassign_resource flush only — the request's ONE commit makes the whole
+    # release all-or-nothing instead of a partial release on crash (H3).
 
     # Broadcast WebSocket update for bulk release
     background_tasks.add_task(

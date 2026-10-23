@@ -286,7 +286,7 @@ export default function HelpPage() {
     a: ({ href, children, ...props }) => (
       <a
         href={href}
-        className="text-primary hover:underline font-medium"
+        className="font-medium text-foreground underline underline-offset-2 hover:decoration-2"
         {...props}
       >
         {children}

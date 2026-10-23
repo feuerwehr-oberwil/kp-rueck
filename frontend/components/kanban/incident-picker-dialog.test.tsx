@@ -125,6 +125,14 @@ describe("IncidentPickerDialog — grouped incidents are labelled, not hidden", 
     expect(screen.getByText("Hauptstrasse done")).toBeInTheDocument()
     expect(screen.queryByText(/ausgeblendet/)).not.toBeInTheDocument()
   })
+
+  it("names each row's status in the board's own words", async () => {
+    renderPicker([makeOp("back", { status: "returning" })])
+    await userEvent.setup().click(screen.getByRole("button", { name: "Liste" }))
+
+    const row = screen.getByText("Hauptstrasse back").closest("label")!
+    expect(within(row).getByText(/· Rückfahrt$/)).toBeInTheDocument()
+  })
 })
 
 

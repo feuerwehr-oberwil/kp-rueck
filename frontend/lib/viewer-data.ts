@@ -72,7 +72,7 @@ function viewerRekoSummary(summary: ApiViewerRekoSummary): RekoSummary {
  * * `hasSchadenplatzRapport` / `…Draft` — whether the KP has filed its
  *   paperwork is the office's state, not the situation's. Left off.
  */
-export function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSummary): Operation {
+function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSummary): Operation {
   return {
     id: a.id,
     location: a.location_address || a.title,

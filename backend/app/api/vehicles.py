@@ -15,6 +15,7 @@ from ..crud import vehicles as crud
 from ..database import get_db
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, Vehicle
 from ..services import incident_display
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_vehicle_update
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -24,7 +25,7 @@ def _archive_refused_detail(refused: materials_crud.ArchiveRefused) -> str:
     """The 409 for archiving a deployed vehicle — same shape as the purge's `in_use`."""
     return (
         f"«{refused.name}» steht aktuell auf {refused.active_incidents} Einsätzen und kann "
-        "nicht archiviert werden – zuerst die Zuteilung aufheben."
+        "nicht archiviert werden – zuerst die Zuweisung aufheben."
     )
 
 
@@ -68,7 +69,7 @@ async def get_vehicle(
     """Get single vehicle by ID. Archived vehicles are returned here."""
     vehicle = await crud.get_vehicle(db, vehicle_id)
     if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
     return (await _with_usage(db, [vehicle]))[0]
 
 
@@ -106,7 +107,7 @@ async def update_vehicle(
     """
     updated = await crud.update_vehicle(db, vehicle_id, vehicle, current_user, request)
     if not updated:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
 
     # Convert to Pydantic and broadcast WebSocket update
     vehicle_response = (await _with_usage(db, [updated]))[0]
@@ -132,7 +133,7 @@ async def archive_vehicle(
     """
     archived = await crud.archive_vehicle(db, vehicle_id, current_user, request)
     if not archived:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
     if isinstance(archived, materials_crud.ArchiveRefused):
         raise HTTPException(status_code=409, detail=_archive_refused_detail(archived))
 
@@ -153,7 +154,7 @@ async def restore_vehicle(
     """Bring an archived vehicle back (editor only) — «Zurückholen»."""
     restored = await crud.restore_vehicle(db, vehicle_id, current_user, request)
     if not restored:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
 
     vehicle_response = (await _with_usage(db, [restored]))[0]
     background_tasks.add_task(broadcast_vehicle_update, vehicle_response.model_dump(mode="json"), "create")
@@ -184,7 +185,7 @@ async def delete_vehicle(
     if not permanent:
         archived = await crud.archive_vehicle(db, vehicle_id, current_user, request)
         if not archived:
-            raise HTTPException(status_code=404, detail="Vehicle not found")
+            raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
         if isinstance(archived, materials_crud.ArchiveRefused):
             raise HTTPException(status_code=409, detail=_archive_refused_detail(archived))
         background_tasks.add_task(broadcast_vehicle_update, {"id": str(vehicle_id)}, "delete")
@@ -192,7 +193,7 @@ async def delete_vehicle(
 
     outcome = await crud.purge_vehicle(db, vehicle_id, current_user, request)
     if outcome.refusal == "not_found":
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
     if outcome.refusal == "not_archived":
         raise HTTPException(
             status_code=409,
@@ -231,7 +232,7 @@ async def get_vehicle_status(
     vehicle = result.scalar_one_or_none()
 
     if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
 
     # Get driver assignment for this event (if any)
     driver_query = (

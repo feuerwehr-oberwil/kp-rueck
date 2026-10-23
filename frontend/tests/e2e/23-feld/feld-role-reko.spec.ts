@@ -240,7 +240,7 @@ test.describe('/feld als Reko-Trupp', () => {
     // `rekoAction`. Three separate strings because they answer three separate
     // questions: what this is, why it is on MY list, and what tapping does.
     await expect(rekoRow.getByText('Reko-Auftrag', { exact: true })).toBeVisible();
-    await expect(rekoRow.getByText('Vom KP als Reko zugeteilt')).toBeVisible();
+    await expect(rekoRow.getByText('Vom KP als Reko zugewiesen')).toBeVisible();
     await expect(rekoRow.getByText('Reko erfassen', { exact: true })).toBeVisible();
 
     // No Rapport chip: the trupp does not owe a Schadenplatz-Rapport, and a
@@ -259,9 +259,7 @@ test.describe('/feld als Reko-Trupp', () => {
     // The Einsatzleiter leads the crew that WORKS the Schadenplatz. A trupp
     // sent out to look at it reports back to the KP, so the line is absent
     // rather than empty — «kein EL erfasst» would read as a gap in the board.
-    await expect(rekoRow.getByText('kein EL erfasst')).toHaveCount(0);
-    await expect(rekoRow.getByText(/^EL: /)).toHaveCount(0);
-    await expect(rekoRow.getByText('Du bist EL', { exact: false })).toHaveCount(0);
+    await expect(rekoRow.locator('[data-slot="feld-leader-line"]')).toHaveCount(0);
 
     // Same Schadenplatz, same pinned EL, a different reader. This half is what
     // stops the assertions above from passing on a fixture that simply has no
@@ -269,7 +267,7 @@ test.describe('/feld als Reko-Trupp', () => {
     const { page: crewPhone } = await phoneFor(browser, fixture.crew);
     const crewRow = row(crewPhone, fixture.boardIncident);
     await expect(crewRow).toBeVisible({ timeout: FIELD_TIMEOUT });
-    await expect(crewRow.getByText(`EL: ${fixture.leader.name}`)).toBeVisible();
+    await expect(crewRow.locator('[data-slot="feld-leader-line"]', { hasText: fixture.leader.name })).toBeVisible();
   });
 
   test('das Antippen öffnet das Reko-Formular – nicht die Schadenplatz-Seite', async ({ browser }) => {
@@ -313,7 +311,7 @@ test.describe('/feld als Reko-Trupp', () => {
     const fallbackRow = row(phone, fixture.fallbackIncident);
     await expect(fallbackRow).toBeVisible({ timeout: FIELD_TIMEOUT });
     await expect(fallbackRow.getByText('Reko-Auftrag', { exact: true })).toBeVisible();
-    await expect(fallbackRow.getByText('Vom KP als Reko zugeteilt')).toBeVisible();
+    await expect(fallbackRow.getByText('Vom KP als Reko zugewiesen')).toBeVisible();
     await expect(fallbackRow.getByText('Reko erfassen', { exact: true })).toBeVisible();
     await expect(fallbackRow.getByText('kein EL erfasst')).toHaveCount(0);
 

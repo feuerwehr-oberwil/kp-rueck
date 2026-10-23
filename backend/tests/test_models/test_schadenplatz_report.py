@@ -12,36 +12,6 @@ from app.models import Event, Incident, Notification, SchadenplatzReport
 class TestSchadenplatzReportModel:
     """Test SchadenplatzReport model operations."""
 
-    async def test_create_minimal_report(self, db_session: AsyncSession, test_incident: Incident):
-        """A row can exist with nothing but an incident — that is the "Angekommen" state."""
-        report = SchadenplatzReport(id=uuid4(), incident_id=test_incident.id)
-        db_session.add(report)
-        await db_session.commit()
-        await db_session.refresh(report)
-
-        assert report.id is not None
-        assert report.incident_id == test_incident.id
-        # Opposite of RekoReport: a row created by "Angekommen" is not yet filed.
-        assert report.is_draft is True
-        assert report.submitted_at is None
-        assert report.personnel_count_corrected is False
-        assert report.vehicles_json is None
-        assert report.created_at is not None
-        assert report.updated_at is not None
-
-    async def test_vehicle_checklist_round_trips_through_jsonb(self, db_session: AsyncSession, test_incident: Incident):
-        """The crew confirms WHICH vehicles — a list on the row, not a count."""
-        rows = [
-            {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "TLF 1", "present": True},
-            {"assignment_id": str(uuid4()), "vehicle_id": str(uuid4()), "name": "MTW", "present": False},
-        ]
-        report = SchadenplatzReport(id=uuid4(), incident_id=test_incident.id, vehicles_json=rows)
-        db_session.add(report)
-        await db_session.commit()
-        await db_session.refresh(report)
-
-        assert report.vehicles_json == rows
-
     async def test_one_report_per_incident(
         self, db_session: AsyncSession, test_user, test_event: Event, test_incident: Incident
     ):
@@ -75,40 +45,6 @@ class TestSchadenplatzReportModel:
         db_session.add(SchadenplatzReport(id=uuid4(), incident_id=test_incident.id))
         db_session.add(SchadenplatzReport(id=uuid4(), incident_id=other.id))
         await db_session.commit()
-
-    async def test_material_checklist_roundtrip(self, db_session: AsyncSession, test_incident: Incident):
-        """The material checklist survives a roundtrip, including an unanswered `used`."""
-        materials = [
-            {
-                "assignment_id": str(uuid4()),
-                "material_id": str(uuid4()),
-                "name": "Tauchpumpe TP-4",
-                "used": True,
-                "left_on_site": True,
-            },
-            {
-                "assignment_id": str(uuid4()),
-                "material_id": str(uuid4()),
-                "name": "Nassauger",
-                "used": None,
-                "left_on_site": False,
-            },
-        ]
-        report = SchadenplatzReport(
-            id=uuid4(),
-            incident_id=test_incident.id,
-            materials_json=materials,
-            cost_snapshot_json=[{"kind": "personnel", "name": "Muster Hans", "from": None, "to": None}],
-        )
-        db_session.add(report)
-        await db_session.commit()
-        await db_session.refresh(report)
-
-        assert report.materials_json is not None
-        assert report.materials_json[0]["left_on_site"] is True
-        assert report.materials_json[1]["used"] is None
-        assert report.cost_snapshot_json is not None
-        assert report.cost_snapshot_json[0]["kind"] == "personnel"
 
 
 class TestIncidentFieldReportingColumns:

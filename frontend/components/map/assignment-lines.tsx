@@ -27,6 +27,8 @@ import { STATUS_TO_GROUP, type IncidentStatus } from "@/lib/types/incidents"
 import { vis, Z, type FeatureCollectionData } from "@/lib/map-view"
 import { MapTooltip } from "./map-tooltip"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { haversineKm } from "@/lib/utils/route-geo"
+import { findVehiclePosition, normalizeVehicleName } from "@/lib/vehicle-positions"
 
 /** The one source/layer pair every assignment line lives in. Exported so a surface can order around it. */
 export const ASSIGNMENT_SOURCE_ID = "assignment-lines"
@@ -141,62 +143,9 @@ function currentStop(group: IncidentGroup, byId: Map<string, Incident>): Inciden
   )
 }
 
-// Haversine distance in meters (same formula as the backend geofence checks).
-function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
 function formatDistance(meters: number): string {
   if (meters < 950) return `${Math.round(meters / 10) * 10} m`
   return `${(meters / 1000).toFixed(1)} km`
-}
-
-/**
- * Normalize a name for fuzzy matching: lowercase, strip whitespace and punctuation.
- * e.g. "TLF 1" → "tlf1", "TLF1" → "tlf1"
- */
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[\s\-_.]+/g, '')
-}
-
-/**
- * Try to find a vehicle position matching a given vehicle name.
- * Uses multiple strategies:
- * 1. Exact lowercase match
- * 2. Normalized match (strip whitespace/punctuation)
- * 3. Containment check (device name contains vehicle name or vice versa)
- */
-function findMatchingPosition(
-  vehicleName: string,
-  byExact: Map<string, ApiVehiclePosition>,
-  byNormalized: Map<string, ApiVehiclePosition>,
-  allPositions: ApiVehiclePosition[]
-): ApiVehiclePosition | undefined {
-  // Strategy 1: Exact lowercase
-  const exact = byExact.get(vehicleName.toLowerCase())
-  if (exact) return exact
-
-  // Strategy 2: Normalized (strip whitespace)
-  const normalized = byNormalized.get(normalizeName(vehicleName))
-  if (normalized) return normalized
-
-  // Strategy 3: Containment — one name contains the other
-  const vNameNorm = normalizeName(vehicleName)
-  for (const vp of allPositions) {
-    const devNorm = normalizeName(vp.device_name)
-    if (devNorm.includes(vNameNorm) || vNameNorm.includes(devNorm)) {
-      return vp
-    }
-  }
-
-  return undefined
 }
 
 /**
@@ -257,14 +206,6 @@ export function AssignmentLines({
     // Stops are ordinary incidents; the route only carries their ids.
     const byId = new Map(incidents.map(incident => [incident.id, incident]))
 
-    // Build lookup maps for vehicle positions
-    const byExact = new Map<string, ApiVehiclePosition>()
-    const byNormalized = new Map<string, ApiVehiclePosition>()
-    for (const vp of vehiclePositions) {
-      byExact.set(vp.device_name.toLowerCase(), vp)
-      byNormalized.set(normalizeName(vp.device_name), vp)
-    }
-
     // For each incident with assigned vehicles, try to find a matching GPS position
     for (const incident of incidents) {
       // Skip incidents without coordinates
@@ -295,9 +236,9 @@ export function AssignmentLines({
     /** Push one vehicle→place line, once, if that vehicle has a GPS fix. */
     function addLine(vehicleName: string, incident: Incident) {
       if (incident.location_lat == null || incident.location_lng == null) return
-      const key = `${normalizeName(vehicleName)}|${incident.id}`
+      const key = `${normalizeVehicleName(vehicleName)}|${incident.id}`
       if (drawn.has(key)) return
-      const vp = findMatchingPosition(vehicleName, byExact, byNormalized, vehiclePositions)
+      const vp = findVehiclePosition(vehicleName, vehiclePositions)
       // No match is the normal case for a vehicle without a tracker, so it is
       // silent: logging it fired once per vehicle per render.
       if (!vp) return
@@ -309,7 +250,7 @@ export function AssignmentLines({
         incidentPosition: [incident.location_lat, incident.location_lng],
         // title is usually the raw address, so strip the home town from either
         incidentTitle: (incident.location_display ?? formatLocationForDisplay(incident.title || incident.location_address || '', getGlobalHomeCity())) || t('assignmentLines.incidentFallback'),
-        distanceMeters: distanceMeters(vp.latitude, vp.longitude, incident.location_lat, incident.location_lng),
+        distanceMeters: haversineKm([vp.latitude, vp.longitude], [incident.location_lat, incident.location_lng]) * 1000,
       })
     }
   }, [incidents, vehiclePositions, visible, showDistances, groups, groupResourcesFor, t])

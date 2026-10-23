@@ -542,14 +542,18 @@ export function FeldActions({
           a vehicle dispatched after the request, or the dismissed warning bell.
           Derived server-side; no operator ever clicks an "acknowledge". */}
       {pickupNeeded && (
-        <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+        <div className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
+          {/* One line — «Abholung gemeldet · 09:04 · wartet 12 Min». It used to be two that
+              said «seit» twice. */}
           <p className="font-medium">
-            {tPickup('badge')}
-            {formatPickupSince(pickupSince) ? ` · ${tPickup('since', { time: formatPickupSince(pickupSince) })}` : ''}
+            {[
+              tPickup('reported'),
+              formatPickupSince(pickupSince),
+              pickupSince ? tPickup('waitingShort', { duration: formatPickupWaiting(pickupSince) }) : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
-          {pickupSince && (
-            <p className="text-xs opacity-80">{tPickup('waiting', { duration: formatPickupWaiting(pickupSince) })}</p>
-          )}
           {assignment.pickup_note && <p className="text-xs opacity-80">{assignment.pickup_note}</p>}
           {assignment.pickup_vehicle ? (
             <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold">
@@ -578,21 +582,21 @@ export function FeldActions({
       )}
 
       {/* The requests, one visual weight below the journey: grey underlined
-          links, the house idiom — one is a state report, these are asks. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 text-sm">
+          links, the house idiom — one is a state report, these are asks. Spaced
+          by the gap, no «·» between them: a separator span dangled at the end of
+          a line whenever the second link wrapped. While a pickup is open the
+          first link no longer offers to ask again — it adjusts the note. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 pt-0.5 text-sm">
         {isCrew && completed && (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
-              onClick={() => setPanel(panel === 'pickup' ? 'none' : 'pickup')}
-            >
-              <CarTaxiFront className="size-3.5" />
-              {tPickup('requestLong')}
-            </button>
-            <span aria-hidden className="text-muted-foreground/50">·</span>
-          </>
+          <button
+            type="button"
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+            onClick={() => setPanel(panel === 'pickup' ? 'none' : 'pickup')}
+          >
+            <CarTaxiFront className="size-3.5" />
+            {pickupNeeded ? tPickup('noteLink') : tPickup('requestLong')}
+          </button>
         )}
         <button
           type="button"

@@ -194,7 +194,67 @@ describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
   })
 })
 
+// UX-DESKTOP-03: «Abbrechen» is «throw it away» – the modal stays mounted, so without a
+// reset the next «Neuer Einsatz» opened with the cancelled call in it.
+describe('NewEmergencyModal — Abbrechen', () => {
+  it('empties the form, so the next open starts blank', async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('Ort'), 'Abgebrochener Anruf 1')
+    await user.type(screen.getByLabelText('Meldung'), 'Doch nichts')
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(screen.getByLabelText('Ort')).toHaveValue('')
+    expect(screen.getByLabelText('Meldung')).toHaveValue('')
+  })
+})
+
 describe('NewEmergencyModal — Handy', () => {
+  it('asks before a swipe or ✕ throws away what was typed; «Verwerfen» empties and closes', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+      await user.type(screen.getByLabelText('Meldung'), 'Keller unter Wasser')
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+
+      expect(onOpenChange).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Verwerfen' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.getByLabelText('Meldung')).toHaveValue('')
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('closes without asking when nothing was typed', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('does not promise drag & drop on the phone, where there is none', () => {
+    viewport.mobile = true
+    try {
+      renderModal()
+      expect(screen.queryByText(/Drag & Drop/)).toBeNull()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
   it('is a bottom sheet on the keyboard edge with its actions in a footer that stays', () => {
     viewport.mobile = true
     try {
@@ -219,7 +279,7 @@ describe('NewEmergencyModal — Handy', () => {
       expect(sheet.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
       // labels ABOVE the fields on the phone: the label is its own block, the control below it
       const meldung = screen.getByText('Meldung', { selector: 'label' })
-      expect(meldung).toHaveClass('block')
+      expect(meldung.closest('[data-stacked]')).not.toBeNull()
       expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
       // switches: label left, switch right, one row
       const tel = screen.getByRole('switch', { name: 'Telefonisch' })
@@ -259,8 +319,8 @@ describe('NewEmergencyModal — Handy', () => {
       await user.tab()
       const advice = screen.getByRole('status')
       expect(phone).toHaveAccessibleDescription(advice.textContent!)
-      // stacked: no desktop label-column indent on the message
-      expect(advice.className).not.toMatch(/pl-\[/)
+      // inside the stacked field, so it takes the full width, not the desktop label indent
+      expect(advice.closest('[data-stacked]')).not.toBeNull()
     } finally {
       viewport.mobile = false
     }

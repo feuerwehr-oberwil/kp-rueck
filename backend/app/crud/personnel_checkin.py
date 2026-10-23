@@ -228,7 +228,7 @@ async def check_in_personnel(
             request=request,
         )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(attendance)
 
     return schemas.PersonnelCheckInResponse(
@@ -337,7 +337,7 @@ async def check_out_personnel(
             request=request,
         )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(attendance)
 
     return schemas.PersonnelCheckInResponse(
@@ -401,7 +401,7 @@ async def clear_personnel_attendance(
                 changes={"name": person.name, "event_id": str(event_id)},
                 request=request,
             )
-        await db.commit()
+        await db.flush()
 
     return schemas.PersonnelCheckInResponse(
         id=person.id,
@@ -437,7 +437,7 @@ async def check_out_all_personnel(
 
     A loop rather than one bulk ``UPDATE``, because every person must end up with their
     own audit entry — a single row saying "someone checked out 34 people" is not a
-    roll-call. All of it commits once, so the Ereignis never ends half-closed.
+    roll-call. All of it lands in the caller's one commit, so the Ereignis never ends half-closed.
 
     ``at``: the departure clock to stamp — the archive flow passes the event's
     ``archived_at`` so «Abmeldezeit = Ereignisende» holds to the second.
@@ -492,5 +492,5 @@ async def check_out_all_personnel(
             )
         )
 
-    await db.commit()
+    await db.flush()
     return checked_out

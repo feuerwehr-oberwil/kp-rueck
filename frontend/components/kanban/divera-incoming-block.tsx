@@ -101,7 +101,7 @@ export function DiveraIncomingBlock({
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('title', { count: groups.coming.length })}
         </h3>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{t('source')}</span>
+        <span className="shrink-0 text-2xs text-muted-foreground">{t('source')}</span>
       </div>
       <p className="px-1 text-xs text-muted-foreground break-words">
         {answered === 0
@@ -175,7 +175,7 @@ function DiveraIncomingRow({
             </span>
           )}
           {person.tags.length > 0 && (
-            <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={person.tags.join(', ')}>
+            <span className="min-w-0 truncate text-2xs text-muted-foreground" title={person.tags.join(', ')}>
               {person.tags.join(' · ')}
             </span>
           )}

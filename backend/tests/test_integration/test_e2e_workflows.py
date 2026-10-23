@@ -551,14 +551,19 @@ async def test_multiple_incidents_in_event(editor_client: AsyncClient, db_sessio
 
 
 # ============================================
-# Training vs Live Mode Workflow Tests
+# Ereignis scoping
 # ============================================
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_training_vs_live_event_isolation(editor_client: AsyncClient, db_session: AsyncSession):
-    """Test that training and live events are properly isolated."""
+async def test_incident_list_filters_by_event(editor_client: AsyncClient, db_session: AsyncSession):
+    """`GET /incidents/?event_id=` returns that Ereignis's incidents only.
+
+    One training and one live Ereignis, but the flag is incidental: the rules
+    that do depend on `training_flag` are pinned where they live (Divera
+    intake, alarms, materials, the training guards).
+    """
     # Create training event
     training_event = {"name": "Training Event", "training_flag": True}
     response = await editor_client.post("/api/events/", json=training_event)

@@ -266,7 +266,7 @@
         "confirmTypo": "tu voulais dire ?",
         "confirmSplit": "deux personnes ?",
         "choiceConfirm": "confirmer pour « {text} »",
-        "toastMoved": "{name} retiré de {from}",
+        "toastMoved": "{name} libéré de {from}",
         "tabComplete": "⇥ complète en « {label} »"
       },
       "journal": "Ouvrir le journal d'intervention",
@@ -323,7 +323,6 @@
       "noVehicles": "Aucun véhicule attribué",
       "materialsHeading": "Matériel ({count})",
       "noMaterials": "Aucun matériel attribué",
-      "rekoResult": "Résultat de la reconnaissance",
       "relevant": "Pertinent :",
       "dangers": "Dangers : {types}",
       "personnelNeed": "Besoin en effectif :",
@@ -383,11 +382,8 @@
       "rekoCompleted": "Rapport de reconnaissance rempli",
       "rekoOnSite": "Reconnaissance sur place",
       "invalidLink": "Lien non valable ou échu. Demande un nouveau lien.",
-      "eventFallback": "Événement",
       "readOnly": "Lecture seule",
-      "hideCompleted": "Masquer les clôturées",
-      "showCompleted": "Afficher les clôturées",
-      "completedColumn": "CLÔTURÉES ({count})"
+      "showCompleted": "Afficher les clôturées"
     }
   },
   "divera": {
@@ -502,8 +498,7 @@
     "api": {
       "title": "Erreur d’API",
       "noErrorDetails": "Aucun détail d’erreur disponible",
-      "connectionTitle": "Erreur de liaison",
-      "connectionDescription": "Pas de liaison avec le serveur. Vérifie ta connexion Internet.",
+      "connectionTitle": "Serveur injoignable – affichage du dernier état connu.",
       "unknown": "Erreur inconnue",
       "photoUploadFailed": "Échec de l’envoi de la photo",
       "uploadTimeout": "Délai d’envoi dépassé – réessaie"
@@ -639,7 +634,7 @@
     },
     "deleteDialog": {
       "title": "Supprimer définitivement l’événement ?",
-      "warning": "Attention : cette opération est irréversible !",
+      "warning": "Cette opération est irréversible.",
       "question": "Veux-tu vraiment supprimer définitivement l’événement « {name} » et toutes les interventions qui s’y rattachent ?",
       "note": "Cela concerne {count, plural, one {# intervention} other {# interventions}} et toutes les données associées.",
       "cancel": "Annuler",
@@ -718,12 +713,13 @@
     "assignments": {
       "title": "Mes places sinistrées",
       "notMe": "Ce n’est pas moi",
+      "notMeConfirm": "Se déconnecter",
       "empty": "Aucune place sinistrée ne t’est attribuée pour le moment. Annonce-toi au PC – dès que tu es affecté, elle apparaîtra ici.",
       "released": "Plus affecté",
       "past": "Précédemment",
       "notMeTitle": "Se déconnecter ?",
       "notMeDescription": "Cet appareil sera déconnecté. La prochaine personne aura besoin du code terrain.",
-      "auftrag": "{name} · {count} arrêts",
+      "auftrag": "{name} · {count, plural, one {# arrêt} other {# arrêts}}",
       "navigate": "Lancer la navigation",
       "journey": {
         "approach": "Trajet aller",
@@ -753,7 +749,6 @@
       "submitted": "Rapport saisi"
     },
     "leader": {
-      "label": "CI : {name}",
       "none": "aucun CI saisi",
       "self": "Tu es CI – le rapport est ta tâche."
     },
@@ -765,7 +760,7 @@
       "kpStatus": "PC : {status}"
     },
     "actions": {
-      "title": "Annonces au PC",
+      "title": "Statut au PC",
       "arrived": "Arrivé",
       "arrivedDone": "Arrivée annoncée",
       "arrivedAuto": "Arrivée détectée",
@@ -815,7 +810,10 @@
       "ackSeen": "Vu par le PC",
       "ackVehicle": "Le PC a engagé {vehicle}",
       "ackResolved": "Récupération organisée · {time}",
-      "requestLong": "Demander une récupération"
+      "requestLong": "Demander une récupération",
+      "reported": "Récupération annoncée",
+      "waitingShort": "attend {duration}",
+      "noteLink": "Note pour la récupération"
     },
     "pickupPrompt": {
       "title": "Récupération organisée ?",
@@ -1019,8 +1017,8 @@
       "codeCopied": "Code terrain copié"
     },
     "melden": {
-      "fab": "Annoncer",
-      "title": "Nouvelle annonce",
+      "fab": "Nouvelle place sinistrée",
+      "title": "Nouvelle place sinistrée",
       "what": "Quoi",
       "useLocation": "Utiliser ma position",
       "locateFailed": "Position indisponible",
@@ -1149,7 +1147,7 @@
       "doneTitle": "Marquer comme réglé – disparaît de la fiche et du panneau",
       "reopen": "Rouvrir",
       "assignMaterial": "Attribuer du matériel",
-      "assignCrew": "Attribuer du personnel",
+      "assignCrew": "Attribuer de l’effectif",
       "pickupDone": "Récupération organisée",
       "updateFailed": "La demande n’a pas pu être enregistrée.",
       "detailTitle": "Demandes du terrain",
@@ -1297,7 +1295,7 @@
       "close": "Fermer",
       "conflictTitle": "La personne est attribuée à une intervention",
       "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être affectée à une intervention en même temps.",
-      "conflictConfirm": "Retirer de l’intervention et attribuer",
+      "conflictConfirm": "Libérer de l’intervention et attribuer",
       "drivesVehicle": "Conduit {vehicle}",
       "reassignTitle": "Changer de conducteur",
       "reassignDescription": "<strong>{name}</strong> conduit actuellement <strong>{fromVehicle}</strong>. Le reprendre comme conducteur de <strong>{vehicle}</strong> ? Son engagement actuel comme conducteur prend fin.",
@@ -1324,7 +1322,9 @@
       "titleNamed": "{name} est déjà engagé",
       "prompt": "Que faut-il retenir ?",
       "currentLabel": "Jusqu'ici",
-      "newLabel": "Nouveau"
+      "newLabel": "Nouveau",
+      "drives": "conduit {vehicle}",
+      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de chauffeur pour {vehicle}."
     },
     "vehicleStatus": {
       "durationMinutes": "{minutes} min",
@@ -1381,7 +1381,6 @@
       "add": "Ajouter"
     },
     "mobileCard": {
-      "leader": "CI : {name}",
       "noRapport": "pas de rapport",
       "meldung": "Annonce",
       "crew": "Effectif",
@@ -1417,7 +1416,7 @@
       "searchPlaceholder": "Rechercher une intervention …",
       "noActive": "Aucune intervention en cours",
       "noHitsFor": "Aucune intervention pour « {query} ».",
-      "searchScope": "Recherche dans le lieu, le type, les véhicules et l’équipe.",
+      "searchScope": "Recherche dans le lieu, l’annonce, le type, les véhicules, l’équipe et le matériel.",
       "noneInFilter": "Aucune intervention au statut « {filter} ».",
       "showAll": "Tout afficher",
       "filter": "Filtrer",
@@ -1499,7 +1498,9 @@
       "noneFound": "Aucune personne trouvée",
       "badgeAssigned": "En intervention",
       "badgeCheckedIn": "Présent",
-      "badgeNotCheckedIn": "Pas là"
+      "badgeNotCheckedIn": "Pas là",
+      "checkedOut": "{name} : départ enregistré.",
+      "undo": "Annuler"
     }
   },
   "kanban": {
@@ -1535,9 +1536,9 @@
     },
     "chipMenu": {
       "openDetails": "Ouvrir les détails",
-      "removeFromIncident": "Retirer de l’intervention",
-      "removeFromAuftrag": "Retirer de la mission",
-      "remove": "Retirer"
+      "removeFromIncident": "Libérer de l’intervention",
+      "removeFromAuftrag": "Libérer de la mission",
+      "remove": "Libérer"
     },
     "participants": {
       "title": "Ont participé jusqu’ici",
@@ -1626,7 +1627,7 @@
       "noEventSelected": "Aucun événement sélectionné.",
       "deleteIncidentTitle": "Supprimer vraiment l’intervention ?",
       "deleteIncidentDescription": "L’intervention « {name} » sera supprimée et non simplement archivée – elle disparaîtra entièrement du tableau.",
-      "removeNamed": "Retirer {name}",
+      "removeNamed": "Libérer {name}",
       "available": "Disponible",
       "inUse": "En intervention",
       "counterLoading": "–/– disponibles",
@@ -1664,7 +1665,6 @@
       "amWarten": "En attente",
       "amWartenDescription": "Intervention retardée / en attente de ressources",
       "amWartenPlaceholder": "Motif du retard …",
-      "rekoReports": "Rapports de reconnaissance",
       "reko": "Reconnaissance",
       "magazin": "Caserne",
       "directLink": "Lien direct",
@@ -1686,7 +1686,7 @@
       "unknownResource": "Inconnu",
       "statusMovedToast": "{name} → {status}",
       "vehicleAssignedToast": "{vehicle} attribué à {name}",
-      "vehicleRemovedToast": "{vehicle} retiré de {name}",
+      "vehicleRemovedToast": "{vehicle} libéré de {name}",
       "priorityChangedToast": "{name} : priorité {priority}",
       "zuFussOnToast": "{name} : engagement à pied",
       "zuFussOffToast": "{name} : plus à pied",
@@ -1814,16 +1814,17 @@
       "confirm": "Prochain arrêt en intervention"
     },
     "rekoMissing": {
-      "description": "<hl>{location}</hl> a été déplacée dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
+      "description": "<hl>{location}</hl> doit passer dans la colonne Reconnaissance, mais aucune personne de reconnaissance n’est encore attribuée. Sans attribution, personne ne reçoit le formulaire de reconnaissance. Veux-tu attribuer quelqu’un maintenant ou continuer quand même ?",
       "proceedAnyway": "Continuer quand même",
+      "dontMove": "Ne pas déplacer",
       "assignReko": "Attribuer une personne de reconnaissance"
     },
     "driverPrompt": {
       "driverlessTitle": "Véhicule sans conducteur ?",
-      "driverlessDescription": "« {vehicle} » est attribué à {incident}, mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Retirer le véhicule ?",
-      "driverlessRemove": "Retirer le véhicule",
+      "driverlessDescription": "« {vehicle} » est attribué à {incident}, mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Libérer le véhicule ?",
+      "driverlessRemove": "Libérer le véhicule",
       "driverlessKeep": "Laisser sans conducteur",
-      "driverlessRouteDescription": "« {vehicle} » est attribué à la mission « {auftrag} », mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Retirer le véhicule ?"
+      "driverlessRouteDescription": "« {vehicle} » est attribué à la mission « {auftrag} », mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Libérer le véhicule ?"
     },
     "materialDecision": {
       "title": "Matériel sur place ou à la caserne ?",
@@ -1908,10 +1909,14 @@
       "collapse": "Replier la colonne",
       "dropHere": "Déposer l’intervention ici",
       "empty": "Aucune intervention",
+      "noMatches": "Aucun résultat.",
       "collapsedHint": "{title} – {count} – cliquer pour déplier",
       "statusDistinctionHint": "Retour : travaux sur le lieu du sinistre achevés, les ressources sont encore sur le chemin du retour. Clôturé : intervention entièrement réglée, ressources libérées, retours ouverts vérifiés.",
       "overdueTitle": "{count} en retard : {titles}",
       "overdueMore": "… et {count} de plus"
+    },
+    "search": {
+      "noVehicleKeyword": "sans véhicule"
     },
     "timeline": {
       "loadFailed": "L’historique n’a pas pu être chargé.",
@@ -1919,7 +1924,7 @@
       "title": "Historique",
       "subtitle": "Changements de statut, attributions et annonces",
       "empty": "Aucune entrée pour l’instant.",
-      "removed": "retiré",
+      "removed": "libéré",
       "assigned": "attribué",
       "unknown": "(inconnu)",
       "kpMessageVerb": "à l’effectif"
@@ -1948,19 +1953,15 @@
         "history": "Historique",
         "switchHint": "Changer d’onglet"
       },
-      "viaAuftrag": "via la mission « {name} »",
-      "vehiclesLoadFailed": "Les véhicules n’ont pas pu être chargés",
-      "vehiclesLoadFailedDescription": "Réessaie ou rouvre la fenêtre.",
-      "noEventSelectedLong": "Aucun événement sélectionné. Choisis un événement.",
       "incidentsLoadFailedDescription": "Les interventions n’ont pas pu être chargées.",
       "meldungPlaceholder": "Annonce reçue, nature des dégâts …",
       "nachbarhilfeDescription": "Intervention avec participation d’un corps voisin",
       "noCrew": "Aucun effectif attribué",
       "noVehicles": "Aucun véhicule attribué",
-      "removeVehicle": "Retirer le véhicule",
+      "removeVehicle": "Libérer le véhicule",
       "leaderFailed": "Le chef d’intervention n’a pas pu être défini.",
-      "removePerson": "Retirer la personne",
-      "removeMaterial": "Retirer le matériel",
+      "removePerson": "Libérer la personne",
+      "removeMaterial": "Libérer le matériel",
       "noMaterial": "Aucun matériel attribué",
       "resourceEmpty": "aucun",
       "changeStatus": "Changer de statut",
@@ -1969,8 +1970,6 @@
       "diveraAlarm": "Convocation",
       "eventWideRekoTransfer": "Transférer toutes les reconnaissances ouvertes",
       "eventWideRekoTransferTooltip": "Transfère toutes les missions de reconnaissance ouvertes de cette personne dans tout l’événement, pas seulement cette intervention.",
-      "allVehiclesAssigned": "Tous les véhicules sont attribués",
-      "resourcesCount": "Ressources ({count})",
       "sourceAuftrag": "Mission « {name} »",
       "sourceAuftragHint": "Poursuit vers l'étape suivante",
       "sourceIncident": "Uniquement cette intervention",
@@ -1997,7 +1996,7 @@
       "conflictDescription": "<strong>{name}</strong> est actuellement {assignment}. Comme {function}, la personne ne peut pas être affectée à une intervention en même temps.",
       "conflictAssignedOne": "attribuée à l’intervention « {location} »",
       "conflictAssignedMany": "attribuée à {count} interventions",
-      "confirmAction": "Retirer de l’intervention et attribuer",
+      "confirmAction": "Libérer de l’intervention et attribuer",
       "unassignTitle": "Retirer la fonction {function} ?",
       "unassignRekoDescription": "<strong>{name}</strong> perd la fonction de reconnaissance et n’apparaîtra plus dans les vues de reconnaissance (tableau de reconnaissance, carte). Les affectations existantes aux interventions sont conservées. La personne redevient ensuite un intervenant ordinaire.",
       "unassignRekoTransfer": "{count, plural, one {Transférer # intervention} other {Transférer # interventions}}",
@@ -2727,7 +2726,7 @@
       "addStopsFailed": "Les étapes n’ont pas pu être ajoutées",
       "removeStopFailed": "L’étape n’a pas pu être retirée",
       "assignFailed": "La ressource n’a pas pu être attribuée",
-      "unassignFailed": "La ressource n’a pas pu être retirée"
+      "unassignFailed": "La ressource n’a pas pu être libérée"
     },
     "personnel": {
       "loadFailedTitle": "Le personnel n’a pas pu être chargé",
@@ -2741,11 +2740,11 @@
       "retryDescription": "Réessaie."
     },
     "operations": {
-      "removeFailedTitle": "Échec du retrait",
-      "removePersonFailedDescription": "La personne n’a pas pu être retirée.",
-      "removeRekoFailedDescription": "La personne de reconnaissance n’a pas pu être retirée.",
-      "removeMaterialFailedDescription": "Le matériel n’a pas pu être retiré.",
-      "removeVehicleFailedDescription": "Le véhicule n’a pas pu être retiré.",
+      "removeFailedTitle": "Échec de la libération",
+      "removePersonFailedDescription": "La personne n’a pas pu être libérée.",
+      "removeRekoFailedDescription": "La personne de reconnaissance n’a pas pu être libérée.",
+      "removeMaterialFailedDescription": "Le matériel n’a pas pu être libéré.",
+      "removeVehicleFailedDescription": "Le véhicule n’a pas pu être libéré.",
       "conflictTitle": "Modifiée par quelqu’un d’autre",
       "conflictDescription": "Cette intervention vient d’être actualisée par quelqu’un d’autre – la vue a été rechargée.",
       "amWartenClearedTitle": "« En attente » levé",
@@ -2786,10 +2785,10 @@
       "resourceNotMovedTitle": "{name} non déplacé",
       "resourceNotMovedDescription": "Toutes les interventions n’ont pas pu être nettoyées – à vérifier.",
       "resourceMovedTitle": "{name} déplacé",
-      "resourceMovedDescription": "Retiré de {labels}."
+      "resourceMovedDescription": "Libéré de {labels}."
     },
     "railway": {
-      "backOnlineTitle": "Railway est de nouveau en ligne !",
+      "backOnlineTitle": "Railway est de nouveau en ligne",
       "backOnlineDescription": "Synchroniser les modifications locales vers Railway ?",
       "syncNowLabel": "Synchroniser maintenant",
       "syncing": "Synchronisation vers Railway …",
@@ -2943,8 +2942,8 @@
       "trainingVehicleDown": "Véhicule {vehicle} en panne – engager un remplacement"
     },
     "release": {
-      "released": "{resource} retiré de {target}",
-      "releasedMany": "{count} × {resource} retirés de {target}",
+      "released": "{resource} libéré de {target}",
+      "releasedMany": "{count} × {resource} libérés de {target}",
       "restored": "{resource} de retour sur {target}",
       "restoreFailedTitle": "{resource} n’a pas pu être réaffecté",
       "reason": {
@@ -2974,13 +2973,12 @@
       "checkPrinter": "Vérifier l’imprimante",
       "subjectSlip": "Fiche d’intervention",
       "subjectBoard": "Instantané du tableau",
-      "subjectQr": "Code QR",
       "subjectTest": "Impression de test",
       "subjectAbholliste": "Liste de récupération"
     },
     "common": {
       "incidentList": "Liste des interventions",
-      "completedIncidents": "Interventions terminées",
+      "completedIncidents": "Interventions clôturées",
       "vehicleStatus": "État des véhicules",
       "print": "Imprimer"
     },
@@ -3110,10 +3108,10 @@
     },
     "success": {
       "title": "Rapport de reconnaissance transmis",
-      "description": "Ton rapport de reconnaissance a bien été transmis à la conduite de l’intervention.",
-      "closeHint": "Tu peux maintenant fermer cette fenêtre ou revenir à la vue d’ensemble.",
-      "incidentIdLabel": "ID de l’intervention :",
-      "backToOverview": "Retour à la vue d’ensemble"
+      "description": "Ton rapport de reconnaissance est arrivé à la conduite de l’intervention.",
+      "descriptionAt": "{address} – transmis à la conduite de l’intervention.",
+      "closeHint": "Tu peux maintenant fermer cette fenêtre.",
+      "back": "Retour"
     },
     "dashboard": {
       "invalidCode": "Code non valable ou échu. Demande à nouveau le lien.",
@@ -3156,11 +3154,12 @@
     },
     "form": {
       "arrivalError": "Échec de l’annonce d’arrivée",
-      "invalidLink": "Lien non valable. Scanne à nouveau le code QR.",
+      "invalidLink": "Ce lien de reconnaissance n’est plus valable. Demande un nouveau lien.",
+      "invalidTitle": "Lien non valable ou expiré",
       "unknownIncident": "Inconnue",
       "localRestored": "Modifications locales restaurées",
       "localRestoredDescription": "Les données que tu avais saisies ont été rechargées.",
-      "loadError": "Échec du chargement du formulaire. Le jeton est peut-être non valable.",
+      "loadError": "Le formulaire n’a pas pu être chargé. Vérifie la connexion et recharge la page.",
       "relevantRequired": "Réponds à « Intervention pertinente ? »",
       "submitError": "Échec de la transmission. Réessaie.",
       "contactLabel": "Contact / annonceur : ",
@@ -3608,7 +3607,7 @@
         "locked": "Non modifiable en mode démo"
       },
       "import": {
-        "importSuccess": "Import réussi ! {personnel} personnes, {vehicles} véhicules, {materials} matériels importés.",
+        "importSuccess": "Import réussi – {personnel} personnes, {vehicles} véhicules, {materials} matériels importés.",
         "exportTitle": "Export",
         "exportDescription": "Télécharger toutes les ressources en Excel",
         "exportButton": "Exporter",
@@ -3971,7 +3970,6 @@
       "resetPasswordDescription": "Définis un nouveau mot de passe pour {name}.",
       "newPasswordLabel": "Nouveau mot de passe",
       "newPasswordPlaceholder": "Saisir un nouveau mot de passe",
-      "resetting": "Réinitialisation …",
       "setPassword": "Définir le mot de passe",
       "deactivateTitle": "Désactiver l’utilisateur ?",
       "deactivateDescription": "L’utilisateur {name} sera désactivé et ne pourra plus se connecter. Cette action est réversible.",
@@ -4424,7 +4422,7 @@
       "manual": "Manuel",
       "field": "Terrain",
       "status": "Statut",
-      "resources": "Moyens"
+      "resources": "Ressources"
     },
     "loading": "Chargement du journal …",
     "loadFailed": "Le journal n'a pas pu être chargé.",
@@ -4455,7 +4453,7 @@
       "deleted": "Intervention supprimée",
       "restored": "Intervention restaurée",
       "assigned": "{name} attribué",
-      "unassigned": "{name} retiré de l'intervention",
+      "unassigned": "{name} libéré de l'intervention",
       "reko": "Rapport de reconnaissance reçu",
       "rekoWith": "Rapport de reconnaissance reçu : {text}",
       "alarm": "Alarme Divera déclenchée ({count} destinataires)",

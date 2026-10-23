@@ -1,5 +1,5 @@
 /**
- * «<Ressource> von <Einsatz> gelöst · Rückgängig»: the undo re-assigns through the
+ * «<Ressource> von <Einsatz> freigegeben · Rückgängig»: the undo re-assigns through the
  * ordinary assign function, reading the board as it is when the undo is clicked —
  * and keeps a newer assignment made meanwhile instead of overriding it.
  */
@@ -73,7 +73,7 @@ describe("useReleaseUndo", () => {
     const hook = await releaseMeier()
     expect(board.removeCrew).toHaveBeenCalledWith("e1", "Meier")
     const offer = toasts.calls.at(-1)!
-    expect(offer.message).toBe("Meier von Hauptstrasse 5 gelöst")
+    expect(offer.message).toBe("Meier von Hauptstrasse 5 freigegeben")
     expect(offer.opts?.action?.label).toBe("Rückgängig")
 
     // The board as it is now: Meier is off the incident.

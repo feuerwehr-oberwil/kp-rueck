@@ -315,6 +315,8 @@ export function NotificationToasts() {
     openSidebar,
     navigateToIncident,
     canNavigateToIncident,
+    tAll,
+    tToasts,
   ])
 
   return (

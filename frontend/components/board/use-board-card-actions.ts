@@ -5,13 +5,11 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
-import { apiClient, type GroupResourceType } from "@/lib/api-client"
+import type { GroupResourceType } from "@/lib/api-client"
 import { columns, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import type { Incident } from "@/lib/types/incidents"
-import type { Event } from "@/lib/types/incidents"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { Released } from "@/lib/release-undo"
@@ -37,15 +35,10 @@ export interface UseBoardCardActionsInput {
   assignGroupResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
   getGroupResources: (groupId: string) => GroupResources
   release: { releaseCrew: (operationId: string, crewName: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleName: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
-  selectedEvent: Event | null
   expandColumnRef: RefObject<(id: string) => void>
   vehicleTypes: { key: string; name: string; id: string; type: string; status: string; }[]
   setDeleteDialogOpen: Dispatch<SetStateAction<boolean>>
   setOperationToDelete: Dispatch<SetStateAction<Operation | null>>
-  setTransferSourceOp: Dispatch<SetStateAction<Operation | null>>
-  transferSourceOp: Operation | null
-  setTransferAvailableIncidents: Dispatch<SetStateAction<Incident[]>>
-  setIsTransferring: Dispatch<SetStateAction<boolean>>
   toggleDriverStay: (operationId: string, vehicleName: string) => void
   triggerRekoFormCheck: (operationId: string, previousStatus?: OperationStatus) => void
   triggerRekoCheck: (operationId: string, previousStatus?: OperationStatus) => void
@@ -75,15 +68,10 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     assignGroupResource,
     getGroupResources,
     release,
-    selectedEvent,
     expandColumnRef,
     vehicleTypes,
     setDeleteDialogOpen,
     setOperationToDelete,
-    setTransferSourceOp,
-    transferSourceOp,
-    setTransferAvailableIncidents,
-    setIsTransferring,
     toggleDriverStay,
     triggerRekoFormCheck,
     triggerRekoCheck,
@@ -157,55 +145,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     // in words is noise on a surface whose job is staying calm.
     reorderColumn(ordered)
   }, [operations, groups, setOperations, reorderColumn])
-
-  // Open the "Ressourcen übertragen" dialog from the card context menu. Loads the
-  // event's incidents as transfer targets (mirrors side-panel's handleOpenTransfer).
-  const handleOpenTransfer = useCallback(async (operationId: string) => {
-    const op = operations.find(o => o.id === operationId)
-    if (!op || !selectedEvent) {
-      toast.error(tCommon('error'), { description: tCommon('noEventSelected') })
-      return
-    }
-    try {
-      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
-      const incidents: Incident[] = apiIncidents.map(inc => {
-        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
-        return {
-          ...rest,
-          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
-          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
-          created_at: new Date(created_at),
-          updated_at: new Date(updated_at),
-          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
-          completed_at: completed_at ? new Date(completed_at) : null,
-          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
-          assigned_vehicles: assigned_vehicles.map(v => ({ ...v, assigned_at: new Date(v.assigned_at) })),
-        }
-      })
-      setTransferAvailableIncidents(incidents)
-      setTransferSourceOp(op)
-    } catch (error) {
-      console.error("Failed to load incidents:", error)
-      toast.error(tCommon('loadFailed'))
-    }
-  }, [operations, selectedEvent, tCommon, setTransferAvailableIncidents, setTransferSourceOp])
-
-  // Perform the transfer. The backend returns a specific German reason on failure.
-  const handleTransfer = useCallback(async (targetIncidentId: string) => {
-    if (!transferSourceOp) return
-    try {
-      setIsTransferring(true)
-      await apiClient.transferAssignments(transferSourceOp.id, targetIncidentId)
-      setTransferSourceOp(null)
-      toast.success(tCommon('transferResources'))
-    } catch (error) {
-      toast.error(tCommon('transferFailed'), {
-        description: (error instanceof Error && error.message) || tCommon('transferFailedDescription'),
-      })
-    } finally {
-      setIsTransferring(false)
-    }
-  }, [transferSourceOp, tCommon, setIsTransferring, setTransferSourceOp])
 
   /** «X → Im Einsatz» — a keyboard move can land on a card that is scrolled out
    *  of sight, so the board says what it just did. */
@@ -378,8 +317,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     setRouteStopStatus,
     collapsedColumns,
     handleColumnSort,
-    handleOpenTransfer,
-    handleTransfer,
     moveOperationRight,
     moveOperationLeft,
     toggleVehicleAssignment,

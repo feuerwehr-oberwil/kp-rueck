@@ -32,7 +32,7 @@ const EDITOR_ONLY_SECTIONS = [
 ];
 
 test.describe('Viewer role — settings', () => {
-  test('settings open for an editor and are closed to a viewer', async ({
+  test('settings open for an editor and are closed to a viewer', { tag: '@smoke' }, async ({
     authenticatedPage,
     viewerPage,
   }) => {

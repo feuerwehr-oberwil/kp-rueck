@@ -89,7 +89,7 @@ const INCOMING = columns[0]
 
 /** The board's own wiring, minus the board: one column, folded through the same
  *  per-device set app/page.tsx uses. */
-function Board({ operations }: { operations: Operation[] }) {
+function Board({ operations, searchActive }: { operations: Operation[]; searchActive?: boolean }) {
   const collapsed = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
   return (
     <DroppableColumn
@@ -106,6 +106,7 @@ function Board({ operations }: { operations: Operation[] }) {
       formatLocation={(address) => address}
       isCollapsed={collapsed.isCollapsed(INCOMING.id)}
       onToggleCollapsed={collapsed.toggle}
+      searchActive={searchActive}
     />
   )
 }
@@ -158,5 +159,22 @@ describe('folding a board column', () => {
 
   it('starts ABGESCHLOSSEN folded and nothing else — no live column hides itself', () => {
     expect(DEFAULT_COLLAPSED_COLUMN_IDS).toEqual(['complete'])
+  })
+})
+
+// UX-DESKTOP-08: with a query in the field, «Noch keine Einsätze.» is false.
+describe('an empty column', () => {
+  beforeEach(() => {
+    installStorage()
+    installWideScreen()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('says «Keine Treffer.» under a search, «Noch keine Einsätze.» otherwise', () => {
+    const { unmount } = renderWithIntl(<Board operations={[]} searchActive />)
+    expect(screen.getByText('Keine Treffer.')).toBeInTheDocument()
+    unmount()
+    renderWithIntl(<Board operations={[]} />)
+    expect(screen.getByText('Noch keine Einsätze.')).toBeInTheDocument()
   })
 })

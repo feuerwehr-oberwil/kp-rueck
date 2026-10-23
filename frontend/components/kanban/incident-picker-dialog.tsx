@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Route as RouteIcon, Plus, List, MapPin } from "lucide-react"
 import type { Map as MlMap } from "maplibre-gl"
@@ -27,7 +28,6 @@ import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { columns } from "@/lib/kanban-utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { BaseMap } from "@/components/map/base-map"
 import { MapTooltip, type MapTooltipSide } from "@/components/map/map-tooltip"
@@ -144,11 +144,6 @@ interface IncidentPickerDialogProps {
   onCreateNew?: () => void
 }
 
-function statusLabel(op: Operation): string {
-  const col = columns.find((c) => c.status.includes(op.status))
-  return col?.title ?? op.status
-}
-
 export function IncidentPickerDialog({
   open,
   onOpenChange,
@@ -159,6 +154,7 @@ export function IncidentPickerDialog({
   onCreateNew,
 }: IncidentPickerDialogProps) {
   const t = useTranslations("kanban.incidentPicker")
+  const tColumn = useTranslations("kanban.columns")
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // Karte is the default view — located incidents are easier to pick spatially.
@@ -195,11 +191,13 @@ export function IncidentPickerDialog({
     [operations, targetGroupId],
   )
 
-  // Pre-select the route's current members whenever the dialog (re-)opens.
-  useEffect(() => {
-    if (!open) return
+  // Pre-select the route's current members whenever the dialog (re-)opens – the board as it
+  // is then; a board update while it is open must not undo the operator's ticks.
+  const preselectMembers = useEffectEvent(() => {
     setSelected(new Set(operations.filter((op) => op.groupId === targetGroupId).map((op) => op.id)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  useEffect(() => {
+    if (open) preselectMembers()
   }, [open, targetGroupId])
 
   /**
@@ -491,7 +489,7 @@ export function IncidentPickerDialog({
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
-                      {getIncidentTypeLabel(op.incidentType)} · {statusLabel(op)}
+                      {getIncidentTypeLabel(op.incidentType)} · {tColumn(op.status)}
                     </p>
                   </div>
                 </label>

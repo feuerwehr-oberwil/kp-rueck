@@ -134,12 +134,13 @@ export class FeldPage extends BasePage {
   }
 
   /**
-   * The EL briefing line (decision 22) — "EL: <name>", "kein EL erfasst", or the
-   * self variant. It is rendered on the list AND in the detail header, so the
-   * caller says which one it means by scoping to a row where that matters.
+   * The EL briefing line (decision 22) — the «EL» sign and the leader's name,
+   * "kein EL erfasst", or the self variant. It is rendered on the list AND in
+   * the detail header, so the caller says which one it means by scoping to a
+   * row where that matters.
    */
   leaderLine(name: string): Locator {
-    return this.page.getByText(`EL: ${name}`);
+    return this.page.locator('[data-slot="feld-leader-line"]', { hasText: name });
   }
 
   /** The Rapport state chip: "kein Rapport" · "Entwurf" · "Rapport erfasst". */

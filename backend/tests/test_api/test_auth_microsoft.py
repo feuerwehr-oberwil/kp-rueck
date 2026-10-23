@@ -76,6 +76,7 @@ class TestMicrosoftLoginTransaction:
         sessions = async_sessionmaker(test_engine, expire_on_commit=False)
         async with sessions() as db:
             started = await start_login(db)
+            await db.commit()
         state = parse_qs(urlparse(started.authorization_url).query)["state"][0]
 
         async def consume():

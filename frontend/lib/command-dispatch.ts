@@ -713,10 +713,6 @@ function plan(
   return { kind: "dispatch", incident, assign, status: statusChange, priority: priorityChange, noop }
 }
 
-/** Exposed for the vocabulary coverage test. */
-export const DISPATCH_STATUS_PHRASES = STATUS_PHRASES
-export const DISPATCH_PRIORITY_PHRASES = PRIORITY_PHRASES
-
 // ---------------------------------------------------------------------------
 // ⇥ completion
 

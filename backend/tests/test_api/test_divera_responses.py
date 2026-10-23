@@ -211,12 +211,13 @@ async def test_checked_out_people_stay_flagged_as_attended(
 
 
 async def test_an_unattached_pool_alarm_keeps_its_answers(db_session: AsyncSession):
-    """Committed although no board shows it yet – attaching it later must find them."""
+    """Stored although no board shows it yet – attaching it later must find them."""
     emergency = DiveraEmergency(id=uuid4(), divera_id=4711, title="Alarm")
     db_session.add(emergency)
     await db_session.commit()
     changed = await dr.store_snapshots(db_session, {4711: dr.parse_alarm(ALARMS["data"]["items"]["4711"])})
     assert changed == (set(), set())
+    await db_session.commit()  # the poll callback's commit (main.py)
     await db_session.rollback()  # anything not committed is gone now
     await db_session.refresh(emergency)
     assert emergency.responses_json is not None

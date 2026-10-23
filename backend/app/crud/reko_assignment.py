@@ -337,7 +337,7 @@ async def unassign_reko_personnel_from_incident(
 
     # Mark as unassigned
     assignment.unassigned_at = datetime.now(UTC)
-    await db.commit()
+    await db.flush()
 
     return True
 

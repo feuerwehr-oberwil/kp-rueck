@@ -6,46 +6,36 @@ import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { RemovableChip } from "@/components/ui/removable-chip"
-import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
-import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { DuplicateFlag } from '@/components/duplicates/duplicate-flag'
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { FieldRequestCardRows } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
+import { CardResources } from "@/components/kanban/card-resources"
+import { CardContextMenu } from "@/components/kanban/card-context-menu"
 import {
   ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Users, Package, Truck, Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Search, Binoculars, PenLine, Map, Building2, Printer, Timer, Footprints, MapPin, Undo2, Layers, Phone, Axe, CheckCircle2, ArrowRightLeft, Waypoints, Route, FileText, FileCheck, XCircle, Trash2, Info, UserMinus } from 'lucide-react'
+import { Siren, AlertTriangle, ChevronUp, ChevronDown, Minus, Binoculars, Map, Building2, Timer, Phone, Axe, Waypoints, FileText, FileCheck, XCircle } from 'lucide-react'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
-import { useMaterials } from "@/lib/contexts/materials-context"
-import { useOperations } from "@/lib/contexts/operations-context"
-import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
-import { sortCrewByLeader } from "@/lib/crew-order"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
-import { formatClockTime } from "@/lib/incident-time"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES, type Priority } from "@/lib/priority"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
 import { cn } from "@/lib/utils"
-import { apiClient } from "@/lib/api-client"
-import { toast } from "sonner"
-import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
-import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
-import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
+import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
+import { useMediaQuery } from "@/lib/hooks/use-media-query"
+
+const widthHasSidePanel = () => window.innerWidth >= SIDE_PANEL_BREAKPOINT
 
 interface DraggableOperationProps {
   operation: Operation
@@ -131,26 +121,6 @@ interface DraggableOperationProps {
 const SECTION_RULE = 'border-t pt-3'
 
 /**
- * How many chips a resource row draws before it hands the rest to «+N weitere».
- *
- * A card is a magnet on a board, not a roster: the column is the scarce thing.
- * Measured on the real board — the card is 294–350px wide and a Swiss name chip
- * («Schneider Peter») is 92–118px, so a row holds two names, occasionally three.
- * Six is therefore three chip rows: the crew block keeps the same visual weight
- * as the Meldung above it, and the card stays in the size class of its
- * neighbours. Eight ran to four rows and made the resource block taller than the
- * whole rest of the card. Uncapped, 30 people produced a 771px card that pushed
- * every card under it off the screen.
- *
- * The same cap applies to the material row: it grows exactly the same way.
- */
-const MAX_ROW_CHIPS = 6
-
-/** Grey, underlined, never a colour — colour on this board means status. */
-const MORE_LINK_CLASSES =
-  'self-center text-xs text-muted-foreground underline underline-offset-2 decoration-muted-foreground/50 transition-colors hover:text-foreground hover:decoration-foreground cursor-pointer'
-
-/**
  * «Echt-Alarm» — the one legitimate per-incident training marker.
  *
  * Übung belongs to the Ereignis as a whole and is drawn on the window chrome
@@ -226,7 +196,6 @@ function DraggableOperationBase({
   onDragActiveChange,
 }: DraggableOperationProps) {
   const t = useTranslations('kanban')
-  const tPrint = useTranslations('print.toasts')
   const tFeld = useTranslations('feld.board')
   // The type row renders only when it deviates from the event's normal case —
   // see `dominantIncidentType` on the props.
@@ -235,23 +204,17 @@ function DraggableOperationBase({
   // The board's own wording for the Reko verdict — one label per fact, so the
   // card and the detail never disagree about what «Kein Einsatz nötig» is called.
   const tRekoSection = useTranslations('reko.reportSection')
-  const trackPrint = usePrintJobToast()
   const ref = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isOver, setIsOver] = useState(false)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
-  // `null` until the first measurement. Not `false`: the selection frame below
-  // is gated on this, and a card that renders unstyled for one frame on a board
-  // that does have the side panel is exactly the flicker we are avoiding. An
-  // unmeasured card is therefore assumed to be on a large screen for STYLING
-  // (server, hydration and first paint all agree), while the click handler keeps
-  // treating "not yet measured" as small, which is what it always did.
-  const [isLargeScreen, setIsLargeScreen] = useState<boolean | null>(null)
-  const [isPrinting, setIsPrinting] = useState(false)
-  const { materialGroups } = useMaterials()
+  // Does a side panel sit beside the board? The server and the hydrating render
+  // answer yes: the selection frame below is gated on this, and a card that renders
+  // unstyled for one frame on a board that does have the side panel is exactly the
+  // flicker we are avoiding. A click only happens after hydration, so it always
+  // gets the real answer. jsdom (no matchMedia) reads the width.
+  const isLargeScreen = useMediaQuery(SIDE_PANEL_MEDIA_QUERY, true, widthHasSidePanel)
   const { groups, getGroupResources } = useGroups()
-  const { materialOnSite } = useOperations()
-  const promoteToLeader = usePromoteToLeader(operation)
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
   // the page via a window event (mirrors the driver-assignment-changed pattern),
@@ -304,9 +267,6 @@ function DraggableOperationBase({
   // it used to be for an incident carrying nothing else.
   const showResourceBlock =
     showRekoPerson || showCrewRow || showVehicleRow || showMaterialRow
-  // How much of each resource row the counter is standing in for. Derived, not
-  // props — `crew`/`materials` are already in the memo comparator.
-  const hiddenCrewCount = showCrewRow ? Math.max(0, operation.crew.length - MAX_ROW_CHIPS) : 0
   const showMeldungBlock = cardView.meldung && !!operation.notes
   const showMelderBlock = cardView.melder && !!(operation.contact || operation.contactPhone)
   const showAuftragBlock = cardView.auftrag && !!auftrag
@@ -329,9 +289,8 @@ function DraggableOperationBase({
 
   // Selection is only worth showing while a side panel is on screen to reflect
   // it. Below SIDE_PANEL_BREAKPOINT the detail opens as a modal, so the frame
-  // would just sit behind the overlay. `!== false` and not `=== true`: see the
-  // note on the state — an unmeasured card keeps the frame.
-  const showSelectionFrame = !!isSelected && isLargeScreen !== false
+  // would just sit behind the overlay.
+  const showSelectionFrame = !!isSelected && isLargeScreen
 
   /**
    * The card's ONE way into the detail — every target on the card goes through
@@ -371,31 +330,6 @@ function DraggableOperationBase({
       openDetail(tab, section)
     }
 
-  // Handle thermal print. The "gesendet" toast is now the START of the story —
-  // trackPrintJob replaces it with what the printer actually did.
-  const handlePrint = async () => {
-    if (isPrinting) return
-    setIsPrinting(true)
-    try {
-      const job = await apiClient.queueAssignmentPrint(operation.id)
-      trackPrint(job.id, { sentTitle: t('common.printJobSent'), subject: tPrint('subjectSlip') })
-    } catch (error) {
-      console.error('Print failed:', error)
-      toast.error(t('common.printFailed'))
-    } finally {
-      setIsPrinting(false)
-    }
-  }
-
-  // Detect screen width for sidebar vs modal behavior
-  useEffect(() => {
-    const checkWidth = () => {
-      setIsLargeScreen(window.innerWidth >= SIDE_PANEL_BREAKPOINT)
-    }
-    checkWidth()
-    window.addEventListener('resize', checkWidth)
-    return () => window.removeEventListener('resize', checkWidth)
-  }, [])
 
   // Get priority styling configuration
   const priority = (operation.priority || 'low') as Priority
@@ -642,23 +576,25 @@ function DraggableOperationBase({
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {operation.source === 'intake' && (
                 <div
-                  className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.intakeTooltip')}
                 >
-                  <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  <Phone className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               {/* Where the Meldung came from, as its own glyph: the phone desk
                   took a call, a Trupp stood in front of the thing. Both are
                   "somebody outside the KP said there is something here", and the
                   difference decides how much of it the operator re-checks — so
-                  it is drawn, not left to the source field in the detail. */}
+                  it is drawn, not left to the source field in the detail.
+                  Both tiles are muted like the Reko tile: sky is the Rückfahrt
+                  column's hue, and the tooltip carries the meaning. */}
               {operation.source === 'feld' && (
                 <div
-                  className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30"
+                  className="p-1.5 rounded-md bg-muted/60"
                   title={t('card.feldTooltip')}
                 >
-                  <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  <Axe className="h-4 w-4 text-muted-foreground/80" />
                 </div>
               )}
               {/* Neither «Am Warten» nor «Nachbarhilfe» is in this glyph row any
@@ -887,298 +823,25 @@ function DraggableOperationBase({
               className={cn(SECTION_RULE, "space-y-3 text-xs")}
               onClick={openDetailFrom('overview', 'resources')}
             >
-              {/* Assigned Reko Person — rides the "Reko" switch, not "Mannschaft":
-                  one label, one concept, so turning Reko off really does take the
-                  whole reconnaissance off the card. */}
-              {showRekoPerson && operation.assignedReko && (
-                // The one row in this block that is NOT a Ressource in the
-                // Übersicht sense: who is out looking, and every control for
-                // changing that, now lives on the Reko tab. So it overrides its
-                // parent's target instead of inheriting it.
-                <div className="flex items-start gap-1.5" onClick={openDetailFrom('reko')}>
-                  <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
-                  <div className="flex flex-wrap items-center gap-1 min-w-0">
-                    {/* `min-w-0 max-w-full shrink` overrides the Badge base's
-                        `shrink-0` (twMerge) so a lone chip SHRINKS and truncates
-                        its text instead of forcing the row onto a second line;
-                        the remove X keeps `shrink-0` so it never disappears.
-                        Same treatment on every chip row of this card. */}
-                    <RemovableChip
-                      variant="secondary"
-                      className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
-                      onRemove={() => onRemoveReko?.()}
-                      removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
-                      removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
-                      removeIconClassName="h-2.5 w-2.5"
-                      // Touch: the tap that used to open the Reko tab is the
-                      // menu's first row now (see RemovableChip).
-                      menuTitle={operation.assignedReko.name.trim() || t('common.unknownResource')}
-                      menuSubtitle={<PersonMenuSubtitle name={operation.assignedReko.name} />}
-                      menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('reko') }]}
-                      removeLabel={t('chipMenu.removeFromIncident')}
-                      removeIcon={UserMinus}
-                    >
-                      {/* Never an empty chip: a name the roster lost renders as
-                          «Unbekannt», not as a blank pill. */}
-                      <span className="truncate">{operation.assignedReko.name.trim() || t('common.unknownResource')}</span>
-                    </RemovableChip>
-                    {/* Show arrival time if on site but report not yet submitted */}
-                    {operation.rekoArrivedAt && !operation.hasCompletedReko && (
-                      <span className="text-xs text-muted-foreground">
-                        {t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-              {showCrewRow && (
-                <div className="flex items-start gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
-                  <div className="flex flex-wrap gap-1 min-w-0">
-                    {/* EL first (decision 23): on a card that clips its crew line,
-                        the one name worth reading is the Einsatzleiter's. */}
-                    {sortCrewByLeader(operation.crew, operation.leaderName).slice(0, MAX_ROW_CHIPS).map((crewName) => {
-                      const isConflict = doubleBookedCrewNames?.has(crewName) ?? false
-                      // Touch only (the chip menu): the detail's rule and the
-                      // detail's handler — editors only, and not on whoever
-                      // already holds the role. (A stop inside an Auftrag, whose
-                      // leader is the route's, has no crew row on the card.)
-                      const canPromote = canDrag && operation.leaderName !== crewName
-                      return (
-                        <RemovableChip
-                          key={crewName}
-                          variant="secondary"
-                          className={cn(
-                            "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
-                            isConflict && "border border-warning/60 text-warning-foreground bg-warning/10",
-                          )}
-                          title={
-                            isConflict
-                              ? t('card.doubleBookedTooltip', { name: crewName })
-                              : undefined
-                          }
-                          onRemove={() => onRemoveCrew(crewName)}
-                          removeTitle={t('common.removeNamed', { name: crewName })}
-                          removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
-                          removeIconClassName="h-2.5 w-2.5"
-                          menuTitle={crewName.trim() || t('common.unknownResource')}
-                          menuSubtitle={<PersonMenuSubtitle name={crewName} isLeader={operation.leaderName === crewName} />}
-                          menuActions={[
-                            { label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') },
-                            ...(canPromote
-                              ? [{ label: t('leader.promote'), icon: <LeaderGlyph />, onSelect: () => void promoteToLeader(crewName) }]
-                              : []),
-                          ]}
-                          removeLabel={t('chipMenu.removeFromIncident')}
-                          removeIcon={UserMinus}
-                        >
-                          {/* Leading chip glyphs are h-3 throughout the card (the
-                              chip's own remove X stays at 2.5) and never shrink,
-                              so a long name cannot squash them. */}
-                          {isConflict && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
-                          {/* Read-only here: the card is a drag source, and the
-                              badge only renders for whoever actually holds the
-                              role, so the chip row stays as dense as it was.
-                              With a mouse, promotion stays in the detail's EL
-                              stub; on touch it is the chip menu's row above. */}
-                          <LeaderBadge isLeader={operation.leaderName === crewName} />
-                          <span className="truncate">{crewName.trim() || t('common.unknownResource')}</span>
-                        </RemovableChip>
-                      )
-                    })}
-                    {hiddenCrewCount > 0 && (
-                      /* The rest of the Mannschaft, as one affordance instead of
-                         twenty more chips. It opens the detail's Ressourcen
-                         block, which is where the full list — and every control
-                         for changing it — already lives. */
-                      <button
-                        type="button"
-                        onClick={openDetailFrom('overview', 'resources')}
-                        className={MORE_LINK_CLASSES}
-                        title={t('card.moreCrewTitle', { count: hiddenCrewCount })}
-                      >
-                        {t('card.moreCount', { count: hiddenCrewCount })}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-              {showVehicleRow && (
-                <div className="flex items-start gap-1.5">
-                  <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
-                  <div className="flex flex-wrap gap-1 min-w-0">
-                    {operation.zuFuss && (
-                      <RemovableChip
-                        variant="secondary"
-                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
-                        onRemove={() => onToggleZuFuss?.()}
-                        removeTitle={t('common.removeZuFuss')}
-                        removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
-                        removeIconClassName="h-2.5 w-2.5"
-                        menuTitle={t('common.zuFuss')}
-                        menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
-                      >
-                        <Footprints className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{t('common.zuFuss')}</span>
-                      </RemovableChip>
-                    )}
-                    {operation.vehicles.map((vehicleName) => {
-                      const callsign = operation.vehicleCallsigns.get(vehicleName)
-                      const driverStay = operation.vehicleDriverStay?.get(vehicleName)
-                      // Who is driving it, on the card itself — the same
-                      // «Name · Funkrufname (Fahrer)» line the detail shows. Who
-                      // sits behind the wheel is a radio question, and answering
-                      // it should not need the card opened.
-                      const driverName = vehicleDrivers?.get(vehicleName)
-                      return (
-                      <RemovableChip
-                        key={vehicleName}
-                        variant="secondary"
-                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 cursor-default"
-                        title={callsign ? t('common.funkrufname', { callsign }) : undefined}
-                        onRemove={() => onRemoveVehicle(vehicleName)}
-                        removeTitle={t('common.removeNamed', { name: vehicleName })}
-                        removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
-                        removeIconClassName="h-2.5 w-2.5"
-                        menuTitle={vehicleName}
-                        menuSubtitle={[
-                          callsign,
-                          driverName,
-                          driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
-                        ].filter(Boolean).join(' · ')}
-                        menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
-                        removeLabel={t('detail.removeVehicle')}
-                      >
-                        {/* min-w-0 so the NAME truncates while the status pill
-                            (shrink-0 below) stays whole — a long
-                            «Name · Funkrufname (Fahrer)» must never wrap the
-                            chip onto a second line. Plain text, not a button:
-                            the whole chip used to toggle the driver decision,
-                            so reading who drives and CHANGING what he does
-                            afterwards shared one click target. */}
-                        <span className="flex min-w-0 items-center gap-1">
-                          <span className="truncate">
-                            {vehicleName}{callsign ? ` · ${callsign}` : ''}
-                            {driverName && (
-                              <span className="text-muted-foreground"> ({driverName})</span>
-                            )}
-                          </span>
-                          {/* The only thing that toggles, and it says what
-                              currently holds in full — «bleibt vor Ort» /
-                              «fährt zurück». The short forms were a two-word
-                              hint that only made sense next to the tooltip;
-                              now that the chip text is no longer the click
-                              target, the pill has the room for the sentence
-                              that is read out on the radio and printed on the
-                              slip. */}
-                          <button
-                            type="button"
-                            aria-pressed={!!driverStay}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onToggleDriverStay?.(vehicleName)
-                            }}
-                            disabled={!onToggleDriverStay}
-                            title={driverStay ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-                            className={cn(
-                              "inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-2xs font-semibold leading-4 transition-colors",
-                              onToggleDriverStay && "cursor-pointer hover:brightness-110",
-                              // Neutral in both states (quieter cards): the
-                              // word and the pin/return icon say which.
-                              "bg-muted-foreground/15 text-muted-foreground",
-                            )}
-                          >
-                            {driverStay ? <MapPin className="h-2.5 w-2.5 shrink-0" /> : <Undo2 className="h-2.5 w-2.5 shrink-0" />}
-                            {driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull')}
-                          </button>
-                        </span>
-                      </RemovableChip>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              {showMaterialRow && (
-                <div className="flex items-start gap-1.5">
-                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
-                  <div className="flex flex-wrap gap-1 min-w-0">
-                    {(() => {
-                      const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
-                      // Same cap, same reason as the crew row above: a Modul plus
-                      // a dozen loose Geräte grew the card without bound. Groups
-                      // are counted first because they are the denser statement —
-                      // one chip that stands for a whole module.
-                      const shownGroups = completeGroups.slice(0, MAX_ROW_CHIPS)
-                      const shownUngrouped = ungrouped.slice(0, Math.max(0, MAX_ROW_CHIPS - shownGroups.length))
-                      const hiddenMaterialCount =
-                        completeGroups.length - shownGroups.length + ungrouped.length - shownUngrouped.length
-                      return (
-                        <>
-                          {/* Complete groups shown as single group badge */}
-                          {shownGroups.map(({ group, materialIds: matIds }) => (
-                            <RemovableChip
-                              key={`group-${group.id}`}
-                              variant="secondary"
-                              className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
-                              onRemove={() => matIds.forEach((matId) => onRemoveMaterial(matId))}
-                              removeTitle={t('common.removeNamed', { name: group.name })}
-                              removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
-                              removeIconClassName="h-2.5 w-2.5"
-                              menuTitle={group.name}
-                              menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
-                              removeLabel={t('chipMenu.removeFromIncident')}
-                            >
-                              <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                              <span className="truncate">{group.name}</span>
-                            </RemovableChip>
-                          ))}
-                          {/* Ungrouped materials shown individually */}
-                          {shownUngrouped.map((materialId, idx) => {
-                            const material = materials.find(m => m.id === materialId)
-                            // Left standing at this address by the crew's rapport.
-                            // Marked on the card as well as in the sidebar: the
-                            // card is where an operator decides what still has to
-                            // happen here, and "die Pumpe läuft noch" is one of
-                            // the things that still has to happen.
-                            const onSite = materialOnSite.has(materialId)
-                            return (
-                              <RemovableChip
-                                key={idx}
-                                variant="secondary"
-                                className={cn(
-                                  "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default",
-                                  onSite && "bg-warning/15 text-warning-foreground",
-                                )}
-                                onRemove={() => onRemoveMaterial(materialId)}
-                                removeTitle={t('common.removeNamed', { name: material?.name || materialId })}
-                                removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
-                                removeIconClassName="h-2.5 w-2.5"
-                                menuTitle={material?.name || materialId}
-                                menuSubtitle={material?.category}
-                                menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
-                                removeLabel={t('chipMenu.removeFromIncident')}
-                              >
-                                {onSite && <MapPin className="h-3 w-3 flex-shrink-0" />}
-                                <span className="truncate">{material?.name || materialId}</span>
-                              </RemovableChip>
-                            )
-                          })}
-                          {hiddenMaterialCount > 0 && (
-                            <button
-                              type="button"
-                              onClick={openDetailFrom('overview', 'resources')}
-                              className={MORE_LINK_CLASSES}
-                              title={t('card.moreMaterialTitle', { count: hiddenMaterialCount })}
-                            >
-                              {t('card.moreCount', { count: hiddenMaterialCount })}
-                            </button>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-              )}
+              <CardResources
+                operation={operation}
+                materials={materials}
+                showRekoPerson={showRekoPerson}
+                showCrewRow={showCrewRow}
+                showVehicleRow={showVehicleRow}
+                showMaterialRow={showMaterialRow}
+                vehicleDrivers={vehicleDrivers}
+                doubleBookedCrewNames={doubleBookedCrewNames}
+                canEdit={canDrag}
+                onRemoveReko={onRemoveReko}
+                onRemoveCrew={onRemoveCrew}
+                onRemoveVehicle={onRemoveVehicle}
+                onToggleDriverStay={onToggleDriverStay}
+                onToggleZuFuss={onToggleZuFuss}
+                onRemoveMaterial={onRemoveMaterial}
+                openDetail={openDetail}
+                openDetailFrom={openDetailFrom}
+              />
             </div>
           )}
 
@@ -1223,7 +886,7 @@ function DraggableOperationBase({
                   <span className="truncate font-medium text-foreground/80 group-hover/auftrag:text-foreground transition-colors">
                     {auftrag.name}
                   </span>
-                  <span className="truncate text-2xs text-muted-foreground">
+                  <span className="truncate type-micro text-muted-foreground">
                     <span className="tabular-nums">{t('card.auftragStopLine', { pos: auftragStopPos, total: auftragTotal })}</span>
                     {auftragSummary && <> · {auftragSummary}</>}
                   </span>
@@ -1290,129 +953,20 @@ function DraggableOperationBase({
           {closestEdge === 'bottom' && <DropIndicator edge="bottom" gap="4px" />}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent
-        className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
-        collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
-      >
-        {/* Bearbeiten */}
-        <ContextMenuItem onClick={() => openDetail()}>
-          <PenLine className="mr-2 h-4 w-4" />
-          {t('common.edit')}
-        </ContextMenuItem>
-
-        {/* Zuweisen — reko, crew, vehicle, material, and resource transfer */}
-        {(onAssignReko || onAssignResource || onTransfer || onDistributeToAuftrag) && (
-          <>
-            <ContextMenuSeparator />
-            {onAssignReko && (
-              <ContextMenuItem onClick={() => onAssignReko()}>
-                <Binoculars className="mr-2 h-4 w-4" />
-                {operation.assignedReko ? t('card.changeReko') : t('card.assignReko')}
-              </ContextMenuItem>
-            )}
-            {onAssignResource && (
-              <>
-                <ContextMenuItem onClick={() => onAssignResource('crew', operation.id)}>
-                  <Users className="mr-2 h-4 w-4" />
-                  {t('common.assignCrew')}
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
-                  <Truck className="mr-2 h-4 w-4" />
-                  {t('common.assignVehicle')}
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => onAssignResource('materials', operation.id)}>
-                  <Package className="mr-2 h-4 w-4" />
-                  {t('common.assignMaterial')}
-                </ContextMenuItem>
-              </>
-            )}
-            {onTransfer && (
-              <ContextMenuItem onClick={() => onTransfer()}>
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                {t('common.transferResources')}
-              </ContextMenuItem>
-            )}
-            {onDistributeToAuftrag && (
-              <ContextMenuItem onClick={() => onDistributeToAuftrag()}>
-                <Waypoints className="mr-2 h-4 w-4" />
-                {t('common.distributeToAuftrag')}
-              </ContextMenuItem>
-            )}
-            {/* Only on cards that stand on a route, editor-gated like distribute.
-                Same window-event channel as the Auftrag chip (no prop threading);
-                the stop under the cursor arrives focused. */}
-            {auftrag && onDistributeToAuftrag && (
-              <ContextMenuItem
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent('kp:open-routen-editor', {
-                      detail: { groupId: auftrag.id, focusIncidentId: operation.id },
-                    })
-                  )
-                }
-              >
-                <Route className="mr-2 h-4 w-4" />
-                {t('common.openRoutenEditor')}
-              </ContextMenuItem>
-            )}
-          </>
-        )}
-
-        {/* Markieren — quick status flags. «Zu Fuss» is deliberately NOT here
-            any more: it lives in the vehicle assignment dialog (where the
-            not-a-vehicle choice belongs) and on the card's own zu-Fuss chip. */}
-        {(onToggleNachbarhilfe || onToggleAmWarten) && (
-          <>
-            <ContextMenuSeparator />
-            {onToggleNachbarhilfe && (
-              <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
-                <Building2 className="mr-2 h-4 w-4" />
-                {operation.nachbarhilfe ? t('card.removeNachbarhilfe') : t('card.markNachbarhilfe')}
-              </ContextMenuItem>
-            )}
-            {onToggleAmWarten && (
-              <ContextMenuItem onClick={() => onToggleAmWarten()}>
-                <Timer className="mr-2 h-4 w-4" />
-                {operation.amWarten ? t('card.removeAmWarten') : t('card.markAmWarten')}
-              </ContextMenuItem>
-            )}
-          </>
-        )}
-
-        {/* Status — lifecycle. Editor-only: archive an incident that turned out
-            not to be relevant (same completion path as dragging to ABGESCHLOSSEN),
-            or delete one that was never an incident at all. Two intentions, two
-            rows: «abgeschlossen» is a statement about work that happened, and a
-            typo that gets closed sits in the Einsatzhistorie for ever. */}
-        {((onRequestComplete && operation.status !== "complete") || onRequestDelete) && <ContextMenuSeparator />}
-        {onRequestComplete && operation.status !== "complete" && (
-          <ContextMenuItem onClick={() => onRequestComplete()}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            {t('card.completeIncident')}
-          </ContextMenuItem>
-        )}
-        {onRequestDelete && (
-          <ContextMenuItem variant="destructive" onClick={() => onRequestDelete()}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {t('card.deleteIncident')}
-          </ContextMenuItem>
-        )}
-
-        {/* Ansicht & Druck */}
-        <ContextMenuSeparator />
-        <ContextMenuItem asChild>
-          <Link href={`/map?highlight=${operation.id}`}>
-            <Map className="mr-2 h-4 w-4" />
-            {t('card.showOnMapMenu')}
-          </Link>
-        </ContextMenuItem>
-        {printerEnabled && (
-          <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
-            <Printer className="mr-2 h-4 w-4" />
-            {isPrinting ? t('card.printing') : t('common.printSlip')}
-          </ContextMenuItem>
-        )}
-      </ContextMenuContent>
+      <CardContextMenu
+        operation={operation}
+        auftragId={auftrag?.id}
+        onEdit={() => openDetail()}
+        onAssignReko={onAssignReko}
+        onAssignResource={onAssignResource}
+        onTransfer={onTransfer}
+        onDistributeToAuftrag={onDistributeToAuftrag}
+        onToggleNachbarhilfe={onToggleNachbarhilfe}
+        onToggleAmWarten={onToggleAmWarten}
+        onRequestComplete={onRequestComplete}
+        onRequestDelete={onRequestDelete}
+        printerEnabled={printerEnabled}
+      />
     </ContextMenu>
   )
 }
@@ -1428,6 +982,9 @@ export function sameStrings(prev: readonly string[], next: readonly string[]): b
 
 // Memoize the component to prevent unnecessary re-renders
 // Only re-render if props actually change (deep comparison)
+// This is the ONLY gate for the whole card: `CardResources` and
+// `CardContextMenu` are plain children, so every prop they draw from has to be
+// compared here, exactly as if their JSX were still inline.
 export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextProps) => {
   // Check if REKO summary has changed. Only what the card draws: the chips,
   // the head count and the duration — not `summaryText` or `photos`, which

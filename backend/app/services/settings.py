@@ -434,7 +434,7 @@ async def update_setting(db: AsyncSession, key: str, value: str, user_id: UUID |
         setting = Setting(key=key, value=value, updated_by=user_id)
         db.add(setting)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(setting)
     return setting
 
@@ -468,4 +468,4 @@ async def initialize_default_settings(db: AsyncSession) -> None:
                     "one, sign in as an admin: Einstellungen → Alarmierung."
                 )
             db.add(Setting(key=key, value=value))
-    await db.commit()
+    await db.flush()

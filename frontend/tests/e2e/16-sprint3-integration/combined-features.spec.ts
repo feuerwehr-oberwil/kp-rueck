@@ -11,6 +11,9 @@ import type { Locator } from '@playwright/test';
  * location, the incident type and the age, readable in one look, on the board and
  * on the phone.
  *
+ * Whether they FIT (bounding boxes inside the card, a layout that holds still under the
+ * pointer) is the visual screens' job and went in the 2026-10 sweep.
+ *
  * Everything else this file used to contain was a Tailwind class string —
  * `p-4`, `backdrop-blur`, `space-y-3`, `-500`, `transition`, `text-muted-foreground`,
  * four of them via `el.className.includes()` on an `<svg>` — plus one
@@ -52,20 +55,6 @@ test.describe('Sprint 3 Integration - All Features Together', () => {
     await expectAllVisible(card);
   });
 
-  test('all four fit inside the card, so none of it needs scrolling', async ({
-    authenticatedPage,
-  }) => {
-    const card = incidentCards(authenticatedPage).first();
-    const cardBox = (await card.boundingBox())!;
-
-    for (const part of Object.values(facets(card))) {
-      const box = (await part.boundingBox())!;
-      expect(box.y).toBeGreaterThanOrEqual(cardBox.y);
-      expect(box.y + box.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 1);
-      expect(box.x + box.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 1);
-    }
-  });
-
   test('the indicators do not interfere with each other', async ({ authenticatedPage }) => {
     const card = incidentCards(authenticatedPage).first();
 
@@ -79,21 +68,6 @@ test.describe('Sprint 3 Integration - All Features Together', () => {
     await authenticatedPage.keyboard.press('Escape');
     await expect(authenticatedPage.getByRole('dialog')).toHaveCount(0);
 
-    await expectAllVisible(card);
-  });
-
-  test('repeated hovering does not disturb the layout', async ({ authenticatedPage }) => {
-    const card = incidentCards(authenticatedPage).first();
-    const before = (await card.boundingBox())!;
-
-    for (let i = 0; i < 3; i += 1) {
-      await card.hover();
-      await authenticatedPage.mouse.move(0, 0);
-    }
-
-    const after = (await card.boundingBox())!;
-    expect(after.width).toBe(before.width);
-    expect(after.height).toBe(before.height);
     await expectAllVisible(card);
   });
 });

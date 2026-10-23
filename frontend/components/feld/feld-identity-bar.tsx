@@ -6,6 +6,7 @@ import { User } from 'lucide-react'
 
 import { LINK_PAGE_HEADER_CLASS, LINK_PAGE_HEADER_ROW_CLASS } from '@/components/link-page/link-page'
 import { Button } from '@/components/ui/button'
+import { clearCookie, readCookie, writeCookie } from '@/lib/cookie'
 
 /**
  * Where the device's own name is kept, readable from `/feld` AND `/reko`.
@@ -17,20 +18,20 @@ import { Button } from '@/components/ui/button'
  */
 export const FELD_NAME_COOKIE = 'feld-person-name'
 
+const FELD_NAME_SCOPE = { path: '/', days: 7 }
+
+// The name is free text, so it is URI-encoded on the way in and decoded on the way out.
 export function readFeldName(): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp(`(^| )${FELD_NAME_COOKIE}=([^;]+)`))
-  return match ? decodeURIComponent(match[2]) : null
+  const raw = readCookie(FELD_NAME_COOKIE)
+  return raw ? decodeURIComponent(raw) : null
 }
 
 export function writeFeldName(name: string) {
-  const expires = new Date()
-  expires.setDate(expires.getDate() + 7)
-  document.cookie = `${FELD_NAME_COOKIE}=${encodeURIComponent(name)};expires=${expires.toUTCString()};path=/`
+  writeCookie(FELD_NAME_COOKIE, encodeURIComponent(name), FELD_NAME_SCOPE)
 }
 
 export function clearFeldName() {
-  document.cookie = `${FELD_NAME_COOKIE}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+  clearCookie(FELD_NAME_COOKIE, FELD_NAME_SCOPE)
 }
 
 /**
@@ -62,8 +63,8 @@ export function FeldIdentityBar({
       <div className={LINK_PAGE_HEADER_ROW_CLASS}>
         {children}
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <User className="size-3.5 text-primary" />
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
+            <User className="size-3.5 text-muted-foreground" />
           </div>
           {/* Fixed height whether or not the name has arrived. The bar is the
               topmost thing on the page, so anything that grows here pushes the

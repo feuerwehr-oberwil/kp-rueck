@@ -16,6 +16,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..services.audit import log_action
+from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ async def get_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     return user
 
@@ -116,7 +117,6 @@ async def create_user(
         changes={"username": user.username, "role": user.role, "display_name": user.display_name},
         request=request,
     )
-    await db.commit()
 
     logger.info("User %s created by admin %s", user.username, current_user.username)
     return user
@@ -146,7 +146,7 @@ async def update_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     # Prevent admin from deactivating themselves
     if user.id == current_user.id and user_data.is_active is False:
@@ -190,7 +190,7 @@ async def update_user(
             changes=changes,
             request=request,
         )
-        await db.commit()
+        await db.flush()
         await db.refresh(user)
         logger.info("User %s updated by admin %s: %s", user.username, current_user.username, list(changes.keys()))
 
@@ -220,7 +220,7 @@ async def reset_user_password(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     # Hash before mutation. The database increment prevents concurrent resets
     # from losing an invalidation, and commits atomically with the new password.
@@ -240,7 +240,6 @@ async def reset_user_password(
         changes={"action": "password_reset_by_admin"},
         request=request,
     )
-    await db.commit()
 
     logger.info("Password reset for user %s by admin %s", user.username, current_user.username)
 
@@ -269,7 +268,7 @@ async def delete_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
 
     # Prevent admin from deleting themselves
     if user.id == current_user.id:
@@ -292,7 +291,6 @@ async def delete_user(
             changes={"username": username, "action": "permanently_deleted"},
             request=request,
         )
-        await db.commit()
         logger.info("User %s permanently deleted by admin %s", username, current_user.username)
     else:
         # A later reactivation must not resurrect credentials from before deactivation.
@@ -308,5 +306,4 @@ async def delete_user(
             changes={"username": username, "action": "deactivated"},
             request=request,
         )
-        await db.commit()
         logger.info("User %s deactivated by admin %s", username, current_user.username)

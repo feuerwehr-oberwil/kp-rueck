@@ -12,6 +12,11 @@
  * names the Auftrag. A person on neither is simply absent from the map — the
  * caller then falls back to the function name, never to a generic «Im Einsatz».
  *
+ * A Fahrer who is not crew is where their vehicle stands: «Fahrer Mowa · 12 ·
+ * Ringstrasse 11 …», role first so the row's truncation never cuts it, the same
+ * place the assignment dialog names. It used to read a bare «Fahrer Mowa», and
+ * «where is the Mowa?» was a second lookup.
+ *
  * Keyed by NAME because the operations context's `crew` arrays hold names —
  * the same convention the dialog already leans on. Computed once per board
  * render and passed down as a prop, so the memoized person cards do not each
@@ -19,6 +24,7 @@
  */
 
 import { useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 
 import { useGroups } from '@/lib/contexts/groups-context'
 import { useOperations } from '@/lib/contexts/operations-context'
@@ -32,8 +38,9 @@ export interface PersonEngagement {
 }
 
 export function usePersonEngagements(): Map<string, PersonEngagement> {
-  const { operations } = useOperations()
+  const { operations, personnel } = useOperations()
   const { groups, getGroupResources } = useGroups()
+  const t = useTranslations('kanban')
 
   return useMemo(() => {
     const map = new Map<string, PersonEngagement>()
@@ -45,6 +52,17 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
         if (!map.has(name)) map.set(name, label)
       }
     }
+    for (const person of personnel) {
+      const vehicle = person.isDriver ? person.driverVehicleName : undefined
+      if (!vehicle || map.has(person.name)) continue
+      const op = operations.find((o) => o.vehicles.includes(vehicle))
+      if (!op) continue
+      const role = t('person.driverFunction', { vehicle })
+      map.set(person.name, {
+        short: `${role} · ${getIncidentRefLabel(op, 40)}`,
+        full: `${role} · ${getIncidentRefLabel(op, 1000)}`,
+      })
+    }
     for (const group of groups) {
       const resources = getGroupResources(group.id)
       const label = { short: group.name, full: group.name }
@@ -53,5 +71,5 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
       }
     }
     return map
-  }, [operations, groups, getGroupResources])
+  }, [operations, personnel, groups, getGroupResources, t])
 }

@@ -58,7 +58,7 @@ async def _resolve_event_and_actor(
         # what narrows `event_id` for the type checker on the way out.
         resolved = validate_checkin_token(token or "")
         if not resolved:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
         return resolved, None
 
     user = await get_current_user(request, access_token, authorization, db)
@@ -128,7 +128,7 @@ async def list_personnel_for_checkin(
 
     event = await events_crud.get_event_by_id(db, resolved_event_id)
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     personnel = await crud.get_available_personnel(
         db=db,
@@ -149,16 +149,12 @@ async def list_personnel_for_checkin(
 @router.post("/{personnel_id}/in", response_model=schemas.PersonnelCheckInResponse)
 async def check_in(
     personnel_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    request: Request,
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
     access_token: Annotated[str | None, Cookie()] = None,
     authorization: Annotated[str | None, Header()] = None,
-    # FastAPI injects these two by type, so the `= None` defaults never apply. They cannot be
-    # dropped (they precede other defaulted params) and must NOT become `X | None`: FastAPI only
-    # special-cases the bare classes, so a Union turns them into body params and the app fails
-    # to import.
-    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
-    request: Request = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
     """
@@ -212,13 +208,12 @@ async def check_in(
 @router.post("/{personnel_id}/out", response_model=schemas.PersonnelCheckInResponse)
 async def check_out(
     personnel_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    request: Request,
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
     access_token: Annotated[str | None, Cookie()] = None,
     authorization: Annotated[str | None, Header()] = None,
-    # Same as check_in above: injected by type, `= None` is dead, `X | None` would break FastAPI.
-    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
-    request: Request = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
     """
@@ -254,7 +249,7 @@ async def check_out(
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     if not person:
-        raise HTTPException(status_code=404, detail="Personnel not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
 
     # Broadcast WebSocket update for check-out
     if background_tasks:
@@ -278,9 +273,9 @@ async def check_out(
 async def clear_attendance(
     personnel_id: uuid.UUID,
     current_user: CurrentEditor,  # Board only — the phone has no "was never here" to report
+    background_tasks: BackgroundTasks,
+    request: Request,
     event_id: uuid.UUID = Query(..., description="Event whose attendance row is removed"),
-    background_tasks: BackgroundTasks = None,  # type: ignore[assignment]
-    request: Request = None,  # type: ignore[assignment]
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
     """Back to "nicht anwesend" — the third step of the board's roll-call cycle.

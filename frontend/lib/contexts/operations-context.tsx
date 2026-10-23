@@ -4,14 +4,13 @@ import { useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallbac
 import { formatLocationForDisplay } from "@/lib/utils"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
-import { usePersonnel } from "./personnel-context"
-import { useMaterials } from "./materials-context"
 import type { RecentRemovals } from "@/lib/recent-removals"
 import { KeyedSerialQueue, UpdateBatcher } from "@/lib/update-batcher"
 import { fieldSaveScope, setFieldSaveScope, unsavedFieldDrafts } from "@/lib/field-save"
 import { OperationsContext, BoardSyncStatusContext } from "./operations/contexts"
 import { useAlertAudio } from "./operations/use-alert-audio"
 import { useBoardSync } from "./operations/use-board-sync"
+import { useMaterialList, usePersonnelList } from "./operations/use-resource-lists"
 import type { BoardMutationContext } from "./operations/board-context"
 import { createResourceActions } from "./operations/resource-actions"
 import { createIncidentActions } from "./operations/incident-actions"
@@ -67,9 +66,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [])
 
-  // Get personnel and materials from their dedicated contexts
-  const { personnel, setPersonnel, refreshPersonnel } = usePersonnel()
-  const { materials, setMaterials, refreshMaterials } = useMaterials()
+  // The roster and the depot: state of this provider, filled by the board load.
+  const eventId = selectedEvent?.id ?? null
+  const { personnel, setPersonnel, refreshPersonnel } = usePersonnelList(eventId)
+  const { materials, setMaterials, materialGroups, refreshMaterials, setMaterialOutOfService } = useMaterialList(
+    eventId,
+    !authLoading && isAuthenticated,
+  )
 
   // Operations state (only operations-specific state here)
   const [operations, setOperations] = useState<Operation[]>([])
@@ -301,8 +304,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // ⚠️ The value below is memoised: ~40 components read this context, and an
   // unmemoised object re-rendered every one of them whenever this provider
-  // rendered for ANY reason — including the personnel/materials providers'
-  // own loading flips on every reload. The actions close over this render's
+  // rendered for ANY reason. The actions close over this render's
   // state and are rebuilt each render, so consumers get stable wrappers that
   // always call the LATEST render's version (never a stale closure either).
   const latestActionsRef = useRef<BoardActions | null>(null)
@@ -358,8 +360,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     () => ({
       personnel,
       setPersonnel,
+      refreshPersonnel,
       materials,
       setMaterials,
+      materialGroups,
+      setMaterialOutOfService,
       operations,
       setOperations,
       homeCity,
@@ -388,8 +393,11 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     [
       personnel,
       setPersonnel,
+      refreshPersonnel,
       materials,
       setMaterials,
+      materialGroups,
+      setMaterialOutOfService,
       operations,
       homeCity,
       isLoading,

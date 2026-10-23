@@ -2,6 +2,7 @@
 
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,7 @@ import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
@@ -50,7 +52,6 @@ import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
-import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
@@ -71,7 +72,6 @@ import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
-import type { Incident } from "@/lib/types/incidents"
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 /**
@@ -198,6 +198,9 @@ export interface OperationDetailContentProps {
   onRequestComplete?: (operationId: string) => void
   /** Opens the Auftrag picker to distribute this incident into a route. */
   onDistributeToAuftrag?: (operationId: string) => void
+  /** Opens «Ressourcen übertragen» for this incident (the page's dialog layer
+   *  owns the dialog – see incident-dialogs.tsx). */
+  onTransferResources?: (operationId: string) => void
   onChangeStatus?: (operationId: string, targetStatus: OperationStatus) => void
 }
 
@@ -219,6 +222,7 @@ export function OperationDetailContent({
   onSendDivera,
   onRequestComplete,
   onDistributeToAuftrag,
+  onTransferResources,
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
@@ -296,11 +300,10 @@ export function OperationDetailContent({
     },
     [operation.id],
   )
-  const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
+  // The quick-assign fleet behind `1`..`5` – editors only; off the board sync.
+  const fleet = useVehicleShortcuts()
+  const availableVehicleCount = canEdit ? fleet.length : 0
   const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
-  const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
-  const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
   // Bumped when the rapport section files a rapport: that is the moment the
@@ -333,32 +336,12 @@ export function OperationDetailContent({
       }
     : null
 
-  // Load available vehicles list when modal opens. The driver map is
-  // handled by useVehicleDrivers above (live-synced).
-  useEffect(() => {
-    const loadVehicles = async () => {
-      if (!active || !selectedEvent || !canEdit) return
-
-      try {
-        const vehicles = await apiClient.getVehicles()
-        const sorted = [...vehicles].sort((a, b) => a.display_order - b.display_order)
-        setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
-        toast.error(t('detail.vehiclesLoadFailed'), {
-          description: t('detail.vehiclesLoadFailedDescription'),
-        })
-      }
-    }
-
-    loadVehicles()
-  }, [active, canEdit, selectedEvent, t])
+  // The three effects below are triggered by the incident or by `openOnTab` (whose nonce makes
+  // a repeat click a new event) and READ the tab it asks for – never depend on it.
+  const currentRequestedTab = useEffectEvent(() => requestedTab)
 
   useEffect(() => {
     setShowDeleteConfirm(false)
-    setTransferDialogOpen(false)
-    setAvailableIncidents([])
-    setIsTransferring(false)
     setRekoDialogOpen(false)
     setRekoTransferDialogOpen(false)
     // A different incident brings its own remembered tab, Übersicht if it has
@@ -367,11 +350,10 @@ export function OperationDetailContent({
     // A notification's tab outranks the memory: the operator clicked one
     // specific thing. `setTab`, never `selectTab` — this must not be written
     // back, or one bell click would repoint the card for good.
-    setTab(requestedTab ?? readRememberedTab(operation.id) ?? 'overview')
     // openOnTab is read, not depended on: it must not re-run this reset on its
     // own — the effect below owns that, and doing it here as well would fight
     // an operator who switched tabs after arriving.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setTab(currentRequestedTab() ?? readRememberedTab(operation.id) ?? 'overview')
   }, [selectedEvent?.id, operation.id])
 
   // A second (or third) click on the same notification. The panel keeps this
@@ -379,8 +361,8 @@ export function OperationDetailContent({
   // — and "take me to the thing you just told me about" has to work every time,
   // not only the first. The nonce is what makes a repeat click a new event.
   useEffect(() => {
-    if (requestedTab) setTab(requestedTab)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const tab = currentRequestedTab()
+    if (tab) setTab(tab)
   }, [openOnTab])
 
   /**
@@ -394,12 +376,11 @@ export function OperationDetailContent({
    * One frame late, so the tab set above has been rendered before we measure.
    */
   useEffect(() => {
-    if (openOnTab?.section !== 'resources' || requestedTab !== 'overview') return
+    if (openOnTab?.section !== 'resources' || currentRequestedTab() !== 'overview') return
     const frame = window.requestAnimationFrame(() => {
       resourcesRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     })
     return () => window.cancelAnimationFrame(frame)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnTab])
 
   /**
@@ -468,7 +449,7 @@ export function OperationDetailContent({
   // move the view either.
   useOperationDetailShortcutTabs({
     enabled: active && canEdit,
-    availableVehicleCount: availableVehicles.length,
+    availableVehicleCount,
     onFocusTab: selectTab,
   })
 
@@ -545,65 +526,6 @@ export function OperationDetailContent({
 
   const { isCopying: isCopyingWhatsApp, copy: handleCopyWhatsApp } =
     useWhatsAppCopy({ operation, materials, vehicleDrivers })
-
-  // Handler for opening transfer dialog
-  const handleOpenTransfer = async () => {
-    if (!operation || !selectedEvent) {
-      toast.error(t('common.error'), {
-        description: t('detail.noEventSelectedLong'),
-      })
-      return
-    }
-
-    try {
-      // Fetch all incidents for the current event
-      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
-      // Convert ApiIncident to Incident type (string coords/dates -> number/Date)
-      const incidents: Incident[] = apiIncidents.map(inc => {
-        // Destructure to omit fields we need to transform
-        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
-        return {
-          ...rest,
-          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
-          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
-          created_at: new Date(created_at),
-          updated_at: new Date(updated_at),
-          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
-          completed_at: completed_at ? new Date(completed_at) : null,
-          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
-          assigned_vehicles: assigned_vehicles.map(v => ({
-            ...v,
-            assigned_at: new Date(v.assigned_at),
-          })),
-        }
-      })
-      setAvailableIncidents(incidents)
-      setTransferDialogOpen(true)
-    } catch (error) {
-      console.error('Failed to load incidents:', error)
-      toast.error(t('common.loadFailed'), {
-        description: t('detail.incidentsLoadFailedDescription'),
-      })
-    }
-  }
-
-  // Handler for transferring assignments
-  const handleTransfer = async (targetIncidentId: string) => {
-    if (!operation) return
-
-    try {
-      setIsTransferring(true)
-      await apiClient.transferAssignments(operation.id, targetIncidentId)
-      await refreshOperations()
-      setTransferDialogOpen(false)
-    } catch (error: unknown) {
-      toast.error(t('common.transferFailed'), {
-        description: error instanceof Error ? error.message : t('common.transferFailedDescription')
-      })
-    } finally {
-      setIsTransferring(false)
-    }
-  }
 
   // The modal is 90vw wide — a tab that only fills one narrow column wastes it.
   // The panel mount stays single-column; it is barely wider than one.
@@ -1251,7 +1173,7 @@ export function OperationDetailContent({
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3 shrink-0" />
                 {t('common.callContact')}
@@ -1773,7 +1695,7 @@ export function OperationDetailContent({
               <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
 
               {/* Everything the field asked for, with its state (R13): offen →
-                  in Arbeit → erledigt, who and when. «Material zuteilen» opens
+                  in Arbeit → erledigt, who and when. «Material zuweisen» opens
                   the same assignment dialog as the «+» on the resource rows. */}
               <FieldRequestList
                 operation={operation}
@@ -1901,12 +1823,12 @@ export function OperationDetailContent({
             onClick={handleCopyWhatsApp}
           />
 
-          {canEdit && (
+          {canEdit && onTransferResources && (
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
               dense={dense}
-              onClick={handleOpenTransfer}
+              onClick={() => onTransferResources(operation.id)}
             />
           )}
 
@@ -1951,22 +1873,6 @@ export function OperationDetailContent({
           onDelete(operation.id)
         }}
       />}
-
-      {/* Transfer Incident Dialog */}
-      <TransferIncidentDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        sourceIncident={operation as unknown as Incident}
-        sourceName={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
-        availableIncidents={availableIncidents}
-        onTransfer={handleTransfer}
-        isTransferring={isTransferring}
-        resourceSummary={{
-          crew: operation.crew.length,
-          vehicles: operation.vehicles.length,
-          materials: operation.materials.length,
-        }}
-      />
 
       {/* Assign Reko Dialog */}
       <AssignRekoDialog

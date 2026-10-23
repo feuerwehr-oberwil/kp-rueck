@@ -88,6 +88,9 @@ function AlertDialogHeader({
   )
 }
 
+/** The button row. It WRAPS when three long answers do not fit: a footer that
+ *  cannot wrap sets the dialog grid's min-content, and the whole dialog –
+ *  header text included – ran past its own right edge (the Reko gate, 2026-10). */
 function AlertDialogFooter({
   className,
   ...props
@@ -96,7 +99,7 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+        'flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end',
         className,
       )}
       {...props}

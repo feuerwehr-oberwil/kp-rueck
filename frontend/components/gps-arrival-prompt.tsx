@@ -115,7 +115,7 @@ export function GpsArrivalPrompt() {
       onOpenChange={(open) => { if (!open) setPrompt(null) }}
       title={
         <span className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" />
+          <MapPin className="h-5 w-5 text-muted-foreground" />
           {t('title')}
         </span>
       }

@@ -36,6 +36,7 @@ async def _claim(engine, job_id) -> int:
     async with AsyncSession(bind=engine, expire_on_commit=False) as session:
         try:
             await claim_print_job(job_id, BackgroundTasks(), db=session)
+            await session.commit()  # the request's commit (`commit_request`)
             return 1
         except HTTPException as exc:
             assert exc.status_code == 409, f"unexpected failure claiming: {exc.status_code}"

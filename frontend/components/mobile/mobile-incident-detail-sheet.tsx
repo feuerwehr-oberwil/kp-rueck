@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
@@ -116,14 +117,16 @@ export function MobileIncidentDetailSheet({
   // operator's fingers: a background reload landing mid-sentence used to put
   // the server's text back into the field being typed in. And a held draft
   // (pending or not saved) is what the field shows, not the board's value.
-  useEffect(() => {
-    if (!editingNotes) setNotesValue(notesSave.value)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [operation?.id, notesSave.value])
-  useEffect(() => {
-    if (!editingContact) setContactValue(contactSave.value)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [operation?.id, contactSave.value])
+  // Whether a field is being edited is read, not depended on: the sync runs when
+  // the incident or its saved value changes, not when editing ends.
+  const syncNotes = useEffectEvent((value: string) => {
+    if (!editingNotes) setNotesValue(value)
+  })
+  const syncContact = useEffectEvent((value: string) => {
+    if (!editingContact) setContactValue(value)
+  })
+  useEffect(() => syncNotes(notesSave.value), [operation?.id, notesSave.value])
+  useEffect(() => syncContact(contactSave.value), [operation?.id, contactSave.value])
 
   // Driver map (live-synced via WebSocket + custom event in useVehicleDrivers)
 
@@ -311,7 +314,9 @@ export function MobileIncidentDetailSheet({
                 {t(`status.${operation.status}`)}
               </Badge>
             )}
-            <Badge variant="outline" className="text-sm">
+            {/* `border-input`, the Select's own frame: a label beside the one
+                control must not be boxed louder than it. */}
+            <Badge variant="outline" className="border-input text-sm">
               {typeLabel(operation.incidentType)}
             </Badge>
             <IncidentTimeRow

@@ -1,5 +1,5 @@
 /**
- * Release undo — «<Ressource> von <Einsatz> gelöst · Rückgängig».
+ * Release undo — «<Ressource> von <Einsatz> freigegeben · Rückgängig».
  *
  * A mis-tap on a small chip used to mean finding the resource in the sidebar
  * and assigning it again. Now every deliberate release (crew, vehicle,

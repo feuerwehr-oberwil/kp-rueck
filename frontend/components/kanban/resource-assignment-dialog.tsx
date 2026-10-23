@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Users, Truck, Package, CheckCircle, Circle, Footprints, Layers, ChevronDown, ChevronRight, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
+import { AlertTriangle, Users, Truck, Package, CheckCircle, Circle, Footprints, Car, Binoculars, Package2, Phone, MonitorCog, Siren, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
 import {
@@ -32,7 +32,15 @@ import { getIncidentRefLabel } from "@/lib/incident-types"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
-import { Reveal } from "@/components/ui/reveal"
+import { ListSection } from "@/components/kanban/assignment-list-section"
+import {
+  MaterialAssignmentList,
+  MaterialTypeChips,
+  groupMaterialsForAssignment,
+  materialMatchesQuery,
+  materialTypeCounts,
+  sortMaterialsForAssignment,
+} from "@/components/kanban/material-assignment-list"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
@@ -40,7 +48,7 @@ interface ResourceAssignmentDialogProps {
   resourceType: 'crew' | 'vehicles' | 'materials' | null
   operationId: string | null
   /** The search the dialog opens with — a field request's item (R13), so
-   *  «Material zuteilen» on «Tauchpumpe Gr. ×2» lands on the pumps. */
+   *  «Material zuweisen» on «Tauchpumpe Gr. ×2» lands on the pumps. */
   initialSearch?: string
   /** Whether the dialog is assigning to a single incident or to an Auftrag (route).
    *  Drives the title/label wording; defaults to 'incident'. */
@@ -89,19 +97,6 @@ const ALL_FILTER = "__all__"
  *  are two taps, not two trips. Outside / Escape still closes it. */
 const keepMenuOpen = (event: Event) => event.preventDefault()
 
-const materialMatchesQuery = (m: Material, raw: string, groups: { id: string; name: string }[]) => {
-  const query = raw.trim().toLowerCase()
-  if (!query) return true
-  // Match material name or category
-  if (m.name.toLowerCase().includes(query) || m.category.toLowerCase().includes(query)) return true
-  // Match group name
-  if (m.groupId) {
-    const group = groups.find(g => g.id === m.groupId)
-    if (group?.name.toLowerCase().includes(query)) return true
-  }
-  return false
-}
-
 const vehicleMatchesQuery = (v: { name: string; type: string }, query: string) => {
   const q = query.trim().toLowerCase()
   return !q || v.name.toLowerCase().includes(q) || v.type.toLowerCase().includes(q)
@@ -124,33 +119,6 @@ type Binding = OccupancyLabel & {
   kind: 'incident' | 'route'
   id: string
   assignmentId?: string
-}
-
-/**
- * The rule above one of the two blocks the lists are split into.
- *
- * Deliberately a rule and not a `<Separator/>` with a label beside it: the
- * heading has to be readable as "everything below this is spoken for" while the
- * eye is moving. Both headings are neutral (owner decision 2026-10, «quieter»
- * pass): the label says it, and the amber note on each busy row says where —
- * an amber heading plus amber-tinted tiles turned half the dialog orange.
- * `tone` stays as the semantic marker of the block.
- */
-function ListSection({ label, tone, children }: { label: string; tone: 'free' | 'busy'; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3
-        className={cn(
-          "mb-2 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground",
-        )}
-        data-tone={tone}
-      >
-        {label}
-        <span className="h-px flex-1 bg-border/60" />
-      </h3>
-      {children}
-    </section>
-  )
 }
 
 export function ResourceAssignmentDialog({
@@ -458,17 +426,11 @@ export function ResourceAssignmentDialog({
   // Second chip row for materials: functional type (e.g. "Wasser") as a quick
   // FILTER across depots — narrows the visible list like the depot chips,
   // selects nothing. Counts ALL listed materials of the type, occupied or not.
+  // Empty for crew and vehicles, so `materialTypeGroups.length > 1` alone
+  // already means «materials, with more than one type».
   const materialTypeGroups = useMemo(() => {
     if (resourceType !== 'materials') return [] as { type: string; count: number }[]
-    const byType = new Map<string, number>()
-    for (const m of selectableMaterials) {
-      if (!m.type) continue
-      byType.set(m.type, (byType.get(m.type) ?? 0) + 1)
-    }
-    return [...byType.entries()]
-      .map(([type, count]) => ({ type, count }))
-      // Inventory data — de-CH collation on purpose, as above.
-      .sort((a, b) => a.type.localeCompare(b.type, 'de-CH'))
+    return materialTypeCounts(selectableMaterials)
   }, [resourceType, selectableMaterials])
 
   // Filter resources by search query + quick category filter. The shared
@@ -568,16 +530,7 @@ export function ResourceAssignmentDialog({
 
   // Sort the material list by category sort order, then assigned-first, then
   // name — feeds the group split so order within each group respects the setting.
-  const sortedFilteredMaterials = useMemo(() => {
-    return [...filteredMaterials].sort((a, b) => {
-      if (a.category !== b.category) {
-        if (a.categorySortOrder !== b.categorySortOrder) return (a.categorySortOrder ?? 0) - (b.categorySortOrder ?? 0)
-        return (a.category ?? "").localeCompare(b.category ?? "", getActiveLocale())
-      }
-      if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return (a.name ?? "").localeCompare(b.name ?? "", getActiveLocale())
-    })
-  }, [filteredMaterials])
+  const sortedFilteredMaterials = useMemo(() => sortMaterialsForAssignment(filteredMaterials), [filteredMaterials])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
   const isPersonSelected = (personName: string) => selectedPersonnel.has(personName)
@@ -699,30 +652,10 @@ export function ResourceAssignmentDialog({
   }
 
   // Build grouped + ungrouped structure for material display
-  const groupedFilteredMaterials = useMemo(() => {
-    const groups: { groupId: string; groupName: string; materials: Material[] }[] = []
-    const ungrouped: Material[] = []
-
-    // Collect materials by group
-    const groupMap = new Map<string, Material[]>()
-    for (const m of sortedFilteredMaterials) {
-      const groupId = m.groupId
-      const group = groupId ? materialGroups.find(g => g.id === groupId) : null
-      if (group) {
-        if (!groupMap.has(group.id)) groupMap.set(group.id, [])
-        groupMap.get(group.id)!.push(m)
-      } else {
-        ungrouped.push(m)
-      }
-    }
-
-    for (const [groupId, mats] of groupMap) {
-      const group = materialGroups.find(g => g.id === groupId)!
-      groups.push({ groupId, groupName: group.name, materials: mats })
-    }
-
-    return { groups, ungrouped }
-  }, [sortedFilteredMaterials, materialGroups])
+  const groupedFilteredMaterials = useMemo(
+    () => groupMaterialsForAssignment(sortedFilteredMaterials, materialGroups),
+    [sortedFilteredMaterials, materialGroups],
+  )
 
   /**
    * Free first, spoken-for underneath — the dialog's answer to "wen kann ich
@@ -875,48 +808,48 @@ export function ResourceAssignmentDialog({
   // resource type — the same action as clicking it. The onAssign*/onRemove*
   // callbacks are wired by the parent, so in route-assign mode this assigns to the
   // Auftrag (via assignResource) exactly like clicking, not to a single incident.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
-      const target = e.target as HTMLElement | null
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
-      // The compact «Filtern» menu has type-ahead of its own.
-      if (target?.closest?.('[role="menu"]')) return
-      if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
-      const idx = Number(e.key) - 1
-      // Indexed in the order the grid DRAWS them (free block, then the
-      // spoken-for block) — «3» has to be the third tile on screen.
-      if (resourceType === "vehicles") {
-        const v = vehicleSections.ordered[idx]
-        if (v) {
-          e.preventDefault()
-          handleToggleVehicle(v)
-        }
-      } else if (resourceType === "crew") {
-        const p = crewSections.ordered[idx]
-        if (p) {
-          e.preventDefault()
-          handleTogglePersonSelection(p)
-        }
-      } else if (resourceType === "materials") {
-        const flat = [
-          ...groupedFilteredMaterials.groups.flatMap((g) => g.materials),
-          ...ungroupedMaterialSections.free,
-          ...ungroupedMaterialSections.busy,
-        ]
-        const m = flat[idx]
-        if (m) {
-          e.preventDefault()
-          handleToggleMaterialSelection(m)
-        }
+  // An effect event, so a key always sees the lists and handlers of the latest render.
+  const onNumberKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+    const target = e.target as HTMLElement | null
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+    // The compact «Filtern» menu has type-ahead of its own.
+    if (target?.closest?.('[role="menu"]')) return
+    if (e.key.length !== 1 || e.key < "1" || e.key > "9") return
+    const idx = Number(e.key) - 1
+    // Indexed in the order the grid DRAWS them (free block, then the
+    // spoken-for block) — «3» has to be the third tile on screen.
+    if (resourceType === "vehicles") {
+      const v = vehicleSections.ordered[idx]
+      if (v) {
+        e.preventDefault()
+        handleToggleVehicle(v)
+      }
+    } else if (resourceType === "crew") {
+      const p = crewSections.ordered[idx]
+      if (p) {
+        e.preventDefault()
+        handleTogglePersonSelection(p)
+      }
+    } else if (resourceType === "materials") {
+      const flat = [
+        ...groupedFilteredMaterials.groups.flatMap((g) => g.materials),
+        ...ungroupedMaterialSections.free,
+        ...ungroupedMaterialSections.busy,
+      ]
+      const m = flat[idx]
+      if (m) {
+        e.preventDefault()
+        handleToggleMaterialSelection(m)
       }
     }
+  })
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => onNumberKey(e)
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-    // Handlers are stable enough within an open session; lists gate the indexing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, resourceType, filteredVehicles, sortedFilteredPersonnel, groupedFilteredMaterials])
+  }, [open])
 
   // Commit changes when "Fertig" is clicked (for crew and materials)
   const handleConfirm = () => {
@@ -1083,7 +1016,7 @@ export function ResourceAssignmentDialog({
           {elsewhere && (
             <span
               title={elsewhere.full}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
             >
               <Siren className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{elsewhere.short}</span>
@@ -1093,7 +1026,7 @@ export function ResourceAssignmentDialog({
             <span
               key={fn.label}
               title={fn.label}
-              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
             >
               <fn.Icon className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{fn.label}</span>
@@ -1164,7 +1097,7 @@ export function ResourceAssignmentDialog({
             ) : elsewhere ? (
               <span
                 title={elsewhere.full}
-                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
+                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-400"
               >
                 <Siren className="h-3 w-3 flex-shrink-0" />
                 <span className="truncate">{elsewhere.short}</span>
@@ -1221,70 +1154,6 @@ export function ResourceAssignmentDialog({
     )
   }
 
-  /** One material tile — shared by the free block, the spoken-for block and
-   *  the expanded module groups. */
-  const renderMaterialTile = (material: Material) => {
-    const isSelected = isMaterialSelected(material.id)
-    const wasJustAssigned = justAssigned === material.id
-    const elsewhere = materialElsewhereLabel(material)
-    // Readiness beats deployment — see materialResourceState. A device recorded
-    // as defective is shown, named as such, and cannot be ticked.
-    const isOutOfService = materialResourceState(material) === 'unavailable' && !isSelected
-    // This material's depot IS a vehicle already assigned to the target (e.g.
-    // Mowa): its stock is on scene. Emphasis only — nothing gets preselected.
-    const vehicleOnScene = !elsewhere && assignedVehicles.includes(material.category)
-    return (
-      <button
-        key={material.id}
-        onClick={() => handleToggleMaterialSelection(material)}
-        disabled={isOutOfService}
-        className={cn(
-          "flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 transition-all text-left",
-          isOutOfService ? "cursor-not-allowed border-dashed opacity-60" : "cursor-pointer hover:border-sel-edge hover:bg-secondary/30 hover-delight",
-          isSelected && "border-sel-edge bg-sel-wash",
-          vehicleOnScene && !isSelected && "border-emerald-500/30"
-        )}
-      >
-        {isOutOfService ? (
-          <Ban className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-        ) : isSelected ? (
-          <CheckCircle className={cn(
-            "h-5 w-5 text-sel-foreground flex-shrink-0",
-            wasJustAssigned && "animate-check-appear"
-          )} />
-        ) : (
-          <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        )}
-        <div className="min-w-0">
-          <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={material.name}>{material.name}</p>
-          {isOutOfService ? (
-            <p className="truncate text-2xs font-medium text-muted-foreground">
-              {t('assignmentDialog.outOfService')}
-            </p>
-          ) : elsewhere ? (
-            <span
-              title={elsewhere.full}
-              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-amber-600 dark:text-amber-400"
-            >
-              <Siren className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{elsewhere.short}</span>
-            </span>
-          ) : vehicleOnScene ? (
-            <span
-              title={t('assignmentDialog.vehicleOnSceneHint', { name: material.category })}
-              className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-2xs font-medium text-emerald-600 dark:text-emerald-400"
-            >
-              <Truck className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{material.category}</span>
-            </span>
-          ) : (
-            <p className="text-xs text-muted-foreground truncate">{material.category}</p>
-          )}
-        </div>
-      </button>
-    )
-  }
-
   const searchField = (
     <SearchInput
       ref={searchRef}
@@ -1309,7 +1178,7 @@ export function ResourceAssignmentDialog({
       : resourceType === 'vehicles' ? t('assignmentDialog.filterGroupVehicleType')
         : t('assignmentDialog.filterGroupDepot')
   const hasFilterMenu =
-    categories.length > 1 || (resourceType === 'materials' && materialTypeGroups.length > 1) || resourceType === 'vehicles'
+    categories.length > 1 || materialTypeGroups.length > 1 || resourceType === 'vehicles'
   const filterMenu = hasFilterMenu ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1356,7 +1225,7 @@ export function ResourceAssignmentDialog({
             </DropdownMenuRadioGroup>
           </>
         )}
-        {resourceType === 'materials' && materialTypeGroups.length > 1 && (
+        {materialTypeGroups.length > 1 && (
           <>
             {categories.length > 1 && <DropdownMenuSeparator />}
             <DropdownMenuLabel className="text-xs text-muted-foreground">{t('assignmentDialog.filterGroupMaterialType')}</DropdownMenuLabel>
@@ -1477,7 +1346,7 @@ export function ResourceAssignmentDialog({
                       isActive
                         ? "bg-sel-wash text-sel-foreground border-sel-edge"
                         : vehiclePresent
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/20"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                     )}
                   >
@@ -1491,27 +1360,8 @@ export function ResourceAssignmentDialog({
 
           {/* Materials: second chip row — FILTER the list to one functional type
               (e.g. "Wasser") across all depots. Filters only, selects nothing. */}
-          {resourceType === 'materials' && materialTypeGroups.length > 1 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-0.5 text-xs text-muted-foreground">{t('assignmentDialog.quickSelectByType')}</span>
-              {materialTypeGroups.map(({ type, count }) => {
-                const isActive = typeFilter === type
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setTypeFilter(isActive ? null : type)}
-                    className={cn(
-                      "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-                      isActive
-                        ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                        : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                    )}
-                  >
-                    {type} ({count})
-                  </button>
-                )
-              })}
-            </div>
+          {materialTypeGroups.length > 1 && (
+            <MaterialTypeChips typeGroups={materialTypeGroups} typeFilter={typeFilter} onTypeFilterChange={setTypeFilter} />
           )}
 
           {/* Vehicles-only quick filter: show only vehicles already assigned. */}
@@ -1608,112 +1458,26 @@ export function ResourceAssignmentDialog({
               )}
 
               {resourceType === 'materials' && (
-                <>
-                  {/* Material groups */}
-                  {groupedFilteredMaterials.groups.map(({ groupId, groupName, materials: groupMats }) => {
-                    // Only FREE items count towards select-all / "Alle" — a module
-                    // reads complete without its occupied-elsewhere items, which
-                    // must be picked individually (with confirm).
-                    const freeGroupMatIds = groupMats.filter(m => !occupiedElsewhereMaterialIds.has(m.id)).map(m => m.id)
-                    const allSelected = freeGroupMatIds.length > 0 && freeGroupMatIds.every(id => selectedMaterials.has(id))
-                    const selectedCount = groupMats.filter(m => selectedMaterials.has(m.id)).length
-                    const someSelected = selectedCount > 0
-                    const isExpanded = expandedGroups.has(groupId)
-                    const wasJustAssigned = justAssigned === `group-${freeGroupMatIds[0]}`
-                    // Origin(s) of the module's items — distinct depots/locations.
-                    const groupOrigins = [...new Set(groupMats.map(m => m.category).filter(Boolean))].join(", ")
-                    return (
-                      <div key={`group-${groupId}`}>
-                        {/* Group header row */}
-                        <div className={cn(
-                          "flex items-center rounded-lg border border-border/50 transition-all hover:border-sel-edge hover:bg-secondary/30",
-                          allSelected && "border-sel-edge bg-sel-wash"
-                        )}>
-                          {/* Expand/collapse toggle */}
-                          <button
-                            onClick={() => setExpandedGroups(prev => {
-                              const next = new Set(prev)
-                              if (next.has(groupId)) next.delete(groupId)
-                              else next.add(groupId)
-                              return next
-                            })}
-                            className="cursor-pointer px-2 py-3"
-                          >
-                            {isExpanded
-                              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                              : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                            }
-                          </button>
-                          {/* Select all toggle */}
-                          <button
-                            onClick={() => handleToggleGroupSelection(freeGroupMatIds)}
-                            className="flex-1 flex cursor-pointer items-center justify-between py-3 pr-3 text-left"
-                          >
-                            <div className="flex items-center gap-3">
-                              {allSelected ? (
-                                <CheckCircle className={cn(
-                                  "h-5 w-5 text-sel-foreground flex-shrink-0",
-                                  wasJustAssigned && "animate-check-appear"
-                                )} />
-                              ) : someSelected ? (
-                                <CheckCircle className="h-5 w-5 text-sel-foreground/50 flex-shrink-0" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              )}
-                              <div>
-                                <p className="font-medium text-sm flex items-center gap-1.5">
-                                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                                  {groupName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {groupOrigins && <span>{groupOrigins} · </span>}
-                                  {t('assignmentDialog.groupSelected', { selected: selectedCount, total: groupMats.length })}
-                                </p>
-                              </div>
-                            </div>
-                            {allSelected && (
-                              <Badge variant="secondary" className="text-xs animate-scale-in">{t('assignmentDialog.all')}</Badge>
-                            )}
-                            {someSelected && !allSelected && (
-                              <Badge variant="secondary" className="text-xs animate-scale-in">{t('assignmentDialog.partial')}</Badge>
-                            )}
-                          </button>
-                        </div>
-                        {/* Expanded individual materials — the same tile as
-                            ungrouped items, slightly inset so they read as the
-                            module's contents. */}
-                        {/* Slides open (Reveal); the 4px gap under the header
-                            is padding inside the clip, so nothing snaps. */}
-                        <Reveal open={isExpanded} innerClassName="pt-1">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-4 border-l-2 border-border/40 ml-3">
-                            {groupMats.map(renderMaterialTile)}
-                          </div>
-                        </Reveal>
-                      </div>
-                    )
+                <MaterialAssignmentList
+                  groups={groupedFilteredMaterials.groups}
+                  ungroupedFree={ungroupedMaterialSections.free}
+                  ungroupedBusy={ungroupedMaterialSections.busy}
+                  allBusy={allBusy}
+                  selectedMaterials={selectedMaterials}
+                  occupiedElsewhereMaterialIds={occupiedElsewhereMaterialIds}
+                  materialElsewhereLabel={materialElsewhereLabel}
+                  assignedVehicles={assignedVehicles}
+                  justAssigned={justAssigned}
+                  expandedGroups={expandedGroups}
+                  onToggleExpanded={(groupId) => setExpandedGroups(prev => {
+                    const next = new Set(prev)
+                    if (next.has(groupId)) next.delete(groupId)
+                    else next.add(groupId)
+                    return next
                   })}
-                  {/* Ungrouped materials — free first, spoken-for underneath.
-                      Module groups above stay whole: a module is a unit. */}
-                  {allBusy && (
-                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
-                      <p className="text-sm text-muted-foreground">{allBusyText}</p>
-                    </ListSection>
-                  )}
-                  {ungroupedMaterialSections.free.length > 0 && (
-                    <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: ungroupedMaterialSections.free.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {ungroupedMaterialSections.free.map(renderMaterialTile)}
-                      </div>
-                    </ListSection>
-                  )}
-                  {ungroupedMaterialSections.busy.length > 0 && (
-                    <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: ungroupedMaterialSections.busy.length })}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {ungroupedMaterialSections.busy.map(renderMaterialTile)}
-                      </div>
-                    </ListSection>
-                  )}
-                </>
+                  onToggleMaterial={handleToggleMaterialSelection}
+                  onToggleGroup={handleToggleGroupSelection}
+                />
               )}
 
               {/* Why the list is empty, and the one way out — never a big icon. */}

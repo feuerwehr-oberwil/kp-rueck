@@ -6,7 +6,7 @@ import { formatLocationForDisplay } from './utils'
 
 /**
  * The address formatter exists twice – here and as `format_location_for_display`
- * in backend/app/services/pdf_report_service.py, which is what fills the
+ * in backend/app/services/address_display.py, which is what fills the
  * `location_display` the API serves. Both suites read the SAME table so the two
  * copies cannot drift: a case added here is a case the backend must pass too.
  *

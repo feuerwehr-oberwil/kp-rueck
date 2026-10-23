@@ -4,10 +4,16 @@ set -e
 # Install pre-downloaded tiles to TileServer
 # Usage: ./scripts/install-tiles.sh <path-to-mbtiles-file>
 
-# TILES_NAME is the filename the tileserver looks for; keep it in step with
-# scripts/download-tiles.sh and scripts/init-tileserver.sh. Your source file can
-# be called anything – it is renamed to this on the way into the volume.
-TILES_NAME="${TILES_NAME:-basel-landschaft}"
+# TILES_NAME is the filename the tileserver looks for. Read from the station's .env
+# like docker-compose and scripts/download-tiles.sh read it (an explicit shell value
+# wins), so all three agree. Your source file can be called anything – it is renamed
+# to this on the way into the volume. DOMAIN and HTTP_PORT come from .env as well, for
+# the readiness probe at the end. Same reader as `just doctor`.
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+envval() { [ -f "$REPO_DIR/.env" ] || return 0; sed -n "s/^$1=//p" "$REPO_DIR/.env" | tail -n1 | tr -d '\r' | sed 's/^"\(.*\)"$/\1/'; }
+TILES_NAME="${TILES_NAME:-$(envval TILES_NAME)}"; TILES_NAME="${TILES_NAME:-basel-landschaft}"
+STACK_DOMAIN="$(envval DOMAIN)"
+STACK_PORT="$(envval HTTP_PORT)"; STACK_PORT="${STACK_PORT:-8080}"
 
 # Dev names it kprueck-tileserver-dev, production names it kp-rueck-tileserver-1.
 # Detect rather than default to one of them; TILES_CONTAINER overrides.
@@ -77,16 +83,20 @@ echo "✓ Tile server restarted"
 echo ""
 
 # Dev publishes the tileserver on 8080; production publishes no tileserver port and reaches
-# it through Caddy at /tiles. Probe both – see the same block in download-tiles.sh.
+# it through Caddy at /tiles. Same probe order as download-tiles.sh and `just tiles-status`:
+# the /tiles paths first, because a production stack on port 8080 answers /health from the
+# BACKEND and would otherwise be taken for a dev tileserver.
 echo "[3/3] Waiting for tile server to be ready..."
 BASE_URL=""
 MAX_ATTEMPTS=30
 ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+    if [ -n "$STACK_DOMAIN" ] && curl -sfk -m 5 "https://${STACK_DOMAIN}/tiles/health" > /dev/null 2>&1; then
+        BASE_URL="https://${STACK_DOMAIN}/tiles"
+    elif curl -sf -m 5 "http://localhost:${STACK_PORT}/tiles/health" > /dev/null 2>&1; then
+        BASE_URL="http://localhost:${STACK_PORT}/tiles"
+    elif curl -sf -m 5 http://localhost:8080/health > /dev/null 2>&1; then
         BASE_URL="http://localhost:8080"
-    elif curl -sf "http://localhost:${HTTP_PORT:-8080}/tiles/health" > /dev/null 2>&1; then
-        BASE_URL="http://localhost:${HTTP_PORT:-8080}/tiles"
     fi
     if [ -n "$BASE_URL" ]; then
         echo "✓ Tile server is ready ($BASE_URL)"

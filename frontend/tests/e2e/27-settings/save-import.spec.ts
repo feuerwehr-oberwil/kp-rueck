@@ -94,7 +94,7 @@ test.describe('Import', () => {
     if (await replace.isDisabled()) {
       // Another Ereignis on this database holds live assignments: the backend
       // would answer 409, and the page refuses up front, with the reason.
-      await expect(replace).toHaveAttribute('title', /aktive Zuteilungen auf laufenden Einsätzen/);
+      await expect(replace).toHaveAttribute('title', /aktive Zuweisungen auf laufenden Einsätzen/);
     } else {
       await replace.click();
       const confirm = page.getByRole('alertdialog', { name: 'Datenimport ersetzen?' });
