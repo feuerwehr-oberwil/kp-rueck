@@ -509,7 +509,7 @@ graph LR
 
     subgraph roles["Access Levels"]
         admin["Admin<br/><small>User mgmt + all editor perms</small>"]
-        editor["Editor<br/><small>Full CRUD on incidents,<br/>resources, settings</small>"]
+        editor["Editor<br/><small>Incidents, resources, settings –<br/>not the admin-only list</small>"]
         viewer["Viewer<br/><small>Read-only board view</small>"]
         checkin["Check-In<br/><small>Personnel self-service</small>"]
         intake["Alarm intake<br/><small>Create incidents only</small>"]
@@ -518,12 +518,25 @@ graph LR
 
     jwt --> admin
     jwt --> editor
-    master --> editor
+    master --> admin
     public_token --> viewer
     public_token --> checkin
     public_token --> intake
     public_token --> feld
 ```
+
+**Admin only** – an editor runs the Einsatz, an admin runs the installation. Besides user
+management (`/api/users`), these need `role="admin"` (`CurrentAdmin` or an explicit role check
+in the route):
+
+- the audit log and its export (`api/audit.py`)
+- permanently deleting an Ereignis (`DELETE /api/events/{id}`; archiving stays with editors)
+- Excel import with **Ersetzen** (`import_mode=replace`; **Anhängen** stays with editors)
+- Divera personnel sync with `remove_stale`
+- revealing and rotating the alarm-webhook secret (`/api/settings/alarm-webhook-secret`)
+- the roster-snapshot sync (`POST /api/integrations/roster-snapshot/sync`)
+- Railway sync and its configuration (`api/sync.py`), telemetry consent and install id
+  (`api/diag.py`), the demo reset
 
 Every public token is a signed JWT scoped to **one** Ereignis (the Reko *form* token to one
 incident) and carries a hard expiry. The lifetimes below are the defaults in
@@ -534,14 +547,15 @@ them, so **a link that has to keep working past its expiry has to be re-generate
 |------------|-------------|--------|--------|
 | JWT (access) | Login form | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |
 | JWT (refresh) | Login form | **7 days** (`REFRESH_TOKEN_EXPIRE_DAYS`) | Mints a new access token |
-| Master Token | Environment variable | Never | Editor-level API access |
+| Master Token | Environment variable | Never | Admin-level API access – authenticates as `role="admin"` (`auth/dependencies.py`) |
 | Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
 | Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis |
 | Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |
 | Alarm Token | Generated in UI (QR code) | **30 days** (720 h) | Public alarm intake – **write**: creates incidents in one Ereignis, rate-limited and flagged `source='intake'` |
 | Feld Token (link) | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | Nothing on its own – the right to be asked for the Feld-Code |
-| Feld Token (unlocked) | `POST /feld/unlock` with the four-digit code | **30 days** (720 h) | The crew picker for one Ereignis, and nothing else |
+| Feld Token (unlocked) | `POST /feld/unlock` with the four-digit code | **5 minutes** (`FELD_UNLOCK_MINUTES`, `crud/feld/access.py`) – the picker window | The crew picker for one Ereignis, and nothing else; good for **one** claim (the unlock row is consumed). Picking a name trades it for the 30-day bound token below, so a crew is not asked again |
 | Feld Token (bound) | `POST /feld/claim` with your own name | **30 days** (720 h) | The `/feld` field surface, **as exactly one person** |
+| Feld Token (bound, from the board) | `POST /api/reko/generate-link` with a `personnel_id` – the link the KP sends a Reko person | **72 hours** | The same as a claimed device, for that one person; backed by a device claim, so **Alle Geräte abmelden** recalls it |
 
 > **The Feld door is three steps, and each hands out a strictly stronger token than the last**
 > (`backend/app/crud/feld/access.py`). The link alone opens nothing; the **Feld-Code** – four

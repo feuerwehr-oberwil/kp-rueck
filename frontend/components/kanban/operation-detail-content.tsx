@@ -1773,7 +1773,7 @@ export function OperationDetailContent({
               <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
 
               {/* Everything the field asked for, with its state (R13): offen →
-                  in Arbeit → erledigt, who and when. «Material zuteilen» opens
+                  in Arbeit → erledigt, who and when. «Material zuweisen» opens
                   the same assignment dialog as the «+» on the resource rows. */}
               <FieldRequestList
                 operation={operation}

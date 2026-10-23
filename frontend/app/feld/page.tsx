@@ -254,7 +254,7 @@ function SourceReason({ assignment }: { assignment: ApiFeldAssignment }) {
  * The scale used to run the wrong way. `none` — the only state that means «du
  * schuldest noch etwas» — wore the same grey as every inert chip on the page,
  * while `submitted`, the state with nothing left to do, got the strongest
- * colour. Next to «Nicht mehr zugeteilt», also grey, the two quiet signals
+ * colour. Next to «Nicht mehr zugewiesen», also grey, the two quiet signals
  * added up to "this card is finished" on a card whose line above says in red
  * that the Rapport is your job.
  *
