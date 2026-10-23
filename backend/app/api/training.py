@@ -1035,7 +1035,7 @@ async def simulate_field_report(
     if actor.personnel_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dem Einsatz ist kein Trupp zugeteilt – eine Meldung vom Feld braucht eine Person im Feld",
+            detail="Dem Einsatz ist kein Trupp zugewiesen – eine Meldung vom Feld braucht eine Person im Feld",
         )
     person = await db.get(Personnel, actor.personnel_id)
     if person is None:

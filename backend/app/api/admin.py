@@ -227,7 +227,7 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     materials_block = any(blocker["materials"] for blocker in blockers)
     material_hint = (
         "Achtung: 'Alle freigeben' und das Abschliessen eines Einsatzes geben nur Personal und Fahrzeuge frei – "
-        "zugeteiltes Material bleibt zugeteilt, bis es über den Rapport ('Material zurück – freigeben') "
+        "zugewiesenes Material bleibt zugewiesen, bis es über den Rapport ('Material zurück – freigeben') "
         "zurückgenommen wird. "
         if materials_block
         else ""
@@ -239,15 +239,15 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     groups_block = any(blocker["kind"] == "group" for blocker in blockers)
     holders = "laufenden Einsätzen und Aufträgen" if groups_block else "laufenden Einsätzen"
     way_out = (
-        "Zuteilungen freigeben bzw. Einsätze und Aufträge abschliessen"
+        "Zuweisungen freigeben bzw. Einsätze und Aufträge abschliessen"
         if groups_block
-        else "Zuteilungen freigeben bzw. Einsätze abschliessen"
+        else "Zuweisungen freigeben bzw. Einsätze abschliessen"
     )
 
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            f"Import im Modus 'replace' abgelehnt: {active_count} aktive Zuteilung(en) auf {holders} "
+            f"Import im Modus 'replace' abgelehnt: {active_count} aktive Zuweisung(en) auf {holders} "
             "zeigen auf Personal, Fahrzeuge oder Material, das dabei gelöscht würde. "
             f"{betroffen}{material_hint}"
             f"{way_out} – oder den Modus 'append' verwenden."

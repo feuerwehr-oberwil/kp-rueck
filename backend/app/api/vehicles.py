@@ -25,7 +25,7 @@ def _archive_refused_detail(refused: materials_crud.ArchiveRefused) -> str:
     """The 409 for archiving a deployed vehicle — same shape as the purge's `in_use`."""
     return (
         f"«{refused.name}» steht aktuell auf {refused.active_incidents} Einsätzen und kann "
-        "nicht archiviert werden – zuerst die Zuteilung aufheben."
+        "nicht archiviert werden – zuerst die Zuweisung aufheben."
     )
 
 

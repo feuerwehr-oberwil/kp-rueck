@@ -682,7 +682,7 @@ async def _authorized_incident(
     incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id, sources=sources)
     if incident is None:
         raise CodedHTTPException(
-            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugeteilt."
+            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugewiesen."
         )
     return incident, person
 
