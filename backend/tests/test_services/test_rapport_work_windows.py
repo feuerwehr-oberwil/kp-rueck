@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from app.models import Event, Incident, IncidentAssignment, SchadenplatzReport, StatusTransition
 from app.services.audit_export_service import EventReportData
-from app.services.pdf_report_service import rapport_work_windows
+from app.services.rapport_rows import rapport_work_windows
 
 
 def _event() -> Event:

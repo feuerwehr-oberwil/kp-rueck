@@ -33,15 +33,14 @@ from app.models import (
     Vehicle,
 )
 from app.schemas.journal import JournalEntryOut
+from app.services.address_display import format_location_for_display
 from app.services.audit_export_service import EventReportData, collect_event_report_data
-from app.services.pdf_report_service import (
+from app.services.pdf_report_service import build_event_report_pdf, build_journal_entries
+from app.services.rapport_rows import (
     LOCAL_TZ,
-    build_event_report_pdf,
-    build_journal_entries,
     extra_material_left_on_site_names,
     format_corrected_count,
     format_extra_material,
-    format_location_for_display,
     format_material_unit,
     material_left_on_site_names,
     material_used_label,

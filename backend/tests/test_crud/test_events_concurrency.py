@@ -145,7 +145,9 @@ async def test_concurrent_deletes_delete_once_and_audit_once(
 
     async def delete_in_own_session() -> bool:
         async with sessions() as session:
-            return await events_crud.delete_event(session, event_id)
+            deleted = await events_crud.delete_event(session, event_id)
+            await session.commit()  # the request's commit, as get_db's caller would
+            return deleted
 
     first = asyncio.create_task(delete_in_own_session())
     second: asyncio.Task[bool] | None = None
@@ -200,6 +202,7 @@ async def test_concurrent_archives_keep_one_timestamp(
         async with sessions() as session:
             event = await events_crud.archive_event(session, event_id)
             assert event is not None
+            await session.commit()
             return event.archived_at
 
     stamps = await asyncio.wait_for(

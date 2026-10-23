@@ -69,7 +69,6 @@ async def upload_report_logo(
         changes={"key": branding.LOGO_SETTING_KEY, "before": None, "after": f"{size} bytes"},
         request=request,
     )
-    await db.commit()
     return {"size": size}
 
 
@@ -91,7 +90,6 @@ async def delete_report_logo(
         changes={"key": branding.LOGO_SETTING_KEY, "before": "gesetzt", "after": None},
         request=request,
     )
-    await db.commit()
     return Response(status_code=204)
 
 
@@ -114,8 +112,8 @@ async def delete_report_logo(
 @limiter.limit(RateLimits.SECRET_REVEAL)
 async def reveal_alarm_webhook_secret(
     current_user: CurrentAdmin,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    request: Request = None,  # type: ignore[assignment]
 ) -> schemas.AlarmWebhookSecret:
     """Show the current webhook secret to an admin, and say where it comes from."""
     pinned = await settings_service.alarm_webhook_secret_is_pinned()
@@ -132,7 +130,6 @@ async def reveal_alarm_webhook_secret(
         changes={"key": "alarm_webhook_secret", "action": "revealed"},
         request=request,
     )
-    await db.commit()
 
     return schemas.AlarmWebhookSecret(
         secret=secret,
@@ -145,8 +142,8 @@ async def reveal_alarm_webhook_secret(
 @limiter.limit(RateLimits.SECRET_REVEAL)
 async def rotate_alarm_webhook_secret(
     current_user: CurrentAdmin,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    request: Request = None,  # type: ignore[assignment]
 ) -> schemas.AlarmWebhookSecret:
     """Generate a new webhook secret. Refuses when the environment pins one."""
     if await settings_service.alarm_webhook_secret_is_pinned():
@@ -178,7 +175,6 @@ async def rotate_alarm_webhook_secret(
         changes={"key": "alarm_webhook_secret", "action": "rotated"},
         request=request,
     )
-    await db.commit()
 
     return schemas.AlarmWebhookSecret(secret=new_secret, source="database", configured=True)
 
@@ -209,10 +205,8 @@ async def update_setting(
     key: str,
     update: schemas.SettingUpdate,
     current_user: CurrentEditor,  # Editor only
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> Setting:
     """Update setting (editor only)."""
     # Only allow updates to known settings keys. The underlying service creates a
@@ -255,6 +249,5 @@ async def update_setting(
         changes={"key": key, "before": _audit_value(old_value), "after": _audit_value(update.value)},
         request=request,
     )
-    await db.commit()
 
     return setting

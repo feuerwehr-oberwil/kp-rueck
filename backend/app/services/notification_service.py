@@ -12,6 +12,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import after_commit
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
 
@@ -25,7 +26,7 @@ from ..schemas import NotificationSettings
 # card that reads «…strasse 8».
 from . import notification_params as texts
 from .incident_display import get_home_city, location_display
-from .pdf_report_service import STATUS_LABELS
+from .rapport_rows import STATUS_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -398,7 +399,7 @@ async def _sync_fatigue_notification(
     await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"})
     try:
         notification = await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
-        await db.commit()  # also releases the lock
+        await db.commit()  # releases the advisory lock early: every board's poll queues on it
     except Exception:
         await db.rollback()
         raise
@@ -783,7 +784,7 @@ async def _deduplicate_and_save(
             saved.append(notification)
 
     if saved:
-        await db.commit()
+        await db.flush()
         for notification in saved:
             await db.refresh(notification)
 
@@ -832,7 +833,7 @@ async def _auto_resolve_stale_notifications(
             notification.dismissed = True
             notification.dismissed_at = now
             # dismissed_by is None for auto-resolved notifications
-        await db.commit()
+        await db.flush()
 
 
 async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id: UUID) -> Notification | None:
@@ -850,12 +851,12 @@ async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id:
         from ..crud.feld.requests import mark_seen_by_notification
 
         seen = await mark_seen_by_notification(db, notification.id, now)
-        await db.commit()
+        await db.flush()
         await db.refresh(notification)
         if seen and notification.incident_id:
             from ..websocket_manager import broadcast_incident_update
 
-            await broadcast_incident_update({"id": str(notification.incident_id)}, "update")
+            after_commit(db, broadcast_incident_update, {"id": str(notification.incident_id)}, "update")
 
     return notification
 
@@ -907,13 +908,15 @@ async def create_reko_notification(
     )
 
     db.add(notification)
-    await db.commit()
+    await db.flush()
     await db.refresh(notification)
 
     # Broadcast via WebSocket so frontends update immediately
     from ..websocket_manager import broadcast_notification_update
 
-    await broadcast_notification_update(
+    after_commit(
+        db,
+        broadcast_notification_update,
         {"id": str(notification.id), "type": notification.type, "incident_id": str(incident_id)},
         "create",
     )
@@ -957,12 +960,14 @@ async def create_vehicle_returned_notification(
         event_id=event_id,
     )
     db.add(notification)
-    await db.commit()
+    await db.flush()
     await db.refresh(notification)
 
     from ..websocket_manager import broadcast_notification_update
 
-    await broadcast_notification_update(
+    after_commit(
+        db,
+        broadcast_notification_update,
         {"id": str(notification.id), "type": notification.type, "event_id": str(event_id)},
         "create",
     )
@@ -1000,12 +1005,14 @@ async def create_field_notification(
         event_id=event_id,
     )
     db.add(notification)
-    await db.commit()
+    await db.flush()
     await db.refresh(notification)
 
     from ..websocket_manager import broadcast_notification_update
 
-    await broadcast_notification_update(
+    after_commit(
+        db,
+        broadcast_notification_update,
         {"id": str(notification.id), "type": notification.type, "incident_id": str(incident_id)},
         "create",
     )
@@ -1034,12 +1041,14 @@ async def create_feld_code_rotated_notification(db: AsyncSession, event: Event) 
         event_id=event.id,
     )
     db.add(notification)
-    await db.commit()
+    await db.flush()
     await db.refresh(notification)
 
     from ..websocket_manager import broadcast_notification_update
 
-    await broadcast_notification_update(
+    after_commit(
+        db,
+        broadcast_notification_update,
         {"id": str(notification.id), "type": notification.type, "event_id": str(event.id)},
         "create",
     )
@@ -1082,13 +1091,15 @@ async def create_reko_arrived_notification(
     )
 
     db.add(notification)
-    await db.commit()
+    await db.flush()
     await db.refresh(notification)
 
     # Broadcast via WebSocket so frontends update immediately
     from ..websocket_manager import broadcast_notification_update
 
-    await broadcast_notification_update(
+    after_commit(
+        db,
+        broadcast_notification_update,
         {"id": str(notification.id), "type": notification.type, "incident_id": str(incident_id)},
         "create",
     )

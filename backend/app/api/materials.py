@@ -230,7 +230,6 @@ async def update_location_sort_orders(
             .values(location_sort_order=category_update.sort_order)
         )
 
-    await db.commit()
     return {"status": "success", "updated_categories": len(sort_update.categories)}
 
 
@@ -275,7 +274,7 @@ async def create_material_group(
     if group.material_ids:
         await db.execute(update(Material).where(Material.id.in_(group.material_ids)).values(group_id=db_group.id))
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_group, ["materials"])
     return db_group
 
@@ -307,7 +306,7 @@ async def update_material_group(
                 update(Material).where(Material.id.in_(group_update.material_ids)).values(group_id=group_id)
             )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_group, ["materials"])
     return db_group
 

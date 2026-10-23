@@ -329,6 +329,7 @@ async def preview_excel_import(
 )
 async def execute_excel_import(
     current_user: CurrentEditor,
+    request: Request,
     file: UploadFile = File(...),
     # `Form(...)`, not a bare default: the client sends `mode` in the multipart body next to
     # the file. Without it FastAPI binds from the QUERY STRING, nothing ever supplies it there,
@@ -338,9 +339,6 @@ async def execute_excel_import(
     # `None` rather than `Form(...)`, so the answer is our 400 naming the modes and not a 422.
     mode: str | None = Form(None, description=_MODE_DESCRIPTION),  # replace or append
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """
     Execute Excel import with specified mode. `mode` is required – there is no default.
@@ -419,7 +417,6 @@ async def execute_excel_import(
         },
         request=request,
     )
-    await db.commit()
 
     return {
         "success": True,
@@ -432,10 +429,8 @@ async def execute_excel_import(
 @router.get("/export/data")
 async def export_all_data(
     current_user: CurrentEditor,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> StreamingResponse:
     """Export all personnel, vehicles, and materials to Excel."""
     excel_bytes = await export_data_to_excel(db)
@@ -452,7 +447,6 @@ async def export_all_data(
         changes={"filename": filename},
         request=request,
     )
-    await db.commit()
 
     return StreamingResponse(
         excel_bytes,
@@ -464,12 +458,10 @@ async def export_all_data(
 @router.post("/seed-training", response_model=None)
 async def seed_training_templates(
     current_user: CurrentEditor,
+    request: Request,
     skip_geocoding: bool = True,
     force_reseed: bool = False,
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """
     Manually seed training emergency templates and locations.
@@ -513,7 +505,6 @@ async def seed_training_templates(
             },
             request=request,
         )
-        await db.commit()
 
         return {
             "success": True,

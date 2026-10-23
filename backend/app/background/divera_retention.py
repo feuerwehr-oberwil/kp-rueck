@@ -26,6 +26,7 @@ async def purge_divera_responses() -> int:
     try:
         async with async_session_maker() as db:
             purged = await purge_expired(db)
+            await db.commit()
         if purged:
             logger.info("Divera Rückmeldungen: deleted the answers of %d alarm(s) past retention", purged)
         return purged

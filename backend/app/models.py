@@ -1255,7 +1255,7 @@ class SchadenplatzReport(Base):
     # asked of the crew and then never disagreed with the board: the window is
     # already implied by the arrival, the status transitions and the field's
     # "beendet" message, so every output derives it instead
-    # (`services.pdf_report_service.rapport_work_windows`). Typing in the rain what
+    # (`services.rapport_rows.rapport_work_windows`). Typing in the rain what
     # the board already knows is the one cost a field form must not have.
     # Material checklist. One entry per material unit that was assigned to this
     # incident, carried over from incident_assignments on first open:
