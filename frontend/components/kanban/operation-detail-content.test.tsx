@@ -8,7 +8,6 @@ import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const transferAssignments = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const getVehicles = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 const sourcePerson = vi.hoisted((): Person => ({
   id: "person-1",
@@ -76,7 +75,6 @@ vi.mock("@/lib/api-client", () => ({
   apiClient: {
     getVehicles,
     getIncidents: vi.fn().mockResolvedValue([]),
-    transferAssignments,
     updateAssignment: vi.fn(),
     getIncidentTimeline,
     getIncidentParticipants,
@@ -128,10 +126,6 @@ vi.mock("@/components/kanban/schadenplatz-rapport-section", () => ({
       Schadenplatz-Rapport-Formular
     </div>
   ),
-}))
-vi.mock("@/components/incidents/transfer-incident-dialog", () => ({
-  TransferIncidentDialog: ({ open, onTransfer }: { open: boolean; onTransfer: (id: string) => Promise<void> }) =>
-    open ? <button onClick={() => onTransfer("incident-2")}>Transfer bestätigen</button> : null,
 }))
 vi.mock("@/components/incidents/assign-reko-dialog", () => ({ AssignRekoDialog: () => null }))
 // NOT mocked: the provenance blocks are the thing under test, and the route's
@@ -198,7 +192,6 @@ beforeEach(() => {
     clear: () => storage.clear(),
   })
   refreshOperations.mockClear()
-  transferAssignments.mockClear()
   getVehicles.mockClear()
   getVehicles.mockResolvedValue([])
   getIncidentTimeline.mockClear()
@@ -256,8 +249,9 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Event-Rekos von Reko Eins")).toBeInTheDocument()
   })
 
-  it("closes the transfer dialog but keeps incident detail open after success", async () => {
+  it("hands «Ressourcen übertragen» to the page's dialog layer", async () => {
     const user = userEvent.setup()
+    const onTransferResources = vi.fn()
 
     renderWithIntl(
       <OperationDetailContent
@@ -265,6 +259,7 @@ describe("OperationDetailContent", () => {
         layout="modal"
         materials={[]}
         onUpdate={vi.fn()}
+        onTransferResources={onTransferResources}
       />,
     )
 
@@ -272,13 +267,7 @@ describe("OperationDetailContent", () => {
     // block in the Übersicht — it acts on the resources listed right above it,
     // so it no longer hides in the ⋯ menu.
     await user.click(screen.getByRole("button", { name: "Ressourcen übertragen" }))
-    const confirm = await screen.findByRole("button", { name: "Transfer bestätigen" })
-    await user.click(confirm)
-
-    await waitFor(() => expect(refreshOperations).toHaveBeenCalledOnce())
-    expect(transferAssignments).toHaveBeenCalledWith("incident-1", "incident-2")
-    expect(screen.queryByRole("button", { name: "Transfer bestätigen" })).not.toBeInTheDocument()
-    expect(screen.getByTestId("operation-detail-content")).toBeInTheDocument()
+    expect(onTransferResources).toHaveBeenCalledWith("incident-1")
   })
 
   it("keeps viewer details read-only while retaining non-mutating information", async () => {

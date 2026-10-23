@@ -1956,7 +1956,6 @@
       },
       "vehiclesLoadFailed": "Les véhicules n’ont pas pu être chargés",
       "vehiclesLoadFailedDescription": "Réessaie ou rouvre la fenêtre.",
-      "noEventSelectedLong": "Aucun événement sélectionné. Choisis un événement.",
       "incidentsLoadFailedDescription": "Les interventions n’ont pas pu être chargées.",
       "meldungPlaceholder": "Annonce reçue, nature des dégâts …",
       "nachbarhilfeDescription": "Intervention avec participation d’un corps voisin",
