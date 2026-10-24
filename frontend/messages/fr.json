@@ -641,10 +641,17 @@
       "confirm": "Supprimer définitivement"
     },
     "emptyState": {
-      "title": "Aucun événement sélectionné ?",
-      "description": "Pas de problème ! Crée un nouvel événement ou choisis-en un existant pour démarrer.",
-      "createButton": "Créer un nouvel événement",
-      "viewButton": "Afficher les événements"
+      "title": "Choisir un événement",
+      "description": "Aucun événement n’a été ouvert au cours des dernières 24 heures. Ouvre-en un nouveau ou choisis-en un plus ancien.",
+      "recentDescription": "Ouverts au cours des dernières 24 heures – le premier a été actif en dernier.",
+      "openedToday": "ouvert aujourd’hui à {time}",
+      "openedYesterday": "ouvert hier à {time}",
+      "lastActive": "dernière activité {rel}",
+      "open": "Ouvrir",
+      "createButton": "Nouvel événement",
+      "allEvents": "Tous les événements",
+      "viewButton": "Afficher les événements",
+      "loading": "Chargement des événements …"
     },
     "restliste": {
       "missingRapport": "{count} sinistres sur {total} sans rapport",
@@ -1504,6 +1511,12 @@
     }
   },
   "kanban": {
+    "edgeTabs": {
+      "label": "{title} : {count, plural, one {# intervention} other {# interventions}}{high, plural, =0 {} other {, # haute}} – afficher la colonne",
+      "high": "{count} haute",
+      "navLeft": "Colonnes hors de la vue à gauche",
+      "navRight": "Colonnes hors de la vue à droite"
+    },
     "columns": {
       "incoming": "Reçu",
       "reko": "Reconnaissance",

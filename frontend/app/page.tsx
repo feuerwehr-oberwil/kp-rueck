@@ -62,6 +62,7 @@ import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
+import { BoardEdgeTabs } from "@/components/kanban/board-edge-tabs"
 import { useCardView } from "@/lib/card-view"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
@@ -205,6 +206,8 @@ export default function FireStationDashboard() {
   const rawTabParam = searchParams.get("tab")
   const tabParam = isDetailTab(rawTabParam) ? rawTabParam : undefined
   const isMobile = useIsMobile()
+  // The desktop board's horizontal scroller (`#kanban-main`) – read by the edge tabs.
+  const boardScrollerRef = useRef<HTMLElement | null>(null)
 
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
@@ -1440,6 +1443,7 @@ export default function FireStationDashboard() {
           {/* Main Kanban Board */}
           <main
             id="kanban-main"
+            ref={boardScrollerRef}
             data-spotlight={spotlightActive ? 'on' : undefined}
             // No bottom padding: with `overflow-x-auto` the horizontal scrollbar
             // already sits below the columns, so a pb-4 underneath it drew a
@@ -1512,6 +1516,13 @@ export default function FireStationDashboard() {
               </div>
             )}
           </main>
+
+          {/* Columns that do not fit become folded tabs at the board's edges (UX-DESKTOP-07):
+              nothing on the board changes size, the edge just names what is hidden behind it
+              and a click scrolls there. Gone by itself when everything fits. */}
+          {isLoaded && !boardNeverLoaded && (
+            <BoardEdgeTabs scrollerRef={boardScrollerRef} columns={columns} operations={filteredOperations} />
+          )}
 
           {/* Personen-Leiste reopen tab (shown when collapsed; "[" also toggles).
               The SAME pill as the collapse handle on the open sidebar, inset from

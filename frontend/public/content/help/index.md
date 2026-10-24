@@ -9,6 +9,8 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **Die Ansicht bleibt, wie man sie eingestellt hat.** Zugeklappte Seitenleisten, das Seitenpanel und eine weggeklickte Einrichtungs-Checkliste überstehen einen Reload – pro Gerät gemerkt, wie die übrigen Anzeige-Einstellungen.
 
+**Spalten, die nicht ins Bild passen, stehen als Reiter am Rand.** Mit beiden Seitenleisten passen auf 1920 px vier Spalten; was rechts daneben liegt, nennt ein schmaler Reiter am rechten Rand – «Im Einsatz 2 · 1 Hoch», «Rückfahrt 2», «Abgeschlossen 0» (ein roter Punkt heisst: Hoch drin). Ein Klick (oder `Tab` + `Enter`) scrollt die Spalte ins Bild; nach rechts gescrollt nennt der linke Rand die Spalten dort. Eine Karte lässt sich auch direkt auf einen Reiter ziehen. Keine Spalte wird dafür schmaler; passt alles (Seitenleisten zu, breiterer Bildschirm), verschwinden die Reiter von selbst.
+
 **«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
 
 **«Dienstzeiten» am Fuss der Personen-Leiste.** Wer da ist, seit wann und wie viel er schon gemacht hat – alle Eingecheckten, wer am längsten da ist zuoberst. Spalten: **Name · Seit · Anwesend · Eingesetzt · Pause · Einsätze · Jetzt**. *Anwesend* zählt ab dem Check-in (gelb ab der Einstellung «Personalermüdung», standardmässig 4 h, rot ab dem Anderthalbfachen), *Eingesetzt* die Zeit auf einem Einsatz oder Auftrag, *Pause* die Zeit anwesend, aber auf keinem Einsatz und keinem Auftrag; *Einsätze* zählt die Einsätze dieses Ereignisses (ein Auftrag einmal, ein innert zwei Minuten zurückgenommenes Ziehen gar nicht). Ein Klick auf einen Spaltenkopf sortiert danach, nochmals umgekehrt – «wer hat am meisten, wer am wenigsten» ist ein Klick. **Alle · Frei · Im Einsatz** und eine Suche nach Name oder Ort grenzen ein. Auch über `Cmd/Ctrl+K` und auf dem Handy im Personal-Sheet (dort Suchfeld und ein Trichter-Menü, das auch die Sortierung enthält). Eine Ansicht, kein Dienstplan – von hier aus wird niemand eingeteilt oder alarmiert.
@@ -44,6 +46,8 @@ Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **De
 
 ### Ereignisse (`G E`)
 Ereignisse verwalten, wechseln, archivieren, exportieren.
+
+**Ohne gewähltes Ereignis** (neuer Browser, nach dem Abmelden) zeigt das Board die offenen Ereignisse der letzten 24 Stunden – das zuletzt aktive zuoberst, «Öffnen» oder `Enter` führt hinein. Ein neues Ereignis gibt es dort auch, aber nicht als Hauptknopf: um 3 Uhr nachts soll niemand den laufenden Unwetterabend in zwei Ereignisse teilen. Wurde in 24 Stunden keines eröffnet, bleibt die Karte «Ereignis wählen» mit «Neues Ereignis» und «Ereignisse anzeigen».
 
 **Archivieren sagt, was noch offen ist.** Der Dialog listet, was das Archivieren abschneiden würde: nicht abgeschlossene Einsätze (mit «Auf dem Board zeigen»), offene Abholungen, Material noch am Schadenplatz und Personen, die noch angemeldet sind. Das vorab angekreuzte «automatisch abmelden» meldet beim Archivieren alle ab – Abmeldezeit = Ereignisende. Solange etwas offen ist, heisst der Knopf «Trotzdem archivieren».
 
