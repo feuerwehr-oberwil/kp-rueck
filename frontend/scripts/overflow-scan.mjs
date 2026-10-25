@@ -373,6 +373,22 @@ function visits(links) {
         await p.waitForTimeout(1500)
       },
     })
+    // The «Kurzbericht fehlt noch» question (feld-rapport-gaps.tsx). Only asks while
+    // Kurzbericht or Mannschaft is empty – otherwise this tap would FILE the rapport, so it
+    // taps only when the Kurzbericht block still says it is empty.
+    v.push({
+      id: 'feld-rapport-gaps', path: links.feld, role: null, fresh: true,
+      act: async (p) => {
+        await feldClaim(p)
+        await p.locator('button').filter({ hasText: links.feldIncident }).filter({ visible: true }).first().click({ timeout: 6000 })
+        await p.waitForTimeout(1500)
+        const kurzbericht = p.getByRole('button', { name: /^Kurzbericht/ }).first()
+        if (!/noch nichts erfasst/.test(await kurzbericht.innerText({ timeout: 6000 }))) return
+        await p.getByRole('button', { name: 'Rapport abschliessen', exact: true }).click({ timeout: 6000 })
+        await p.getByRole('alertdialog').waitFor({ timeout: 6000 })
+        await p.waitForTimeout(400)
+      },
+    })
   }
   return ONLY ? v.filter((x) => ONLY.some((o) => x.id === o || x.id.startsWith(o + '-') || x.id.startsWith(o))) : v
 }

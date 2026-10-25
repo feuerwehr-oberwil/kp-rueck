@@ -729,6 +729,31 @@
     animation: settings-search-flash 2.4s ease-out;
   }
 
+  /* «This one» on /feld: a row of the «Rapport abschliessen» question landed
+     on its section (FeldSection `jumpSignal`). KP Front's two-beat ink ring
+     (02-base.css · ui-flash-ring), 1.9 s – ink, not a hue, because on the
+     sections amber already means «fehlt» and green «erfasst». Under reduced
+     motion the ring stands still; the jump's timer takes it off again. */
+  @keyframes feld-jump-ring {
+    0%, 22%, 48%, 74% {
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--foreground) 62%, transparent);
+    }
+    11%, 36%, 62%, 100% {
+      box-shadow: 0 0 0 4px transparent;
+    }
+  }
+
+  .feld-jump-ring {
+    animation: feld-jump-ring 1.9s ease-out 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feld-jump-ring {
+      animation: none;
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--foreground) 62%, transparent);
+    }
+  }
+
   /* Fade in with slight slide up for cards */
   @keyframes fade-in-up {
     from {

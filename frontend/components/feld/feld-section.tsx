@@ -25,6 +25,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { Reveal, REVEAL_MS } from '@/components/ui/reveal'
 
 /**
@@ -34,7 +35,7 @@ import { Reveal, REVEAL_MS } from '@/components/ui/reveal'
  */
 export type FeldSectionState = 'filled' | 'todo' | 'optional'
 
-const STATE_DOT: Record<FeldSectionState, string> = {
+export const FELD_STATE_DOT: Record<FeldSectionState, string> = {
   filled: 'bg-success',
   todo: 'bg-warning',
   optional: 'bg-muted-foreground/50',
@@ -63,7 +64,23 @@ interface FeldSectionProps {
    *  journey's «Rapport erfassen» opening the Kurzbericht). Scrolls into view
    *  like a tap would. 0 / undefined = never fired. */
   openSignal?: number
+  /** «Take me there» (the Rapport-abschliessen question's rows, KP Front's
+   *  pattern): increment to unfold, put the header just under the sticky bar,
+   *  ring the section twice in ink and – with `jumpFocus` – put the caret in
+   *  its first text field. A checklist section leaves `jumpFocus` off: the
+   *  first input there is a search box, not the answer. */
+  jumpSignal?: number
+  jumpFocus?: boolean
   children: ReactNode
+}
+
+/** Class the jump puts on the section; the two-beat ring is in globals.css. */
+const JUMP_RING_CLASS = 'feld-jump-ring'
+/** The ring's 1.9 s plus a beat; also how long the reduced-motion static ring stays. */
+const JUMP_RING_MS = 2000
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 export function FeldSection({
@@ -74,6 +91,8 @@ export function FeldSection({
   alwaysOpen = false,
   dense = false,
   openSignal,
+  jumpSignal,
+  jumpFocus = false,
   children,
 }: FeldSectionProps) {
   const [open, setOpen] = useState(defaultOpen || alwaysOpen)
@@ -102,11 +121,46 @@ export function FeldSection({
     setOpen(true)
   }, [openSignal])
 
+  // Reads the CURRENT open state and `jumpFocus` without re-running the jump
+  // when the section folds or the prop changes.
+  const land = useEffectEvent((el: HTMLElement) => {
+    // A closed body is `hidden` + `inert` until Reveal lifts it, and the page
+    // is not yet tall enough for the header to reach the top – so a closed
+    // section is measured after its slide, an open one straight away.
+    const delay = open ? 0 : REVEAL_MS + 50
+    const focus = jumpFocus
+    setOpen(true)
+    let ringTimer: ReturnType<typeof setTimeout> | undefined
+    const timer = setTimeout(() => {
+      // `block: 'start'` + the section's `scroll-mt-16`: the header lands just
+      // under the sticky identity bar, never centred (a tall section centred
+      // puts the heading the row named off the top of the screen).
+      el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+      // Class, not state, so the same row tapped twice restarts the beats. The
+      // section's className never changes between renders, so React leaves it be.
+      el.classList.remove(JUMP_RING_CLASS)
+      void el.offsetWidth
+      el.classList.add(JUMP_RING_CLASS)
+      ringTimer = setTimeout(() => el.classList.remove(JUMP_RING_CLASS), JUMP_RING_MS)
+      if (focus) el.querySelector<HTMLElement>('textarea, input')?.focus({ preventScroll: true })
+    }, delay)
+    return () => {
+      clearTimeout(timer)
+      if (ringTimer) clearTimeout(ringTimer)
+      el.classList.remove(JUMP_RING_CLASS)
+    }
+  })
+  useEffect(() => {
+    const el = ref.current
+    if (!jumpSignal || !el) return
+    return land(el)
+  }, [jumpSignal])
+
   if (alwaysOpen) {
     return (
       <section className="overflow-hidden rounded-xl border border-border bg-card/50">
         <div className={cn('flex items-center gap-2.5 px-3', dense ? 'min-h-9 py-1.5' : 'min-h-14 py-3')}>
-          <span className={cn('size-2 shrink-0 rounded-full', STATE_DOT[state])} aria-hidden="true" />
+          <span className={cn('size-2 shrink-0 rounded-full', FELD_STATE_DOT[state])} aria-hidden="true" />
           <h2 className="min-w-0 flex-1 text-sm font-semibold">{title}</h2>
         </div>
         <div className={cn('space-y-3 border-t border-border/60 px-3', dense ? 'pb-3 pt-2' : 'pb-4 pt-3')}>{children}</div>
@@ -129,7 +183,7 @@ export function FeldSection({
           dense ? 'min-h-9 py-1.5' : 'min-h-14 py-3',
         )}
       >
-        <span className={cn('size-2 shrink-0 rounded-full', STATE_DOT[state])} aria-hidden="true" />
+        <span className={cn('size-2 shrink-0 rounded-full', FELD_STATE_DOT[state])} aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{title}</span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>

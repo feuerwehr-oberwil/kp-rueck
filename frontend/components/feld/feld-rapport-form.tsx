@@ -42,9 +42,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
 import { FeldPersonnelChecklist } from '@/components/feld/feld-personnel-checklist'
+import { FeldRapportGapsDialog, rapportGaps, type RapportGap } from '@/components/feld/feld-rapport-gaps'
 import { FeldSection, type FeldSectionState } from '@/components/feld/feld-section'
 import { FeldVehicleChecklist } from '@/components/feld/feld-vehicle-checklist'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
@@ -145,6 +145,8 @@ function RapportSection({
   summary,
   state,
   openSignal,
+  jumpSignal,
+  jumpFocus,
   children,
 }: {
   collapsible: boolean
@@ -155,6 +157,9 @@ function RapportSection({
   state: FeldSectionState
   /** Forwarded to FeldSection — imperative unfold. */
   openSignal?: number
+  /** Forwarded to FeldSection — land here from the Abschluss question. */
+  jumpSignal?: number
+  jumpFocus?: boolean
   children: React.ReactNode
 }) {
   if (!collapsible) {
@@ -166,7 +171,15 @@ function RapportSection({
     )
   }
   return (
-    <FeldSection title={title} summary={summary} state={state} dense={dense} openSignal={openSignal}>
+    <FeldSection
+      title={title}
+      summary={summary}
+      state={state}
+      dense={dense}
+      openSignal={openSignal}
+      jumpSignal={jumpSignal}
+      jumpFocus={jumpFocus}
+    >
       {children}
     </FeldSection>
   )
@@ -411,8 +424,12 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  /** Is the "…are you sure, these are empty" question on screen? */
+  /** Is the «Kurzbericht fehlt noch» question on screen? */
   const [confirmGaps, setConfirmGaps] = useState(false)
+  /** One counter per section the question can send the crew to; bumping it
+   *  is the section's `jumpSignal`. */
+  const [jumps, setJumps] = useState<Partial<Record<RapportGap, number>>>({})
+  const jumpTo = (gap: RapportGap) => setJumps(prev => ({ ...prev, [gap]: (prev[gap] ?? 0) + 1 }))
 
   /** Files the rapport — and files it again for every later correction. */
   const handleSubmit = async () => {
@@ -598,24 +615,24 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const showHandover = !isKp || Boolean(formData.handed_over_to.trim())
 
   /**
-   * The sections that are still empty when «Rapport abschliessen» is tapped.
+   * What is still empty when «Rapport abschliessen» is tapped, in two tiers
+   * (see `feld-rapport-gaps.tsx`).
    *
    * Not a gate — decision 10 stands, and a blocking form during a storm is a
-   * form people defeat with empty boxes. This is the one question in between:
-   * the tap is irreversible in the operator's eyes (the board goes green, the
-   * Restliste stops asking), and a rapport filed with four empty blocks is
-   * almost always a fat finger rather than a decision.
-   *
-   * Eigentümerdaten only count where the block is actually on screen: the KP
-   * mount hides it when nobody filled it, and asking about a field somebody
-   * cannot see is worse than not asking.
+   * form people defeat with empty boxes. This is the one question in between,
+   * and it comes only for a section that can be MISSING (Kurzbericht,
+   * Mannschaft): the tap is irreversible in the crew's eyes (the board goes
+   * green, the Restliste stops asking), and a rapport without them is almost
+   * always a fat finger. Empty optional sections ride along as quiet rows but
+   * never ask on their own.
    */
-  const emptySections = [
-    !kurzberichtSummary ? t('sections.kurzbericht') : null,
-    peopleCount === 0 ? t('sections.personnel') : null,
-    materialCount === 0 ? t('material.title') : null,
-    showOwnerBlock && !ownerSummary ? t('sections.owner') : null,
-  ].filter((section): section is string => section !== null)
+  const gaps = rapportGaps({
+    kurzbericht: kurzberichtSummary,
+    peopleCount,
+    materialCount,
+    ownerSummary,
+    ownerShown: showOwnerBlock,
+  })
 
   return (
     <div className="space-y-3">
@@ -666,6 +683,8 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         // The one block a rapport really wants filled.
         state={kurzberichtSummary ? 'filled' : 'todo'}
         openSignal={focusKurzberichtSignal}
+        jumpSignal={jumps.kurzbericht}
+        jumpFocus
       >
         {/* No dictation tip under the box. Every phone keyboard has had a
             microphone key for a decade; the people who use it already do, and
@@ -709,6 +728,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         // Prefilled from the board, so it is normally already right — the
         // summary is what lets a crew confirm that without opening it.
         state={peopleCount > 0 ? 'filled' : 'todo'}
+        jumpSignal={jumps.personnel}
       >
         <div className="space-y-2">
           <FeldPersonnelChecklist
@@ -758,6 +778,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         // An empty material list is not a gap — the board simply never got the
         // material (see the checklist's own empty state), so it never nags.
         state={materialCount > 0 ? 'filled' : 'optional'}
+        jumpSignal={jumps.material}
       >
         <FeldMaterialChecklist
           rows={formData.materials}
@@ -801,6 +822,8 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         summary={ownerSummary || t('summary.ownerEmpty')}
         // Only some Schadenplätze have an owner to note at all.
         state={ownerSummary ? 'filled' : 'optional'}
+        jumpSignal={jumps.owner}
+        jumpFocus
       >
         {/* The first citizen PII in kp-rueck (§9): names, home addresses and
             plates of people who are not members. It lives with the incident and
@@ -926,7 +949,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             // The question only guards the FIRST filing. «Änderungen senden»
             // above re-files a rapport somebody already confirmed once, and
             // asking again there would ask about gaps that were a decision.
-            onClick={() => (emptySections.length > 0 ? setConfirmGaps(true) : void handleSubmit())}
+            onClick={() => (gaps.missing.length > 0 ? setConfirmGaps(true) : void handleSubmit())}
           >
             {isSubmitting ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
             {t('submit')}
@@ -934,23 +957,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         )}
       </div>
 
-      {/* Not a blocker: every way out of this dialog files or cancels, and the
-          list is there so the crew can see WHAT is empty without closing it and
-          scrolling. Escape and Abbrechen leave the form as it is. */}
-      <ConfirmDialog
+      {/* Not a blocker: every way out of this question files, goes back, or
+          goes TO the gap. Escape and «Zurück zum Rapport» leave the form as it
+          is; a row lands on its section. */}
+      <FeldRapportGapsDialog
         open={confirmGaps}
         onOpenChange={setConfirmGaps}
-        title={t('incompleteTitle')}
-        description={t('incompleteBody', { count: emptySections.length })}
-        confirmText={t('incompleteConfirm')}
-        onConfirm={handleSubmit}
-      >
-        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          {emptySections.map(section => (
-            <li key={section}>{section}</li>
-          ))}
-        </ul>
-      </ConfirmDialog>
+        gaps={gaps}
+        onJump={jumpTo}
+        onConfirm={() => void handleSubmit()}
+      />
     </div>
   )
 }
