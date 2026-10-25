@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
-import { isPersonOccupied } from "@/lib/resource-status"
+import { isPersonOccupied, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { abbreviateRank } from "@/lib/roster-order"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { AlertTriangle } from 'lucide-react'
@@ -151,8 +151,9 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
             {/* Rank, then tags and the conflict badge at the outer edge — the
                 marks worth catching sit against the rail, the Grad («Wm»,
                 «Kpl», full word on hover) is a quieter fact just inside them.
-                The amber dot only fills when bound — available shows nothing,
-                but the slot stays, so the columns line up across groups. */}
+                The gebunden ring (hollow ink – a fact, not amber) only shows when
+                bound — available shows nothing, but the slot stays, so the
+                columns line up across groups. */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {person.role && (
                 <span className="shrink-0 text-right text-xs text-muted-foreground" title={person.role}>
@@ -181,7 +182,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
               <span
                 aria-label={isOccupied ? occupiedTooltip : undefined}
                 title={isOccupied ? occupiedTooltip : undefined}
-                className={cn("size-1.5 shrink-0 rounded-full", isOccupied ? "bg-amber-500" : "invisible")}
+                className={cn("size-1.5 shrink-0 rounded-full", isOccupied ? RESOURCE_STATE_DOT_CLASSES.assigned : "invisible")}
               />
             </div>
           </div>

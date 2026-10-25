@@ -61,9 +61,23 @@ One colour, one meaning – decided in the 2026-10 UI review.
 - **Red = priority and danger only.** It never fills an action: the main button is ink
   (`--action`), `destructive` is a red outline. Hoch cards keep their red edge, wash, ring and
   pulse.
+- **Amber = «schau hin»** – something needs a look: Mittel (edge, «–»), Am Warten, age ≥60′,
+  a double booking / conflict, Abholung, /feld «kein Rapport», the stale banner, a non-blocking
+  form advice. Never a plain fact (2026-10-24, VISUAL-03 pick A).
+- **Facts are ink.** «EL» is the neutral ink chip of the column count (`bg-foreground/10
+  text-foreground`); «n gebunden» is plain `text-muted-foreground` beside the green «n frei»;
+  an open-Reko count beside «frei» is muted too.
+- **Availability marks, three states** (`RESOURCE_STATE_DOT_CLASSES` in
+  `lib/resource-status.ts` – use it, don't hand-roll): frei = green filled dot, gebunden =
+  hollow ink ring (`inset-ring`, the dot keeps its size), nicht verfügbar = faint grey.
+  The outline badge for gebunden is ink as well. `lib/colour-roles.test.ts` keeps raw amber
+  out of the EL badge and the sidebar rows.
 - **Green = frei / verfügbar** on the availability dots and badges themselves. Never for
   «selected» – a toggled filter such as «Nur verfügbare» uses the slate selected state like every
   other filter.
+- **Status hues are only the status key.** Im Einsatz orange sits one step from amber and Reko
+  emerald matches «frei» – both stay column lines and status chips, nothing else picks them up
+  (whether they change is still open).
 - **Board column header lines are the status key** – they stay coloured; cards don't repeat the
   status as a tint (phone cards are neutral except Hoch).
 - **Focus = slate** (`--ring` = `--sel-line`), never red – a red ring reads as an error.

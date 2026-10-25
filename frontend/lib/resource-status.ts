@@ -4,8 +4,14 @@
  * Personnel, vehicles and materials share one three-state availability model:
  * free, in-use, or out. Before this module the "in use / assigned" state drew
  * as orange on the display board but amber in the mobile sheets, and every
- * view hand-rolled its own emerald/amber/orange class strings. Assigned =
- * amber, available = emerald, everywhere.
+ * view hand-rolled its own emerald/amber/orange class strings. One table now,
+ * read everywhere: available = green filled dot, assigned (gebunden) = hollow ink
+ * ring, out = faint grey.
+ *
+ * Gebunden is a FACT, not a «schau hin»: amber is kept for Mittel, Am Warten,
+ * ≥60′, conflicts and the stale banner (VISUAL-03, owner pick A, 2026-10-24). On a
+ * storm evening 17 of 20 people are gebunden – an amber dot on each of them made
+ * the whole sidebar read as a warning.
  */
 
 export type ResourceState = "available" | "assigned" | "unavailable" | "maintenance"
@@ -56,9 +62,9 @@ export function personResourceState(
  *
  * Wider than `personResourceState`: a Fahrer or Magaziner keeps
  * `status: "available"` (a special function is not an incident assignment) but
- * cannot be sent somewhere else, and the card has always drawn them amber.
+ * cannot be sent somewhere else, and the card draws them gebunden (the hollow ring).
  * The "nur verfügbare" sidebar filter has to agree with that icon — a filtered
- * list that still shows amber entries reads as broken.
+ * list that still shows gebunden entries reads as broken.
  *
  * Deliberately separate from `personResourceState`, which feeds the
  * «7 verfügbar» counters and the Status-Tafel; widening those is a numbers
@@ -204,18 +210,21 @@ export function summarizeMaterials(
   return { free, bound: materials.length - free, total: materials.length }
 }
 
-/** Dot / swatch fill for a resource's availability. */
+/** Dot / swatch for a resource's availability. `assigned` is a hollow ring
+ *  (inset, so the dot keeps its size) – a mark, not a fill; never use these as a
+ *  badge background. */
 export const RESOURCE_STATE_DOT_CLASSES: Record<ResourceState, string> = {
   available: "bg-emerald-500",
-  assigned: "bg-amber-500",
+  assigned: "bg-transparent inset-ring-[1.5px] inset-ring-foreground/55",
   unavailable: "bg-muted-foreground/40",
   maintenance: "bg-muted-foreground/40",
 }
 
-/** Outline-badge tint (text + border) for the same states. */
+/** Outline-badge tint (text + border) for the same states. Assigned is ink: a
+ *  fact, stated plainly. */
 export const RESOURCE_STATE_BADGE_CLASSES: Record<ResourceState, string> = {
   available: "text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800/50",
-  assigned: "text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-800/50",
+  assigned: "text-foreground border-foreground/30",
   unavailable: "text-muted-foreground border-border",
   maintenance: "text-muted-foreground border-border",
 }

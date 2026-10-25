@@ -23,16 +23,20 @@ import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 
-/** Amber, like the other "pay attention to this one" marks on the board. */
 const BADGE_BASE =
   "inline-flex flex-shrink-0 items-center justify-center rounded-[3px] px-1 font-mono type-micro uppercase tracking-wide"
+
+/** Neutral ink chip – the column-count treatment. «EL» is a fact (who leads),
+ *  not a «schau hin»: amber is kept for Mittel, Am Warten, ≥60′ and conflicts
+ *  (VISUAL-03, owner pick A, 2026-10-24). */
+const BADGE_ON = "bg-foreground/10 text-foreground"
 
 /** The bare «EL» mark, for the chip menu's «Als Einsatzleiter markieren» row —
  *  the same two letters the role carries everywhere else, never a star. */
 export function LeaderGlyph() {
   const t = useTranslations("kanban.leader")
   return (
-    <span className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-700 dark:text-amber-400")} aria-hidden="true">
+    <span className={cn(BADGE_BASE, BADGE_ON)} aria-hidden="true">
       {t("abbr")}
     </span>
   )
@@ -56,7 +60,7 @@ export function LeaderBadge({
     if (!isLeader) return null
     return (
       <span
-        className={cn(BADGE_BASE, "bg-amber-400/20 text-amber-700 dark:text-amber-400", className)}
+        className={cn(BADGE_BASE, BADGE_ON, className)}
         title={t("is")}
         aria-label={t("is")}
       >
@@ -82,13 +86,13 @@ export function LeaderBadge({
         isLeader
           ? // Without a mouse the whole chip is the menu's trigger, so a tap
             // on the badge must fall through to it.
-            "bg-amber-400/20 text-amber-700 dark:text-amber-400 pointer-events-none pointer-fine:pointer-events-auto"
+            cn(BADGE_ON, "pointer-events-none pointer-fine:pointer-events-auto")
           : // Hidden until the row is hovered: on a twelve-person crew, twelve
             // grey EL stubs compete with the names they annotate. Without a
             // mouse there is no hover, so the stub is not there at all — it
             // was invisible and still promoted whoever's chip a finger grazed.
             // Touch promotes from the chip menu (decision 27 B, 2026-09-23).
-            "hidden pointer-fine:inline-flex text-muted-foreground/50 opacity-0 hover:bg-amber-400/10 hover:text-amber-600 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-amber-400",
+            "hidden pointer-fine:inline-flex text-muted-foreground/50 opacity-0 hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
         className,
       )}
     >

@@ -13,7 +13,7 @@ import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
-import { type Priority, PRIORITY_EDGE_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
 import {
   RESOURCE_STATE_DOT_CLASSES,
   materialResourceState,
@@ -529,10 +529,11 @@ function SituationBoard({
                 count={people.length}
                 // How many of this Funktion are still free has to survive the
                 // fold — «Maschinisten 6» tells nobody that all six are out.
+                // «0/5 frei» is ink, not amber: gebunden is a fact (VISUAL-03).
                 badge={
                   <span className={cn(
                     "shrink-0 text-2xs xl:text-xs tabular-nums",
-                    free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
+                    free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: people.length })}
                   </span>
@@ -578,7 +579,7 @@ function SituationBoard({
                 badge={
                   <span className={cn(
                     "shrink-0 text-2xs xl:text-xs tabular-nums",
-                    free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
+                    free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: items.length })}
                   </span>

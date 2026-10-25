@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Material, useOperations } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
-import { materialResourceState } from "@/lib/resource-status"
+import { materialResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { Infinity as InfinityIcon, MapPin } from 'lucide-react'
 
 interface DraggableMaterialProps {
@@ -100,12 +100,12 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
             {t('material.onSite')}
           </span>
         )}
-        {/* Taken draws the amber dot — the one state mark, same as everywhere. */}
+        {/* Taken draws the gebunden ring — the one state mark, same as everywhere. */}
         {isOccupied && (
           <span
             aria-label={t('common.inUse')}
             title={t('common.inUse')}
-            className="size-1.5 shrink-0 rounded-full bg-amber-500"
+            className={cn("size-1.5 shrink-0 rounded-full", RESOURCE_STATE_DOT_CLASSES.assigned)}
           />
         )}
       </div>

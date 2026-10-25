@@ -12,9 +12,7 @@ import { toast } from 'sonner'
 import { toastLifetime } from '@/lib/toast-lifetime'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
-import { RESOURCE_STATE_DOT_CLASSES } from '@/lib/resource-status'
 import { sortByName } from '@/lib/roster-order'
-import { cn } from '@/lib/utils'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
@@ -259,7 +257,7 @@ export default function CheckInPage() {
                 w-full flex items-center gap-4 p-4 rounded-lg border-2 transition-all
                 ${
                   isDisabled
-                    ? 'border-amber-500 bg-amber-500/10 cursor-not-allowed opacity-75'
+                    ? 'border-border bg-muted/40 cursor-not-allowed opacity-75'
                     : person.checked_in
                     ? 'border-sel-edge bg-sel-wash'
                     : 'border-border bg-card hover:border-muted-foreground'
@@ -283,7 +281,7 @@ export default function CheckInPage() {
               {/* Status Badge */}
               <div className="flex-shrink-0">
                 {person.is_assigned ? (
-                  <span className={cn(RESOURCE_STATE_DOT_CLASSES.assigned, "text-white px-3 py-1 rounded-full text-sm font-semibold")}>
+                  <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
                     {t('badgeAssigned')}
                   </span>
                 ) : person.checked_in ? (

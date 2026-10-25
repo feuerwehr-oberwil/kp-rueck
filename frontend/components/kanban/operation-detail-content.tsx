@@ -650,9 +650,9 @@ export function OperationDetailContent({
                   key={member}
                   variant="outline"
                   // The Einsatzleiter keeps a visible accent on the SAME pill:
-                  // an amber edge (the board's "pay attention" colour, like the
-                  // EL badge itself) — never a different chip family.
-                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-amber-400/60")}
+                  // an ink edge, like the EL badge itself (a fact, not amber –
+                  // VISUAL-03) — never a different chip family.
+                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-foreground/40")}
                   onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
                   removeTitle={t('detail.removePerson')}
                   removeButtonClassName="ml-1"
