@@ -57,8 +57,8 @@ will keep holding.
 - **Error messages from the server are German** (about 150 were English, e.g. «Event not found»).
 - **Colour and contrast**: secondary text is brighter in dark mode, coloured text darker in light
   mode; red appears only for priority and danger; one focus outline everywhere; the map legend
-  button reads «Legende»; Aufträge get colours the board doesn't use for status (violet, pink,
-  cyan, lime, indigo, brown – stored routes keep theirs); bound people in the sidebar keep the
+  button reads «Legende»; Aufträge get colours the board doesn't use for status (blue, cyan,
+  lime, indigo, brown, teal – stored routes keep theirs); bound people in the sidebar keep the
   where-line at full strength.
 - **Phone**: the search finds the Meldung; Feld's button says «Neuer Schadenplatz» and the chain
   «Status an den KP»; the Hoch card matches the board's; «EL» instead of a star (also on `/feld`);
@@ -83,6 +83,9 @@ will keep holding.
 - **Wall display:** a denser card (bigger address and age, the whole Meldung), an Auftrag's crew
   printed once per column, and a font size that adjusts so every column fits. On a phone the
   board and status columns stand under one another.
+- **Status colour only where crews are out:** Reko is violet and Im Einsatz fuchsia; the other
+  five columns (and their dots on the wall and in the route stops) are grey. Niedrig is grey
+  instead of green, so green means only «frei / verfügbar».
 - **Amber means «schau hin» only:** the EL badge and «n gebunden» are neutral, and a bound
   person or material shows a hollow ring (frei stays green).
 - **Feld: «Rapport abschliessen» asks only when Kurzbericht or Mannschaft is missing**, and each

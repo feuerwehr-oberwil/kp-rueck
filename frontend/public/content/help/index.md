@@ -29,7 +29,7 @@ Geografische Übersicht aller Einsatzorte. Farbige Marker zeigen Priorität (Gr�
 - **Listen-Karte (Doppelklick)**: Öffnet den vollständigen Detail-Dialog (Modal)
 
 **Kartenlegende:**
-- **Priorität (Füllung):** Grün=Niedrig, Gelb=Mittel, Rot=Hoch
+- **Priorität (Füllung):** Grau=Niedrig, Gelb=Mittel, Rot=Hoch
 - **Status (Rahmen):** Gestrichelt=Offen, Durchgezogen=Aktiv, Gepunktet+Verblasst=Rückfahrt & Abgeschlossen
 - **Fahrzeuge (GPS):** Blau=Online, Grau=Offline
 
@@ -158,7 +158,7 @@ Jede Karte zeigt: Nummer (klein vor der Adresse), Adresse, Typ, zugewiesene Ress
 
 | Stufe | Badge (Karte) | Marker (Karte) | Shortcut |
 |-------|---------------|----------------|----------|
-| Niedrig | Grau | Grün | `Shift+1` |
+| Niedrig | Grau | Grau | `Shift+1` |
 | Mittel | Orange | Gelb | `Shift+2` |
 | Hoch | Rot | Rot | `Shift+3` |
 

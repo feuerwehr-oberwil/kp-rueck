@@ -29,7 +29,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Des marqueurs
 - **Carte de la liste (double clic)** : ouvre la fenêtre de détail complète (modale)
 
 **Légende de la carte :**
-- **Priorité (remplissage) :** vert = basse, jaune = moyenne, rouge = haute
+- **Priorité (remplissage) :** gris = basse, jaune = moyenne, rouge = haute
 - **Statut (cadre) :** tirets = ouverte, trait plein = en cours, pointillés + estompé = retour et clôturées
 - **Véhicules (GPS) :** bleu = en ligne, gris = hors ligne
 
@@ -158,7 +158,7 @@ Chaque carte montre : numéro (en petit devant l’adresse), adresse, genre, res
 
 | Niveau | Badge (carte) | Marqueur (carte) | Raccourci |
 |-------|---------------|----------------|----------|
-| Basse | Gris | Vert | `Shift+1` |
+| Basse | Gris | Gris | `Shift+1` |
 | Moyenne | Orange | Jaune | `Shift+2` |
 | Haute | Rouge | Rouge | `Shift+3` |
 

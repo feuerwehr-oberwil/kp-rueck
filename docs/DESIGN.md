@@ -72,14 +72,16 @@ One colour, one meaning – decided in the 2026-10 UI review.
   hollow ink ring (`inset-ring`, the dot keeps its size), nicht verfügbar = faint grey.
   The outline badge for gebunden is ink as well. `lib/colour-roles.test.ts` keeps raw amber
   out of the EL badge and the sidebar rows.
-- **Green = frei / verfügbar** on the availability dots and badges themselves. Never for
-  «selected» – a toggled filter such as «Nur verfügbare» uses the slate selected state like every
-  other filter.
-- **Status hues are only the status key.** Im Einsatz orange sits one step from amber and Reko
-  emerald matches «frei» – both stay column lines and status chips, nothing else picks them up
-  (whether they change is still open).
-- **Board column header lines are the status key** – they stay coloured; cards don't repeat the
-  status as a tint (phone cards are neutral except Hoch).
+- **Green = frei / verfügbar** on the availability dots and badges themselves, and nothing else:
+  not «selected» (a toggled filter such as «Nur verfügbare» uses the slate selected state like
+  every other filter), not Niedrig (a light slate grey mark, `lib/priority.ts`), not a status.
+- **Status colour only where crews are out** (`STATUS_ACCENT` in `lib/kanban-utils.ts`,
+  2026-10-25, VISUAL-03 pick E): Reko = violet, Im Einsatz = fuchsia; Eingegangen, Reko
+  abgeschlossen, Disponiert, Rückfahrt and Abgeschlossen share one neutral grey. No status uses
+  red, amber, green or slate. The grey statuses are told apart by position, the word and the
+  route-stop icon. Aufträge (`AUFTRAG_SWATCHES`) avoid violet and fuchsia too.
+- **Board column header lines are the status key** – the two coloured ones and the grey ones;
+  cards don't repeat the status as a tint (phone cards are neutral except Hoch).
 - **Focus = slate** (`--ring` = `--sel-line`), never red – a red ring reads as an error.
 
 ## Type & corners
