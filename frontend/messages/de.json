@@ -276,6 +276,12 @@
     }
   },
   "kanban": {
+    "edgeTabs": {
+      "label": "{title}: {count, plural, one {# Einsatz} other {# Einsätze}}{high, plural, =0 {} other {, # Hoch}} – Spalte zeigen",
+      "high": "{count} Hoch",
+      "navLeft": "Spalten links ausserhalb der Ansicht",
+      "navRight": "Spalten rechts ausserhalb der Ansicht"
+    },
     "columns": {
       "incoming": "Eingegangen",
       "reko": "Reko",
@@ -2547,10 +2553,17 @@
       "confirm": "Dauerhaft löschen"
     },
     "emptyState": {
-      "title": "Noch kein Ereignis ausgewählt?",
-      "description": "Kein Problem! Erstelle ein neues Ereignis oder wähle ein bestehendes aus, um loszulegen.",
-      "createButton": "Neues Ereignis erstellen",
-      "viewButton": "Ereignisse anzeigen"
+      "title": "Ereignis wählen",
+      "description": "In den letzten 24 Stunden wurde kein Ereignis eröffnet. Eröffne ein neues oder wähle ein früheres.",
+      "recentDescription": "In den letzten 24 Stunden eröffnet – das oberste war zuletzt aktiv.",
+      "openedToday": "eröffnet heute {time}",
+      "openedYesterday": "eröffnet gestern {time}",
+      "lastActive": "zuletzt aktiv {rel}",
+      "open": "Öffnen",
+      "createButton": "Neues Ereignis",
+      "allEvents": "Alle Ereignisse",
+      "viewButton": "Ereignisse anzeigen",
+      "loading": "Ereignisse werden geladen …"
     },
     "restliste": {
       "missingRapport": "{count} von {total} Schadenplätzen ohne Rapport",
