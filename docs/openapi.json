@@ -5488,7 +5488,7 @@
           "incidents"
         ],
         "summary": "Update Status",
-        "description": "Update incident status (Kanban drag-and-drop).\n\nCreates status_transitions record.",
+        "description": "Update incident status.\n\nCreates status_transitions record. Refused with 409 `incident_status_changed`\nwhen `from_status` is no longer the card's status – somebody else moved it\nfirst; `override_status` (the status that answer named) applies it anyway.",
         "operationId": "update_status_api_incidents__incident_id__status_post",
         "parameters": [
           {
@@ -27996,6 +27996,28 @@
             ],
             "title": "Notes"
           },
+          "seen_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen Status"
+          },
+          "stale_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale Seconds"
+          },
           "assignment_action": {
             "anyOf": [
               {
@@ -28081,7 +28103,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
       },
       "IncidentTimelineResponse": {
         "properties": {
@@ -28201,6 +28223,26 @@
             "title": "Location Lng"
           },
           "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "override_status": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/IncidentStatus"
@@ -33465,6 +33507,16 @@
               }
             ],
             "title": "Notes"
+          },
+          "override_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IncidentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -33473,7 +33525,7 @@
           "to_status"
         ],
         "title": "StatusTransitionCreate",
-        "description": "Schema for creating status transition."
+        "description": "Body of POST /incidents/{id}/status.\n\n`from_status` is the status the client SAW. When the card has moved since\n(somebody else's move landed first), the server refuses with 409\n`incident_status_changed` and changes nothing. Sending the move again with\n`override_status` = the status that answer named applies it anyway; the\ntransition then keeps `from_status` as its `seen_status` («war schon …»)."
       },
       "StatusTransitionResponse": {
         "properties": {

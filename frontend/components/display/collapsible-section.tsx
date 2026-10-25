@@ -51,14 +51,14 @@ export function CollapsibleSection({
         {collapsed
           ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-        <span className="flex-1 truncate text-[10px] xl:text-xs font-bold uppercase tracking-wider text-foreground/70">
+        <span className="flex-1 truncate text-2xs xl:text-xs font-bold uppercase tracking-wider text-foreground/70">
           {label}
         </span>
         {alarm && (
           <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden />
         )}
         {badge}
-        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-[10px] xl:text-xs font-bold tabular-nums text-foreground">
+        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-foreground/10 px-1 text-2xs xl:text-xs font-bold tabular-nums text-foreground">
           {count}
         </span>
       </button>

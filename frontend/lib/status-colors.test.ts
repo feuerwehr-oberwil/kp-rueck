@@ -11,7 +11,8 @@ import { PRIORITY_CARD_CLASSES, PRIORITY_EDGE_CLASSES, PRIORITY_ICON_CLASSES } f
  *
  * Both were broken before: `returning` was emerald on the route-stop rows and
  * sky on the board and the wall, and `active` was amber — which is `warning`,
- * i.e. medium priority and «Am Warten».
+ * i.e. medium priority and «Am Warten». Since VISUAL-03 E only Reko and Im
+ * Einsatz carry a hue at all.
  */
 
 /** Tailwind hue token out of a class like `bg-sky-100/80` or `border-l-zinc-500`. */
@@ -20,8 +21,8 @@ function hues(classNames: string): string[] {
     .map((m) => m[1])
 }
 
-/** The greys are interchangeable by design — `complete` is gray in light mode
- *  and zinc in dark. Everything else has to be itself. */
+/** The greys are interchangeable by design: every status without a crew out
+ *  is the same neutral. Everything else has to be itself. */
 const NEUTRALS = new Set(['slate', 'gray', 'zinc', 'neutral', 'stone'])
 const family = (hue: string) => (NEUTRALS.has(hue) ? 'neutral' : hue)
 
@@ -56,15 +57,21 @@ describe('a status has one colour on every surface', () => {
     }
   })
 
-  it('no two statuses share a hue, so a column is identifiable by colour alone', () => {
-    const seen = new Map<string, string>()
+  it('only the statuses with crews out carry a hue, and those two differ', () => {
+    // VISUAL-03 pick E (owner, 2026-10-25): Reko violet, Im Einsatz fuchsia, the
+    // rest one grey – so a lone dot on the wall still says which of the two.
+    const coloured = Object.entries(STATUS_ACCENT)
+      .map(([status, accent]) => [status, family(hues(accent.dot)[0])] as const)
+      .filter(([, hue]) => hue !== 'neutral')
+    expect(Object.fromEntries(coloured)).toEqual({ reko: 'violet', active: 'fuchsia' })
+  })
+
+  it('no status speaks green – green means frei / verfügbar', () => {
     for (const [status, accent] of Object.entries(STATUS_ACCENT)) {
-      const hue = family(hues(accent.dot)[0])
-      // `incoming` and `complete` are both deliberately neutral — nothing yet,
-      // and nothing any more. Every other status is unique.
-      if (hue === 'neutral') continue
-      expect(seen.get(hue), `${status} and ${seen.get(hue)} are both ${hue}`).toBeUndefined()
-      seen.set(hue, status)
+      const all = [accent.surface, accent.border, accent.text, accent.dot].join(' ')
+      for (const green of ['green', 'emerald', 'teal', 'lime']) {
+        expect(hues(all), `${status} must not use ${green}`).not.toContain(green)
+      }
     }
   })
 })

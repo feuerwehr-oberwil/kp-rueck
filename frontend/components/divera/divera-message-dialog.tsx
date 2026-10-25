@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { MessageCircle, AlertTriangle, Users, Megaphone, Check } from "lucide-react"
 import {
@@ -64,10 +65,12 @@ export function DiveraMessageDialog({
   const [isSending, setIsSending] = useState(false)
 
   // Re-prefill on every open, so an edited template (or a changed event) is
-  // picked up instead of a stale first render being sent.
+  // picked up instead of a stale first render being sent. The event is read as it is at
+  // that moment; switching it while the dialog is open does not re-prefill.
+  const isTrainingNow = useEffectEvent(() => selectedEvent?.training_flag ?? false)
   useEffect(() => {
     if (!open) return
-    const isTraining = selectedEvent?.training_flag ?? false
+    const isTraining = isTrainingNow()
     setTitle((isTraining ? `ÜBUNG: ${defaultTitle || "KP-Rück"}` : defaultTitle || "KP-Rück").slice(0, 50))
     setText(isTraining ? `🔶 ÜBUNG – dies ist eine Übung.\n\n${defaultText}` : defaultText)
     setTarget("groups")
@@ -90,7 +93,6 @@ export function DiveraMessageDialog({
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultText, defaultTitle])
 
   const toggleGroup = (id: number) => {
@@ -138,7 +140,7 @@ export function DiveraMessageDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
+            <MessageCircle className="h-5 w-5 text-muted-foreground" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -211,7 +213,7 @@ export function DiveraMessageDialog({
                 {target === "all" && <Check className="size-4 shrink-0" />}
               </button>
               {target === "all" && (
-                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-600 dark:text-amber-500">
+                <p className="flex items-start gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   {t("allWarning")}
                 </p>

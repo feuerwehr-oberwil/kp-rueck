@@ -34,6 +34,7 @@ from ..database import execute_dml, get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import print_signal
 from ..services import settings as settings_service
+from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_print_job_update
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
             detail="Print-Agent deaktiviert (PRINT_AGENT_TOKEN nicht gesetzt)",
         )
     if not secrets.compare_digest(x_agent_token, app_settings.print_agent_token):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid agent token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Agent-Token")
 
 
 async def require_printer_configured(db: AsyncSession) -> None:
@@ -143,7 +144,7 @@ async def _load_incident_for_print(db: AsyncSession, incident_id: uuid.UUID) -> 
     )
     incident = result.scalar_one_or_none()
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
     return incident
 
 
@@ -161,7 +162,7 @@ async def _build_board_payload(
     event = event_result.scalar_one_or_none()
 
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     # Get all non-deleted incidents for this event
     incident_result = await db.execute(
@@ -527,7 +528,7 @@ async def queue_abholliste_print(
     event_result = await db.execute(select(Event).where(Event.id == event_id))
     event = event_result.scalar_one_or_none()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     restliste = await feld_crud.event_restliste(db, event_id)
     payload: dict[str, Any] = {
@@ -697,7 +698,7 @@ async def get_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail="Print job not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     return job
 
@@ -735,13 +736,13 @@ async def claim_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail="Print job not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     if claimed.rowcount == 0:
         # Lost the race, or it was never claimable. Either way the agent must not print it.
-        raise HTTPException(status_code=409, detail=f"Job is not pending (status: {job.status})")
+        raise HTTPException(status_code=409, detail=f"Druckauftrag wartet nicht (Status: {job.status})")
 
-    await db.commit()
+    await db.flush()
     await db.refresh(job)
 
     # The claim is the only proof the agent is alive and took this particular job.
@@ -773,7 +774,7 @@ async def complete_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail="Print job not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     if job.status == update.status.value and job.status in ("completed", "failed"):
         # A repeat of the report that already landed. The agent retries its completion report
@@ -784,7 +785,9 @@ async def complete_print_job(
         return job
 
     if job.status not in ("pending", "printing"):
-        raise HTTPException(status_code=409, detail=f"Job cannot be completed (status: {job.status})")
+        raise HTTPException(
+            status_code=409, detail=f"Druckauftrag kann nicht abgeschlossen werden (Status: {job.status})"
+        )
 
     job.status = update.status.value
     job.completed_at = datetime.now(UTC)
@@ -796,7 +799,7 @@ async def complete_print_job(
         # survives a printer that is merely rebooting. See PrintJobUpdate.retryable.
         job.retry_count += 1
 
-    await db.commit()
+    await db.flush()
     await db.refresh(job)
 
     # The whole point: a failure with "Papier leer" has to reach the person who is
@@ -818,9 +821,8 @@ async def delete_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail="Print job not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     await db.delete(job)
-    await db.commit()
 
     logger.info(f"Print job {job_id} deleted by user {current_user.username}")

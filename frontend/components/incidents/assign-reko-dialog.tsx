@@ -117,7 +117,7 @@ interface AssignRekoDialogProps {
    * The dialog used to fire this and then call `onOpenChange(false)` itself,
    * which was wrong for the status gate: there, closing the dialog *means*
    * "backed out", and backing out reverts the card to the status it came from.
-   * React batches both calls, so `cancelRekoAssignment` still saw the old
+   * React batches both calls, so `cancelGate("rekoAssignment")` still saw the old
    * operation id and undid the very move the assignment had just justified —
    * the card jumped back to «Eingegangen» right after a successful assignment.
    */
@@ -309,13 +309,13 @@ export function AssignRekoDialog({
                           <User className={cn(
                             "h-5 w-5 flex-shrink-0",
                             isCurrentlyAssigned ? "text-success" :
-                            person.open_count > 0 ? "text-amber-500" : "text-muted-foreground"
+                            "text-muted-foreground"
                           )} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm truncate">{person.name}</p>
                               {isRecommended && (
-                                <Badge variant="outline" className="text-2xs px-1.5 py-0 border-primary/50 text-primary flex-shrink-0">
+                                <Badge variant="outline" className="text-2xs px-1.5 py-0 flex-shrink-0">
                                   {t('recommended')}
                                 </Badge>
                               )}
@@ -327,7 +327,7 @@ export function AssignRekoDialog({
                         </div>
                         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                           {isCurrentlyAssigned ? (
-                            <Badge variant="default" className="text-xs bg-success">
+                            <Badge variant="default" className="text-xs">
                               {t('assigned')}
                             </Badge>
                           ) : (
@@ -335,8 +335,10 @@ export function AssignRekoDialog({
                               <p className="text-xs whitespace-nowrap">
                                 <span className={cn(
                                   "font-medium",
+                                  // Open Rekos are a fact, not a warning: ink-muted
+                                  // beside the green «frei» (VISUAL-03).
                                   person.open_count > 0
-                                    ? "text-amber-700 dark:text-amber-400"
+                                    ? "text-muted-foreground"
                                     : "text-emerald-700 dark:text-emerald-400"
                                 )}>
                                   {person.open_count > 0

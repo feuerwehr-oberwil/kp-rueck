@@ -131,7 +131,7 @@ async def create_group(
     )
     await events_crud.update_event_activity(db, db_group.event_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_group)
     return db_group
 
@@ -165,7 +165,7 @@ async def update_group(
         )
     await events_crud.update_event_activity(db, group.event_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(group)
     return group
 
@@ -193,7 +193,7 @@ async def record_announcement(
     group.last_announced_stop_id = announcement.stop_id
     group.last_announced_full = announcement.full
 
-    await db.commit()
+    await db.flush()
     await db.refresh(group)
     return group
 
@@ -244,7 +244,7 @@ async def soft_delete_group(
     )
     await events_crud.update_event_activity(db, group.event_id)
 
-    await db.commit()
+    await db.flush()
     return group
 
 
@@ -282,7 +282,7 @@ async def reorder_groups(
 
     if updated:
         await events_crud.update_event_activity(db, event_id)
-        await db.commit()
+        await db.flush()
 
     return updated
 
@@ -349,7 +349,7 @@ async def reorder_group_stops(
             next_position += 1
 
     if updated:
-        await db.commit()
+        await db.flush()
 
     return updated
 
@@ -390,7 +390,7 @@ async def add_stops_to_group(
     for incident_id in incident_ids:
         incident = incidents_by_id.get(incident_id)
         if incident is not None and incident.event_id != group.event_id:
-            raise ValueError("Incident belongs to a different event")
+            raise ValueError("Einsatz gehört zu einem anderen Ereignis")
 
     # Append at the end of the current route.
     max_pos = await db.scalar(
@@ -422,7 +422,7 @@ async def add_stops_to_group(
             request=request,
         )
         await events_crud.update_event_activity(db, group.event_id)
-        await db.commit()
+        await db.flush()
 
     return attached
 
@@ -464,5 +464,5 @@ async def remove_stop_from_group(
     )
     await events_crud.update_event_activity(db, incident.event_id)
 
-    await db.commit()
+    await db.flush()
     return True

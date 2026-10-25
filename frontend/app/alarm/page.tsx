@@ -12,7 +12,6 @@ import {
   ChevronsUpDown,
   AlertTriangle,
   Pencil,
-  ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +29,7 @@ import { cn, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
 import { Reveal } from '@/components/ui/reveal'
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
-import { LinkPageHeader } from '@/components/link-page/link-page'
+import { LinkInvalidCard, LinkPageHeader } from '@/components/link-page/link-page'
 
 export default function AlarmPage() {
   return (
@@ -292,13 +291,7 @@ function AlarmIntake() {
   if (status === 'invalid') {
     return (
       <AlarmBody>
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
-        <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-destructive" />
-        <h1 className="text-lg font-semibold">{t('invalidTitle')}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t('invalidDescription')}
-        </p>
-      </div>
+      <LinkInvalidCard title={t('invalidTitle')} description={t('invalidDescription')} />
       </AlarmBody>
     )
   }

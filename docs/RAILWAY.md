@@ -115,9 +115,10 @@ name the domains whatever you like, custom domains included.
    more. Reko photos live here; without a volume they land in ephemeral container storage and
    vanish on the next deploy.
 
-   > The backend container runs as **root**, so Railway's root-owned volume mounts are not a
-   > problem here. (KP Front is different – it runs as uid 10001 and needs `RAILWAY_RUN_UID=0`.
-   > Do not copy that setting into this project; it is not needed.)
+   > Railway mounts the volume owned by root. The backend's entrypoint starts as root, hands
+   > `/mnt/data` to `appuser` and then drops to it (`backend/entrypoint.sh`, `gosu`), so the
+   > mount needs nothing from you. (KP Front is different – it runs as uid 10001 and needs
+   > `RAILWAY_RUN_UID=0`. Do not copy that setting into this project; it is not needed.)
 
 3. **Variables:**
 
@@ -229,8 +230,8 @@ almost always one of these refusing a weak or missing value, and the message nam
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Railway reference, not a literal string. Railway hands out a `postgresql://` URL and the backend rewrites it to `postgresql+asyncpg://` itself (`config.py`), so paste it through unchanged |
 | `SECRET_KEY` | 32-byte hex | Signs every public token: check-in, Reko, viewer, alarm-intake and `/feld`. **Required. Keep stable** – changing it invalidates every printed QR and poster |
 | `AUTH_SECRET_KEY` | 32-byte hex | Signs login/refresh JWTs. **Required. Keep stable** – changing it logs everyone out |
-| `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. **Required** |
-| `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. **Required** |
+| `ADMIN_SEED_PASSWORD` | 12+ characters | The initial `admin` login, created on first seed. Optional, together with `VIEWER_PASSWORD`: leave both unset and the board boots **unclaimed** – the first visitor creates the accounts at `/setup` with the one-time «Einrichtungscode» from the backend's deploy log (`grep Einrichtungscode`; `SETUP_TOKEN` chooses your own) |
+| `VIEWER_PASSWORD` | 12+ characters | The read-only `viewer` login. Required whenever `ADMIN_SEED_PASSWORD` is set – the seed refuses one without the other |
 | `PHOTOS_DIR` | `/mnt/data/photos` | Must point inside the mounted volume |
 | `CORS_ORIGINS` | `https://<frontend>` | The frontend's exact origin |
 | `PORT` | `8000` | Railway sets this automatically |
@@ -495,9 +496,17 @@ this page does not try to rebuild one.
 **2. Before every migration – covered, by us.** The backend takes a `pg_dump -Fc` snapshot on
 boot whenever a migration is pending, into `/mnt/data/backups` on the volume, newest 5 kept.
 That is the gap Railway's nightly cannot close: a deploy that migrates live data at 14:20 and
-goes wrong is not helped by a backup from 03:00. Watch the deploy log for the line naming the
-snapshot file – or for `WARNING: pre-migration snapshot FAILED`, which means the migration below
-it ran with no way back.
+goes wrong is not helped by a backup from 03:00. Watch the deploy log for
+`Pre-migration snapshot: /mnt/data/backups/premigration-….dump (… bytes, verified readable)`.
+If the snapshot cannot be taken, the boot **stops before migrating**: the log says
+`ERROR: pre-migration snapshot failed: <reason>. Migration NOT started.`, a `SNAPSHOT-FAILED`
+marker is written to `/mnt/data/backups`, and the container exits – the health check never
+passes and the service answers 502 (§8.1 describes how the dashboard hides that). The database
+is untouched, so a deploy that «hangs» after an upgrade is a backup problem, not lost data: fix
+the reason in the log and redeploy, or redeploy the previous release, which still matches the
+schema.
+`PREMIGRATION_BACKUP=false` skips the snapshot – only after you have arranged another verified
+backup. A fresh empty database and a restart already at the newest migration need no snapshot.
 
 **3. The photos – NOT covered by anything automatic.** Reko photos live on the `/mnt/data`
 volume. They are not in the database, so Railway's database backup does not contain them, and

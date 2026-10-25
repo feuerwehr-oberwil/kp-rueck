@@ -7,7 +7,8 @@ SDK, keinen Anbieter-Account und keine Anpassung im Quellcode.
 Eingehende Alarme landen im **Eingangspool** (Alarme-Seite), werden – falls für
 das aktive Ereignis aktiviert – automatisch als Einsatz angehängt und erscheinen
 in Echtzeit auf allen verbundenen Geräten. Einsatzart und Priorität werden aus
-Titel/Text abgeleitet (gleiche Logik wie bei DIVERA-Alarmen).
+Titel/Text abgeleitet (gleiche Logik wie bei DIVERA-Alarmen), sofern der Sender sie
+nicht selbst mitliefert (`type`, `priority`).
 
 ## Endpunkt
 
@@ -87,12 +88,15 @@ wollen.
 | Feld        | Typ            | Pflicht | Beschreibung |
 |-------------|----------------|---------|--------------|
 | `title`     | string (≤255)  | **ja**  | Alarmtitel, z.B. `"FEUER Dachstockbrand"`. Einsatzart/Priorität werden daraus abgeleitet. |
-| `source`    | slug (≤20)     | nein    | Kennung des sendenden Systems, klein geschrieben (`a-z`, `0-9`, `-`, `_`). Standard: `"webhook"`. Reserviert (abgelehnt): `divera`, `operator`, `intake`, `training`, `manual`. |
+| `source`    | slug (≤16)     | nein    | Kennung des sendenden Systems, klein geschrieben (`a-z`, `0-9`, `-`, `_`). Standard: `"webhook"`. Reserviert (abgelehnt mit `422`): `divera`, `feld`, `intake`, `manual`, `migrated`, `operator`, `training` (`RESERVED_ALARM_SOURCES` in `backend/app/schemas/alarms.py`). |
 | `source_id` | string (≤255)  | nein    | Alarm-ID im sendenden System. Wenn gesetzt, werden Wiederholungen derselben `(source, source_id)`-Kombination **dedupliziert** (idempotent – gefahrlos erneut senden). |
 | `text`      | string (≤5000) | nein    | Meldungstext / Details. |
 | `address`   | string (≤500)  | nein    | Einsatzadresse (Anzeige + Lageblatt). |
 | `lat`/`lng` | float          | nein    | Koordinaten (WGS84); nur **beide zusammen** gültig. |
 | `number`    | string (≤50)   | nein    | Referenznummer des Senders, z.B. `"E-501"`. |
+| `type`      | string (≤50)   | nein    | Einsatzart, einer der 13 Werte `brandbekaempfung`, `elementarereignis`, `strassenrettung`, `technische_hilfeleistung`, `oelwehr`, `chemiewehr`, `strahlenwehr`, `einsatz_bahnanlagen`, `bma_unechte_alarme`, `dienstleistungen`, `diverse_einsaetze`, `gerettete_menschen`, `gerettete_tiere`. **Schlägt die Stichwort-Erkennung**; ein unbekannter Wert fällt auf die Erkennung zurück, statt den Alarm abzulehnen. |
+| `priority`  | string (≤20)   | nein    | `low` / `medium` / `high` (Gross/Klein egal). Schlägt die Erkennung ebenso; unbekannt → Erkennung. |
+| `started_at`| ISO-8601-Zeit  | nein    | Wann der Alarm beim Sender losging. Wird mit der Nutzlast gespeichert. |
 
 `address` ist in der Webhook-API bewusst optional (ein Dispatchsystem liefert nicht immer eine);
 das In-App-Telefonformular unter `/alarm` verlangt dagegen vor dem Senden einen Einsatzort –
@@ -149,11 +153,11 @@ bricht):
 | `text`, `address` | ✅ | – |
 | `lat` + `lng` | ✅ | WGS84, nur beide zusammen |
 | `number` | ✅ angenommen | KP Rück zeigt ihn im Pool («E-123»); KP Front hat kein Feld dafür und **ignoriert ihn bewusst** |
-| `type`, `priority` | ✅ angenommen | KP Rück nimmt sie seit 2026-08-11 und **lässt sie die Stichwort-Erkennung schlagen**. Unbekannte Werte fallen auf die Erkennung zurück, statt den Alarm abzulehnen – ein Tippfehler in einem optionalen Feld darf keinen Alarm kosten. Werte: `type` = die zehn Einsatzarten, `priority` = `low`/`medium`/`high`; KP Front nimmt `HIGH`/`LOW` |
+| `type`, `priority` | ✅ angenommen | KP Rück nimmt sie seit 2026-08-11 und **lässt sie die Stichwort-Erkennung schlagen**. Unbekannte Werte fallen auf die Erkennung zurück, statt den Alarm abzulehnen – ein Tippfehler in einem optionalen Feld darf keinen Alarm kosten. Werte: `type` = die 13 Einsatzarten (siehe [Payload](#payload)), `priority` = `low`/`medium`/`high`; KP Front nimmt `HIGH`/`LOW` |
 | `started_at` | ✅ angenommen | Wann der Alarm beim Sender losging. KP Front setzt damit `started_at`, KP Rück legt ihn zur Nutzlast |
 
-Reservierte `source`-Slugs beider Seiten meiden: `divera`, `manual`, `migrated`, `operator`,
-`intake`, `training`.
+Reservierte `source`-Slugs beider Seiten meiden: `divera`, `feld`, `intake`, `manual`,
+`migrated`, `operator`, `training` (KP Rück reserviert bewusst die Vereinigung beider Listen).
 
 **Keinen gemeinsamen Parser für die Antwort schreiben.** Die *Antworten* sind bewusst NICHT
 angeglichen – sie benennen verschiedene Dinge. KP Rück antwortet mit
@@ -187,8 +191,9 @@ curl -X POST "https://<backend>/api/alarms" \
 - **Auto-Anhängen:** identisch zu DIVERA – der Alarm wird als neuer Einsatz
   (Status «Eingegangen») an das neueste aktive Ereignis mit aktiviertem
   Auto-Anhängen gehängt; sonst bleibt er zum manuellen Anhängen im Pool.
-- **Ableitung:** Einsatzart (FEUER→Brandbekämpfung, VU→Strassenrettung, …) und
-  Priorität (lebensbedrohliche Stichworte→hoch) aus Titel/Text. Die Stichwortliste ist
+- **Ableitung:** Einsatzart (FEUER→Brandbekämpfung, VU→Strassenrettung, …) aus dem Titel und
+  Priorität (lebensbedrohliche Stichworte→hoch) aus Titel/Text – ausser der Sender liefert
+  gültige `type`/`priority`, die dann gewinnen. Die Stichwortliste ist
   nicht alarmierungssystem-spezifisch: sie steht in `backend/app/data/alarm_keywords.json`
   und wird byte-identisch mit KP Front geteilt (siehe `docs/RUNNING-BOTH.md`).
 - **Rate-Limit:** 10 Anfragen/Minute pro IP.
@@ -235,8 +240,8 @@ Gesendetes Payload (Tercero, bestätigt 2026-08):
 - **`action: "start"`** → Alarm landet im Pool (dedupliziert über `opsID`) und hängt sich –
   wie ein DIVERA-Alarm – automatisch ans aktive Ereignis an. Die Adresse wird aus
   `street` + `city` zusammengesetzt.
-- **`action: "end"`** → wird **nur vermerkt**, nicht ausgeführt: es entsteht ein Eintrag im
-  Audit-Log (Einsatztagebuch), verknüpft mit dem Einsatz, falls der Alarm aufs Brett
+- **`action: "end"`** → wird **nur vermerkt**, nicht ausgeführt: es entsteht eine Zeile im
+  `audit_log` (`firehub_operation_end`, ohne Benutzer) – **nicht** im Einsatztagebuch –, verknüpft mit dem Einsatz, falls der Alarm aufs Brett
   übernommen wurde. Der Kartenstatus wird **nicht** geändert – das Schliessen einer
   Schadenplatz-Karte (samt Freigabe von Personal/Fahrzeugen) bleibt die Entscheidung der
   operierenden Person. Eine Wehr, die den Vermerk nicht will, verdrahtet den
@@ -319,8 +324,8 @@ nicht gegen DIVERA – das gehört auf eine DIVERA-Test-Einheit, nie auf den Pro
 ## Capability-Registry
 
 `GET /api/integrations` (angemeldet) zeigt pro Bereich, welcher Anbieter
-konfiguriert ist – Alarmeingang, Ausalarmierung, Personal-Sync (DIVERA),
-Fahrzeug-GPS (Traccar) – inklusive Fähigkeiten. Das Frontend rendert die
+konfiguriert ist – Alarmeingang, Ausalarmierung, Personal-Sync (DIVERA oder
+publizierter Personenstamm), Fahrzeug-GPS (Traccar) – inklusive Fähigkeiten. Das Frontend rendert die
 Anbieter-Namen aus dieser Antwort statt sie fest zu verdrahten; die
 generische Webhook-Schnittstelle und das Meldeformular sind immer verfügbar
 und werden bewusst nicht als «Anbieter» geführt.
@@ -329,6 +334,8 @@ und werden bewusst nicht als «Anbieter» geführt.
 – auch die, die hier niemand eingerichtet hat. Die vier Bereichsfelder
 beantworten *wer ist gerade aktiv*, diese Liste beantwortet *worauf könnte ich
 zeigen*; ohne sie ist ein nicht konfigurierter Anbieter gar nicht auffindbar.
+FireHub steht dort ebenfalls, immer mit `configured: false`: es braucht serverseitig keinen
+Schlüssel, nur das Alarm-Webhook-Secret, also gibt es nichts, woran «konfiguriert» zu erkennen wäre.
 `implemented: false` heisst: der Vertrag ist veröffentlicht, die Anbindung ist
 **noch nicht gebaut**. Ein auffindbarer Eintrag, der ehrlich sagt, dass er
 nichts tut, ist nützlich – eine Registry, die stillschweigend suggeriert, alles
@@ -336,36 +343,16 @@ Aufgelistete funktioniere, ist es nicht.
 
 ### Publizierter Personenstamm (`roster-snapshot`)
 
-Manche Wehren führen ihre Mannschaft in einem ganz anderen System – einer
-Gemeinde-HR, einem kantonalen Register, einem nächtlichen Skript. Für diesen
-Fall gibt es einen **veröffentlichten, versionierten Vertrag**: jenes System
-legt eine JSON-Datei ab, eine Anwendung liest sie. Jede Station kann auf jede
-URL zeigen; im Schema steht kein Herstellername.
-
-- Vertrag: [`roster-snapshot.schema.json`](roster-snapshot.schema.json)
-- Abgleichs-Bericht eines Laufs:
-  [`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json) –
-  `matched`/`created`/`updated`/`deactivated`, jede Person, die **nicht**
-  zugeordnet werden konnte, mit Grund, und jeder unbekannte Grad-Schlüssel.
-  Nicht zuordenbare Personen werden gezählt und gemeldet, **nie stillschweigend
-  verworfen**.
-- Identitäten reisen als `(provider, external_id)`-Paare und landen in
-  `personnel_external_identities` – keine nach einem Hersteller benannte Spalte.
-- 🔴 **Keine medizinischen Felder, nie.** Keine Untersuchung, keine
-  Tauglichkeit, keine Impfung, und auch keine freie `metadata`-Map, in der so
-  etwas unbenannt ankäme. Ein Test hält das, kein Satz in einem Dokument.
-
-**Stand: gebaut.** Mit `ROSTER_SNAPSHOT_SOURCE` (https-Adresse oder absoluter
-Pfad) liest diese Anwendung die Datei stündlich ein – Zuordnung, Deaktivierungs-
-Grenze, Bericht und alle Sicherungen in [ROSTER-SNAPSHOT.md](ROSTER-SNAPSHOT.md);
-der Registry-Eintrag steht auf `implemented: true`. Die Schema-Dateien **und der
-Code, der sie liest** (`backend/app/roster_snapshot.py`,
-`backend/app/roster_snapshot_ingest.py`) sind byte-identische Kopien der
-KP-Front-Dateien, mit Prüfsumme in `shared/MANIFEST.json` eingetragen und vom
-CI-Job «Shared files match KP Front» verglichen; geändert wird das in beiden
-Repositories in einer Änderung (`shared/README.md`). Die beiden Produkte teilen dabei weiterhin keine Bibliothek und
-rufen einander nicht auf (siehe [RUNNING-BOTH.md](RUNNING-BOTH.md)); geteilt
-wird eine Datei, nicht Laufzeit.
+Eine Wehr, die ihre Mannschaft in einem anderen System führt (Gemeinde-HR, kantonales
+Register, ein nächtliches Skript), kann den Personenstamm als JSON-Datei nach einem
+veröffentlichten, herstellerneutralen Vertrag ablegen – direkt (`ROSTER_SNAPSHOT_SOURCE`) oder
+über den Stations-Index (`STATION_INDEX_SOURCE` → `index.json`, empfohlen). Gebaut und im
+Registry-Eintrag `implemented: true`. Alles Weitere – Variablen, Index, Zuordnung,
+Deaktivierungs-Grenze, Abgleichs-Bericht, das Verbot medizinischer Felder und die mit KP Front
+byte-identisch geteilten Dateien – steht in [ROSTER-SNAPSHOT.md](ROSTER-SNAPSHOT.md). Hier nur,
+was dort nicht steht: der Vertrag kennt bewusst auch **keine freie `metadata`-Map**, in der
+medizinische Angaben unbenannt ankommen könnten, und eine nicht zuordenbare Person wird im
+Bericht gezählt und mit Grund gemeldet, **nie stillschweigend verworfen**.
 
 Die Ausalarmierung läuft intern über ein Provider-Protokoll
 (`backend/app/services/alerting/`): ein neuer Anbieter (z. B. Alamos) ist ein

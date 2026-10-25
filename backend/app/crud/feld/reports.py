@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import after_commit
 from ...models import (
     FieldRequest,
     Incident,
@@ -215,12 +216,12 @@ async def _auto_move(
         return False
     # The board is watching this card: say the status moved without waiting for
     # the poll. Same partial shape the GPS advance sends.
-    await broadcast_incident_update({"id": str(incident.id), "status": target}, "update")
+    after_commit(db, broadcast_incident_update, {"id": str(incident.id), "status": target}, "update")
     return True
 
 
-async def _broadcast(incident: Incident) -> None:
-    """Push the field state to the board without waiting for the 5 s poll.
+def _broadcast(db: AsyncSession, incident: Incident) -> None:
+    """Push the field state to the board, once `db` commits, without waiting for the 5 s poll.
 
     Deliberately ``broadcast_incident_update`` only: `/feld` never writes an
     assignment, so ``broadcast_assignment_update`` has no business here.
@@ -241,7 +242,9 @@ async def _broadcast(incident: Incident) -> None:
     arrival. If a listener ever *does* need to read this event's body, widen it
     then, by reusing the incident serialiser rather than growing this dict.
     """
-    await broadcast_incident_update(
+    after_commit(
+        db,
+        broadcast_incident_update,
         {
             "id": str(incident.id),
             "field_complete_reported_at": (
@@ -306,7 +309,7 @@ async def record_arrival(
         changes={"arrived_at": at.isoformat() if at else None, "source": "feld" if actor.is_field else "kp"},
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(report)
 
     moved = False
@@ -327,7 +330,7 @@ async def record_arrival(
             message=message,
             params=params,
         )
-    await _broadcast(incident)
+    _broadcast(db, incident)
     return True
 
 
@@ -374,7 +377,7 @@ async def record_field_complete(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     moved = False
@@ -393,7 +396,7 @@ async def record_field_complete(
             message=message,
             params=params,
         )
-    await _broadcast(incident)
+    _broadcast(db, incident)
     return True
 
 
@@ -425,7 +428,7 @@ async def record_pickup(
     """
     await db.refresh(incident, with_for_update=True)
     if incident.pickup_needed == needed and (not needed or (incident.pickup_note or None) == (note or None)):
-        await db.commit()  # release the lock
+        await db.flush()
         return False
 
     incident.pickup_needed = needed
@@ -479,7 +482,7 @@ async def record_pickup(
         changes={"pickup_needed": needed, "pickup_note": note, "source": "feld" if actor.is_field else "kp"},
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     if incident.event_id:
@@ -501,8 +504,8 @@ async def record_pickup(
         # and a note edit must not make an already-seen request unseen.
         if needed and work_item is not None and work_item.notification_id is None:
             work_item.notification_id = bell.id
-            await db.commit()
-    await _broadcast(incident)
+            await db.flush()
+    _broadcast(db, incident)
     return True
 
 
@@ -558,12 +561,12 @@ async def create_field_request(
         created_by_name=actor.personnel_name if actor.is_field else user_display(actor.user),
         client_request_id=client_request_id,
     )
-    db.add(work_item)
     try:
-        await db.flush()
+        # A savepoint, so losing the race undoes this insert and nothing else of the request.
+        async with db.begin_nested():
+            db.add(work_item)
     except IntegrityError:
         # The same id raced in from a second tap: the other one won.
-        await db.rollback()
         if client_request_id is not None and (existing := await _request_by_client_id(db, client_request_id)):
             return existing, None
         raise
@@ -587,7 +590,7 @@ async def create_field_request(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     text = label
 
     notification: Notification | None = None
@@ -611,9 +614,9 @@ async def create_field_request(
             params=params,
         )
         work_item.notification_id = notification.id
-        await db.commit()
+        await db.flush()
         await db.refresh(work_item)
-    await _broadcast(incident)
+    _broadcast(db, incident)
     return work_item, notification
 
 

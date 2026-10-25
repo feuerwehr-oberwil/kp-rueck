@@ -53,7 +53,7 @@ async def create_group(
     """Create a new Auftrag (editor only). Verifies the event exists."""
     event = await events_crud.get_event_by_id(db, group.event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     new_group = await crud.create_group(db, group, current_user, request)
     response = await crud.build_group_response(db, new_group)
@@ -92,7 +92,7 @@ async def update_group(
     """Update an Auftrag's name/color/notes (editor only)."""
     group = await crud.update_group(db, group_id, group_update, current_user, request)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     response = await crud.build_group_response(db, group)
     background_tasks.add_task(broadcast_group_update, response.model_dump(mode="json"), "update")
@@ -115,7 +115,7 @@ async def record_group_announcement(
     """
     group = await crud.record_announcement(db, group_id, announcement)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     response = await crud.build_group_response(db, group)
     background_tasks.add_task(broadcast_group_update, response.model_dump(mode="json"), "update")
@@ -133,7 +133,7 @@ async def delete_group(
     """Soft-delete an Auftrag (editor only); its stops stay on the board, ungrouped."""
     group = await crud.soft_delete_group(db, group_id, current_user, request)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     event_id = str(group.event_id)
     background_tasks.add_task(broadcast_group_update, {"id": str(group_id), "event_id": event_id}, "delete")
@@ -156,7 +156,7 @@ async def reorder_stops(
     """
     group = await crud.get_group(db, group_id)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     try:
         updated = await crud.reorder_group_stops(db, group_id, reorder.ordered_ids, reorder.expected_ids)
@@ -200,7 +200,7 @@ async def add_stops(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     if attached is None:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     # add_stops_to_group returned a non-None result, so the Auftrag exists.
     group = cast(IncidentGroup, await crud.get_group(db, group_id))
@@ -223,11 +223,11 @@ async def remove_stop(
     """Detach a stop from an Auftrag (editor only); the incident stays on the board."""
     group = await crud.get_group(db, group_id)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     success = await crud.remove_stop_from_group(db, group_id, incident_id, current_user, request)
     if not success:
-        raise HTTPException(status_code=404, detail="Stop not found in this Auftrag")
+        raise HTTPException(status_code=404, detail="Stopp gehört nicht zu diesem Auftrag")
 
     event_id = str(group.event_id)
     background_tasks.add_task(broadcast_group_update, {"id": str(group_id), "event_id": event_id}, "update")
@@ -251,7 +251,7 @@ async def assign_group_resource(
     """
     group = await crud.get_group(db, group_id)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     try:
         result = await ga_crud.assign_group_resource(
@@ -296,11 +296,11 @@ async def unassign_group_resource(
     """Release a route-level resource from an Auftrag (editor only)."""
     group = await crud.get_group(db, group_id)
     if not group:
-        raise HTTPException(status_code=404, detail="Auftrag not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     success = await ga_crud.unassign_group_resource(db, group_id, assignment_id, current_user, request)
     if not success:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
     group_response = await crud.build_group_response(db, group)
     background_tasks.add_task(broadcast_group_update, group_response.model_dump(mode="json"), "update")
@@ -338,7 +338,7 @@ async def update_group_assignment(
     """
     group = await crud.get_group(db, group_id)
     if not group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auftrag not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     try:
         assignment = await ga_crud.update_group_assignment(db, assignment_id, update)
@@ -348,15 +348,14 @@ async def update_group_assignment(
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.CONFLICT) from e
     if not assignment or assignment.incident_group_id != group_id:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
 
-    # Re-read the Auftrag: `update_group_assignment` commits, which expires every
-    # instance in the session, and building a response from the stale reference
-    # lazy-loads outside the greenlet — a 500 on the one call that pins a route's
+    # Re-read the Auftrag after the write: building a response from a stale
+    # reference lazy-loads outside the greenlet — a 500 on the one call that pins a route's
     # Einsatzleiter. Which is why an Auftrag never had one.
     group = await crud.get_group(db, group_id)
     if not group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auftrag not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.AUFTRAG_NOT_FOUND)
 
     # Every other write in this file broadcasts; without this the new
     # Einsatzleiter is visible only on the screen that set it, because polling

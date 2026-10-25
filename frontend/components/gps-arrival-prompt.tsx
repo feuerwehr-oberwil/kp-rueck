@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { MapPin } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
+import { reportStatusConflict } from "@/lib/status-conflict"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -98,6 +99,12 @@ export function GpsArrivalPrompt() {
       await apiClient.updateIncidentStatus(prompt.incidentId, "enroute", "active")
       toast.success(t('movedToActive', { label: prompt.incidentLabel }))
     } catch (error) {
+      // Somebody moved the card meanwhile: «Gerade geändert» asks instead, and this
+      // prompt's question («ins Einsatz?») no longer applies.
+      if (reportStatusConflict(error, { operationId: prompt.incidentId, seen: "enroute", wanted: "active" })) {
+        setPrompt(null)
+        return
+      }
       toast.error(t('statusChangeFailed'))
       // Re-thrown so ConfirmDialog keeps the prompt open: the vehicle is still
       // reported at the incident and the operator still has to answer.
@@ -115,7 +122,7 @@ export function GpsArrivalPrompt() {
       onOpenChange={(open) => { if (!open) setPrompt(null) }}
       title={
         <span className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" />
+          <MapPin className="h-5 w-5 text-muted-foreground" />
           {t('title')}
         </span>
       }

@@ -24,7 +24,9 @@ import { ShellLoader } from "@/components/ui/shell-loader"
 interface TransferIncidentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  sourceIncident: Incident
+  /** Only its id (kept out of the targets) and a fallback name are read – an
+   *  `Operation` or an `Incident` both fit. */
+  sourceIncident: { id: string; title?: string | null }
   sourceName?: string
   availableIncidents: Incident[]
   onTransfer: (targetIncidentId: string) => void
@@ -109,7 +111,7 @@ export function TransferIncidentDialog({
         <div className="space-y-2">
           {/* Address first (then title) to match the board/incident cards */}
           <div className="flex items-start gap-2">
-            <MapPin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
+            <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" />
             <div className="min-w-0 flex-1">
               <h4 className="font-semibold text-sm truncate" title={address || incident.title}>
                 {address || incident.title}
@@ -227,7 +229,7 @@ export function TransferIncidentDialog({
         onOpenChange={setConfirmOpen}
         title={t('transfer.confirmTitle')}
         description={t('transfer.confirmDescription', {
-          source: sourceName || sourceIncident.title,
+          source: sourceName || sourceIncident.title || '',
           target: selectedIncident
             ? selectedIncident.location_display ??
               (formatLocationForDisplay(selectedIncident.location_address ?? '', getGlobalHomeCity()) ||

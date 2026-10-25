@@ -1,4 +1,4 @@
-import { StrictMode } from "react"
+import { StrictMode, useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -153,6 +153,77 @@ describe("LocationInput", () => {
     expect(onAddressChange).toHaveBeenCalledWith("Löchlimattstrasse, 4104 Oberwil")
     expect(onCoordinatesChange).toHaveBeenCalledWith(47.516659, 7.56234)
   })
+})
+
+
+// UX-PHONE-01: on a phone the list is open the whole time one types, so «a blur with the
+// list open is a pick» threw away every address that was followed by a tap on «Einsatz
+// erstellen» / «Weiter». A blur to anything but the list commits what was typed.
+it("keeps the typed address when the field is left while suggestions are open", async () => {
+  searchAddress.mockReset()
+  searchAddress.mockResolvedValue([{ id: "1", formattedAddress: "Hauptstrasse 10, 4104 Oberwil", lat: 47.5, lon: 7.55 }])
+  const onAddressChange = vi.fn()
+  const user = userEvent.setup()
+  // A host that keeps what the field commits, like every form around it.
+  function Host() {
+    const [address, setAddress] = useState<string | null>(null)
+    return (
+      <>
+        <LocationInput address={address} latitude={null} longitude={null}
+          onAddressChange={(value) => { onAddressChange(value); setAddress(value) }}
+          onCoordinatesChange={vi.fn()} geocodeInitialAddress={false} />
+        <button type="button">Einsatz erstellen</button>
+      </>
+    )
+  }
+  renderWithIntl(<Host />)
+  await user.type(screen.getByRole("combobox"), "Hauptstrasse 10 Oberwil")
+  await screen.findByText("Hauptstrasse 10, 4104 Oberwil")
+
+  await user.click(screen.getByRole("button", { name: "Einsatz erstellen" }))
+
+  expect(onAddressChange).toHaveBeenCalledWith("Hauptstrasse 10 Oberwil")
+  expect(screen.getByRole("combobox")).toHaveValue("Hauptstrasse 10 Oberwil")
+})
+
+// UX-DESKTOP-02: Enter with no row highlighted is the typed text, as the field promises —
+// not the geocoder's first hit, which for a nationwide street name was 130 km away.
+it("commits the typed text on Enter when no suggestion is highlighted", async () => {
+  searchAddress.mockReset()
+  searchAddress.mockResolvedValue([{ id: "1", formattedAddress: "Bahnhofstrasse 22, 3904 Naters", lat: 46.32, lon: 7.99 }])
+  const onAddressChange = vi.fn()
+  const onCoordinatesChange = vi.fn()
+  const user = userEvent.setup()
+  renderWithIntl(<LocationInput address={null} latitude={null} longitude={null}
+    onAddressChange={onAddressChange} onCoordinatesChange={onCoordinatesChange} geocodeInitialAddress={false} />)
+  await user.type(screen.getByRole("combobox"), "Bahnhofstrasse 22")
+  await screen.findByText("Bahnhofstrasse 22, 3904 Naters")
+
+  await user.keyboard("{Enter}")
+  expect(onAddressChange).toHaveBeenLastCalledWith("Bahnhofstrasse 22")
+  expect(onCoordinatesChange).not.toHaveBeenCalledWith(46.32, 7.99)
+
+  // ↓ then Enter still picks the highlighted row.
+  await user.clear(screen.getByRole("combobox"))
+  await user.type(screen.getByRole("combobox"), "Bahnhofstrasse 2")
+  await screen.findByText("Bahnhofstrasse 22, 3904 Naters")
+  await user.keyboard("{ArrowDown}{Enter}")
+  expect(onAddressChange).toHaveBeenLastCalledWith("Bahnhofstrasse 22, 3904 Naters")
+})
+
+// UX-DESKTOP-01: Ctrl ↵ focuses the Ort in the same batch as the form reset; the field
+// must still come up empty, not with the previous call's address in it.
+it("empties when the host clears the address, even while the field has the focus", async () => {
+  searchAddress.mockReset()
+  searchAddress.mockResolvedValue([])
+  const props = { latitude: null, longitude: null, onAddressChange: vi.fn(), onCoordinatesChange: vi.fn(), geocodeInitialAddress: false }
+  const { rerender } = renderWithIntl(<LocationInput {...props} address="Erster Anruf 1" />)
+  act(() => screen.getByRole("combobox").focus())
+  expect(screen.getByRole("combobox")).toHaveValue("Erster Anruf 1")
+
+  rerender(<LocationInput {...props} address="" />)
+  expect(screen.getByRole("combobox")).toHaveValue("")
+  expect(screen.getByRole("combobox")).toHaveFocus()
 })
 
 

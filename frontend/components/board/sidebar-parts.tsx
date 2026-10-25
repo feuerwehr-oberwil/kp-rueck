@@ -155,7 +155,7 @@ export function BindingsPopoverBody({
           {state.subtitle && <p className="truncate text-2xs text-muted-foreground">{state.subtitle}</p>}
         </div>
         {state.bindings.length > 0 && (
-          <Badge variant="outline" className="shrink-0 border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+          <Badge variant="outline" className="shrink-0 text-muted-foreground">
             {t('bindingsCount', { count: state.bindings.length })}
           </Badge>
         )}
@@ -180,7 +180,7 @@ export function BindingsPopoverBody({
               )}
             >
               {reachable ? (
-                <ArrowRight className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
               ) : (
                 <Package2 className="size-3.5 shrink-0 text-muted-foreground" />
               )}
@@ -342,20 +342,25 @@ export function AggregatedMaterialRow({
               className={cn(
                 "group draggable rounded-md px-2 py-1.5 transition-all hover:bg-muted/50",
                 isDragging && "dragging",
-                allTaken && "opacity-60 hover:opacity-100",
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                {/* All units taken = a quiet name (as the person row), not a faded row. */}
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-sm font-medium",
+                    allTaken ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
+                  )}
+                >
                   {dragUnit.name}
                 </span>
-                {/* The count IS the state: 0/4 needs no extra dot. Amber once
-                    nothing is left — the depot answers «kann ich noch einen
-                    holen?» at a glance. */}
+                {/* The count IS the state: 0/4 needs no extra dot, and it reads
+                    «kann ich noch einen holen?» at a glance. Ink, not amber, once
+                    nothing is left — gebunden is a fact (VISUAL-03). */}
                 <span
                   className={cn(
                     "shrink-0 text-xs tabular-nums",
-                    allTaken ? "font-medium text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+                    allTaken ? "font-medium text-foreground" : "text-muted-foreground",
                   )}
                   title={t('aggregateCountTitle', { free: freeUnits.length, total: units.length })}
                 >

@@ -2,6 +2,7 @@
 
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -39,18 +40,18 @@ import { telHref } from "@/lib/phone"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { apiClient } from "@/lib/api-client"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useRekoLinkActions } from "@/lib/hooks/use-reko-link-actions"
 import { useWhatsAppCopy } from "@/lib/hooks/use-whatsapp-copy"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { SchadenplatzRapportSection } from "@/components/kanban/schadenplatz-rapport-section"
 import { MaterialReturnList } from "@/components/kanban/material-return-list"
-import { DetailField, DetailGroupHeading, DetailToggle, DENSE_CONTROL } from "@/components/kanban/detail-field"
+import { DetailField, DetailFlags, DetailGroupHeading, DENSE_CONTROL } from "@/components/kanban/detail-field"
 import { FieldSaveStatus, FIELD_UNSAVED_CLASS, useFieldSave } from "@/components/kanban/field-save-status"
 import { LocationInput } from "@/components/location/location-input"
 import { toast } from "sonner"
 import { cn, sanitizePhoneInput } from "@/lib/utils"
 import { useEvent } from "@/lib/contexts/event-context"
-import { TransferIncidentDialog } from "@/components/incidents/transfer-incident-dialog"
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { IncidentTimeline } from "@/components/kanban/incident-timeline"
 import { IncidentParticipants } from "@/components/kanban/incident-participants"
@@ -71,7 +72,6 @@ import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
-import type { Incident } from "@/lib/types/incidents"
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 /**
@@ -198,6 +198,9 @@ export interface OperationDetailContentProps {
   onRequestComplete?: (operationId: string) => void
   /** Opens the Auftrag picker to distribute this incident into a route. */
   onDistributeToAuftrag?: (operationId: string) => void
+  /** Opens «Ressourcen übertragen» for this incident (the page's dialog layer
+   *  owns the dialog – see incident-dialogs.tsx). */
+  onTransferResources?: (operationId: string) => void
   onChangeStatus?: (operationId: string, targetStatus: OperationStatus) => void
 }
 
@@ -219,6 +222,7 @@ export function OperationDetailContent({
   onSendDivera,
   onRequestComplete,
   onDistributeToAuftrag,
+  onTransferResources,
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
@@ -296,11 +300,10 @@ export function OperationDetailContent({
     },
     [operation.id],
   )
-  const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; name: string; type: string }>>([])
+  // The quick-assign fleet behind `1`..`5` – editors only; off the board sync.
+  const fleet = useVehicleShortcuts()
+  const availableVehicleCount = canEdit ? fleet.length : 0
   const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
-  const [availableIncidents, setAvailableIncidents] = useState<Incident[]>([])
-  const [isTransferring, setIsTransferring] = useState(false)
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
   // Bumped when the rapport section files a rapport: that is the moment the
@@ -333,32 +336,12 @@ export function OperationDetailContent({
       }
     : null
 
-  // Load available vehicles list when modal opens. The driver map is
-  // handled by useVehicleDrivers above (live-synced).
-  useEffect(() => {
-    const loadVehicles = async () => {
-      if (!active || !selectedEvent || !canEdit) return
-
-      try {
-        const vehicles = await apiClient.getVehicles()
-        const sorted = [...vehicles].sort((a, b) => a.display_order - b.display_order)
-        setAvailableVehicles(sorted.map((v) => ({ id: v.id, name: v.name, type: v.type })))
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
-        toast.error(t('detail.vehiclesLoadFailed'), {
-          description: t('detail.vehiclesLoadFailedDescription'),
-        })
-      }
-    }
-
-    loadVehicles()
-  }, [active, canEdit, selectedEvent, t])
+  // The three effects below are triggered by the incident or by `openOnTab` (whose nonce makes
+  // a repeat click a new event) and READ the tab it asks for – never depend on it.
+  const currentRequestedTab = useEffectEvent(() => requestedTab)
 
   useEffect(() => {
     setShowDeleteConfirm(false)
-    setTransferDialogOpen(false)
-    setAvailableIncidents([])
-    setIsTransferring(false)
     setRekoDialogOpen(false)
     setRekoTransferDialogOpen(false)
     // A different incident brings its own remembered tab, Übersicht if it has
@@ -367,11 +350,10 @@ export function OperationDetailContent({
     // A notification's tab outranks the memory: the operator clicked one
     // specific thing. `setTab`, never `selectTab` — this must not be written
     // back, or one bell click would repoint the card for good.
-    setTab(requestedTab ?? readRememberedTab(operation.id) ?? 'overview')
     // openOnTab is read, not depended on: it must not re-run this reset on its
     // own — the effect below owns that, and doing it here as well would fight
     // an operator who switched tabs after arriving.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setTab(currentRequestedTab() ?? readRememberedTab(operation.id) ?? 'overview')
   }, [selectedEvent?.id, operation.id])
 
   // A second (or third) click on the same notification. The panel keeps this
@@ -379,8 +361,8 @@ export function OperationDetailContent({
   // — and "take me to the thing you just told me about" has to work every time,
   // not only the first. The nonce is what makes a repeat click a new event.
   useEffect(() => {
-    if (requestedTab) setTab(requestedTab)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const tab = currentRequestedTab()
+    if (tab) setTab(tab)
   }, [openOnTab])
 
   /**
@@ -394,12 +376,11 @@ export function OperationDetailContent({
    * One frame late, so the tab set above has been rendered before we measure.
    */
   useEffect(() => {
-    if (openOnTab?.section !== 'resources' || requestedTab !== 'overview') return
+    if (openOnTab?.section !== 'resources' || currentRequestedTab() !== 'overview') return
     const frame = window.requestAnimationFrame(() => {
       resourcesRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     })
     return () => window.cancelAnimationFrame(frame)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnTab])
 
   /**
@@ -468,7 +449,7 @@ export function OperationDetailContent({
   // move the view either.
   useOperationDetailShortcutTabs({
     enabled: active && canEdit,
-    availableVehicleCount: availableVehicles.length,
+    availableVehicleCount,
     onFocusTab: selectTab,
   })
 
@@ -545,65 +526,6 @@ export function OperationDetailContent({
 
   const { isCopying: isCopyingWhatsApp, copy: handleCopyWhatsApp } =
     useWhatsAppCopy({ operation, materials, vehicleDrivers })
-
-  // Handler for opening transfer dialog
-  const handleOpenTransfer = async () => {
-    if (!operation || !selectedEvent) {
-      toast.error(t('common.error'), {
-        description: t('detail.noEventSelectedLong'),
-      })
-      return
-    }
-
-    try {
-      // Fetch all incidents for the current event
-      const apiIncidents = await apiClient.getIncidents(selectedEvent.id)
-      // Convert ApiIncident to Incident type (string coords/dates -> number/Date)
-      const incidents: Incident[] = apiIncidents.map(inc => {
-        // Destructure to omit fields we need to transform
-        const { location_lat, location_lng, created_at, updated_at, status_changed_at, completed_at, reko_arrived_at, assigned_vehicles, ...rest } = inc
-        return {
-          ...rest,
-          location_lat: location_lat !== null ? parseFloat(location_lat) : null,
-          location_lng: location_lng !== null ? parseFloat(location_lng) : null,
-          created_at: new Date(created_at),
-          updated_at: new Date(updated_at),
-          status_changed_at: status_changed_at ? new Date(status_changed_at) : null,
-          completed_at: completed_at ? new Date(completed_at) : null,
-          reko_arrived_at: reko_arrived_at ? new Date(reko_arrived_at) : null,
-          assigned_vehicles: assigned_vehicles.map(v => ({
-            ...v,
-            assigned_at: new Date(v.assigned_at),
-          })),
-        }
-      })
-      setAvailableIncidents(incidents)
-      setTransferDialogOpen(true)
-    } catch (error) {
-      console.error('Failed to load incidents:', error)
-      toast.error(t('common.loadFailed'), {
-        description: t('detail.incidentsLoadFailedDescription'),
-      })
-    }
-  }
-
-  // Handler for transferring assignments
-  const handleTransfer = async (targetIncidentId: string) => {
-    if (!operation) return
-
-    try {
-      setIsTransferring(true)
-      await apiClient.transferAssignments(operation.id, targetIncidentId)
-      await refreshOperations()
-      setTransferDialogOpen(false)
-    } catch (error: unknown) {
-      toast.error(t('common.transferFailed'), {
-        description: error instanceof Error ? error.message : t('common.transferFailedDescription')
-      })
-    } finally {
-      setIsTransferring(false)
-    }
-  }
 
   // The modal is 90vw wide — a tab that only fills one narrow column wastes it.
   // The panel mount stays single-column; it is barely wider than one.
@@ -728,9 +650,9 @@ export function OperationDetailContent({
                   key={member}
                   variant="outline"
                   // The Einsatzleiter keeps a visible accent on the SAME pill:
-                  // an amber edge (the board's "pay attention" colour, like the
-                  // EL badge itself) — never a different chip family.
-                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-amber-400/60")}
+                  // an ink edge, like the EL badge itself (a fact, not amber –
+                  // VISUAL-03) — never a different chip family.
+                  className={cn(RESOURCE_CHIP, !auftrag && isLeader && "border-foreground/40")}
                   onRemove={canEdit && onRemoveCrew ? () => onRemoveCrew(operation.id, member) : undefined}
                   removeTitle={t('detail.removePerson')}
                   removeButtonClassName="ml-1"
@@ -1143,6 +1065,43 @@ export function OperationDetailContent({
             }}
           />
 
+          {/* What came in, right under where — the same order as «Neuer
+              Einsatz» (Ort, Meldung, Einsatzart, Priorität …), so the dialog and
+              the detail read as one form seen twice (UX-DESKTOP-14). */}
+          <DetailField
+            label={t('common.meldung')}
+            htmlFor="notes"
+            alignStart
+            footer={<FieldSaveStatus view={notesSave} onRetry={(notes) => onUpdate({ notes })} />}
+          >
+            <Textarea
+              id="notes"
+              placeholder={t('detail.meldungPlaceholder')}
+              value={notesSave.value}
+              disabled={!canEdit}
+              aria-invalid={notesSave.failed || undefined}
+              onChange={(e) => onUpdate({ notes: e.target.value })}
+              // Grows with what is in it. `h-auto` is what makes that work:
+              // DENSE_CONTROL's height is an explicit one, and an explicit
+              // height beats the base Textarea's `field-sizing-content` — which
+              // is how a dictated Meldung ended up scrolling inside five rems
+              // and clipped mid-word. The floor is ONE line — an empty Meldung
+              // must not reserve a void — and the max-height is where it goes
+              // back to scrolling rather than pushing the form off the panel.
+              className={cn(
+                DENSE_CONTROL,
+                // `resize-none`: the field already grows with its content
+                // (`field-sizing-content`), so the corner grabber offered a second,
+                // worse way to do the same thing - and on a borderless control it was
+                // the only thing drawing a visible edge.
+                "h-auto resize-none py-1",
+                // Three lines of floor: the field must READ as a textarea, not a textbox.
+                dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
+                notesSave.failed && FIELD_UNSAVED_CLASS,
+              )}
+            />
+          </DetailField>
+
           {/* One per line, both mounts: two half-width controls sharing a row is
               how «Mittel» gets read as the Einsatzart. */}
           <>
@@ -1185,45 +1144,11 @@ export function OperationDetailContent({
           </div>
           </div>
 
-          {/* What came in: the wording, who reported it and how, plus the
-              KP's own notes and the flags that qualify it. Unnamed like the
-              block above – the first row's label already says «Meldung». */}
+          {/* Who reported it, the KP's own notes, and the flags that qualify
+              the incident. Unnamed like the block above – the rows carry their
+              own labels. */}
           <div>
           <div className="space-y-1">
-          <DetailField
-            label={t('common.meldung')}
-            htmlFor="notes"
-            alignStart
-            footer={<FieldSaveStatus view={notesSave} onRetry={(notes) => onUpdate({ notes })} />}
-          >
-            <Textarea
-              id="notes"
-              placeholder={t('detail.meldungPlaceholder')}
-              value={notesSave.value}
-              disabled={!canEdit}
-              aria-invalid={notesSave.failed || undefined}
-              onChange={(e) => onUpdate({ notes: e.target.value })}
-              // Grows with what is in it. `h-auto` is what makes that work:
-              // DENSE_CONTROL's height is an explicit one, and an explicit
-              // height beats the base Textarea's `field-sizing-content` — which
-              // is how a dictated Meldung ended up scrolling inside five rems
-              // and clipped mid-word. The floor is ONE line — an empty Meldung
-              // must not reserve a void — and the max-height is where it goes
-              // back to scrolling rather than pushing the form off the panel.
-              className={cn(
-                DENSE_CONTROL,
-                // `resize-none`: the field already grows with its content
-                // (`field-sizing-content`), so the corner grabber offered a second,
-                // worse way to do the same thing - and on a borderless control it was
-                // the only thing drawing a visible edge.
-                "h-auto resize-none py-1",
-                // Three lines of floor: the field must READ as a textarea, not a textbox.
-                dense ? "max-h-[14rem] min-h-[3.75rem]" : "max-h-[20rem] min-h-[3.75rem]",
-                notesSave.failed && FIELD_UNSAVED_CLASS,
-              )}
-            />
-          </DetailField>
-
           {/* Contact */}
           <DetailField
             label={t('common.contact')}
@@ -1251,7 +1176,7 @@ export function OperationDetailContent({
             action={operation.contactPhone.trim() ? (
               <a
                 href={telHref(operation.contactPhone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 <Phone className="h-3 w-3 shrink-0" />
                 {t('common.callContact')}
@@ -1305,109 +1230,108 @@ export function OperationDetailContent({
             />
           </DetailField>
 
-          {/* The switches stand together: they are the same kind of statement
-              about the incident (how it came in, who it is for, why it waits),
-              and scattering them between the text fields made the form read as
-              five unrelated things. */}
-          {/* "Telefonisch" / "Vom Feld", correctable after
-              the fact (plan 26 decision 8): the realistic order is "type it in,
-              then realise it was a phone call — or a Trupp's radio message".
-              Same rows as in the new-emergency modal, two switches over ONE
-              source value, so turning one on turns the other off. A card that
-              arrived from a delivering system keeps its own provenance and is
-              not an operator's to relabel. */}
-          {isEditorClaimedSource(operation.source) ? (
-            <>
-              <DetailToggle
-                label={t('common.phoneReported')}
-                description={t('common.phoneReportedDescription')}
-                icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
-                checked={operation.source === 'intake'}
-                disabled={!canEdit}
-                onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' })}
-              />
-              <DetailToggle
-                label={t('common.feldReported')}
-                description={t('common.feldReportedDescription')}
-                icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
-                checked={operation.source === 'feld'}
-                disabled={!canEdit}
-                onToggle={(checked) => canEdit && onUpdate({ source: checked ? 'feld' : 'operator' })}
-              />
-            </>
-          ) : null}
-
-          {/* Nachbarhilfe Toggle */}
-          <DetailToggle
-            label={t('common.nachbarhilfe')}
-            description={t('detail.nachbarhilfeDescription')}
-
-            icon={<Building2 className="h-3.5 w-3.5 shrink-0" />}
-            checked={operation.nachbarhilfe || false}
+          {/* The flags stand together, last and out of the way, as ONE row of
+              chips (owner pick UX-DESKTOP-14 B — the same `DetailFlags` row
+              «Neuer Einsatz» ends with): they are the same kind of statement
+              about the incident (how it came in, who it is for, why it waits)
+              and are set only when they apply. A flag with a «warum» note gets
+              it as its own row under the chips while it is on.
+              "Telefonisch" / "Vom Feld" are correctable after the fact (plan 26
+              decision 8): two chips over ONE source value, so turning one on
+              turns the other off. A card that arrived from a delivering system
+              keeps its own provenance and is not an operator's to relabel. */}
+          <DetailFlags
+            label={t('common.merkmale')}
             disabled={!canEdit}
-            onToggle={(checked) => canEdit && onUpdate({ nachbarhilfe: checked })}
-            // Save state INSIDE the field (trail / ✓ at its trailing edge) so
-            // the row keeps its height while saving and after; only a failure
-            // opens the line below — an error may take space (owner 02.10.).
-            note={
-              <div className="relative">
-                <Input
-                  placeholder={t('common.nachbarhilfePlaceholder')}
-                  value={nachbarhilfeNoteSave.value}
-                  disabled={!canEdit}
-                  aria-invalid={nachbarhilfeNoteSave.failed || undefined}
-                  onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  className={cn("h-(--field-h-dense) cursor-text rounded-sm pr-7 text-sm select-text", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
-                />
-                <FieldSaveStatus
-                  part="mark"
-                  view={nachbarhilfeNoteSave}
-                  onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
-                  className="absolute top-1/2 right-2 -translate-y-1/2"
-                />
-              </div>
-            }
-            footer={
-              <FieldSaveStatus
-                part="failure"
-                view={nachbarhilfeNoteSave}
-                onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
-              />
-            }
-          />
-
-          {/* Am Warten Toggle */}
-          <DetailToggle
-            label={t('common.amWarten')}
-            description={t('common.amWartenDescription')}
-
-            icon={<Timer className="h-3.5 w-3.5 shrink-0" />}
-            checked={operation.amWarten || false}
-            disabled={!canEdit}
-            onToggle={(checked) => canEdit && onUpdate({ amWarten: checked })}
-            note={
-              <div className="relative">
-                <Input
-                  placeholder={t('common.amWartenPlaceholder')}
-                  value={amWartenNoteSave.value}
-                  disabled={!canEdit}
-                  aria-invalid={amWartenNoteSave.failed || undefined}
-                  onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  className={cn("h-(--field-h-dense) cursor-text rounded-sm pr-7 text-sm select-text", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
-                />
-                <FieldSaveStatus
-                  part="mark"
-                  view={amWartenNoteSave}
-                  onRetry={(amWartenNote) => onUpdate({ amWartenNote })}
-                  className="absolute top-1/2 right-2 -translate-y-1/2"
-                />
-              </div>
-            }
-            footer={
-              <FieldSaveStatus part="failure" view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
-            }
+            flags={[
+              ...(isEditorClaimedSource(operation.source)
+                ? [
+                    {
+                      key: 'intake',
+                      label: t('common.phoneReported'),
+                      description: t('common.phoneReportedDescription'),
+                      icon: <Phone className="h-3.5 w-3.5 shrink-0" />,
+                      checked: operation.source === 'intake',
+                      onToggle: (checked: boolean) => canEdit && onUpdate({ source: checked ? 'intake' : 'operator' }),
+                    },
+                    {
+                      key: 'feld',
+                      label: t('common.feldReported'),
+                      description: t('common.feldReportedDescription'),
+                      icon: <Axe className="h-3.5 w-3.5 shrink-0" />,
+                      checked: operation.source === 'feld',
+                      onToggle: (checked: boolean) => canEdit && onUpdate({ source: checked ? 'feld' : 'operator' }),
+                    },
+                  ]
+                : []),
+              {
+                key: 'nachbarhilfe',
+                label: t('common.nachbarhilfe'),
+                description: t('detail.nachbarhilfeDescription'),
+                icon: <Building2 className="h-3.5 w-3.5 shrink-0" />,
+                checked: operation.nachbarhilfe || false,
+                onToggle: (checked: boolean) => canEdit && onUpdate({ nachbarhilfe: checked }),
+                // Save state INSIDE the field (trail / ✓ at its trailing edge) so
+                // the row keeps its height while saving and after; only a failure
+                // opens the line below — an error may take space (owner 02.10.).
+                note: (
+                  <div className="relative">
+                    <Input
+                      placeholder={t('common.nachbarhilfePlaceholder')}
+                      aria-label={t('common.nachbarhilfe')}
+                      value={nachbarhilfeNoteSave.value}
+                      disabled={!canEdit}
+                      aria-invalid={nachbarhilfeNoteSave.failed || undefined}
+                      onChange={(e) => onUpdate({ nachbarhilfeNote: e.target.value })}
+                      className={cn(DENSE_CONTROL, "pr-7", nachbarhilfeNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                    />
+                    <FieldSaveStatus
+                      part="mark"
+                      view={nachbarhilfeNoteSave}
+                      onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
+                      className="absolute top-1/2 right-2 -translate-y-1/2"
+                    />
+                  </div>
+                ),
+                footer: (
+                  <FieldSaveStatus
+                    part="failure"
+                    view={nachbarhilfeNoteSave}
+                    onRetry={(nachbarhilfeNote) => onUpdate({ nachbarhilfeNote })}
+                  />
+                ),
+              },
+              {
+                key: 'amWarten',
+                label: t('common.amWarten'),
+                description: t('common.amWartenDescription'),
+                icon: <Timer className="h-3.5 w-3.5 shrink-0" />,
+                checked: operation.amWarten || false,
+                onToggle: (checked: boolean) => canEdit && onUpdate({ amWarten: checked }),
+                note: (
+                  <div className="relative">
+                    <Input
+                      placeholder={t('common.amWartenPlaceholder')}
+                      aria-label={t('common.amWarten')}
+                      value={amWartenNoteSave.value}
+                      disabled={!canEdit}
+                      aria-invalid={amWartenNoteSave.failed || undefined}
+                      onChange={(e) => onUpdate({ amWartenNote: e.target.value })}
+                      className={cn(DENSE_CONTROL, "pr-7", amWartenNoteSave.failed && FIELD_UNSAVED_CLASS)}
+                    />
+                    <FieldSaveStatus
+                      part="mark"
+                      view={amWartenNoteSave}
+                      onRetry={(amWartenNote) => onUpdate({ amWartenNote })}
+                      className="absolute top-1/2 right-2 -translate-y-1/2"
+                    />
+                  </div>
+                ),
+                footer: (
+                  <FieldSaveStatus part="failure" view={amWartenNoteSave} onRetry={(amWartenNote) => onUpdate({ amWartenNote })} />
+                ),
+              },
+            ]}
           />
 
           </div>
@@ -1773,7 +1697,7 @@ export function OperationDetailContent({
               <FieldReportsRow operation={operation} canEdit={canEdit} only={['pickup']} />
 
               {/* Everything the field asked for, with its state (R13): offen →
-                  in Arbeit → erledigt, who and when. «Material zuteilen» opens
+                  in Arbeit → erledigt, who and when. «Material zuweisen» opens
                   the same assignment dialog as the «+» on the resource rows. */}
               <FieldRequestList
                 operation={operation}
@@ -1901,12 +1825,12 @@ export function OperationDetailContent({
             onClick={handleCopyWhatsApp}
           />
 
-          {canEdit && (
+          {canEdit && onTransferResources && (
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
               dense={dense}
-              onClick={handleOpenTransfer}
+              onClick={() => onTransferResources(operation.id)}
             />
           )}
 
@@ -1951,22 +1875,6 @@ export function OperationDetailContent({
           onDelete(operation.id)
         }}
       />}
-
-      {/* Transfer Incident Dialog */}
-      <TransferIncidentDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        sourceIncident={operation as unknown as Incident}
-        sourceName={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
-        availableIncidents={availableIncidents}
-        onTransfer={handleTransfer}
-        isTransferring={isTransferring}
-        resourceSummary={{
-          crew: operation.crew.length,
-          vehicles: operation.vehicles.length,
-          materials: operation.materials.length,
-        }}
-      />
 
       {/* Assign Reko Dialog */}
       <AssignRekoDialog

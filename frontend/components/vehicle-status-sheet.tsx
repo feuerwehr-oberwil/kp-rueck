@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useRouter } from "next/navigation"
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { FooterSheet } from "@/components/ui/footer-sheet"
@@ -81,30 +82,20 @@ interface VehicleAuftrag {
   color: string | null
 }
 
-/** Tints an Auftrag chip in the route's colour. Returns undefined for a route
- *  without a colour, which then falls back to the neutral chip classes. */
-function auftragChipStyle(color: string | null): CSSProperties | undefined {
-  if (!color) return undefined
-  return {
-    color,
-    borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
-    backgroundColor: `color-mix(in oklab, ${color} 12%, transparent)`,
-  }
-}
-
-/** «Auftrag «Sturm West»» in the route's colour — so a vehicle's route is
- *  identifiable at a glance instead of reading as one more grey field. */
+/** «Auftrag «Sturm West»» with the route's colour as a dot — so a vehicle's
+ *  route is identifiable at a glance. Neutral text, as on the board card: a
+ *  route colour painted as text fell to 2.3:1 in light (sweep 2026-10). */
 function AuftragChip({ auftrag, label }: { auftrag: VehicleAuftrag; label: string }) {
   return (
     <span
-      className={cn(
-        "inline-flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-sm font-medium",
-        !auftrag.color && "border-border bg-muted/60 text-foreground",
-      )}
-      style={auftragChipStyle(auftrag.color)}
+      className="inline-flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-sm font-medium text-foreground"
       title={label}
     >
-      <Route className="h-3 w-3 flex-shrink-0" />
+      <Route className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+      <span
+        className="h-2 w-2 flex-shrink-0 rounded-full"
+        style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
+      />
       <span className="truncate">{label}</span>
     </span>
   )
@@ -114,7 +105,7 @@ function getStatusBorderColor(status: string, hasIncident: boolean): string {
   // Refactoring UI: Use subtle visual cues, not heavy color blocks
   // Only highlight assigned vehicles, available is the default state
   if (hasIncident) {
-    return "border-l-amber-400 dark:border-l-amber-500"
+    return "border-l-foreground/40" // gebunden: ink, not amber (VISUAL-03)
   }
   switch (status) {
     case "available":
@@ -155,14 +146,16 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   const [selectedVehicleForDriver, setSelectedVehicleForDriver] = useState<VehicleStatus | null>(null)
   const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
 
-  // Auto-refresh every 10 seconds while sheet is open
+  // Auto-refresh every 10 seconds while sheet is open. `loadVehicleStatuses` is a plain
+  // function re-created every render, reached through an effect event.
+  const loadStatuses = useEffectEvent((silent: boolean) => void loadVehicleStatuses(silent))
   useEffect(() => {
     if (open && eventId) {
-      loadVehicleStatuses()
+      loadStatuses(false)
 
       // Set up auto-refresh
       refreshIntervalRef.current = setInterval(() => {
-        loadVehicleStatuses(true) // Silent refresh (no loading state)
+        loadStatuses(true) // Silent refresh (no loading state)
       }, 10000)
     }
 
@@ -254,38 +247,39 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
   // Vehicles are already sorted by display_order in loadVehicleStatuses
   const displayedVehicles = vehicles
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!open) return
+  // Handle keyboard navigation. An effect event: one listener for the mount, and a key
+  // always sees the current list, selection and handlers.
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (!open) return
 
-      // Ignore if typing in input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        setSelectedVehicleIndex(prev =>
-          prev < displayedVehicles.length - 1 ? prev + 1 : 0
-        )
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        setSelectedVehicleIndex(prev =>
-          prev > 0 ? prev - 1 : displayedVehicles.length - 1
-        )
-      } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
-        e.preventDefault()
-        const vehicle = displayedVehicles[selectedVehicleIndex]
-        if (vehicle?.incident_id) {
-          handleVehicleClick(vehicle)
-        }
-      }
+    // Ignore if typing in input
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return
     }
 
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setSelectedVehicleIndex(prev =>
+        prev < displayedVehicles.length - 1 ? prev + 1 : 0
+      )
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setSelectedVehicleIndex(prev =>
+        prev > 0 ? prev - 1 : displayedVehicles.length - 1
+      )
+    } else if (e.key === "Enter" && selectedVehicleIndex >= 0) {
+      e.preventDefault()
+      const vehicle = displayedVehicles[selectedVehicleIndex]
+      if (vehicle?.incident_id) {
+        handleVehicleClick(vehicle)
+      }
+    }
+  })
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => onKeyDown(e)
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [open, displayedVehicles, selectedVehicleIndex])
+  }, [])
 
   const handleVehicleClick = (vehicle: VehicleStatus) => {
     if (vehicle.incident_id) {
@@ -394,7 +388,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+                            <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <span className="font-bold text-sm">{vehicle.name}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -471,7 +465,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                       <div className="grid grid-cols-[140px_104px_168px_minmax(0,1fr)_74px_auto] items-center gap-3">
                         {/* Vehicle Icon and Name */}
                         <div className="flex items-center gap-2 min-w-0">
-                          <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+                          <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <span className="font-bold text-sm">{vehicle.name}</span>
                         </div>
 

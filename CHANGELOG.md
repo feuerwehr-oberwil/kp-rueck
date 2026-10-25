@@ -28,14 +28,128 @@ will keep holding.
 
 ## [Unreleased]
 
+### Added
+
+- **Search keyword «ohne fahrzeug»** on the board finds dispatched Einsätze without a vehicle.
+- **Phone: checking someone out on the check-in kiosk can be undone** («Rückgängig» in the toast).
+- **`TRUSTED_PROXIES`** in `.env`: behind a second proxy, set it to that proxy's address together
+  with `TRUSTED_PROXY_COUNT=2` (docs/RUNNING-BOTH.md) – Caddy passes the real client on.
+- **«Erstellen und nächsten erfassen» on «Neuer Einsatz»** (#214). The arrow beside «Einsatz
+  erstellen» (or Ctrl/⌘ ↵) creates the card and leaves the dialog open and empty with the cursor
+  in the Einsatzort, for a run of calls. Einsatzart, Telefonisch/Vom Feld and the Auftrag carry
+  over. «Einsatz erstellen» itself is unchanged.
+- **Arrow keys move the selection between cards** (#215). Enter or Space opens the selected
+  card. Sideways keeps the row and skips empty and folded columns; Alt+← / Alt+→ stay the
+  browser's back and forward.
+
 ### Changed
 
+- **Address search looks near the station first** (sweep 2026-10): «Bahnhofstrasse 22» offers
+  Therwil, Witterswil, Arlesheim instead of Naters VS; Enter with no suggestion highlighted keeps
+  what you typed. The typed address no longer disappears on the next tap on the phone.
+- **«Neuer Einsatz» starts empty after Ctrl ↵ and after «Abbrechen»**; the previous call's
+  address no longer carries into the next one.
+- **«Hierher verschieben» also releases the driver role**, and the sidebar shows where a driver is
+  («Fahrer Mowa · 12 · Ringstrasse 11»).
+- **One word for releasing: «freigeben»** (toast, chip, completion, gates).
+- **Offline: one message.** While the «Verbindung verloren» banner shows, no red toast on top;
+  elsewhere «Server nicht erreichbar – angezeigt wird der letzte Stand.»
+- **Error messages from the server are German** (about 150 were English, e.g. «Event not found»).
+- **Colour and contrast**: secondary text is brighter in dark mode, coloured text darker in light
+  mode; red appears only for priority and danger; one focus outline everywhere; the map legend
+  button reads «Legende»; Aufträge get colours the board doesn't use for status (blue, cyan,
+  lime, indigo, brown, teal – stored routes keep theirs); bound people in the sidebar keep the
+  where-line at full strength.
+- **Phone**: the search finds the Meldung; Feld's button says «Neuer Schadenplatz» and the chain
+  «Status an den KP»; the Hoch card matches the board's; «EL» instead of a star (also on `/feld`);
+  a sent Reko names the address instead of an ID; a dead Reko link shows one calm card; the phone
+  «Neuer Einsatz» asks before discarding typed text.
+- **On the map, keys 1–5 pick the same vehicle as on the board**, and «An Auftrag verteilen» asks
+  first and warns on a closed Einsatz, as on the board.
+- **The Auftrag picker shows each stop's status in the board's words** (it read «BEENDET / RÜCKFAHRT»).
+- **A status change records the status it really replaced.** When two operators move the same
+  card seconds apart, the move from the board that was out of date is refused and «Gerade
+  geändert» says who moved the card and when; «Trotzdem …» applies it, and the Verlauf marks it
+  «war schon … (vor n s)». Migration: `status_transitions.seen_status` (automatic).
+- **Without a chosen Ereignis, the start screen lists the Ereignisse opened in the last 24 h**;
+  «Öffnen» (↵) goes into the most recently active one. Older ones are behind «Alle Ereignisse».
+- **Columns that do not fit become tabs at the board's edge** («Im Einsatz 2 · 1 Hoch»); a
+  click scrolls there, and a card can be dropped on a tab.
+- **Dispatching without a vehicle or crew asks with a second press**: the first press names
+  what is missing («Ja, ohne Fahrzeug disponieren»), the second dispatches. The vehicle row
+  offers «Zu Fuss». «Trotzdem disponieren» is gone.
+- **«Neuer Einsatz» and the Einsatz detail share one field order**, with the switches as one
+  row of «Merkmale» chips at the end.
+- **Wall display:** a denser card (bigger address and age, the whole Meldung), an Auftrag's crew
+  printed once per column, and a font size that adjusts so every column fits. On a phone the
+  board and status columns stand under one another.
+- **Status colour only where crews are out:** Reko is violet and Im Einsatz fuchsia; the other
+  five columns (and their dots on the wall and in the route stops) are grey. Niedrig is grey
+  instead of green, so green means only «frei / verfügbar».
+- **Amber means «schau hin» only:** the EL badge and «n gebunden» are neutral, and a bound
+  person or material shows a hollow ring (frei stays green).
+- **Feld: «Rapport abschliessen» asks only when Kurzbericht or Mannschaft is missing**, and each
+  row in the question jumps to its section.
+- **«Rückfahrt» replaces «Beendet» everywhere** (#215). The column, the status on every card,
+  the phone filter, the wall display, the Feld status and the print all use one word for
+  `returning`. The phone filter now has one row per status, in board order.
+- **Some actions are admin-only now** (#217): Excel import «Ersetzen», Divera sync that removes
+  stale people, permanently deleting an Ereignis, and the audit log. *An editor who used these
+  needs an admin account or an admin to do it.* Dismissing a notification needs an editor. A
+  viewer types the Feld-Code instead of being let through by their session, and `/display` is a
+  quiet surface (no toasts, sidebar or command palette).
+- **The current page in the top navigation looks current, not unavailable** (#215): it sits
+  lifted in a track like a tab bar; an item you cannot open without an Ereignis stays faded.
+- **Confirmation prompts put «Abbrechen» next to the action** (#215), and a prompt whose write
+  failed stays open with its button live again instead of disappearing behind a red toast.
+- **One verb for assigning: «zuweisen».** A request from the field now says «Mannschaft
+  zuweisen» (it said «Personal zuteilen» and opened «Mannschaft zu Einsatz zuweisen»), and the
+  Einsatztagebuch filter «Mittel» is now «Ressourcen», so it no longer reads like the priority.
+- **`/feld` says «Stopps»** for the stops of an Auftrag (it said «Stops»).
+- **The tile scripts read `TILES_NAME` from `.env`**, like compose and `just tiles-status`, so a
+  station that renamed its tiles file no longer gets a download under the default name.
+- **Icons redrawn by lucide 1.x** (#181). The GitHub report route shows a CircleDot icon,
+  because lucide dropped brand icons.
 - **Railway: no more `railway.json`.** Railway stops reading config-as-code files on
   2026-12-01, so the builder, start command, healthcheck, restart policy, replica count and app
   sleeping now live only in each service's settings. `backend/railway.json` and
   `frontend/railway.json` are gone. *If you run KP Rück on Railway, set the values in
   docs/RAILWAY.md §3.2/§3.3 (and staging's two differences, §8.2) on your services before your
   next deploy.* Compose is not affected.
+
+### Fixed
+
+- **A request that fails partway leaves nothing behind**, and the board is told only after a
+  write is saved (before, earlier steps of a failed request stayed, and a 200 could precede the
+  commit). The Excel «Ersetzen» import is one transaction.
+- **Photo uploads from `/feld` in demo mode** no longer answer 500.
+- **Reloading the Warnungen settings no longer resets the station's notification settings** to
+  the defaults.
+- **The weather radar shows frames again** (#213). MeteoSwiss renamed its radar files on
+  13.10.2026 and every frame failed; the poller now takes the names from MeteoSwiss's own index.
+- **The map no longer logs a CSP error on every load** (#212): the radar placeholder is a real
+  image on the site instead of a broken `data:` URL.
+- **A cold load of the board or the map no longer re-renders the whole page** (#211) – React
+  error #418 on about one load in five in the production build.
+- **A failed audit export says so** (#210) with a toast «Audit-Export fehlgeschlagen»; before,
+  the button just went back and no file came.
+- **Keyboard on the board** (#215): Enter on a button inside a card activates that button
+  instead of opening the card, and the focus ring shows on Hoch cards too.
+- **Rate limits, lockouts and the audit log see the real client** (#217): the frontend's
+  `/backend-api` proxy passes `X-Forwarded-For` on instead of replacing it with its own address.
+- **Screen readers name the per-user actions in Einstellungen** (#215): «Benutzer Meier
+  bearbeiten» instead of five unnamed buttons per row.
+
+### Security
+
+- **Next.js 15.5.28** (GHSA-2464-fhr4-w9xw, critical: remote code execution in the image
+  optimizer with SVGs; GHSA-p3m5-59mp-jv5r, high: denial of service via Server Actions) and
+  **Pillow 13.0.0** (GHSA-78g4-xqwv-q3g8 and further heap overflows when opening an uploaded
+  image; GHSA-g7cr-3p24-7wf7: heap overflow when saving a JPEG with a large ICC profile and a
+  comment, which the photo thumbnails do).
+- **Dependency advisories**: certifi 2026.10.19 (GHSA-6q48-6c7w-9gw2, #216), Mako 1.4.3
+  (GHSA-5639-2j2p-m4mx, #207). A print job's detail (it carries the Feld link and code) needs an
+  editor (#217).
 
 ## [0.8.0] – 2026-10-10
 
@@ -586,11 +700,6 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Security
 
-- **Next.js 15.5.28** (GHSA-2464-fhr4-w9xw, critical: remote code execution in the image
-  optimizer with SVGs; GHSA-p3m5-59mp-jv5r, high: denial of service via Server Actions) and
-  **Pillow 13.0.0** (GHSA-78g4-xqwv-q3g8 and further heap overflows when opening an uploaded
-  image; GHSA-g7cr-3p24-7wf7: heap overflow when saving a JPEG with a large ICC profile and a
-  comment, which the photo thumbnails do).
 - **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per
   address (five per quarter-hour), so a poster link tried from many addresses could work through
   all 10,000 four-digit codes. Now every wrong code against an Ereignis counts towards one

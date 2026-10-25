@@ -234,7 +234,6 @@ async def update_consent(
     discarded = 0
     if value == consent_mod.CONSENT_OFF:
         discarded = await outbox.drop_unsent(db, channel="error")
-    await db.commit()
     return {"consent": value, "discarded": discarded}
 
 
@@ -242,5 +241,4 @@ async def update_consent(
 async def rotate_install_id(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Mint a fresh install id, cutting the link to everything sent so far."""
     new_id = await consent_mod.regenerate_install_id(db)
-    await db.commit()
     return {"installId": new_id}

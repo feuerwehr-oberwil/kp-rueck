@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation"
 import { Truck } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
+import { reportStatusConflict } from "@/lib/status-conflict"
+import type { IncidentStatus } from "@/lib/types/incidents"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import {
@@ -110,14 +112,21 @@ export function GpsReleasePrompt() {
   // personnel and vehicles server-side (materials stay, like on the board).
   const handleReleaseAndComplete = async () => {
     setReleasing(true)
+    let seen: IncidentStatus | null = null
     try {
       const incident = await apiClient.getIncident(prompt.incidentId)
       if (incident.status !== "complete") {
+        seen = incident.status
         await apiClient.updateIncidentStatus(prompt.incidentId, incident.status, "complete")
       }
       toast.success(t('completed', { label: prompt.incidentLabel }))
       setPrompt(null)
-    } catch {
+    } catch (error) {
+      // Moved between the read and the write: «Gerade geändert» asks instead.
+      if (seen && reportStatusConflict(error, { operationId: prompt.incidentId, seen, wanted: "complete" })) {
+        setPrompt(null)
+        return
+      }
       toast.error(t('completeFailed'))
     } finally {
       setReleasing(false)
@@ -129,7 +138,7 @@ export function GpsReleasePrompt() {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-primary" />
+            <Truck className="h-5 w-5 text-muted-foreground" />
             {t('title')}
           </AlertDialogTitle>
           <AlertDialogDescription>

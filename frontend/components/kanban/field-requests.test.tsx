@@ -64,7 +64,7 @@ describe('FieldRequestCardRows', () => {
 })
 
 describe('FieldRequestItem', () => {
-  it('«Material zuteilen» opens the assignment flow searched for the item and starts the work', async () => {
+  it('«Material zuweisen» opens the assignment flow searched for the item and starts the work', async () => {
     const user = userEvent.setup()
     const onAssign = vi.fn()
     const onSetStatus = vi.fn()
@@ -73,7 +73,7 @@ describe('FieldRequestItem', () => {
         <FieldRequestItem request={request()} canEdit busy={false} onAssign={onAssign} onSetStatus={onSetStatus} />
       </ul>,
     )
-    await user.click(screen.getByRole('button', { name: 'Material zuteilen' }))
+    await user.click(screen.getByRole('button', { name: 'Material zuweisen' }))
     expect(onAssign).toHaveBeenCalledWith('inc-1', 'materials', 'Tauchpumpe Gr.')
     expect(onSetStatus).toHaveBeenCalledWith(expect.objectContaining({ id: 'r-1' }), 'in_progress')
   })
@@ -86,7 +86,7 @@ describe('FieldRequestItem', () => {
         <FieldRequestItem request={request({ kind: 'message', item: null, text: 'Pumpe läuft' })} canEdit busy={false} onSetStatus={onSetStatus} />
       </ul>,
     )
-    expect(screen.queryByRole('button', { name: /zuteilen/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /zuweisen/ })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Erledigt' }))
     expect(onSetStatus).toHaveBeenCalledWith(expect.objectContaining({ id: 'r-1' }), 'done')
     await user.click(screen.getByRole('button', { name: 'In Arbeit' }))

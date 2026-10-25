@@ -79,7 +79,7 @@ export interface RadioStop {
 // ── Building blocks ─────────────────────────────────────────────────────────
 
 /** Spell out the vehicles, including whether each stays on scene or returns. */
-export function vehiclePhrase(t: RadioTranslate, vehicles: RadioVehicle[]): string {
+function vehiclePhrase(t: RadioTranslate, vehicles: RadioVehicle[]): string {
   return vehicles
     .map((vehicle) => {
       if (vehicle.stay === undefined) return vehicle.name
@@ -89,7 +89,7 @@ export function vehiclePhrase(t: RadioTranslate, vehicles: RadioVehicle[]): stri
 }
 
 /** Spell out the material, including its depot, e.g. «Tauchpumpe Gr. (Pio)». */
-export function materialPhrase(materials: RadioMaterial[]): string {
+function materialPhrase(materials: RadioMaterial[]): string {
   return materials
     .map((material) => (material.category ? `${material.name} (${material.category})` : material.name))
     .join(", ")

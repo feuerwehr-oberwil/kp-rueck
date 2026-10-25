@@ -26,27 +26,29 @@ set -e
 #     ./scripts/download-tiles.sh
 #
 # TILES_NAME is deliberately NOT part of that list. It is the filename the
-# tileserver looks for, so changing it means changing it in the container too
-# (scripts/init-tileserver.sh reads the same variable) – and an existing
-# deployment already has tiles on its volume under the default name. Leave it
-# alone unless you are setting up a new stack and want the file to say what it
-# holds; then set it in both places.
+# tileserver looks for, and an existing deployment already has tiles on its
+# volume under the default name – leave it alone unless you are setting up a new
+# stack. It is read like compose reads it: from .env (an explicit shell value
+# wins), so the name in .env is the one this script writes and the tileserver
+# (scripts/init-tileserver.sh, via docker-compose) looks for.
+
+# DOMAIN, HTTP_PORT and TILES_NAME come from the station's .env, not from this shell – the
+# readiness probe at the end of this script needs DOMAIN and HTTP_PORT to know where the tile
+# server is reachable, and reading them from the environment made every domain deployment
+# (HTTP_PORT=80) end a successful 15-minute run with "didn't respond". Resolved here, before
+# the cd into the temp workspace below makes a relative .env path meaningless. Same reader as
+# `just doctor`.
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+envval() { [ -f "$REPO_DIR/.env" ] || return 0; sed -n "s/^$1=//p" "$REPO_DIR/.env" | tail -n1 | tr -d '\r' | sed 's/^"\(.*\)"$/\1/'; }
 
 TILES_REGION="${TILES_REGION:-Basel-Landschaft}"
 TILES_BOUNDS="${TILES_BOUNDS:-7.4,47.4,7.9,47.7}"
 TILES_AREA="${TILES_AREA:-switzerland}"
 TILES_PBF_URL="${TILES_PBF_URL:-https://download.geofabrik.de/europe/switzerland-latest.osm.pbf}"
-TILES_NAME="${TILES_NAME:-basel-landschaft}"
+TILES_NAME="${TILES_NAME:-$(envval TILES_NAME)}"; TILES_NAME="${TILES_NAME:-basel-landschaft}"
 
 TILES_FILE="${TILES_NAME}.mbtiles"
 
-# DOMAIN and HTTP_PORT come from the station's .env, not from this shell – the readiness probe
-# at the end of this script needs them to know where the tile server is reachable, and reading
-# them from the environment made every domain deployment (HTTP_PORT=80) end a successful
-# 15-minute run with "didn't respond". Resolved here, before the cd into the temp workspace
-# below makes a relative .env path meaningless. Same reader as `just doctor`.
-REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-envval() { [ -f "$REPO_DIR/.env" ] || return 0; sed -n "s/^$1=//p" "$REPO_DIR/.env" | tail -n1 | tr -d '\r' | sed 's/^"\(.*\)"$/\1/'; }
 STACK_DOMAIN="$(envval DOMAIN)"
 STACK_PORT="$(envval HTTP_PORT)"; STACK_PORT="${STACK_PORT:-8080}"
 # Which tileserver container to talk to. The dev stack names it
@@ -260,7 +262,7 @@ echo "✅ Offline map tiles installed successfully!"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "Tile size: $SIZE_DISPLAY"
-echo "Coverage: $TILES_REGION ($TILES_BOUNDS, zoom 0-17)"
+echo "Coverage: $TILES_REGION ($TILES_BOUNDS, data to zoom 14 – deeper zooms scale it up)"
 echo ""
 echo "Next steps:"
 echo "1. Open ${BASE_URL:-http://localhost:8080} to view tile server"

@@ -25,7 +25,7 @@ const OPERATION_STATUSES: Record<OperationStatus, true> = {
   complete: true,
 }
 
-export function isOperationStatus(value: string): value is OperationStatus {
+function isOperationStatus(value: string): value is OperationStatus {
   return value in OPERATION_STATUSES
 }
 

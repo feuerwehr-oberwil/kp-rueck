@@ -33,7 +33,8 @@ from app.models import (
 )
 from tests.conftest import feld_device_token
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.api]
+# asyncio_mode = "auto" runs the coroutines; an asyncio mark would also land on the sync TestLabel.
+pytestmark = [pytest.mark.api]
 
 
 @dataclass(frozen=True)

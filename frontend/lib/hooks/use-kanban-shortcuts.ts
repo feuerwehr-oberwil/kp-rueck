@@ -8,6 +8,7 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { openCommandPalette } from "@/components/ui/command-palette"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { UseGPrefixNavigation } from "./use-g-prefix-navigation"
+import { isTypingTarget } from "@/lib/typing-target"
 
 interface VehicleType {
   /** Number key the user presses to toggle this vehicle (e.g. "1"). */
@@ -98,23 +99,6 @@ export interface KanbanShortcutsActions {
   onSidePanelMap: () => void
   /** Toggle the notification sidebar. */
   onToggleNotifications: () => void
-}
-
-/**
- * True when the event target is a field somebody is typing into — a bare `s`
- * must never be eaten out of one. Exported because every other keyboard
- * surface (the map, the wall display) needs exactly this rule.
- */
-export function isTypingTarget(target: EventTarget | null): boolean {
-  if (target instanceof HTMLInputElement) return true
-  if (target instanceof HTMLTextAreaElement) return true
-  if (target instanceof HTMLSelectElement) return true
-  if (!(target instanceof HTMLElement)) return false
-  // The attribute too, not only `isContentEditable`: a key typed into a child
-  // of an editor (a <span> inside a rich-text field) must count as typing.
-  if (target.isContentEditable || target.closest('[contenteditable]:not([contenteditable="false"])')) return true
-  const role = target.getAttribute("role")
-  return role === "combobox" || role === "listbox" || role === "option"
 }
 
 /**

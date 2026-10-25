@@ -69,7 +69,7 @@ async def get_vehicle_positions(current_user: CurrentUser) -> list[VehiclePositi
     if not traccar_client.is_configured and not gps_simulation.any_active():
         raise HTTPException(
             status_code=503,
-            detail="Traccar is not configured. Set TRACCAR_URL and TRACCAR_TOKEN environment variables.",
+            detail="Traccar ist nicht konfiguriert (TRACCAR_URL und TRACCAR_TOKEN setzen).",
         )
 
     try:
@@ -121,7 +121,7 @@ async def get_vehicle_trails(
 ) -> list[VehicleTrailResponse]:
     """Get recent position history (breadcrumb trails) for all tracked vehicles."""
     if not traccar_client.is_configured:
-        raise HTTPException(status_code=503, detail="Traccar is not configured")
+        raise HTTPException(status_code=503, detail="Traccar ist nicht konfiguriert")
 
     try:
         now = datetime.now(UTC)

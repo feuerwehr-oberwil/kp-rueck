@@ -13,7 +13,7 @@ import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
-import { type Priority, PRIORITY_EDGE_CLASSES, PRIORITY_TEXT_CLASSES } from "@/lib/priority"
+import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
 import {
   RESOURCE_STATE_DOT_CLASSES,
   materialResourceState,
@@ -33,6 +33,7 @@ import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { useDisplaySearch } from "@/lib/contexts/display-search-context"
 import { filterIncidents } from "@/lib/incident-search"
 import { cn } from "@/lib/utils"
+import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from "@/lib/wall-stack"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 import { EventFiguresView } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -61,6 +62,9 @@ const STATUS_COLLAPSE_KEY = "kp-display-status-collapsed"
  *     and two dots for two dimensions is how the confusion started.
  */
 const ROW_SURFACE = "bg-muted/30"
+
+/** A panel on a phone: stacked full width (lib/wall-stack), a rule under it instead of beside it. */
+const STACKED_PANEL = cn(WALL_STACK_COLUMN, "max-sm:border-r-0 max-sm:border-b")
 
 /** Short display label for an incident location (falls back to the type).
  *  Server-computed (locationDisplay) — final on first paint, no reformat flash. */
@@ -380,9 +384,11 @@ function SituationBoard({
     // `relative` here and on each column's list: the rows' sr-only labels need a positioned
     // ancestor inside the scroller they sit in, or they escape it and widen the whole page
     // (513px on a 393px iPhone, WebKit; overflow sweep, 03.10.)
-    <div className="relative h-full flex bg-background overflow-x-auto">
+    // Below `sm` the four panels stack and this box scrolls down, like the board
+    // (lib/wall-stack): four 300px panels side by side cut «Material» off a phone.
+    <div className={cn("relative h-full flex bg-background overflow-x-auto", WALL_STACK_BOARD, "max-sm:gap-0")}>
       {/* ── Column 1: Vehicles ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('vehicles')}
           count={vehicleStatus.length}
@@ -395,7 +401,7 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: vehicleStatus.length - deployed, deployed })}
         />
-        <div className="flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2">
+        <div className={cn("flex-1 overflow-y-auto p-2 xl:p-3 space-y-1.5 xl:space-y-2", WALL_STACK_BODY)}>
           {vehicleStatus.map((v) => (
             <VehicleRow
               key={v.id}
@@ -408,14 +414,14 @@ function SituationBoard({
       </div>
 
       {/* ── Column 2: Active Incidents ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('incidents')}
           count={totalActiveOps}
 
           subtitle={t('incomingInProgress', { incoming: stats.incomingCount, inProgress: stats.activeOperations - stats.incomingCount })}
         />
-        <div className="relative flex-1 overflow-y-auto">
+        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {/* Aufträge first — the grouping the radio talks in. Each route names
               its stops in the order they are driven, so «Stopp 2 von 3» is
               readable from across the room without opening anything. */}
@@ -427,7 +433,7 @@ function SituationBoard({
               label={t('figures')}
               count={figures.total}
               badge={
-                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
                   {tFigures('wallBadge', {
                     waiting: figures.waiting,
                     high: figures.by_priority.find((p) => p.priority === "high")?.waiting ?? 0,
@@ -456,7 +462,7 @@ function SituationBoard({
               label={group.name}
               count={stops.length}
               badge={
-                <span className="shrink-0 text-[10px] xl:text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-2xs xl:text-xs tabular-nums text-muted-foreground">
                   {t('auftragStops', { count: stops.length })}
                 </span>
               }
@@ -506,14 +512,14 @@ function SituationBoard({
       </div>
 
       {/* ── Column 3: Personnel ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] border-r border-border overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('personnel')}
           count={personnel.length}
 
           subtitle={t('availableDeployed', { available: stats.personnelAvailable, deployed: assignedPersonnelCount })}
         />
-        <div className="relative flex-1 overflow-y-auto">
+        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {groupedPersonnel.map(({ role, people }) => {
             const free = people.filter((p) => personResourceState(p) !== "assigned").length
             return (
@@ -523,10 +529,11 @@ function SituationBoard({
                 count={people.length}
                 // How many of this Funktion are still free has to survive the
                 // fold — «Maschinisten 6» tells nobody that all six are out.
+                // «0/5 frei» is ink, not amber: gebunden is a fact (VISUAL-03).
                 badge={
                   <span className={cn(
-                    "shrink-0 text-[10px] xl:text-xs tabular-nums",
-                    free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
+                    "shrink-0 text-2xs xl:text-xs tabular-nums",
+                    free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: people.length })}
                   </span>
@@ -547,7 +554,7 @@ function SituationBoard({
       </div>
 
       {/* ── Column 4: Materials ── */}
-      <div className="flex flex-1 flex-col min-w-[300px] overflow-hidden">
+      <div className={cn("flex flex-1 flex-col min-w-[300px] overflow-hidden", STACKED_PANEL)}>
         <PanelHeader
           title={t('material')}
           count={materials.length}
@@ -560,7 +567,7 @@ function SituationBoard({
               })
             : t('availableDeployed', { available: materials.length - assignedMaterialCount, deployed: assignedMaterialCount })}
         />
-        <div className="relative flex-1 overflow-y-auto">
+        <div className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           {groupedMaterials.map(({ category, items }) => {
             // «frei» means it can be sent out — neither on an Einsatz nor broken.
             const free = items.filter((m) => materialResourceState(m) === "available").length
@@ -571,8 +578,8 @@ function SituationBoard({
                 count={items.length}
                 badge={
                   <span className={cn(
-                    "shrink-0 text-[10px] xl:text-xs tabular-nums",
-                    free === 0 ? cn("font-semibold", PRIORITY_TEXT_CLASSES.medium) : "text-muted-foreground",
+                    "shrink-0 text-2xs xl:text-xs tabular-nums",
+                    free === 0 ? "font-semibold text-foreground" : "text-muted-foreground",
                   )}>
                     {t('freeOfTotal', { free, total: items.length })}
                   </span>
@@ -624,7 +631,7 @@ function PanelHeader({ title, count, subtitle }: {
           {count}
         </span>
       </div>
-      {subtitle && <p className="text-[10px] xl:text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      {subtitle && <p className="text-2xs xl:text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
     </div>
   )
 }
@@ -661,8 +668,10 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
           {v.driverName && <span className="text-[11px] xl:text-xs text-muted-foreground truncate">{v.driverName}</span>}
         </div>
         {/* Where it is. An Auftrag wins over the single stop's address — the same
-            answer the Fahrzeugstatus-Sheet gives — and it carries the route's own
-            colour, so «welches Fahrzeug fährt welche Tour» reads from the wall.
+            answer the Fahrzeugstatus-Sheet gives — and its dot carries the route's
+            own colour, so «welches Fahrzeug fährt welche Tour» reads from the wall.
+            The TEXT stays neutral: a route colour is a swatch, not a text colour
+            (#10b981 on white was 2.3:1 – sweep 2026-10, VISUAL-05).
             «Nicht einsatzbereit» wins over both: it is why the vehicle is nowhere. */}
         {isOutOfService ? (
           <p className="mt-0.5 truncate text-xs xl:text-sm font-medium text-muted-foreground">{tk('notReady')}</p>
@@ -672,10 +681,7 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
               className="h-2 w-2 xl:h-2.5 xl:w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
             />
-            <span
-              className={cn("truncate text-xs xl:text-sm font-medium", !auftrag.color && "text-muted-foreground")}
-              style={auftrag.color ? { color: auftrag.color } : undefined}
-            >
+            <span className="truncate text-xs xl:text-sm font-medium text-foreground">
               {tv('auftragLabel', { name: auftrag.name })}
             </span>
           </p>
@@ -757,20 +763,20 @@ function PersonRow({ person: p, assignedTo, onOpenIncident }: { person: Person; 
       <span className="text-xs xl:text-sm truncate flex-1">{p.name}</span>
       {/* Special-function markers — same icon language as the board roster. */}
       {p.isReko && (
-        <span className="inline-flex items-center gap-0.5 text-[10px] xl:text-xs text-muted-foreground shrink-0">
+        <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
           <Binoculars className="h-3 w-3" /> {tk('common.reko')}
         </span>
       )}
       {p.isMagazin && (
-        <span className="inline-flex items-center gap-0.5 text-[10px] xl:text-xs text-muted-foreground shrink-0">
+        <span className="inline-flex items-center gap-0.5 text-2xs xl:text-xs text-muted-foreground shrink-0">
           <Package2 className="h-3 w-3" /> {tk('common.magazin')}
         </span>
       )}
       {p.isDriver && p.driverVehicleName && (
-        <span className="text-[10px] xl:text-xs text-blue-500 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
+        <span className="text-2xs xl:text-xs text-blue-700 dark:text-blue-400 shrink-0">{p.driverVehicleName}</span>
       )}
       {clickable && (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
+        <span className="text-2xs xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {assignedTo!.label}</span>
       )}
     </div>
   )
@@ -811,18 +817,18 @@ function MaterialRow({ material: m, assignedTo, onOpenIncident }: { material: Ma
       {m.consumable && !isOutOfService && <InfinityIcon className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-muted-foreground" aria-label={tk('material.consumableUnlimited')} />}
       <span className={cn("text-xs xl:text-sm truncate flex-1", isOutOfService && "text-muted-foreground")}>{m.name}</span>
       {isOutOfService ? (
-        <span className="text-[10px] xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
+        <span className="text-2xs xl:text-xs font-medium text-muted-foreground shrink-0">{tc('notReady')}</span>
       ) : single ? (
-        <span className="text-[10px] xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
+        <span className="text-2xs xl:text-xs text-muted-foreground truncate max-w-[120px] xl:max-w-[160px] shrink-0">→ {single.label}</span>
       ) : assignedTo.length > 1 ? (
         <span
-          className="text-[10px] xl:text-xs text-muted-foreground shrink-0"
+          className="text-2xs xl:text-xs text-muted-foreground shrink-0"
           title={assignedTo.map((a) => a.label).join(", ")}
         >
           → {t('onIncidents', { count: assignedTo.length })}
         </span>
       ) : (
-        !isAssigned && <span className="text-[10px] xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
+        !isAssigned && <span className="text-2xs xl:text-xs text-muted-foreground shrink-0">{t('available')}</span>
       )}
     </div>
   )

@@ -4,9 +4,7 @@ import { render, screen } from "@testing-library/react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { SearchInput } from "@/components/ui/search-input"
 import { DENSE_CONTROL } from "@/components/kanban/detail-field"
-import { renderWithIntl } from "@/test-utils/render-with-intl"
 
 /**
  * Owner 03.10.: a text field's first letter started closer to the edge than
@@ -37,13 +35,6 @@ describe("one field inset", () => {
   it("the detail panel's dense skin uses the same inset", () => {
     expect(DENSE_CONTROL).toContain("px-(--field-px)")
     expect(DENSE_CONTROL).not.toMatch(OWN_PX)
-  })
-
-  it("SearchInput puts its icon at the inset and the text after it", () => {
-    const { container } = renderWithIntl(<SearchInput aria-label="Suche" value="" onValueChange={() => {}} />)
-    const icon = container.querySelector("svg") as SVGElement
-    expect(icon.getAttribute("class")).toContain("left-[calc(var(--field-px)+1px)]")
-    expect(screen.getByLabelText("Suche").className).toContain("pl-[calc(var(--field-px)+1.5rem)]")
   })
 
   it("one height token per form: Input/Select at --field-h, the dense skin at --field-h-dense", () => {

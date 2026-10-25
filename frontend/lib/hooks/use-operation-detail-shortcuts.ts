@@ -4,6 +4,7 @@ import { useEffect, type RefObject } from "react"
 
 import type { Operation } from "@/lib/contexts/operations-context"
 import { readJson, writeJson } from "@/lib/utils/safe-storage"
+import { isTypingTarget } from "@/lib/typing-target"
 
 interface AvailableVehicle {
   id: string
@@ -30,13 +31,6 @@ const SHIFT_PRIORITY_KEYS: Record<string, Operation["priority"]> = {
   "@": "medium",
   "3": "high",
   "#": "high",
-}
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (target instanceof HTMLInputElement) return true
-  if (target instanceof HTMLTextAreaElement) return true
-  if (target instanceof HTMLElement && target.getAttribute("role") === "combobox") return true
-  return false
 }
 
 /**

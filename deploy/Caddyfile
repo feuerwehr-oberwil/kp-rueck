@@ -3,10 +3,19 @@
 # DOMAIN comes from .env. Set it to a hostname (its A/AAAA record pointing here, ports 80+443
 # open) and Caddy fetches a certificate automatically — Let's Encrypt / ZeroSSL, no manual cert
 # work. Leave it empty and it falls back to `:80`, plain HTTP for a trusted LAN.
-# Optional: add a global block `{ email you@example.com }` above to register an ACME account.
+# Optional: add `email you@example.com` to the global block below to register an ACME account.
 #
 # One origin is what keeps the published frontend image generic: the browser only ever talks to
 # its own host, so nothing about this station is baked into the image at build time.
+{
+	# TRUSTED_PROXIES (from .env) names the proxy in front of this Caddy, if there is one –
+	# addresses or CIDRs, space-separated. Caddy then keeps that proxy's X-Forwarded-For
+	# instead of replacing it, and the backend's TRUSTED_PROXY_COUNT=2 can find the real
+	# caller. Empty (the default) trusts nobody: the header starts here, as with no outer proxy.
+	servers {
+		trusted_proxies static {$TRUSTED_PROXIES}
+	}
+}
 
 {$DOMAIN} {
 	encode zstd gzip

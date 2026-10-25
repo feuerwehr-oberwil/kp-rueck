@@ -14,17 +14,23 @@ import { getActiveLocale, loadMessages, translateOutsideReact } from '@/lib/i18n
 /** The localized sentence for this error body, or `null` when it has no code this build knows. */
 export function messageForErrorCode(body: unknown): string | null {
   if (typeof body !== 'object' || body === null) return null
-  const { code, params } = body as { code?: unknown; params?: unknown }
+  const { code } = body as { code?: unknown }
   if (typeof code !== 'string' || !/^[a-z0-9_]+$/.test(code)) return null
   const known = (loadMessages(getActiveLocale()).errors as { codes?: Record<string, string> }).codes
   if (!known || typeof known[code] !== 'string') return null
+  return translateOutsideReact(`errors.codes.${code}`, errorParamsOf(body) ?? {})
+}
+
+/** The `params` of an error body – its string and number values only – if it has any. */
+export function errorParamsOf(body: unknown): Record<string, string | number> | undefined {
+  if (typeof body !== 'object' || body === null) return undefined
+  const { params } = body as { params?: unknown }
+  if (typeof params !== 'object' || params === null) return undefined
   const values: Record<string, string | number> = {}
-  if (typeof params === 'object' && params !== null) {
-    for (const [key, value] of Object.entries(params)) {
-      if (typeof value === 'string' || typeof value === 'number') values[key] = value
-    }
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string' || typeof value === 'number') values[key] = value
   }
-  return translateOutsideReact(`errors.codes.${code}`, values)
+  return values
 }
 
 /** The `code` of an error body, if it has one. */

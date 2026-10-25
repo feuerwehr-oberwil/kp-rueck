@@ -16,9 +16,13 @@ import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { CARD_VIEW_PRESETS } from "@/lib/card-view"
 import { columns, ageLevel, COLUMN_HEADER_CLASS, STATUS_ACCENT, WALL_TEXT_WRAP } from "@/lib/kanban-utils"
+import {
+  WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN, WALL_STACK_FOLDED, WALL_STACK_FOLDED_ACCENT, WALL_STACK_FOLDED_LABEL,
+} from "@/lib/wall-stack"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
+import { useWallFit } from "@/lib/hooks/use-wall-fit"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
-import { DisplayIncidentCard } from "@/components/display/incident-card"
+import { DisplayIncidentCard, crewShownAtStop } from "@/components/display/incident-card"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -121,13 +125,14 @@ function BoardDisplay() {
   }, [operations])
 
   // Keep selected operation in sync with live data
+  const selectedOperationId = selectedOperation?.id
   useEffect(() => {
-    if (selectedOperation) {
-      const updated = operations.find(op => op.id === selectedOperation.id)
+    if (selectedOperationId) {
+      const updated = operations.find(op => op.id === selectedOperationId)
       if (updated) setSelectedOperation(updated)
       else setSelectedOperation(null) // operation was deleted
     }
-  }, [operations, selectedOperation?.id])
+  }, [operations, selectedOperationId])
 
   // Folding a column changes its width by hundreds of pixels, which shoves every
   // column after it sideways. «Abgeschlossen» lives at the far right, so the
@@ -161,6 +166,10 @@ function BoardDisplay() {
     },
   })
 
+  // The root size: the largest at which every column fits (VISUAL-07 C).
+  const boardRef = useRef<HTMLDivElement>(null)
+  useWallFit(boardRef)
+
   const operationsByColumn = useMemo(() => {
     const grouped: Record<string, Operation[]> = {}
     columns.forEach((col) => { grouped[col.id] = [] })
@@ -171,12 +180,28 @@ function BoardDisplay() {
     return grouped
   }, [operations])
 
+  // Stops 2…n of one Auftrag in a column name its crew once (VISUAL-07 C).
+  const crewShownAt = useMemo(() => {
+    const auftragById = new Map(groups.map((group) => [group.id, group]))
+    const shown = new Map<string, number>()
+    for (const column of columns) {
+      const ops = operationsByColumn[column.id] ?? []
+      for (const [id, pos] of crewShownAtStop(ops, (op) => (op.groupId ? auftragById.get(op.groupId) : undefined))) {
+        shown.set(id, pos)
+      }
+    }
+    return shown
+  }, [operationsByColumn, groups])
+
   return (
     // `overflow-x-auto` is a safety valve for a window narrower than any wall
     // (a laptop, a phone in landscape) — NOT the recovery path for a display.
     // Between 1280 and 1920 nothing may end up behind it: see the column
     // min-width below.
-    <div className="flex h-full gap-2 p-3 overflow-x-auto">
+    // Below `sm` (a viewer's phone, UX-PHONE-10) the columns stack top to
+    // bottom instead and this box scrolls down: the same wall cards, nothing
+    // sideways. `WALL_STACK_*` (lib/wall-stack) – the token board does the same.
+    <div ref={boardRef} className={cn("flex h-full gap-2 p-3 overflow-x-auto", WALL_STACK_BOARD)}>
       {/* The status-change flash, defined once for the board instead of once per
           card — the old copy shipped an identical <style> block inside every
           rendered card. */}
@@ -224,12 +249,12 @@ function BoardDisplay() {
                 requestKeepInView(column.id)
                 collapsedColumns.toggle(column.id)
               }}
-              className="flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5"
+              className={cn("relative flex w-12 flex-shrink-0 flex-col items-center gap-3 overflow-hidden rounded-lg border border-border bg-card pb-3 transition-colors hover:bg-foreground/5", WALL_STACK_FOLDED)}
               title={t('board.collapsedColumnTitle', { title: tk(`columns.${column.id}`), count: ops.length })}
             >
-              <span aria-hidden className={cn("h-0.5 w-full", accent?.dot)} />
+              <span aria-hidden className={cn("h-0.5 w-full", WALL_STACK_FOLDED_ACCENT, accent?.dot)} />
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+              <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
                 {ops.length}
                 {hasAlarm && (
                   <span
@@ -239,7 +264,7 @@ function BoardDisplay() {
                   />
                 )}
               </span>
-              <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]")}>
+              <span className={cn(COLUMN_HEADER_CLASS, "[writing-mode:vertical-rl]", WALL_STACK_FOLDED_LABEL)}>
                 {tk(`columns.${column.id}`)}
               </span>
             </button>
@@ -271,11 +296,10 @@ function BoardDisplay() {
             // screen at all. At 1920 — the wall this surface is actually sized
             // for — the floor never binds and columns stay 300px, unchanged.
             //
-            // On a phone (below `sm`) the floor is 85vw instead: seven 160px
-            // columns scroll sideways there anyway, and 160 left a card title
-            // 75px — two letters a line. One column and a peek of the next is
-            // the phone's board. The token board uses the same two floors.
-            className="flex flex-1 flex-col min-w-[160px] max-sm:min-w-[85vw] overflow-hidden"
+            // On a phone (below `sm`) there is no floor: the columns stack
+            // (WALL_STACK_COLUMN) and each takes the full width. The token
+            // board uses the same floor and the same stack.
+            className={cn("flex flex-1 flex-col min-w-[160px] overflow-hidden", WALL_STACK_COLUMN)}
           >
             {/* The accent as a 2px rule above the header, not a wash behind
                 it — the header is a line of the board now, not a box on it.
@@ -298,7 +322,7 @@ function BoardDisplay() {
                     The overdue dot rides on the count badge, as on the folded
                     strip, instead of taking 16px of the label's line. */}
                 <h2 className={cn("min-w-0 flex-1 leading-tight", WALL_TEXT_WRAP, COLUMN_HEADER_CLASS)}>{tk(`columns.${column.id}`)}</h2>
-                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+                <span className="relative inline-flex flex-shrink-0 items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
                   {ops.length}
                   {hasAlarm && (
                     <span
@@ -310,9 +334,10 @@ function BoardDisplay() {
                 </span>
               </div>
             </button>
-            {/* space-y-3 and p-2, the column body the board uses: the cards are
-                the board's cards now, so they get the board's rhythm too. */}
-            <div className="flex-1 space-y-3 overflow-y-auto rounded-lg p-2">
+            {/* space-y-2, one step tighter than the board's space-y-3: the
+                denser wall card (VISUAL-07 C). `data-wall-column-body` is what
+                the fit measures. */}
+            <div data-wall-column-body className={cn("flex-1 space-y-2 overflow-y-auto rounded-lg p-2", WALL_STACK_BODY)}>
               {ops.map((op) => {
                 const auftrag = op.groupId ? groups.find((g) => g.id === op.groupId) : undefined
                 return (
@@ -327,6 +352,7 @@ function BoardDisplay() {
                     doubleBookedCrewNames={doubleBookedPersons.names}
                     auftrag={auftrag}
                     auftragResources={auftrag ? getGroupResources(auftrag.id) : null}
+                    crewShownAt={crewShownAt.get(op.id)}
                     isHighlighted={highlightedId === op.id}
                     isFlashing={flashIds.has(op.id)}
                     onClick={() => setSelectedOperation(op)}

@@ -144,7 +144,7 @@ export function mergeVehicleTicks(
  *  Same rule as the vehicles: the LIST comes from the server — people check in
  *  and get assigned while a phone is offline — and only the answers come from
  *  the draft. */
-export function mergePersonnelTicks(
+function mergePersonnelTicks(
   serverRows: ApiRapportPersonnelRow[],
   localRows: ApiRapportPersonnelRow[],
 ): ApiRapportPersonnelRow[] {

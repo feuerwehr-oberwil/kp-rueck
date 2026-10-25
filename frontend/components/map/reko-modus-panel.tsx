@@ -153,7 +153,7 @@ export function RekoModusPanel({
                   className={cn(
                     "text-xs font-medium whitespace-nowrap flex-shrink-0",
                     openOps.length > 0
-                      ? "text-amber-700 dark:text-amber-400"
+                      ? "text-muted-foreground"
                       : "text-emerald-700 dark:text-emerald-400"
                   )}
                 >

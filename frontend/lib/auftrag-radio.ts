@@ -69,7 +69,7 @@ export function routeDeployment(
 }
 
 /** The route's stops in order, numbered from 1 and never renumbered. */
-export function routeStops(
+function routeStops(
   t: RadioTranslate,
   group: IncidentGroup,
   operations: Operation[],

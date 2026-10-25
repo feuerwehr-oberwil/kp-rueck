@@ -486,7 +486,7 @@ async def test_incident_creation_with_invalid_event(editor_client: AsyncClient):
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
     assert response.status_code == 404
-    assert "event" in response.json()["detail"].lower()
+    assert "ereignis" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio

@@ -117,7 +117,10 @@
   --secondary: oklch(0.30 0.012 250);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.32 0.01 250);
-  --muted-foreground: oklch(0.60 0.01 250);
+  /* 0.66, not 0.60: the secondary tier (Meldung, descriptions, placeholders)
+     sits on --card far more than on the page, and 0.60 measured ≈3.9:1 there.
+     0.66 ≈4.9:1 on --card, ≈5.6:1 on --background (sweep 2026-10, VISUAL-01). */
+  --muted-foreground: oklch(0.66 0.01 250);
   --accent: oklch(0.50 0.15 250);
   --accent-foreground: oklch(0.98 0 0);
   /* Deeper + lower-chroma than the old 0.60/0.26 (which rendered as pure
@@ -376,6 +379,35 @@
    (inset shadow), so choosing never shifts the layout. Bordered controls use
    `border-sel-edge bg-sel-wash text-sel-foreground` instead, or <Button
    variant="selected">. */
+/* The board's three caption roles (sweep 2026-10, VISUAL-16). Around the
+   cards (16/700 title, 12/400 body) the small text had drifted into five
+   spellings of «caption» – 12/500, 12/600, 12/700, 11/500, 11/600. Small text
+   in the board chrome takes one of these, not a hand-picked size + weight:
+     type-label    12/600 caps, spaced – names a PLACE: column heads, the
+                   sidebar group heads, the column count beside its head
+     type-caption  12/500 – facts in a line: chips, counts, the «n frei» summary
+     type-micro    11/500 – the floor (see --text-2xs): «EL», the driver-stay
+                   chip, a sidebar row's where-line, an Auftrag's progress
+   Each sets size, line height and weight together, so do not combine one with
+   a `text-*` size, `font-*` weight or `leading-*` on the same element. */
+@utility type-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+}
+@utility type-caption {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 500;
+}
+@utility type-micro {
+  font-size: var(--text-2xs);
+  line-height: var(--text-2xs--line-height);
+  font-weight: 500;
+}
+
 @utility sel-choice {
   background-color: var(--sel-wash);
   color: var(--sel-foreground);
@@ -447,7 +479,12 @@
     @apply text-lg;
   }
 
-  /* Improved focus states for accessibility */
+  /* THE focus style: a crisp 2px slate outline with a 2px gap. Button, Input,
+     Select, Textarea, Checkbox and Switch (components/ui) draw no focus style of
+     their own and rely on this rule – they used to add a soft 3px ring halo, so
+     tabbing across the top bar alternated between two languages (sweep
+     2026-10, VISUAL-09). The outline is the one that survives the Hoch card's
+     `priority-high-pulse`, which animates box-shadow and would eat a ring. */
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
@@ -690,6 +727,31 @@
   .settings-search-flash {
     border-radius: var(--radius-sm, 0.25rem);
     animation: settings-search-flash 2.4s ease-out;
+  }
+
+  /* «This one» on /feld: a row of the «Rapport abschliessen» question landed
+     on its section (FeldSection `jumpSignal`). KP Front's two-beat ink ring
+     (02-base.css · ui-flash-ring), 1.9 s – ink, not a hue, because on the
+     sections amber already means «fehlt» and green «erfasst». Under reduced
+     motion the ring stands still; the jump's timer takes it off again. */
+  @keyframes feld-jump-ring {
+    0%, 22%, 48%, 74% {
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--foreground) 62%, transparent);
+    }
+    11%, 36%, 62%, 100% {
+      box-shadow: 0 0 0 4px transparent;
+    }
+  }
+
+  .feld-jump-ring {
+    animation: feld-jump-ring 1.9s ease-out 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feld-jump-ring {
+      animation: none;
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--foreground) 62%, transparent);
+    }
   }
 
   /* Fade in with slight slide up for cards */

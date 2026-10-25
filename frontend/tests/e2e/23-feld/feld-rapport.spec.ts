@@ -248,11 +248,11 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
 
       // Both rows name the EL. "kein EL erfasst" on the finished one is the
       // regression this test exists for.
-      await expect(runningRow.getByText(`EL: ${leader.name}`)).toBeVisible();
-      await expect(finishedRow.getByText(`EL: ${leader.name}`)).toBeVisible();
+      await expect(runningRow.locator(`[data-slot="feld-leader-line"]`, { hasText: leader.name })).toBeVisible();
+      await expect(finishedRow.locator(`[data-slot="feld-leader-line"]`, { hasText: leader.name })).toBeVisible();
       await expect(finishedRow.getByText('kein EL erfasst')).toHaveCount(0);
       // The crew is off the finished Schadenplatz but can still file for it.
-      await expect(finishedRow.getByText('Nicht mehr zugeteilt')).toBeVisible();
+      await expect(finishedRow.getByText('Nicht mehr zugewiesen')).toBeVisible();
 
       // …and it is still there in the detail header, where the form opens.
       await feld.openAssignment(street(finished));
@@ -301,8 +301,11 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     });
 
     // Now the operator closes the card. The crew is still standing in the rain.
+    // The crew's «Einsatz beendet» already moved it to Rückfahrt, and a move that
+    // claims an older status is refused (409 «Status geändert»), so say what the
+    // board shows now.
     const cookieHeader = await cookieHeaderFor(authenticatedPage);
-    await setIncidentStatus(authenticatedPage.request, cookieHeader, incident.id, 'active', 'complete');
+    await setIncidentStatus(authenticatedPage.request, cookieHeader, incident.id, 'returning', 'complete');
 
     // "Abgeschlossen" starts collapsed to a narrow strip and renders no cards at
     // all (`components/kanban/droppable-column.tsx`), so the column has to be

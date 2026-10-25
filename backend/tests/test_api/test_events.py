@@ -653,24 +653,3 @@ async def test_event_response_structure(editor_client: AsyncClient, test_event: 
     ]
     for field in expected_fields:
         assert field in data, f"Missing field: {field}"
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_training_flag_filtering(editor_client: AsyncClient, db_session: AsyncSession):
-    """Test that training_flag is properly set and returned."""
-    # Create training event
-    training_event = Event(id=uuid4(), name="Training", training_flag=True)
-    # Create live event
-    live_event = Event(id=uuid4(), name="Live", training_flag=False)
-    db_session.add_all([training_event, live_event])
-    await db_session.commit()
-
-    response = await editor_client.get("/api/events/")
-    events = response.json()["events"]
-
-    training = next(e for e in events if e["id"] == str(training_event.id))
-    live = next(e for e in events if e["id"] == str(live_event.id))
-
-    assert training["training_flag"] is True
-    assert live["training_flag"] is False

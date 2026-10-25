@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { useEffectEvent } from '@/lib/hooks/use-effect-event';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { apiClient, type ApiAuditLog } from '@/lib/api-client';
@@ -64,10 +65,11 @@ export function useAuditLog({
     }
   };
 
-  // Fetch audit logs when on audit section
+  // Fetch audit logs when on audit section, and again when a filter changes.
+  const fetchNow = useEffectEvent(() => void fetchAuditLogs());
   useEffect(() => {
     if (activeSection === 'audit' && isAdmin) {
-      fetchAuditLogs();
+      fetchNow();
     }
   }, [activeSection, isAdmin, auditResourceFilter, auditActionFilter]);
 

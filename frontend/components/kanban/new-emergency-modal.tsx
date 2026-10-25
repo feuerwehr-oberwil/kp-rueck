@@ -30,8 +30,8 @@
  * been filled and emptied again.
  *
  * ON A PHONE the rows stack (DetailField does that by itself below 768px, see
- * `useStackedFields`): label above, control full width, switches label-left /
- * switch-right — the grammar of every other phone form. The row's 120px
+ * `useStackedFields`): label above, control full width, the Merkmale chips
+ * wrapping under their label — the grammar of every other phone form. The row's 120px
  * label column left a 390px phone ~200px of control and read as a table. A field's
  * message then sits full width under its control as well.
  *
@@ -69,7 +69,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DETAIL_MESSAGE_INDENT, DetailField, DetailToggle } from "@/components/kanban/detail-field"
+import { DETAIL_MESSAGE_INDENT, DetailField, DetailFlags } from "@/components/kanban/detail-field"
 import { Axe, ChevronDown, Phone, Plus } from 'lucide-react'
 import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
@@ -86,6 +86,8 @@ import { cn } from "@/lib/utils"
 import { apiClient, type ApiDuplicateCandidate } from "@/lib/api-client"
 import { useDuplicateCandidates } from "@/lib/hooks/use-duplicate-candidates"
 import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
+import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
 const LOCATION_FIELD_ID = "location_address"
@@ -117,7 +119,7 @@ const emptyForm = () => ({
     notes: "",
     // "Telefonisch" / "Vom Feld" — off by default, because
     // typing a card on the board IS the operator case (plan 26 §6). One value,
-    // two switches: a Meldung came over the phone OR from a Trupp, never both.
+    // two chips: a Meldung came over the phone OR from a Trupp, never both.
     source: "operator" as "operator" | "intake" | "feld",
     contact: "",
     contactPhone: "",
@@ -227,6 +229,18 @@ export function NewEmergencyModal({
     onOpenChange(false)
   }
 
+  // PHONE: a swipe, the backdrop or ✕ close the sheet through `onOpenChange`, and on a phone a
+  // stray swipe is common — so with something typed it asks first. «Verwerfen» really discards;
+  // a clean close keeps the form as it is for the next open (Einsatzart, Merkmale), as before.
+  const hasTypedInput = [formData.location, formData.notes, formData.contact, formData.contactPhone].some(
+    (value) => value.trim() !== "",
+  )
+  const closeGuard = useUnsavedChangesWarning({
+    isDirty: hasTypedInput,
+    isOpen: open && isMobile,
+    onClose: hasTypedInput ? resetAndClose : () => onOpenChange(false),
+  })
+
   // «Möglicherweise dasselbe wie …» — see the header. Asked only for an editor
   // with an Ereignis, and only once there is something to compare.
   const lookup = open && eventId && onMergeInto
@@ -259,11 +273,12 @@ export function NewEmergencyModal({
   // The form itself — the same rows in both shapes below.
   const fields = (
     <>
-        {/* ONE column: the eight rows fit a laptop's height with room to spare,
+        {/* ONE column: the rows fit a laptop's height with room to spare,
             and a single reading direction beats filling width for its own sake —
-            a second column made the eye jump mid-form. Was ist passiert first
-            (same order as the Übersicht tab, so the modal and the detail read as
-            one form seen twice), wer hat gemeldet after. */}
+            a second column made the eye jump mid-form. Was ist passiert first,
+            wer hat gemeldet after, the Merkmale chips last — the SAME order as
+            the Übersicht tab, so the modal and the detail read as one form seen
+            twice (UX-DESKTOP-14). */}
         <div className="space-y-1 py-2">
             {/* Location carries its own label and its own map/coordinate buttons,
                 so it lays itself out as a row rather than being wrapped in one. */}
@@ -362,34 +377,8 @@ export function NewEmergencyModal({
               </Select>
             </DetailField>
 
-            {/* Wer hat gemeldet. Provenance, then who, then the number: one
-              sentence, and the order is the point (see the spec next door). It
-              comes AFTER the incident fields rather than above them because the
-              operator is already typing the Einsatzort when they take a call; a
-              selector on top would add a step to the board's most-used modal just
-              to confirm the normal case. Two switches over ONE source value, so
-              turning one on turns the other off — the same pair, and the same
-              `DetailToggle`, as the Übersicht tab. The explanatory sentence under
-              each switch is gone; it lives on as the label's `title`. */}
-            <DetailToggle
-              label={t('common.phoneReported')}
-              description={t('common.phoneReportedDescription')}
-              icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
-              checked={formData.source === 'intake'}
-              onToggle={(checked) =>
-                setFormData((prev) => ({ ...prev, source: checked ? 'intake' : 'operator' }))
-              }
-            />
-            <DetailToggle
-              label={t('common.feldReported')}
-              description={t('common.feldReportedDescription')}
-              icon={<Axe className="h-3.5 w-3.5 shrink-0" />}
-              checked={formData.source === 'feld'}
-              onToggle={(checked) =>
-                setFormData((prev) => ({ ...prev, source: checked ? 'feld' : 'operator' }))
-              }
-            />
-
+            {/* Wer hat gemeldet: who, then the number. How it came in
+                (Telefonisch / Vom Feld) is a «Merkmal» at the bottom. */}
             <DetailField label={t('common.contact')} htmlFor="contact">
               <Input
                 id="contact"
@@ -428,16 +417,50 @@ export function NewEmergencyModal({
               />
             </DetailField>
 
-            <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
-              {t('newEmergency.infoDragDrop')}
-            </p>
+            {/* The flags last, as one row of chips — the same `DetailFlags`
+                the Übersicht ends with (owner pick UX-DESKTOP-14 B). Two chips
+                over ONE source value: a Meldung came over the phone OR from a
+                Trupp, never both, so turning one on turns the other off. */}
+            <DetailFlags
+              label={t('common.merkmale')}
+              flags={[
+                {
+                  key: 'intake',
+                  label: t('common.phoneReported'),
+                  description: t('common.phoneReportedDescription'),
+                  icon: <Phone className="h-3.5 w-3.5 shrink-0" />,
+                  checked: formData.source === 'intake',
+                  onToggle: (checked) =>
+                    setFormData((prev) => ({ ...prev, source: checked ? 'intake' : 'operator' })),
+                },
+                {
+                  key: 'feld',
+                  label: t('common.feldReported'),
+                  description: t('common.feldReportedDescription'),
+                  icon: <Axe className="h-3.5 w-3.5 shrink-0" />,
+                  checked: formData.source === 'feld',
+                  onToggle: (checked) =>
+                    setFormData((prev) => ({ ...prev, source: checked ? 'feld' : 'operator' })),
+                },
+              ]}
+            />
+
+            {/* The phone has no drag & drop and its detail sheet does not assign — the hint
+                would send the editor looking for something that is not there. */}
+            {!isMobile && (
+              <p className="pt-3 text-xs leading-relaxed text-muted-foreground">
+                {t('newEmergency.infoDragDrop')}
+              </p>
+            )}
         </div>
 
     </>
   )
 
+  // «Abbrechen» throws the call away: the next «Neuer Einsatz» opens empty. (✕, Esc and the
+  // phone's swipe only close — what was typed stays for the next open, see PHONE below.)
   const cancelButton = (
-    <Button variant="outline" onClick={() => onOpenChange(false)}>
+    <Button variant="outline" onClick={resetAndClose}>
       {t('common.cancel')}
     </Button>
   )
@@ -484,17 +507,18 @@ export function NewEmergencyModal({
   // above the keys. The centred 90vh dialog this replaces kept its buttons — and with the
   // autofocused Einsatzort, the keyboard — at the bottom of the whole screen: whoever wanted to
   // create the Einsatz had to put the keyboard away first. Swiping it down closes it like the
-  // ✕ does; what was typed stays in this component's state for the next open, as before.
+  // ✕ does — and, with something typed, asks first (`closeGuard`).
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <>
+      <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
         <SheetContent side="bottom" className="modal-h-tall gap-0 rounded-t-2xl" onKeyDown={onKeyDown}>
           {/* While typing, the head is as short as it can be: the band above the keys is
               ~350px on an iPhone, and the sentence under the title is the one thing in it
               nobody needs at that moment. */}
           <SheetHeader className="px-4 pt-5 pb-2 pr-12 [:root[data-kb]_&]:pb-1">
             <div className="flex items-center gap-3">
-              <Plus className="h-6 w-6 text-primary" />
+              <Plus className="h-6 w-6 text-muted-foreground" />
               <SheetTitle className="text-lg leading-none">{t('common.newIncident')}</SheetTitle>
             </div>
             <SheetDescription className="[:root[data-kb]_&]:sr-only">{t('newEmergency.description')}</SheetDescription>
@@ -506,6 +530,8 @@ export function NewEmergencyModal({
           </SheetFooter>
         </SheetContent>
       </Sheet>
+      <UnsavedChangesDialog {...closeGuard.dialogProps} />
+      </>
     )
   }
 
@@ -517,7 +543,7 @@ export function NewEmergencyModal({
       <DialogContent className="sm:max-w-xl" onKeyDown={onKeyDown}>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-primary" />
+            <Plus className="h-6 w-6 text-muted-foreground" />
             <DialogTitle>{t('common.newIncident')}</DialogTitle>
           </div>
           <DialogDescription>

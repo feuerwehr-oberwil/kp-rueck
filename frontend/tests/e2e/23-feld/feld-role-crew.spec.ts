@@ -152,7 +152,7 @@ test.describe('/feld — die eigene Zuteilung (crew)', () => {
       await expect(row.getByText('Magazin')).toHaveCount(0);
       // …and no explanation sentence either: there is nothing to explain.
       await expect(row.getByText('du bist nicht selbst zugeteilt', { exact: false })).toHaveCount(0);
-      await expect(row.getByText('Vom KP als Reko zugeteilt')).toHaveCount(0);
+      await expect(row.getByText('Vom KP als Reko zugewiesen')).toHaveCount(0);
 
       // The rapport state is on the LIST already: what is still owed has to be
       // readable before anything is opened (bucket 2 of the feed), and only a

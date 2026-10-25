@@ -6,9 +6,16 @@
  * `/display/board` is not a second design — it is THE board with every control
  * taken out. So this component follows `components/kanban/draggable-operation.tsx`
  * block for block and in the same order (Kopf → Meldung → Melder → Ressourcen →
- * Auftrag → Reko), down to the two section rules and the 12px rhythm between
- * them. A difference from the kanban card is a bug here, unless it exists
- * because the control it belonged to was removed.
+ * Auftrag → Reko), down to the two section rules. A difference in CONTENT from
+ * the kanban card is a bug here, unless it exists because the control it
+ * belonged to was removed.
+ *
+ * The SETTING differs on purpose (VISUAL-07 C, 2026-10): read from 4 m, the
+ * card is denser (tighter padding and rhythm) and its key facts are bigger –
+ * address 1.25rem, age 1rem bold, the whole Meldung in foreground, never
+ * clamped. Every size is rem, so the board's live root size (`useWallFit`)
+ * scales all of it at once. And stops 2…n of one Auftrag in a column print the
+ * crew once («Mannschaft wie Stopp n», `crewShownAtStop`).
  *
  * What was removed, and why each one is a control rather than information:
  *  * drag source, drop target, context menu, the card's own status controls;
@@ -61,8 +68,56 @@ import { cn } from "@/lib/utils"
 
 /** Same two boundaries the kanban card draws — Ressourcen and Reko — and the
  *  same rule: whichever block OPENS a section carries it, so a section that
- *  renders nothing cannot leave a line above nothing. */
-const SECTION_RULE = "border-t pt-3"
+ *  renders nothing cannot leave a line above nothing. Tighter than the desk
+ *  card's `pt-3` (VISUAL-07 C): on a wall every pixel of rhythm is a pixel the
+ *  fit (`useWallFit`) cannot give to the type. */
+const SECTION_RULE = "border-t pt-1.5"
+
+/** The Einsatzart line and its age, the two facts of the second row. The age
+ *  is the one number on the card somebody reads from the door: 1rem bold. */
+const TYPE_LINE = "min-w-0 break-words text-[0.78rem] text-foreground/80"
+const AGE = "text-base font-bold"
+
+/** Every chip on the wall card — crew, vehicles, material, the Reko's dangers.
+ *  0.8rem (not the desk's 12px) and no vertical padding: the name is the fact,
+ *  the pill around it is not. `min-w-0 max-w-full shrink` + truncate inside, as
+ *  on the kanban card: a lone over-long chip shrinks instead of shoving the row
+ *  past the card edge. */
+const WALL_CHIP = "min-w-0 max-w-full shrink text-[0.8rem] leading-snug px-1.5 py-0 font-normal flex items-center gap-1"
+
+/** Where this card sits on its Auftrag, 1-based — the route's own order, or the
+ *  incident's group position when the route has lost the stop. */
+export function auftragStopPosition(auftrag: IncidentGroup, operationId: string, groupPosition: number): number {
+  const index = auftrag.stopIds.indexOf(operationId)
+  return index >= 0 ? index + 1 : groupPosition + 1
+}
+
+/**
+ * The stops whose Auftrag crew another card in the same column already shows.
+ *
+ * One route is one squad, so stops 2…n of it in one column would repeat the
+ * same three chips three times (VISUAL-07 C). The first stop of an Auftrag in a
+ * column keeps the chips; every later one maps to that first stop's position
+ * and says «Mannschaft wie Stopp n» instead. Not limited to adjacent cards: the
+ * referenced stop is in the same column either way.
+ *
+ * `ops` is one column in display order; `auftragOf` resolves a card's Auftrag.
+ */
+export function crewShownAtStop(
+  ops: readonly Operation[],
+  auftragOf: (op: Operation) => IncidentGroup | undefined,
+): Map<string, number> {
+  const firstStop = new Map<string, number>()
+  const folded = new Map<string, number>()
+  for (const op of ops) {
+    const auftrag = auftragOf(op)
+    if (!auftrag) continue
+    const shownAt = firstStop.get(auftrag.id)
+    if (shownAt === undefined) firstStop.set(auftrag.id, auftragStopPosition(auftrag, op.id, op.groupPosition))
+    else folded.set(op.id, shownAt)
+  }
+  return folded
+}
 
 /** The priority treatment comes from lib/priority.ts, not from a copy of
  *  `draggable-operation.tsx` — importing the CARD would pull the whole
@@ -93,6 +148,10 @@ export interface DisplayIncidentCardProps {
   auftrag?: IncidentGroup
   /** The route's resources — a stop owns none of its own. */
   auftragResources?: GroupResources | null
+  /** Another card in this column already shows the Auftrag's crew: that stop's
+   *  position (from `crewShownAtStop`). The crew chips fold into «Mannschaft wie
+   *  Stopp n» on the stop line. */
+  crewShownAt?: number
   isHighlighted?: boolean
   isFlashing?: boolean
   onClick?: () => void
@@ -108,6 +167,7 @@ export function DisplayIncidentCard({
   doubleBookedCrewNames,
   auftrag,
   auftragResources,
+  crewShownAt,
   isHighlighted = false,
   isFlashing = false,
   onClick,
@@ -118,10 +178,10 @@ export function DisplayIncidentCard({
   const priority = (operation.priority || "low") as Priority
 
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
-  const auftragStopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
-  const auftragStopPos = auftrag
-    ? (auftragStopIndex >= 0 ? auftragStopIndex + 1 : operation.groupPosition + 1)
-    : 0
+  const auftragStopPos = auftrag ? auftragStopPosition(auftrag, operation.id, operation.groupPosition) : 0
+  const auftragCrew = auftragResources?.personnel ?? []
+  // Only a crew that would be drawn can be «wie Stopp n».
+  const auftragCrewFolded = crewShownAt !== undefined && auftragCrew.length > 0
   // Vehicles and material only — ONE FIELD FEWER THAN THE KANBAN CARD, on purpose.
   // The kanban card also names «3 Pers» here because its crew chips stop at six
   // and hand the rest to «+N weitere», so the count is the only place the true
@@ -143,6 +203,7 @@ export function DisplayIncidentCard({
     ? [
         auftrag.name,
         t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal }),
+        auftragCrewFolded ? t("card.auftragCrewAsStop", { pos: crewShownAt }) : "",
         auftragSummary,
       ]
         .filter(Boolean)
@@ -171,7 +232,9 @@ export function DisplayIncidentCard({
     <Card
       data-incident-id={operation.id}
       className={cn(
-        "operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm p-4 transition-all",
+        // px-3 py-2, not the desk's p-4 (VISUAL-07 C): the denser card is what
+        // lets a full storm column fit the wall at a readable root size.
+        "operation-card border border-border border-l-4 bg-card/80 backdrop-blur-sm px-3 py-2 transition-all",
         PRIORITY_CARD_CLASSES[priority],
         onClick && "cursor-pointer hover:bg-muted/20",
         // The other window said "this one" — same accent frame the board uses.
@@ -180,10 +243,10 @@ export function DisplayIncidentCard({
       )}
       onClick={onClick}
     >
-      <div className="space-y-3">
+      <div className="space-y-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0 flex-1">
-            <div className="flex items-center flex-shrink-0 mt-0.5">
+            <div className="flex items-center flex-shrink-0 mt-1">
               {priority === "high" ? (
                 <ChevronUp className={cn("h-4 w-4", PRIORITY_ICON_CLASSES[priority])} aria-label={t("card.priorityHighAria")} />
               ) : priority === "medium" ? (
@@ -193,10 +256,10 @@ export function DisplayIncidentCard({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              {/* Size unchanged: read from across the room, a smaller title is
-                  the worse trade. It hyphenates instead (WALL_TEXT_WRAP). */}
-              <h3 className={cn("font-bold text-base text-foreground leading-tight", WALL_TEXT_WRAP)}>
-                <IncidentNumber number={operation.number} className="mr-1.5 text-xs" />
+              {/* 1.25rem (VISUAL-07 C): the address is what the room reads
+                  first. It hyphenates rather than truncating (WALL_TEXT_WRAP). */}
+              <h3 className={cn("font-bold text-xl text-foreground leading-[1.15]", WALL_TEXT_WRAP)}>
+                <IncidentNumber number={operation.number} className="mr-1.5 text-[0.8rem]" />
                 {getIncidentLocationLabel(operation)}
               </h3>
               {/* A crew standing at the kerb is the last thing a wall display
@@ -217,13 +280,13 @@ export function DisplayIncidentCard({
               the head's 8px gap away from the title. */}
           <div className="flex items-center gap-1.5 flex-shrink-0 empty:hidden">
             {operation.source === "intake" && (
-              <div className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/30" title={t("card.intakeTooltip")}>
-                <Phone className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.intakeTooltip")}>
+                <Phone className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {operation.source === "feld" && (
-              <div className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/30" title={t("card.feldTooltip")}>
-                <Axe className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <div className="p-1.5 rounded-md bg-muted/60" title={t("card.feldTooltip")}>
+                <Axe className="h-4 w-4 text-muted-foreground/80" />
               </div>
             )}
             {operation.amWarten && (
@@ -276,36 +339,41 @@ export function DisplayIncidentCard({
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <div className="flex min-w-0 items-start gap-1.5">
               <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
-              <span className="min-w-0 break-words text-xs text-muted-foreground">
+              <span className={TYPE_LINE}>
                 {getIncidentTypeLabel(operation.incidentType)}
               </span>
             </div>
-            <IncidentTimeRow operation={operation} readOnly colorByAge className="ml-auto flex-shrink-0" />
+            <IncidentTimeRow operation={operation} readOnly colorByAge className="ml-auto flex-shrink-0" startClassName={AGE} chipClassName={AGE} />
           </div>
         ) : cardView.einsatzart ? (
           <div className="flex items-start gap-1.5">
             <Siren className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
-            <span className="min-w-0 break-words text-xs text-muted-foreground">{getIncidentTypeLabel(operation.incidentType)}</span>
+            <span className={TYPE_LINE}>{getIncidentTypeLabel(operation.incidentType)}</span>
           </div>
         ) : cardView.zeiten ? (
-          <IncidentTimeRow operation={operation} readOnly colorByAge className="justify-between" />
+          <IncidentTimeRow operation={operation} readOnly colorByAge className="justify-between" startClassName={AGE} chipClassName={AGE} />
         ) : null}
 
         {showMeldungBlock && (
           <div>
-            <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{operation.notes}</p>
+            {/* Foreground and never clamped (VISUAL-07 C): the Meldung is what
+                somebody walks up to the wall to read, and nobody there can
+                open the card to finish a sentence cut at three lines. `pre-line`
+                keeps the operator's line breaks; `pre-wrap` would also keep the
+                space at each wrap, which hangs past the card's edge. */}
+            <p className={cn("text-[0.84rem] leading-[1.28] text-foreground whitespace-pre-line", WALL_TEXT_WRAP)}>{operation.notes}</p>
           </div>
         )}
 
         {/* Melder — the name and the number, as text: there is nothing to dial
             from a wall, and a link the room cannot click is a control. */}
         {showMelderBlock && (
-          <div className="flex items-start gap-1.5 text-xs">
+          <div className="flex items-start gap-1.5 text-[0.78rem]">
             <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-px" />
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-              {operation.contact && <span className="text-muted-foreground break-words">{operation.contact}</span>}
+              {operation.contact && <span className="text-foreground/80 break-words">{operation.contact}</span>}
               {operation.contactPhone && (
-                <span className="tabular-nums text-muted-foreground">{operation.contactPhone}</span>
+                <span className="tabular-nums text-foreground/80">{operation.contactPhone}</span>
               )}
             </div>
           </div>
@@ -313,10 +381,10 @@ export function DisplayIncidentCard({
 
         {/* RESSOURCEN — who and what is at this address. */}
         {showResourceBlock && (
-          <div className={cn(SECTION_RULE, "space-y-3 text-xs")}>
+          <div className={cn(SECTION_RULE, "space-y-1 text-xs")}>
             {showRekoPerson && operation.assignedReko && (
               <div className="flex items-start gap-1.5">
-                <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+                <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap items-center gap-1 min-w-0">
                   {/* `min-w-0 max-w-full shrink` + truncate, same as the kanban
                       card's chips: a lone over-long chip must shrink and
@@ -325,7 +393,7 @@ export function DisplayIncidentCard({
                       to every chip row below. */}
                   <RemovableChip
                     variant="secondary"
-                    className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                    className={WALL_CHIP}
                   >
                     <span className="truncate">{operation.assignedReko.name.trim() || t("common.unknownResource")}</span>
                   </RemovableChip>
@@ -339,7 +407,7 @@ export function DisplayIncidentCard({
             )}
             {showCrewRow && (
               <div className="flex items-start gap-1.5">
-                <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+                <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {/* EL first (decision 23) — off a wall at distance, the first
                       badge is the one that gets read at all. */}
@@ -350,7 +418,7 @@ export function DisplayIncidentCard({
                         key={crewName}
                         variant="secondary"
                         className={cn(
-                          "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1",
+                          WALL_CHIP,
                           isConflict && "border border-warning/60 text-warning-foreground bg-warning/10",
                         )}
                         title={isConflict ? t("card.doubleBookedTooltip", { name: crewName }) : undefined}
@@ -366,10 +434,10 @@ export function DisplayIncidentCard({
             )}
             {showVehicleRow && (
               <div className="flex items-start gap-1.5">
-                <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+                <Truck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {operation.zuFuss && (
-                    <RemovableChip variant="secondary" className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1">
+                    <RemovableChip variant="secondary" className={WALL_CHIP}>
                       <Footprints className="h-3 w-3 flex-shrink-0" />
                       <span className="truncate">{t("common.zuFuss")}</span>
                     </RemovableChip>
@@ -382,7 +450,7 @@ export function DisplayIncidentCard({
                       <RemovableChip
                         key={vehicleName}
                         variant="secondary"
-                        className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                        className={WALL_CHIP}
                         title={callsign ? t("common.funkrufname", { callsign }) : undefined}
                       >
                         <span className="flex min-w-0 items-center gap-1">
@@ -404,7 +472,7 @@ export function DisplayIncidentCard({
             )}
             {showMaterialRow && (
               <div className="flex items-start gap-1.5">
-                <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+                <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {(() => {
                     const { completeGroups, ungrouped } = groupAssignedMaterials(operation.materials, materials, materialGroups)
@@ -414,7 +482,7 @@ export function DisplayIncidentCard({
                           <RemovableChip
                             key={`group-${group.id}`}
                             variant="secondary"
-                            className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                            className={WALL_CHIP}
                           >
                             <Layers className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                             <span className="truncate">{group.name}</span>
@@ -428,7 +496,7 @@ export function DisplayIncidentCard({
                               key={materialId}
                               variant="secondary"
                               className={cn(
-                                "min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1",
+                                WALL_CHIP,
                                 onSite && "bg-warning/15 text-warning-foreground",
                               )}
                             >
@@ -480,26 +548,31 @@ export function DisplayIncidentCard({
                   nobody to hover the tooltip that could give it back. Split, the
                   second line has 193px at 1280 (213px at 1920) for 135.4px of
                   «Stopp 6 von 7 · Pio · 1 Gerät» — 174.9px before the crew count
-                  came out of `auftragSummary` above. Neither width truncates. */}
+                  came out of `auftragSummary` above. Neither width truncates —
+                  and since the stop line also carries «Mannschaft wie Stopp n»
+                  both lines WRAP rather than truncate, as wall text does. */}
               <span className="flex min-w-0 flex-1 flex-col gap-px">
-                <span className="truncate font-medium text-foreground/80">{auftrag.name}</span>
-                <span className="truncate text-2xs text-muted-foreground">
+                <span className={cn("font-medium text-foreground/80", WALL_TEXT_WRAP)}>{auftrag.name}</span>
+                <span className={cn("text-xs text-muted-foreground", WALL_TEXT_WRAP)}>
                   <span className="tabular-nums">
                     {t("card.auftragStopLine", { pos: auftragStopPos, total: auftragTotal })}
                   </span>
+                  {auftragCrewFolded && <> · {t("card.auftragCrewAsStop", { pos: crewShownAt })}</>}
                   {auftragSummary && <> · {auftragSummary}</>}
                 </span>
               </span>
             </div>
-            {auftragResources && auftragResources.personnel.length > 0 && (
-              <div className="mt-1.5 flex items-start gap-1.5">
-                <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+            {/* Folded when an earlier card of this column already names the
+                same squad (`crewShownAt`): the stop line says so instead. */}
+            {auftragCrew.length > 0 && !auftragCrewFolded && (
+              <div className="mt-1 flex items-start gap-1.5">
+                <Users className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap gap-1 min-w-0">
-                  {sortCrewByLeader(auftragResources.personnel, (p) => Boolean(p.isLeader)).map((p) => (
+                  {sortCrewByLeader(auftragCrew, (p) => Boolean(p.isLeader)).map((p) => (
                     <RemovableChip
                       key={p.assignmentId}
                       variant="secondary"
-                      className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1"
+                      className={WALL_CHIP}
                     >
                       <LeaderBadge isLeader={Boolean(p.isLeader)} />
                       <span className="truncate">{p.name.trim() || t("common.unknownResource")}</span>
@@ -514,13 +587,13 @@ export function DisplayIncidentCard({
         {/* REKO — section three: what somebody went and looked at is a different
             kind of statement from everything above it. */}
         {showRekoSummary && operation.rekoSummary && (
-          <div className={cn(SECTION_RULE, "space-y-3")}>
+          <div className={cn(SECTION_RULE, "space-y-1")}>
             {operation.rekoSummary.hasDangers && operation.rekoSummary.dangerTypes.length > 0 && (
               <div className="flex items-start gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-1" />
+                <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                 <div className="flex flex-wrap gap-1">
                   {operation.rekoSummary.dangerTypes.map((danger, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs px-1.5 py-0.5">
+                    <Badge key={idx} variant="outline" className={WALL_CHIP}>
                       {danger}
                     </Badge>
                   ))}

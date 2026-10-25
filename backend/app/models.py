@@ -1253,7 +1253,7 @@ class SchadenplatzReport(Base):
     # asked of the crew and then never disagreed with the board: the window is
     # already implied by the arrival, the status transitions and the field's
     # "beendet" message, so every output derives it instead
-    # (`services.pdf_report_service.rapport_work_windows`). Typing in the rain what
+    # (`services.rapport_rows.rapport_work_windows`). Typing in the rain what
     # the board already knows is the one cost a field form must not have.
     # Material checklist. One entry per material unit that was assigned to this
     # incident, carried over from incident_assignments on first open:
@@ -1666,6 +1666,11 @@ class StatusTransition(Base):
     #          "was_leader": bool}, ...]. Cleared when consumed, so a second
     # reopen cannot replay a restore that already happened.
     released_assignments_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # The status the operator's board SHOWED when this move was sent, set only when it was not
+    # the card's real status (`from_status`) – somebody else had moved the card in between, the
+    # server refused with 409 «Status geändert», and the operator chose «Trotzdem …». The Verlauf
+    # flags such a row («war schon abgeschlossen (vor 4 s)»). NULL = an ordinary move.
+    seen_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")

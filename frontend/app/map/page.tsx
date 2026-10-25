@@ -11,6 +11,7 @@
 
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useNotifications } from "@/lib/contexts/notification-context"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import dynamic from "next/dynamic"
@@ -47,25 +48,20 @@ import { OperationDetailModal } from "@/components/kanban/operation-detail-modal
 import { MobileIncidentDetailSheet } from "@/components/mobile/mobile-incident-detail-sheet"
 import { incidentDetailTarget } from "@/lib/incident-detail"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { ResourceAssignmentDialog } from "@/components/kanban/resource-assignment-dialog"
-import { AuftragPickerDialog } from "@/components/kanban/auftrag-picker-dialog"
-import { DiveraSendDialog } from "@/components/divera/divera-send-dialog"
-import {
-  IncidentStatusWorkflowDialogs,
-  useIncidentStatusWorkflow,
-} from "@/components/kanban/incident-status-workflow"
+import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { isIncidentStatus, INCIDENT_TYPE_LABELS, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { Reveal } from "@/components/ui/reveal"
 // The board's shortcut hook owns the canonical "should this keystroke reach the
 // page?" rules; the map answers the same questions and reuses them.
-import { isActivationTarget, isOverlayOpen, isTypingTarget } from "@/lib/hooks/use-kanban-shortcuts"
+import { isActivationTarget, isOverlayOpen } from "@/lib/hooks/use-kanban-shortcuts"
+import { isTypingTarget } from "@/lib/typing-target"
+import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { useTranslations } from "next-intl"
@@ -109,15 +105,9 @@ export default function MapPage() {
     materials,
     updateOperation,
     changeStatusToTop,
-    removeCrew,
-    removeMaterial,
-    removeVehicle: removeVehicleFromOperation,
-    assignPersonToOperation,
-    assignMaterialToOperation,
     assignVehicleToOperation,
     assignRekoPersonToOperation,
     removeReko,
-    requestResourceConflict,
     deleteOperation,
     isLoaded: operationsLoaded,
   } = useOperations()
@@ -129,17 +119,14 @@ export default function MapPage() {
   useBootGate('map', operationsLoaded && mapIdle, tBoot('loading'))
   // vehicle name → driver name, live — the rail's vehicle chips carry the same
   // «Name · Funkrufname (Fahrer)» line the board card shows.
-  const { isAuthenticated, isEditor } = useAuth()
+  const { isEditor } = useAuth()
   const {
     groups,
     createGroup,
     addStops,
-    assignResource: assignGroupResource,
-    unassignResource: unassignGroupResource,
     getGroupResources,
-    occupiedResourceIds,
   } = useGroups()
-  // The operator's own releases get «… gelöst · Rückgängig» (lib/release-undo.ts).
+  // The operator's own releases get «… freigegeben · Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -158,16 +145,7 @@ export default function MapPage() {
   const [detailOnTab, setDetailOnTab] = useState<
     { tab: OperationDetailTab; nonce: number; section?: OperationDetailSection } | null
   >(null)
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
-  const [assignmentResourceType, setAssignmentResourceType] = useState<'crew' | 'vehicles' | 'materials' | null>(null)
-  const [assignmentOperationId, setAssignmentOperationId] = useState<string | null>(null)
-  const [routeAssign, setRouteAssign] = useState<{ groupId: string; resourceType: 'crew' | 'vehicles' | 'materials' } | null>(null)
-  const [rekoPersonnelNames, setRekoPersonnelNames] = useState<string[]>([])
-  const [auftragPickerIncidentId, setAuftragPickerIncidentId] = useState<string | null>(null)
-  const [diveraEnabled, setDiveraEnabled] = useState(false)
-  const [diveraDialogOp, setDiveraDialogOp] = useState<Operation | null>(null)
-  const [printerEnabled, setPrinterEnabled] = useState(false)
-  const [funkrufname, setFunkrufname] = useState("Omega")
+  const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
   // Derive current operation from operations array to get real-time updates
   const selectedOperation = useMemo(() => {
     if (!selectedOperationId) return null
@@ -180,7 +158,8 @@ export default function MapPage() {
     active: true,
     completed: false, // Hidden by default (matches current behavior)
   })
-  const [vehicleTypes, setVehicleTypes] = useState<Array<{ key: string; name: string; id: string; type: string }>>([])
+  // The board's numbering (display_order), so «3» is the same truck on both screens.
+  const vehicleTypes = useVehicleShortcuts()
   const [showAssignmentLines, setShowAssignmentLines] = useState(true)
   const [showDistances, setShowDistances] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
@@ -367,13 +346,13 @@ export default function MapPage() {
   // `?mode=reko` — the Setup-Checkliste's "Reko-Modus öffnen" links here rather
   // than telling the operator where to look. Once only: leaving the mode must
   // not be undone by a re-render, and the URL is not the state.
+  // `enterRekoMode` is re-created every render; the URL is what decides here.
   const rekoDeepLinkRef = useRef(false)
+  const enterRekoModeFromLink = useEffectEvent(enterRekoMode)
   useEffect(() => {
     if (rekoDeepLinkRef.current || searchParams.get('mode') !== 'reko') return
     rekoDeepLinkRef.current = true
-    enterRekoMode()
-    // `enterRekoMode` is re-created every render; the URL is what decides here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    enterRekoModeFromLink()
   }, [searchParams])
 
   // Create a new Auftrag from the panel and select it for planning.
@@ -423,18 +402,17 @@ export default function MapPage() {
     else router.push(target.href)
   }, [router, isMobile])
 
-  // Zoom in on a vehicle by its 1-5 shortcut number
-  const focusVehicleByNumber = (vehicleNumber: number) => {
-    const vehicle = vehicleTypes[vehicleNumber - 1]
-    if (vehicle) {
-      setFocusVehicleName(vehicle.name)
-      setFocusVehicleTrigger((prev) => prev + 1)
-    }
-  }
-
   // Register command palette (Cmd+K) handlers for the map view
   const { registerHandlers, clearHandlers } = useCommandPalette()
   useEffect(() => {
+    // Zoom in on a vehicle by its 1-5 shortcut number
+    const focusVehicleByNumber = (vehicleNumber: number) => {
+      const vehicle = vehicleTypes.find((item) => item.key === String(vehicleNumber))
+      if (vehicle) {
+        setFocusVehicleName(vehicle.name)
+        setFocusVehicleTrigger((prev) => prev + 1)
+      }
+    }
     registerHandlers({
       onRefresh: () => refreshIncidents(),
       onToggleMapLabels: () => setShowLabels((prev) => !prev),
@@ -445,12 +423,12 @@ export default function MapPage() {
         setSelectedIncidentId(null)
       },
       onSetMapColorBy: setColorByPersisted,
-      mapVehicleNames: vehicleTypes.map((v) => v.name),
+      // Indexed by shortcut number − 1, as the palette lists «1»…«5».
+      mapVehicleNames: [1, 2, 3, 4, 5].map((n) => vehicleTypes.find((v) => v.key === String(n))?.name ?? ''),
       onFocusIncidentSearch: () => document.getElementById('map-search-input')?.focus(),
     })
     return () => clearHandlers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes])
+  }, [registerHandlers, clearHandlers, refreshIncidents, vehicleTypes, setColorByPersisted])
 
   // Use shared operation handlers hook
   const { handleOperationUpdate, handleVehicleRemove, handleOperationDelete } = useOperationHandlers({
@@ -461,17 +439,9 @@ export default function MapPage() {
     deleteOperation,
   })
 
-  const toggleDriverStay = useToggleDriverStay()
-
-  const statusWorkflow = useIncidentStatusWorkflow({
-    operations,
-    materials,
-    groups,
-    changeStatusToTop,
-    getGroupResources,
-    removeMaterial,
-    unassignGroupResource,
-  })
+  // The Einsatz dialogs this page shares with the board (assignment, Auftrag
+  // picker, transfer, Divera, the status gates) – see incident-dialogs.tsx.
+  const dialogs = useIncidentDialogs()
 
   // The bell's «angekommen» / «beendet» button works here too — the map is a
   // full operating surface.
@@ -501,150 +471,6 @@ export default function MapPage() {
     })
     return () => registerFieldActionHandler(null)
   }, [isEditor, registerFieldActionHandler, changeStatusToTop])
-
-  const handleAssignRouteResource = (
-    resourceType: 'crew' | 'vehicles' | 'materials',
-    groupId: string,
-  ) => {
-    setRouteAssign({ groupId, resourceType })
-    setAssignmentResourceType(resourceType)
-    setAssignmentOperationId(null)
-    setAssignmentDialogOpen(true)
-  }
-
-  const handleOpenAssignmentDialog = (
-    resourceType: 'crew' | 'vehicles' | 'materials',
-    operationId: string,
-  ) => {
-    const operation = operations.find((item) => item.id === operationId)
-    if (operation?.groupId) {
-      handleAssignRouteResource(resourceType, operation.groupId)
-      return
-    }
-    setRouteAssign(null)
-    setAssignmentResourceType(resourceType)
-    setAssignmentOperationId(operationId)
-    setAssignmentDialogOpen(true)
-  }
-
-  const assignVehicleToGroupWithConflict = (groupId: string, vehicleId: string) => {
-    const vehicle = vehicleTypes.find((item) => item.id === vehicleId)
-    if (!vehicle) return
-
-    const groupConflicts = groups.filter((group) =>
-      group.id !== groupId
-      && group.assignments.some((assignment) => assignment.resourceType === 'vehicle' && assignment.resourceId === vehicleId),
-    )
-    const incidentConflicts = operations.filter((operation) => operation.vehicles.includes(vehicle.name))
-    if (groupConflicts.length === 0 && incidentConflicts.length === 0) {
-      void assignGroupResource(groupId, 'vehicle', vehicleId)
-      return
-    }
-
-    requestResourceConflict({
-      resourceType: "vehicle",
-      resourceId: vehicleId,
-      resourceName: vehicle.name,
-      targetOperationId: groupId,
-      conflicts: [
-        ...groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentConflicts.map((operation) => ({ operationId: operation.id, operationLabel: getIncidentRefLabel(operation) })),
-      ],
-      customResolve: async (action) => {
-        if (action === 'move') {
-          const groupResults = await Promise.all(groupConflicts.map((group) => {
-            const assignment = group.assignments.find((item) => item.resourceType === 'vehicle' && item.resourceId === vehicleId)
-            return assignment ? unassignGroupResource(group.id, assignment.id) : true
-          }))
-          const incidentResults = await Promise.all(
-            incidentConflicts.map((operation) => removeVehicleFromOperation(operation.id, vehicle.name)),
-          )
-          if ([...groupResults, ...incidentResults].some((ok) => !ok)) return
-        }
-        await assignGroupResource(groupId, 'vehicle', vehicleId)
-      },
-    })
-  }
-
-  const assignVehicleToIncidentWithConflict = (
-    vehicleId: string,
-    vehicleName: string,
-    operationId: string,
-  ) => {
-    const groupConflicts = groups.filter((group) =>
-      group.assignments.some((assignment) => assignment.resourceType === 'vehicle' && assignment.resourceId === vehicleId),
-    )
-    if (groupConflicts.length === 0) {
-      assignVehicleToOperation(vehicleId, vehicleName, operationId)
-      return
-    }
-
-    requestResourceConflict({
-      resourceType: "vehicle",
-      resourceId: vehicleId,
-      resourceName: vehicleName,
-      targetOperationId: operationId,
-      conflicts: groupConflicts.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-      customResolve: async (action) => {
-        if (action === 'move') {
-          const results = await Promise.all(groupConflicts.map((group) => {
-            const assignment = group.assignments.find((item) => item.resourceType === 'vehicle' && item.resourceId === vehicleId)
-            return assignment ? unassignGroupResource(group.id, assignment.id) : true
-          }))
-          if (results.some((ok) => !ok)) return
-        }
-        assignVehicleToOperation(vehicleId, vehicleName, operationId)
-      },
-    })
-  }
-
-  const handleChooseAuftrag = async (groupId: string) => {
-    if (!auftragPickerIncidentId) return
-    const ok = await addStops(groupId, [auftragPickerIncidentId])
-    if (ok) {
-      const group = groups.find((item) => item.id === groupId)
-      toast.success(tKanban('dashboard.distributedToast', { name: group?.name ?? '' }))
-    }
-  }
-
-  const handleRemoveFromAuftrag = async () => {
-    if (!auftragPickerIncidentId) return
-    const operation = operations.find((item) => item.id === auftragPickerIncidentId)
-    if (!operation?.groupId) return
-    // The release toast («… von <Auftrag> gelöst · Rückgängig») says it.
-    await release.releaseStop(operation.groupId, operation.id)
-  }
-
-  const assignmentOperation = assignmentOperationId
-    ? operations.find((operation) => operation.id === assignmentOperationId) ?? null
-    : null
-  const assignedResources = assignmentOperation
-    ? {
-        assignedPersonnel: assignmentOperation.crew,
-        assignedVehicles: assignmentOperation.vehicles,
-        assignedMaterials: assignmentOperation.materials,
-      }
-    : { assignedPersonnel: [], assignedVehicles: [], assignedMaterials: [] }
-  const routeGroupResources = routeAssign ? getGroupResources(routeAssign.groupId) : null
-  const routeOwnIds = routeAssign
-    ? new Set(
-        groups
-          .find((group) => group.id === routeAssign.groupId)
-          ?.assignments.map((assignment) => `${assignment.resourceType}:${assignment.resourceId}`) ?? [],
-      )
-    : new Set<string>()
-  const occupiedPersonnelIds = new Set(
-    [...occupiedResourceIds.personnel].filter((id) => !routeOwnIds.has(`personnel:${id}`)),
-  )
-  const occupiedVehicleIds = new Set(
-    [...occupiedResourceIds.vehicle].filter((id) => !routeOwnIds.has(`vehicle:${id}`)),
-  )
-  const occupiedMaterialIds = new Set(
-    [...occupiedResourceIds.material].filter((id) => !routeOwnIds.has(`material:${id}`)),
-  )
-  const diveraDialogOpLive = diveraDialogOp
-    ? operations.find((operation) => operation.id === diveraDialogOp.id) ?? diveraDialogOp
-    : null
 
   // Count incidents by status group (before filtering)
   const statusGroupCounts = useMemo(() => {
@@ -770,81 +596,6 @@ export default function MapPage() {
     return sections
   }, [incidents, searchQuery, tIncidents, tKanban])
 
-  useEffect(() => {
-    if (!assignmentDialogOpen || assignmentResourceType !== 'crew' || !selectedEvent) {
-      setRekoPersonnelNames([])
-      return
-    }
-
-    let cancelled = false
-    apiClient.getEventSpecialFunctions(selectedEvent.id)
-      .then((functions) => {
-        if (cancelled) return
-        const names = functions
-          .filter((item) => item.function_type === 'reko')
-          .map((item) => personnel.find((person) => person.id === item.personnel_id)?.name)
-          .filter((name): name is string => name !== undefined)
-        setRekoPersonnelNames(names)
-      })
-      .catch((error) => {
-        console.error('Failed to load Reko personnel:', error)
-        if (!cancelled) setRekoPersonnelNames([])
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [assignmentDialogOpen, assignmentResourceType, personnel, selectedEvent])
-
-  // Load all vehicles for detail assignment while retaining the first five as
-  // numbered map shortcuts. Resolve Divera capability through the same settings
-  // checks as the board so a non-functional send button is never shown.
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const loadVehicles = async () => {
-      try {
-        const vehicles = await apiClient.getVehicles()
-        const typesWithKeys = vehicles.map((vehicle, index) => ({
-          key: String(index + 1),
-          name: vehicle.name,
-          id: vehicle.id,
-          type: vehicle.type,
-        }))
-        setVehicleTypes(typesWithKeys)
-      } catch (error) {
-        console.error('Failed to load vehicles:', error)
-      }
-    }
-    const loadDiveraCapability = async () => {
-      try {
-        const settings = await apiClient.getAllSettings()
-        if (settings.funkrufname) setFunkrufname(settings.funkrufname)
-        if (settings['divera.alarm_enabled'] !== 'true') {
-          setDiveraEnabled(false)
-          return
-        }
-        try {
-          const status = await apiClient.getDiveraPollingStatus()
-          setDiveraEnabled(status.configured === true)
-        } catch {
-          setDiveraEnabled(true)
-        }
-      } catch {
-        setDiveraEnabled(false)
-      }
-    }
-    const loadPrinterCapability = async () => {
-      try {
-        const status = await apiClient.getPrinterStatus()
-        setPrinterEnabled(status.enabled)
-      } catch {
-        setPrinterEnabled(false)
-      }
-    }
-    void loadVehicles()
-    void loadDiveraCapability()
-    void loadPrinterCapability()
-  }, [isAuthenticated])
 
   // Refresh incidents immediately when map page loads
   useEffect(() => {
@@ -1297,11 +1048,14 @@ export default function MapPage() {
                   const rows = sectionedIncidents[group]
                   const enabled = statusFilters[group]
                   return (
-                    <div key={group} className={group === 'completed' && !enabled ? 'opacity-60' : undefined}>
+                    // ONE dimming: the muted text itself. A folded group used to
+                    // add opacity-60 on top of a `/70` line (1.8:1, sweep
+                    // 2026-10); the turned chevron already says «folded».
+                    <div key={group}>
                       <button
                         onClick={() => toggleStatusFilter(group)}
                         aria-expanded={enabled}
-                        className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                        className="flex w-full items-center gap-1 px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <ChevronDown
                           className={`h-3 w-3 transition-transform ${enabled ? '' : '-rotate-90'}`}
@@ -1312,7 +1066,7 @@ export default function MapPage() {
                           shorter than the statuses it stands for, and on its own
                           it left the operator guessing whether «Rückfahrt»
                           counted as finished — so the section says so. */}
-                      <p className="px-2 pb-1 text-[10px] leading-tight text-muted-foreground/70">
+                      <p className="px-2 pb-1 text-2xs leading-tight text-muted-foreground">
                         {t(`statusGroups.${group}Members`)}
                       </p>
                       <Reveal open={enabled && rows.length > 0}>
@@ -1427,119 +1181,25 @@ export default function MapPage() {
           onUpdate={handleOperationUpdate}
           onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
-          onAssignVehicle={isEditor ? assignVehicleToIncidentWithConflict : undefined}
           onRemoveVehicle={isEditor ? handleVehicleRemove : undefined}
-          onAssignResource={isEditor ? handleOpenAssignmentDialog : undefined}
           onRemoveCrew={isEditor ? release.releaseCrew : undefined}
           onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
           canEdit={isEditor}
           diveraEnabled={isEditor && diveraEnabled}
-          onSendDivera={isEditor ? setDiveraDialogOp : undefined}
-          onChangeStatus={isEditor ? statusWorkflow.requestStatusChange : undefined}
-          onRequestComplete={isEditor ? statusWorkflow.requestCompletion : undefined}
-          onDistributeToAuftrag={isEditor ? setAuftragPickerIncidentId : undefined}
+          {...dialogs.detailActions}
         />
 
-        <ResourceAssignmentDialog
-          open={assignmentDialogOpen}
-          onOpenChange={(open) => {
-            setAssignmentDialogOpen(open)
-            if (!open) {
-              setRouteAssign(null)
-              setAssignmentOperationId(null)
-              statusWorkflow.resumeGateAfterAssignment()
-            }
-          }}
-          resourceType={assignmentResourceType}
-          operationId={routeAssign ? routeAssign.groupId : assignmentOperationId}
-          assignTarget={routeAssign ? 'route' : 'incident'}
-          routeName={routeAssign ? groups.find((group) => group.id === routeAssign.groupId)?.name : undefined}
-          personnel={personnel}
+        <IncidentDialogs
+          dialogs={dialogs}
           vehicles={vehicleTypes}
-          materials={materials}
-          assignedPersonnel={routeGroupResources ? routeGroupResources.personnel.map((person) => person.name) : assignedResources.assignedPersonnel}
-          assignedVehicles={routeGroupResources ? routeGroupResources.vehicles.map((vehicle) => vehicle.name) : assignedResources.assignedVehicles}
-          assignedMaterials={routeGroupResources ? routeGroupResources.materials.map((material) => material.resourceId) : assignedResources.assignedMaterials}
-          rekoPersonnelNames={routeAssign ? [] : rekoPersonnelNames}
-          onAssignPerson={routeAssign
-            ? (personId) => void assignGroupResource(routeAssign.groupId, 'personnel', personId)
-            : ((personId: string, personName: string, operationId: string) =>
-              // force: the dialog has its own «Doppelbelegung? Trotzdem zuweisen»
-              // confirm with the label of where the person already is. Asking
-              // again through the shared prompt would be the same question twice.
-              assignPersonToOperation(personId, personName, operationId, true))}
-          onAssignVehicle={routeAssign
-            ? (vehicleId) => assignVehicleToGroupWithConflict(routeAssign.groupId, vehicleId)
-            : assignVehicleToIncidentWithConflict}
-          onAssignMaterial={routeAssign
-            ? (materialId) => void assignGroupResource(routeAssign.groupId, 'material', materialId)
-            : ((materialId: string, operationId: string) =>
-              assignMaterialToOperation(materialId, operationId, true))}
-          onRemovePerson={routeAssign
-            ? (_operationId, personName) => {
-                const assignment = routeGroupResources?.personnel.find((person) => person.name === personName)
-                if (assignment) void unassignGroupResource(routeAssign.groupId, assignment.assignmentId)
-              }
-            : removeCrew}
-          onRemoveVehicle={routeAssign
-            ? (_operationId, vehicleName) => {
-                const assignment = routeGroupResources?.vehicles.find((vehicle) => vehicle.name === vehicleName)
-                if (assignment) void unassignGroupResource(routeAssign.groupId, assignment.assignmentId)
-              }
-            : removeVehicleFromOperation}
-          onRemoveMaterial={routeAssign
-            ? (_operationId, materialId) => {
-                const assignment = routeGroupResources?.materials.find((material) => material.resourceId === materialId)
-                if (assignment) void unassignGroupResource(routeAssign.groupId, assignment.assignmentId)
-              }
-            : removeMaterial}
-          zuFuss={assignmentOperation?.zuFuss ?? false}
-          onToggleZuFuss={assignmentOperation
-            ? () => updateOperation(assignmentOperation.id, { zuFuss: !assignmentOperation.zuFuss })
-            : undefined}
-          occupiedPersonnelIds={occupiedPersonnelIds}
-          occupiedVehicleIds={occupiedVehicleIds}
-          occupiedMaterialIds={occupiedMaterialIds}
-          vehicleDriverStay={routeAssign ? undefined : assignmentOperation?.vehicleDriverStay}
-          onToggleDriverStay={!routeAssign && assignmentOperation
-            ? (vehicleName) => toggleDriverStay(assignmentOperation.id, vehicleName)
-            : undefined}
-        />
-
-        <AuftragPickerDialog
-          open={auftragPickerIncidentId !== null}
-          onOpenChange={(open) => !open && setAuftragPickerIncidentId(null)}
-          groups={groups}
-          currentGroupId={
-            auftragPickerIncidentId
-              ? operations.find((operation) => operation.id === auftragPickerIncidentId)?.groupId ?? null
-              : null
-          }
-          onChoose={handleChooseAuftrag}
-          onCreate={(name) => createGroup({ name })}
-          onRemoveFromCurrent={handleRemoveFromAuftrag}
-        />
-
-        <DiveraSendDialog
-          open={diveraDialogOp !== null}
-          onOpenChange={(open) => !open && setDiveraDialogOp(null)}
-          operation={diveraDialogOpLive}
-          materials={materials}
-        />
-
-        <IncidentStatusWorkflowDialogs
-          controller={statusWorkflow}
           printerEnabled={printerEnabled}
           funkrufname={funkrufname}
           diveraEnabled={diveraEnabled}
-          onOpenAssignment={handleOpenAssignmentDialog}
           onOpenDetail={(operationId, tab, section) => {
             setSelectedOperationId(operationId)
             setDetailOnTab(tab ? { tab, section, nonce: Date.now() } : null)
             setDetailModalOpen(true)
           }}
-          onSendDivera={setDiveraDialogOp}
-          onRefresh={refreshIncidents}
         />
 
         {/* Routenplanung: the two adds without an undo ask first — same guard

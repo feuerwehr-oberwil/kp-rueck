@@ -41,7 +41,7 @@ async def create_divera_emergency(
     )
 
     db.add(emergency)
-    await db.commit()
+    await db.flush()
     await db.refresh(emergency)
 
     return emergency
@@ -73,7 +73,7 @@ async def create_alarm_emergency(
     )
 
     db.add(emergency)
-    await db.commit()
+    await db.flush()
     await db.refresh(emergency)
 
     return emergency
@@ -115,8 +115,8 @@ async def lock_divera_emergency(
     then sees the link. `populate_existing` because the row may already sit in the session's
     identity map from an earlier read, and a stale copy would defeat the point.
 
-    ⚠️ The lock ends at the first commit, so the caller must create the incident WITHOUT
-    committing and let `attach_emergency_to_event` commit both together.
+    ⚠️ The lock ends at the first commit, so incident and link must land in the SAME commit –
+    the request's; nothing between this call and `attach_emergency_to_event` may commit.
     """
     result = await db.execute(
         select(models.DiveraEmergency)
@@ -246,7 +246,7 @@ async def attach_emergency_to_event(
             created_incident_id=incident_id,
         )
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(emergency)
 
     return emergency
@@ -269,7 +269,7 @@ async def archive_divera_emergency(
             archived_at=datetime.now(UTC),
         )
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(emergency)
 
     return emergency

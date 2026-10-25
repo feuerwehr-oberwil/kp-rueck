@@ -184,6 +184,7 @@ class TestOverlap:
             await groups_crud.add_stops_to_group(db, group.id, ids, user, _request())
             # The optimisation result the undo will guard against.
             await groups_crud.reorder_group_stops(db, group.id, [ids[2], ids[0], ids[1]])
+            await db.commit()  # CRUD flushes; the caller (the request, in the app) commits
         try:
             yield sessions, group.id, ids, user_id
         finally:

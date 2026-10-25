@@ -137,7 +137,7 @@ export function DiveraAlarmSettingsCard({
     <SettingCard
       title={
         <span className="flex flex-wrap items-center gap-2">
-          <Siren className="size-4 text-primary" />
+          <Siren className="size-4 text-muted-foreground" />
           {t("cardTitle")}
           {providerName && (
             <Badge variant="outline" className="font-normal">

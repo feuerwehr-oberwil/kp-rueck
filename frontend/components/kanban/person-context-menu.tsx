@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import {
   ContextMenu,
@@ -31,8 +31,12 @@ export function PersonContextMenu({
 }: PersonContextMenuProps) {
   const t = useTranslations('kanban')
   const { selectedEvent } = useEvent()
-  const { operations, personnel, removeCrew, refreshOperations } = useOperations()
-  const [vehicles, setVehicles] = useState<Array<{ id: string; name: string }>>([])
+  const { operations, personnel, removeCrew, refreshOperations, vehicles: fleet } = useOperations()
+  // The fleet in board order, off the board sync – no fetch when the menu opens.
+  const vehicles = useMemo(
+    () => [...fleet].sort((a, b) => a.display_order - b.display_order).map((v) => ({ id: v.id, name: v.name })),
+    [fleet],
+  )
   const [vehicleDrivers, setVehicleDrivers] = useState<Map<string, string>>(new Map())
   const [currentFunctions, setCurrentFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
   const [loading, setLoading] = useState(false)
@@ -67,17 +71,10 @@ export function PersonContextMenu({
     if (!open || !selectedEvent) return
 
     try {
-      const [allVehicles, allFunctions, personnelFunctions] = await Promise.all([
-        apiClient.getVehicles(),
+      const [allFunctions, personnelFunctions] = await Promise.all([
         apiClient.getEventSpecialFunctions(selectedEvent.id),
         apiClient.getPersonnelSpecialFunctions(selectedEvent.id, personnelId),
       ])
-
-      // Set vehicles
-      const sorted = allVehicles
-        .sort((a, b) => a.display_order - b.display_order)
-        .map(v => ({ id: v.id, name: v.name }))
-      setVehicles(sorted)
 
       // Build driver map from all functions
       const driverMap = new Map<string, string>()

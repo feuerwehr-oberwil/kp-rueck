@@ -79,10 +79,6 @@ class EmergencyTemplateBase(BaseModel):
     message_variations: list[str] | None = None
 
 
-class EmergencyTemplateCreate(EmergencyTemplateBase):
-    """Schema for creating emergency template."""
-
-
 class EmergencyTemplateResponse(EmergencyTemplateBase):
     """Schema for emergency template response."""
 
@@ -160,10 +156,9 @@ class TrainingLocationBase(BaseModel):
     def validate_postal_code(cls, v: str) -> str:
         """Validate Swiss postal code shape (4 digits).
 
-        The Basel-Landschaft range check (4000-4499) is enforced only on the
-        Create schema below — Response must accept legacy/demo data that
-        predates the constraint (e.g. the '0000' demo placeholder), otherwise
-        the GET endpoint 500s through Pydantic.
+        Shape only, no regional range: Response must accept legacy/demo data
+        (e.g. the '0000' demo placeholder), otherwise the GET endpoint 500s
+        through Pydantic.
         """
         if not re.match(r"^\d{4}$", v):
             raise ValueError("Postal code must be 4 digits")
@@ -207,22 +202,6 @@ class TrainingLocationBase(BaseModel):
         return str(value)
 
 
-class TrainingLocationCreate(TrainingLocationBase):
-    """Schema for creating training location.
-
-    Adds the BL-range constraint on top of the base shape check — only
-    enforced on writes, not on reads (Response uses the base validator).
-    """
-
-    @field_validator("postal_code")
-    @classmethod
-    def validate_postal_code_range(cls, v: str) -> str:
-        code = int(v)
-        if not (4000 <= code <= 4499):
-            raise ValueError("Postal code should be in Basel-Landschaft range (4000-4499)")
-        return v
-
-
 class TrainingLocationResponse(TrainingLocationBase):
     """Schema for training location response."""
 
@@ -236,17 +215,6 @@ class TrainingLocationResponse(TrainingLocationBase):
 
 
 # Auto-generation + simulation
-class TrainingAutoGenSettings(BaseModel):
-    """Schema for training auto-generation settings."""
-
-    enabled: bool = False
-    min_interval_sec: int = 120
-    max_interval_sec: int = 420
-    normal_weight: int = 90
-    critical_weight: int = 10
-    early_multiplier: float = 2.0
-
-
 class GenerateEmergencyRequest(BaseModel):
     """Schema for manual emergency generation request."""
 

@@ -15,15 +15,14 @@
  *  · The CARD tables (`PRIORITY_EDGE_CLASSES` / `PRIORITY_CARD_CLASSES`) render
  *    `low` as the card's own border — the absence of a signal. `low` is the
  *    DEFAULT priority (`operation.priority || "low"`), so most cards are low:
- *    colouring them would paint the board, and it would paint it the same
- *    emerald that already means «frei / verfügbar» on the resource dots and
- *    «Reko» on the board column. A colour that means two things is the defect
- *    this table exists to prevent.
+ *    colouring them would paint the board.
  *  · The MARK tables (`PRIORITY_COLORS` / `PRIORITY_DOT_CLASSES` /
  *    `PRIORITY_TEXT_CLASSES`) are used where a mark has to EXIST — a map
  *    marker, a dot in a list, the chevron in the priority picker. There `low`
- *    is emerald, because the alternative (grey) is already taken by
- *    `MAP_COLORS.offline`, i.e. "priority unknown".
+ *    is a light slate grey: Niedrig is «no signal», and it was emerald until
+ *    the owner made green mean «frei / verfügbar» only (2026-10-25). It is
+ *    lighter and bluer than `MAP_COLORS.offline` (gray-500, «no signal» on a
+ *    vehicle), which it must not be mistaken for.
  *
  * Both readings are always accompanied by a shape or a word (the chevron on a
  * card, the label in a picker), so neither relies on colour alone.
@@ -43,7 +42,7 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 export const PRIORITY_COLORS: Record<Priority, string> = {
   high: "#ef4444", // red — destructive
   medium: "#f59e0b", // amber — warning
-  low: "#10b981", // emerald — low urgency
+  low: "#94a3b8", // slate-400 — no signal
 }
 
 export const PRIORITY_ICONS: Record<Priority, LucideIcon> = {
@@ -61,14 +60,14 @@ export const PRIORITY_ICONS: Record<Priority, LucideIcon> = {
 export const PRIORITY_DOT_CLASSES: Record<Priority, string> = {
   high: "bg-red-500",
   medium: "bg-amber-500",
-  low: "bg-emerald-500",
+  low: "bg-slate-400",
 }
 
 /** Matching text/icon tint (e.g. the up/down/flat priority chevron). */
 export const PRIORITY_TEXT_CLASSES: Record<Priority, string> = {
   high: "text-red-600 dark:text-red-400",
-  medium: "text-amber-600 dark:text-amber-400",
-  low: "text-emerald-600 dark:text-emerald-400",
+  medium: "text-amber-700 dark:text-amber-400",
+  low: "text-slate-500 dark:text-slate-400",
 }
 
 /**

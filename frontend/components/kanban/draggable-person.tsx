@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Person } from "@/lib/contexts/operations-context"
 import { PersonContextMenu } from "./person-context-menu"
-import { isPersonOccupied } from "@/lib/resource-status"
+import { isPersonOccupied, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { abbreviateRank } from "@/lib/roster-order"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { AlertTriangle } from 'lucide-react'
@@ -119,12 +119,6 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
           canDrag && "draggable",
           isDragging && "dragging",
           isDragging && person.isDriver && "ring-2 ring-blue-500/50",
-          // The dimming stayed through the row restyle: who is available has to
-          // be answerable at a glance down the column, and the amber dot alone
-          // is a smaller signal than a whole row changing weight. Hover brings
-          // the row back to full strength, so nothing dimmed is ever hard to
-          // read while it is being read.
-          isOccupied && !isDoubleBooked && "opacity-60 hover:opacity-100",
           !canDrag && person.status === "assigned" && "cursor-not-allowed",
           !canDrag && person.status !== "assigned" && "cursor-pointer",
           // Double-booked is the one exception: a genuine conflict the operator
@@ -139,7 +133,17 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
                   hover the name wraps to its full length instead of relying on
                   the browser's title tooltip, which only appears after a second
                   and is easy to miss while scanning. */}
-              <span className="font-medium text-sm text-foreground truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words">
+              {/* Bound = the NAME goes quiet, nothing else: who is available
+                  stays answerable at a glance down the column, while the
+                  where-line below – the one fact looked up here – keeps full
+                  strength. A whole-row opacity-60 put it at ≈2.4:1 (sweep
+                  2026-10, VISUAL-04); during a storm that is most rows. */}
+              <span
+                className={cn(
+                  "font-medium text-sm truncate group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words",
+                  isOccupied && !isDoubleBooked ? "text-muted-foreground group-hover:text-foreground" : "text-foreground",
+                )}
+              >
                 {person.name}
               </span>
             </div>
@@ -147,8 +151,9 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
             {/* Rank, then tags and the conflict badge at the outer edge — the
                 marks worth catching sit against the rail, the Grad («Wm»,
                 «Kpl», full word on hover) is a quieter fact just inside them.
-                The amber dot only fills when bound — available shows nothing,
-                but the slot stays, so the columns line up across groups. */}
+                The gebunden ring (hollow ink – a fact, not amber) only shows when
+                bound — available shows nothing, but the slot stays, so the
+                columns line up across groups. */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {person.role && (
                 <span className="shrink-0 text-right text-xs text-muted-foreground" title={person.role}>
@@ -177,7 +182,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
               <span
                 aria-label={isOccupied ? occupiedTooltip : undefined}
                 title={isOccupied ? occupiedTooltip : undefined}
-                className={cn("size-1.5 shrink-0 rounded-full", isOccupied ? "bg-amber-500" : "invisible")}
+                className={cn("size-1.5 shrink-0 rounded-full", isOccupied ? RESOURCE_STATE_DOT_CLASSES.assigned : "invisible")}
               />
             </div>
           </div>
@@ -188,7 +193,7 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
               Time on duty is deliberately NOT here (owner, 09.10.: too much in
               the default view) — it lives in the Dienstzeiten sheet. */}
           {isOccupied && (engagement?.short || functionLabel) && (
-            <div className="truncate text-[11px] leading-tight text-muted-foreground" title={occupiedTooltip}>
+            <div className="truncate type-micro leading-tight text-muted-foreground" title={occupiedTooltip}>
               {engagement?.short ?? functionLabel}
             </div>
           )}

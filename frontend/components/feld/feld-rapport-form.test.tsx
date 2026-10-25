@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiRapportUpdate, ApiSchadenplatzRapport } from '@/lib/api/types'
@@ -438,5 +438,114 @@ describe('the concurrent-editor banner expires (§P2.8)', () => {
 
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 1000)
     expect(screen.queryByText(/bearbeitet diesen Rapport gerade/)).toBeNull()
+  })
+})
+
+/**
+ * «Rapport abschliessen» asks only about what can be MISSING (UX-PHONE-05).
+ *
+ * The old list named Material and Eigentümerdaten on almost every rapport –
+ * sections the form itself calls «nur wenn nötig» – so crews tapped through it
+ * unread. Now an empty Kurzbericht or Mannschaft asks, the optional blocks ride
+ * along as quiet rows, and every row takes the crew to its section.
+ */
+describe('the Abschluss question (UX-PHONE-05)', () => {
+  const crew = [{ personnel_id: 'p-1', name: 'Meier Andrea', present: true, on_board: true }]
+  const submitButton = () => screen.getByRole('button', { name: 'Rapport abschliessen' })
+
+  it('files straight away when only optional blocks are empty', async () => {
+    const save = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false }))
+    const load = vi.fn().mockResolvedValue(rapport({ kurzbericht: 'Keller ausgepumpt', personnel: crew }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Rapport abschliessen' }))
+
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect((save.mock.calls[0][0] as ApiRapportUpdate).is_draft).toBe(false)
+  })
+
+  it('names the gap, lists the optional blocks quietly, and makes «Zurück» the safe answer', async () => {
+    const save = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false }))
+    const load = vi.fn().mockResolvedValue(rapport({ personnel: crew }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} />)
+
+    await screen.findByRole('button', { name: 'Rapport abschliessen' })
+    await userEvent.click(submitButton())
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading', { name: 'Kurzbericht fehlt noch' })).toBeInTheDocument()
+    expect(within(dialog).getByText('Leer – nur wenn nötig')).toBeInTheDocument()
+    // The missing one first, then the quiet optional rows – each a button that goes there.
+    expect(within(dialog).getAllByRole('listitem').map(row => row.textContent)).toEqual([
+      expect.stringMatching(/^Kurzbericht/),
+      expect.stringMatching(/^Material/),
+      expect.stringMatching(/^Eigentümer/),
+    ])
+    // Enter on the question goes back, never files over the gap.
+    expect(within(dialog).getByRole('button', { name: 'Zurück zum Rapport' })).toHaveFocus()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ohne Kurzbericht abschliessen' }))
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect((save.mock.calls[0][0] as ApiRapportUpdate).is_draft).toBe(false)
+  })
+
+  it('names the Mannschaft when only the crew is missing', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ kurzbericht: 'Keller ausgepumpt' }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByRole('button', { name: 'Rapport abschliessen' })
+    await userEvent.click(submitButton())
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading', { name: 'Mannschaft fehlt noch' })).toBeInTheDocument()
+    expect(within(dialog).getByText('Ohne sie weiss der KP nicht, wer hier im Einsatz war.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Ohne Mannschaft abschliessen' })).toBeInTheDocument()
+  })
+
+  it('names both when Kurzbericht and Mannschaft are empty', async () => {
+    const load = vi.fn().mockResolvedValue(rapport())
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByRole('button', { name: 'Rapport abschliessen' })
+    await userEvent.click(submitButton())
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading', { name: 'Kurzbericht und Mannschaft fehlen noch' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Ohne Kurzbericht und Mannschaft abschliessen' })).toBeInTheDocument()
+  })
+
+  it('a row lands on its section: unfolded, ringed, and the caret in its text field', async () => {
+    const save = vi.fn()
+    const load = vi.fn().mockResolvedValue(rapport({ personnel: crew }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} />)
+
+    await screen.findByRole('button', { name: 'Rapport abschliessen' })
+    await userEvent.click(submitButton())
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Kurzbericht/ }))
+
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    const box = screen.getByPlaceholderText('Lage, Tätigkeit, Material')
+    await vi.waitFor(() => expect(box).toHaveFocus())
+    expect(box).toBeVisible()
+    expect(box.closest('section')).toHaveClass('feld-jump-ring')
+    // Going there is not going ahead.
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('a checklist section opens and rings, but takes no focus', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ personnel: crew }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByRole('button', { name: 'Rapport abschliessen' })
+    await userEvent.click(submitButton())
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Material/ }))
+
+    const header = screen.getByRole('button', { name: /^Material/ })
+    await vi.waitFor(() => expect(header.closest('section')).toHaveClass('feld-jump-ring'))
+    expect(header).toHaveAttribute('aria-expanded', 'true')
+    expect(header.closest('section')?.contains(document.activeElement)).toBe(false)
   })
 })

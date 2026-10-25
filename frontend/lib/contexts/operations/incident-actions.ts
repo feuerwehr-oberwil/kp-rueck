@@ -15,7 +15,8 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { decideRestoreAction, type RestoreOutcome } from "@/lib/restore-incident"
 import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldSend, noteFieldSettled, type FieldSaveTicket } from "@/lib/field-save"
 import { apiCoordinatesToTuple, coordinatesToApiFields } from "@/lib/coordinate-parser"
-import type { Operation, OperationStatus } from "./types"
+import { reportStatusConflict } from "@/lib/status-conflict"
+import type { Operation, OperationStatus, StatusWriteGuard } from "./types"
 import type { BoardMutationContext } from "./board-context"
 
 /** Columns in which an incident is being worked or wound down — reaching any of
@@ -73,6 +74,7 @@ export function createIncidentActions(board: BoardMutationContext) {
     mutationEpochRef,
     patchQueueRef,
     updateBatcherRef,
+    statusGuardRef,
     reorderInFlightRef,
     queuedReorderRef,
     armAssignmentCooldown,
@@ -80,7 +82,7 @@ export function createIncidentActions(board: BoardMutationContext) {
     refreshOperations,
   } = board
 
-  const updateOperation = (operationId: string, updates: Partial<Operation>) => {
+  const updateOperation = (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => {
     // LocationInput clears the address and coordinates together. Normalize both
     // legacy `coordinates: undefined` and address-only clear callbacks without
     // changing updates that simply omit coordinates.
@@ -119,6 +121,15 @@ export function createIncidentActions(board: BoardMutationContext) {
     // Whose edit this is. A write still queued when the session changes hands
     // is dropped, never sent under the next operator's login.
     const userAtEdit = fieldSaveUser(getFieldSaveScope())
+
+    // A status move says which status this board showed, so the server can refuse
+    // it when somebody else moved the card first (lib/status-conflict.ts). Taken at
+    // the FIRST status edit of a batch: two quick moves merge into one PATCH, and
+    // that PATCH starts where the first one did.
+    if (isLoaded && normalizedUpdates.status !== undefined && currentOp) {
+      if (confirm) statusGuardRef.current.set(operationId, confirm)
+      else if (!statusGuardRef.current.has(operationId)) statusGuardRef.current.set(operationId, { seen: currentOp.status })
+    }
 
     if (clearsAmWarten) {
       toast.info(translateOutsideReact('notifications.operations.amWartenClearedTitle'), {
@@ -198,11 +209,17 @@ export function createIncidentActions(board: BoardMutationContext) {
 
     if (isLoaded) {
       const performUpdate = async (batchedUpdates: Partial<Operation>) => {
+        const statusGuard = batchedUpdates.status !== undefined ? statusGuardRef.current.get(operationId) : undefined
+        statusGuardRef.current.delete(operationId)
         const apiUpdates: Partial<ApiIncidentUpdate> = {}
         if (batchedUpdates.location !== undefined) apiUpdates.location_address = batchedUpdates.location
         if (batchedUpdates.incidentType !== undefined) apiUpdates.type = batchedUpdates.incidentType as ApiIncidentUpdate['type']
         if (batchedUpdates.priority !== undefined) apiUpdates.priority = batchedUpdates.priority
         if (batchedUpdates.status !== undefined) apiUpdates.status = batchedUpdates.status
+        if (statusGuard) {
+          apiUpdates.from_status = statusGuard.seen
+          if (statusGuard.override) apiUpdates.override_status = statusGuard.override
+        }
         if (batchedUpdates.coordinates !== undefined) {
           Object.assign(apiUpdates, coordinatesToApiFields(batchedUpdates.coordinates))
         }
@@ -259,7 +276,15 @@ export function createIncidentActions(board: BoardMutationContext) {
         } catch (err) {
           console.error("Failed to update operation:", err)
           if (sent.ticket) noteFieldSettled(sent.ticket, { ok: false, reason: classifySaveFailure(err) })
-          if (ApiError.isConflictError(err)) {
+          if (
+            statusGuard &&
+            batchedUpdates.status !== undefined &&
+            reportStatusConflict(err, { operationId, seen: statusGuard.seen, wanted: batchedUpdates.status })
+          ) {
+            // Somebody else moved the card first; nothing changed on the server.
+            // «Gerade geändert» asks – the card goes back to where the server has it.
+            await refreshOperations()
+          } else if (ApiError.isConflictError(err)) {
             if (!failureShownAtField()) {
               toast.info(translateOutsideReact('notifications.operations.conflictTitle'), {
                 description: translateOutsideReact('notifications.operations.conflictDescription')

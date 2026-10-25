@@ -174,7 +174,7 @@ extend-immutable-calls = [
 "app/services/training.py" = ["S311"]
 "app/services/training_simulation_data.py" = ["S311"]
 "app/services/training_photos.py" = ["S311"]
-"app/api/training.py" = ["S311"]
+"app/api/training_simulate.py" = ["S311"]
 "app/seed_training.py" = ["S311"]
 
 [tool.mypy]
@@ -194,7 +194,9 @@ addopts = [
 # Coverage: run explicitly with  pytest -n 3 --cov=app --cov-report=term-missing --cov-fail-under=87
 # (CI's floor; the real figure is 88 % on 2026-10-08 — see [tool.coverage.run] below for why it
 # once read 35)
+# A new warning fails the run: nobody reads a summary of thirteen.
 filterwarnings = [
+    "error",
     "ignore::DeprecationWarning",
 ]
 markers = [

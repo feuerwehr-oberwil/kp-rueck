@@ -10,8 +10,6 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
-import { PersonnelProvider } from '@/lib/contexts/personnel-context'
-import { MaterialsProvider } from '@/lib/contexts/materials-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
 import { GroupsProvider } from '@/lib/contexts/groups-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
@@ -23,6 +21,7 @@ import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { ResourceConflictPrompt } from '@/components/resource-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
+import { StatusConflictDialog } from '@/components/kanban/status-conflict-dialog'
 import { PickupDonePrompt } from '@/components/pickup-done-prompt'
 import { ErrorReporter } from '@/components/error-reporter'
 import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
@@ -138,28 +137,25 @@ export default async function RootLayout({
           <BootCover />
           <AuthProvider>
             <EventProvider>
-              <PersonnelProvider>
-                <MaterialsProvider>
-                  <OperationsProvider>
-                    <GroupsProvider>
-                      <NotificationProvider>
-                        <CommandPaletteProvider>
-                          <AppShell>
-                            {children}
-                          </AppShell>
-                          <NotificationToasts />
-                          <DismissAllToasts />
-                          <VehicleDriverPrompt />
-                          <ResourceConflictPrompt />
-                          <GpsReleasePrompt />
-                          <GpsArrivalPrompt />
-                          <PickupDonePrompt />
-                        </CommandPaletteProvider>
-                      </NotificationProvider>
-                    </GroupsProvider>
-                  </OperationsProvider>
-                </MaterialsProvider>
-              </PersonnelProvider>
+              <OperationsProvider>
+                <GroupsProvider>
+                  <NotificationProvider>
+                    <CommandPaletteProvider>
+                      <AppShell>
+                        {children}
+                      </AppShell>
+                      <NotificationToasts />
+                      <DismissAllToasts />
+                      <VehicleDriverPrompt />
+                      <ResourceConflictPrompt />
+                      <GpsReleasePrompt />
+                      <GpsArrivalPrompt />
+                      <StatusConflictDialog />
+                      <PickupDonePrompt />
+                    </CommandPaletteProvider>
+                  </NotificationProvider>
+                </GroupsProvider>
+              </OperationsProvider>
             </EventProvider>
           </AuthProvider>
         </ThemeProvider>

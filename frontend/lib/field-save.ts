@@ -204,16 +204,6 @@ export function noteFieldSettled(ticket: FieldSaveTicket, outcome: { ok: true } 
   if (changed) emit()
 }
 
-/** A queued write was dropped before it left (session switch) — the field is
- *  then simply not this window's business any more. */
-export function noteFieldDropped(ticket: FieldSaveTicket): void {
-  let changed = false
-  for (const field of Object.keys(ticket.versions) as SavedTextField[]) {
-    if (entries.delete(keyOf(ticket.scope, ticket.incidentId, field))) changed = true
-  }
-  if (changed) emit()
-}
-
 /** Drafts that did NOT reach the server, for the current user (any Ereignis). */
 export function unsavedFieldDrafts(incidentId?: string): Array<{ incidentId: string; field: SavedTextField }> {
   const user = userOf(scope)

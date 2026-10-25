@@ -28,6 +28,7 @@ from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.alarms import RESERVED_ALARM_SOURCES
 from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret, try_auto_attach
+from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,7 @@ async def receive_alarm(
     alarm: schemas.AlarmIn,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
+    request: Request,
 ) -> schemas.AlarmAck:
     """
     Receive a provider-neutral alarm and store it in the intake pool.
@@ -63,8 +62,8 @@ async def receive_alarm(
 
     if alarm.source in RESERVED_ALARM_SOURCES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"source '{alarm.source}' is reserved – pick your own slug for this sender",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Quelle '{alarm.source}' ist reserviert – bitte eine eigene Kennung für diesen Absender wählen",
         )
 
     try:
@@ -117,11 +116,11 @@ async def receive_alarm(
                 emergency_id=existing.id,
                 auto_attached_incident_id=existing.created_incident_id,
             )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Alarm already exists") from None
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.ALARM_EXISTS) from None
     except HTTPException:
         raise
     except Exception:
         logger.exception("Error processing generic alarm")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing alarm"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Alarm konnte nicht verarbeitet werden"
         ) from None

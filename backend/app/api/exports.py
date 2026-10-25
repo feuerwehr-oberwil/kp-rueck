@@ -136,7 +136,7 @@ async def export_event_audit(
     event = event_result.scalar_one_or_none()
 
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     try:
         # Generate audit export
@@ -152,7 +152,6 @@ async def export_event_audit(
             timestamp=datetime.now(UTC),
         )
         db.add(audit_entry)
-        await db.commit()
 
         # Generate filename
         event_name_safe = get_safe_filename(event.name)
@@ -165,7 +164,7 @@ async def export_event_audit(
         )
 
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden") from None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_FOUND) from None
 
     except Exception as e:
         # Log error with full details
@@ -207,7 +206,7 @@ async def export_event_report(
     event = event_result.scalar_one_or_none()
 
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     try:
         # Gather data (async, DB-bound) then render the PDF off the event loop
@@ -243,7 +242,6 @@ async def export_event_report(
             timestamp=datetime.now(UTC),
         )
         db.add(audit_entry)
-        await db.commit()
 
         date_str = datetime.now(UTC).strftime("%Y-%m-%d")
         filename = f"einsatzbericht-{slugify_event_name(event.name)}-{date_str}.pdf"
@@ -255,7 +253,7 @@ async def export_event_report(
         )
 
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden") from None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_FOUND) from None
 
     except Exception as e:
         logger.error("Report export generation failed for event %s: %s", event_id, e, exc_info=True)
@@ -288,7 +286,7 @@ async def export_event_lageblatt(
     event = event_result.scalar_one_or_none()
 
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     try:
         data = await collect_event_report_data(db, event_id)
@@ -343,7 +341,7 @@ async def export_event_einsaetze(
     event = event_result.scalar_one_or_none()
 
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Event {event_id} not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
     try:
         data = await collect_event_report_data(db, event_id)

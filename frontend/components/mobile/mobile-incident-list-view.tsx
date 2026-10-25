@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef, useEffect } from "react"
+import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
@@ -21,7 +21,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { matchesIncidentQuery } from "@/lib/incident-search"
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
 
@@ -49,21 +50,6 @@ const statusOrder: Record<string, number> = {
   reko_done: 4,
   returning: 5,
   complete: 6,
-}
-
-/** The list's search — also asked on its own, so an empty list can tell «the
- *  search found nothing» from «the status filter hides what it found». */
-function matchesSearch(op: Operation, raw: string): boolean {
-  const query = raw.trim().toLowerCase()
-  if (!query) return true
-  return (
-    op.location.toLowerCase().includes(query) ||
-    op.incidentType.toLowerCase().includes(query) ||
-    getIncidentTypeLabel(op.incidentType).toLowerCase().includes(query) ||
-    op.vehicles.some(v => v.toLowerCase().includes(query)) ||
-    op.crew.some(c => c.toLowerCase().includes(query)) ||
-    op.id.toLowerCase().includes(query)
-  )
 }
 
 // One row per STATUS in the funnel menu, in board order; ticking several shows
@@ -100,6 +86,17 @@ export function MobileIncidentListView({
   // Fetched ONCE for the list and passed into every card — the rich card rows
   // (image #21) name each vehicle's driver.
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
+  // groupId → Auftrag name, so a stop is found by its route's name too.
+  const { groups } = useGroups()
+  const groupNames = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups])
+  // The board's one incident search (lib/incident-search.ts) — the phone used to
+  // keep its own copy that knew no Meldung. Also asked on its own, so an empty
+  // list can tell «the search found nothing» from «the status filter hides what it found».
+  const matchesSearch = useCallback(
+    (op: Operation, query: string) =>
+      matchesIncidentQuery(op, query, materials, op.groupId ? groupNames.get(op.groupId) : undefined),
+    [materials, groupNames],
+  )
   const [searchQuery, setSearchQuery] = useState("")
   // The id, not the object: the sheet used to hold a snapshot taken at tap
   // time, so anything that changed underneath it while it was open (a status
@@ -159,13 +156,13 @@ export function MobileIncidentListView({
       // Then by time (newest first)
       return b.dispatchTime.getTime() - a.dispatchTime.getTime()
     })
-  }, [operations, searchQuery, ticked])
+  }, [operations, searchQuery, ticked, matchesSearch])
 
   // The menu's counts: over what the list would show WITHOUT the ticks (the search applies), so
   // a row's number is what ticking it adds — KP Front's Verlauf filter does the same.
   const searchHits = useMemo(
     () => operations.filter(op => matchesSearch(op, searchQuery)),
-    [operations, searchQuery],
+    [operations, searchQuery, matchesSearch],
   )
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {}

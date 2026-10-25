@@ -485,7 +485,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
         id=uuid4(),
         event_id=event.id,
         name="Sturmholz Oberwil",
-        color="#10b981",
+        color="#3b82f6",  # first Auftrag swatch (frontend lib/map-colors.ts AUFTRAG_SWATCHES)
         notes="Sturmschäden nach Gewitterfront: Sturmholz räumen, Stopps in Routenreihenfolge abarbeiten.",
         position=0,
         created_by=editor_id,

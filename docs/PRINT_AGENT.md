@@ -44,27 +44,30 @@ Against a backend too old to long-poll (it answers empty immediately, which the 
 
 Each job carries a `job_type` and a structured JSON `payload`. The agent decides how to render each type; nothing about the format is fixed by the backend.
 
-| `job_type` | Trigger | Content |
-|---|---|---|
-| `assignment` | Incident moved to "Disponiert" or "Einsatz" (auto), or manual "Thermo" button | Location, incident type, priority, description, vehicles, crew, materials |
-| `board` | "Thermo" button → confirmation sheet with options | Event overview, incidents (with crew/materials/description), vehicle status, individual personnel list |
-| `qr_code` | QR slip action | Encoded content + label (e.g. a check-in link) |
-| `test` | Settings → connection test | Static test content |
+| `job_type` | Queued by (editor session) | Trigger | Content |
+|---|---|---|---|
+| `assignment` | `POST /api/print/assignment/{incident_id}/` | First dispatch of an incident (auto, see below), or manual "Thermo" button | Location, incident type, priority, description, vehicles, crew, materials |
+| `board` | `POST /api/print/board/` | "Thermo" button → confirmation sheet with options | Event overview, incidents (with crew/materials/description), vehicle status, individual personnel list |
+| `abholliste` | `POST /api/print/abholliste/{event_id}/` | Restliste → print the Abholliste | Material still on site: address · unit · since when, one line each |
+| `qr_code` | `POST /api/print/qr-code/` | QR slip action | Encoded content + label (e.g. a check-in link) |
+| `test` | `POST /api/print/test/` | Settings → connection test | Static test content |
+
+All five answer `400` when printing is off or no printer address is set, rather than queueing a job that can never print.
 
 Auto-printing triggers when:
 - Printer is enabled in settings (`printer.enabled = true`)
 - Auto-print is enabled (`printer.auto_anfahrt = true`)
-- An incident status changes to `enroute` or `active`
+- An incident enters `enroute` or `active` from outside that pair for the **first time** – once per incident, ever (`_dispatch_print_due` in `backend/app/crud/incidents.py`). `enroute` → `active` prints nothing, and neither does a card pulled back to «Eingegangen» and dispatched again; a later copy is printed deliberately from the context menu.
 
-A 30-second deduplication window prevents duplicate prints for the same incident.
+On top of that, a 30-second deduplication window prevents duplicate assignment prints for the same incident.
 
 ## Printer Hardware
 
 - **Type**: 80mm ESC/POS thermal receipt printer (Epson TM-T20III or compatible)
 - **Connection**: TCP port 9100 (network printer)
-- **Codepage**: WPC1252 (ESC t 16) for German umlauts (ä, ö, ü, ß)
-- **Font A**: ~22 characters/line (used for titles, list items, separators)
-- **Font B**: ~32 characters/line (used for descriptions only)
+- **Codepage**: CP437, the printer's default – text is sent as CP437 bytes, which covers German umlauts (ä, ö, ü, ß)
+- **Font A**: 48 characters/line (headers)
+- **Font B**: 64 characters/line (body text)
 
 ## API Endpoints (Agent)
 
@@ -77,9 +80,9 @@ These four endpoints are the entire contract between the backend and any agent:
 | `/api/print/jobs/{id}/claim/` | PATCH | Claim a job (status → printing) |
 | `/api/print/jobs/{id}/complete/` | PATCH | Report job completion or failure |
 
-**Authentication:** the agent endpoints authenticate with the `X-Agent-Token` header, matched against the backend's `PRINT_AGENT_TOKEN` environment variable. They are **fail-closed**: with the variable unset the four endpoints answer `403` for everyone, so a deployment that never configures printing has no print surface at all. Setting the token is the opt-in – on a LAN install too, not just a cloud-hosted one.
+**Authentication:** the agent endpoints authenticate with the `X-Agent-Token` header, matched against the backend's `PRINT_AGENT_TOKEN` environment variable. A wrong or missing token gets `401`. They are **fail-closed**: with the variable unset the four endpoints answer `403` for everyone, so a deployment that never configures printing has no print surface at all. Setting the token is the opt-in – on a LAN install too, not just a cloud-hosted one.
 
-**Reliability:** every poll doubles as a heartbeat (the backend shows the agent online for ~30 s after the last one). Jobs stuck in `printing` for over 120 s are re-offered, and failed jobs are retried up to 3 times – so an agent may crash and restart at any time without losing jobs. The flip side of that 120 s is that a job must be reported within it or it prints twice, which is why the agent claims ONE job, prints it and reports it before claiming the next, and retries a completion report that got lost on the network (the backend answers a repeated report as a no-op).
+**Reliability:** every poll doubles as a heartbeat (the backend shows the agent online for ~90 s after the last one). Jobs stuck in `printing` for over 120 s are re-offered, and failed jobs are retried up to 3 times – so an agent may crash and restart at any time without losing jobs. The flip side of that 120 s is that a job must be reported within it or it prints twice, which is why the agent claims ONE job, prints it and reports it before claiming the next, and retries a completion report that got lost on the network (the backend answers a repeated report as a no-op).
 
 ## Writing your own agent
 
@@ -97,7 +100,7 @@ while True:
             render_and_print(job["job_type"], job["payload"])   # your device logic
             PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "completed"}, headers=...)
         except Exception as e:
-            PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "failed", "error": str(e)}, headers=...)
+            PATCH(f"/api/print/jobs/{job['id']}/complete/", json={"status": "failed", "error_message": str(e)}, headers=...)
     if not jobs and the_call_returned_immediately:
         sleep(10)
 ```
@@ -129,7 +132,6 @@ Environment variables:
 - `POLL_INTERVAL_ACTIVE` - Fallback seconds between polls after recent job (default: `5`)
 - `ACTIVE_DURATION` - Seconds to stay in active mode after last job (default: `900` = 15 min)
 - `DRY_RUN` - Set to `true` to simulate printing
-- `LOG_LEVEL` - Logging level (default: `INFO`)
 - `PRINT_TZ` - Timezone for times printed on slips (default: `Europe/Zurich`). The backend
   serialises UTC; the slip converts, because a crew reads it against the clock on the wall.
   It used not to, so every slip showed an alarm time one to two hours early. If the host
@@ -216,7 +218,7 @@ What the log tells you:
 
 | Line | Meaning |
 | --- | --- |
-| `[kp-rueck] FATAL: backend rejected the agent token (HTTP 403)` | The two ends disagree, or the backend has no `PRINT_AGENT_TOKEN` at all. A wrong secret is not a bad minute, so the agent gives up rather than hammering the endpoint – and compose's restart policy then starts it again, so the tell is the same FATAL line repeating and `docker compose ps` showing it `Restarting`. |
+| `[kp-rueck] FATAL: backend rejected the agent token (HTTP 401)` or `(HTTP 403)` | `401`: the two ends disagree (or the agent has no token). `403`: the backend has no `PRINT_AGENT_TOKEN` at all. A wrong secret is not a bad minute, so the agent gives up rather than hammering the endpoint – and compose's restart policy then starts it again, so the tell is the same FATAL line repeating and `docker compose ps` showing it `Restarting`. |
 | `WARN: printer config → HTTP 404` | Not the token. `PRINT_AGENT_BACKEND_URL` is reaching Caddy under a hostname it does not serve – read the section above. |
 | `printing is switched off in the settings – waiting` | The agent is healthy and connected. Switch the printer on and give it its IP in **Einstellungen**; the backend owns those, not the container. |
 
@@ -288,8 +290,9 @@ Type=simple
 User=<user>
 WorkingDirectory=/home/<user>/print-agent
 Environment=BACKEND_URL=https://your-backend.example.com
+Environment=AGENT_TOKEN=<PRINT_AGENT_TOKEN>
 Environment=PATH=/home/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/<user>/.local/bin/uv run python agent.py
+ExecStart=/home/<user>/.local/bin/uv run --extra escpos python agent.py
 Restart=always
 RestartSec=5
 
@@ -331,16 +334,21 @@ ssh <user>@<raspberry-ip> "sudo systemctl restart kp-print-agent"
 ## Files
 
 ```
-print-agent/
-├── agent.py          # Main polling loop, job processing
-├── formatters.py     # ESC/POS formatting (assignment slip, board snapshot)
-├── printer.py        # Printer connection wrapper
-└── pyproject.toml    # Dependencies (python-escpos, httpx, pillow)
+tools/print-agent/
+├── agent.py             # Entry point: config (file or env), one worker per backend, fallback destinations
+├── core.py              # Job record, HTTP helper, logging – stdlib only
+├── protocols/rueck.py   # KP Rück wire contract: config → long-poll pending → claim → complete
+├── outputs/escpos.py    # ESC/POS output (lazy-imports python-escpos/pillow)
+├── formatters.py        # ESC/POS slip layouts per job_type
+├── test_agent.py, test_formatters.py
+├── Dockerfile
+└── pyproject.toml       # dependencies = [] – python-escpos + pillow only as the `escpos` extra
 
 backend/app/
-├── api/print.py      # Print API endpoints
-├── crud/print_jobs.py # Print job CRUD with deduplication
-└── models.py         # PrintJob model
+├── api/print.py              # Print API endpoints
+├── crud/print_jobs.py        # Print job CRUD with deduplication
+├── services/print_signal.py  # Wakes parked long-polls when a job is queued
+└── models.py                 # PrintJob model
 ```
 
 ## Printer Settings (Dashboard)

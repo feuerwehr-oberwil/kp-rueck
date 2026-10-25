@@ -239,7 +239,7 @@ describe("AuftraegeSheet — Ressourcen (route-owned)", () => {
     expect(screen.getByText("Muster Hans")).toBeInTheDocument()
     expect(screen.getByText("Schlauch B")).toBeInTheDocument()
 
-    await user.click(screen.getByTitle("TLF 1 entfernen"))
+    await user.click(screen.getByTitle("TLF 1 freigeben"))
     expect(unassignResource).toHaveBeenCalledWith("g1", "va")
   })
 

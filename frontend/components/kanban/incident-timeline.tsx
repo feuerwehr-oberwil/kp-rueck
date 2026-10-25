@@ -20,9 +20,10 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
+import { AlertCircle, ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
+import { formatStaleAgo } from "@/lib/status-conflict"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
@@ -95,39 +96,61 @@ function TimelineRow({
     event.event_type === "field_message" || event.event_type === "kp_message" || event.event_type === "merge"
   // A merged report can be split off again for as long as the merge stands.
   const splittable = event.event_type === "merge" && event.merge_active && event.merged_incident_id && onUnmerge
+  // A move the operator confirmed after «Gerade geändert» – the board it came from was stale.
+  const stale = event.event_type === "status_change" && Boolean(event.seen_status)
   return (
-    <li className={cn("flex gap-3 py-1 text-xs", isMessage ? "items-start" : "items-center")}>
-      <span className={cn("shrink-0 font-mono tabular-nums text-muted-foreground", isMessage && "pt-px")}>{time}</span>
-      <div className={cn("flex min-w-0 flex-1 gap-2", isMessage ? "items-start" : "items-center")}>
-        <EventIcon event={event} />
-        {/* A message is a sentence, not a label: it wraps instead of being cut
-            off at the column edge. The other two kinds stay one truncated line. */}
-        <span className={cn("min-w-0", isMessage ? "flex-1 break-words" : "truncate")}>
-          <EventLabel event={event} />
-        </span>
-        {splittable && (
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            className="shrink-0"
-            title={t('timeline.splitHint')}
-            disabled={splitting}
-            onClick={async () => {
-              setSplitting(true)
-              try {
-                await onUnmerge(event.merged_incident_id!)
-              } finally {
-                setSplitting(false)
-              }
-            }}
-          >
-            {splitting ? <ShellLoader className="size-3.5" /> : <Split className="size-3.5" />}
-            {t('timeline.split')}
-          </Button>
-        )}
+    <li className={cn("flex gap-3 py-1 text-xs", isMessage || stale ? "items-start" : "items-center")}>
+      <span className={cn("shrink-0 font-mono tabular-nums text-muted-foreground", (isMessage || stale) && "pt-px")}>{time}</span>
+      <div className="min-w-0 flex-1">
+        <div className={cn("flex min-w-0 gap-2", isMessage ? "items-start" : "items-center")}>
+          <EventIcon event={event} />
+          {/* A message is a sentence, not a label: it wraps instead of being cut
+              off at the column edge. The other two kinds stay one truncated line. */}
+          <span className={cn("min-w-0", isMessage ? "flex-1 break-words" : "truncate")}>
+            <EventLabel event={event} />
+          </span>
+          {splittable && (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              className="shrink-0"
+              title={t('timeline.splitHint')}
+              disabled={splitting}
+              onClick={async () => {
+                setSplitting(true)
+                try {
+                  await onUnmerge(event.merged_incident_id!)
+                } finally {
+                  setSplitting(false)
+                }
+              }}
+            >
+              {splitting ? <ShellLoader className="size-3.5" /> : <Split className="size-3.5" />}
+              {t('timeline.split')}
+            </Button>
+          )}
+        </div>
+        {stale && <StaleMark event={event} />}
       </div>
     </li>
+  )
+}
+
+/** «war schon abgeschlossen (vor 4 s)» under a stale move: where the card really stood, and for how long. */
+function StaleMark({ event }: { event: ApiIncidentTimelineEvent }) {
+  const t = useTranslations('kanban')
+  const status = event.from_status ?? ''
+  const ago = formatStaleAgo(event.stale_seconds, t)
+  return (
+    <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-sm border border-warning/45 px-1.5 py-px text-2xs font-semibold text-warning-foreground">
+      <AlertCircle className="size-3 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 break-words">
+        {status === 'complete'
+          ? t('timeline.staleComplete', { ago })
+          : t('timeline.stale', { statusLabel: isIncidentStatus(status) ? t(`statusLabels.${status}`) : status, ago })}
+      </span>
+    </span>
   )
 }
 
@@ -174,13 +197,16 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
     return isIncidentStatus(status) ? t(`statusLabels.${status}`) : status
   }
   if (event.event_type === "status_change") {
-    const from = statusLabel(event.from_status)
+    // A stale move reads as the operator made it – from what their board showed;
+    // the mark under it says where the card really stood.
+    const from = statusLabel(event.seen_status ?? event.from_status)
     const to = statusLabel(event.to_status)
     return (
       <>
         <span className="text-muted-foreground">{from}</span>
         <span className="text-muted-foreground mx-1">→</span>
         <span className="text-foreground font-medium">{to}</span>
+        {event.actor_name && <span className="text-muted-foreground"> · {event.actor_name}</span>}
       </>
     )
   }

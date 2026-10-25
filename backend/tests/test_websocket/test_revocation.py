@@ -14,6 +14,10 @@ from app.websocket_manager import connect, sio, ws_manager
 
 @pytest.fixture(autouse=True)
 def isolate_sockets(monkeypatch):
+    # These tests pin what a recheck decides, so every emit rechecks; the memo
+    # between rechecks is pinned on its own below.
+    monkeypatch.setattr("app.websocket_manager.ROLE_RECHECK_SECONDS", 0)
+    monkeypatch.setattr(ws_manager, "_roles_memo", None)
     ws_manager.user_sessions.clear()
     ws_manager.session_identities.clear()
     for room in ws_manager.active_connections.values():
@@ -359,3 +363,25 @@ async def test_admin_password_reset_revokes_all_target_sessions_and_sockets(admi
         new_child = (await target.get("/api/auth/ws-token")).json()["token"]
         assert decode_token(new_child)["user_session_version"] == 1
         assert await connect("new-password", {}, {"token": new_child}) is True
+
+
+async def test_one_recheck_serves_the_emits_right_after_it(db_session, test_editor, monkeypatch):
+    """The fresh recheck of `join_room` answers for the broadcasts right after it
+    (no DB session each); once ROLE_RECHECK_SECONDS have passed, a revocation in
+    the DB takes the socket out before the next delivery."""
+    from app.websocket_manager import current_socket_roles
+
+    await open_socket(test_editor)
+    monkeypatch.setattr("app.websocket_manager.ROLE_RECHECK_SECONDS", 60)
+    recheck = AsyncMock(wraps=current_socket_roles)
+    monkeypatch.setattr("app.websocket_manager.current_socket_roles", recheck)
+
+    for _ in range(3):
+        await ws_manager.broadcast_update("incident_update", {}, room="operations")
+    assert recheck.await_count == 0
+
+    test_editor.is_active = False
+    await db_session.commit()
+    monkeypatch.setattr("app.websocket_manager.ROLE_RECHECK_SECONDS", 0)
+    await ws_manager.broadcast_update("incident_update", {}, room="operations")
+    assert "audit" not in ws_manager.user_sessions

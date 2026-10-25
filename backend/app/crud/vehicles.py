@@ -82,7 +82,7 @@ async def create_vehicle(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(vehicle)
     return vehicle
 
@@ -144,7 +144,7 @@ async def update_vehicle(
             request=request,
         )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(vehicle)
     return vehicle
 
@@ -187,7 +187,7 @@ async def archive_vehicle(
             changes={"name": vehicle.name, "archived_at": vehicle.archived_at.isoformat()},
             request=request,
         )
-        await db.commit()
+        await db.flush()
         await db.refresh(vehicle)
 
     return vehicle
@@ -219,7 +219,7 @@ async def restore_vehicle(
             changes={"name": vehicle.name},
             request=request,
         )
-        await db.commit()
+        await db.flush()
         await db.refresh(vehicle)
 
     return vehicle
@@ -273,5 +273,5 @@ async def purge_vehicle(
         request=request,
     )
 
-    await db.commit()
+    await db.flush()
     return PurgeOutcome(purged=True, name=name, usage=usage)

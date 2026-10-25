@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/auth.fixture';
 
 /**
@@ -5,22 +6,39 @@ import { test, expect } from '../../fixtures/auth.fixture';
  * Tests the empty state component shown when no event is selected
  */
 
-test.describe('Event Selection Empty State', () => {
+// The start screen depends on which Ereignisse were opened in the last 24 h, and every other
+// spec creates some – so the list is stubbed here, never read from the shared database.
+async function stubEventList(page: Page, events: Array<{ name: string; openedHoursAgo: number; activeHoursAgo: number }>) {
+  const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+  const body = {
+    events: events.map((e, i) => ({
+      id: `00000000-0000-4000-8000-00000000000${i + 1}`,
+      name: e.name,
+      training_flag: false,
+      auto_attach_divera: false,
+      created_at: ago(e.openedHoursAgo),
+      updated_at: ago(e.activeHoursAgo),
+      archived_at: null,
+      last_activity_at: ago(e.activeHoursAgo),
+      incident_count: 4,
+    })),
+    total: events.length,
+  };
+  await page.route(/\/api\/events\/(\?.*)?$/, (route) =>
+    route.request().method() === 'GET' ? route.fulfill({ json: body }) : route.fallback(),
+  );
+}
+
+test.describe('Event Selection Empty State – nothing opened in 24 h', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
-    // Navigate to main page without selecting an event
+    await stubEventList(authenticatedPage, [{ name: 'Altes Ereignis', openedHoursAgo: 30, activeHoursAgo: 26 }]);
     await authenticatedPage.goto('/');
   });
 
-  test('shows empty state when no event is selected', async ({ authenticatedPage }) => {
-    // Verify empty state component is visible
-    const emptyState = authenticatedPage.locator('[class*="max-w-2xl"]').filter({
-      has: authenticatedPage.locator('text=Noch kein Ereignis ausgewählt?')
-    });
-    await expect(emptyState).toBeVisible();
-
-    // Verify welcome message appears
-    await expect(authenticatedPage.locator('h1:has-text("Noch kein Ereignis ausgewählt?")')).toBeVisible();
-    await expect(authenticatedPage.locator('text=Kein Problem! Erstelle ein neues Ereignis')).toBeVisible();
+  test('shows the fallback card with plain copy', async ({ authenticatedPage }) => {
+    await expect(authenticatedPage.getByRole('heading', { name: 'Ereignis wählen' })).toBeVisible();
+    await expect(authenticatedPage.getByText('In den letzten 24 Stunden wurde kein Ereignis eröffnet.')).toBeVisible();
+    await expect(authenticatedPage.getByText(/Kein Problem/)).toHaveCount(0);
   });
 
   test('shows a calm, neutral calendar tile — no pulse, no red tagline', async ({ authenticatedPage }) => {
@@ -33,7 +51,7 @@ test.describe('Event Selection Empty State', () => {
   });
 
   test('fits the viewport: the page itself does not scroll', async ({ authenticatedPage }) => {
-    await expect(authenticatedPage.locator('h1:has-text("Noch kein Ereignis ausgewählt?")')).toBeVisible();
+    await expect(authenticatedPage.getByRole('heading', { name: 'Ereignis wählen' })).toBeVisible();
     const overflow = await authenticatedPage.evaluate(() => {
       const main = document.querySelector('main');
       return main ? main.scrollHeight - main.clientHeight : 0;
@@ -41,71 +59,23 @@ test.describe('Event Selection Empty State', () => {
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
-  test('displays "Create New Event" button', async ({ authenticatedPage }) => {
-    // Verify "Neues Ereignis erstellen" button exists
-    const createButton = authenticatedPage.locator('button:has-text("Neues Ereignis erstellen")');
-    await expect(createButton).toBeVisible();
-
-    // Verify button has calendar icon
-    await expect(createButton.locator('svg[class*="lucide-calendar"]')).toBeVisible();
-
-    // Verify button is clickable (has hover effect class)
-    const hasHoverDelight = await createButton.evaluate(el =>
-      el.className.includes('hover-delight')
-    );
-    expect(hasHoverDelight).toBeTruthy();
-  });
-
-  test('displays "View Events" button', async ({ authenticatedPage }) => {
-    // Verify "Ereignisse anzeigen" button exists
-    const viewButton = authenticatedPage.locator('button:has-text("Ereignisse anzeigen")');
-    await expect(viewButton).toBeVisible();
-
-    // Verify button has chevron icon
-    await expect(viewButton.locator('svg[class*="lucide-chevron-right"]')).toBeVisible();
-
-    // Verify button is outline variant
-    const isOutlineVariant = await viewButton.evaluate(el =>
-      el.className.includes('outline')
-    );
-    expect(isOutlineVariant).toBeTruthy();
-  });
-
   test('create button navigates to events page with create action', async ({ authenticatedPage }) => {
-    // Click "Neues Ereignis erstellen" button
-    const createButton = authenticatedPage.locator('button:has-text("Neues Ereignis erstellen")');
-    await createButton.click();
-
-    // Verify navigation to events page with action parameter
+    await authenticatedPage.getByRole('button', { name: 'Neues Ereignis' }).click();
     await expect(authenticatedPage).toHaveURL(/\/events\?action=create/);
   });
 
   test('view button navigates to events page', async ({ authenticatedPage }) => {
-    // Click "Ereignisse anzeigen" button
-    const viewButton = authenticatedPage.locator('button:has-text("Ereignisse anzeigen")');
-    await viewButton.click();
-
-    // Verify navigation to events page
+    await authenticatedPage.getByRole('button', { name: 'Ereignisse anzeigen' }).click();
     await expect(authenticatedPage).toHaveURL(/\/events/);
   });
 
-
-
-
   test('empty state is responsive on mobile', async ({ authenticatedPage }) => {
-    // Set viewport to mobile size
     await authenticatedPage.setViewportSize({ width: 375, height: 667 });
+    await expect(authenticatedPage.getByRole('heading', { name: 'Ereignis wählen' })).toBeVisible();
 
-    // Verify empty state is still visible
-    const emptyState = authenticatedPage.locator('h1:has-text("Noch kein Ereignis ausgewählt?")');
-    await expect(emptyState).toBeVisible();
-
-    // The two actions stack instead of sitting side by side (`flex-col sm:flex-row`).
-    // Asserted through the geometry the operator actually sees, not through the class
-    // name: the old version filtered `locator('div')` down to "every ancestor that
-    // contains both buttons", which is a strict-mode violation by construction — the
-    // card, its content and the page wrapper all qualify.
-    const createButton = authenticatedPage.getByRole('button', { name: 'Neues Ereignis erstellen' });
+    // The two actions stack instead of sitting side by side (`flex-col sm:flex-row`),
+    // asserted through the geometry the operator actually sees.
+    const createButton = authenticatedPage.getByRole('button', { name: 'Neues Ereignis' });
     const viewButton = authenticatedPage.getByRole('button', { name: 'Ereignisse anzeigen' });
     await expect(createButton).toBeVisible();
     await expect(viewButton).toBeVisible();
@@ -117,11 +87,28 @@ test.describe('Event Selection Empty State', () => {
   });
 });
 
+test.describe('Event Selection Empty State – open Ereignisse from the last 24 h', () => {
+  test.beforeEach(async ({ authenticatedPage }) => {
+    await stubEventList(authenticatedPage, [
+      { name: 'Übung Nacht', openedHoursAgo: 3, activeHoursAgo: 2 },
+      { name: 'Unwetter Oberwil', openedHoursAgo: 8, activeHoursAgo: 0.1 },
+    ]);
+    await authenticatedPage.goto('/');
+  });
+
+  test('lists them, the most recently active first, with «Neues Ereignis» no longer the main action', async ({ authenticatedPage }) => {
+    const rows = authenticatedPage.getByTestId('event-start-recent').getByRole('listitem');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.first()).toContainText('Unwetter Oberwil');
+    await expect(authenticatedPage.getByRole('button', { name: 'Unwetter Oberwil: Öffnen' })).toHaveAttribute('aria-keyshortcuts', 'Enter');
+    await expect(authenticatedPage.getByRole('button', { name: 'Alle Ereignisse' })).toBeVisible();
+  });
+});
+
 test.describe('Event Selection Empty State - With Event Selected', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     // First navigate to events page
     await authenticatedPage.goto('/events');
-    await authenticatedPage.waitForTimeout(1000);
   });
 
   test('empty state does not show when event is selected', async ({ authenticatedPage }) => {
@@ -147,7 +134,7 @@ test.describe('Event Selection Empty State - With Event Selected', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await expect(authenticatedPage.getByRole('heading', { name: eventName }).first()).toBeVisible();
     await expect(
-      authenticatedPage.getByRole('heading', { name: 'Noch kein Ereignis ausgewählt?' }),
+      authenticatedPage.getByRole('heading', { name: 'Ereignis wählen' }),
     ).toHaveCount(0);
 
     // And picking that same event out of the list behaves the same way. Located by
@@ -169,7 +156,7 @@ test.describe('Event Selection Empty State - With Event Selected', () => {
     await expect(authenticatedPage).toHaveURL('/');
     await expect(authenticatedPage.getByRole('heading', { name: eventName }).first()).toBeVisible();
     await expect(
-      authenticatedPage.getByRole('heading', { name: 'Noch kein Ereignis ausgewählt?' }),
+      authenticatedPage.getByRole('heading', { name: 'Ereignis wählen' }),
     ).toHaveCount(0);
   });
 });

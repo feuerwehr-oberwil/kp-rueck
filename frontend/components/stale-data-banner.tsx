@@ -10,6 +10,7 @@ import { ShellLoader } from "@/components/ui/shell-loader";
 import { useBoardSyncStatus, useOperations } from "@/lib/contexts/operations-context";
 import { wsClient, type WebSocketStatus } from "@/lib/websocket-client";
 import { getRestReachable, onRestReachableChange } from "@/lib/api-client";
+import { claimOutageVoice } from "@/lib/api/http";
 import { isLiveConfirmed, shouldShowStaleBanner } from "@/lib/stale-data";
 import { getIntlLocale } from "@/lib/date-locale";
 
@@ -45,6 +46,10 @@ import { getIntlLocale } from "@/lib/date-locale";
  * and with what another screen shows, and a minute is a long time on a board.
  * A socket that is back but has not yet got a load through says THAT, not
  * «Verbindung verloren» (review idea #4).
+ *
+ * While it shows, it is the ONE voice of the outage: it claims it
+ * (`claimOutageVoice`), and the red sticky «Server nicht erreichbar» toasts stay
+ * down (UX-DESKTOP-11). The never-loaded board counts too – its error panel says it.
  */
 export function StaleDataBanner() {
   const t = useTranslations('common.staleDataBanner');
@@ -79,6 +84,10 @@ export function StaleDataBanner() {
     liveSince,
   });
   const confirmedAt = lastSyncAt ? formatConfirmedTime(lastSyncAt) : null;
+
+  useEffect(() => {
+    if (visible) return claimOutageVoice();
+  }, [visible]);
 
   const handleReconnect = async () => {
     setReconnecting(true);

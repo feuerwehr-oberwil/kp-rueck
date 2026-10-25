@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/contexts/auth-context"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { usePolling } from "@/lib/hooks/use-polling"
+import { isTypingTarget } from "@/lib/typing-target"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { SearchInput } from "@/components/ui/search-input"
@@ -26,22 +27,6 @@ const displayPages = [
 
 /** Which display pages filter on the top bar's search field. */
 const SEARCHABLE_PAGES = ["/display/board", "/display/status"]
-
-/**
- * Mirrors `isTypingTarget` in `lib/hooks/use-kanban-shortcuts.ts` — a bare `s`
- * must never steal a character out of a field somebody is typing in. It is not
- * imported because that module is the main board's shortcut hook and does not
- * export the helper.
- */
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (target instanceof HTMLInputElement) return true
-  if (target instanceof HTMLTextAreaElement) return true
-  if (target instanceof HTMLSelectElement) return true
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  const role = target.getAttribute("role")
-  return role === "combobox" || role === "listbox" || role === "option"
-}
 
 /** True while any Radix dialog is open on the page (the incident detail, mostly). */
 function isModalOpen(): boolean {
@@ -253,7 +238,7 @@ function DisplayChrome({
           {/* Was a panel of its own on the share-link board, under a header that
               repeated the Ereignis name this one already carries. */}
           {token && (
-            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 sm:inline-flex dark:text-blue-400 shrink-0">
+            <span className="hidden items-center gap-1.5 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex dark:text-blue-400 shrink-0">
               <Eye className="h-3.5 w-3.5" />
               {t('layout.readOnly')}
             </span>

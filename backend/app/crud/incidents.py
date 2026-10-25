@@ -8,13 +8,14 @@ from typing import Any
 from fastapi import Request
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from .. import schemas
+from ..database import after_commit
 from ..models import (
     Incident,
     IncidentAssignment,
     IncidentGroup,
+    IncidentGroupAssignment,
     Personnel,
     RekoReport,
     SchadenplatzReport,
@@ -31,6 +32,87 @@ from . import feld as feld_crud
 
 class InvalidIncidentGroupError(ValueError):
     """Incident group is missing, deleted, or belongs to another event."""
+
+
+class StatusChangedError(Exception):
+    """A status move refused because the card moved after the client last saw it.
+
+    Two operators, seconds apart: A closes the Einsatz, B's drag from the stale card
+    lands four seconds later. Raised under the row lock by both status writers
+    (``update_incident_status``, and ``update_incident`` when its body carries
+    ``status`` + ``from_status``); the routes answer 409 ``incident_status_changed``.
+    It carries what the board's «Gerade geändert» says: where the card is now, who put
+    it there and when, and – when that move was a completion – the names a
+    «Trotzdem …» would put back on the card. Nothing has changed when it is raised.
+    """
+
+    def __init__(self, status: str, changed_at: datetime | None, changed_by: str | None, released: list[str]) -> None:
+        super().__init__(f"incident status changed to {status}")
+        self.status = status
+        self.changed_at = changed_at
+        self.changed_by = changed_by
+        self.released = released
+
+
+async def _released_names(db: AsyncSession, transition: StatusTransition) -> list[str]:
+    """Who and what a completion released and a reopen would put back: people first, then vehicles."""
+    from .assignments import parse_released_entries
+
+    entries = transition.released_assignments_json
+    pairs: list[tuple[str, uuid.UUID]] = []
+    for model, kind in ((IncidentAssignment, "incident"), (IncidentGroupAssignment, "group")):
+        ids = parse_released_entries(entries, kind)
+        if ids:
+            rows = await db.execute(select(model.resource_type, model.resource_id).where(model.id.in_(ids)))
+            pairs.extend((resource_type, resource_id) for resource_type, resource_id in rows.all())
+    names: list[str] = []
+    for resource_model, resource_type in ((Personnel, "personnel"), (Vehicle, "vehicle")):
+        ids_of_type = {resource_id for kind, resource_id in pairs if kind == resource_type}
+        if ids_of_type:
+            found = await db.scalars(select(resource_model.name).where(resource_model.id.in_(ids_of_type)))
+            names.extend(sorted(found.all()))
+    return names
+
+
+async def _guard_seen_status(
+    db: AsyncSession,
+    incident: Incident,
+    new_status: str,
+    seen_status: str | None,
+    override_status: str | None,
+) -> str | None:
+    """Refuse a status move made from a stale board. Call it under the row lock.
+
+    ``seen_status`` is the status the client showed when it sent the move; None means
+    the caller did not say (the GPS automation, the field auto-move, scripts) and is
+    never refused. A move from the real status, or one that leaves the card where it
+    already is, passes. Anything else raises ``StatusChangedError`` – unless
+    ``override_status`` names the card's real status: the operator was shown exactly
+    this state in «Gerade geändert» and chose «Trotzdem …». A third move in between
+    makes that override stale as well, and it is refused again.
+
+    Returns the stale ``seen_status`` to record on the transition, or None.
+    """
+    current = incident.status
+    if seen_status is None or seen_status == current or new_status == current:
+        return None
+    if override_status == current:
+        return seen_status
+
+    result = await db.execute(
+        select(StatusTransition, User)
+        .outerjoin(User, StatusTransition.user_id == User.id)
+        .where(StatusTransition.incident_id == incident.id)
+        .order_by(StatusTransition.timestamp.desc())
+        .limit(1)
+    )
+    row = result.first()
+    if row is None:
+        raise StatusChangedError(current, None, None, [])
+    last, user = row
+    released = await _released_names(db, last) if current == "complete" and last.to_status == "complete" else []
+    changed_by = (user.display_name or user.username) if user is not None else None
+    raise StatusChangedError(current, last.timestamp, changed_by, released)
 
 
 #: The two statuses whose FIRST entry auto-prints the Einsatzzettel. Narrower than
@@ -73,9 +155,9 @@ async def _dispatch_print_due(db: AsyncSession, incident_id: uuid.UUID, old_stat
 async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_id: uuid.UUID) -> IncidentGroup:
     group = await db.scalar(select(IncidentGroup).where(IncidentGroup.id == group_id).with_for_update())
     if group is None or group.deleted_at is not None:
-        raise InvalidIncidentGroupError("Auftrag not found or deleted")
+        raise InvalidIncidentGroupError("Auftrag nicht gefunden oder gelöscht")
     if group.event_id != event_id:
-        raise InvalidIncidentGroupError("Auftrag belongs to a different event")
+        raise InvalidIncidentGroupError("Auftrag gehört zu einem anderen Ereignis")
     return group
 
 
@@ -122,14 +204,10 @@ async def get_incidents(
     Returns:
         List of incidents with status_changed_at and assigned_vehicles populated (excludes soft-deleted incidents)
     """
-    # Use eager loading for relationships to avoid N+1 queries
+    # No selectinload of the collections: the batch queries below read exactly
+    # what the board needs, and nothing reads `.assignments` etc. off these rows.
     query = (
         select(Incident)
-        .options(
-            selectinload(Incident.status_transitions),
-            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports),
-        )
         .where(Incident.deleted_at.is_(None))
         # Manual board order first; created_at DESC breaks ties (e.g. brand-new
         # cards that share the default position 0 — newest on top).
@@ -321,17 +399,9 @@ async def get_incidents(
 
 async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
     """Get incident by ID with status_changed_at, assigned_vehicles, and has_completed_reko populated."""
-    # Use eager loading for relationships to avoid N+1 queries
-    result = await db.execute(
-        select(Incident)
-        .options(
-            selectinload(Incident.status_transitions),
-            selectinload(Incident.assignments).selectinload(IncidentAssignment.vehicle),
-            selectinload(Incident.reko_reports),
-        )
-        .where(Incident.id == incident_id)
-    )
-    incident = result.scalar_one_or_none()
+    # The derived fields below come from their own small queries; the collections
+    # themselves are not loaded (no caller reads them off this object).
+    incident = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
 
     if incident:
         # Get latest status transition timestamp (single query)
@@ -415,14 +485,8 @@ async def create_incident(
     *,
     source: str | None = None,
     source_ref: str | None = None,
-    commit: bool = True,
 ) -> Incident:
-    """Create new incident with audit logging.
-
-    ``commit=False`` flushes instead of committing, for a caller that must write something
-    else in the same transaction — the pool attach, which holds a row lock on the alarm until
-    the link is written (see ``crud.divera.lock_divera_emergency``). The caller then owns the
-    commit and the refresh.
+    """Create new incident with audit logging. Flushes; the caller (the request) commits.
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
@@ -474,11 +538,7 @@ async def create_incident(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, db_incident.event_id)
 
-    if not commit:
-        await db.flush()
-        return db_incident
-
-    await db.commit()
+    await db.flush()
     await db.refresh(db_incident)
 
     return db_incident
@@ -521,7 +581,7 @@ async def create_public_incident(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, db_incident.event_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(db_incident)
 
     return db_incident
@@ -632,7 +692,18 @@ async def update_incident(
 
     Raises:
         ValueError: If concurrent modification detected
+        StatusChangedError: The body moves the status from a ``from_status`` that is
+            no longer the card's (see ``_guard_seen_status``)
     """
+    if incident_update.status is not None:
+        # A status move is compared with the card's real status, so two near-simultaneous
+        # moves must serialise – the same lock `update_incident_status` takes.
+        await db.execute(
+            select(Incident)
+            .where(Incident.id == incident_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
     incident = await get_incident(db, incident_id)
     if not incident:
         return None
@@ -657,8 +728,15 @@ async def update_incident(
 
     old_status = incident.status
 
-    # Apply updates
+    # Apply updates. `from_status` / `override_status` describe the move, they are not columns.
     update_data = incident_update.model_dump(exclude_unset=True)
+    seen_status = update_data.pop("from_status", None)
+    override_status = update_data.pop("override_status", None)
+    stale_seen_status = (
+        await _guard_seen_status(db, incident, update_data["status"], seen_status, override_status)
+        if update_data.get("status") is not None
+        else None
+    )
     # Leaving an Auftrag changes that route's stop list too: lock it like every
     # other stop mutation, so the guarded undo-restore in
     # ``groups.reorder_group_stops`` cannot interleave with the detach. Taken
@@ -732,6 +810,7 @@ async def update_incident(
             to_status=incident.status,
             user_id=current_user.id,
             notes=None,
+            seen_status=stale_seen_status,
         )
         db.add(transition)
 
@@ -757,6 +836,9 @@ async def update_incident(
 
     # Calculate changes
     changes = calculate_changes(before_state, after_state)
+    if stale_seen_status is not None:
+        # Same key the status route writes: the board showed another status (see `_guard_seen_status`).
+        changes["seen_status"] = stale_seen_status
 
     # Log if changed
     if changes:
@@ -791,15 +873,15 @@ async def update_incident(
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
-    # The slip only flushes above, so the wake-up belongs after this commit — this is the
-    # auto-print on dispatch, the one print whose latency anybody actually feels.
+    # The agent reads the slip from its own session, so the wake-up waits for the commit —
+    # this is the auto-print on dispatch, the one print whose latency anybody actually feels.
     if queued_print is not None:
         from ..services import print_signal
 
-        print_signal.notify_job_queued()
+        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 
@@ -811,11 +893,20 @@ async def update_incident_status(
     current_user: User | None,
     request: Request | None,
     notes: str | None = None,
+    seen_status: str | None = None,
+    override_status: str | None = None,
 ) -> Incident | None:
     """
     Update incident status and create status transition record.
 
     Used for Kanban drag-and-drop.
+
+    The row is locked first, so two near-simultaneous moves of the same card
+    serialise: the second one reads the status the first one left. ``seen_status``
+    is the status the caller's client showed; a move from a stale view is refused
+    with ``StatusChangedError`` unless ``override_status`` confirms the real status
+    (``_guard_seen_status``). A confirmed stale move keeps what the client saw on
+    the transition and in the audit row (``seen_status``).
 
     ``request`` is None for system-initiated transitions (GPS automation) — there is no
     HTTP request to attribute, and ``log_action`` already handles a missing one by
@@ -834,10 +925,16 @@ async def update_incident_status(
     When status is changed to 'complete', automatically releases personnel
     and vehicles (but keeps materials assigned as they may be left on site).
     """
+    # populate_existing: a copy the caller loaded earlier must not hide a commit
+    # that landed while this request waited for the lock.
+    await db.execute(
+        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
+    )
     incident = await get_incident(db, incident_id)
     if not incident:
         return None
 
+    stale_seen_status = await _guard_seen_status(db, incident, new_status, seen_status, override_status)
     old_status = incident.status
 
     # Update status
@@ -856,6 +953,7 @@ async def update_incident_status(
         to_status=new_status,
         user_id=current_user.id if current_user else None,
         notes=notes,
+        seen_status=stale_seen_status,
     )
     db.add(transition)
 
@@ -881,6 +979,9 @@ async def update_incident_status(
         changes={
             "status": {"before": old_status, "after": new_status},
             "notes": notes,
+            # The operator moved a card whose status their board showed as something else,
+            # after «Gerade geändert» told them so.
+            **({"seen_status": stale_seen_status} if stale_seen_status is not None else {}),
             # The one caller that passes no user is the field auto-move; the
             # Einsatztagebuch tells the provenances apart by this.
             **({"source": "feld"} if current_user is None else {}),
@@ -909,13 +1010,13 @@ async def update_incident_status(
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     if queued_print is not None:
         from ..services import print_signal
 
-        print_signal.notify_job_queued()
+        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 
@@ -955,7 +1056,7 @@ async def delete_incident(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
-    await db.commit()
+    await db.flush()
     return True
 
 
@@ -1032,7 +1133,7 @@ async def restore_incident(
     # Update event activity timestamp
     await events_crud.update_event_activity(db, incident.event_id)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(incident)
 
     return incident
@@ -1077,7 +1178,7 @@ async def reorder_incidents(
 
     if updated:
         await events_crud.update_event_activity(db, event_id)
-        await db.commit()
+        await db.flush()
 
     return updated
 

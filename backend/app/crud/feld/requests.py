@@ -29,6 +29,7 @@ from fastapi import Request
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import after_commit
 from ...models import FieldRequest, Incident, Notification, User
 from ...services.audit import log_action
 
@@ -241,14 +242,17 @@ async def set_request_status(
         },
         request=request,
     )
-    await db.commit()
+    await db.flush()
     await db.refresh(row)
 
     if dismissed:
         from ...websocket_manager import broadcast_notification_update
 
-        await broadcast_notification_update(
-            {"id": str(row.notification_id), "incident_id": str(incident.id)}, "dismiss"
+        after_commit(
+            db,
+            broadcast_notification_update,
+            {"id": str(row.notification_id), "incident_id": str(incident.id)},
+            "dismiss",
         )
     return True
 

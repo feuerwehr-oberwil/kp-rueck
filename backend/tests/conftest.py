@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.auth.dependencies import get_current_user
 from app.auth.security import hash_password
-from app.database import Base, get_db
+from app.database import AppSession, Base, get_db
 from app.main import app
 from app.middleware.rate_limit import limiter
 from app.models import (
@@ -264,7 +264,7 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     async with test_engine.connect() as connection:
         transaction = await connection.begin()
 
-        session = AsyncSession(
+        session = AppSession(
             bind=connection,
             expire_on_commit=False,
             join_transaction_mode="create_savepoint",
@@ -274,6 +274,70 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
         await session.close()
         await transaction.rollback()
+
+
+@pytest.fixture(autouse=True)
+def _emits_follow_commits(db_session, monkeypatch):
+    """Fail a test whose code emits to the outside while the request's writes are uncommitted.
+
+    The rule above `app.database.get_db`: CRUD flushes, the request commits, and whatever a
+    client or another session reacts to – a WebSocket broadcast, a print-agent wake-up – goes
+    out AFTER the commit, or a board refetching on the event reads the old state. Every test
+    session is `db_session`, so «flushed or executed a write since the last commit» is
+    tracked on it, and the two emit funnels check it.
+    """
+    from sqlalchemy import event
+
+    from app.services import print_signal
+    from app.websocket_manager import WebSocketManager
+
+    sync_session = db_session.sync_session
+    state = {"dirty": False}
+    violations: list[str] = []
+
+    def _wrote(*_args):
+        state["dirty"] = True
+
+    def _executed(orm_execute_state):
+        if orm_execute_state.is_insert or orm_execute_state.is_update or orm_execute_state.is_delete:
+            state["dirty"] = True
+
+    def _settled(*_args):
+        state["dirty"] = False
+
+    listeners = [
+        ("after_flush", _wrote),
+        ("do_orm_execute", _executed),
+        ("after_commit", _settled),
+        ("after_rollback", _settled),
+    ]
+    for name, fn in listeners:
+        event.listen(sync_session, name, fn)
+
+    def _check(what: str) -> None:
+        if state["dirty"]:
+            violations.append(what)
+
+    real_broadcast = WebSocketManager.broadcast_update
+
+    async def broadcast_update(self, event_name, data, room=None):
+        _check(f"broadcast {event_name!r}")
+        await real_broadcast(self, event_name, data, room)
+
+    real_notify = print_signal.notify_job_queued
+
+    def notify_job_queued():
+        _check("print_signal.notify_job_queued")
+        real_notify()
+
+    monkeypatch.setattr(WebSocketManager, "broadcast_update", broadcast_update)
+    monkeypatch.setattr(print_signal, "notify_job_queued", notify_job_queued)
+
+    yield
+
+    for name, fn in listeners:
+        event.remove(sync_session, name, fn)
+    assert not violations, f"emitted before the commit: {violations}"
 
 
 @pytest_asyncio.fixture
@@ -372,10 +436,22 @@ async def _bind_socket_authorization_to_test_db(db_session, monkeypatch):
 
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Create an async test client with test database override."""
+    """Create an async test client with test database override.
+
+    Every request shares `db_session`, with `get_db`'s rule: a route that raises rolls back
+    what it wrote, so a write that must outlive an error answer has to be committed explicitly,
+    as in production. The request runs in a SAVEPOINT for that, because rolling the whole
+    session back would also expire every fixture object the test still holds.
+    """
 
     async def override_get_db():
-        yield db_session
+        request_tx = await db_session.begin_nested()
+        try:
+            yield db_session
+        except Exception:
+            # The savepoint, unless the route committed past it – then what it wrote since.
+            await (request_tx.rollback() if request_tx.is_active else db_session.rollback())
+            raise
 
     app.dependency_overrides[get_db] = override_get_db
     # Inject session into app state so audit middleware uses same transaction

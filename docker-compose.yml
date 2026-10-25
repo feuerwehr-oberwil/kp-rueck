@@ -259,6 +259,8 @@ services:
     environment:
       # Empty DOMAIN → Caddy binds :80 inside the container (plain HTTP, no cert).
       DOMAIN: ${DOMAIN:-:80}
+      # The proxy in front of this Caddy, if any (deploy/Caddyfile). Empty = trust nobody.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -353,8 +355,9 @@ services:
     profiles: ["printing"]
     network_mode: "host"
     environment:
-      # On the host network the stack isn't reachable by service name – point this at the
-      # deployment's public URL (or http://localhost:<HTTP_PORT> on the same host).
+      # On the host network the stack isn't reachable by service name – set this to the same
+      # URL as CORS_ORIGINS. http://localhost:<HTTP_PORT> only on a LAN install without DOMAIN:
+      # Caddy answers for the DOMAIN hostname alone, so `Host: localhost` gets a 404.
       BACKEND_URL: ${PRINT_AGENT_BACKEND_URL:-http://localhost:8080}
       # The agent reads AGENT_TOKEN; the backend reads PRINT_AGENT_TOKEN. One value in .env
       # feeds both – they are the two ends of the same shared secret and must match.

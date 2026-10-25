@@ -13,7 +13,7 @@ import { getApiUrl } from '../env'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '../i18n-messages'
 import { ApiError, NetworkError } from './types'
-import { errorCodeOf, messageForErrorCode } from './error-codes'
+import { errorCodeOf, errorParamsOf, messageForErrorCode } from './error-codes'
 
 /**
  * Hard ceiling on a single request. Generous on purpose: a command post on a saturated
@@ -42,8 +42,45 @@ export const PHOTO_UPLOAD_TIMEOUT_MS = 60_000
 // the permanent band even while the WebSocket still claims to be connected.
 const CONNECTION_TOAST_ID = 'api-connection-lost'
 let restReachable = true
-let outageToastVisible = false
 const restListeners = new Set<(reachable: boolean) => void>()
+
+// ── One voice per outage ─────────────────────────────────────────────────────
+// While the stale-data banner is up it IS the outage message («Verbindung
+// verloren … Stand 09:20:49 · Neu verbinden»), so no red, never-expiring toast
+// says it a second time over the cards (UX-DESKTOP-11 / UX-PHONE-11). The banner
+// claims the voice while it shows; the outage toasts (this module's and the
+// notification poll's) go through `showOutageToast`, which stays quiet while it
+// is claimed, and a claim takes down the ones already up. Where no banner shows
+// (a page that never loaded the board: login, /feld, /reko …) the toast is the
+// only voice and says «Server nicht erreichbar – angezeigt wird der letzte Stand.»
+let outageVoiceClaims = 0
+const outageToastsUp = new Set<string>()
+
+/** Raise the sticky outage toast `id` unless a banner already says it. */
+export function showOutageToast(id: string) {
+  if (outageVoiceClaims > 0 || outageToastsUp.has(id)) return
+  outageToastsUp.add(id)
+  toast.error(translateOutsideReact('errors.api.connectionTitle'), { id, duration: Infinity })
+}
+
+/** Take the outage toast `id` down again (the condition cleared). */
+export function dismissOutageToast(id: string) {
+  if (!outageToastsUp.delete(id)) return
+  toast.dismiss(id)
+}
+
+/** The stale banner is showing: it speaks for the outage. Returns the release. */
+export function claimOutageVoice(): () => void {
+  outageVoiceClaims += 1
+  for (const id of outageToastsUp) toast.dismiss(id)
+  outageToastsUp.clear()
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    outageVoiceClaims -= 1
+  }
+}
 
 /** Last known REST reachability: false after a request exhausted its retries
  *  on a network-layer failure, true again once any request is answered. */
@@ -68,23 +105,13 @@ function setRestReachable(reachable: boolean) {
 /** A request exhausted its retries on a network-layer failure. */
 export function markRestUnreachable(skipToast: boolean) {
   setRestReachable(false)
-  if (!skipToast && !outageToastVisible) {
-    outageToastVisible = true
-    toast.error(translateOutsideReact('errors.api.connectionTitle'), {
-      id: CONNECTION_TOAST_ID,
-      description: translateOutsideReact('errors.api.connectionDescription'),
-      duration: Infinity,
-    })
-  }
+  if (!skipToast) showOutageToast(CONNECTION_TOAST_ID)
 }
 
 /** A request was answered (any status code): the server is reachable again. */
 export function markRestReachable() {
   setRestReachable(true)
-  if (outageToastVisible) {
-    outageToastVisible = false
-    toast.dismiss(CONNECTION_TOAST_ID)
-  }
+  dismissOutageToast(CONNECTION_TOAST_ID)
 }
 
 /** What `request()` accepts on top of `fetch`'s own options. */
@@ -170,11 +197,13 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
         // Try to parse as JSON for better error messages
         let errorMessage = `${response.status} ${response.statusText}`
         let errorCode: string | undefined
+        let errorParams: Record<string, string | number> | undefined
         try {
           const errorJson = JSON.parse(errorText)
           // A coded error (the /feld door) is said in the operator's language;
           // the German `detail` is the fallback for a code this build does not know.
           errorCode = errorCodeOf(errorJson)
+          errorParams = errorParamsOf(errorJson)
           const localized = messageForErrorCode(errorJson)
           if (localized) {
             errorMessage = localized
@@ -199,7 +228,7 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
 
         // Final error - create ApiError with status code for proper error handling
         const isConflict = response.status === 409
-        const error = new ApiError(errorMessage, response.status, isConflict, errorCode)
+        const error = new ApiError(errorMessage, response.status, isConflict, errorCode, errorParams)
 
         // A 401 means the session is gone (auth endpoints don't go through
         // this client). Tell the auth layer so it can clear the user and

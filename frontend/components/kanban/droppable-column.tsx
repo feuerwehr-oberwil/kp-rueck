@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, memo, useSyncExternalStore } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { useTranslations } from "next-intl"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
@@ -15,6 +15,7 @@ import { areOperationListsEqual } from "@/lib/operation-equality"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
+import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,23 +25,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-// On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
-const subscribeLargeScreen = (cb: () => void) => {
-  const mql = window.matchMedia(SIDE_PANEL_MEDIA_QUERY)
-  mql.addEventListener("change", cb)
-  return () => mql.removeEventListener("change", cb)
-}
-const getIsLargeScreen = () => window.matchMedia(SIDE_PANEL_MEDIA_QUERY).matches
-const getIsLargeScreenServer = () => false
-
-function useIsLargeScreen() {
-  return useSyncExternalStore(subscribeLargeScreen, getIsLargeScreen, getIsLargeScreenServer)
-}
-
 interface DroppableColumnProps {
   column: {
     id: string
-    title: string
     status: string[]
     color: string
     collapsible?: boolean
@@ -101,6 +88,9 @@ interface DroppableColumnProps {
   isCollapsed?: boolean
   /** Fold / unfold. Absent = this board does not offer folding at all. */
   onToggleCollapsed?: (columnId: string) => void
+  /** A board search is narrowing the cards: an empty column then says «Keine
+   *  Treffer.», not «Noch keine Einsätze.» – false with 21 on the board. */
+  searchActive?: boolean
 }
 
 // Custom comparison: skip re-render if operations for this column haven't actually changed
@@ -122,7 +112,8 @@ function arePropsEqual(prev: DroppableColumnProps, next: DroppableColumnProps): 
     prev.canDrag !== next.canDrag ||
     prev.onSort !== next.onSort ||
     prev.isCollapsed !== next.isCollapsed ||
-    prev.onToggleCollapsed !== next.onToggleCollapsed
+    prev.onToggleCollapsed !== next.onToggleCollapsed ||
+    prev.searchActive !== next.searchActive
   ) {
     return false
   }
@@ -174,6 +165,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   onSort,
   isCollapsed: isFoldedByOperator = false,
   onToggleCollapsed,
+  searchActive = false,
 }: DroppableColumnProps) {
   const t = useTranslations('kanban')
   const tDash = useTranslations('kanban.dashboard')
@@ -195,7 +187,8 @@ export const DroppableColumn = memo(function DroppableColumn({
   const dropRef = useRef<HTMLElement | null>(null)
   const [isOver, setIsOver] = useState(false)
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false)
-  const isLargeScreen = useIsLargeScreen()
+  // On large screens (2xl+), columns stay expanded — collapsing only helps on smaller screens
+  const isLargeScreen = useMediaQuery(SIDE_PANEL_MEDIA_QUERY, false)
 
   // Only a *click* scrolls; a column that was already folded at load must not
   // yank the board sideways on every mount.
@@ -326,7 +319,7 @@ export const DroppableColumn = memo(function DroppableColumn({
         {/* The count is the whole safety case for folding: the strip must never
             let the board hide that something is sitting in here. Same badge as
             the open header, not a quieter one. */}
-        <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+        <span className="relative inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
           {operations.length}
           {overdueTitle && (
             <span
@@ -399,7 +392,7 @@ export const DroppableColumn = memo(function DroppableColumn({
             {/* No overdue dot here, unlike the folded strip and the wall board:
                 every card in an open column already carries its own age chip,
                 and a second signal for the same fact is noise. */}
-            <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground text-xs font-bold tabular-nums">
+            <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-sm bg-foreground/10 text-foreground type-label tabular-nums">
               {operations.length}
             </span>
           </div>
@@ -441,7 +434,9 @@ export const DroppableColumn = memo(function DroppableColumn({
             header's own control, where it is labelled. */}
         {isEmpty && !isOver && (
           <div className="flex items-center justify-center h-32">
-            <p className="text-sm text-muted-foreground/70 select-none">{t('column.empty')}</p>
+            <p className="text-sm text-muted-foreground/70 select-none">
+              {searchActive ? t('column.noMatches') : t('column.empty')}
+            </p>
           </div>
         )}
 

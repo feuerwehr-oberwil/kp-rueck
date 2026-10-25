@@ -40,7 +40,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { DiveraIncomingBlock } from '@/components/kanban/divera-incoming-block'
 import { wsClient } from '@/lib/websocket-client'
-import { getActiveLocale } from '@/lib/i18n-messages'
+import { formatTime } from '@/lib/format-time'
 import { sortByName } from '@/lib/roster-order'
 import { cn } from '@/lib/utils'
 
@@ -88,12 +88,6 @@ export function sortAttendance(people: ApiPersonnelListItem[]): ApiPersonnelList
   return sortByName(people)
 }
 
-function formatTime(value: string | null | undefined): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })
-}
 
 interface AttendanceModalProps {
   open: boolean
@@ -409,8 +403,8 @@ function AttendanceRow({
   const tCommon = useTranslations('kanban.common')
   const state = attendanceState(person)
   const unavailable = person.status === 'unavailable'
-  const since = formatTime(person.checked_in_at)
-  const until = formatTime(person.checked_out_at)
+  const since = formatTime(person.checked_in_at) || null
+  const until = formatTime(person.checked_out_at) || null
 
   return (
     <button
@@ -440,7 +434,7 @@ function AttendanceRow({
       <span className="min-w-0 flex-1 truncate">{person.name.trim() || tCommon('unknownResource')}</span>
 
       {assignedAt && (
-        <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
+        <span className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-foreground">
           {t('assignedChip')}
         </span>
       )}

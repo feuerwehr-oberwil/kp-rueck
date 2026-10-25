@@ -6,7 +6,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 /**
  * "Telefonisch" (plan 26 §6 — the label lost its «gemeldet» when the toggle
  * gutter narrowed to match the input column; the full sentence lives on as the
- * row's hover title).
+ * chip's hover title). Since UX-DESKTOP-14 it is a chip in the «Merkmale» row.
  *
  * The board's most-used modal takes one toggle, off by default, and what it
  * writes is the whole feature: an operator taking the call on the landline used
@@ -65,7 +65,7 @@ describe('NewEmergencyModal — Telefonisch', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    expect(screen.getByRole('switch', { name: 'Telefonisch' })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Telefonisch' })).toHaveAttribute('aria-pressed', 'false')
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'operator' }))
@@ -75,8 +75,8 @@ describe('NewEmergencyModal — Telefonisch', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    await user.click(screen.getByRole('switch', { name: 'Telefonisch' }))
-    expect(screen.getByRole('switch', { name: 'Telefonisch' })).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Telefonisch' }))
+    expect(screen.getByRole('button', { name: 'Telefonisch' })).toHaveAttribute('aria-pressed', 'true')
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'intake' }))
@@ -86,24 +86,29 @@ describe('NewEmergencyModal — Telefonisch', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    const toggle = screen.getByRole('switch', { name: 'Telefonisch' })
+    const toggle = screen.getByRole('button', { name: 'Telefonisch' })
     await user.click(toggle)
     await user.click(toggle)
-    expect(toggle).not.toBeChecked()
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'operator' }))
   })
 
-  it('sits with Kontakt/Melder and Telefon, not at the top of the form', () => {
+  it('is a chip in the «Merkmale» row at the bottom, after Kontakt/Melder and Telefon (the detail\'s order)', () => {
     renderModal()
 
-    const fields = screen.getAllByText(/^Telefonisch$|Kontakt \/ Melder|Telefonnummer/)
+    const fields = screen.getAllByText(/^Meldung$|^Telefonisch$|Kontakt \/ Melder|Telefonnummer|^Merkmale$/)
     expect(fields.map((node) => node.textContent)).toEqual([
-      'Telefonisch',
+      'Meldung',
       'Kontakt / Melder',
       'Telefonnummer',
+      'Merkmale',
+      'Telefonisch',
     ])
+    expect(screen.getByRole('group', { name: 'Merkmale' })).toContainElement(
+      screen.getByRole('button', { name: 'Telefonisch' }),
+    )
   })
 })
 
@@ -164,14 +169,14 @@ describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
     const user = userEvent.setup()
     const { onCreateOperation, onOpenChange } = renderOpenTracking()
 
-    await user.click(screen.getByRole('switch', { name: 'Telefonisch' }))
+    await user.click(screen.getByRole('button', { name: 'Telefonisch' }))
     await user.type(screen.getByLabelText('Ort'), 'Bahnhofstrasse 4{Control>}{Enter}{/Control}')
 
     expect(onCreateOperation).toHaveBeenCalledTimes(1)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'intake' }))
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
     expect(screen.getByLabelText('Ort')).toHaveValue('')
-    expect(screen.getByRole('switch', { name: 'Telefonisch' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Telefonisch' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('without an Einsatzort it refuses like the primary does', async () => {
@@ -194,7 +199,67 @@ describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
   })
 })
 
+// UX-DESKTOP-03: «Abbrechen» is «throw it away» – the modal stays mounted, so without a
+// reset the next «Neuer Einsatz» opened with the cancelled call in it.
+describe('NewEmergencyModal — Abbrechen', () => {
+  it('empties the form, so the next open starts blank', async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('Ort'), 'Abgebrochener Anruf 1')
+    await user.type(screen.getByLabelText('Meldung'), 'Doch nichts')
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(screen.getByLabelText('Ort')).toHaveValue('')
+    expect(screen.getByLabelText('Meldung')).toHaveValue('')
+  })
+})
+
 describe('NewEmergencyModal — Handy', () => {
+  it('asks before a swipe or ✕ throws away what was typed; «Verwerfen» empties and closes', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+      await user.type(screen.getByLabelText('Meldung'), 'Keller unter Wasser')
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+
+      expect(onOpenChange).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Verwerfen' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.getByLabelText('Meldung')).toHaveValue('')
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('closes without asking when nothing was typed', async () => {
+    viewport.mobile = true
+    try {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      renderWithIntl(<NewEmergencyModal open onOpenChange={onOpenChange} onCreateOperation={vi.fn()} />)
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
+  it('does not promise drag & drop on the phone, where there is none', () => {
+    viewport.mobile = true
+    try {
+      renderModal()
+      expect(screen.queryByText(/Drag & Drop/)).toBeNull()
+    } finally {
+      viewport.mobile = false
+    }
+  })
+
   it('is a bottom sheet on the keyboard edge with its actions in a footer that stays', () => {
     viewport.mobile = true
     try {
@@ -219,11 +284,12 @@ describe('NewEmergencyModal — Handy', () => {
       expect(sheet.querySelector('[data-slot="sheet-grip"]')).not.toBeNull()
       // labels ABOVE the fields on the phone: the label is its own block, the control below it
       const meldung = screen.getByText('Meldung', { selector: 'label' })
-      expect(meldung).toHaveClass('block')
+      expect(meldung.closest('[data-stacked]')).not.toBeNull()
       expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
-      // switches: label left, switch right, one row
-      const tel = screen.getByRole('switch', { name: 'Telefonisch' })
-      expect(tel.closest('.min-h-11')).toHaveTextContent('Telefonisch')
+      // the Merkmale chips stack under their label like every other field
+      const flags = screen.getByRole('group', { name: 'Merkmale' })
+      expect(flags).toHaveAttribute('data-stacked')
+      expect(flags).toContainElement(screen.getByRole('button', { name: 'Telefonisch' }))
     } finally {
       viewport.mobile = false
     }
@@ -259,8 +325,8 @@ describe('NewEmergencyModal — Handy', () => {
       await user.tab()
       const advice = screen.getByRole('status')
       expect(phone).toHaveAccessibleDescription(advice.textContent!)
-      // stacked: no desktop label-column indent on the message
-      expect(advice.className).not.toMatch(/pl-\[/)
+      // inside the stacked field, so it takes the full width, not the desktop label indent
+      expect(advice.closest('[data-stacked]')).not.toBeNull()
     } finally {
       viewport.mobile = false
     }

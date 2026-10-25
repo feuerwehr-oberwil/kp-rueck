@@ -32,16 +32,15 @@ import { Form, FormField } from '@/components/ui/form';
 import { SettingCard } from '@/components/settings/setting-row';
 import { DetailField, DetailToggle } from '@/components/kanban/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Edit, Archive, ArchiveRestore, Trash2, ArrowUp, ArrowDown, ArrowRight, Infinity as InfinityIcon, Ban, CircleSlash, PackageMinus } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowRight, Infinity as InfinityIcon, PackageMinus } from 'lucide-react';
 import Link from 'next/link';
-import { apiClient, ApiError, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
-import { Checkbox } from '@/components/ui/checkbox';
+import { apiClient, ApiMaterialResource, ApiMaterialGroup } from '@/lib/api-client';
 import { CategorySortOrder } from './category-sort-order';
 import { DemoLock } from './demo-lock';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
-import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warning';
+import { ArchiveDialogs, ArchiveToggle, LifecycleCells, LifecycleHeads, SortableHead } from './inventory-table';
+import { rowState, rowStateRank, useArchivableInventory, useInventoryDialog } from './use-archivable-inventory';
 import {
   materialFormDefaults,
   materialFormSchema,
@@ -51,74 +50,79 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { ShellLoader } from '@/components/ui/shell-loader';
 
-/** "19.08." — the short stamp the archive line and «seit …» both use. */
-function shortDate(value: string | null): string {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`;
-}
-
-/** The three lifecycle/readiness states a settings row can be in. Deployment is
- *  per-Ereignis and deliberately absent here — the Materialverwaltung is not the
- *  board, and claiming «Im Einsatz» from a station-wide list would be a guess. */
-type RowState = 'archived' | 'outOfService' | 'available';
-
-function rowState(material: ApiMaterialResource): RowState {
-  if (material.archived_at) return 'archived';
-  if (material.out_of_service) return 'outOfService';
-  return 'available';
-}
-
 type SortColumn = 'name' | 'type' | 'location' | 'status';
+
+/** Ascending order of two inventory rows on one column. Lowercased strings
+ *  compare with `<`/`>` (code-unit order), as this list always has. */
+function compareMaterials(a: ApiMaterialResource, b: ApiMaterialResource, column: SortColumn): number {
+  let aVal: string | number;
+  let bVal: string | number;
+
+  switch (column) {
+    case 'name':
+      aVal = a.name.toLowerCase();
+      bVal = b.name.toLowerCase();
+      break;
+    case 'type':
+      aVal = (a.type || '').toLowerCase();
+      bVal = (b.type || '').toLowerCase();
+      break;
+    case 'location':
+      aVal = (a.location || '').toLowerCase();
+      bVal = (b.location || '').toLowerCase();
+      break;
+    case 'status':
+      aVal = rowStateRank(a);
+      bVal = rowStateRank(b);
+      break;
+    default:
+      return 0;
+  }
+
+  if (aVal < bVal) return -1;
+  if (aVal > bVal) return 1;
+  return 0;
+}
 
 /** A tab label that may take two lines on a phone rather than run out of its third. */
 const TAB_WRAP = 'h-auto min-h-[calc(2.25rem-7px)] whitespace-normal py-1 leading-tight'
 
 export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
-  const [materials, setMaterials] = useState<ApiMaterialResource[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMaterial, setEditingMaterial] = useState<ApiMaterialResource | null>(null);
   const [materialGroups, setMaterialGroups] = useState<ApiMaterialGroup[]>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [materialToDelete, setMaterialToDelete] = useState<ApiMaterialResource | null>(null);
-  // The archive is a second, quieter list behind a toggle — not a filter over
-  // the same rows. Off, the endpoint does not even return them.
-  const [showArchived, setShowArchived] = useState(false);
-  const [materialToPurge, setMaterialToPurge] = useState<ApiMaterialResource | null>(null);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialFormSchema),
     defaultValues: materialFormDefaults,
   });
+  const dialog = useInventoryDialog<ApiMaterialResource, MaterialFormValues>(form, materialFormDefaults);
+  const { guard } = dialog;
 
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingMaterial(null);
-    form.reset(materialFormDefaults);
-  };
-
-  const guard = useUnsavedChangesWarning({
-    isDirty: form.formState.isDirty,
-    isOpen: isDialogOpen,
-    onClose: closeDialog,
+  const inventory = useArchivableInventory<ApiMaterialResource, SortColumn>({
+    api: {
+      list: (includeArchived) => apiClient.getAllMaterials({ includeArchived }),
+      archive: (id) => apiClient.archiveMaterialResource(id),
+      restore: (id) => apiClient.restoreMaterialResource(id),
+      purge: (id) => apiClient.deleteMaterialResource(id, { permanent: true }),
+      setOutOfService: (id, outOfService) => apiClient.updateMaterialResource(id, { out_of_service: outOfService }),
+    },
+    compare: compareMaterials,
+    initialSort: 'name',
+    loadError: t('materials.loadError'),
+    failureDescription: t('materials.deleteErrorDescription'),
+    logNoun: 'material',
   });
+  const { rows: materials, sort } = inventory;
 
-  // Load once on mount. The loaders are plain functions re-created on every
-  // render, so listing them as deps would refetch on every render.
+  // The modules load once on mount, after the rows (`useArchivableInventory`).
   useEffect(() => {
-    loadMaterials();
     loadGroups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadGroups = async () => {
     try {
       const data = await apiClient.getMaterialGroups();
-      // Same degrade-to-undefined guard as loadMaterials — keep previous state.
+      // Same degrade-to-undefined guard as the rows' load — keep previous state.
       if (!data) return;
       setMaterialGroups(data);
     } catch (error) {
@@ -126,34 +130,15 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
     }
   };
 
-  const loadMaterials = async (includeArchived = showArchived) => {
-    try {
-      const data = await apiClient.getAllMaterials({ includeArchived });
-      if (!data) {
-        // GET degraded to undefined after retries — keep previous state instead
-        // of crashing the sort memos with a non-iterable value.
-        if (materials.length === 0) {
-          toast.error(t('materials.loadError'), {
-            description: t('common.reloadPage'),
-          });
-        }
-        return;
-      }
-      setMaterials(data);
-    } catch (error) {
-      console.error('Failed to load materials:', error);
-    }
-  };
-
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      if (editingMaterial) {
-        await apiClient.updateMaterialResource(editingMaterial.id, values);
+      if (dialog.editing) {
+        await apiClient.updateMaterialResource(dialog.editing.id, values);
       } else {
         await apiClient.createMaterialResource(values);
       }
-      await loadMaterials();
-      closeDialog();
+      await inventory.reload();
+      dialog.close();
     } catch (error) {
       console.error('Failed to save material:', error);
       toast.error(t('materials.saveError'), {
@@ -163,8 +148,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   });
 
   const handleEdit = (material: ApiMaterialResource) => {
-    setEditingMaterial(material);
-    form.reset({
+    dialog.open(material, {
       name: material.name,
       type: material.type || '',
       status:
@@ -174,84 +158,10 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
       location: material.location || '',
       consumable: material.consumable ?? false,
     });
-    setIsDialogOpen(true);
   };
 
   const handleOpenCreate = () => {
-    setEditingMaterial(null);
-    form.reset(materialFormDefaults);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteClick = (material: ApiMaterialResource) => {
-    setMaterialToDelete(material);
-    setDeleteDialogOpen(true);
-  };
-
-  /** The normal way to retire a device: reversible, and it really does leave the
-   *  board. The dialog that leads here names both of those facts. Like the purge
-   *  below, the API refuses with 409 while the device stands on an open Einsatz
-   *  — that answer gets its own sentence instead of the generic failure. */
-  const handleArchiveConfirm = async () => {
-    if (!materialToDelete) return;
-    try {
-      await apiClient.archiveMaterialResource(materialToDelete.id);
-      await loadMaterials();
-    } catch (error) {
-      console.error('Failed to archive material:', error);
-      toast.error(t('lifecycle.archiveError'), {
-        description: ApiError.isConflictError(error)
-          ? t('lifecycle.archiveInUseDescription')
-          : t('materials.deleteErrorDescription'),
-      });
-    } finally {
-      setMaterialToDelete(null);
-    }
-  };
-
-  const handleRestore = async (material: ApiMaterialResource) => {
-    try {
-      await apiClient.restoreMaterialResource(material.id);
-      await loadMaterials();
-    } catch (error) {
-      console.error('Failed to restore material:', error);
-      toast.error(t('lifecycle.restoreError'));
-    }
-  };
-
-  /** The rare way. The API refuses with 409 and a German sentence when the device
-   *  stood on a live Einsatz — surface that sentence rather than inventing one. */
-  const handlePurgeConfirm = async () => {
-    if (!materialToPurge) return;
-    try {
-      await apiClient.deleteMaterialResource(materialToPurge.id, { permanent: true });
-      await loadMaterials();
-    } catch (error) {
-      console.error('Failed to delete material permanently:', error);
-      toast.error(t('lifecycle.purgeError'), {
-        description: error instanceof ApiError ? error.message : t('materials.deleteErrorDescription'),
-      });
-    } finally {
-      setMaterialToPurge(null);
-    }
-  };
-
-  /** «Nicht einsatzbereit» — the same single field the board's right-click menu
-   *  writes, sent as the same `{ out_of_service }` PUT. */
-  const handleToggleOutOfService = async (material: ApiMaterialResource, outOfService: boolean) => {
-    try {
-      const updated = await apiClient.updateMaterialResource(material.id, { out_of_service: outOfService });
-      setMaterials((list) => list.map((m) => (m.id === material.id ? updated : m)));
-    } catch (error) {
-      console.error('Failed to change material readiness:', error);
-      toast.error(t('lifecycle.notReadyError'));
-    }
-  };
-
-  const toggleShowArchived = async () => {
-    const next = !showArchived;
-    setShowArchived(next);
-    await loadMaterials(next);
+    dialog.open(null, materialFormDefaults);
   };
 
   // Derive unique types and locations from existing materials for dynamic selects
@@ -265,72 +175,12 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
     return Array.from(locs).sort();
   }, [materials]);
 
-  // Handle column header click for sorting
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
-
-  // Sort materials based on current sort settings. Archived rows always sink to
-  // the bottom whatever the column: they are a second list, not a peer of the
-  // inventory above them.
-  const sortedMaterials = useMemo(() => {
-    const stateRank: Record<RowState, number> = { available: 0, outOfService: 1, archived: 2 };
-    return [...materials].sort((a, b) => {
-      if (!!a.archived_at !== !!b.archived_at) return a.archived_at ? 1 : -1;
-
-      let aVal: string | number;
-      let bVal: string | number;
-
-      switch (sortColumn) {
-        case 'name':
-          aVal = a.name.toLowerCase();
-          bVal = b.name.toLowerCase();
-          break;
-        case 'type':
-          aVal = (a.type || '').toLowerCase();
-          bVal = (b.type || '').toLowerCase();
-          break;
-        case 'location':
-          aVal = (a.location || '').toLowerCase();
-          bVal = (b.location || '').toLowerCase();
-          break;
-        case 'status':
-          aVal = stateRank[rowState(a)];
-          bVal = stateRank[rowState(b)];
-          break;
-        default:
-          return 0;
-      }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [materials, sortColumn, sortDirection]);
-
-  const archivedCount = useMemo(() => materials.filter((m) => m.archived_at).length, [materials]);
-
   /** groupId → module name, for the «Modul» column. */
   const groupNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of materialGroups) map.set(group.id, group.name);
     return map;
   }, [materialGroups]);
-
-  // Render sort indicator
-  const SortIndicator = ({ column }: { column: SortColumn }) => {
-    if (sortColumn !== column) return null;
-    return sortDirection === 'asc' ? (
-      <ArrowUp className="ml-1 h-3 w-3 inline" />
-    ) : (
-      <ArrowDown className="ml-1 h-3 w-3 inline" />
-    );
-  };
 
   // Extract unique locations with their sort orders and counts
   const locationCategories = useMemo(() => {
@@ -367,7 +217,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
         sort_order: cat.sort_order,
       })),
     });
-    await loadMaterials();
+    await inventory.reload();
   };
 
   const isSaving = form.formState.isSubmitting;
@@ -394,7 +244,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
             subtitle={
               <Link
                 href="/settings?section=notifications"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-foreground underline underline-offset-2 hover:decoration-2"
               >
                 {t('materials.thresholdsLink')}
                 <ArrowRight className="h-3 w-3" />
@@ -410,11 +260,11 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
             }
           >
           <DemoLock active={demoMode} className="space-y-4">
-            <Dialog open={isDialogOpen} onOpenChange={guard.handleOpenChange}>
+            <Dialog open={dialog.isOpen} onOpenChange={guard.handleOpenChange}>
               <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                   <DialogTitle>
-                    {editingMaterial ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
+                    {dialog.editing ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
                   </DialogTitle>
                 </DialogHeader>
                 {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.
@@ -580,7 +430,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       </Button>
                       <Button type="submit" disabled={isSaving}>
                         {isSaving && <ShellLoader className="size-4" />}
-                        {editingMaterial ? t('common.update') : t('common.create')}
+                        {dialog.editing ? t('common.update') : t('common.create')}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -588,68 +438,38 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
               </DialogContent>
             </Dialog>
 
-          {/* The archive is opened, not filtered: off, the endpoint returns no
-              archived rows at all. The count on the right is the only hint that
-              anything is behind the toggle. */}
-          <div className="flex items-center justify-between gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <Checkbox checked={showArchived} onCheckedChange={() => { void toggleShowArchived(); }} />
-              {t('lifecycle.showArchived')}
-            </label>
-            {showArchived && (
-              <span className="text-xs text-muted-foreground">
-                {t('lifecycle.archivedCount', { count: archivedCount })}
-              </span>
-            )}
-          </div>
+          <ArchiveToggle inventory={inventory} />
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('name')}
-                >
-                  {t('materials.deviceHead')}<SortIndicator column="name" />
-                </TableHead>
+                <SortableHead sort={sort} column="name">
+                  {t('materials.deviceHead')}
+                </SortableHead>
                 {/* One word per axis: Typ = what it is, Standort = where it
                     lies, Modul = what it belongs with. The «Kategorie» head that
                     used to sit here showed the location and the form called the
                     same field «Standort». */}
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('type')}
-                >
-                  {t('common.type')}<SortIndicator column="type" />
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('location')}
-                >
-                  {t('common.location')}<SortIndicator column="location" />
-                </TableHead>
+                <SortableHead sort={sort} column="type">
+                  {t('common.type')}
+                </SortableHead>
+                <SortableHead sort={sort} column="location">
+                  {t('common.location')}
+                </SortableHead>
                 <TableHead>{t('materials.moduleHead')}</TableHead>
-                <TableHead>{t('lifecycle.notReady')}</TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
-                  onClick={() => handleSort('status')}
-                >
-                  {t('common.status')}<SortIndicator column="status" />
-                </TableHead>
-                <TableHead className="text-right">{t('common.actions')}</TableHead>
+                <LifecycleHeads sort={sort} />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedMaterials.length === 0 && (
+              {inventory.sorted.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                     {t('materials.empty')}
                   </TableCell>
                 </TableRow>
               )}
-              {sortedMaterials.map((material) => {
-                const state = rowState(material);
-                const isArchived = state === 'archived';
+              {inventory.sorted.map((material) => {
+                const isArchived = rowState(material) === 'archived';
                 return (
                 <TableRow key={material.id} className={isArchived ? 'bg-muted/40 text-muted-foreground' : undefined}>
                   <TableCell className="font-medium">
@@ -675,94 +495,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                       <span className="text-muted-foreground">–</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {isArchived ? (
-                      <span className="text-muted-foreground">–</span>
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        <Checkbox
-                          checked={material.out_of_service}
-                          onCheckedChange={(checked) => { void handleToggleOutOfService(material, checked === true); }}
-                          aria-label={t('lifecycle.notReadyAria', { name: material.name })}
-                        />
-                        {material.out_of_service && material.out_of_service_since && (
-                          <span className="text-xs text-muted-foreground">
-                            {t('lifecycle.notReadySince', { date: shortDate(material.out_of_service_since) })}
-                          </span>
-                        )}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {/* Word + glyph, never colour on its own — three states that
-                        have to stay apart on a projector and in greyscale. */}
-                    {isArchived ? (
-                      <span className="space-y-0.5">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                          <Archive className="size-3.5" />
-                          {t('lifecycle.archivedOn', { date: shortDate(material.archived_at) })}
-                        </span>
-                        <span className="block text-2xs text-muted-foreground">
-                          {material.assignment_count
-                            ? t('lifecycle.stoodOnIncidents', { count: material.assignment_count })
-                            : t('lifecycle.neverOnIncident')}
-                        </span>
-                      </span>
-                    ) : state === 'outOfService' ? (
-                      <span className="inline-flex items-center gap-1.5 rounded border border-dashed border-muted-foreground/60 px-2 py-1 text-xs font-medium text-muted-foreground">
-                        <Ban className="size-3.5" />
-                        {t('lifecycle.notReady')}
-                      </span>
-                    ) : /* Empty when the device is simply ready — the cell
-                           speaks only for exceptions, same as the fleet list. */ null}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isArchived ? (
-                      <span className="inline-flex gap-1">
-                        <Button variant="outline" size="sm" onClick={() => { void handleRestore(material); }}>
-                          <ArchiveRestore className="size-3.5" />
-                          {t('lifecycle.restore')}
-                        </Button>
-                        {/* Greyed on the API's own answer (`can_delete`), with the
-                            reason in the title — the button and the 409 rule can
-                            never drift apart because they read the same field. */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={material.can_delete === false}
-                          title={
-                            material.can_delete === false
-                              ? t('lifecycle.stoodOnIncidents', { count: material.assignment_count ?? 0 })
-                              : undefined
-                          }
-                          onClick={() => setMaterialToPurge(material)}
-                          className={material.can_delete === false ? undefined : 'text-destructive hover:bg-destructive/10 hover:text-destructive'}
-                        >
-                          <Trash2 className="size-3.5" />
-                          {t('lifecycle.deletePermanently')}
-                        </Button>
-                      </span>
-                    ) : (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(material)}
-                        >
-                          <Edit className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(material)}
-                          title={t('lifecycle.archive')}
-                          aria-label={t('lifecycle.archive')}
-                        >
-                          <Archive className="size-3.5" />
-                        </Button>
-                      </>
-                    )}
-                  </TableCell>
+                  <LifecycleCells row={material} actions={inventory} onEdit={handleEdit} />
                 </TableRow>
                 );
               })}
@@ -777,7 +510,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
             <MaterialGroupSettings
               groups={materialGroups}
               materials={materials}
-              onRefresh={() => { loadGroups(); loadMaterials(); }}
+              onRefresh={() => { loadGroups(); inventory.reload(); }}
             />
           </DemoLock>
         </TabsContent>
@@ -793,53 +526,17 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
         </TabsContent>
       </Tabs>
 
-      {/* Archiving is the normal way out, and the dialog says what it actually
-          does. The old one promised «kann nicht rückgängig gemacht werden» and
-          then only set a status, leaving the row on the board. */}
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title={t('materials.archiveTitle', { name: materialToDelete?.name ?? '' })}
-        description={t('materials.archiveDescription')}
-        confirmText={t('lifecycle.archive')}
-        onConfirm={handleArchiveConfirm}
-      >
-        <div className="rounded-lg border p-3 text-sm">
-          <p className="flex items-start gap-2">
-            <CircleSlash className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {t('lifecycle.archiveConsequenceDrop')}
-          </p>
-          <p className="mt-2 flex items-start gap-2">
-            <ArchiveRestore className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {t('lifecycle.archiveConsequenceRestore')}
-          </p>
-          <p className="mt-3 text-xs text-muted-foreground">{t('materials.archiveHint')}</p>
-        </div>
-      </ConfirmDialog>
-
-      {/* The rare way: typos and test entries. Only reachable from the archive,
-          and only for devices the API says may go — see `can_delete`. */}
-      <ConfirmDialog
-        open={!!materialToPurge}
-        onOpenChange={(open) => { if (!open) setMaterialToPurge(null); }}
-        variant="destructive"
-        title={t('materials.purgeTitle', { name: materialToPurge?.name ?? '' })}
-        description={t('materials.purgeDescription')}
-        confirmText={t('lifecycle.deletePermanently')}
-        onConfirm={handlePurgeConfirm}
-      >
-        <div className="rounded-lg border p-3 text-sm">
-          <p className="flex items-start gap-2">
-            <CircleSlash className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {t('lifecycle.purgeConsequenceLists')}
-          </p>
-          <p className="mt-2 flex items-start gap-2">
-            <CircleSlash className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {t('lifecycle.purgeConsequenceNoReturn')}
-          </p>
-          <p className="mt-3 text-xs text-muted-foreground">{t('materials.purgeHint')}</p>
-        </div>
-      </ConfirmDialog>
+      <ArchiveDialogs
+        inventory={inventory}
+        copy={{
+          archiveTitle: t('materials.archiveTitle', { name: inventory.archiveTarget?.name ?? '' }),
+          archiveDescription: t('materials.archiveDescription'),
+          archiveHint: t('materials.archiveHint'),
+          purgeTitle: t('materials.purgeTitle', { name: inventory.purgeTarget?.name ?? '' }),
+          purgeDescription: t('materials.purgeDescription'),
+          purgeHint: t('materials.purgeHint'),
+        }}
+      />
 
       <UnsavedChangesDialog {...guard.dialogProps} />
     </div>

@@ -8,8 +8,8 @@ import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const transferAssignments = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const getVehicles = vi.hoisted(() => vi.fn().mockResolvedValue([]))
+// The board sync's fleet (`useOperations().vehicles`) – the quick-assign shortcuts count it.
+const fleet = vi.hoisted(() => ({ vehicles: [] as Array<{ id: string; name: string; type: string; status: string; display_order: number }> }))
 const sourcePerson = vi.hoisted((): Person => ({
   id: "person-1",
   name: "Reko Eins",
@@ -25,6 +25,7 @@ vi.mock("@/lib/contexts/operations-context", () => ({
     setOperations: vi.fn(),
     refreshOperations,
     personnel: [],
+    vehicles: fleet.vehicles,
   }),
 }))
 vi.mock("@/lib/contexts/event-context", () => ({
@@ -74,9 +75,7 @@ const getIncidentParticipants = vi.hoisted(() => vi.fn().mockResolvedValue({ par
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
-    getVehicles,
     getIncidents: vi.fn().mockResolvedValue([]),
-    transferAssignments,
     updateAssignment: vi.fn(),
     getIncidentTimeline,
     getIncidentParticipants,
@@ -128,10 +127,6 @@ vi.mock("@/components/kanban/schadenplatz-rapport-section", () => ({
       Schadenplatz-Rapport-Formular
     </div>
   ),
-}))
-vi.mock("@/components/incidents/transfer-incident-dialog", () => ({
-  TransferIncidentDialog: ({ open, onTransfer }: { open: boolean; onTransfer: (id: string) => Promise<void> }) =>
-    open ? <button onClick={() => onTransfer("incident-2")}>Transfer bestätigen</button> : null,
 }))
 vi.mock("@/components/incidents/assign-reko-dialog", () => ({ AssignRekoDialog: () => null }))
 // NOT mocked: the provenance blocks are the thing under test, and the route's
@@ -198,9 +193,7 @@ beforeEach(() => {
     clear: () => storage.clear(),
   })
   refreshOperations.mockClear()
-  transferAssignments.mockClear()
-  getVehicles.mockClear()
-  getVehicles.mockResolvedValue([])
+  fleet.vehicles = []
   getIncidentTimeline.mockClear()
   getIncidentTimeline.mockResolvedValue({ events: [] })
   getIncidentParticipants.mockClear()
@@ -256,8 +249,9 @@ describe("OperationDetailContent", () => {
     expect(screen.getByText("Event-Rekos von Reko Eins")).toBeInTheDocument()
   })
 
-  it("closes the transfer dialog but keeps incident detail open after success", async () => {
+  it("hands «Ressourcen übertragen» to the page's dialog layer", async () => {
     const user = userEvent.setup()
+    const onTransferResources = vi.fn()
 
     renderWithIntl(
       <OperationDetailContent
@@ -265,6 +259,7 @@ describe("OperationDetailContent", () => {
         layout="modal"
         materials={[]}
         onUpdate={vi.fn()}
+        onTransferResources={onTransferResources}
       />,
     )
 
@@ -272,13 +267,7 @@ describe("OperationDetailContent", () => {
     // block in the Übersicht — it acts on the resources listed right above it,
     // so it no longer hides in the ⋯ menu.
     await user.click(screen.getByRole("button", { name: "Ressourcen übertragen" }))
-    const confirm = await screen.findByRole("button", { name: "Transfer bestätigen" })
-    await user.click(confirm)
-
-    await waitFor(() => expect(refreshOperations).toHaveBeenCalledOnce())
-    expect(transferAssignments).toHaveBeenCalledWith("incident-1", "incident-2")
-    expect(screen.queryByRole("button", { name: "Transfer bestätigen" })).not.toBeInTheDocument()
-    expect(screen.getByTestId("operation-detail-content")).toBeInTheDocument()
+    expect(onTransferResources).toHaveBeenCalledWith("incident-1")
   })
 
   it("keeps viewer details read-only while retaining non-mutating information", async () => {
@@ -457,10 +446,10 @@ describe("OperationDetailContent", () => {
   // whole incident plus its resources, and CI is slower than a laptop.
   it("brings Übersicht forward when a shortcut targets a control on it", async () => {
     const user = userEvent.setup()
-    getVehicles.mockResolvedValue([
-      { id: "v1", name: "TLF", type: "TLF", display_order: 1 },
-      { id: "v2", name: "Pio", type: "Pio", display_order: 2 },
-    ])
+    fleet.vehicles = [
+      { id: "v1", name: "TLF", type: "TLF", status: "available", display_order: 1 },
+      { id: "v2", name: "Pio", type: "Pio", status: "available", display_order: 2 },
+    ]
 
     renderWithIntl(
       <OperationDetailContent
@@ -472,8 +461,6 @@ describe("OperationDetailContent", () => {
         onRemoveVehicle={vi.fn()}
       />,
     )
-
-    await waitFor(() => expect(getVehicles).toHaveBeenCalled())
 
     // Every mutating shortcut now aims at a control on Übersicht: priority,
     // "zu Fuss" and the quick-assign fleet all sit there. Fired from another
@@ -967,7 +954,7 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
     expect(ownScope.queryByText("Fahrzeuge (0)")).toBeNull()
 
     // Visible is only half of it: the operator has to be able to release them.
-    await user.click(ownScope.getByTitle("Person entfernen"))
+    await user.click(ownScope.getByTitle("Person freigeben"))
     expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Beat Kunz")
   })
 
@@ -1057,7 +1044,7 @@ describe("OperationDetailContent · chip menu on touch", () => {
     await screen.findByRole("menu", { name: "Frei Anna" })
     expect(screen.getAllByRole("menuitem").map((row) => row.textContent)).toEqual([
       "ELAls Einsatzleiter markieren",
-      "Vom Einsatz entfernen",
+      "Vom Einsatz freigeben",
     ])
     await user.click(screen.getByRole("menuitem", { name: "Als Einsatzleiter markieren" }))
     await waitFor(() =>
@@ -1072,7 +1059,7 @@ describe("OperationDetailContent · chip menu on touch", () => {
     const menu = await screen.findByRole("menu", { name: "Muster Hans" })
     expect(menu).toHaveTextContent("Einsatzleiter")
     expect(screen.queryByRole("menuitem", { name: "Als Einsatzleiter markieren" })).toBeNull()
-    await user.click(screen.getByRole("menuitem", { name: "Vom Einsatz entfernen" }))
+    await user.click(screen.getByRole("menuitem", { name: "Vom Einsatz freigeben" }))
     expect(onRemoveCrew).toHaveBeenCalledWith("incident-1", "Muster Hans")
   })
 })

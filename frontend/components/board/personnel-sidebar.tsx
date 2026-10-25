@@ -15,7 +15,6 @@ import { useMemo, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
@@ -230,7 +229,7 @@ export function PersonnelSidebar({
                 ['bound', availabilityGroupedPersonnel.bound],
               ] as const).map(([kind, people]) => people.length === 0 ? null : (
                 <div key={kind}>
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="mb-1 type-label text-muted-foreground">
                     {kind === 'free'
                       ? tDash('groupFree', { count: people.length })
                       : tDash('groupBound', { count: people.length })}
@@ -300,15 +299,16 @@ export function PersonnelSidebar({
               is the line read in half a second, not a statistic. */}
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
             <div className="flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 type-caption text-emerald-700 dark:text-emerald-400">
                 <Check className="size-3.5" />
                 {tCommon('rosterFree', { count: rosterSummary.free })}
               </span>
               <span className="text-muted-foreground">{tCommon('rosterOf', { total: rosterSummary.total })}</span>
               {rosterSummary.bound > 0 && (
-                <Badge variant="outline" className="border-amber-200 text-amber-700 dark:border-amber-800/50 dark:text-amber-400">
+                // Plain muted text: «gebunden» is a fact, not a warning (VISUAL-03).
+                <span className="text-muted-foreground">
                   {tCommon('rosterBound', { count: rosterSummary.bound })}
-                </Badge>
+                </span>
               )}
             </div>
           )}

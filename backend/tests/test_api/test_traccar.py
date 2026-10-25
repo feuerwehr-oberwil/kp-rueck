@@ -106,7 +106,7 @@ async def test_positions_not_configured(viewer_client: AsyncClient):
         assert response.status_code == 503
 
         data = response.json()
-        assert "not configured" in data["detail"].lower()
+        assert "nicht konfiguriert" in data["detail"].lower()
 
 
 @pytest.mark.asyncio

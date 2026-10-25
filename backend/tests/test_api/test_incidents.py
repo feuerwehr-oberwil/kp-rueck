@@ -17,7 +17,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditLog, Event, Incident, User
+from app.models import AuditLog, Event, Incident, IncidentAssignment, StatusTransition, User
 
 # ============================================
 # Fixtures
@@ -134,7 +134,7 @@ async def test_get_incident_not_found(editor_client: AsyncClient):
     """Test getting a non-existent incident returns 404."""
     response = await editor_client.get(f"/api/incidents/{uuid4()}")
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    assert "nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -229,7 +229,7 @@ async def test_create_incident_invalid_event(editor_client: AsyncClient):
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
     assert response.status_code == 404
-    assert "event not found" in response.json()["detail"].lower()
+    assert "ereignis nicht gefunden" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -381,6 +381,137 @@ async def test_update_status_success(editor_client: AsyncClient, test_incident: 
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "reko"
+
+
+async def _transitions(db_session: AsyncSession, incident_id) -> list[tuple[str, str, str | None]]:
+    rows = await db_session.execute(
+        select(StatusTransition).where(StatusTransition.incident_id == incident_id).order_by(StatusTransition.timestamp)
+    )
+    return [(t.from_status, t.to_status, t.seen_status) for t in rows.scalars()]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_stale_status_move_is_refused_with_who_and_when(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident
+):
+    """Two operators, seconds apart (TESTS-01, owner pick B): the second move, sent from a
+    board that still showed «Eingegangen», is refused and changes nothing. The 409 says
+    where the card is now, who moved it and how long ago – what «Gerade geändert» shows."""
+    url = f"/api/incidents/{test_incident.id}/status"
+    assert (await editor_client.post(url, json={"from_status": "incoming", "to_status": "reko"})).status_code == 200
+
+    stale = await editor_client.post(url, json={"from_status": "incoming", "to_status": "enroute"})
+
+    assert stale.status_code == 409
+    body = stale.json()
+    assert body["code"] == "incident_status_changed"
+    assert body["params"]["status"] == "reko"
+    assert body["params"]["changed_by"] == "fixture_editor"
+    assert 0 <= body["params"]["seconds_ago"] < 60
+    assert "released" not in body["params"]
+    assert await _transitions(db_session, test_incident.id) == [("incoming", "reko", None)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_confirmed_stale_move_is_applied_and_flagged(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident
+):
+    """«Trotzdem …» resends with `override_status` = the status the 409 named: the move is
+    applied, and the transition, the audit row and the Verlauf keep what the board showed."""
+    url = f"/api/incidents/{test_incident.id}/status"
+    await editor_client.post(url, json={"from_status": "incoming", "to_status": "reko"})
+
+    confirmed = await editor_client.post(
+        url, json={"from_status": "incoming", "to_status": "enroute", "override_status": "reko"}
+    )
+
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "enroute"
+    assert await _transitions(db_session, test_incident.id) == [
+        ("incoming", "reko", None),
+        ("reko", "enroute", "incoming"),
+    ]
+    audits = (
+        await db_session.execute(
+            select(AuditLog)
+            .where(AuditLog.resource_id == test_incident.id, AuditLog.action_type == "status_change")
+            .order_by(AuditLog.timestamp)
+        )
+    ).scalars()
+    assert [a.changes_json.get("seen_status") for a in audits] == [None, "incoming"]
+
+    timeline = (await editor_client.get(f"/api/incidents/{test_incident.id}/timeline")).json()["events"]
+    moves = {e["to_status"]: e for e in timeline if e["event_type"] == "status_change"}
+    assert moves["enroute"]["seen_status"] == "incoming"
+    assert moves["enroute"]["stale_seconds"] is not None
+    assert moves["reko"]["seen_status"] is None
+    assert moves["reko"]["stale_seconds"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_override_for_a_state_that_moved_on_is_refused_again(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident
+):
+    """The confirm is for the state the operator was shown: a third move in between makes it stale too."""
+    url = f"/api/incidents/{test_incident.id}/status"
+    await editor_client.post(url, json={"from_status": "incoming", "to_status": "reko"})
+    await editor_client.post(url, json={"from_status": "reko", "to_status": "reko_done"})
+
+    late = await editor_client.post(
+        url, json={"from_status": "incoming", "to_status": "enroute", "override_status": "reko"}
+    )
+
+    assert late.status_code == 409
+    assert late.json()["params"]["status"] == "reko_done"
+    assert len(await _transitions(db_session, test_incident.id)) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_board_patch_refuses_a_stale_move_and_names_who_a_reopen_puts_back(
+    editor_client: AsyncClient, db_session: AsyncSession, test_incident: Incident, test_personnel
+):
+    """The board moves cards through PATCH: same rule. A stale reopen of a closed Einsatz
+    names the crew the completion released, because «Trotzdem» assigns them again."""
+    await editor_client.post(
+        f"/api/incidents/{test_incident.id}/assign",
+        json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
+    )
+    url = f"/api/incidents/{test_incident.id}"
+    assert (await editor_client.patch(url, json={"status": "complete", "from_status": "incoming"})).status_code == 200
+
+    stale = await editor_client.patch(url, json={"status": "enroute", "from_status": "incoming", "description": "x"})
+
+    assert stale.status_code == 409
+    assert stale.json()["params"]["status"] == "complete"
+    assert stale.json()["params"]["released"] == test_personnel.name
+    await db_session.refresh(test_incident)
+    assert test_incident.status == "complete"
+    assert test_incident.description != "x"
+
+    confirmed = await editor_client.patch(
+        url, json={"status": "enroute", "from_status": "incoming", "override_status": "complete"}
+    )
+    assert confirmed.status_code == 200
+    active = await db_session.scalars(
+        select(IncidentAssignment.resource_id).where(
+            IncidentAssignment.incident_id == test_incident.id, IncidentAssignment.unassigned_at.is_(None)
+        )
+    )
+    assert list(active) == [test_personnel.id]
+    assert (await _transitions(db_session, test_incident.id))[-1] == ("complete", "enroute", "incoming")
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_status_patch_without_from_status_is_not_checked(editor_client: AsyncClient, test_incident: Incident):
+    """Scripts and older clients that never said what they saw keep working as before."""
+    response = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={"status": "active"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "active"
 
 
 @pytest.mark.asyncio

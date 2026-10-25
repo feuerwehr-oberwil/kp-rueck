@@ -9,11 +9,10 @@ import { SearchInput } from '@/components/ui/search-input'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { CheckCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
+import { toastLifetime } from '@/lib/toast-lifetime'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { wsClient } from '@/lib/websocket-client'
-import { RESOURCE_STATE_DOT_CLASSES } from '@/lib/resource-status'
 import { sortByName } from '@/lib/roster-order'
-import { cn } from '@/lib/utils'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
@@ -102,21 +101,50 @@ export default function CheckInPage() {
     }
 
     togglingRef.current.add(person.id)
+    try {
+      const checkingOut = person.checked_in
+      if (!(await setCheckedIn(person, !checkingOut))) return
+      if (checkingOut) {
+        // Check-in stays one tap; checking out is what a thumb brushing the list
+        // does by accident, so it can be taken back from the toast.
+        // A bare toast(), as the board's release undo: phones are a quiet surface where
+        // toast.success/info are muted (notification-toasts.tsx), and this one is not
+        // noise but the way back. So it carries its lifetime itself.
+        let used = false
+        toast(t('checkedOut', { name: person.name }), {
+          ...toastLifetime(6000),
+          action: {
+            label: t('undo'),
+            onClick: () => {
+              if (used) return
+              used = true
+              void setCheckedIn(person, true)
+            },
+          },
+        })
+      } else {
+        // The next person at the door starts from the whole list, not from «Acker».
+        setSearchTerm('')
+      }
+    } finally {
+      // Small cooldown so a rapid second tap doesn't immediately re-toggle
+      setTimeout(() => togglingRef.current.delete(person.id), 500)
+    }
+  }
+
+  /** One check-in or check-out, applied locally once the server took it. False on failure. */
+  const setCheckedIn = async (person: ApiPersonnelListItem, checkedIn: boolean): Promise<boolean> => {
+    if (!token) return false
     // Skip the next WebSocket refresh since we do an optimistic update
     skipNextRefreshRef.current = true
-
     try {
-      if (person.checked_in) {
-        await apiClient.checkOutPersonnel(person.id, token)
-      } else {
+      if (checkedIn) {
         await apiClient.checkInPersonnel(person.id, token)
+      } else {
+        await apiClient.checkOutPersonnel(person.id, token)
       }
-      // Optimistic update
-      setPersonnel(prev =>
-        prev.map(p =>
-          p.id === person.id ? { ...p, checked_in: !p.checked_in } : p
-        )
-      )
+      setPersonnel(prev => prev.map(p => (p.id === person.id ? { ...p, checked_in: checkedIn } : p)))
+      return true
     } catch (error) {
       console.error('Check-in toggle failed:', error)
       toast.error(t('statusError'), {
@@ -125,9 +153,7 @@ export default function CheckInPage() {
       skipNextRefreshRef.current = false // Allow refresh on error to get correct state
       // Reload to get correct state (background refresh)
       loadPersonnel(false)
-    } finally {
-      // Small cooldown so a rapid second tap doesn't immediately re-toggle
-      setTimeout(() => togglingRef.current.delete(person.id), 500)
+      return false
     }
   }
 
@@ -167,7 +193,7 @@ export default function CheckInPage() {
       <div className="max-w-md mx-auto px-4 pt-4 mb-4">
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>{t('statsTotal', { count: stats.total })}</span>
-          <span className="text-blue-500 font-semibold">
+          <span className="text-sel-foreground font-semibold">
             {t('statsPresent', { count: stats.checkedIn })}
           </span>
           <span>{t('statsAbsent', { count: stats.total - stats.checkedIn })}</span>
@@ -231,9 +257,9 @@ export default function CheckInPage() {
                 w-full flex items-center gap-4 p-4 rounded-lg border-2 transition-all
                 ${
                   isDisabled
-                    ? 'border-amber-500 bg-amber-500/10 cursor-not-allowed opacity-75'
+                    ? 'border-border bg-muted/40 cursor-not-allowed opacity-75'
                     : person.checked_in
-                    ? 'border-blue-500 bg-blue-500/10'
+                    ? 'border-sel-edge bg-sel-wash'
                     : 'border-border bg-card hover:border-muted-foreground'
                 }
               `}
@@ -241,7 +267,7 @@ export default function CheckInPage() {
               {/* Check Icon */}
               <div className="flex-shrink-0">
                 {person.checked_in ? (
-                  <CheckCircle className="h-8 w-8 text-blue-500" />
+                  <CheckCircle className="h-8 w-8 text-sel-foreground" />
                 ) : (
                   <Circle className="h-8 w-8 text-muted-foreground" />
                 )}
@@ -255,11 +281,11 @@ export default function CheckInPage() {
               {/* Status Badge */}
               <div className="flex-shrink-0">
                 {person.is_assigned ? (
-                  <span className={cn(RESOURCE_STATE_DOT_CLASSES.assigned, "text-white px-3 py-1 rounded-full text-sm font-semibold")}>
+                  <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
                     {t('badgeAssigned')}
                   </span>
                 ) : person.checked_in ? (
-                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="bg-sel-wash text-sel-foreground px-3 py-1 rounded-full text-sm font-semibold">
                     {t('badgeCheckedIn')}
                   </span>
                 ) : (

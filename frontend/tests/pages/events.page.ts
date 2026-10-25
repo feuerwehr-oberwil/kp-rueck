@@ -131,7 +131,9 @@ export class EventsPage extends BasePage {
    */
   async submitEvent() {
     await this.createButton.click();
-    await this.page.waitForTimeout(500); // Wait for dialog to close
+    // A created event is selected and opens the board – that, not a fixed pause, says
+    // the POST went through.
+    await expect(this.page).toHaveURL('/');
   }
 
   /**
@@ -185,6 +187,7 @@ export class EventsPage extends BasePage {
     // Confirm in dialog
     await expect(this.archiveDialog).toBeVisible();
     await this.archiveConfirmButton.click();
+    await expect(this.archiveDialog).toBeHidden();
   }
 
   /**
@@ -195,7 +198,7 @@ export class EventsPage extends BasePage {
     const card = this.eventCard(name);
     const unarchiveButton = card.locator('button:has-text("Wiederherstellen")');
     await unarchiveButton.click();
-    await this.page.waitForTimeout(500);
+    await expect(unarchiveButton).toBeHidden();
   }
 
   /**
@@ -211,14 +214,15 @@ export class EventsPage extends BasePage {
     // Confirm in dialog
     await expect(this.deleteDialog).toBeVisible();
     await this.deleteConfirmButton.click();
+    await expect(this.deleteDialog).toBeHidden();
   }
 
   /**
    * Search for events
    */
   async searchEvents(query: string) {
+    // No pause for the debounce: the assertions that follow retry until the list settles.
     await this.searchInput.fill(query);
-    await this.page.waitForTimeout(300); // Debounce
   }
 
   /**
@@ -226,7 +230,6 @@ export class EventsPage extends BasePage {
    */
   async clearSearch() {
     await this.searchInput.clear();
-    await this.page.waitForTimeout(300);
   }
 
   /**

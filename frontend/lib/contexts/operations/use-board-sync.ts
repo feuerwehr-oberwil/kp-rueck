@@ -1,8 +1,7 @@
 "use client"
 
 import type { useEvent } from "../event-context"
-import type { usePersonnel } from "../personnel-context"
-import type { useMaterials } from "../materials-context"
+import type { useMaterialList, usePersonnelList } from "./use-resource-lists"
 import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type MutableRefObject } from "react"
 import { apiClient, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
 import { setGlobalHomeCity } from "@/lib/utils"
@@ -28,16 +27,26 @@ function answered<T>(value: T | undefined): T {
   return value
 }
 
+/**
+ * `next`, unless it says exactly what `prev` says – then `prev`. The fleet and
+ * the settings come back with every board load (every poll and broadcast) and
+ * rarely change; keeping the identity lets their readers (`useVehicleShortcuts`,
+ * the map, the driver map) memoise on them.
+ */
+function keepIfSame<T>(prev: T, next: T): T {
+  return JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+}
+
 /** What the board's loader needs from the provider: who is signed in, which
- *  Ereignis, the personnel/material contexts, and the provider's own state
+ *  Ereignis, the roster/depot loaders, and the provider's own state
  *  setters plus the mutation-cooldown refs it must respect. */
 export interface BoardSyncInput {
   authLoading: boolean
   isAuthenticated: boolean
   selectedEvent: ReturnType<typeof useEvent>["selectedEvent"]
   isEventLoaded: boolean
-  refreshPersonnel: ReturnType<typeof usePersonnel>["refreshPersonnel"]
-  refreshMaterials: ReturnType<typeof useMaterials>["refreshMaterials"]
+  refreshPersonnel: ReturnType<typeof usePersonnelList>["refreshPersonnel"]
+  refreshMaterials: ReturnType<typeof useMaterialList>["refreshMaterials"]
   setPersonnel: Dispatch<SetStateAction<Person[]>>
   setMaterials: Dispatch<SetStateAction<Material[]>>
   setOperations: Dispatch<SetStateAction<Operation[]>>
@@ -164,6 +173,8 @@ export function useBoardSync(input: BoardSyncInput) {
 
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
+      setPersonnel([])
+      setMaterials([])
       // No Ereignis, no board to be fresh or stale about.
       boardEventIdRef.current = null
       setLastSyncAt(null)
@@ -328,10 +339,10 @@ export function useBoardSync(input: BoardSyncInput) {
         if (restliste) setMaterialOnSite(toMaterialOnSite(restliste))
         setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
         setSpecialFunctions(specialFunctions)
-        setVehicles(vehiclesList)
+        setVehicles((prev) => keepIfSame(prev, vehiclesList))
         setIncidentTotal(incidentPage.total)
         if (settings) {
-          setSettings(settings)
+          setSettings((prev) => keepIfSame(prev, settings))
           // Sync the module-level mirror BEFORE the state batch renders: the
           // mirror-effect runs only after render, so helpers reading it
           // (getIncidentRefLabel & co.) would format the first paint without the

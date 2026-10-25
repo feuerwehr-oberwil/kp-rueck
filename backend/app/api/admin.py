@@ -227,7 +227,7 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     materials_block = any(blocker["materials"] for blocker in blockers)
     material_hint = (
         "Achtung: 'Alle freigeben' und das Abschliessen eines Einsatzes geben nur Personal und Fahrzeuge frei – "
-        "zugeteiltes Material bleibt zugeteilt, bis es über den Rapport ('Material zurück – freigeben') "
+        "zugewiesenes Material bleibt zugewiesen, bis es über den Rapport ('Material zurück – freigeben') "
         "zurückgenommen wird. "
         if materials_block
         else ""
@@ -239,15 +239,15 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     groups_block = any(blocker["kind"] == "group" for blocker in blockers)
     holders = "laufenden Einsätzen und Aufträgen" if groups_block else "laufenden Einsätzen"
     way_out = (
-        "Zuteilungen freigeben bzw. Einsätze und Aufträge abschliessen"
+        "Zuweisungen freigeben bzw. Einsätze und Aufträge abschliessen"
         if groups_block
-        else "Zuteilungen freigeben bzw. Einsätze abschliessen"
+        else "Zuweisungen freigeben bzw. Einsätze abschliessen"
     )
 
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            f"Import im Modus 'replace' abgelehnt: {active_count} aktive Zuteilung(en) auf {holders} "
+            f"Import im Modus 'replace' abgelehnt: {active_count} aktive Zuweisung(en) auf {holders} "
             "zeigen auf Personal, Fahrzeuge oder Material, das dabei gelöscht würde. "
             f"{betroffen}{material_hint}"
             f"{way_out} – oder den Modus 'append' verwenden."
@@ -296,7 +296,7 @@ async def preview_excel_import(
     import_mode = _require_import_mode(mode)
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
+        raise HTTPException(status_code=400, detail=ErrorMessages.EXCEL_REQUIRED)
 
     file_bytes = await file.read()
 
@@ -329,6 +329,7 @@ async def preview_excel_import(
 )
 async def execute_excel_import(
     current_user: CurrentEditor,
+    request: Request,
     file: UploadFile = File(...),
     # `Form(...)`, not a bare default: the client sends `mode` in the multipart body next to
     # the file. Without it FastAPI binds from the QUERY STRING, nothing ever supplies it there,
@@ -338,9 +339,6 @@ async def execute_excel_import(
     # `None` rather than `Form(...)`, so the answer is our 400 naming the modes and not a 422.
     mode: str | None = Form(None, description=_MODE_DESCRIPTION),  # replace or append
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """
     Execute Excel import with specified mode. `mode` is required – there is no default.
@@ -364,7 +362,7 @@ async def execute_excel_import(
         )
 
     if not (file.filename or "").endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="File must be Excel format (.xlsx)")
+        raise HTTPException(status_code=400, detail=ErrorMessages.EXCEL_REQUIRED)
 
     file_bytes = await file.read()
 
@@ -419,7 +417,6 @@ async def execute_excel_import(
         },
         request=request,
     )
-    await db.commit()
 
     return {
         "success": True,
@@ -432,10 +429,8 @@ async def execute_excel_import(
 @router.get("/export/data")
 async def export_all_data(
     current_user: CurrentEditor,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> StreamingResponse:
     """Export all personnel, vehicles, and materials to Excel."""
     excel_bytes = await export_data_to_excel(db)
@@ -452,7 +447,6 @@ async def export_all_data(
         changes={"filename": filename},
         request=request,
     )
-    await db.commit()
 
     return StreamingResponse(
         excel_bytes,
@@ -464,12 +458,10 @@ async def export_all_data(
 @router.post("/seed-training", response_model=None)
 async def seed_training_templates(
     current_user: CurrentEditor,
+    request: Request,
     skip_geocoding: bool = True,
     force_reseed: bool = False,
     db: AsyncSession = Depends(get_db),
-    # FastAPI injects this itself and the `= None` default is unreachable; annotating it
-    # `| None` turns it into a Pydantic body field and the app fails at import.
-    request: Request = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """
     Manually seed training emergency templates and locations.
@@ -513,7 +505,6 @@ async def seed_training_templates(
             },
             request=request,
         )
-        await db.commit()
 
         return {
             "success": True,

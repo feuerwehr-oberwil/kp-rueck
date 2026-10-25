@@ -379,7 +379,7 @@ export function TrainingControls() {
                 on the map. The pin overrides the dropdown when both are set. */}
             {pinLocation ? (
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-sm">
-                <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
+                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="flex-1 truncate" title={pinLocation.address}>
                   {pinLocation.address}
                 </span>

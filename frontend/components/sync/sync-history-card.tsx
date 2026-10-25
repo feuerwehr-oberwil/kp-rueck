@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Fragment } from 'react'
+import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import {
@@ -34,8 +35,10 @@ export function SyncHistoryCard({ refreshTrigger }: SyncHistoryCardProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
+  // On mount and on every `refreshTrigger` bump; `loadHistory` is a plain function.
+  const reloadHistory = useEffectEvent(() => void loadHistory())
   useEffect(() => {
-    loadHistory()
+    reloadHistory()
   }, [refreshTrigger])
 
   const loadHistory = async () => {

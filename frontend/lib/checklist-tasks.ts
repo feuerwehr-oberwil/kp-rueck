@@ -441,7 +441,7 @@ export function listChecklistTasks(): { id: string; title: string; defaultNote?:
  * server-side auto thermal print (needs the printer enabled too) or the
  * Lageblatt auto-download on THIS device (localStorage).
  */
-export function isFallbackReady(settings: Record<string, string>, printerEnabled: boolean): boolean {
+function isFallbackReady(settings: Record<string, string>, printerEnabled: boolean): boolean {
   const autoPrint = printerEnabled && settings['fallback.auto_print_enabled'] === 'true'
   const autoDownload =
     typeof window !== 'undefined' && localStorage.getItem(LAGEBLATT_AUTODOWNLOAD_KEY) === 'true'

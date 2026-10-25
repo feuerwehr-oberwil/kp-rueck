@@ -4,6 +4,7 @@ import { renderWithIntl } from "@/test-utils/render-with-intl";
 import userEvent from "@testing-library/user-event";
 
 import type { ApiAuftragTemplate } from "@/lib/api-client";
+import { AUFTRAG_SWATCHES } from "@/lib/map-colors";
 
 const VEHICLE_ID = "22222222-2222-2222-2222-222222222222";
 
@@ -113,7 +114,7 @@ describe("AuftragTemplateSettings", () => {
     await user.click(screen.getByRole("button", { name: "Vorlage" }));
 
     await waitFor(() => expect(createAuftragTemplate).toHaveBeenCalledTimes(1));
-    expect(createAuftragTemplate).toHaveBeenCalledWith({ name: "Absperren", color: "#ef4444" });
+    expect(createAuftragTemplate).toHaveBeenCalledWith({ name: "Absperren", color: AUFTRAG_SWATCHES[0] });
     // A bare name is not a Vorlage yet, so the row opens straight into its detail.
     expect(await screen.findByText("Standard-Ressourcen")).toBeInTheDocument();
   });

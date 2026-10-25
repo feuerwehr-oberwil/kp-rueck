@@ -6,14 +6,12 @@
 import type {
   ApiEventSpecialFunctionResponse,
   ApiFieldRequest,
-  ApiIncidentCreate,
-  ApiIncidentUpdate,
   ApiVehicle,
   IncidentStatus,
 } from "@/lib/api-client"
 import type { IncidentCoordinates } from "@/lib/coordinate-parser"
 import type { Person } from "../personnel-context"
-import type { Material } from "../materials-context"
+import type { Material, MaterialGroup } from "../materials-context"
 
 export type PersonRole = string
 
@@ -22,6 +20,15 @@ export type PersonRole = string
 // shared by database, API and board, so nothing translates between them. The
 // German an operator reads comes from `de.json`, keyed on these same values.
 export type OperationStatus = IncidentStatus
+
+/** What a status write says about the state it was made from (`from_status` /
+ *  `override_status` on the PATCH – see backend `_guard_seen_status`). */
+export interface StatusWriteGuard {
+  /** The status the board showed when the operator moved the card. */
+  seen: OperationStatus
+  /** Set by «Trotzdem …» only: the server's status the operator was shown and overrides. */
+  override?: OperationStatus
+}
 export type VehicleType = string | null
 
 /** Payload of an `assignment_update` with `action: 'driver_stay'`. */
@@ -30,14 +37,6 @@ export interface DriverStayPayload {
   incident_id?: string
   driver_stay?: boolean
 }
-
-/** Callers pass coordinates as numbers; the API wants decimal strings. */
-export interface CoordinateInput {
-  location_lat?: number | string | null
-  location_lng?: number | string | null
-}
-export type IncidentCreateInput = Omit<ApiIncidentCreate, "location_lat" | "location_lng"> & CoordinateInput
-export type IncidentUpdateInput = Omit<ApiIncidentUpdate, "location_lat" | "location_lng"> & CoordinateInput
 
 export interface RekoSummary {
   isRelevant: boolean
@@ -156,10 +155,6 @@ export interface Operation {
   vehicleDriverStay: Map<string, boolean>
 }
 
-/**
- * Context interface for managing operations, personnel, and materials.
- * Personnel and materials are delegated to their own contexts but exposed here for backward compatibility.
- */
 /** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
  *  where it was just assigned, so dismissing can ask whether it comes back off. */
 export interface VehicleNeedingDriver {
@@ -169,13 +164,23 @@ export interface VehicleNeedingDriver {
   groupId?: string
 }
 
+/**
+ * The board: operations, and the roster and depot they are reconciled with
+ * (`usePersonnel()` / `useMaterials()` select from here).
+ */
 export interface OperationsContextType {
-  // Delegated from PersonnelContext
+  // Roster — the board load writes the event-scoped list
   personnel: Person[]
   setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
-  // Delegated from MaterialsContext
+  /** Fetch the roster; without `skipStateUpdate` the raw list goes into state
+   *  until the next board load reconciles it. */
+  refreshPersonnel: (options?: { skipStateUpdate?: boolean }) => Promise<Person[]>
+  // Depot — likewise
   materials: Material[]
   setMaterials: React.Dispatch<React.SetStateAction<Material[]>>
+  materialGroups: MaterialGroup[]
+  /** Set or clear «Nicht einsatzbereit» (optimistic, rolls back on failure). */
+  setMaterialOutOfService: (materialId: string, outOfService: boolean) => Promise<void>
   // Operations state
   operations: Operation[]
   setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
@@ -213,7 +218,11 @@ export interface OperationsContextType {
   /** Same result contract as removeCrew. */
   removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
   removeReko: (operationId: string) => void
-  updateOperation: (operationId: string, updates: Partial<Operation>) => void
+  /** The one funnel for incident edits. A status edit is sent with the status this board
+   *  showed (`from_status`); `confirm` is only for «Trotzdem …» in «Gerade geändert»
+   *  (lib/status-conflict.ts): the stale view it was made from and the server's status
+   *  the operator chose to override. */
+  updateOperation: (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => void
   /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
   reorderColumn: (orderedIds: string[]) => void
   /** Board drag lifecycle. While a card is being dragged, remote updates are

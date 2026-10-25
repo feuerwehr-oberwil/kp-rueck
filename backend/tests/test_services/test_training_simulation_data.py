@@ -9,6 +9,8 @@ import random
 import re
 from uuid import uuid4
 
+import pytest
+
 from app.seed_training import EMERGENCY_TEMPLATES
 from app.services.training_simulation_data import (
     _NICE_CM,
@@ -29,200 +31,51 @@ from app.services.training_simulation_data import (
     vary_dispatch_numbers,
 )
 
+# (incident_type, title, description, pool): one row per keyword the pool vocabulary
+# must catch, plus the fallbacks. Adding a keyword is adding a row.
+# fmt: off
+SUMMARY_POOL_CASES = [
+    ("elementarereignis", "Wasser im Keller", None, "elementar_water"),
+    ("elementarereignis", "Pumpeinsatz MFH", "Hochwasser im UG, ca. 30cm", "elementar_water"),
+    ("elementarereignis", "Baum auf Strasse", None, "elementar_tree"),
+    ("elementarereignis", "Dachziegel gelöst", None, "elementar_storm"),
+    ("elementarereignis", "Irgendwas", None, "elementarereignis"),
+    ("brandbekaempfung", "Wohnungsbrand", "Brand, Wohnung 2. OG. Starker Rauch.", "brand_wohnung"),
+    ("brandbekaempfung", "Küchenbrand", "Brand klein, Küche Fettbrand.", "brand_kueche"),
+    ("brandbekaempfung", "Fahrzeugbrand", "Fahrzeugbrand auf Parkplatz.", "brand_fahrzeug"),
+    ("brandbekaempfung", "Brand Tiefgarage", "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand.", "brand_fahrzeug"),  # not werkstatt
+    ("brandbekaempfung", "Brand Dachstock", "Brand, Dachstock MFH. Flammen durch Dach sichtbar.", "brand_dachstock"),
+    ("brandbekaempfung", "E-Bike Brand Keller", "Brand, E-Bike-Akku im Veloraum.", "brand_ebike"),
+    ("brandbekaempfung", "Brand Abfallcontainer", "Brand klein, Abfallcontainer unter Vordach.", "brand_abfall"),
+    ("brandbekaempfung", "Brand Werkstatt", "Brand, Schreinerei. Starke Flammen, viel Holz.", "brand_werkstatt"),
+    ("brandbekaempfung", "Brand", "Starke Rauchentwicklung.", "brandbekaempfung"),
+    ("bma_unechte_alarme", "BMA Schulhaus", "BMA, Schulhaus. Evakuation läuft.", "bma_schule"),
+    ("bma_unechte_alarme", "BMA Altersheim", "BMA, Pflegeheim. Melder 2. Stock Ost.", "bma_pflegeheim"),
+    ("bma_unechte_alarme", "BMA Gewerbe", "BMA, Industriebetrieb.", "bma_gewerbe"),
+    ("bma_unechte_alarme", "BMA Einkaufszentrum", "BMA, Einkaufszentrum. Melder Küche Food Court.", "bma_oeffentlich"),
+    ("strassenrettung", "Person in Lift", "Person in Lift eingeschlossen, 4. OG.", "personenrettung_lift"),
+    ("strassenrettung", "Verkehrsunfall eingeklemmt", "VU, 2 PKW. Eine Person eingeklemmt.", "personenrettung_vu"),
+    ("strassenrettung", "Absturz Baugerüst", "Person ab Gerüst gestürzt, ca. 3m.", "personenrettung_absturz"),
+    ("oelwehr", "Heizöl im Keller", "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller.", "oel_keller"),
+    ("oelwehr", "Ölspur Hauptstrasse", "Ölspur auf Fahrbahn. Ca. 100m lang.", "oel_strasse"),
+    ("oelwehr", "Ölspur Kreisel", "Ölspur im Kreisel, LKW verliert Hydrauliköl.", "oel_strasse"),
+    ("technische_hilfeleistung", "Dach abgedeckt", "Dachziegel lose.", "tech_dach"),
+    ("technische_hilfeleistung", "Tiefgaragentor klemmt", "Tiefgaragentor blockiert.", "tech_tor_lift"),
+    ("technische_hilfeleistung", "Bagger reisst Wasserleitung", "Bagger hat Wasserleitung erwischt.", "tech_versorgung"),
+    ("diverse_einsaetze", "Wespennest am Schulhaus", "Wespennest beim Eingang Schule.", "div_wespen"),
+    ("diverse_einsaetze", "Türöffnung Sanität", "Polizei bittet um Türöffnung", "diverse_einsaetze"),  # no longer elementar water
+    ("totally_unknown_type", "egal", None, "elementarereignis"),
+    ("strahlenwehr", "Strahlenunfall", "Quelle gefunden", "chemiewehr"),
+]
+# fmt: on
+
 
 class TestResolveSummaryPool:
     """Subcategory resolution per top-level incident type."""
 
-    # --- elementarereignis (existing behaviour, regression coverage) ---
-
-    def test_elementar_water_from_title(self):
-        assert _resolve_summary_pool("elementarereignis", "Wasser im Keller", None) == "elementar_water"
-
-    def test_elementar_water_from_description_only(self):
-        assert (
-            _resolve_summary_pool("elementarereignis", "Pumpeinsatz MFH", "Hochwasser im UG, ca. 30cm")
-            == "elementar_water"
-        )
-
-    def test_elementar_tree_from_title(self):
-        assert _resolve_summary_pool("elementarereignis", "Baum auf Strasse", None) == "elementar_tree"
-
-    def test_elementar_storm_from_title(self):
-        assert _resolve_summary_pool("elementarereignis", "Dachziegel gelöst", None) == "elementar_storm"
-
-    def test_elementar_fallback(self):
-        # No matching keyword → falls back to base elementar pool
-        assert _resolve_summary_pool("elementarereignis", "Irgendwas", None) == "elementarereignis"
-
-    # --- brandbekaempfung subcategories ---
-
-    def test_brand_wohnung(self):
-        assert (
-            _resolve_summary_pool("brandbekaempfung", "Wohnungsbrand", "Brand, Wohnung 2. OG. Starker Rauch.")
-            == "brand_wohnung"
-        )
-
-    def test_brand_kueche(self):
-        assert (
-            _resolve_summary_pool("brandbekaempfung", "Küchenbrand", "Brand klein, Küche Fettbrand.") == "brand_kueche"
-        )
-
-    def test_brand_fahrzeug_from_title(self):
-        assert (
-            _resolve_summary_pool("brandbekaempfung", "Fahrzeugbrand", "Fahrzeugbrand auf Parkplatz.")
-            == "brand_fahrzeug"
-        )
-
-    def test_brand_fahrzeug_tiefgarage(self):
-        # "Brand Tiefgarage" should map to fahrzeug, not werkstatt
-        assert (
-            _resolve_summary_pool(
-                "brandbekaempfung", "Brand Tiefgarage", "Rauch aus Tiefgarage, vermutlich Fahrzeugbrand."
-            )
-            == "brand_fahrzeug"
-        )
-
-    def test_brand_dachstock(self):
-        assert (
-            _resolve_summary_pool(
-                "brandbekaempfung", "Brand Dachstock", "Brand, Dachstock MFH. Flammen durch Dach sichtbar."
-            )
-            == "brand_dachstock"
-        )
-
-    def test_brand_ebike(self):
-        assert (
-            _resolve_summary_pool("brandbekaempfung", "E-Bike Brand Keller", "Brand, E-Bike-Akku im Veloraum.")
-            == "brand_ebike"
-        )
-
-    def test_brand_abfall(self):
-        assert (
-            _resolve_summary_pool(
-                "brandbekaempfung", "Brand Abfallcontainer", "Brand klein, Abfallcontainer unter Vordach."
-            )
-            == "brand_abfall"
-        )
-
-    def test_brand_werkstatt(self):
-        assert (
-            _resolve_summary_pool(
-                "brandbekaempfung", "Brand Werkstatt", "Brand, Schreinerei. Starke Flammen, viel Holz."
-            )
-            == "brand_werkstatt"
-        )
-
-    def test_brand_generic_fallback(self):
-        # No keyword hit → base brand pool
-        assert _resolve_summary_pool("brandbekaempfung", "Brand", "Starke Rauchentwicklung.") == "brandbekaempfung"
-
-    # --- bma subcategories ---
-
-    def test_bma_schule(self):
-        assert (
-            _resolve_summary_pool("bma_unechte_alarme", "BMA Schulhaus", "BMA, Schulhaus. Evakuation läuft.")
-            == "bma_schule"
-        )
-
-    def test_bma_pflegeheim(self):
-        assert (
-            _resolve_summary_pool("bma_unechte_alarme", "BMA Altersheim", "BMA, Pflegeheim. Melder 2. Stock Ost.")
-            == "bma_pflegeheim"
-        )
-
-    def test_bma_gewerbe(self):
-        assert _resolve_summary_pool("bma_unechte_alarme", "BMA Gewerbe", "BMA, Industriebetrieb.") == "bma_gewerbe"
-
-    def test_bma_oeffentlich(self):
-        assert (
-            _resolve_summary_pool(
-                "bma_unechte_alarme", "BMA Einkaufszentrum", "BMA, Einkaufszentrum. Melder Küche Food Court."
-            )
-            == "bma_oeffentlich"
-        )
-
-    # --- strassenrettung subcategories ---
-
-    def test_personenrettung_lift(self):
-        assert (
-            _resolve_summary_pool("strassenrettung", "Person in Lift", "Person in Lift eingeschlossen, 4. OG.")
-            == "personenrettung_lift"
-        )
-
-    def test_personenrettung_vu(self):
-        assert (
-            _resolve_summary_pool(
-                "strassenrettung", "Verkehrsunfall eingeklemmt", "VU, 2 PKW. Eine Person eingeklemmt."
-            )
-            == "personenrettung_vu"
-        )
-
-    def test_personenrettung_absturz(self):
-        assert (
-            _resolve_summary_pool("strassenrettung", "Absturz Baugerüst", "Person ab Gerüst gestürzt, ca. 3m.")
-            == "personenrettung_absturz"
-        )
-
-    # --- oelwehr subcategories ---
-
-    def test_oel_keller(self):
-        assert (
-            _resolve_summary_pool("oelwehr", "Heizöl im Keller", "Ölwehr, Heizöltank leckt. Ca. 50 Liter im Keller.")
-            == "oel_keller"
-        )
-
-    def test_oel_strasse(self):
-        assert (
-            _resolve_summary_pool("oelwehr", "Ölspur Hauptstrasse", "Ölspur auf Fahrbahn. Ca. 100m lang.")
-            == "oel_strasse"
-        )
-
-    def test_oel_strasse_kreisel(self):
-        assert (
-            _resolve_summary_pool("oelwehr", "Ölspur Kreisel", "Ölspur im Kreisel, LKW verliert Hydrauliköl.")
-            == "oel_strasse"
-        )
-
-    # --- technische_hilfeleistung subcategories ---
-
-    def test_tech_dach(self):
-        assert _resolve_summary_pool("technische_hilfeleistung", "Dach abgedeckt", "Dachziegel lose.") == "tech_dach"
-
-    def test_tech_tor_lift(self):
-        assert (
-            _resolve_summary_pool("technische_hilfeleistung", "Tiefgaragentor klemmt", "Tiefgaragentor blockiert.")
-            == "tech_tor_lift"
-        )
-
-    def test_tech_versorgung(self):
-        assert (
-            _resolve_summary_pool(
-                "technische_hilfeleistung", "Bagger reisst Wasserleitung", "Bagger hat Wasserleitung erwischt."
-            )
-            == "tech_versorgung"
-        )
-
-    # --- diverse_einsaetze ---
-
-    def test_diverse_wespen(self):
-        assert (
-            _resolve_summary_pool("diverse_einsaetze", "Wespennest am Schulhaus", "Wespennest beim Eingang Schule.")
-            == "div_wespen"
-        )
-
-    def test_diverse_no_longer_falls_back_to_elementar(self):
-        # Wildcard diverse case (no specific subcategory) — used to fall back to
-        # elementarereignis water summaries, which made no sense.
-        result = _resolve_summary_pool("diverse_einsaetze", "Türöffnung Sanität", "Polizei bittet um Türöffnung")
-        assert result == "diverse_einsaetze"
-
-    # --- fallback safety ---
-
-    def test_unknown_type_falls_back_to_elementar(self):
-        assert _resolve_summary_pool("totally_unknown_type", "egal", None) == "elementarereignis"
-
-    def test_strahlenwehr_aliases_to_chemiewehr(self):
-        assert _resolve_summary_pool("strahlenwehr", "Strahlenunfall", "Quelle gefunden") == "chemiewehr"
+    @pytest.mark.parametrize(("incident_type", "title", "description", "pool"), SUMMARY_POOL_CASES)
+    def test_pool(self, incident_type: str, title: str, description: str | None, pool: str):
+        assert _resolve_summary_pool(incident_type, title, description) == pool
 
 
 class TestPoolDefinitions:

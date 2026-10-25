@@ -187,7 +187,7 @@ export function WeatherRadarControls({
             className={cn("h-1.5 rounded-full", stale && "grayscale")}
             style={{ background: `linear-gradient(to right, ${radar.legend.map((step) => step.color).join(", ")})` }}
           />
-          <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
+          <div className="mt-0.5 flex justify-between text-2xs text-muted-foreground">
             <span>{t("legendLight")}</span>
             <span>{t("legendUnit")}</span>
             <span>{t("legendHeavy")}</span>
@@ -196,7 +196,7 @@ export function WeatherRadarControls({
       )}
       {status && <p className="mt-1.5 text-[11px] font-medium text-muted-foreground">{status}</p>}
       {/* CC BY 4.0: the source is named whenever the radar is on. */}
-      <p className="mt-1 text-[10px] text-muted-foreground">
+      <p className="mt-1 text-2xs text-muted-foreground">
         <a
           href={radar?.source_url ?? "https://www.meteoschweiz.admin.ch"}
           target="_blank"

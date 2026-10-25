@@ -254,7 +254,7 @@ export function FieldStatusNudge({
         // sections (Kopf/Meldung, Ressourcen, Reko) and this nudge belongs to
         // the first one, so it takes that section's plain 12px rhythm. A rule
         // here used to open a fourth section that does not exist.
-        variant === "detail" && "rounded-lg border border-primary/25 bg-primary/5 p-3",
+        variant === "detail" && "rounded-lg border border-border bg-muted/40 p-3",
         className,
       )}
     >

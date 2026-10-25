@@ -24,7 +24,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import async_session_maker
 from app.models import Event, Incident, IncidentAssignment, PrintJob
 from app.services import print_signal
 from app.services import settings as settings_service
@@ -94,12 +94,8 @@ class FallbackPrintTask:
     async def _monitor_loop(self) -> None:
         while self.running:
             try:
-                async for db in get_db():
-                    try:
-                        await self._check_and_print(db)
-                    finally:
-                        await db.close()
-                    break  # outside `finally` — there it would swallow the error above
+                async with async_session_maker() as db:
+                    await self._check_and_print(db)
             except Exception as e:
                 logger.error("Error in fallback auto-print monitor: %s", e)
 

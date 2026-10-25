@@ -49,7 +49,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,12 +60,12 @@ from ..crud import events as events_crud
 from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..crud.feld.melden import never_left_the_window
-from ..database import get_db
+from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import duplicates, incident_display, notification_service
 from ..services.duplicates import MergeRefusedError
-from ..services.photo_storage import photo_storage
+from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.settings import (
     FELD_DRIVER_MESSAGE_CHIPS_KEY,
     FELD_MESSAGE_CHIPS_KEY,
@@ -405,6 +404,9 @@ async def unlock_feld(
                 settings.feld_code_max_failed_attempts,
             )
             await notification_service.create_feld_code_rotated_notification(db, event)
+        # Committed here, not with the request: the count (and the KP's notice) must survive
+        # the 403 below, which rolls the request back.
+        await db.commit()
         # The failure that fills the counter answers "wait", not "wrong": the
         # code the crew types next is refused whatever it says, and telling
         # them it was wrong would send them looking for a better one.
@@ -683,7 +685,7 @@ async def _authorized_incident(
     incident = await crud.get_authorized_incident(db, claims.event_id, personnel_id, incident_id, sources=sources)
     if incident is None:
         raise CodedHTTPException(
-            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugeteilt."
+            403, ErrorCode.FELD_INCIDENT_NOT_ASSIGNED, "Diese Einsatzstelle ist dir nicht zugewiesen."
         )
     return incident, person
 
@@ -691,27 +693,6 @@ async def _authorized_incident(
 def _actor(person: Personnel) -> crud.FieldActor:
     """A `/feld` write is always a field write — never a user (decision 28)."""
     return crud.FieldActor(personnel_id=person.id, personnel_name=person.name)
-
-
-async def _enforce_demo_photo_limits(db: AsyncSession, file: UploadFile) -> None:
-    """The demo's photo ceiling, same shape as the Reko form's (`api/reko.py`).
-
-    `/feld` works in the demo on purpose (§8) — it is a feature the demo should
-    show — but it is a *public, token-gated* upload path there, which is strictly
-    more exposed than the Reko form. So it gets the same 1 MB / 15 photos cap.
-    No-op outside the demo.
-    """
-    if not settings.demo_mode:
-        return
-
-    contents = await file.read()
-    if len(contents) > 1 * 1024 * 1024:
-        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_TOO_LARGE, "Demo-Modus: Maximale Dateigrösse 1MB.")
-    await file.seek(0)
-
-    result = await db.execute(select(sa_func.coalesce(sa_func.array_length(SchadenplatzReport.photos_json, 1), 0)))
-    if sum(row[0] for row in result) >= 15:
-        raise CodedHTTPException(403, ErrorCode.PHOTO_DEMO_LIMIT, "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.")
 
 
 @router.post("/incidents/{incident_id}/arrived", response_model=schemas.FieldReportState)
@@ -959,22 +940,20 @@ async def report_new_incident(
 
     if merge_target is not None:
         target_response = await board_response(db, merge_target)
-        await broadcast_incident_update(target_response.model_dump(mode="json"), "update")
+        after_commit(db, broadcast_incident_update, target_response.model_dump(mode="json"), "update")
         return schemas.FeldIncidentCreated(incident_id=incident.id, takeover="none", merged_into=merge_target.id)
 
     # Sent as a new card — with «Trotzdem neu», without a pin, or from an older
     # page that never asked: the KP still gets told it may be the same
     # Schadenplatz, and decides on the board.
-    if await duplicates.flag_possible_duplicate(db, incident):
-        await db.commit()
-        await db.refresh(incident)
+    await duplicates.flag_possible_duplicate(db, incident)
 
     # Same broadcast + sync path as every other create, so the board moves
     # without a refresh and the card is not a ghost until somebody polls. The
     # payload is a dict and the action is «create», like every other sender:
     # this one used to pass the bare id string under «created», which no
     # listener could have read as an incident.
-    await broadcast_incident_update({"id": str(incident.id), "status": incident.status}, "create")
+    after_commit(db, broadcast_incident_update, {"id": str(incident.id), "status": incident.status}, "create")
 
     return schemas.FeldIncidentCreated(incident_id=incident.id, takeover=mode)
 
@@ -1030,7 +1009,7 @@ async def correct_own_report(
     updated = await crud.update_field_report(db, incident, person, payload, request)
     # The board is looking at this card right now — a correction that only lands
     # on the next poll is a correction the operator reads too late.
-    await broadcast_incident_update({"id": str(updated.id), "status": updated.status}, "update")
+    after_commit(db, broadcast_incident_update, {"id": str(updated.id), "status": updated.status}, "update")
 
     home_city = await incident_display.get_home_city(db)
     return schemas.FeldOwnReport(
@@ -1179,7 +1158,7 @@ async def upload_photo(
     orders of magnitude more expensive than a poll.
     """
     incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
-    await _enforce_demo_photo_limits(db, file)
+    await enforce_demo_photo_limits(db, file, SchadenplatzReport.photos_json)
     photos = await crud.add_photo(db, incident, actor=_actor(person), file=file, request=request)
     return schemas.RapportPhotosResponse(
         incident_id=incident.id,

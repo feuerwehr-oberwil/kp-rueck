@@ -6,24 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, ArrowLeft } from 'lucide-react'
 
+/**
+ * After «Reko-Bericht übermitteln». Says WHICH Einsatz went to the KP — the
+ * address (`ort`, set by the form), never the incident's UUID, which nobody can
+ * read over the radio. «Zurück» only when the form was opened with a `return_to`
+ * path: a Reko link from an alarm or a QR code has nowhere to go back to, and
+ * `/` would send an unauthenticated phone to the login screen.
+ */
 export default function RekoSuccessPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const t = useTranslations('reko.success')
-  const incidentId = searchParams.get('id')
-  const returnTo = searchParams.get('return_to')
-
-  const handleGoBack = () => {
-    // If we have a return URL (from `/feld`), use it
-    // Note: searchParams.get() already decodes the value, so don't decode again
-    if (returnTo) {
-      router.push(returnTo)
-      return
-    }
-
-    // Fallback: navigate to root (history navigation is unreliable)
-    router.push('/')
-  }
+  const address = searchParams.get('ort')?.trim()
+  // Our own paths only — never a link to somewhere else.
+  const rawReturnTo = searchParams.get('return_to')
+  const returnTo = rawReturnTo?.startsWith('/') && !rawReturnTo.startsWith('//') ? rawReturnTo : null
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 flex items-center justify-center">
@@ -33,27 +30,18 @@ export default function RekoSuccessPage() {
             <CheckCircle2 className="h-10 w-10 text-info" />
           </div>
           <CardTitle>{t('title')}</CardTitle>
-          <CardDescription>
-            {t('description')}
+          <CardDescription className="break-words">
+            {address ? t('descriptionAt', { address }) : t('description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-center text-sm text-muted-foreground">
-            <p>{t('closeHint')}</p>
-            {incidentId && (
-              <p className="mt-2">
-                {t('incidentIdLabel')} <code className="text-xs">{incidentId}</code>
-              </p>
-            )}
-          </div>
-          <Button
-            onClick={handleGoBack}
-            variant="outline"
-            className="w-full"
-          >
-            <ArrowLeft className="size-4" />
-            {t('backToOverview')}
-          </Button>
+          <p className="text-center text-sm text-muted-foreground">{t('closeHint')}</p>
+          {returnTo && (
+            <Button onClick={() => router.push(returnTo)} variant="outline" className="w-full">
+              <ArrowLeft className="size-4" />
+              {t('back')}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>
