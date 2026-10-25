@@ -397,8 +397,8 @@ Die Uhrzeit ist frei setzbar (eine fünf Minuten später notierte Meldung gehör
 fünf Minuten zurück) und wieder löschbar (ein missverstandener Funkspruch wird
 korrigiert, nicht ergänzt).
 
-**«Telefonisch gemeldet».** Im Dialog *Neuer Einsatz* bei Kontakt/Melder – und
-nachträglich im Einsatz-Detail korrigierbar, weil die realistische Reihenfolge
+**«Telefonisch gemeldet».** Im Dialog *Neuer Einsatz* in der Zeile **Merkmale** ganz unten (nach
+Kontakt/Melder und Telefonnummer) – und nachträglich im Einsatz-Detail, in derselben Zeile, korrigierbar, weil die realistische Reihenfolge
 «erst eintippen, dann merken, dass es ein Anruf war» ist. Der Einsatz bekommt
 dasselbe blaue [Telefon-Abzeichen](#telefon-laufkundschaft-abzeichen) wie eine Meldung
 über den Alarm-Link.
@@ -592,7 +592,7 @@ Damit in hektischen Momenten kein Schritt vergessen geht, blendet das System bei
 | **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl – auch bei einem Auftrag. «Schliessen» lässt das Fahrzeug bewusst ohne Fahrer; der Auftrag zeigt dann «Kein Fahrer · Fahrer wählen», und Disponiert-Text, WhatsApp-Text und A4-Druck sagen «ohne Fahrer». |
 | **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden – beim erneuten Zuweisen: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
 | **In die Reko-Spalte ohne Reko-Person** | Wird ein Einsatz nach «Reko» verschoben, ohne dass eine Reko-Person zugewiesen ist, erscheint «Keine Reko-Person zugewiesen»: **Reko-Person zuweisen** (sie erhält dann das Reko-Formular) oder «Trotzdem fortfahren». |
-| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach «Disponiert» **Personal, Fahrzeuge oder Material** (Fahrzeuge entfallen bei «zu Fuss»), erscheint «Ressourcen fehlen». Empfohlen ist **Zuweisen** – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter; «Trotzdem disponieren» fährt bewusst unterbestückt los. |
+| **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach «Disponiert» **Personal, Fahrzeuge oder Material** (Fahrzeuge entfallen bei «zu Fuss»), erscheint «Ressourcen fehlen». Empfohlen ist **Zuweisen** – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter. Ohne Fahrzeug bietet die Zeile auch **Zu Fuss** an: das markiert den Einsatz «zu Fuss» und gilt als Antwort. Fehlt Mannschaft oder Fahrzeug weiterhin, fragt der erste Klick auf **Disponieren** nach («Kein Fahrzeug – wirklich so ausrücken?», die Zeile wird gelb) und der Knopf heisst «Ja, ohne Fahrzeug disponieren»; erst der zweite Klick (oder `Enter`) disponiert unterbestückt. **Zurück** oder `Esc` nimmt die Rückfrage zurück. |
 | **Abgeschlossenen Einsatz als Stopp hinzufügen** | Wird ein bereits abgeschlossener Einsatz an einen Auftrag gehängt – per Stopp-Auswahl, «An Auftrag verteilen» oder Drag & Drop –, fragt das System nach. Es ist **erlaubt** (Wiederaufnahme, zweiter Besuch derselben Adresse), soll aber nicht unbemerkt passieren. |
 | **Abschliessen mit zugewiesenem Material** | Wird ein Einsatz abgeschlossen, während noch Material zugewiesen ist, fragt das System: **Material zurück** (freigeben) oder «Vor Ort gelassen» (zugewiesen lassen, z. B. wenn es vor Ort bleibt). |
 

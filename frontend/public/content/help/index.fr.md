@@ -397,8 +397,9 @@ et « Récupération nécessaire ». L’heure est librement modifiable (une ann
 minutes plus tard appartient cinq minutes plus tôt) et effaçable (un message radio mal
 compris se corrige, il ne se complète pas).
 
-**« Annoncé par téléphone ».** Dans la fenêtre *Nouvelle intervention*, au champ
-contact/annonceur – et corrigeable après coup dans le détail, parce que l’ordre réaliste
+**« Annoncé par téléphone ».** Dans la fenêtre *Nouvelle intervention*, dans la ligne
+**Caractéristiques** tout en bas (après contact/annonceur et téléphone) – et corrigeable après coup
+dans le détail, dans la même ligne, parce que l’ordre réaliste
 est « d’abord taper, puis se rendre compte que c’était un appel ». L’intervention reçoit
 le même [badge téléphone](#badge-téléphone-guichet) bleu qu’une annonce arrivée par le
 lien d’alarme.
@@ -595,7 +596,7 @@ Pour qu’aucune étape ne soit oubliée dans les moments agités, le système a
 | **Attribuer un véhicule sans conducteur** | Le choix du conducteur apparaît directement à l’attribution – aussi pour une mission. « Fermer » laisse sciemment le véhicule sans conducteur ; la mission affiche alors « Pas de conducteur · Choisir un conducteur », et le texte d’engagement, le texte WhatsApp et l’impression A4 indiquent « sans conducteur ». |
 | **Véhicule déjà en intervention** (double affectation) | Un véhicule n’existe physiquement qu’une fois – lors d’une nouvelle attribution : **Déplacer ici** (le retirer des autres interventions) ou **Attribuer plusieurs fois** (conserver sciemment la double affectation). |
 | **Vers la colonne Reconnaissance sans personne de reconnaissance** | Si une intervention est déplacée vers « Reconnaissance » sans qu’une personne de reconnaissance soit attribuée, « Aucune personne de reconnaissance attribuée » apparaît : **Attribuer une personne de reconnaissance** (elle reçoit alors le formulaire) ou « Continuer quand même ». |
-| **Engager sans ressources** | S’il manque du **personnel, des véhicules ou des moyens** lors du passage à « Engagé » (les véhicules ne comptent pas en mode « à pied »), « Il manque des ressources » apparaît. Le choix recommandé est **Attribuer** – cela ouvre l’attribution puis mène directement à la fenêtre radio/alarme ; « Engager quand même » part sciemment sous-doté. |
+| **Engager sans ressources** | S’il manque du **personnel, des véhicules ou des moyens** lors du passage à « Engagé » (les véhicules ne comptent pas en mode « à pied »), « Il manque des ressources » apparaît. Le choix recommandé est **Attribuer** – cela ouvre l’attribution puis mène directement à la fenêtre radio/alarme. Sans véhicule, la ligne propose aussi **À pied** : l’intervention est marquée « à pied », ce qui compte comme réponse. S’il manque encore du personnel ou un véhicule, le premier clic sur **Engager** demande confirmation (« Aucun véhicule – vraiment partir ainsi ? », la ligne passe au jaune) et le bouton devient « Oui, engager sans véhicule » ; seul le deuxième clic (ou `Entrée`) engage sous-doté. **Retour** ou `Échap` annule la question. |
 | **Ajouter une intervention clôturée comme étape** | Si une intervention déjà clôturée est rattachée à une mission – par la sélection d’étapes, « Répartir sur une mission » ou glisser-déposer –, le système demande confirmation. C’est **autorisé** (reprise, deuxième visite à la même adresse), mais cela ne doit pas passer inaperçu. |
 | **Clôturer avec du matériel attribué** | Si une intervention est clôturée alors que du matériel est encore attribué, le système demande : **Matériel de retour** (libérer) ou « Laissé sur place » (le laisser attribué, p. ex. s’il reste sur le lieu). |
 

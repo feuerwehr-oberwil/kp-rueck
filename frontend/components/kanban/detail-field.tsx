@@ -27,6 +27,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react"
 
+import { Button } from "@/components/ui/button"
 import { FormMessage, formMessageId } from "@/components/ui/form-message"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -340,6 +341,120 @@ export function DetailToggle({
         <Reveal open={checked}>
           <div className={cn("mt-1 empty:hidden", DETAIL_CONTROL_INDENT)}>{footer}</div>
         </Reveal>
+      )}
+    </div>
+  )
+}
+
+/** One chip of a `DetailFlags` row. */
+export interface DetailFlag {
+  /** Stable key — also what the note's focus is tracked by. */
+  key: string
+  label: string
+  /** The sentence that explains the flag, kept as the chip's `title`. */
+  description?: string
+  icon: ReactNode
+  checked: boolean
+  onToggle: (next: boolean) => void
+  /** The «warum» input, shown in its own row under the chips while on and
+   *  focused the moment the chip is switched on. */
+  note?: ReactNode
+  /** Under the note while on — the note's save line. */
+  footer?: ReactNode
+}
+
+/**
+ * The yes/no properties of an incident (Telefonisch, Vom Feld, Nachbarhilfe,
+ * Am Warten) as ONE row of toggle chips at the bottom of the form, in both
+ * mounts — the creation dialog and the Übersicht (owner pick UX-DESKTOP-14 B:
+ * «the toggles at the bottom, out of sight, because we don't use them unless
+ * explicitly»). Four switch rows took twice the height and read as four fields.
+ *
+ * A chip is a pressed/unpressed button (`aria-pressed`); on = the slate selected
+ * state (`variant="selected"`), like every other «chosen» control. A flag with a
+ * note gets the note as its own labelled row under the chips while it is on —
+ * «Nachbarhilfe │ Feuerwehr, Kontakt …» — so two notes never stand unnamed.
+ *
+ * Phone: the label stacks above the chips like every other field
+ * (`useStackedFields`); the chips wrap, and the ≤768px button rule makes each a
+ * 44px target.
+ */
+export function DetailFlags({
+  label,
+  flags,
+  disabled,
+  stacked: stackedProp,
+  className,
+}: {
+  label: string
+  flags: DetailFlag[]
+  disabled?: boolean
+  stacked?: boolean
+  className?: string
+}) {
+  const stacked = useStackedFields(stackedProp)
+  // Switching a flag ON asks a question («für welche Gemeinde?», «worauf wartet
+  // er?») and its field appears in the same instant — focus it, so the decision
+  // and the typing are one action. Only on the transition, never on a render, or
+  // opening an incident that already waits would steal the cursor.
+  const noteRefs = useRef(new Map<string, HTMLDivElement>())
+  const wasChecked = useRef(new Map(flags.map((flag) => [flag.key, flag.checked])))
+  // After every render: cheap, and the transition test makes it idempotent.
+  useEffect(() => {
+    for (const flag of flags) {
+      const turnedOn = flag.checked && !wasChecked.current.get(flag.key)
+      wasChecked.current.set(flag.key, flag.checked)
+      if (turnedOn && flag.note) noteRefs.current.get(flag.key)?.querySelector("input")?.focus()
+    }
+  })
+
+  const chips = (
+    <div className="flex flex-wrap gap-1.5">
+      {flags.map((flag) => (
+        <Button
+          key={flag.key}
+          type="button"
+          size="xs"
+          variant={flag.checked ? "selected" : "outline"}
+          aria-pressed={flag.checked}
+          title={flag.description}
+          disabled={disabled}
+          onClick={() => flag.onToggle(!flag.checked)}
+          className="font-normal"
+        >
+          {flag.icon}
+          {flag.label}
+        </Button>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className={className}>
+      {stacked ? (
+        <div data-stacked="" role="group" aria-label={label} className="py-1.5">
+          <span className={STACKED_LABEL}>{label}</span>
+          {chips}
+        </div>
+      ) : (
+        <div role="group" aria-label={label} className="flex items-start gap-2 py-1">
+          <span className="w-[120px] shrink-0 pt-2 text-xs text-muted-foreground">{label}</span>
+          <div className="min-w-0 flex-1">{chips}</div>
+        </div>
+      )}
+      {flags.map((flag) =>
+        flag.checked && flag.note ? (
+          <DetailField key={flag.key} label={flag.label} footer={flag.footer}>
+            <div
+              ref={(node) => {
+                if (node) noteRefs.current.set(flag.key, node)
+                else noteRefs.current.delete(flag.key)
+              }}
+            >
+              {flag.note}
+            </div>
+          </DetailField>
+        ) : null,
       )}
     </div>
   )

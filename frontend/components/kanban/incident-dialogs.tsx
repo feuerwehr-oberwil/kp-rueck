@@ -490,6 +490,7 @@ export function IncidentDialogs({
         funkrufname={funkrufname}
         diveraEnabled={diveraEnabled}
         onOpenAssignment={dialogs.openAssignment}
+        onToggleZuFuss={(operation) => updateOperation(operation.id, { zuFuss: !operation.zuFuss })}
         onOpenDetail={onOpenDetail}
         onSendDivera={dialogs.openDivera}
         onRefresh={refreshOperations}

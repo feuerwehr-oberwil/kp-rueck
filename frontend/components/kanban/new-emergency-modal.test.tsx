@@ -6,7 +6,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 /**
  * "Telefonisch" (plan 26 §6 — the label lost its «gemeldet» when the toggle
  * gutter narrowed to match the input column; the full sentence lives on as the
- * row's hover title).
+ * chip's hover title). Since UX-DESKTOP-14 it is a chip in the «Merkmale» row.
  *
  * The board's most-used modal takes one toggle, off by default, and what it
  * writes is the whole feature: an operator taking the call on the landline used
@@ -65,7 +65,7 @@ describe('NewEmergencyModal — Telefonisch', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    expect(screen.getByRole('switch', { name: 'Telefonisch' })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Telefonisch' })).toHaveAttribute('aria-pressed', 'false')
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'operator' }))
@@ -75,8 +75,8 @@ describe('NewEmergencyModal — Telefonisch', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    await user.click(screen.getByRole('switch', { name: 'Telefonisch' }))
-    expect(screen.getByRole('switch', { name: 'Telefonisch' })).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Telefonisch' }))
+    expect(screen.getByRole('button', { name: 'Telefonisch' })).toHaveAttribute('aria-pressed', 'true')
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'intake' }))
@@ -86,24 +86,29 @@ describe('NewEmergencyModal — Telefonisch', () => {
     const user = userEvent.setup()
     const { onCreateOperation } = renderModal()
 
-    const toggle = screen.getByRole('switch', { name: 'Telefonisch' })
+    const toggle = screen.getByRole('button', { name: 'Telefonisch' })
     await user.click(toggle)
     await user.click(toggle)
-    expect(toggle).not.toBeChecked()
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
 
     await submit(user)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'operator' }))
   })
 
-  it('sits with Kontakt/Melder and Telefon, not at the top of the form', () => {
+  it('is a chip in the «Merkmale» row at the bottom, after Kontakt/Melder and Telefon (the detail\'s order)', () => {
     renderModal()
 
-    const fields = screen.getAllByText(/^Telefonisch$|Kontakt \/ Melder|Telefonnummer/)
+    const fields = screen.getAllByText(/^Meldung$|^Telefonisch$|Kontakt \/ Melder|Telefonnummer|^Merkmale$/)
     expect(fields.map((node) => node.textContent)).toEqual([
-      'Telefonisch',
+      'Meldung',
       'Kontakt / Melder',
       'Telefonnummer',
+      'Merkmale',
+      'Telefonisch',
     ])
+    expect(screen.getByRole('group', { name: 'Merkmale' })).toContainElement(
+      screen.getByRole('button', { name: 'Telefonisch' }),
+    )
   })
 })
 
@@ -164,14 +169,14 @@ describe('NewEmergencyModal — Erstellen und nächsten erfassen', () => {
     const user = userEvent.setup()
     const { onCreateOperation, onOpenChange } = renderOpenTracking()
 
-    await user.click(screen.getByRole('switch', { name: 'Telefonisch' }))
+    await user.click(screen.getByRole('button', { name: 'Telefonisch' }))
     await user.type(screen.getByLabelText('Ort'), 'Bahnhofstrasse 4{Control>}{Enter}{/Control}')
 
     expect(onCreateOperation).toHaveBeenCalledTimes(1)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ source: 'intake' }))
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
     expect(screen.getByLabelText('Ort')).toHaveValue('')
-    expect(screen.getByRole('switch', { name: 'Telefonisch' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Telefonisch' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('without an Einsatzort it refuses like the primary does', async () => {
@@ -281,9 +286,10 @@ describe('NewEmergencyModal — Handy', () => {
       const meldung = screen.getByText('Meldung', { selector: 'label' })
       expect(meldung.closest('[data-stacked]')).not.toBeNull()
       expect(meldung.nextElementSibling).toContainElement(screen.getByLabelText('Meldung'))
-      // switches: label left, switch right, one row
-      const tel = screen.getByRole('switch', { name: 'Telefonisch' })
-      expect(tel.closest('.min-h-11')).toHaveTextContent('Telefonisch')
+      // the Merkmale chips stack under their label like every other field
+      const flags = screen.getByRole('group', { name: 'Merkmale' })
+      expect(flags).toHaveAttribute('data-stacked')
+      expect(flags).toContainElement(screen.getByRole('button', { name: 'Telefonisch' }))
     } finally {
       viewport.mobile = false
     }
