@@ -490,6 +490,19 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     expect((save.mock.calls[0][0] as ApiRapportUpdate).is_draft).toBe(false)
   })
 
+  it('names the Mannschaft when only the crew is missing', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ kurzbericht: 'Keller ausgepumpt' }))
+    renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
+
+    await screen.findByRole('button', { name: 'Rapport abschliessen' })
+    await userEvent.click(submitButton())
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading', { name: 'Mannschaft fehlt noch' })).toBeInTheDocument()
+    expect(within(dialog).getByText('Ohne sie weiss der KP nicht, wer hier im Einsatz war.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Ohne Mannschaft abschliessen' })).toBeInTheDocument()
+  })
+
   it('names both when Kurzbericht and Mannschaft are empty', async () => {
     const load = vi.fn().mockResolvedValue(rapport())
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
