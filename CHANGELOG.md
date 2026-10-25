@@ -67,9 +67,26 @@ will keep holding.
 - **On the map, keys 1–5 pick the same vehicle as on the board**, and «An Auftrag verteilen» asks
   first and warns on a closed Einsatz, as on the board.
 - **The Auftrag picker shows each stop's status in the board's words** (it read «BEENDET / RÜCKFAHRT»).
-- **A status change records the status it really replaced**; when two operators move the same
-  card seconds apart, the second change's response says the status it saw was stale
-  (`stale_from_status`).
+- **A status change records the status it really replaced.** When two operators move the same
+  card seconds apart, the move from the board that was out of date is refused and «Gerade
+  geändert» says who moved the card and when; «Trotzdem …» applies it, and the Verlauf marks it
+  «war schon … (vor n s)». Migration: `status_transitions.seen_status` (automatic).
+- **Without a chosen Ereignis, the start screen lists the Ereignisse opened in the last 24 h**;
+  «Öffnen» (↵) goes into the most recently active one. Older ones are behind «Alle Ereignisse».
+- **Columns that do not fit become tabs at the board's edge** («Im Einsatz 2 · 1 Hoch»); a
+  click scrolls there, and a card can be dropped on a tab.
+- **Dispatching without a vehicle or crew asks with a second press**: the first press names
+  what is missing («Ja, ohne Fahrzeug disponieren»), the second dispatches. The vehicle row
+  offers «Zu Fuss». «Trotzdem disponieren» is gone.
+- **«Neuer Einsatz» and the Einsatz detail share one field order**, with the switches as one
+  row of «Merkmale» chips at the end.
+- **Wall display:** a denser card (bigger address and age, the whole Meldung), an Auftrag's crew
+  printed once per column, and a font size that adjusts so every column fits. On a phone the
+  board and status columns stand under one another.
+- **Amber means «schau hin» only:** the EL badge and «n gebunden» are neutral, and a bound
+  person or material shows a hollow ring (frei stays green).
+- **Feld: «Rapport abschliessen» asks only when Kurzbericht or Mannschaft is missing**, and each
+  row in the question jumps to its section.
 - **«Rückfahrt» replaces «Beendet» everywhere** (#215). The column, the status on every card,
   the phone filter, the wall display, the Feld status and the print all use one word for
   `returning`. The phone filter now has one row per status, in board order.
