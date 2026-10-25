@@ -358,8 +358,10 @@ export function DisplayIncidentCard({
           <div>
             {/* Foreground and never clamped (VISUAL-07 C): the Meldung is what
                 somebody walks up to the wall to read, and nobody there can
-                open the card to finish a sentence cut at three lines. */}
-            <p className={cn("text-[0.84rem] leading-[1.28] text-foreground whitespace-pre-wrap", WALL_TEXT_WRAP)}>{operation.notes}</p>
+                open the card to finish a sentence cut at three lines. `pre-line`
+                keeps the operator's line breaks; `pre-wrap` would also keep the
+                space at each wrap, which hangs past the card's edge. */}
+            <p className={cn("text-[0.84rem] leading-[1.28] text-foreground whitespace-pre-line", WALL_TEXT_WRAP)}>{operation.notes}</p>
           </div>
         )}
 
