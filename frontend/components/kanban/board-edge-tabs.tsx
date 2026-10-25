@@ -190,7 +190,7 @@ export function BoardEdgeTabs({ scrollerRef, columns, operations }: BoardEdgeTab
       <nav
         aria-label={t(side === 'left' ? 'edgeTabs.navLeft' : 'edgeTabs.navRight')}
         className="absolute z-pinned flex flex-col gap-2"
-        style={{ [side]: inset, top: padTop, bottom: scrollbar + 8, width: EDGE_TAB_WIDTH }}
+        style={{ ...(side === 'left' ? { left: inset } : { right: inset }), top: padTop, bottom: scrollbar + 8, width: EDGE_TAB_WIDTH }}
       >
         {columns.filter((c) => ids.includes(c.id)).map((column) => (
           <EdgeTab
