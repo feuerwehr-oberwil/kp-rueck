@@ -301,8 +301,11 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     });
 
     // Now the operator closes the card. The crew is still standing in the rain.
+    // The crew's «Einsatz beendet» already moved it to Rückfahrt, and a move that
+    // claims an older status is refused (409 «Status geändert»), so say what the
+    // board shows now.
     const cookieHeader = await cookieHeaderFor(authenticatedPage);
-    await setIncidentStatus(authenticatedPage.request, cookieHeader, incident.id, 'active', 'complete');
+    await setIncidentStatus(authenticatedPage.request, cookieHeader, incident.id, 'returning', 'complete');
 
     // "Abgeschlossen" starts collapsed to a narrow strip and renders no cards at
     // all (`components/kanban/droppable-column.tsx`), so the column has to be
