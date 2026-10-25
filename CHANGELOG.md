@@ -73,8 +73,9 @@ will keep holding.
   «war schon … (vor n s)». Migration: `status_transitions.seen_status` (automatic).
 - **Without a chosen Ereignis, the start screen lists the Ereignisse opened in the last 24 h**;
   «Öffnen» (↵) goes into the most recently active one. Older ones are behind «Alle Ereignisse».
-- **Columns that do not fit become tabs at the board's edge** («Im Einsatz 2 · 1 Hoch»); a
-  click scrolls there, and a card can be dropped on a tab.
+- **Columns out of view are named in the top bar** («Rückfahrt 2 ›», «‹ Eingegangen 5»,
+  «Im Einsatz 2 · 1 Hoch ›»), not laid over the board; a click scrolls there, and a card can
+  be dropped on a chip.
 - **Dispatching without a vehicle or crew asks with a second press**: the first press names
   what is missing («Ja, ohne Fahrzeug disponieren»), the second dispatches. The vehicle row
   offers «Zu Fuss». «Trotzdem disponieren» is gone.

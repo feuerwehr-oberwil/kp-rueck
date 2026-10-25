@@ -62,7 +62,7 @@ import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
-import { BoardEdgeTabs } from "@/components/kanban/board-edge-tabs"
+import { BoardEdgeChipBar, useBoardEdgeOverflow } from "@/components/kanban/board-edge-chips"
 import { useCardView } from "@/lib/card-view"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
@@ -206,8 +206,10 @@ export default function FireStationDashboard() {
   const rawTabParam = searchParams.get("tab")
   const tabParam = isDetailTab(rawTabParam) ? rawTabParam : undefined
   const isMobile = useIsMobile()
-  // The desktop board's horizontal scroller (`#kanban-main`) – read by the edge tabs.
-  const boardScrollerRef = useRef<HTMLElement | null>(null)
+  // The desktop board's horizontal scroller (`#kanban-main`) – state, not a ref, so the
+  // edge chips in the header start watching once it mounts (it is desktop-only).
+  const [boardScroller, setBoardScroller] = useState<HTMLElement | null>(null)
+  const boardEdge = useBoardEdgeOverflow(boardScroller)
 
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
@@ -1303,7 +1305,7 @@ export default function FireStationDashboard() {
         {selectedEvent?.training_flag && <TrainingBand />}
         {/* Top header is desktop-only — on mobile everything routes through the
             bottom navbar (event switching lives in its "Mehr" sheet). */}
-        <header className="hidden md:flex items-center justify-between border-b border-border bg-header px-4 md:px-6 py-2 min-h-14">
+        <header className="hidden md:flex items-center justify-between gap-4 border-b border-border bg-header px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* Event title doubles as an event switcher: switch events or create a
                 new one without first hunting through the user menu → Ereignisse. */}
@@ -1347,6 +1349,18 @@ export default function FireStationDashboard() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {/* Columns entirely out of view (UX-DESKTOP-07): named here, in the bar's empty
+                middle, instead of over the board – left ones after the Ereignis, right ones
+                before the search. A click scrolls there. Gone when every column shows. */}
+            {!isMobile && isLoaded && !boardNeverLoaded && (
+              <BoardEdgeChipBar
+                left={boardEdge.left}
+                right={boardEdge.right}
+                columns={columns}
+                operations={filteredOperations}
+                onShow={boardEdge.scrollToColumn}
+              />
+            )}
           </div>
 
           {/* Desktop Navigation */}
@@ -1443,7 +1457,7 @@ export default function FireStationDashboard() {
           {/* Main Kanban Board */}
           <main
             id="kanban-main"
-            ref={boardScrollerRef}
+            ref={setBoardScroller}
             data-spotlight={spotlightActive ? 'on' : undefined}
             // No bottom padding: with `overflow-x-auto` the horizontal scrollbar
             // already sits below the columns, so a pb-4 underneath it drew a
@@ -1516,13 +1530,6 @@ export default function FireStationDashboard() {
               </div>
             )}
           </main>
-
-          {/* Columns that do not fit become folded tabs at the board's edges (UX-DESKTOP-07):
-              nothing on the board changes size, the edge just names what is hidden behind it
-              and a click scrolls there. Gone by itself when everything fits. */}
-          {isLoaded && !boardNeverLoaded && (
-            <BoardEdgeTabs scrollerRef={boardScrollerRef} columns={columns} operations={filteredOperations} />
-          )}
 
           {/* Personen-Leiste reopen tab (shown when collapsed; "[" also toggles).
               The SAME pill as the collapse handle on the open sidebar, inset from

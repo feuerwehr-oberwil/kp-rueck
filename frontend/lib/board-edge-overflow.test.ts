@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeEdgeOverflow, scrollTargetFor, stackDepth, type BoardScrollGeometry } from './board-edge-overflow'
+import { computeEdgeOverflow, scrollTargetFor, type BoardScrollGeometry } from './board-edge-overflow'
 
 // The live board at 1920×1080 with both sidebars (UX-DESKTOP-07): a 1408px scroller, 16px
 // padding, six 320px columns 12px apart and the 48px Abgeschlossen strip.
@@ -18,12 +18,12 @@ const board = (scrollLeft: number, { clientWidth = 1408, padRight = 16 } = {}): 
 })
 
 describe('computeEdgeOverflow', () => {
-  it('at rest only the columns with no pixel in view are tabs – the partly visible Im Einsatz stays a column', () => {
-    // Im Einsatz starts at 1344 of a 1408px view: 64px of it show, so it is not a tab
+  it('at rest only the columns with no pixel in view are named – the partly visible Im Einsatz stays a column', () => {
+    // Im Einsatz starts at 1344 of a 1408px view: 64px of it show, so it is not named
     expect(computeEdgeOverflow(board(0))).toEqual({ left: [], right: ['returning', 'complete'] })
   })
 
-  it('1px in view is not a tab; 0px is', () => {
+  it('1px in view is not named; 0px is', () => {
     // Rückfahrt starts at 1676
     expect(computeEdgeOverflow(board(1676 - 1408 + 1)).right).toEqual(['complete'])
     expect(computeEdgeOverflow(board(1676 - 1408)).right).toEqual(['returning', 'complete'])
@@ -32,12 +32,12 @@ describe('computeEdgeOverflow', () => {
     expect(computeEdgeOverflow(board(336)).left).toEqual(['incoming'])
   })
 
-  it('detail open (narrow board, scrolled to Im Einsatz): Reko abgeschlossen shows partly and is no tab', () => {
+  it('detail open (narrow board, scrolled to Im Einsatz): Reko abgeschlossen shows partly and is not named', () => {
     const o = computeEdgeOverflow(board(columns[2].left + 58, { clientWidth: 928 }))
     expect(o).toEqual({ left: ['incoming', 'reko'], right: ['returning', 'complete'] })
   })
 
-  it('has no tabs when everything fits (sidebars hidden on a wide screen)', () => {
+  it('names nothing when everything fits (sidebars hidden on a wide screen)', () => {
     expect(computeEdgeOverflow(board(0, { clientWidth: 2200 }))).toEqual({ left: [], right: [] })
   })
 
@@ -48,14 +48,13 @@ describe('computeEdgeOverflow', () => {
 })
 
 describe('scrollTargetFor', () => {
-  it('brings a clicked column fully into view, clear of the tabs still standing beside it', () => {
+  it('brings a clicked column fully into view, with the board padding beside it', () => {
     const target = scrollTargetFor(board(0), 'returning')!
-    // Rückfahrt ends clear of the right stack's depth (+ clearance)
-    expect(target + 1408 - columns[5].right).toBe(stackDepth(16) + 8)
+    expect(target + 1408 - columns[5].right).toBe(16)
     expect(computeEdgeOverflow(board(target)).right).toEqual([])
   })
 
-  it('scrolls to the very end for the last column, so no tab is left on the right', () => {
+  it('scrolls to the very end for the last column, so nothing is named on the right', () => {
     const g = board(0)
     expect(scrollTargetFor(g, 'complete')).toBe(g.scrollWidth - g.clientWidth)
   })
