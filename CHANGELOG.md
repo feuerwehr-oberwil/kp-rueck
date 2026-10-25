@@ -142,6 +142,11 @@ will keep holding.
 
 ### Security
 
+- **Next.js 15.5.28** (GHSA-2464-fhr4-w9xw, critical: remote code execution in the image
+  optimizer with SVGs; GHSA-p3m5-59mp-jv5r, high: denial of service via Server Actions) and
+  **Pillow 13.0.0** (GHSA-78g4-xqwv-q3g8 and further heap overflows when opening an uploaded
+  image; GHSA-g7cr-3p24-7wf7: heap overflow when saving a JPEG with a large ICC profile and a
+  comment, which the photo thumbnails do).
 - **Dependency advisories**: certifi 2026.10.19 (GHSA-6q48-6c7w-9gw2, #216), Mako 1.4.3
   (GHSA-5639-2j2p-m4mx, #207). A print job's detail (it carries the Feld link and code) needs an
   editor (#217).
@@ -695,11 +700,6 @@ migrations run on boot like any other; each has a downgrade.
 
 ### Security
 
-- **Next.js 15.5.28** (GHSA-2464-fhr4-w9xw, critical: remote code execution in the image
-  optimizer with SVGs; GHSA-p3m5-59mp-jv5r, high: denial of service via Server Actions) and
-  **Pillow 13.0.0** (GHSA-78g4-xqwv-q3g8 and further heap overflows when opening an uploaded
-  image; GHSA-g7cr-3p24-7wf7: heap overflow when saving a JPEG with a large ICC profile and a
-  comment, which the photo thumbnails do).
 - **The Feld-Code rotates itself when it is being guessed.** Wrong codes were only counted per
   address (five per quarter-hour), so a poster link tried from many addresses could work through
   all 10,000 four-digit codes. Now every wrong code against an Ereignis counts towards one
