@@ -478,6 +478,8 @@ Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **E
 
 **Spalten überspringen:** Erlaubt. Nicht jeder Einsatz braucht Reko.
 
+**«Gerade geändert» – zwei Boards gleichzeitig:** Hat jemand anderes die Karte verschoben, kurz bevor dein Verschieben ankommt, ändert sich nichts. Die Karte steht wieder dort, wo der Server sie hat, und ein kleiner Dialog sagt, wer sie wann wohin gesetzt hat («Jetzt» gegenüber «Du wolltest»). Der hervorgehobene Knopf (oder `Esc`) lässt sie so. «Trotzdem …» führt dein Verschieben doch aus und sagt vorher, was es bewirkt – etwa dass ein abgeschlossener Einsatz wieder geöffnet und die freigegebene Mannschaft erneut zugewiesen wird. Im Verlauf des Einsatzes stehen beide Schritte; deiner ist markiert mit «war schon abgeschlossen (vor 4 s)».
+
 **Meldung vom Feld «Einsatz beendet»:** Der Hinweis auf der Karte bzw. im Detail schiebt den Einsatz mit einem Klick nach **Rückfahrt** – und hört dort auf. Er startet **nicht** den Abschluss (Materialabfrage, Rückfragen): der Trupp fährt gerade heim, das ist genau diese Spalte. Abgeschlossen wird nachher, wie sonst auch. Braucht der Trupp eine Mitfahrgelegenheit, meldet er eine **Abholung** – die erscheint als eigenes Band im Einsatz-Detail, gleich neben der Feld-Meldung.
 
 ---

@@ -572,7 +572,8 @@
       "incident_not_found": "Intervention introuvable",
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",
-      "reko_report_no_access": "Pas d’accès à ce rapport."
+      "reko_report_no_access": "Pas d’accès à ce rapport.",
+      "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée."
     }
   },
   "events": {
@@ -1927,7 +1928,36 @@
       "removed": "libéré",
       "assigned": "attribué",
       "unknown": "(inconnu)",
-      "kpMessageVerb": "à l’effectif"
+      "kpMessageVerb": "à l’effectif",
+      "stale": "était déjà sur « {statusLabel} » ({ago})",
+      "staleComplete": "était déjà clôturé ({ago})"
+    },
+    "statusConflict": {
+      "title": "Modifié à l’instant",
+      "byWho": "<b>{who}</b> a mis <b>{label}</b> sur « {statusLabel} » {ago}.",
+      "byWhoComplete": "<b>{who}</b> a clôturé <b>{label}</b> {ago}.",
+      "byNobody": "<b>{label}</b> a été mis sur « {statusLabel} » {ago}.",
+      "byNobodyComplete": "<b>{label}</b> a été clôturé {ago}.",
+      "agoNow": "à l’instant",
+      "agoSeconds": "il y a {seconds} s",
+      "agoDuration": "il y a {duration}",
+      "fallbackLabel": "Intervention",
+      "now": "Maintenant",
+      "wanted": "Tu voulais",
+      "released": "{names} libéré(s)",
+      "reopens": "« {action} » rouvre l’intervention.",
+      "reopensAndAssigns": "« {action} » rouvre l’intervention et réattribue {names}.",
+      "completes": "« {action} » clôture l’intervention et libère l’effectif et les véhicules.",
+      "keep": "Laisser « {status} »",
+      "force": {
+        "incoming": "Remettre quand même sur Reçu",
+        "reko": "Envoyer quand même en reconnaissance",
+        "reko_done": "Terminer quand même la reconnaissance",
+        "enroute": "Engager quand même",
+        "active": "Passer quand même en intervention",
+        "returning": "Passer quand même en retour",
+        "complete": "Clôturer quand même"
+      }
     },
     "newEmergency": {
       "description": "Saisis les détails de la nouvelle intervention",

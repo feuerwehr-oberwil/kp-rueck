@@ -481,6 +481,8 @@ Il n’existe pas d’« archive » pour une intervention isolée – c’est l�
 
 **Sauter des colonnes :** autorisé. Toutes les interventions n’ont pas besoin d’une reconnaissance.
 
+**« Modifié à l’instant » – deux tableaux en même temps :** si quelqu’un d’autre a déplacé la carte juste avant que ton déplacement n’arrive, rien ne change. La carte revient là où le serveur l’a, et un petit dialogue dit qui l’a mise où et quand (« Maintenant » face à « Tu voulais »). Le bouton mis en avant (ou `Esc`) la laisse ainsi. « … quand même » exécute malgré tout ton déplacement et dit d’abord ce qu’il fait – par exemple qu’une intervention clôturée est rouverte et l’effectif libéré réattribué. L’historique de l’intervention garde les deux étapes ; la tienne porte la marque « était déjà clôturé (il y a 4 s) ».
+
 **Annonce du terrain « intervention terminée » :** l’indication sur la carte ou dans le détail déplace l’intervention d’un clic vers **Retour** – et s’arrête là. Elle ne lance **pas** la clôture (relevé du matériel, questions en retour) : le groupe est justement en train de rentrer, et c’est exactement cette colonne. La clôture vient après, comme d’habitude. Si le groupe a besoin d’être ramené, il annonce un **ramassage** – qui apparaît comme bandeau propre dans le détail de l’intervention, juste à côté de l’annonce du terrain.
 
 ---

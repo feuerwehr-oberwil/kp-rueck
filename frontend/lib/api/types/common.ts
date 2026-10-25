@@ -14,6 +14,8 @@ export class ApiError extends Error {
     public readonly isConflict: boolean = false,
     /** The backend's stable error code, when it sent one (backend/app/utils/error_codes.py). */
     public readonly code?: string,
+    /** The facts that go with `code` (e.g. who moved the card for `incident_status_changed`). */
+    public readonly params?: Readonly<Record<string, string | number>>,
   ) {
     super(message)
     this.name = 'ApiError'

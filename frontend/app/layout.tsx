@@ -21,6 +21,7 @@ import { VehicleDriverPrompt } from '@/components/vehicle-driver-prompt'
 import { ResourceConflictPrompt } from '@/components/resource-conflict-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
+import { StatusConflictDialog } from '@/components/kanban/status-conflict-dialog'
 import { PickupDonePrompt } from '@/components/pickup-done-prompt'
 import { ErrorReporter } from '@/components/error-reporter'
 import { RuntimeBackendOrigin } from '@/components/runtime-backend-origin'
@@ -149,6 +150,7 @@ export default async function RootLayout({
                       <ResourceConflictPrompt />
                       <GpsReleasePrompt />
                       <GpsArrivalPrompt />
+                      <StatusConflictDialog />
                       <PickupDonePrompt />
                     </CommandPaletteProvider>
                   </NotificationProvider>

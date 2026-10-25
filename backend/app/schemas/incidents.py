@@ -214,6 +214,12 @@ class IncidentUpdate(BaseModel):
     location_lat: str | Decimal | None = None
     location_lng: str | Decimal | None = None
     status: IncidentStatus | None = None
+    # With `status`: the status the board showed when the operator moved the card. A
+    # mismatch with the real status is refused (409 `incident_status_changed`) unless
+    # `override_status` names that real status – see `StatusTransitionCreate`. Absent =
+    # not checked (older clients, scripts).
+    from_status: IncidentStatus | None = None
+    override_status: IncidentStatus | None = None
     description: str | None = None
     contact: str | None = None
     contact_phone: str | None = None
@@ -401,23 +407,17 @@ class IncidentResponse(IncidentBase):
 class StatusTransitionCreate(BaseModel):
     """Body of POST /incidents/{id}/status.
 
-    `from_status` is the status the client SAW. The server never refuses on it:
-    the transition always moves the card from its real current status (and
-    records that), and a mismatch comes back as `stale_from_status`.
+    `from_status` is the status the client SAW. When the card has moved since
+    (somebody else's move landed first), the server refuses with 409
+    `incident_status_changed` and changes nothing. Sending the move again with
+    `override_status` = the status that answer named applies it anyway; the
+    transition then keeps `from_status` as its `seen_status` («war schon …»).
     """
 
     from_status: IncidentStatus
     to_status: IncidentStatus
     notes: str | None = None
-
-
-class IncidentStatusUpdateResponse(IncidentResponse):
-    """POST /incidents/{id}/status: the card after the move, plus a staleness flag."""
-
-    # The status the server actually moved the card FROM, set only when it differs
-    # from the request's `from_status` – someone else moved the card in between.
-    # null = the client's view was current.
-    stale_from_status: IncidentStatus | None = None
+    override_status: IncidentStatus | None = None
 
 
 class StatusTransitionResponse(BaseModel):
@@ -439,7 +439,8 @@ class IncidentTimelineEvent(BaseModel):
     """A single event on the incident timeline.
 
     Flat shape with optional fields differentiated by `event_type`:
-    - status_change → from_status, to_status, notes
+    - status_change → from_status, to_status, notes (+ seen_status, stale_seconds
+                      on a stale move the operator confirmed)
     - assignment    → assignment_action ('assigned' | 'unassigned'),
                       resource_type, resource_name
     - field_message → message, source ('feld' | 'kp' — a crew's sentence, or an
@@ -456,6 +457,11 @@ class IncidentTimelineEvent(BaseModel):
     from_status: str | None = None
     to_status: str | None = None
     notes: str | None = None
+    # Set on a move the operator confirmed after 409 «Status geändert»: the status their
+    # board showed (`from_status` is the real one), and how many seconds the card had
+    # already stood on `from_status` when the move landed.
+    seen_status: str | None = None
+    stale_seconds: int | None = None
 
     # assignment fields
     assignment_action: str | None = None

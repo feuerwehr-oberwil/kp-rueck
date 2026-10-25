@@ -13,7 +13,7 @@ import { getApiUrl } from '../env'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '../i18n-messages'
 import { ApiError, NetworkError } from './types'
-import { errorCodeOf, messageForErrorCode } from './error-codes'
+import { errorCodeOf, errorParamsOf, messageForErrorCode } from './error-codes'
 
 /**
  * Hard ceiling on a single request. Generous on purpose: a command post on a saturated
@@ -197,11 +197,13 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
         // Try to parse as JSON for better error messages
         let errorMessage = `${response.status} ${response.statusText}`
         let errorCode: string | undefined
+        let errorParams: Record<string, string | number> | undefined
         try {
           const errorJson = JSON.parse(errorText)
           // A coded error (the /feld door) is said in the operator's language;
           // the German `detail` is the fallback for a code this build does not know.
           errorCode = errorCodeOf(errorJson)
+          errorParams = errorParamsOf(errorJson)
           const localized = messageForErrorCode(errorJson)
           if (localized) {
             errorMessage = localized
@@ -226,7 +228,7 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
 
         // Final error - create ApiError with status code for proper error handling
         const isConflict = response.status === 409
-        const error = new ApiError(errorMessage, response.status, isConflict, errorCode)
+        const error = new ApiError(errorMessage, response.status, isConflict, errorCode, errorParams)
 
         // A 401 means the session is gone (auth endpoints don't go through
         // this client). Tell the auth layer so it can clear the user and
