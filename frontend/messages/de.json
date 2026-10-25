@@ -699,7 +699,36 @@
       "removed": "freigegeben",
       "assigned": "zugewiesen",
       "unknown": "(unbekannt)",
-      "kpMessageVerb": "an Trupp"
+      "kpMessageVerb": "an Trupp",
+      "stale": "stand schon auf «{statusLabel}» ({ago})",
+      "staleComplete": "war schon abgeschlossen ({ago})"
+    },
+    "statusConflict": {
+      "title": "Gerade geändert",
+      "byWho": "<b>{who}</b> hat <b>{label}</b> {ago} auf «{statusLabel}» gesetzt.",
+      "byWhoComplete": "<b>{who}</b> hat <b>{label}</b> {ago} abgeschlossen.",
+      "byNobody": "<b>{label}</b> wurde {ago} auf «{statusLabel}» gesetzt.",
+      "byNobodyComplete": "<b>{label}</b> wurde {ago} abgeschlossen.",
+      "agoNow": "soeben",
+      "agoSeconds": "vor {seconds} s",
+      "agoDuration": "vor {duration}",
+      "fallbackLabel": "Einsatz",
+      "now": "Jetzt",
+      "wanted": "Du wolltest",
+      "released": "{names} freigegeben",
+      "reopens": "«{action}» öffnet den Einsatz wieder.",
+      "reopensAndAssigns": "«{action}» öffnet den Einsatz wieder und weist {names} erneut zu.",
+      "completes": "«{action}» schliesst den Einsatz ab und gibt Mannschaft und Fahrzeuge frei.",
+      "keep": "{status} lassen",
+      "force": {
+        "incoming": "Trotzdem auf Eingegangen",
+        "reko": "Trotzdem zur Reko",
+        "reko_done": "Trotzdem Reko abschliessen",
+        "enroute": "Trotzdem disponieren",
+        "active": "Trotzdem auf Im Einsatz",
+        "returning": "Trotzdem auf Rückfahrt",
+        "complete": "Trotzdem abschliessen"
+      }
     },
     "newEmergency": {
       "description": "Erfasse die Details zum neuen Einsatz",
@@ -3360,7 +3389,8 @@
       "incident_not_found": "Einsatz nicht gefunden",
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",
-      "reko_report_no_access": "Kein Zugriff auf diesen Bericht."
+      "reko_report_no_access": "Kein Zugriff auf diesen Bericht.",
+      "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen."
     }
   },
   "training": {

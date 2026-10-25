@@ -19,6 +19,7 @@ import type {
   BoardSyncStatus,
   Operation,
   OperationsContextType,
+  StatusWriteGuard,
   VehicleNeedingDriver,
 } from "./operations/types"
 
@@ -102,6 +103,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const updateBatcherRef = useRef<UpdateBatcher<Operation>>(new UpdateBatcher())
   // …and one PATCH in flight per incident, in order — see KeyedSerialQueue.
   const patchQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
+  const statusGuardRef = useRef<Map<string, StatusWriteGuard>>(new Map())
   const criticalUpdateInProgress = useRef<boolean>(false)
   // Refcounted cooldown: every optimistic mutation takes a hold when it
   // starts and releases it (plus a grace period) when its request settles.
@@ -255,6 +257,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     mutationEpochRef,
     patchQueueRef,
     updateBatcherRef,
+    statusGuardRef,
     reorderInFlightRef,
     queuedReorderRef,
     armAssignmentCooldown,

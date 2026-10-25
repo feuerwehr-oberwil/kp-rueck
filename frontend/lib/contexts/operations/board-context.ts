@@ -4,7 +4,7 @@ import type { RecentRemovals } from "@/lib/recent-removals"
 import type { KeyedSerialQueue, UpdateBatcher } from "@/lib/update-batcher"
 import type { Person } from "../personnel-context"
 import type { Material } from "../materials-context"
-import type { Operation, OperationsContextType, VehicleNeedingDriver } from "./types"
+import type { Operation, OperationsContextType, StatusWriteGuard, VehicleNeedingDriver } from "./types"
 
 /**
  * What the board's mutations read and write: this render's state plus the
@@ -31,6 +31,10 @@ export interface BoardMutationContext {
   mutationEpochRef: MutableRefObject<number>
   patchQueueRef: MutableRefObject<KeyedSerialQueue>
   updateBatcherRef: MutableRefObject<UpdateBatcher<Operation>>
+  /** Per incident: the status the board showed when its pending status write was made
+   *  (sent as `from_status`, see `updateOperation`). Set at the first status edit of a
+   *  batch, taken when the batch is sent. */
+  statusGuardRef: MutableRefObject<Map<string, StatusWriteGuard>>
   reorderInFlightRef: MutableRefObject<boolean>
   queuedReorderRef: MutableRefObject<string[] | null>
   armAssignmentCooldown: () => void

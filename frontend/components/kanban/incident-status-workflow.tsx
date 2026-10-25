@@ -30,6 +30,7 @@ import {
 import { AssignRekoDialog } from "@/components/incidents/assign-reko-dialog"
 import { DisponierTransitionDialog } from "@/components/kanban/disponiert-transition-dialog"
 import { apiClient } from "@/lib/api-client"
+import { onStatusConflict } from "@/lib/status-conflict"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startableNextStop, statusBadgeClass } from "@/lib/kanban-utils"
@@ -161,6 +162,21 @@ export function useIncidentStatusWorkflow({
   // Was that rapport filed, or is it still a draft the crew never submitted?
   // The gate reads both (§18.23) and must say which it is reading.
   const [materialRapportIsDraft, setMaterialRapportIsDraft] = useState(false)
+
+  // The server refused this card's move («Gerade geändert», lib/status-conflict.ts):
+  // the move a gate opened for never happened, so its Abbrechen-as-undo would be a
+  // fresh move from the server's state. Close whatever this card had open.
+  useEffect(
+    () =>
+      onStatusConflict(({ operationId }) => {
+        const other = (open: OpenGate | null) => (open?.operationId === operationId ? null : open)
+        setGate(other)
+        setSuspendedGate(other)
+        setDisponiertOperationId((id) => (id === operationId ? null : id))
+        setNextStopAfterId((id) => (id === operationId ? null : id))
+      }),
+    [],
+  )
 
   /** A gate for `operationId`, remembering whether the move it follows
    *  cleared «Am Warten». Called in the trigger, i.e. against the store as it

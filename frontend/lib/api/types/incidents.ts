@@ -222,6 +222,10 @@ export interface ApiIncidentUpdate {
   location_lat?: string | null
   location_lng?: string | null
   status?: IncidentStatus
+  /** With `status`: what the board showed. A stale one is refused with 409
+   *  `incident_status_changed` unless `override_status` names the server's status. */
+  from_status?: IncidentStatus
+  override_status?: IncidentStatus
   description?: string | null
   contact?: string | null
   contact_phone?: string | null
@@ -256,6 +260,10 @@ export interface ApiIncidentTimelineEvent {
   from_status?: string | null
   to_status?: string | null
   notes?: string | null
+  /** A move confirmed after «Gerade geändert»: what the board showed (`from_status`
+   *  is the real status) and how long the card had already stood there. */
+  seen_status?: string | null
+  stale_seconds?: number | null
   // assignment fields
   assignment_action?: 'assigned' | 'unassigned' | null
   resource_type?: 'personnel' | 'vehicle' | 'material' | null

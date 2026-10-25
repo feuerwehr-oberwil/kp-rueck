@@ -560,8 +560,6 @@ class Incident(Base):
     # — exactly today's behaviour, and the readers that need to cope with that already use
     # `getattr(..., default)`. A shared `= []` default would be a classic cross-instance leak.
     group_resources_released: bool
-    # The status `update_incident_status` moved the card from (read under the row lock).
-    previous_status: str
     status_changed_at: datetime | None
     assigned_vehicles: list[Any]
     has_completed_reko: bool
@@ -1668,6 +1666,11 @@ class StatusTransition(Base):
     #          "was_leader": bool}, ...]. Cleared when consumed, so a second
     # reopen cannot replay a restore that already happened.
     released_assignments_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    # The status the operator's board SHOWED when this move was sent, set only when it was not
+    # the card's real status (`from_status`) – somebody else had moved the card in between, the
+    # server refused with 409 «Status geändert», and the operator chose «Trotzdem …». The Verlauf
+    # flags such a row («war schon abgeschlossen (vor 4 s)»). NULL = an ordinary move.
+    seen_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Relationships
     incident: Mapped["Incident"] = relationship("Incident", back_populates="status_transitions")

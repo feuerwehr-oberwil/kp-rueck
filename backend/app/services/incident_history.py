@@ -139,6 +139,7 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
         select(models.StatusTransition, models.User)
         .outerjoin(models.User, models.StatusTransition.user_id == models.User.id)
         .where(models.StatusTransition.incident_id == incident_id)
+        .order_by(models.StatusTransition.timestamp)
     )
     transitions = transitions_result.all()
 
@@ -209,7 +210,15 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
 
     events: list[schemas.IncidentTimelineEvent] = []
 
+    previous_at: datetime | None = None
     for transition, user in transitions:
+        # A move the operator confirmed after «Gerade geändert»: how long the card had
+        # already stood where their board did not show it («war schon abgeschlossen (vor 4 s)»).
+        stale_seconds = (
+            max(0, int((transition.timestamp - previous_at).total_seconds()))
+            if transition.seen_status is not None and previous_at is not None and transition.timestamp is not None
+            else None
+        )
         events.append(
             schemas.IncidentTimelineEvent(
                 event_type="status_change",
@@ -218,8 +227,11 @@ async def timeline(db: AsyncSession, incident: models.Incident) -> list[schemas.
                 from_status=transition.from_status,
                 to_status=transition.to_status,
                 notes=transition.notes,
+                seen_status=transition.seen_status,
+                stale_seconds=stale_seconds,
             )
         )
+        previous_at = transition.timestamp
 
     for assignment, user in assignments:
         actor = _actor(user)

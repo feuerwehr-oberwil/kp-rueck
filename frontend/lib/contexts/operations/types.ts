@@ -20,6 +20,15 @@ export type PersonRole = string
 // shared by database, API and board, so nothing translates between them. The
 // German an operator reads comes from `de.json`, keyed on these same values.
 export type OperationStatus = IncidentStatus
+
+/** What a status write says about the state it was made from (`from_status` /
+ *  `override_status` on the PATCH – see backend `_guard_seen_status`). */
+export interface StatusWriteGuard {
+  /** The status the board showed when the operator moved the card. */
+  seen: OperationStatus
+  /** Set by «Trotzdem …» only: the server's status the operator was shown and overrides. */
+  override?: OperationStatus
+}
 export type VehicleType = string | null
 
 /** Payload of an `assignment_update` with `action: 'driver_stay'`. */
@@ -209,7 +218,11 @@ export interface OperationsContextType {
   /** Same result contract as removeCrew. */
   removeVehicle: (operationId: string, vehicleName: string) => Promise<boolean>
   removeReko: (operationId: string) => void
-  updateOperation: (operationId: string, updates: Partial<Operation>) => void
+  /** The one funnel for incident edits. A status edit is sent with the status this board
+   *  showed (`from_status`); `confirm` is only for «Trotzdem …» in «Gerade geändert»
+   *  (lib/status-conflict.ts): the stale view it was made from and the server's status
+   *  the operator chose to override. */
+  updateOperation: (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => void
   /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
   reorderColumn: (orderedIds: string[]) => void
   /** Board drag lifecycle. While a card is being dragged, remote updates are

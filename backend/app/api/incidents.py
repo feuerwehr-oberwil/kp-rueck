@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -35,6 +35,8 @@ from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display, incident_history
 from ..services.audit import log_action
+from ..services.rapport_rows import STATUS_LABELS
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_assignment_update,
@@ -497,6 +499,8 @@ async def update_incident(
         )
     except crud.InvalidIncidentGroupError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except crud.StatusChangedError as e:
+        raise _status_changed(e) from e
     except ValueError as e:
         logger.warning("Incident update conflict for %s: %s", incident_id, e)
         raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from e
@@ -545,7 +549,29 @@ async def reorder_incidents(
         )
 
 
-@router.post("/{incident_id}/status", response_model=schemas.IncidentStatusUpdateResponse)
+def _status_changed(error: crud.StatusChangedError) -> CodedHTTPException:
+    """409 for a status move from a stale board – the facts the «Gerade geändert» dialog says.
+
+    params: ``status`` (where the card is now), ``seconds_ago`` (since that move, by the
+    server's clock), ``changed_by`` (absent for a move nobody signed, e.g. from /feld) and
+    ``released`` (comma-separated names a «Trotzdem …» out of «Abgeschlossen» puts back).
+    """
+    params: dict[str, str | int | float] = {"status": error.status}
+    if error.changed_at is not None:
+        params["seconds_ago"] = max(0, int((datetime.now(UTC) - error.changed_at).total_seconds()))
+    if error.changed_by:
+        params["changed_by"] = error.changed_by
+    if error.released:
+        params["released"] = ", ".join(error.released)
+    return CodedHTTPException(
+        status_code=409,
+        code=ErrorCode.INCIDENT_STATUS_CHANGED,
+        detail=f"Status geändert: Der Einsatz steht inzwischen auf «{STATUS_LABELS.get(error.status, error.status)}».",
+        params=params,
+    )
+
+
+@router.post("/{incident_id}/status", response_model=schemas.IncidentResponse)
 async def update_status(
     incident_id: uuid.UUID,
     status_update: schemas.StatusTransitionCreate,
@@ -553,23 +579,27 @@ async def update_status(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
-) -> schemas.IncidentStatusUpdateResponse:
+) -> schemas.IncidentResponse:
     """
-    Update incident status (Kanban drag-and-drop).
+    Update incident status.
 
-    Creates status_transitions record. Never refused for a stale `from_status`:
-    the move always goes from the card's real status, and the response's
-    `stale_from_status` names that status when the client saw another one.
+    Creates status_transitions record. Refused with 409 `incident_status_changed`
+    when `from_status` is no longer the card's status – somebody else moved it
+    first; `override_status` (the status that answer named) applies it anyway.
     """
-    incident = await crud.update_incident_status(
-        db=db,
-        incident_id=incident_id,
-        new_status=status_update.to_status.value,
-        current_user=current_user,
-        request=request,
-        notes=status_update.notes,
-        seen_status=status_update.from_status.value,
-    )
+    try:
+        incident = await crud.update_incident_status(
+            db=db,
+            incident_id=incident_id,
+            new_status=status_update.to_status.value,
+            current_user=current_user,
+            request=request,
+            notes=status_update.notes,
+            seen_status=status_update.from_status.value,
+            override_status=status_update.override_status.value if status_update.override_status else None,
+        )
+    except crud.StatusChangedError as e:
+        raise _status_changed(e) from e
 
     if not incident:
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
@@ -586,11 +616,7 @@ async def update_status(
             "update",
         )
 
-    stale = incident.previous_status != status_update.from_status.value
-    return schemas.IncidentStatusUpdateResponse(
-        **dict(incident_response),
-        stale_from_status=schemas.IncidentStatus(incident.previous_status) if stale else None,
-    )
+    return incident_response
 
 
 @router.get("/{incident_id}/field-report", response_model=schemas.FieldReportState)
