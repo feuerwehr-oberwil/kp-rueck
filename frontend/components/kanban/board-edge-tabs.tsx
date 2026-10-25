@@ -24,7 +24,7 @@ interface EdgeLayout extends EdgeOverflow {
   scrollbar: number
 }
 
-const NONE: EdgeLayout = { left: [], right: [], bandLeft: 0, bandRight: 0, padLeft: 0, padRight: 0, padTop: 0, scrollbar: 0 }
+const NONE: EdgeLayout = { left: [], right: [], padLeft: 0, padRight: 0, padTop: 0, scrollbar: 0 }
 
 function measure(scroller: HTMLElement): BoardScrollGeometry & { padTop: number; scrollbar: number } {
   const style = getComputedStyle(scroller)
@@ -61,13 +61,8 @@ export function useBoardEdgeOverflow(scrollerRef: RefObject<HTMLElement | null>)
     const update = () => {
       frame = 0
       const g = measure(scroller)
-      const o = computeEdgeOverflow(g)
-      // Whole pixels: the band follows a hidden column's edge while the board scrolls, and a
-      // sub-pixel change must not re-render the tabs.
       const next: EdgeLayout = {
-        ...o,
-        bandLeft: Math.ceil(o.bandLeft),
-        bandRight: Math.ceil(o.bandRight),
+        ...computeEdgeOverflow(g),
         padLeft: g.padLeft,
         padRight: g.padRight,
         padTop: g.padTop,
@@ -75,7 +70,6 @@ export function useBoardEdgeOverflow(scrollerRef: RefObject<HTMLElement | null>)
       }
       setLayout((prev) =>
         prev.left.join() === next.left.join() && prev.right.join() === next.right.join() &&
-        prev.bandLeft === next.bandLeft && prev.bandRight === next.bandRight &&
         prev.padLeft === next.padLeft && prev.padRight === next.padRight &&
         prev.padTop === next.padTop && prev.scrollbar === next.scrollbar
           ? prev
@@ -187,46 +181,34 @@ interface BoardEdgeTabsProps {
 }
 
 /**
- * The folded tabs at the board's edges for columns that do not fit (UX-DESKTOP-07 «D»),
- * absent when everything fits. Each side is ONE opaque band from the scroller's edge to the
- * first hidden column (at least the stack's own depth), with the tabs inside it – nothing of
- * a hidden column shows beside or between them. Must sit in the same positioned container as
- * the scroller, which fills it; that container is `isolate`, so the band stays under the
- * sidebars' collapse handles that straddle the board's edges.
+ * The folded tabs at the board's edges for columns entirely out of view (UX-DESKTOP-07 «D»):
+ * pinned over the board inside its padding, absent when every column shows at least a sliver.
+ * A partly visible column is drawn as always; the stack may lie over its edge. Must sit in
+ * the same positioned container as the scroller, which fills it.
  */
 export function BoardEdgeTabs({ scrollerRef, columns, operations }: BoardEdgeTabsProps) {
   const t = useTranslations('kanban')
-  const { left, right, bandLeft, bandRight, padLeft, padRight, padTop, scrollbar, scrollToColumn } = useBoardEdgeOverflow(scrollerRef)
+  const { left, right, padLeft, padRight, padTop, scrollbar, scrollToColumn } = useBoardEdgeOverflow(scrollerRef)
 
   const stack = (side: 'left' | 'right', ids: string[]) => {
     if (ids.length === 0) return null
     const inset = Math.max(0, (side === 'left' ? padLeft : padRight) - EDGE_TAB_PAD_GIVE)
-    const band = side === 'left' ? bandLeft : bandRight
     return (
-      // The board's own surface (`bg-muted/30` over the page in light, plain background in
-      // dark), made opaque: the band reads as empty board, not as a panel.
-      <div
-        data-edge-band={side}
-        className="absolute top-0 z-pinned bg-background"
-        style={{ ...(side === 'left' ? { left: 0 } : { right: 0 }), bottom: scrollbar, width: band }}
+      <nav
+        aria-label={t(side === 'left' ? 'edgeTabs.navLeft' : 'edgeTabs.navRight')}
+        className="absolute z-pinned flex flex-col gap-2"
+        style={{ ...(side === 'left' ? { left: inset } : { right: inset }), top: padTop, bottom: scrollbar + 8, width: EDGE_TAB_WIDTH }}
       >
-        <div aria-hidden className="absolute inset-0 bg-muted/30 dark:bg-transparent" />
-        <nav
-          aria-label={t(side === 'left' ? 'edgeTabs.navLeft' : 'edgeTabs.navRight')}
-          className="absolute flex flex-col gap-2"
-          style={{ ...(side === 'left' ? { left: inset } : { right: inset }), top: padTop, bottom: 8, width: EDGE_TAB_WIDTH }}
-        >
-          {columns.filter((c) => ids.includes(c.id)).map((column) => (
-            <EdgeTab
-              key={column.id}
-              column={column}
-              side={side}
-              operations={operations.filter((op) => column.status.includes(op.status))}
-              onShow={scrollToColumn}
-            />
-          ))}
-        </nav>
-      </div>
+        {columns.filter((c) => ids.includes(c.id)).map((column) => (
+          <EdgeTab
+            key={column.id}
+            column={column}
+            side={side}
+            operations={operations.filter((op) => column.status.includes(op.status))}
+            onShow={scrollToColumn}
+          />
+        ))}
+      </nav>
     )
   }
 
